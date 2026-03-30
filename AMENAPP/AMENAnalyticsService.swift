@@ -143,6 +143,19 @@ final class AMENAnalyticsService {
     private let db = Firestore.firestore()
     private let flags = AMENFeatureFlags.shared
 
+    // P2 FIX: Session ID — a UUID generated fresh on each app foreground session.
+    // Threaded through all events so the analytics backend can reconstruct a full
+    // user session funnel (e.g. feed_session_started → berean_session_started →
+    // feed_meaningful_interaction) without relying on timestamp proximity alone.
+    private(set) var sessionId: String = UUID().uuidString
+
+    /// Call this when the app moves to foreground (scenePhase == .active) to start
+    /// a fresh session. Events fired before this retain the prior session ID.
+    func startNewSession() {
+        sessionId = UUID().uuidString
+        dlog("📊 Analytics: new session \(sessionId.prefix(8))…")
+    }
+
     // In-memory buffer for batching (flush every 30s or 20 events).
     // Hard cap at 200 events: if Firestore writes fail repeatedly and the buffer
     // grows past this limit, the oldest events are dropped to prevent OOM.
@@ -176,7 +189,11 @@ final class AMENAnalyticsService {
         // P1 FIX: Fire to Firebase Analytics immediately — events are durable and
         // survive sign-out and process termination. The Firestore batch write below
         // is secondary (for custom dashboards) and requires a signed-in user.
-        let params = event.properties.isEmpty ? nil : event.properties
+        // P2 FIX: Thread sessionId through every event so the backend can reconstruct
+        // complete user sessions without relying on timestamp proximity.
+        var enriched = event.properties
+        enriched["session_id"] = sessionId
+        let params: [String: Any]? = enriched.isEmpty ? nil : enriched
         Analytics.logEvent(event.name, parameters: params)
 
         // Buffer for secondary Firestore write (requires auth).
@@ -185,7 +202,7 @@ final class AMENAnalyticsService {
         if eventBuffer.count >= Self.maxBufferSize {
             eventBuffer.removeFirst()
         }
-        eventBuffer.append((event.name, event.properties, Date()))
+        eventBuffer.append((event.name, enriched, Date()))
         if eventBuffer.count >= 20 {
             Task { await flush() }
         }

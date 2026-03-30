@@ -499,19 +499,22 @@ struct SavedWorshipSongsSection: View {
     var onRemove: ((WorshipSongReference) -> Void)? = nil
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Label("Worship Music", systemImage: "music.note.list")
-                .font(.custom("OpenSans-Bold", size: 18))
-                .foregroundStyle(.white.opacity(0.9))
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 5) {
+                Image(systemName: "music.note")
+                    .font(.system(size: 10, weight: .medium))
+                Text("WORSHIP")
+                    .font(.system(size: 10, weight: .semibold))
+                    .tracking(1.2)
+            }
+            .foregroundStyle(.white.opacity(0.4))
 
-            VStack(spacing: 10) {
+            VStack(spacing: 6) {
                 ForEach(songs) { song in
                     WorshipSongRow(song: song, noteId: noteId, onRemove: onRemove)
                 }
             }
         }
-        .padding(24)
-        .glassEffect(GlassEffectStyle.regular.tint(.purple), in: RoundedRectangle(cornerRadius: 24))
     }
 }
 
@@ -530,108 +533,107 @@ private struct WorshipSongRow: View {
         vm.currentSong?.title == song.title && vm.currentSong?.artist == song.artist
     }
     private var isPlaying: Bool { isCurrentSong && vm.isPlaying }
+    private var spotifyGreen: Color { Color(hex: "1DB954") }
 
     var body: some View {
-        HStack(spacing: 12) {
-            // Album art
+        HStack(spacing: 10) {
+            // Album art with source badge
             ZStack(alignment: .bottomTrailing) {
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(isSpotify ? Color.green.opacity(0.2) : Color.purple.opacity(0.25))
-                    .frame(width: 44, height: 44)
-                if let urlStr = song.albumArtURL, let url = URL(string: urlStr) {
-                    AsyncImage(url: url) { phase in
-                        if case .success(let img) = phase {
-                            img.resizable().scaledToFill()
-                                .frame(width: 44, height: 44)
-                                .clipShape(RoundedRectangle(cornerRadius: 8))
-                        } else {
-                            Image(systemName: isPlaying ? "waveform" : "music.note")
-                                .font(.system(size: 18))
-                                .foregroundStyle(isSpotify ? Color.green : Color.purple)
-                                .symbolEffect(.variableColor.iterative, isActive: isPlaying)
+                Group {
+                    if let urlStr = song.albumArtURL, let url = URL(string: urlStr) {
+                        AsyncImage(url: url) { phase in
+                            if case .success(let img) = phase {
+                                img.resizable().scaledToFill()
+                            } else { artFallback }
                         }
-                    }
-                } else {
-                    Image(systemName: isPlaying ? "waveform" : "music.note")
-                        .font(.system(size: 18))
-                        .foregroundStyle(isSpotify ? Color.green : Color.purple)
-                        .symbolEffect(.variableColor.iterative, isActive: isPlaying)
+                    } else { artFallback }
                 }
-                // Source badge overlay
-                if isSpotify {
-                    Image(systemName: "s.circle.fill")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(Color.green)
-                        .background(Circle().fill(Color.black).padding(-1))
-                        .offset(x: 4, y: 4)
-                }
+                .frame(width: 32, height: 32)
+                .clipShape(RoundedRectangle(cornerRadius: 7))
+
+                Circle()
+                    .fill(isSpotify ? spotifyGreen : Color.purple)
+                    .frame(width: 10, height: 10)
+                    .overlay(
+                        Text(isSpotify ? "S" : "♪")
+                            .font(.system(size: 5.5, weight: .black))
+                            .foregroundStyle(.white)
+                    )
+                    .offset(x: 3, y: 3)
             }
 
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 1) {
                 Text(song.title)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(.white)
                     .lineLimit(1)
                 Text(song.artist)
-                    .font(.system(size: 12))
-                    .foregroundStyle(.white.opacity(0.6))
+                    .font(.system(size: 11))
+                    .foregroundStyle(.white.opacity(0.5))
                     .lineLimit(1)
             }
 
-            Spacer()
+            Spacer(minLength: 0)
 
-            // Play/open button
-            Button {
-                handlePlayTap()
-            } label: {
+            Button { handlePlayTap() } label: {
                 ZStack {
                     if isLoading {
-                        ProgressView().scaleEffect(0.75).tint(.white)
+                        ProgressView().scaleEffect(0.6).tint(.white)
                     } else if isSpotify {
-                        Image(systemName: "arrow.up.forward.app.fill")
-                            .font(.system(size: 26))
-                            .foregroundStyle(Color.green.opacity(0.85))
+                        Image(systemName: "arrow.up.right")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(spotifyGreen)
                     } else {
-                        Image(systemName: isPlaying ? "pause.circle.fill" : "play.circle.fill")
-                            .font(.system(size: 30))
-                            .foregroundStyle(isCurrentSong ? Color.purple : Color.white.opacity(0.7))
+                        Image(systemName: isPlaying ? "pause.fill" : "play.fill")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(isCurrentSong ? Color.purple : .white.opacity(0.7))
                     }
                 }
-                .frame(width: 34, height: 34)
+                .frame(width: 28, height: 28)
+                .background(Circle().fill(
+                    isSpotify ? spotifyGreen.opacity(0.15) :
+                    (isCurrentSong ? Color.purple.opacity(0.2) : Color.white.opacity(0.08))
+                ))
             }
             .buttonStyle(.plain)
 
-            // Remove button (only shown when onRemove is provided)
             if let onRemove {
-                Button {
-                    onRemove(song)
-                } label: {
-                    Image(systemName: "minus.circle.fill")
-                        .font(.system(size: 22))
-                        .foregroundStyle(.red.opacity(0.7))
+                Button { onRemove(song) } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(.white.opacity(0.4))
+                        .frame(width: 22, height: 22)
+                        .background(Circle().fill(Color.white.opacity(0.07)))
                 }
                 .buttonStyle(.plain)
             }
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.white.opacity(isCurrentSong ? 0.12 : 0.06))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .strokeBorder(
-                            isCurrentSong ? Color.purple.opacity(0.5) : Color.white.opacity(0.1),
-                            lineWidth: 1
-                        )
+        .padding(.vertical, 8)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .strokeBorder(
+                    isCurrentSong ? Color.purple.opacity(0.45) : Color.white.opacity(0.1),
+                    lineWidth: 0.5
                 )
         )
-        .animation(.spring(duration: 0.3), value: isCurrentSong)
+        .animation(.spring(response: 0.3, dampingFraction: 0.75), value: isCurrentSong)
+    }
+
+    private var artFallback: some View {
+        RoundedRectangle(cornerRadius: 7)
+            .fill(isSpotify ? spotifyGreen.opacity(0.15) : Color.purple.opacity(0.2))
+            .overlay(
+                Image(systemName: isPlaying ? "waveform" : "music.note")
+                    .font(.system(size: 12))
+                    .foregroundStyle(isSpotify ? spotifyGreen : Color.purple)
+                    .symbolEffect(.variableColor.iterative, isActive: isPlaying)
+            )
     }
 
     private func handlePlayTap() {
         if isSpotify {
-            // Open Spotify app (or web fallback)
             let deepLink = song.spotifyTrackURL ?? (song.spotifyTrackID.map { "spotify:track:\($0)" } ?? "")
             let webFallback = song.spotifyTrackID.map { "https://open.spotify.com/track/\($0)" } ?? ""
             if let url = URL(string: deepLink), UIApplication.shared.canOpenURL(url) {

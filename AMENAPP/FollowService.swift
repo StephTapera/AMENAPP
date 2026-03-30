@@ -238,7 +238,11 @@ class FollowService: ObservableObject {
         // ✅ NOTIFICATION FIX: Removed duplicate notification creation
         // Cloud Function (onUserFollow) handles follow notifications automatically
         // when a document is created in the "follows" collection
-        
+
+        // P1 FIX: Sync FollowStateManager so all post cards and profile headers
+        // immediately reflect the correct follow state without a refetch.
+        FollowStateManager.shared.updateState(for: userId, state: .following)
+
         // Haptic feedback
         let haptic = UINotificationFeedbackGenerator()
         haptic.notificationOccurred(.success)
@@ -348,6 +352,10 @@ class FollowService: ObservableObject {
             throw error
         }
         
+        // P1 FIX: Sync FollowStateManager on unfollow so all post cards immediately
+        // revert from "Following" to "Follow" without waiting for a cache expiry.
+        FollowStateManager.shared.updateState(for: userId, state: .notFollowing)
+
         // Haptic feedback
         let haptic = UIImpactFeedbackGenerator(style: .light)
         haptic.impactOccurred()

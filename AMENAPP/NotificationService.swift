@@ -225,7 +225,15 @@ final class NotificationService: ObservableObject {
             // in the closure capture. Any new listener fire during the sleep cancels
             // this task and reschedules, so by the time we reach here both source
             // arrays are stable and we read the latest values atomically on MainActor.
-            let docs = self.subcollectionDocs + self.topLevelDocs
+            //
+            // P1 FIX: Dedup by document ID before merging the two source arrays.
+            // The same notification can appear in both the subcollection (Cloud Function
+            // write) and the top-level /notifications collection (client write).
+            // Without dedup, a single amen/lightbulb event produces two rows in the feed.
+            var seen = Set<String>()
+            let docs = (self.subcollectionDocs + self.topLevelDocs).filter { doc in
+                seen.insert(doc.documentID).inserted
+            }
             await self.processNotifications(docs)
         }
     }
@@ -951,7 +959,8 @@ struct AppNotification: Identifiable, Codable, Hashable {
     let actorUsername: String?
     let actorProfileImageURL: String?  // ✅ NEW: Profile photo for fast display
     let postId: String?
-    let commentId: String?      // For scrolling to a specific comment
+    let commentId: String?        // Target comment/reply ID for scroll + highlight
+    let parentCommentId: String?  // Parent comment ID when type == .reply (for thread expansion)
     let conversationId: String? // For navigating to a specific conversation
     let prayerId: String?       // For navigating to a specific prayer
     let noteId: String?         // For navigating to a specific church note
@@ -973,7 +982,7 @@ struct AppNotification: Identifiable, Codable, Hashable {
     
     enum CodingKeys: String, CodingKey {
         case userId, type, actorId, actorName, actorUsername, actorProfileImageURL
-        case postId, commentId, conversationId, prayerId, noteId, commentText, read, createdAt, priority, groupId, idempotencyKey
+        case postId, commentId, parentCommentId, conversationId, prayerId, noteId, commentText, read, createdAt, priority, groupId, idempotencyKey
         case actors, actorCount, updatedAt
     }
     
@@ -996,6 +1005,7 @@ struct AppNotification: Identifiable, Codable, Hashable {
         actorProfileImageURL = try? container.decodeIfPresent(String.self, forKey: .actorProfileImageURL)  // ✅ NEW
         postId = try? container.decodeIfPresent(String.self, forKey: .postId)
         commentId = try? container.decodeIfPresent(String.self, forKey: .commentId)
+        parentCommentId = try? container.decodeIfPresent(String.self, forKey: .parentCommentId)
         conversationId = try? container.decodeIfPresent(String.self, forKey: .conversationId)
         prayerId = try? container.decodeIfPresent(String.self, forKey: .prayerId)
         noteId = try? container.decodeIfPresent(String.self, forKey: .noteId)
@@ -1025,7 +1035,9 @@ struct AppNotification: Identifiable, Codable, Hashable {
         case message = "message"  // ✅ P0-1: Message notifications (should be filtered from feed)
         case messageRequest = "message_request"  // ✅ P0-1: Message request notifications (should be filtered from feed)
         case messageRequestAccepted = "message_request_accepted"  // ✅ NEW: When message request is accepted
-        case churchNoteShared = "church_note_shared"  // When someone shares a church note with you
+        case churchNoteShared   = "church_note_shared"    // When someone shares a church note with you
+        case churchNoteReplied  = "church_note_replied"   // When someone replies to your church note
+        case prayerSupported    = "prayer_supported"      // When someone prays for your prayer request
         case unknown = "unknown"
         
         init(from decoder: Decoder) throws {
@@ -1042,8 +1054,8 @@ struct AppNotification: Identifiable, Codable, Hashable {
             case .comment, .reply:                return "bubble.fill"
             case .mention:                        return "at"
             case .repost:                         return "repeat"
-            case .prayerReminder, .prayerAnswered: return "hands.sparkles"
-            case .churchNoteShared:               return "book.fill"
+            case .prayerReminder, .prayerAnswered, .prayerSupported: return "hands.sparkles"
+            case .churchNoteShared, .churchNoteReplied: return "book.fill"
             case .message, .messageRequest, .messageRequestAccepted: return "envelope.fill"
             case .unknown:                        return "bell.fill"
             }
@@ -1057,8 +1069,8 @@ struct AppNotification: Identifiable, Codable, Hashable {
             case .comment, .reply:                return .blue
             case .mention:                        return .orange
             case .repost:                         return .green
-            case .prayerReminder, .prayerAnswered: return .purple
-            case .churchNoteShared:               return .orange
+            case .prayerReminder, .prayerAnswered, .prayerSupported: return .purple
+            case .churchNoteShared, .churchNoteReplied: return .orange
             case .message, .messageRequest, .messageRequestAccepted: return .blue
             case .unknown:                        return .secondary
             }
@@ -1070,7 +1082,31 @@ struct AppNotification: Identifiable, Codable, Hashable {
             case .follow, .followRequestAccepted: return "follows"
             case .comment, .reply, .repost:       return "conversations"
             case .mention:                        return "mentions"
+            case .prayerReminder, .prayerAnswered, .prayerSupported: return "prayer"
+            case .churchNoteShared, .churchNoteReplied: return "churchNotes"
             default:                              return "all"
+            }
+        }
+
+        /// Trust-aware ranking score used to order items within the same recency window.
+        /// Higher = surfaces first. Mirrors the spec: mentions > replies > follows > amens.
+        var trustRank: Int {
+            switch self {
+            case .mention:                        return 100
+            case .reply:                          return 90
+            case .comment:                        return 85
+            case .followRequestAccepted:          return 80
+            case .follow:                         return 75
+            case .prayerSupported:                return 70
+            case .churchNoteReplied:              return 65
+            case .churchNoteShared:               return 60
+            case .prayerAnswered:                 return 55
+            case .prayerReminder:                 return 50
+            case .repost:                         return 45
+            case .amen:                           return 40
+            case .messageRequestAccepted:         return 30
+            case .message, .messageRequest:       return 10
+            case .unknown:                        return 0
             }
         }
     }
@@ -1148,6 +1184,10 @@ struct AppNotification: Identifiable, Codable, Hashable {
             return "accepted your message request"  // ✅ NEW
         case .churchNoteShared:
             return "shared a church note with you"
+        case .churchNoteReplied:
+            return "replied to your church note"
+        case .prayerSupported:
+            return "is praying for you"
         case .message:
             return "sent you a message"  // ✅ P0-1: Filtered from feed
         case .messageRequest:
@@ -1156,7 +1196,7 @@ struct AppNotification: Identifiable, Codable, Hashable {
             return "interacted with you"
         }
     }
-    
+
     var icon: String {
         switch type {
         case .follow:
@@ -1175,12 +1215,16 @@ struct AppNotification: Identifiable, Codable, Hashable {
             return "arrow.2.squarepath"  // ✅ NEW
         case .prayerAnswered:
             return "checkmark.seal.fill"
+        case .prayerSupported:
+            return "hands.sparkles.fill"
         case .followRequestAccepted:
             return "person.fill.checkmark"  // ✅ NEW
         case .messageRequestAccepted:
             return "message.fill.badge.checkmark"  // ✅ NEW
         case .churchNoteShared:
             return "note.text.badge.plus"
+        case .churchNoteReplied:
+            return "bubble.left.fill"
         case .message:
             return "message.fill"  // ✅ P0-1: Filtered from feed
         case .messageRequest:
@@ -1212,8 +1256,10 @@ struct AppNotification: Identifiable, Codable, Hashable {
             return .green  // ✅ NEW
         case .messageRequestAccepted:
             return .blue  // ✅ NEW
-        case .churchNoteShared:
+        case .churchNoteShared, .churchNoteReplied:
             return .purple
+        case .prayerSupported:
+            return .indigo
         case .message:
             return .blue  // ✅ P0-1: Filtered from feed
         case .messageRequest:

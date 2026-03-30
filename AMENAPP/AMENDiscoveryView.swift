@@ -11,13 +11,37 @@
 //   .topicPage → dedicated topic page
 
 import SwiftUI
+import Combine
 import FirebaseAuth
+import FirebaseFirestore
+
+// MARK: - Discover Mode
+
+enum DiscoverMode: String, CaseIterable {
+    case forYou      = "For You"
+    case topics      = "Topics"
+    case nearYou     = "Near You"
+    case media       = "Media"
+    case communities = "Communities"
+
+    var icon: String {
+        switch self {
+        case .forYou:      return "sparkles"
+        case .topics:      return "square.grid.2x2"
+        case .nearYou:     return "location.fill"
+        case .media:       return "play.circle"
+        case .communities: return "person.3.fill"
+        }
+    }
+}
 
 struct AMENDiscoveryView: View {
 
     @StateObject private var service = DiscoveryService.shared
     @ObservedObject private var followService = FollowService.shared
     @StateObject private var trendingService = TrendingService.shared
+    @StateObject private var disasterVM = DisasterResourcesViewModel()
+    @StateObject private var feedService = DiscoverFeedService()
 
     // Universal search view-model — owns 8-collection Firestore search + ranking
     @StateObject private var searchVM = UniversalSearchViewModel()
@@ -29,6 +53,13 @@ struct AMENDiscoveryView: View {
     @State private var showBereanAI = false
     @AppStorage("hasSeenAISearchHint") private var hasSeenAISearchHint = false
     @State private var showAISearchHint = false
+    @State private var isSearchDimmed = false
+
+    // Discover mode selector
+    @Namespace private var tabNamespace
+    @State private var selectedMode: DiscoverMode = .forYou
+    @State private var showMediaViewer = false
+    @State private var heroIndex = 0
 
     // Navigation
     @State private var selectedTopic: DiscoveryTopic? = nil
@@ -40,13 +71,60 @@ struct AMENDiscoveryView: View {
                 // Background
                 Color(.systemBackground).ignoresSafeArea()
 
+                // Dim overlay when search focused
+                if isSearchDimmed {
+                    Color.black.opacity(0.12)
+                        .ignoresSafeArea()
+                        .onTapGesture {
+                            isSearchFocused = false
+                        }
+                        .zIndex(5)
+                        .transition(.opacity.animation(.spring(response: 0.38, dampingFraction: 0.72)))
+                }
+
                 VStack(spacing: 0) {
-                    // Sticky search bar with Berean AI access
-                    searchBarSection
+                    // Header: pill UI on landing, real search bar while searching/on subpages
+                    if case .landing = service.searchState, !isSearchFocused, searchText.isEmpty {
+                        // New pill-style header — search pill + Ask Berean + topic pills
+                        AmenDiscoverPillsRow(
+                            searchPlaceholder: searchPlaceholder,
+                            onSearchTap: {
+                                HapticManager.impact(style: .light)
+                                isSearchFocused = true
+                            },
+                            onAskBereanTap: {
+                                HapticManager.impact(style: .light)
+                                showBereanAI = true
+                            },
+                            topics: DiscoverMode.allCases.map { mode in
+                                DiscoverPillItem(
+                                    title: mode.rawValue,
+                                    systemImage: mode.icon,
+                                    isActive: selectedMode == mode,
+                                    action: {
+                                        HapticManager.impact(style: .light)
+                                        withAnimation(.spring(response: 0.38, dampingFraction: 0.72)) {
+                                            selectedMode = mode
+                                        }
+                                        if mode == .media { showMediaViewer = true }
+                                    }
+                                )
+                            }
+                        )
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
                         .background(.ultraThinMaterial)
                         .zIndex(10)
+                        .transition(.opacity.animation(.easeInOut(duration: 0.2)))
+                    } else {
+                        // Real search bar — active while typing or on results/topic subpages
+                        searchBarSection
+                            .background(.ultraThinMaterial)
+                            .zIndex(10)
+                            .transition(.opacity.animation(.easeInOut(duration: 0.2)))
+                    }
 
-                    // Scope filter tab bar — shown when search is active or results visible
+                    // Scope filter tab bar — shown when search is active
                     if isSearchFocused || !searchText.isEmpty {
                         SearchScopeTabBar(selected: $searchVM.searchScope)
                             .background(.ultraThinMaterial)
@@ -67,6 +145,65 @@ struct AMENDiscoveryView: View {
             .fullScreenCover(isPresented: $showBereanAI) {
                 BereanAIAssistantView()
             }
+            .fullScreenCover(isPresented: $showMediaViewer, onDismiss: {
+                withAnimation(.spring(response: 0.38, dampingFraction: 0.72)) {
+                    selectedMode = .forYou
+                }
+            }) {
+                DiscoverMediaViewer(
+                    videos: feedService.youtubeVideos,
+                    onDismiss: { showMediaViewer = false },
+                    onAskBerean: { showMediaViewer = false; showBereanAI = true }
+                )
+            }
+            .onChange(of: isSearchFocused) { _, focused in
+                withAnimation(.spring(response: 0.38, dampingFraction: 0.72)) {
+                    isSearchDimmed = focused
+                }
+            }
+        }
+    }
+
+    // MARK: - Discover Mode Selector
+
+    private var discoverModeSelector: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                ForEach(DiscoverMode.allCases, id: \.self) { mode in
+                    Button {
+                        HapticManager.impact(style: .light)
+                        withAnimation(.spring(response: 0.38, dampingFraction: 0.72)) {
+                            selectedMode = mode
+                        }
+                        if mode == .media {
+                            showMediaViewer = true
+                        }
+                    } label: {
+                        HStack(spacing: 5) {
+                            Image(systemName: mode.icon)
+                                .font(.system(size: 11, weight: .medium))
+                            Text(mode.rawValue)
+                                .font(AMENFont.semiBold(13))
+                        }
+                        .foregroundStyle(selectedMode == mode ? .white : .primary)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background {
+                            if selectedMode == mode {
+                                Capsule()
+                                    .fill(Color.black)
+                                    .matchedGeometryEffect(id: "activeDiscoverMode", in: tabNamespace)
+                            } else {
+                                Capsule()
+                                    .fill(Color.primary.opacity(0.07))
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
         }
     }
 
@@ -106,7 +243,7 @@ struct AMENDiscoveryView: View {
                     .foregroundStyle(.secondary)
 
                 TextField(searchPlaceholder, text: $searchText)
-                    .font(.custom("OpenSans-Regular", size: 16))
+                    .font(AMENFont.regular(16))
                     .focused($isSearchFocused)
                     .submitLabel(.search)
                     .onSubmit {
@@ -141,8 +278,13 @@ struct AMENDiscoveryView: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
             .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.primary.opacity(0.06))
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .strokeBorder(Color.black.opacity(0.08), lineWidth: 1)
+                    )
+                    .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
             )
 
             // Berean AI button — labeled capsule so users know what it does
@@ -155,7 +297,7 @@ struct AMENDiscoveryView: View {
                         Image(systemName: "sparkles")
                             .font(.system(size: 13, weight: .semibold))
                         Text("Ask AI")
-                            .font(.custom("OpenSans-SemiBold", size: 12))
+                            .font(AMENFont.semiBold(12))
                     }
                     .foregroundStyle(.purple)
                     .padding(.horizontal, 10)
@@ -170,7 +312,7 @@ struct AMENDiscoveryView: View {
                 .overlay(alignment: .bottom) {
                     if showAISearchHint {
                         Text("Ask Berean anything")
-                            .font(.custom("OpenSans-Regular", size: 11))
+                            .font(AMENFont.regular(11))
                             .foregroundStyle(.white)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 5)
@@ -202,7 +344,7 @@ struct AMENDiscoveryView: View {
                     searchVM.scheduleSearch(query: "")
                     isSearchFocused = false
                 }
-                .font(.custom("OpenSans-Regular", size: 15))
+                .font(AMENFont.regular(15))
                 .foregroundStyle(.primary)
                 .transition(.move(edge: .trailing).combined(with: .opacity))
             }
@@ -218,7 +360,7 @@ struct AMENDiscoveryView: View {
     }
 
     private var searchPlaceholder: String {
-        "Search or ask Berean AI…"
+        "Verses, people, news, videos, studies..."
     }
 
     // MARK: - Content Area
@@ -231,7 +373,28 @@ struct AMENDiscoveryView: View {
             if isSearchFocused && searchText.isEmpty {
                 searchFocusedEmptyView
             } else {
-                landingView
+                switch selectedMode {
+                case .forYou:
+                    landingView
+                case .topics:
+                    DiscoverTopicsGrid { tile in
+                        // Map tile slug to a DiscoveryTopic for navigation
+                        if let topic = DiscoveryTopic.catalog.first(where: { $0.canonicalSlug == tile.slug }) {
+                            selectedTopic = topic
+                            service.selectTopic(topic)
+                        } else {
+                            searchText = tile.title
+                            Task { await service.submitSearch(tile.title) }
+                        }
+                    }
+                case .nearYou:
+                    DiscoverNearYouView()
+                case .media:
+                    Color.clear
+                        .onAppear { showMediaViewer = true }
+                case .communities:
+                    DiscoverCommunitiesView(discussions: feedService.discussions)
+                }
             }
         case .typing:
             // Show recent searches if query is empty, typeahead otherwise
@@ -274,10 +437,24 @@ struct AMENDiscoveryView: View {
     private var landingView: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 28) {
-                // Topic chips
+                // ── Active disaster alert (pinned at top when present) ──
+                if let topDisaster = disasterVM.disasters.first {
+                    DisasterAlertCard(disaster: topDisaster)
+                        .padding(.horizontal, 16)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
+
+                // ── Hero carousel (Reels-inspired featured cards) ──
+                DiscoverHeroStack(
+                    feedService: feedService,
+                    currentIndex: $heroIndex,
+                    onAskBerean: { showBereanAI = true }
+                )
+                .padding(.top, 4)
+
+                // 1. Topic chips + Trending topics row
                 topicChipsSection
 
-                // Trending topics from Firestore (horizontal pills)
                 TrendingTopicsPillsView(viewModel: searchVM) { topic in
                     searchText = topic.title
                     service.setQuery(topic.title)
@@ -285,48 +462,124 @@ struct AMENDiscoveryView: View {
                     Task { await service.submitSearch(topic.title) }
                 }
 
-                // Recent searches
-                if !service.recentSearches.isEmpty {
-                    recentSearchesSection
+                // 2. Verse of the Day — hero card
+                VStack(alignment: .leading, spacing: 12) {
+                    DiscoverSectionHeader(title: "Verse of the Day", icon: "book.closed.fill")
+                        .padding(.horizontal, 16)
+
+                    if feedService.isLoadingVerse {
+                        DiscoveryTrendSkeletonCard()
+                            .frame(height: 280)
+                            .padding(.horizontal, 16)
+                    } else if let verse = feedService.dailyVerse {
+                        VerseHeroCard(verse: verse)
+                            .padding(.horizontal, 16)
+                            .discoveryCardEntry(index: 0)
+                    }
                 }
 
-                // What people are discussing (Trends)
+                // 3. People suggested — horizontal avatar row
+                if !service.followSuggestions.isEmpty || service.isFollowSuggestionsLoading {
+                    VStack(alignment: .leading, spacing: 12) {
+                        DiscoverSectionHeader(title: "People to Follow", icon: "person.2.fill")
+                            .padding(.horizontal, 16)
+                        followSuggestionsSection
+                    }
+                }
+
+                // 4. Bible Studies
+                if !feedService.bibleStudies.isEmpty {
+                    VStack(alignment: .leading, spacing: 12) {
+                        DiscoverSectionHeader(title: "Bible Studies", icon: "graduationcap.fill")
+                            .padding(.horizontal, 16)
+                        VStack(spacing: 12) {
+                            ForEach(Array(feedService.bibleStudies.enumerated()), id: \.element.id) { idx, study in
+                                DiscoverBibleStudyCard(study: study)
+                                    .padding(.horizontal, 16)
+                                    .discoveryCardEntry(index: idx + 2)
+                            }
+                        }
+                    }
+                }
+
+                // 5. Discussions
+                if !feedService.discussions.isEmpty {
+                    VStack(alignment: .leading, spacing: 12) {
+                        DiscoverSectionHeader(title: "Discussions", icon: "bubble.left.and.bubble.right.fill")
+                            .padding(.horizontal, 16)
+                        DiscoverDiscussionCard(discussions: Array(feedService.discussions.prefix(4)))
+                            .padding(.horizontal, 16)
+                            .discoveryCardEntry(index: 5)
+                    }
+                }
+
+                // 6. What people are discussing (Trends)
                 trendsSection
-                
-                // Top Ideas - Trending posts from TrendingService
+
+                // 7. Trending in AMEN
                 topIdeasSection
 
-                // Berean AI — Ask scripture-grounded questions about anything you find
+                // 8. Videos — YouTube cards
+                VStack(alignment: .leading, spacing: 12) {
+                    DiscoverSectionHeader(title: "Videos", icon: "play.circle.fill")
+                        .padding(.horizontal, 16)
+                    if feedService.isLoadingVideos {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 12) {
+                                ForEach(0..<3, id: \.self) { _ in
+                                    DiscoveryTrendSkeletonCard()
+                                        .frame(width: 220, height: 200)
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                        }
+                    } else if !feedService.youtubeVideos.isEmpty {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 12) {
+                                ForEach(Array(feedService.youtubeVideos.enumerated()), id: \.element.id) { idx, video in
+                                    DiscoverVideoCard(video: video)
+                                        .discoveryCardEntry(index: idx + 6)
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 4)
+                        }
+                    }
+                }
+
+                // 9. News — compact horizontal scroll
+                if !feedService.newsItems.isEmpty {
+                    VStack(alignment: .leading, spacing: 12) {
+                        DiscoverSectionHeader(title: "Faith News", icon: "newspaper.fill")
+                            .padding(.horizontal, 16)
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 12) {
+                                ForEach(Array(feedService.newsItems.enumerated()), id: \.element.id) { idx, item in
+                                    DiscoverNewsCard(item: item)
+                                        .discoveryCardEntry(index: idx + 10)
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 4)
+                        }
+                    }
+                }
+
+                // 10. Berean AI banner
                 bereanAIBannerSection
 
-                // Premium "Suggested for you" — people, bible studies, communities, topics
-                AMENSuggestionsSection(
-                    peopleSuggestions: service.followSuggestions,
-                    isLoadingPeople: service.isFollowSuggestionsLoading,
-                    onFollowPerson: { userId in
-                        Task { await service.followUser(userId: userId) }
-                    },
-                    onUnfollowPerson: { userId in
-                        Task { await service.unfollowUser(userId: userId) }
-                    },
-                    onStudyTap: { _ in
-                        // TODO: navigate to bible study flow
-                    },
-                    onCommunityTap: { topic in
-                        selectedTopic = topic
-                        service.selectTopic(topic)
-                    }
-                )
-
-                // Popular topics grid
+                // 11. Popular topics grid
                 popularTopicsSection
 
-                // Spacer for tab bar
                 Spacer().frame(height: 100)
             }
             .padding(.top, 8)
         }
         .scrollDismissesKeyboard(.interactively)
+        .onAppear {
+            disasterVM.loadDisasters()
+            Task { await feedService.loadAll() }
+        }
     }
 
     // MARK: - Topic Chips
@@ -354,13 +607,13 @@ struct AMENDiscoveryView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Recent")
-                    .font(.custom("OpenSans-SemiBold", size: 15))
+                    .font(AMENFont.semiBold(15))
                     .foregroundStyle(.primary)
                 Spacer()
                 Button("Clear all") {
                     showClearAllConfirm = true
                 }
-                .font(.custom("OpenSans-Regular", size: 13))
+                .font(AMENFont.regular(13))
                 .foregroundStyle(.secondary)
             }
             .padding(.horizontal, 16)
@@ -394,11 +647,11 @@ struct AMENDiscoveryView: View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
                 Text("What people are discussing")
-                    .font(.custom("OpenSans-SemiBold", size: 17))
+                    .font(AMENFont.semiBold(17))
                     .foregroundStyle(.primary)
                     .padding(.horizontal, 16)
                 Text("Summaries reviewed for safety and accuracy")
-                    .font(.custom("OpenSans-Regular", size: 12))
+                    .font(AMENFont.regular(12))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 16)
             }
@@ -436,24 +689,24 @@ struct AMENDiscoveryView: View {
             }
         }
     }
-    
+
     // MARK: - Top Ideas Section
-    
+
     private var topIdeasSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Trending in AMEN")
-                        .font(.custom("OpenSans-SemiBold", size: 17))
+                        .font(AMENFont.semiBold(17))
                         .foregroundStyle(.primary)
                     Text("Most engaged posts right now")
-                        .font(.custom("OpenSans-Regular", size: 12))
+                        .font(AMENFont.regular(12))
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
             }
             .padding(.horizontal, 16)
-            
+
             if trendingService.isLoading {
                 // Loading indicator
                 HStack {
@@ -471,10 +724,10 @@ struct AMENDiscoveryView: View {
                         .font(.system(size: 32))
                         .foregroundStyle(.secondary.opacity(0.5))
                     Text("No trending posts yet")
-                        .font(.custom("OpenSans-Medium", size: 14))
+                        .font(AMENFont.medium(14))
                         .foregroundStyle(.secondary)
                     Text("Check back soon for top ideas from the community")
-                        .font(.custom("OpenSans-Regular", size: 12))
+                        .font(AMENFont.regular(12))
                         .foregroundStyle(.secondary.opacity(0.7))
                         .multilineTextAlignment(.center)
                 }
@@ -506,11 +759,6 @@ struct AMENDiscoveryView: View {
 
     private var followSuggestionsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Suggested for you")
-                .font(.custom("OpenSans-SemiBold", size: 17))
-                .foregroundStyle(.primary)
-                .padding(.horizontal, 16)
-
             if service.isFollowSuggestionsLoading {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
@@ -542,8 +790,6 @@ struct AMENDiscoveryView: View {
         }
     }
 
-    // MARK: - Popular Topics Grid
-
     // MARK: - Berean AI Banner
 
     private var bereanAIBannerSection: some View {
@@ -570,10 +816,10 @@ struct AMENDiscoveryView: View {
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Ask Berean AI")
-                        .font(.custom("OpenSans-SemiBold", size: 15))
+                        .font(AMENFont.semiBold(15))
                         .foregroundStyle(.primary)
                     Text("Scripture-grounded answers to any faith question")
-                        .font(.custom("OpenSans-Regular", size: 13))
+                        .font(AMENFont.regular(13))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
@@ -602,7 +848,7 @@ struct AMENDiscoveryView: View {
     private var popularTopicsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Popular topics")
-                .font(.custom("OpenSans-SemiBold", size: 17))
+                .font(AMENFont.semiBold(17))
                 .foregroundStyle(.primary)
                 .padding(.horizontal, 16)
 
@@ -655,7 +901,7 @@ struct AMENDiscoveryView: View {
                                 .foregroundStyle(.secondary)
                                 .frame(width: 24)
                             Text("Search for \"\(searchText)\"")
-                                .font(.custom("OpenSans-Regular", size: 15))
+                                .font(AMENFont.regular(15))
                                 .foregroundStyle(.primary)
                             Spacer()
                         }
@@ -680,15 +926,15 @@ struct AMENDiscoveryView: View {
                             .frame(width: 24)
                         VStack(alignment: .leading, spacing: 1) {
                             Text("Ask Berean AI")
-                                .font(.custom("OpenSans-SemiBold", size: 15))
+                                .font(AMENFont.semiBold(15))
                                 .foregroundStyle(.primary)
                             if !searchText.isEmpty {
                                 Text("Ask Berean: \"\(searchText)\"")
-                                    .font(.custom("OpenSans-Regular", size: 12))
+                                    .font(AMENFont.regular(12))
                                     .foregroundStyle(.secondary)
                             } else {
                                 Text("Scripture-grounded answers")
-                                    .font(.custom("OpenSans-Regular", size: 12))
+                                    .font(AMENFont.regular(12))
                                     .foregroundStyle(.secondary)
                             }
                         }
@@ -709,6 +955,263 @@ struct AMENDiscoveryView: View {
     }
 }
 
+// MARK: - Discover Extensions
+
+private struct DiscoverTopicTile: Identifiable {
+    let id: String
+    let title: String
+    let slug: String
+    let icon: String
+    let color: Color
+}
+
+private struct DiscoverTopicsGrid: View {
+    let onSelect: (DiscoverTopicTile) -> Void
+
+    private let columns = [
+        GridItem(.flexible(), spacing: 12),
+        GridItem(.flexible(), spacing: 12),
+    ]
+
+    private var tiles: [DiscoverTopicTile] {
+        DiscoveryTopic.catalog.map { topic in
+            DiscoverTopicTile(
+                id: topic.id,
+                title: topic.title,
+                slug: topic.canonicalSlug,
+                icon: topic.icon,
+                color: topic.iconColor
+            )
+        }
+    }
+
+    var body: some View {
+        ScrollView {
+            LazyVGrid(columns: columns, spacing: 12) {
+                ForEach(DiscoveryTopic.catalog) { topic in
+                    Button {
+                        let tile = DiscoverTopicTile(
+                            id: topic.id,
+                            title: topic.title,
+                            slug: topic.canonicalSlug,
+                            icon: topic.icon,
+                            color: topic.iconColor
+                        )
+                        onSelect(tile)
+                    } label: {
+                        DiscoveryTopicGridCard(topic: topic)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
+            .padding(.bottom, 40)
+        }
+    }
+}
+
+private struct DiscoverNearYouView: View {
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                DiscoverSectionHeader(title: "Near You", icon: "location.fill")
+                Text("Enable location to see churches, events, and communities nearby.")
+                    .font(AMENFont.regular(14))
+                    .foregroundStyle(.secondary)
+
+                HStack(spacing: 10) {
+                    Image(systemName: "location.circle")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundStyle(.primary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Location Access")
+                            .font(AMENFont.semiBold(15))
+                        Text("Get local results tailored to your area.")
+                            .font(AMENFont.regular(12))
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                }
+                .padding(14)
+                .background(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                )
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
+            .padding(.bottom, 60)
+        }
+    }
+}
+
+private struct DiscoverCommunitiesView: View {
+    let discussions: [DiscussionItem]
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                DiscoverSectionHeader(title: "Communities", icon: "person.3.fill")
+                if discussions.isEmpty {
+                    Text("No communities available yet. Check back soon.")
+                        .font(AMENFont.regular(14))
+                        .foregroundStyle(.secondary)
+                } else {
+                    DiscoverDiscussionCard(discussions: Array(discussions.prefix(6)))
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
+            .padding(.bottom, 60)
+        }
+    }
+}
+
+private struct DiscoverMediaViewer: View {
+    let videos: [YoutubeVideoItem]
+    let onDismiss: () -> Void
+    let onAskBerean: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    DiscoverSectionHeader(title: "Media", icon: "play.circle.fill")
+                    if videos.isEmpty {
+                        Text("No videos available right now.")
+                            .font(AMENFont.regular(14))
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(Array(videos.enumerated()), id: \.element.id) { _, video in
+                            DiscoverVideoCard(video: video)
+                        }
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+                .padding(.bottom, 60)
+            }
+            .navigationTitle("Discover Media")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Close") { onDismiss() }
+                        .font(AMENFont.semiBold(15))
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        onAskBerean()
+                    } label: {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 14, weight: .semibold))
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct DiscoverHeroStack: View {
+    @ObservedObject var feedService: DiscoverFeedService
+    @Binding var currentIndex: Int
+    let onAskBerean: () -> Void
+
+    var body: some View {
+        TabView(selection: $currentIndex) {
+            heroAskBereanCard
+                .tag(0)
+
+            if let news = feedService.newsItems.first {
+                DiscoverNewsCard(item: news)
+                    .frame(maxWidth: .infinity)
+                    .tag(1)
+            }
+
+            if let video = feedService.youtubeVideos.first {
+                DiscoverVideoCard(video: video)
+                    .frame(maxWidth: .infinity)
+                    .tag(2)
+            }
+        }
+        .frame(height: 240)
+        .tabViewStyle(.page(indexDisplayMode: .automatic))
+        .padding(.horizontal, 16)
+    }
+
+    private var heroAskBereanCard: some View {
+        Button(action: onAskBerean) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(LinearGradient(
+                        colors: [Color.black.opacity(0.9), Color.black.opacity(0.7)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ))
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Ask Berean AI")
+                        .font(AMENFont.semiBold(20))
+                        .foregroundStyle(.white)
+                    Text("Scripture-grounded answers and practical wisdom.")
+                        .font(AMENFont.regular(14))
+                        .foregroundStyle(.white.opacity(0.8))
+                    Spacer()
+                    HStack {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 14, weight: .semibold))
+                        Text("Start a conversation")
+                            .font(AMENFont.semiBold(14))
+                    }
+                    .foregroundStyle(.white)
+                }
+                .padding(18)
+            }
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Section Header
+
+private struct DiscoverSectionHeader: View {
+    let title: String
+    let icon: String
+    var body: some View {
+        HStack(spacing: 7) {
+            Image(systemName: icon)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(.primary.opacity(0.8))
+            Text(title)
+                .font(AMENFont.semiBold(17))
+                .foregroundStyle(.primary)
+        }
+    }
+}
+
+// MARK: - Discovery Card Entry Modifier (stagger-fade animation)
+
+struct DiscoveryCardEntryModifier: ViewModifier {
+    let index: Int
+    @State private var appeared = false
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(appeared ? 1 : 0)
+            .offset(y: appeared ? 0 : 20)
+            .onAppear {
+                withAnimation(.spring(response: 0.38, dampingFraction: 0.72).delay(Double(index) * 0.06)) {
+                    appeared = true
+                }
+            }
+    }
+}
+
+extension View {
+    func discoveryCardEntry(index: Int) -> some View {
+        modifier(DiscoveryCardEntryModifier(index: index))
+    }
+}
+
 // MARK: - Topic Chip Button
 
 struct TopicChipButton: View {
@@ -722,7 +1225,7 @@ struct TopicChipButton: View {
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(topic.iconColor)
                 Text(topic.title)
-                    .font(.custom("OpenSans-SemiBold", size: 13))
+                    .font(AMENFont.semiBold(13))
                     .foregroundStyle(.primary)
             }
             .padding(.horizontal, 12)
@@ -752,7 +1255,7 @@ struct RecentSearchChip: View {
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                     Text(item.query)
-                        .font(.custom("OpenSans-Regular", size: 13))
+                        .font(AMENFont.regular(13))
                         .foregroundStyle(.primary)
                         .lineLimit(1)
                 }
@@ -809,11 +1312,11 @@ struct TypeaheadRow: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(suggestion.text)
-                        .font(.custom("OpenSans-Regular", size: 15))
+                        .font(AMENFont.regular(15))
                         .foregroundStyle(.primary)
                     if let subtitle = suggestion.subtitle {
                         Text(subtitle)
-                            .font(.custom("OpenSans-Regular", size: 12))
+                            .font(AMENFont.regular(12))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -849,7 +1352,7 @@ struct DiscoveryTrendCard: View {
                     HStack(spacing: 6) {
                         if trend.trendScore >= 70 {
                             Text("Trending")
-                                .font(.custom("OpenSans-SemiBold", size: 10))
+                                .font(AMENFont.semiBold(10))
                                 .foregroundStyle(.orange)
                                 .padding(.horizontal, 7)
                                 .padding(.vertical, 2)
@@ -858,12 +1361,12 @@ struct DiscoveryTrendCard: View {
                     }
 
                     Text(trend.title)
-                        .font(.custom("OpenSans-SemiBold", size: 15))
+                        .font(AMENFont.semiBold(15))
                         .foregroundStyle(.primary)
                         .multilineTextAlignment(.leading)
 
                     Text(trend.summary)
-                        .font(.custom("OpenSans-Regular", size: 13))
+                        .font(AMENFont.regular(13))
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
@@ -873,7 +1376,7 @@ struct DiscoveryTrendCard: View {
                             .font(.system(size: 11))
                             .foregroundStyle(.tertiary)
                         Text("\(trend.discussionCount) discussions")
-                            .font(.custom("OpenSans-Regular", size: 12))
+                            .font(AMENFont.regular(12))
                             .foregroundStyle(.tertiary)
                     }
                 }
@@ -918,10 +1421,10 @@ struct TopicTrendRow: View {
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(topic.title)
-                        .font(.custom("OpenSans-SemiBold", size: 14))
+                        .font(AMENFont.semiBold(14))
                         .foregroundStyle(.primary)
                     Text(topic.description)
-                        .font(.custom("OpenSans-Regular", size: 12))
+                        .font(AMENFont.regular(12))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
@@ -960,12 +1463,12 @@ struct DiscoveryFollowCard: View {
                             .clipShape(Circle())
                     } placeholder: {
                         Text(String(suggestion.person.displayName.prefix(1)).uppercased())
-                            .font(.custom("OpenSans-Bold", size: 20))
+                            .font(AMENFont.bold(20))
                             .foregroundStyle(.secondary)
                     }
                 } else {
                     Text(String(suggestion.person.displayName.prefix(1)).uppercased())
-                        .font(.custom("OpenSans-Bold", size: 20))
+                        .font(AMENFont.bold(20))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -973,18 +1476,18 @@ struct DiscoveryFollowCard: View {
 
             VStack(spacing: 2) {
                 Text(suggestion.person.displayName)
-                    .font(.custom("OpenSans-SemiBold", size: 13))
+                    .font(AMENFont.semiBold(13))
                     .foregroundStyle(.primary)
                     .lineLimit(1)
                 Text("@\(suggestion.person.username)")
-                    .font(.custom("OpenSans-Regular", size: 11))
+                    .font(AMENFont.regular(11))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
 
             if let reason = suggestion.reason as String?, !reason.isEmpty {
                 Text(reason)
-                    .font(.custom("OpenSans-Regular", size: 11))
+                    .font(AMENFont.regular(11))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
@@ -1001,7 +1504,7 @@ struct DiscoveryFollowCard: View {
                 }
             } label: {
                 Text(suggestion.isFollowing ? "Following" : "Follow")
-                    .font(.custom("OpenSans-SemiBold", size: 13))
+                    .font(AMENFont.semiBold(13))
                     .foregroundStyle(suggestion.isFollowing ? .secondary : .primary)
                     .padding(.horizontal, 20)
                     .padding(.vertical, 7)
@@ -1045,12 +1548,12 @@ struct DiscoveryTopicGridCard: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(topic.title)
-                        .font(.custom("OpenSans-SemiBold", size: 13))
+                        .font(AMENFont.semiBold(13))
                         .foregroundStyle(.primary)
                         .lineLimit(1)
                     if topic.postCount > 0 {
                         Text("\(topic.postCount) posts")
-                            .font(.custom("OpenSans-Regular", size: 11))
+                            .font(AMENFont.regular(11))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -1098,5 +1601,745 @@ struct FollowSuggestionSkeletonCard: View {
                     opacity = 0.9
                 }
             }
+    }
+}
+
+// MARK: - Verse Hero Card
+
+struct VerseHeroCard: View {
+    let verse: DailyVerseData
+    @State private var isSaved = false
+    @State private var isPressed = false
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Image area — gradient overlay
+            ZStack(alignment: .topLeading) {
+                RoundedRectangle(cornerRadius: 22)
+                    .fill(
+                        LinearGradient(
+                            colors: [Color(red: 0.11, green: 0.16, blue: 0.11), Color(red: 0.18, green: 0.29, blue: 0.16)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(height: 160)
+                    .overlay(
+                        Canvas { ctx, size in
+                            let spacing: CGFloat = 16
+                            for row in stride(from: 0, to: size.height, by: spacing) {
+                                for col in stride(from: 0, to: size.width, by: spacing) {
+                                    ctx.fill(Path(ellipseIn: CGRect(x: col, y: row, width: 1.5, height: 1.5)), with: .color(.white.opacity(0.15)))
+                                }
+                            }
+                        }
+                        .clipShape(RoundedRectangle(cornerRadius: 22))
+                    )
+
+                // Type badge top-left
+                Text("VERSE")
+                    .font(AMENFont.semiBold(10))
+                    .foregroundStyle(.white)
+                    .tracking(1.2)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Capsule().fill(Color.white.opacity(0.2)))
+                    .padding(14)
+
+                // Testament pill top-right
+                VStack {
+                    HStack {
+                        Spacer()
+                        Text(verse.testament + " · " + (verse.reference.components(separatedBy: " ").first ?? ""))
+                            .font(AMENFont.semiBold(10))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .background(
+                                Capsule()
+                                    .fill(Color.black.opacity(0.55))
+                                    .background(.ultraThinMaterial)
+                                    .clipShape(Capsule())
+                            )
+                    }
+                    Spacer()
+                }
+                .padding(14)
+
+                // Bottom overlay — reference
+                VStack {
+                    Spacer()
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(verse.reference.uppercased())
+                                .font(AMENFont.semiBold(10))
+                                .foregroundStyle(.white.opacity(0.7))
+                                .tracking(1)
+                        }
+                        Spacer()
+                    }
+                    .padding(14)
+                }
+            }
+            .frame(height: 160)
+
+            // Verse text + metadata
+            VStack(alignment: .leading, spacing: 12) {
+                Text(verse.text)
+                    .font(AMENFont.regular(15))
+                    .italic()
+                    .foregroundStyle(.primary)
+                    .lineSpacing(4)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                HStack(spacing: 16) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "bubble.left")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                        Text("\(verse.discussionCount)")
+                            .font(AMENFont.regular(12))
+                            .foregroundStyle(.secondary)
+                    }
+                    HStack(spacing: 4) {
+                        Image(systemName: "bookmark")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                        Text("\(verse.saveCount)")
+                            .font(AMENFont.regular(12))
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button {
+                        isSaved.toggle()
+                        HapticManager.impact(style: .light)
+                    } label: {
+                        Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
+                            .font(.system(size: 16))
+                            .foregroundStyle(isSaved ? .primary : .secondary)
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        HapticManager.impact(style: .light)
+                    } label: {
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.system(size: 16))
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(16)
+            .background(Color.white.opacity(0.88).background(.ultraThinMaterial))
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 22))
+        .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.black.opacity(0.08), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.07), radius: 16, x: 0, y: 6)
+        .scaleEffect(isPressed ? 0.97 : 1.0)
+        .animation(.spring(response: 0.38, dampingFraction: 0.72), value: isPressed)
+        .onLongPressGesture(minimumDuration: 0, pressing: { pressing in isPressed = pressing }, perform: {})
+    }
+}
+
+// MARK: - Video Card
+
+struct DiscoverVideoCard: View {
+    let video: YoutubeVideoItem
+    @State private var isPressed = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            // Thumbnail
+            ZStack(alignment: .bottomTrailing) {
+                Group {
+                    if let thumbStr = video.thumbnailURL, let url = URL(string: thumbStr) {
+                        CachedAsyncImage(url: url) { img in
+                            img.resizable().scaledToFill()
+                        } placeholder: {
+                            LinearGradient(colors: [Color.indigo.opacity(0.4), Color.purple.opacity(0.3)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                        }
+                    } else {
+                        LinearGradient(colors: [Color.indigo.opacity(0.4), Color.purple.opacity(0.3)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                    }
+                }
+                .frame(height: 130)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .overlay(
+                    Circle()
+                        .fill(Color.white)
+                        .frame(width: 44, height: 44)
+                        .shadow(color: .black.opacity(0.2), radius: 8, x: 0, y: 4)
+                        .overlay(
+                            Image(systemName: "play.fill")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(.black)
+                                .offset(x: 2)
+                        )
+                )
+
+                // Duration pill
+                if !video.duration.isEmpty {
+                    Text(video.duration)
+                        .font(AMENFont.semiBold(10))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 4)
+                        .background(Capsule().fill(Color.black.opacity(0.7)))
+                        .padding(8)
+                }
+
+                // Type badge
+                VStack {
+                    HStack {
+                        Text("VIDEO")
+                            .font(AMENFont.semiBold(9))
+                            .foregroundStyle(.white)
+                            .tracking(1)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(
+                                Capsule()
+                                    .fill(Color.black.opacity(0.5))
+                                    .background(.ultraThinMaterial)
+                                    .clipShape(Capsule())
+                            )
+                        Spacer()
+                    }
+                    Spacer()
+                }
+                .padding(8)
+            }
+
+            // Title + channel
+            VStack(alignment: .leading, spacing: 3) {
+                Text(video.title)
+                    .font(AMENFont.semiBold(14))
+                    .foregroundStyle(.primary)
+                    .lineLimit(2)
+                HStack(spacing: 4) {
+                    Text(video.channelName)
+                        .font(AMENFont.regular(12))
+                        .foregroundStyle(.secondary)
+                    if !video.viewCount.isEmpty {
+                        Text("· \(video.viewCount)")
+                            .font(AMENFont.regular(12))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .padding(.horizontal, 4)
+        }
+        .padding(12)
+        .background(Color.white.opacity(0.88).background(.ultraThinMaterial))
+        .clipShape(RoundedRectangle(cornerRadius: 22))
+        .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.black.opacity(0.08), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.07), radius: 16, x: 0, y: 6)
+        .scaleEffect(isPressed ? 0.97 : 1.0)
+        .animation(.spring(response: 0.38, dampingFraction: 0.72), value: isPressed)
+        .onLongPressGesture(minimumDuration: 0, pressing: { pressing in isPressed = pressing }, perform: {})
+        .frame(width: 220)
+    }
+}
+
+// MARK: - News Card
+
+struct DiscoverNewsCard: View {
+    let item: NewsItem
+    @State private var isPressed = false
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // Source icon placeholder
+            ZStack {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color.primary.opacity(0.06))
+                    .frame(width: 40, height: 40)
+                Image(systemName: "newspaper")
+                    .font(.system(size: 16))
+                    .foregroundStyle(.secondary)
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text(item.sourceName)
+                        .font(AMENFont.semiBold(11))
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text(item.publishedAt.timeAgoString())
+                        .font(AMENFont.regular(11))
+                        .foregroundStyle(.secondary)
+                }
+                Text(item.headline)
+                    .font(AMENFont.semiBold(13))
+                    .foregroundStyle(.primary)
+                    .lineLimit(2)
+                Text(item.category)
+                    .font(AMENFont.regular(11))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(Capsule().fill(Color.primary.opacity(0.55)))
+            }
+        }
+        .padding(14)
+        .background(Color.white.opacity(0.88).background(.ultraThinMaterial))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.black.opacity(0.08), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.07), radius: 12, x: 0, y: 4)
+        .frame(width: 280, height: 100)
+        .scaleEffect(isPressed ? 0.97 : 1.0)
+        .animation(.spring(response: 0.38, dampingFraction: 0.72), value: isPressed)
+        .onLongPressGesture(minimumDuration: 0, pressing: { pressing in isPressed = pressing }, perform: {})
+    }
+}
+
+// MARK: - Bible Study Card
+
+struct DiscoverBibleStudyCard: View {
+    let study: BibleStudyItem
+    @State private var isPressed = false
+
+    var body: some View {
+        HStack(spacing: 14) {
+            // Cover
+            ZStack {
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(LinearGradient(colors: study.coverGradient, startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .frame(width: 90, height: 90)
+                    .overlay(
+                        Canvas { ctx, size in
+                            let spacing: CGFloat = 12
+                            for row in stride(from: 0, to: size.height, by: spacing) {
+                                for col in stride(from: 0, to: size.width, by: spacing) {
+                                    ctx.fill(Path(ellipseIn: CGRect(x: col, y: row, width: 1.5, height: 1.5)), with: .color(.white.opacity(0.15)))
+                                }
+                            }
+                        }
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                    )
+                Text(study.emoji)
+                    .font(.system(size: 28))
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("BIBLE STUDY")
+                    .font(AMENFont.semiBold(9))
+                    .foregroundStyle(.secondary)
+                    .tracking(1)
+                Text(study.title)
+                    .font(AMENFont.semiBold(14))
+                    .foregroundStyle(.primary)
+                    .lineLimit(2)
+                HStack(spacing: 8) {
+                    Label("\(study.lessonCount) lessons", systemImage: "book")
+                        .font(AMENFont.regular(11))
+                        .foregroundStyle(.secondary)
+                    Label(study.duration, systemImage: "clock")
+                        .font(AMENFont.regular(11))
+                        .foregroundStyle(.secondary)
+                }
+                HStack(spacing: 4) {
+                    Image(systemName: "star.fill")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.orange)
+                    Text(String(format: "%.1f", study.rating))
+                        .font(AMENFont.semiBold(11))
+                        .foregroundStyle(.primary)
+                    Text("· \(study.enrolledCount) enrolled")
+                        .font(AMENFont.regular(11))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Spacer()
+            Image(systemName: "chevron.right")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.tertiary)
+        }
+        .padding(14)
+        .background(Color.white.opacity(0.88).background(.ultraThinMaterial))
+        .clipShape(RoundedRectangle(cornerRadius: 22))
+        .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.black.opacity(0.08), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.07), radius: 16, x: 0, y: 6)
+        .scaleEffect(isPressed ? 0.97 : 1.0)
+        .animation(.spring(response: 0.38, dampingFraction: 0.72), value: isPressed)
+        .onLongPressGesture(minimumDuration: 0, pressing: { pressing in isPressed = pressing }, perform: {})
+    }
+}
+
+// MARK: - Discussion Group Card
+
+struct DiscoverDiscussionCard: View {
+    let discussions: [DiscussionItem]
+    @State private var isPressed = false
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ForEach(Array(discussions.enumerated()), id: \.element.id) { idx, item in
+                HStack(spacing: 12) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(Color.primary.opacity(0.06))
+                            .frame(width: 38, height: 38)
+                        Image(systemName: item.iconName)
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(.primary.opacity(0.7))
+                    }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(item.title)
+                            .font(AMENFont.semiBold(14))
+                            .foregroundStyle(.primary)
+                        Text(item.subtitle)
+                            .font(AMENFont.regular(12))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                    Spacer()
+                    HStack(spacing: 3) {
+                        Text("\(item.participantCount)")
+                            .font(AMENFont.regular(12))
+                            .foregroundStyle(.secondary)
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+
+                if idx < discussions.count - 1 {
+                    Divider()
+                        .background(Color.black.opacity(0.05))
+                        .padding(.leading, 64)
+                }
+            }
+        }
+        .background(Color.white.opacity(0.88).background(.ultraThinMaterial))
+        .clipShape(RoundedRectangle(cornerRadius: 22))
+        .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.black.opacity(0.08), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.07), radius: 16, x: 0, y: 6)
+    }
+}
+
+// MARK: - New Data Models
+
+struct DailyVerseData: Identifiable {
+    let id = UUID()
+    let reference: String
+    let text: String
+    let bookName: String
+    let testament: String
+    let discussionCount: Int
+    let saveCount: Int
+}
+
+struct YoutubeVideoItem: Identifiable {
+    let id: String
+    let title: String
+    let channelName: String
+    let thumbnailURL: String?
+    let viewCount: String
+    let duration: String
+}
+
+struct NewsItem: Identifiable {
+    let id = UUID()
+    let headline: String
+    let sourceName: String
+    let publishedAt: Date
+    let imageURL: String?
+    let category: String
+}
+
+struct UnsplashPhoto: Identifiable {
+    let id: String
+    let thumbURL: String
+    let regularURL: String
+    let photographerName: String
+}
+
+struct BibleStudyItem: Identifiable {
+    let id: String
+    let title: String
+    let subtitle: String
+    let lessonCount: Int
+    let duration: String
+    let rating: Double
+    let enrolledCount: Int
+    let emoji: String
+    let coverGradient: [Color]
+}
+
+struct DiscussionItem: Identifiable {
+    let id: String
+    let title: String
+    let subtitle: String
+    let iconName: String
+    let participantCount: Int
+}
+
+// MARK: - DiscoverFeedService
+
+@MainActor
+class DiscoverFeedService: ObservableObject {
+    static let shared = DiscoverFeedService()
+
+    @Published var dailyVerse: DailyVerseData?
+    @Published var youtubeVideos: [YoutubeVideoItem] = []
+    @Published var newsItems: [NewsItem] = []
+    @Published var unsplashPhotos: [UnsplashPhoto] = []
+    @Published var bibleStudies: [BibleStudyItem] = []
+    @Published var discussions: [DiscussionItem] = []
+
+    @Published var isLoadingVerse = false
+    @Published var isLoadingVideos = false
+    @Published var isLoadingNews = false
+
+    init() {
+        Task { await loadAll() }
+    }
+
+    func loadAll() async {
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask { await self.loadDailyVerse() }
+            group.addTask { await self.loadYouTubeVideos() }
+            group.addTask { await self.loadNews() }
+            group.addTask { await self.loadBibleStudies() }
+            group.addTask { await self.loadDiscussions() }
+            group.addTask { await self.loadUnsplashPhotos() }
+        }
+    }
+
+    private func loadDailyVerse() async {
+        isLoadingVerse = true
+        defer { isLoadingVerse = false }
+
+        // Try Scripture API first
+        let apiKey = "YOUR_API_BIBLE_KEY" // Replace with actual key from Firebase Remote Config or Info.plist
+        let bibleId = "de4e12af7f28f599-02" // KJV
+        let verseIds = ["PSA.23.1", "JHN.3.16", "ROM.8.28", "PHP.4.13", "ISA.40.31",
+                        "JER.29.11", "PSA.46.1", "PRO.3.5", "MAT.28.20", "ROM.5.8"]
+        let dayOfYear = Calendar.current.ordinality(of: .day, in: .year, for: Date()) ?? 1
+        let todayIndex = (dayOfYear - 1) % verseIds.count
+        let verseId = verseIds[todayIndex]
+
+        if let url = URL(string: "https://api.scripture.api.bible/v1/bibles/\(bibleId)/verses/\(verseId)?content-type=text&include-notes=false&include-titles=false&include-chapter-numbers=false&include-verse-numbers=false") {
+            var req = URLRequest(url: url)
+            req.setValue(apiKey, forHTTPHeaderField: "api-key")
+            if let (data, _) = try? await URLSession.shared.data(for: req),
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let verseData = json["data"] as? [String: Any],
+               let content = verseData["content"] as? String,
+               let refData = verseData["reference"] as? String {
+                dailyVerse = DailyVerseData(
+                    reference: refData,
+                    text: content.trimmingCharacters(in: .whitespacesAndNewlines),
+                    bookName: "",
+                    testament: todayIndex < 5 ? "Old Testament" : "New Testament",
+                    discussionCount: Int.random(in: 12...89),
+                    saveCount: Int.random(in: 8...45)
+                )
+                return
+            }
+        }
+
+        // Fallback: local top 10 verses
+        let fallback: [(ref: String, text: String, testament: String)] = [
+            ("Psalm 23:1", "The LORD is my shepherd; I shall not want.", "Old Testament"),
+            ("John 3:16", "For God so loved the world that he gave his one and only Son, that whoever believes in him shall not perish but have eternal life.", "New Testament"),
+            ("Romans 8:28", "And we know that in all things God works for the good of those who love him, who have been called according to his purpose.", "New Testament"),
+            ("Philippians 4:13", "I can do all this through him who gives me strength.", "New Testament"),
+            ("Isaiah 40:31", "But those who hope in the LORD will renew their strength. They will soar on wings like eagles.", "Old Testament"),
+            ("Jeremiah 29:11", "For I know the plans I have for you, declares the LORD, plans to prosper you and not to harm you, plans to give you hope and a future.", "Old Testament"),
+            ("Psalm 46:1", "God is our refuge and strength, an ever-present help in trouble.", "Old Testament"),
+            ("Proverbs 3:5", "Trust in the LORD with all your heart and lean not on your own understanding.", "Old Testament"),
+            ("Matthew 28:20", "And surely I am with you always, to the very end of the age.", "New Testament"),
+            ("Romans 5:8", "But God demonstrates his own love for us in this: While we were still sinners, Christ died for us.", "New Testament"),
+        ]
+        let fb = fallback[todayIndex]
+        dailyVerse = DailyVerseData(
+            reference: fb.ref,
+            text: fb.text,
+            bookName: "",
+            testament: fb.testament,
+            discussionCount: Int.random(in: 12...89),
+            saveCount: Int.random(in: 8...45)
+        )
+    }
+
+    private func loadYouTubeVideos() async {
+        isLoadingVideos = true
+        defer { isLoadingVideos = false }
+
+        let apiKey = "YOUR_YOUTUBE_API_KEY" // Replace with actual key from Firebase Remote Config or Info.plist
+        let queries = ["faith sermon", "worship music", "bible study devotional", "christian prayer"]
+        let query = queries[Int.random(in: 0..<queries.count)].addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "faith"
+        let urlStr = "https://www.googleapis.com/youtube/v3/search?part=snippet&q=\(query)&type=video&relevanceLanguage=en&maxResults=6&key=\(apiKey)"
+
+        guard let url = URL(string: urlStr) else {
+            youtubeVideos = mockYouTubeVideos
+            return
+        }
+        guard let (data, _) = try? await URLSession.shared.data(from: url),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let items = json["items"] as? [[String: Any]] else {
+            youtubeVideos = mockYouTubeVideos
+            return
+        }
+
+        let parsed = items.compactMap { item -> YoutubeVideoItem? in
+            guard let id = (item["id"] as? [String: Any])?["videoId"] as? String,
+                  let snippet = item["snippet"] as? [String: Any],
+                  let title = snippet["title"] as? String,
+                  let channel = snippet["channelTitle"] as? String else { return nil }
+            let thumb = ((snippet["thumbnails"] as? [String: Any])?["medium"] as? [String: Any])?["url"] as? String
+            return YoutubeVideoItem(id: id, title: title, channelName: channel, thumbnailURL: thumb, viewCount: "", duration: "")
+        }
+        youtubeVideos = parsed.isEmpty ? mockYouTubeVideos : parsed
+    }
+
+    private var mockYouTubeVideos: [YoutubeVideoItem] {
+        [
+            YoutubeVideoItem(id: "mock1", title: "Sunday Sermon: Walking by Faith", channelName: "Grace Church", thumbnailURL: nil, viewCount: "12K views", duration: "38:22"),
+            YoutubeVideoItem(id: "mock2", title: "Praise & Worship Live", channelName: "Elevation Worship", thumbnailURL: nil, viewCount: "45K views", duration: "1:12:04"),
+            YoutubeVideoItem(id: "mock3", title: "Morning Devotional — Psalm 23", channelName: "Daily Bread", thumbnailURL: nil, viewCount: "8.2K views", duration: "12:15"),
+        ]
+    }
+
+    private func loadNews() async {
+        isLoadingNews = true
+        defer { isLoadingNews = false }
+
+        let apiKey = "YOUR_NEWSAPI_KEY" // Replace with actual key from Firebase Remote Config or Info.plist
+        let urlStr = "https://newsapi.org/v2/everything?q=faith+OR+church+OR+spiritual&language=en&pageSize=5&sortBy=publishedAt&apiKey=\(apiKey)"
+
+        guard let url = URL(string: urlStr) else {
+            newsItems = mockNewsItems
+            return
+        }
+        guard let (data, _) = try? await URLSession.shared.data(from: url),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let articles = json["articles"] as? [[String: Any]] else {
+            newsItems = mockNewsItems
+            return
+        }
+
+        let formatter = ISO8601DateFormatter()
+        let parsed = articles.compactMap { a -> NewsItem? in
+            guard let title = a["title"] as? String else { return nil }
+            let src = (a["source"] as? [String: Any])?["name"] as? String ?? ""
+            let dateStr = a["publishedAt"] as? String ?? ""
+            let date = formatter.date(from: dateStr) ?? Date()
+            let img = a["urlToImage"] as? String
+            return NewsItem(headline: title, sourceName: src, publishedAt: date, imageURL: img, category: "Faith")
+        }
+        newsItems = parsed.isEmpty ? mockNewsItems : parsed
+    }
+
+    private var mockNewsItems: [NewsItem] {
+        [
+            NewsItem(headline: "New Study Shows Prayer's Impact on Mental Health", sourceName: "Christianity Today", publishedAt: Date().addingTimeInterval(-3600), imageURL: nil, category: "Faith"),
+            NewsItem(headline: "Community Churches Partner for City-Wide Outreach", sourceName: "Church Times", publishedAt: Date().addingTimeInterval(-7200), imageURL: nil, category: "Community"),
+            NewsItem(headline: "Biblical Archaeology: New Discoveries in Jerusalem", sourceName: "The Gospel Coalition", publishedAt: Date().addingTimeInterval(-10800), imageURL: nil, category: "Culture"),
+        ]
+    }
+
+    private func loadBibleStudies() async {
+        let db = Firestore.firestore()
+        do {
+            let snap = try await db.collection("studies").limit(to: 6).getDocuments()
+            let fetched = snap.documents.compactMap { doc -> BibleStudyItem? in
+                let d = doc.data()
+                guard let title = d["title"] as? String else { return nil }
+                return BibleStudyItem(
+                    id: doc.documentID,
+                    title: title,
+                    subtitle: d["subtitle"] as? String ?? "",
+                    lessonCount: d["lessonCount"] as? Int ?? 8,
+                    duration: d["duration"] as? String ?? "6 weeks",
+                    rating: d["rating"] as? Double ?? 4.5,
+                    enrolledCount: d["enrolledCount"] as? Int ?? 0,
+                    emoji: d["emoji"] as? String ?? "📖",
+                    coverGradient: [Color.indigo.opacity(0.7), Color.purple.opacity(0.5)]
+                )
+            }
+            bibleStudies = fetched.isEmpty ? mockBibleStudies : fetched
+        } catch {
+            bibleStudies = mockBibleStudies
+        }
+    }
+
+    private var mockBibleStudies: [BibleStudyItem] {
+        [
+            BibleStudyItem(id: "1", title: "The Sermon on the Mount", subtitle: "A deep study of Matthew 5–7", lessonCount: 12, duration: "6 weeks", rating: 4.8, enrolledCount: 1240, emoji: "⛰️", coverGradient: [Color(red: 0.11, green: 0.16, blue: 0.11), Color(red: 0.18, green: 0.29, blue: 0.16)]),
+            BibleStudyItem(id: "2", title: "Psalms of Praise", subtitle: "Worship through the Psalms", lessonCount: 8, duration: "4 weeks", rating: 4.6, enrolledCount: 890, emoji: "🎵", coverGradient: [Color(red: 0.1, green: 0.1, blue: 0.25), Color(red: 0.3, green: 0.1, blue: 0.4)]),
+            BibleStudyItem(id: "3", title: "Romans: The Gospel Unveiled", subtitle: "Paul's letter to the Romans", lessonCount: 16, duration: "8 weeks", rating: 4.9, enrolledCount: 2100, emoji: "✉️", coverGradient: [Color(red: 0.2, green: 0.1, blue: 0.05), Color(red: 0.4, green: 0.2, blue: 0.0)]),
+        ]
+    }
+
+    private func loadDiscussions() async {
+        let db = Firestore.firestore()
+        do {
+            let snap = try await db.collection("discussions").order(by: "participantCount", descending: true).limit(to: 5).getDocuments()
+            let fetched = snap.documents.compactMap { doc -> DiscussionItem? in
+                let d = doc.data()
+                guard let title = d["title"] as? String else { return nil }
+                return DiscussionItem(
+                    id: doc.documentID,
+                    title: title,
+                    subtitle: d["subtitle"] as? String ?? "",
+                    iconName: d["iconName"] as? String ?? "bubble.left.and.bubble.right",
+                    participantCount: d["participantCount"] as? Int ?? 0
+                )
+            }
+            discussions = fetched.isEmpty ? mockDiscussions : fetched
+        } catch {
+            discussions = mockDiscussions
+        }
+    }
+
+    private var mockDiscussions: [DiscussionItem] {
+        [
+            DiscussionItem(id: "1", title: "Faith & Mental Health", subtitle: "How do you cope with anxiety through faith?", iconName: "heart.text.square", participantCount: 234),
+            DiscussionItem(id: "2", title: "Marriage & Family", subtitle: "Raising children in a faith-centered home", iconName: "house.fill", participantCount: 187),
+            DiscussionItem(id: "3", title: "Modern Discipleship", subtitle: "What does following Jesus look like today?", iconName: "figure.walk", participantCount: 312),
+            DiscussionItem(id: "4", title: "Worship Styles", subtitle: "Traditional vs contemporary — what's right?", iconName: "music.note", participantCount: 156),
+        ]
+    }
+
+    private func loadUnsplashPhotos() async {
+        let apiKey = "YOUR_UNSPLASH_KEY" // Replace with actual key from Firebase Remote Config or Info.plist
+        let queries = ["faith", "worship", "nature", "prayer", "church", "cross"]
+        let q = queries[Int.random(in: 0..<queries.count)]
+        let urlStr = "https://api.unsplash.com/search/photos?query=\(q)&per_page=9&client_id=\(apiKey)"
+
+        guard let url = URL(string: urlStr),
+              let (data, _) = try? await URLSession.shared.data(from: url),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let results = json["results"] as? [[String: Any]] else {
+            // Fallback: empty (DiscoverMediaGridSection handles its own fallback)
+            return
+        }
+        unsplashPhotos = results.compactMap { r -> UnsplashPhoto? in
+            guard let id = r["id"] as? String,
+                  let urls = r["urls"] as? [String: Any],
+                  let thumb = urls["thumb"] as? String,
+                  let regular = urls["regular"] as? String,
+                  let user = r["user"] as? [String: Any],
+                  let name = user["name"] as? String else { return nil }
+            return UnsplashPhoto(id: id, thumbURL: thumb, regularURL: regular, photographerName: name)
+        }
+    }
+}
+
+// MARK: - Date Extension
+
+private extension Date {
+    func timeAgoString() -> String {
+        let seconds = Int(-timeIntervalSinceNow)
+        if seconds < 3600 { return "\(seconds / 60)m ago" }
+        if seconds < 86400 { return "\(seconds / 3600)h ago" }
+        return "\(seconds / 86400)d ago"
     }
 }

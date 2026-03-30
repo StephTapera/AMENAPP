@@ -9,6 +9,8 @@ import SwiftUI
 struct FollowBadgeView: View {
     @Binding var isFollowed: Bool
     let onToggle: () -> Void
+    /// When true, tapping opens a menu instead of directly following — skips all follow animations.
+    var openMenuMode: Bool = false
 
     @State private var scale: CGFloat = 1.0
     @State private var showRipple = false
@@ -16,16 +18,18 @@ struct FollowBadgeView: View {
 
     var body: some View {
         ZStack {
-            // Ripple ring
-            Circle()
-                .stroke(Color.black.opacity(0.35), lineWidth: 1.5)
-                .frame(width: 20, height: 20)
-                .scaleEffect(showRipple ? 3.2 : 1.0)
-                .opacity(showRipple ? 0 : 0.8)
-                .animation(
-                    showRipple ? .easeOut(duration: 0.55) : .none,
-                    value: showRipple
-                )
+            // Ripple ring (only in direct-follow mode)
+            if !openMenuMode {
+                Circle()
+                    .stroke(Color.black.opacity(0.35), lineWidth: 1.5)
+                    .frame(width: 20, height: 20)
+                    .scaleEffect(showRipple ? 3.2 : 1.0)
+                    .opacity(showRipple ? 0 : 0.8)
+                    .animation(
+                        showRipple ? .easeOut(duration: 0.55) : .none,
+                        value: showRipple
+                    )
+            }
 
             // Badge circle
             Circle()
@@ -52,14 +56,14 @@ struct FollowBadgeView: View {
                             .opacity(isFollowed ? 1 : 0)
                             .scaleEffect(isFollowed ? 1 : 0.4)
                     }
-                    .animation(.spring(response: 0.38, dampingFraction: 0.62), value: isFollowed)
+                    .animation(openMenuMode ? nil : .spring(response: 0.38, dampingFraction: 0.62), value: isFollowed)
                 )
                 .scaleEffect(scale)
-                .animation(.spring(response: 0.38, dampingFraction: 0.58), value: isFollowed)
+                .animation(openMenuMode ? nil : .spring(response: 0.38, dampingFraction: 0.58), value: isFollowed)
         }
-        // "Following" toast above badge
+        // "Following" toast — only in direct-follow mode
         .overlay(alignment: .top) {
-            if showToast {
+            if !openMenuMode && showToast {
                 Text("Following")
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(.white)
@@ -76,15 +80,20 @@ struct FollowBadgeView: View {
                     )
             }
         }
-        .onTapGesture { triggerFollow() }
+        .onTapGesture {
+            if openMenuMode {
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                onToggle()
+            } else {
+                triggerFollow()
+            }
+        }
     }
 
     private func triggerFollow() {
-        // 1. Spring press
         withAnimation(.spring(response: 0.2, dampingFraction: 0.45)) { scale = 0.82 }
         withAnimation(.spring(response: 0.38, dampingFraction: 0.58).delay(0.08)) { scale = 1.0 }
 
-        // 3. Ripple + toast only when following (before toggle flips)
         let aboutToFollow = !isFollowed
         if aboutToFollow {
             showRipple = false
@@ -98,13 +107,8 @@ struct FollowBadgeView: View {
             }
         }
 
-        // 2. Toggle state
         withAnimation(.spring(response: 0.38, dampingFraction: 0.62)) { isFollowed.toggle() }
-
-        // 5. Haptic
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
-
-        // 6. Fire parent handler
         onToggle()
     }
 }

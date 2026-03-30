@@ -57,7 +57,7 @@ struct ProfilePhotoEditView: View {
                                     .shadow(color: .black.opacity(0.15), radius: 20, y: 10)
                                 
                                 Text("New Photo")
-                                    .font(.custom("OpenSans-SemiBold", size: 14))
+                                    .font(AMENFont.semiBold(14))
                                     .foregroundStyle(.secondary)
                                 
                             } else if let currentImageURL = currentImageURL,
@@ -84,7 +84,7 @@ struct ProfilePhotoEditView: View {
                                 }
                                 
                                 Text("Current Photo")
-                                    .font(.custom("OpenSans-SemiBold", size: 14))
+                                    .font(AMENFont.semiBold(14))
                                     .foregroundStyle(.secondary)
                                 
                             } else {
@@ -92,7 +92,7 @@ struct ProfilePhotoEditView: View {
                                 placeholderImage
                                 
                                 Text("No Photo")
-                                    .font(.custom("OpenSans-SemiBold", size: 14))
+                                    .font(AMENFont.semiBold(14))
                                     .foregroundStyle(.secondary)
                             }
                         }
@@ -109,7 +109,7 @@ struct ProfilePhotoEditView: View {
                                         .font(.system(size: 20, weight: .semibold))
                                     
                                     Text("Choose from Library")
-                                        .font(.custom("OpenSans-Bold", size: 16))
+                                        .font(AMENFont.bold(16))
                                 }
                                 .foregroundStyle(.white)
                                 .frame(maxWidth: .infinity)
@@ -130,7 +130,7 @@ struct ProfilePhotoEditView: View {
                                         .font(.system(size: 20, weight: .semibold))
                                     
                                     Text("Take Photo")
-                                        .font(.custom("OpenSans-Bold", size: 16))
+                                        .font(AMENFont.bold(16))
                                 }
                                 .foregroundStyle(.black)
                                 .frame(maxWidth: .infinity)
@@ -151,7 +151,7 @@ struct ProfilePhotoEditView: View {
                                             .font(.system(size: 20, weight: .semibold))
                                         
                                         Text("Remove Photo")
-                                            .font(.custom("OpenSans-Bold", size: 16))
+                                            .font(AMENFont.bold(16))
                                     }
                                     .foregroundStyle(.red)
                                     .frame(maxWidth: .infinity)
@@ -173,7 +173,7 @@ struct ProfilePhotoEditView: View {
                                     .foregroundStyle(.orange)
                                 
                                 Text("Photo Tips")
-                                    .font(.custom("OpenSans-Bold", size: 16))
+                                    .font(AMENFont.bold(16))
                             }
                             
                             tipRow(icon: "checkmark.circle.fill", text: "Use a clear, recent photo of yourself", color: .green)
@@ -203,7 +203,7 @@ struct ProfilePhotoEditView: View {
                                 .foregroundStyle(.green)
                             
                             Text("Profile photo updated!")
-                                .font(.custom("OpenSans-SemiBold", size: 15))
+                                .font(AMENFont.semiBold(15))
                         }
                         .padding(.horizontal, 24)
                         .padding(.vertical, 16)
@@ -234,7 +234,7 @@ struct ProfilePhotoEditView: View {
                             ProgressView()
                         } else {
                             Text("Save")
-                                .font(.custom("OpenSans-Bold", size: 16))
+                                .font(AMENFont.bold(16))
                         }
                     }
                     .disabled(selectedImage == nil || isUploading)
@@ -410,7 +410,7 @@ struct ProfilePhotoEditView: View {
                         .foregroundStyle(.secondary)
                     
                     Text("No Photo")
-                        .font(.custom("OpenSans-SemiBold", size: 14))
+                        .font(AMENFont.semiBold(14))
                         .foregroundStyle(.secondary)
                 }
             )
@@ -428,7 +428,7 @@ struct ProfilePhotoEditView: View {
                 .frame(width: 20)
             
             Text(text)
-                .font(.custom("OpenSans-Regular", size: 14))
+                .font(AMENFont.regular(14))
                 .foregroundStyle(.primary)
         }
     }
@@ -455,6 +455,14 @@ struct ProfilePhotoEditView: View {
                     
                     // Call completion handler
                     onPhotoUpdated(imageURL)
+                    
+                    // ✅ Post notification to update tab bar profile photo
+                    NotificationCenter.default.post(
+                        name: Notification.Name("profilePhotoUpdated"),
+                        object: nil,
+                        userInfo: ["profileImageURL": imageURL]
+                    )
+                    dlog("✅ Posted profilePhotoUpdated notification with URL: \(imageURL)")
                     
                     // Haptic feedback
                     let haptic = UINotificationFeedbackGenerator()
@@ -495,6 +503,14 @@ struct ProfilePhotoEditView: View {
                     
                     // Call completion handler with nil
                     onPhotoUpdated(nil)
+                    
+                    // ✅ Post notification to remove tab bar profile photo
+                    NotificationCenter.default.post(
+                        name: Notification.Name("profilePhotoUpdated"),
+                        object: nil,
+                        userInfo: ["profileImageURL": ""]
+                    )
+                    dlog("✅ Posted profilePhotoUpdated notification (photo removed)")
                     
                     // Haptic feedback
                     let haptic = UINotificationFeedbackGenerator()

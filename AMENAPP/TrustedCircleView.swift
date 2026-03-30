@@ -15,153 +15,180 @@ import Combine
 struct TrustedCircleView: View {
     @StateObject private var viewModel = TrustedCircleViewModel()
     @Environment(\.dismiss) private var dismiss
-    
+
     var body: some View {
         NavigationView {
             ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    // Header explanation
+                VStack(alignment: .leading, spacing: 0) {
+
+                    // MARK: Header
                     VStack(alignment: .leading, spacing: 12) {
                         HStack(spacing: 12) {
                             Image(systemName: "person.2.circle.fill")
                                 .font(.system(size: 32))
                                 .foregroundStyle(.purple)
-                            
+
                             Text("Trusted Circle")
-                                .font(.custom("OpenSans-Bold", size: 24))
+                                .font(AMENFont.bold(24))
                         }
-                        
+
                         Text("Add 1-5 people who can be notified if AMEN detects you might need support. You're always in control.")
-                            .font(.custom("OpenSans-Regular", size: 15))
+                            .font(AMENFont.regular(15))
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     .padding(.horizontal, 20)
-                    .padding(.top, 8)
-                    
-                    // Enable toggle
-                    Toggle(isOn: $viewModel.isEnabled) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Enable Trusted Circle")
-                                .font(.custom("OpenSans-SemiBold", size: 17))
-                            
-                            Text("Allow AMEN to notify your trusted contacts")
-                                .font(.custom("OpenSans-Regular", size: 14))
-                                .foregroundStyle(.secondary)
+                    .padding(.top, 16)
+                    .padding(.bottom, 24)
+
+                    // MARK: Enable Toggle Card
+                    Text("SETTINGS")
+                        .font(AMENFont.bold(11))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 8)
+
+                    VStack(spacing: 0) {
+                        Toggle(isOn: $viewModel.isEnabled) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Enable Trusted Circle")
+                                    .font(AMENFont.semiBold(17))
+
+                                Text("Allow AMEN to notify your trusted contacts")
+                                    .font(AMENFont.regular(14))
+                                    .foregroundStyle(.secondary)
+                            }
                         }
+                        .tint(.purple)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
                     }
-                    .tint(.purple)
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 12)
-                    .background(Color(.secondarySystemBackground))
-                    .cornerRadius(12)
-                    .padding(.horizontal, 20)
-                    
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                    .padding(.horizontal, 16)
+
                     if viewModel.isEnabled {
-                        // Escalation rule
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Notification Rule")
-                                .font(.custom("OpenSans-SemiBold", size: 17))
-                                .padding(.horizontal, 20)
-                            
-                            ForEach([
+
+                        // MARK: Notification Rule Section
+                        Text("NOTIFICATION RULE")
+                            .font(AMENFont.bold(11))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 20)
+                            .padding(.top, 24)
+                            .padding(.bottom, 8)
+
+                        VStack(spacing: 0) {
+                            ForEach(Array([
                                 TrustedCircle.EscalationRule.askFirst,
                                 TrustedCircle.EscalationRule.autoHigh,
                                 TrustedCircle.EscalationRule.autoCritical,
                                 TrustedCircle.EscalationRule.manual
-                            ], id: \.self) { rule in
+                            ].enumerated()), id: \.offset) { index, rule in
                                 EscalationRuleCard(
                                     rule: rule,
                                     isSelected: viewModel.escalationRule == rule,
-                                    onSelect: {
-                                        viewModel.escalationRule = rule
-                                    }
+                                    onSelect: { viewModel.escalationRule = rule }
                                 )
+                                if index < 3 {
+                                    Divider().padding(.leading, 16)
+                                }
                             }
                         }
-                        
-                        Divider()
-                            .padding(.horizontal, 20)
-                        
-                        // Trusted contacts
-                        VStack(alignment: .leading, spacing: 12) {
-                            HStack {
-                                Text("Trusted Contacts")
-                                    .font(.custom("OpenSans-SemiBold", size: 17))
-                                
-                                Spacer()
-                                
-                                Text("\(viewModel.contacts.count)/50")
-                                    .font(.custom("OpenSans-Regular", size: 14))
-                                    .foregroundStyle(.secondary)
-                            }
-                            .padding(.horizontal, 20)
-                            
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                        .padding(.horizontal, 16)
+
+                        // MARK: Trusted Contacts Section
+                        HStack {
+                            Text("TRUSTED CONTACTS")
+                                .font(AMENFont.bold(11))
+                                .foregroundStyle(.secondary)
+
+                            Spacer()
+
+                            Text("\(viewModel.contacts.count)/50")
+                                .font(AMENFont.regular(11))
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.top, 24)
+                        .padding(.bottom, 8)
+
+                        VStack(spacing: 0) {
                             if viewModel.contacts.isEmpty {
                                 VStack(spacing: 12) {
                                     Image(systemName: "person.crop.circle.badge.plus")
                                         .font(.system(size: 48))
                                         .foregroundStyle(.secondary)
-                                    
+
                                     Text("No contacts added yet")
-                                        .font(.custom("OpenSans-Regular", size: 15))
+                                        .font(AMENFont.regular(15))
                                         .foregroundStyle(.secondary)
                                 }
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 40)
                             } else {
-                                ForEach(viewModel.contacts) { contact in
+                                ForEach(Array(viewModel.contacts.enumerated()), id: \.element.id) { index, contact in
                                     TrustedContactRow(
                                         contact: contact,
-                                        onDelete: {
-                                            viewModel.removeContact(contact)
-                                        }
+                                        onDelete: { viewModel.removeContact(contact) }
                                     )
+                                    if index < viewModel.contacts.count - 1 {
+                                        Divider().padding(.leading, 16)
+                                    }
                                 }
                             }
-                            
+
                             if viewModel.contacts.count < 50 {
+                                if !viewModel.contacts.isEmpty {
+                                    Divider().padding(.leading, 16)
+                                }
                                 Button {
                                     viewModel.showAddContact = true
                                 } label: {
                                     HStack {
                                         Image(systemName: "plus.circle.fill")
                                             .font(.system(size: 20))
-
                                         Text("Add Trusted Contact")
-                                            .font(.custom("OpenSans-SemiBold", size: 16))
+                                            .font(AMENFont.semiBold(16))
                                     }
                                     .foregroundStyle(.purple)
                                     .frame(maxWidth: .infinity)
+                                    .padding(.horizontal, 16)
                                     .padding(.vertical, 14)
-                                    .background(Color(.tertiarySystemBackground))
-                                    .cornerRadius(12)
                                 }
-                                .padding(.horizontal, 20)
+                                .buttonStyle(.plain)
                             } else {
+                                Divider().padding(.leading, 16)
                                 Text("You've reached the maximum of 50 trusted contacts.")
-                                    .font(.custom("OpenSans-Regular", size: 13))
+                                    .font(AMENFont.regular(13))
                                     .foregroundStyle(.secondary)
                                     .multilineTextAlignment(.center)
-                                    .padding(.horizontal, 20)
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 14)
                             }
                         }
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                        .padding(.horizontal, 16)
                     }
+
+                    Spacer(minLength: 32)
                 }
-                .padding(.vertical, 20)
             }
-            .background(Color(.systemGroupedBackground))
+            .background(Color(.systemGroupedBackground).ignoresSafeArea())
             .navigationTitle("Trusted Circle")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") {
-                        Task {
-                            await viewModel.save()
-                        }
+                        Task { await viewModel.save() }
                         dismiss()
                     }
-                    .font(.custom("OpenSans-SemiBold", size: 16))
+                    .font(AMENFont.semiBold(16))
                 }
             }
             .sheet(isPresented: $viewModel.showAddContact) {
@@ -182,39 +209,31 @@ struct EscalationRuleCard: View {
     let rule: TrustedCircle.EscalationRule
     let isSelected: Bool
     let onSelect: () -> Void
-    
+
     var body: some View {
         Button(action: onSelect) {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                     .font(.system(size: 20))
                     .foregroundStyle(isSelected ? .purple : .secondary)
-                
+
                 VStack(alignment: .leading, spacing: 4) {
                     Text(rule.displayName)
-                        .font(.custom("OpenSans-SemiBold", size: 16))
+                        .font(AMENFont.semiBold(16))
                         .foregroundStyle(.primary)
-                    
+
                     Text(rule.description)
-                        .font(.custom("OpenSans-Regular", size: 14))
+                        .font(AMENFont.regular(14))
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                
+
                 Spacer()
             }
-            .padding(16)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(isSelected ? Color.purple.opacity(0.1) : Color(.secondarySystemBackground))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(isSelected ? Color.purple : Color.clear, lineWidth: 2)
-                    )
-            )
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
         }
         .buttonStyle(.plain)
-        .padding(.horizontal, 20)
     }
 }
 
@@ -223,30 +242,30 @@ struct EscalationRuleCard: View {
 struct TrustedContactRow: View {
     let contact: TrustedCircle.TrustedContact
     let onDelete: () -> Void
-    
+
     var body: some View {
         HStack(spacing: 16) {
             Image(systemName: "person.circle.fill")
                 .font(.system(size: 40))
                 .foregroundStyle(.purple)
-            
+
             VStack(alignment: .leading, spacing: 4) {
                 Text(contact.name)
-                    .font(.custom("OpenSans-SemiBold", size: 16))
-                
+                    .font(AMENFont.semiBold(16))
+
                 Text(contact.relationship)
-                    .font(.custom("OpenSans-Regular", size: 14))
+                    .font(AMENFont.regular(14))
                     .foregroundStyle(.secondary)
-                
+
                 if let phone = contact.phoneNumber {
                     Text(phone)
-                        .font(.custom("OpenSans-Regular", size: 13))
+                        .font(AMENFont.regular(13))
                         .foregroundStyle(.tertiary)
                 }
             }
-            
+
             Spacer()
-            
+
             Button {
                 onDelete()
             } label: {
@@ -255,10 +274,8 @@ struct TrustedContactRow: View {
                     .foregroundStyle(.red)
             }
         }
-        .padding(16)
-        .background(Color(.secondarySystemBackground))
-        .cornerRadius(12)
-        .padding(.horizontal, 20)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
     }
 }
 
@@ -300,20 +317,24 @@ struct AddTrustedContactSheet: View {
 
     var body: some View {
         NavigationView {
-            VStack(spacing: 0) {
-                Picker("Add method", selection: $selectedTab) {
-                    Text("From Followers").tag(0)
-                    Text("Manual Entry").tag(1)
-                }
-                .pickerStyle(.segmented)
-                .padding()
+            ScrollView {
+                VStack(spacing: 0) {
+                    Picker("Add method", selection: $selectedTab) {
+                        Text("From Followers").tag(0)
+                        Text("Manual Entry").tag(1)
+                    }
+                    .pickerStyle(.segmented)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
 
-                if selectedTab == 0 {
-                    followersPickerContent
-                } else {
-                    manualEntryForm
+                    if selectedTab == 0 {
+                        followersPickerContent
+                    } else {
+                        manualEntryContent
+                    }
                 }
             }
+            .background(Color(.systemGroupedBackground).ignoresSafeArea())
             .navigationTitle("Add Trusted Contact")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -331,22 +352,28 @@ struct AddTrustedContactSheet: View {
     private var followersPickerContent: some View {
         if isLoadingFollowers {
             ProgressView()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 60)
         } else if followers.isEmpty {
             VStack(spacing: 12) {
                 Image(systemName: "person.2.slash")
                     .font(.system(size: 40))
                     .foregroundStyle(.secondary)
                 Text("No followers to add")
-                    .font(.custom("OpenSans-Regular", size: 15))
+                    .font(AMENFont.regular(15))
                     .foregroundStyle(.secondary)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 60)
         } else {
-            List {
+            VStack(spacing: 0) {
+                // Search bar
                 SearchBar(text: $followerSearch, placeholder: "Search followers")
-                    .listRowInsets(EdgeInsets())
-                ForEach(filteredFollowers) { user in
+                    .padding(.bottom, 4)
+
+                Divider().padding(.leading, 16)
+
+                ForEach(Array(filteredFollowers.enumerated()), id: \.element.id) { index, user in
                     Button {
                         let contact = TrustedCircle.TrustedContact(
                             id: UUID().uuidString,
@@ -367,67 +394,126 @@ struct AddTrustedContactSheet: View {
                                 .foregroundStyle(.purple)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(user.displayName)
-                                    .font(.custom("OpenSans-SemiBold", size: 15))
+                                    .font(AMENFont.semiBold(15))
                                     .foregroundStyle(.primary)
                                 Text("@\(user.username)")
-                                    .font(.custom("OpenSans-Regular", size: 13))
+                                    .font(AMENFont.regular(13))
                                     .foregroundStyle(.secondary)
                             }
                             Spacer()
                             Image(systemName: "plus.circle")
                                 .foregroundStyle(.purple)
                         }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
                     }
                     .buttonStyle(.plain)
+                    if index < filteredFollowers.count - 1 {
+                        Divider().padding(.leading, 16)
+                    }
                 }
             }
-            .listStyle(.plain)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+            .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+            .padding(.horizontal, 16)
         }
     }
 
     @ViewBuilder
-    private var manualEntryForm: some View {
-        Form {
-            Section {
+    private var manualEntryContent: some View {
+        VStack(spacing: 0) {
+
+            // MARK: Contact Info
+            Text("CONTACT INFO")
+                .font(AMENFont.bold(11))
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 20)
+                .padding(.top, 8)
+                .padding(.bottom, 8)
+
+            VStack(spacing: 0) {
                 TextField("Name", text: $name)
-                    .font(.custom("OpenSans-Regular", size: 16))
+                    .font(AMENFont.regular(16))
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+
+                Divider().padding(.leading, 16)
+
                 TextField("Relationship (Friend, Family, etc.)", text: $relationship)
-                    .font(.custom("OpenSans-Regular", size: 16))
-            } header: {
-                Text("Contact Info")
+                    .font(AMENFont.regular(16))
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
             }
-            Section {
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+            .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+            .padding(.horizontal, 16)
+
+            // MARK: Contact Method
+            Text("CONTACT METHOD")
+                .font(AMENFont.bold(11))
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 20)
+                .padding(.top, 24)
+                .padding(.bottom, 8)
+
+            VStack(spacing: 0) {
                 TextField("Phone Number", text: $phoneNumber)
-                    .font(.custom("OpenSans-Regular", size: 16))
+                    .font(AMENFont.regular(16))
                     .keyboardType(.phonePad)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+
+                Divider().padding(.leading, 16)
+
                 TextField("Email (optional)", text: $email)
-                    .font(.custom("OpenSans-Regular", size: 16))
+                    .font(AMENFont.regular(16))
                     .keyboardType(.emailAddress)
                     .textInputAutocapitalization(.never)
-            } header: {
-                Text("Contact Method")
-            } footer: {
-                Text("Provide at least one way to reach this person")
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
             }
-            Section {
-                Button("Add Contact") {
-                    let contact = TrustedCircle.TrustedContact(
-                        id: UUID().uuidString,
-                        userId: nil,
-                        name: name,
-                        phoneNumber: phoneNumber.isEmpty ? nil : phoneNumber,
-                        email: email.isEmpty ? nil : email,
-                        relationship: relationship,
-                        addedAt: Date(),
-                        isVerified: false
-                    )
-                    onAdd(contact)
-                    dismiss()
-                }
-                .disabled(!canSave)
-                .font(.custom("OpenSans-SemiBold", size: 16))
-                .foregroundStyle(canSave ? .purple : .secondary)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+            .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+            .padding(.horizontal, 16)
+
+            Text("Provide at least one way to reach this person")
+                .font(AMENFont.regular(12))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 20)
+                .padding(.top, 8)
+
+            // MARK: Submit
+            Button("Add Contact") {
+                let contact = TrustedCircle.TrustedContact(
+                    id: UUID().uuidString,
+                    userId: nil,
+                    name: name,
+                    phoneNumber: phoneNumber.isEmpty ? nil : phoneNumber,
+                    email: email.isEmpty ? nil : email,
+                    relationship: relationship,
+                    addedAt: Date(),
+                    isVerified: false
+                )
+                onAdd(contact)
+                dismiss()
             }
+            .disabled(!canSave)
+            .font(AMENFont.semiBold(16))
+            .foregroundStyle(canSave ? .purple : .secondary)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+            .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+            .padding(.horizontal, 16)
+            .padding(.top, 24)
+
+            Spacer(minLength: 32)
         }
     }
 
@@ -488,8 +574,8 @@ private struct SearchBar: View {
         .padding(8)
         .background(Color(.secondarySystemBackground))
         .cornerRadius(10)
-        .padding(.horizontal)
-        .padding(.vertical, 6)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
     }
 }
 
@@ -501,13 +587,13 @@ class TrustedCircleViewModel: ObservableObject {
     @Published var escalationRule: TrustedCircle.EscalationRule = .askFirst
     @Published var contacts: [TrustedCircle.TrustedContact] = []
     @Published var showAddContact = false
-    
+
     private let service = EnhancedCrisisSupportService.shared
     private var circle: TrustedCircle?
-    
+
     func load() async {
         guard let userId = Auth.auth().currentUser?.uid else { return }
-        
+
         do {
             if let existingCircle = try await service.loadTrustedCircle(userId: userId) {
                 circle = existingCircle
@@ -519,10 +605,10 @@ class TrustedCircleViewModel: ObservableObject {
             dlog("⚠️ Failed to load trusted circle: \(error)")
         }
     }
-    
+
     func save() async {
         guard let userId = Auth.auth().currentUser?.uid else { return }
-        
+
         let updatedCircle = TrustedCircle(
             userId: userId,
             contacts: contacts,
@@ -531,7 +617,7 @@ class TrustedCircleViewModel: ObservableObject {
             createdAt: circle?.createdAt ?? Date(),
             updatedAt: Date()
         )
-        
+
         do {
             try await service.saveTrustedCircle(updatedCircle)
             dlog("✅ Trusted circle saved")
@@ -539,11 +625,11 @@ class TrustedCircleViewModel: ObservableObject {
             dlog("⚠️ Failed to save trusted circle: \(error)")
         }
     }
-    
+
     func addContact(_ contact: TrustedCircle.TrustedContact) {
         contacts.append(contact)
     }
-    
+
     func removeContact(_ contact: TrustedCircle.TrustedContact) {
         contacts.removeAll { $0.id == contact.id }
     }

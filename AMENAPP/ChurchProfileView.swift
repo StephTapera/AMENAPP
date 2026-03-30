@@ -63,9 +63,16 @@ struct ChurchProfileView: View {
                             .font(.system(size: 48))
                             .foregroundStyle(.secondary)
                         Text(error)
-                            .font(.custom("OpenSans-Regular", size: 15))
+                            .font(AMENFont.regular(15))
                             .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
                     }
+                    .frame(maxWidth: .infinity)
+                    .padding(40)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
+                    .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 8, y: 3)
+                    .padding(.horizontal, 32)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
 
@@ -133,14 +140,14 @@ struct ChurchProfileView: View {
             // Name + denomination visible in hero
             VStack(spacing: 4) {
                 Text(church.name)
-                    .font(.custom("OpenSans-Bold", size: 26))
+                    .font(AMENFont.bold(26))
                     .foregroundStyle(.white)
                     .multilineTextAlignment(.center)
                     .shadow(color: .black.opacity(0.5), radius: 4, y: 2)
 
                 if let denomination = church.denomination {
                     Text(denomination)
-                        .font(.custom("OpenSans-Regular", size: 14))
+                        .font(AMENFont.regular(14))
                         .foregroundStyle(.white.opacity(0.85))
                         .shadow(color: .black.opacity(0.4), radius: 2, y: 1)
                 }
@@ -225,7 +232,7 @@ struct ChurchProfileView: View {
                 showPlanVisit = true
             } label: {
                 Label("Plan My Visit", systemImage: "calendar.badge.plus")
-                    .font(.custom("OpenSans-SemiBold", size: 15))
+                    .font(AMENFont.semiBold(15))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
                     .background(Color.orange)
@@ -347,7 +354,7 @@ struct ChurchProfileView: View {
                     .foregroundStyle(.blue)
                 
                 Text(label)
-                    .font(.custom("OpenSans-Regular", size: 11))
+                    .font(AMENFont.regular(11))
                     .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity)
@@ -405,11 +412,11 @@ struct ChurchProfileView: View {
             
             VStack(alignment: .leading, spacing: 4) {
                 Text(label)
-                    .font(.custom("OpenSans-SemiBold", size: 13))
+                    .font(AMENFont.semiBold(13))
                     .foregroundStyle(.secondary)
                 
                 Text(value)
-                    .font(.custom("OpenSans-Regular", size: 15))
+                    .font(AMENFont.regular(15))
                     .foregroundStyle(.primary)
             }
         }
@@ -418,17 +425,18 @@ struct ChurchProfileView: View {
     private func statBadge(value: Int, label: String) -> some View {
         VStack(spacing: 4) {
             Text("\(value)")
-                .font(.custom("OpenSans-Bold", size: 18))
+                .font(AMENFont.bold(18))
                 .foregroundStyle(.primary)
-            
+
             Text(label)
-                .font(.custom("OpenSans-Regular", size: 12))
+                .font(AMENFont.regular(12))
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
-        .background(Color(.secondarySystemBackground))
-        .cornerRadius(12)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.04), radius: 8, y: 3)
     }
     
     // MARK: - Service Times Section
@@ -438,7 +446,7 @@ struct ChurchProfileView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Service Times")
-                    .font(.custom("OpenSans-Bold", size: 18))
+                    .font(AMENFont.bold(18))
                 Spacer()
                 Button {
                     calendarCrossRef.checkAvailability(for: services)
@@ -447,7 +455,7 @@ struct ChurchProfileView: View {
                         ProgressView().scaleEffect(0.75)
                     } else {
                         Label("My Calendar", systemImage: "calendar")
-                            .font(.custom("OpenSans-Regular", size: 12))
+                            .font(AMENFont.regular(12))
                             .foregroundStyle(.blue)
                     }
                 }
@@ -460,12 +468,12 @@ struct ChurchProfileView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(dayName(service.dayOfWeek))
-                                .font(.custom("OpenSans-SemiBold", size: 15))
+                                .font(AMENFont.semiBold(15))
                                 .foregroundStyle(.primary)
 
                             if let serviceType = service.serviceType {
                                 Text(serviceType)
-                                    .font(.custom("OpenSans-Regular", size: 13))
+                                    .font(AMENFont.regular(13))
                                     .foregroundStyle(.secondary)
                             }
                         }
@@ -474,7 +482,7 @@ struct ChurchProfileView: View {
 
                         HStack(spacing: 10) {
                             Text(service.time)
-                                .font(.custom("OpenSans-Bold", size: 15))
+                                .font(AMENFont.bold(15))
                                 .foregroundStyle(.blue)
 
                             // Calendar conflict indicator (Feature 03)
@@ -499,7 +507,7 @@ struct ChurchProfileView: View {
                                             .font(.system(size: 14))
                                         Text(serviceModeActive && selectedServiceForMode == service
                                              ? "End" : "Start")
-                                            .font(.custom("OpenSans-SemiBold", size: 12))
+                                            .font(AMENFont.semiBold(12))
                                     }
                                     .foregroundStyle(serviceModeActive && selectedServiceForMode == service
                                                     ? Color.red : Color.primary)
@@ -519,8 +527,9 @@ struct ChurchProfileView: View {
                         }
                     }
                     .padding(16)
-                    .background(Color(.secondarySystemBackground))
-                    .cornerRadius(12)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 8, y: 3)
                 }
                 .padding(.horizontal, 20)
             }
@@ -605,7 +614,7 @@ struct ChurchProfileView: View {
     private func tipsSection(_ tips: [ChurchTip]) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Visitor Tips")
-                .font(.custom("OpenSans-Bold", size: 18))
+                .font(AMENFont.bold(18))
                 .padding(.horizontal, 20)
             
             ForEach(tips) { tip in
@@ -643,7 +652,7 @@ struct ChurchTipCard: View {
                 }
                 
                 Text(tip.authorName)
-                    .font(.custom("OpenSans-SemiBold", size: 14))
+                    .font(AMENFont.semiBold(14))
                     .foregroundStyle(.primary)
                 
                 Spacer()
@@ -654,7 +663,7 @@ struct ChurchTipCard: View {
                         .font(.system(size: 10))
                     
                     Text(tip.category.displayName)
-                        .font(.custom("OpenSans-Regular", size: 11))
+                        .font(AMENFont.regular(11))
                 }
                 .foregroundStyle(.blue)
                 .padding(.horizontal, 8)
@@ -665,7 +674,7 @@ struct ChurchTipCard: View {
             
             // Tip content
             Text(tip.content)
-                .font(.custom("OpenSans-Regular", size: 14))
+                .font(AMENFont.regular(14))
                 .foregroundStyle(.primary)
                 .fixedSize(horizontal: false, vertical: true)
             
@@ -676,14 +685,15 @@ struct ChurchTipCard: View {
                         .font(.system(size: 12))
                     
                     Text("Helpful (\(tip.helpfulCount))")
-                        .font(.custom("OpenSans-Regular", size: 12))
+                        .font(AMENFont.regular(12))
                 }
                 .foregroundStyle(tip.isHelpful ? .blue : .secondary)
             }
         }
         .padding(16)
-        .background(Color(.secondarySystemBackground))
-        .cornerRadius(12)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.04), radius: 8, y: 3)
         .padding(.horizontal, 20)
     }
 }
@@ -914,7 +924,7 @@ struct ChurchVibeView: View {
             } else if mgr.hasData {
                 VStack(alignment: .leading, spacing: 12) {
                     Label("Community Vibe", systemImage: "heart.text.square")
-                        .font(.custom("OpenSans-Bold", size: 16))
+                        .font(AMENFont.bold(16))
 
                     VStack(spacing: 8) {
                         vibeMeter(label: "Warmth", value: mgr.warmth)
@@ -944,7 +954,7 @@ struct ChurchVibeView: View {
     private func vibeMeter(label: String, value: Int) -> some View {
         HStack(spacing: 10) {
             Text(label)
-                .font(.custom("OpenSans-Regular", size: 13))
+                .font(AMENFont.regular(13))
                 .foregroundStyle(.secondary)
                 .frame(width: 100, alignment: .leading)
             ProgressView(value: Double(value), total: 100)
@@ -1050,9 +1060,9 @@ struct PlanMyVisitView: View {
                     // Church header
                     VStack(spacing: 4) {
                         Text(churchName)
-                            .font(.custom("OpenSans-Bold", size: 22))
+                            .font(AMENFont.bold(22))
                         Text(churchAddress)
-                            .font(.custom("OpenSans-Regular", size: 14))
+                            .font(AMENFont.regular(14))
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
                     }
@@ -1078,7 +1088,7 @@ struct PlanMyVisitView: View {
                                               serviceLabel: selectedService, serviceDate: selectedDate)
                             } label: {
                                 Label("Plan My Visit", systemImage: "calendar.badge.plus")
-                                    .font(.custom("OpenSans-SemiBold", size: 16))
+                                    .font(AMENFont.semiBold(16))
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 14)
                                     .background(Color.orange)
@@ -1138,9 +1148,9 @@ struct PlanMyVisitView: View {
                 }
             }
             VStack(alignment: .leading, spacing: 2) {
-                Text(label).font(.custom("OpenSans-SemiBold", size: 14))
+                Text(label).font(AMENFont.semiBold(14))
                     .foregroundStyle(done ? .primary : .secondary)
-                Text(sub).font(.custom("OpenSans-Regular", size: 12)).foregroundStyle(.secondary)
+                Text(sub).font(AMENFont.regular(12)).foregroundStyle(.secondary)
             }
         }
         .animation(.easeInOut(duration: 0.4), value: done)

@@ -1,0 +1,160 @@
+//
+//  CacheManager.swift
+//  AMENAPP
+//
+//  Manages caching for API responses - offline support
+//
+
+import Foundation
+
+// MARK: - Data Models
+
+struct DailyVerse: Codable {
+    let text: String
+    let reference: String
+}
+
+// MARK: - Cache Manager
+
+class CacheManager {
+    static let shared = CacheManager()
+    
+    private let userDefaults = UserDefaults.standard
+    private let fileManager = FileManager.default
+    
+    private init() {}
+    
+    // MARK: - Cache Keys
+    
+    private enum CacheKey {
+        static let dailyVerse = "cached_daily_verse"
+        static let dailyVerseDate = "cached_daily_verse_date"
+        static let bibleBooks = "cached_bible_books"
+        static let bookmarkedArticles = "bookmarked_articles"
+        static let bookmarkedBooks = "bookmarked_books"
+    }
+    
+    // MARK: - Daily Verse Caching
+    
+    func saveDailyVerse(_ verse: DailyVerse) {
+        if let encoded = try? JSONEncoder().encode(verse) {
+            userDefaults.set(encoded, forKey: CacheKey.dailyVerse)
+            userDefaults.set(Date(), forKey: CacheKey.dailyVerseDate)
+        }
+    }
+    
+    func loadCachedDailyVerse() -> DailyVerse? {
+        // Check if we have a cached verse from today
+        guard let date = userDefaults.object(forKey: CacheKey.dailyVerseDate) as? Date,
+              Calendar.current.isDateInToday(date),
+              let data = userDefaults.data(forKey: CacheKey.dailyVerse),
+              let verse = try? JSONDecoder().decode(DailyVerse.self, from: data) else {
+            return nil
+        }
+        return verse
+    }
+    
+    func clearDailyVerseCache() {
+        userDefaults.removeObject(forKey: CacheKey.dailyVerse)
+        userDefaults.removeObject(forKey: CacheKey.dailyVerseDate)
+    }
+    
+    // MARK: - Books Caching
+    
+    func saveBooks(_ books: [BookResult], forQuery query: String) {
+        let cacheKey = "books_\(query.lowercased().replacingOccurrences(of: " ", with: "_"))"
+        
+        if let encoded = try? JSONEncoder().encode(books) {
+            userDefaults.set(encoded, forKey: cacheKey)
+            userDefaults.set(Date(), forKey: "\(cacheKey)_date")
+        }
+    }
+    
+    func loadCachedBooks(forQuery query: String) -> [BookResult]? {
+        let cacheKey = "books_\(query.lowercased().replacingOccurrences(of: " ", with: "_"))"
+        
+        // Cache expires after 7 days
+        guard let date = userDefaults.object(forKey: "\(cacheKey)_date") as? Date,
+              Date().timeIntervalSince(date) < 7 * 24 * 60 * 60,
+              let data = userDefaults.data(forKey: cacheKey),
+              let books = try? JSONDecoder().decode([BookResult].self, from: data) else {
+            return nil
+        }
+        return books
+    }
+    
+    // MARK: - Bookmarks
+    
+    func saveBookmark(articleTitle: String) {
+        var bookmarks = loadBookmarkedArticles()
+        if !bookmarks.contains(articleTitle) {
+            bookmarks.append(articleTitle)
+            userDefaults.set(bookmarks, forKey: CacheKey.bookmarkedArticles)
+        }
+    }
+    
+    func removeBookmark(articleTitle: String) {
+        var bookmarks = loadBookmarkedArticles()
+        bookmarks.removeAll { $0 == articleTitle }
+        userDefaults.set(bookmarks, forKey: CacheKey.bookmarkedArticles)
+    }
+    
+    func loadBookmarkedArticles() -> [String] {
+        userDefaults.stringArray(forKey: CacheKey.bookmarkedArticles) ?? []
+    }
+    
+    func isArticleBookmarked(_ title: String) -> Bool {
+        loadBookmarkedArticles().contains(title)
+    }
+    
+    // MARK: - Book Bookmarks
+    
+    func saveBookBookmark(_ book: BookResult) {
+        var bookmarks = loadBookmarkedBooks()
+        if !bookmarks.contains(where: { $0.title == book.title }) {
+            bookmarks.append(book)
+            if let encoded = try? JSONEncoder().encode(bookmarks) {
+                userDefaults.set(encoded, forKey: CacheKey.bookmarkedBooks)
+            }
+        }
+    }
+    
+    func removeBookBookmark(_ bookTitle: String) {
+        var bookmarks = loadBookmarkedBooks()
+        bookmarks.removeAll { $0.title == bookTitle }
+        if let encoded = try? JSONEncoder().encode(bookmarks) {
+            userDefaults.set(encoded, forKey: CacheKey.bookmarkedBooks)
+        }
+    }
+    
+    func loadBookmarkedBooks() -> [BookResult] {
+        guard let data = userDefaults.data(forKey: CacheKey.bookmarkedBooks),
+              let books = try? JSONDecoder().decode([BookResult].self, from: data) else {
+            return []
+        }
+        return books
+    }
+    
+    func isBookBookmarked(_ title: String) -> Bool {
+        loadBookmarkedBooks().contains(where: { $0.title == title })
+    }
+    
+    // MARK: - Clear All Cache
+    
+    func clearAllCache() {
+        clearDailyVerseCache()
+        userDefaults.removeObject(forKey: CacheKey.bookmarkedArticles)
+        userDefaults.removeObject(forKey: CacheKey.bookmarkedBooks)
+    }
+}
+
+// MARK: - Book Search Result (used by CacheManager)
+
+struct BookResult: Codable {
+    var title: String
+    var authors: [String]
+    var description: String
+    var imageURL: String?
+    var purchaseLink: String?
+}
+

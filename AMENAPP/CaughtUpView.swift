@@ -11,6 +11,17 @@
 
 import SwiftUI
 
+// MARK: - Notification names for CaughtUpCard redirect actions
+
+extension Notification.Name {
+    /// Posted when the user taps "Pray" on the CaughtUpCard.
+    /// HomeView observes this to switch the feed category to Prayer.
+    static let caughtUpOpenPrayer = Notification.Name("caughtUpOpenPrayer")
+    /// Posted when the user taps "Ask Berean" on the CaughtUpCard.
+    /// HomeView observes this to open the Berean assistant sheet.
+    static let caughtUpOpenBerean = Notification.Name("caughtUpOpenBerean")
+}
+
 // MARK: - Reflection prompts (shown 30% of the time)
 
 private let reflectionPrompts: [String] = [
@@ -41,9 +52,13 @@ struct CaughtUpCard: View {
 
             // Main text
             VStack(spacing: 8) {
-                Text("You're All Caught Up")
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundStyle(.primary)
+                MaskedSlideUpText(
+                    "You're All Caught Up",
+                    font: .system(size: 20, weight: .bold),
+                    color: Color(.label),
+                    delay: 0.12
+                )
+                .multilineTextAlignment(.center)
 
                 Text("You've seen all new posts from the past 3 days.")
                     .font(.system(size: 14))
@@ -57,6 +72,41 @@ struct CaughtUpCard: View {
             if let prompt = reflectionPrompt {
                 reflectionCard(prompt)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+
+            // Redirect action buttons — post NotificationCenter events observed by HomeView
+            HStack(spacing: 10) {
+                Button {
+                    NotificationCenter.default.post(name: .caughtUpOpenPrayer, object: nil)
+                } label: {
+                    Label("Pray", systemImage: "hands.sparkles.fill")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Color(red: 0.35, green: 0.50, blue: 0.95))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 9)
+                        .background(
+                            Capsule()
+                                .fill(Color(red: 0.35, green: 0.50, blue: 0.95).opacity(0.10))
+                                .overlay(Capsule().strokeBorder(Color(red: 0.35, green: 0.50, blue: 0.95).opacity(0.25), lineWidth: 1))
+                        )
+                }
+                .buttonStyle(CaughtUpPressStyle())
+
+                Button {
+                    NotificationCenter.default.post(name: .caughtUpOpenBerean, object: nil)
+                } label: {
+                    Label("Ask Berean", systemImage: "sparkles")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Color(red: 0.55, green: 0.30, blue: 0.90))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 9)
+                        .background(
+                            Capsule()
+                                .fill(Color(red: 0.55, green: 0.30, blue: 0.90).opacity(0.10))
+                                .overlay(Capsule().strokeBorder(Color(red: 0.55, green: 0.30, blue: 0.90).opacity(0.25), lineWidth: 1))
+                        )
+                }
+                .buttonStyle(CaughtUpPressStyle())
             }
 
             // CTA

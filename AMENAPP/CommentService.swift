@@ -103,30 +103,45 @@ class CommentService: ObservableObject {
             return true
         }
         
-        // Check comment permissions
+        // Check comment permissions (legacy field — kept for backward compat)
         let permissions = post.commentPermissions ?? .everyone
-        
         switch permissions {
         case .everyone:
-            return true
-            
+            break  // fall through to replyPermission check
         case .following:
-            // "Following only": current user must follow the post author to comment.
-            // isFollowing(userId:) returns true when current user is following that userId.
-            return await FollowService.shared.isFollowing(userId: post.authorId)
-
+            guard await FollowService.shared.isFollowing(userId: post.authorId) else { return false }
         case .mentioned:
-            // "Mentioned only": current user must be mentioned in the post by @username.
-            // We compare @username (not UID) because post text uses handles, not auth UIDs.
             guard let profile = try? await userService.fetchUserProfile(userId: currentUserId),
-                  !profile.username.isEmpty else {
+                  !profile.username.isEmpty else { return false }
+            let mentions = extractMentions(from: post.content)
+            guard mentions.contains(where: { $0.lowercased() == "@\(profile.username.lowercased())" }) else {
                 return false
             }
-            let mentions = extractMentions(from: post.content)
-            return mentions.contains { $0.lowercased() == "@\(profile.username.lowercased())" }
-            
         case .off:
             return false
+        }
+
+        // Check reply permission (Feature 1 — finer-grained than commentPermissions)
+        let replyPerm = post.replyPermission ?? .everyone
+        switch replyPerm {
+        case .everyone:
+            return true
+
+        case .followers:
+            // Current user must be followed by the author, OR must follow the author.
+            // Interpretation: "followers" = people who follow the post author.
+            return await FollowService.shared.isFollowing(userId: post.authorId)
+
+        case .mutuals:
+            // Both users must follow each other (mutual follow).
+            let state = await FollowStateManager.shared.getState(for: post.authorId)
+            return state == .mutualFollow
+
+        case .mentioned:
+            guard let profile = try? await userService.fetchUserProfile(userId: currentUserId),
+                  !profile.username.isEmpty else { return false }
+            let mentions = extractMentions(from: post.content)
+            return mentions.contains { $0.lowercased() == "@\(profile.username.lowercased())" }
         }
     }
     
@@ -766,12 +781,25 @@ class CommentService: ObservableObject {
         return replies
     }
     
-    /// Fetch all comments by a specific user
+    /// Fetch all comments by a specific user across all posts.
+    /// Requires a Firestore composite index on collectionGroup "comments":
+    ///   userId ASC, createdAt DESC
     func fetchUserComments(userId: String, limit: Int = 50) async throws -> [Comment] {
         dlog("📥 Fetching comments for user: \(userId)")
         
-        // Would need to query across all posts - not implemented yet
-        return []
+        let db = Firestore.firestore()
+        let snap = try await db
+            .collectionGroup("comments")
+            .whereField("userId", isEqualTo: userId)
+            .order(by: "createdAt", descending: true)
+            .limit(to: limit)
+            .getDocuments()
+
+        let fetched: [Comment] = snap.documents.compactMap { doc in
+            try? doc.data(as: Comment.self)
+        }
+        dlog("✅ Fetched \(fetched.count) comments for user: \(userId)")
+        return fetched
     }
     
     /// Fetch comments with nested replies

@@ -134,11 +134,11 @@ final class BereanShieldService: ObservableObject {
         let payload: [String: Any] = ["claim": trimmed]
 
         do {
-            let result = try await functions
-                .httpsCallable("bereanShieldAnalyze")
-                .safeCall(payload)
+            let callable = functions.httpsCallable("bereanShieldAnalyze")
+            let result = try await callable.safeCall(payload)
 
             guard let data = result.data as? [String: Any] else {
+                print("[BereanShield] Parse error: result.data is not a dictionary")
                 throw ShieldAnalysisError.parseError
             }
 
@@ -147,9 +147,11 @@ final class BereanShieldService: ObservableObject {
             return analysis
 
         } catch let error as ShieldAnalysisError {
+            print("[BereanShield] Shield error: \(error.localizedDescription)")
             lastError = error
             throw error
         } catch {
+            print("[BereanShield] Function error: \(error)")
             let wrapped = ShieldAnalysisError.functionError(error.localizedDescription)
             lastError = wrapped
             throw wrapped

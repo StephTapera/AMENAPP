@@ -34,9 +34,9 @@ struct BiometricSettingRow: View {
                     
                     VStack(alignment: .leading, spacing: 4) {
                         Text(biometricService.biometricType.displayName)
-                            .font(.custom("OpenSans-SemiBold", size: 15))
+                            .font(AMENFont.semiBold(15))
                         Text(biometricService.isBiometricEnabled ? "Enabled for quick sign-in" : "Tap to enable")
-                            .font(.custom("OpenSans-Regular", size: 13))
+                            .font(AMENFont.regular(13))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -110,9 +110,9 @@ struct SundayChurchFocusSettingRow: View {
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Shabbat Mode")
-                        .font(.custom("OpenSans-SemiBold", size: 15))
+                        .font(AMENFont.semiBold(15))
                     Text("Sundays 6am - 4pm · Focus on worship")
-                        .font(.custom("OpenSans-Regular", size: 13))
+                        .font(AMENFont.regular(13))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -132,9 +132,32 @@ struct AccountSettingsView: View {
     @State private var showChangeEmail = false
     @State private var showChangePassword = false
     @State private var showDeleteAccount = false
+    @State private var showDeactivateAccount = false
     @State private var showPrivacyDashboard = false
     @State private var isPrivateAccount = false
     @State private var isTogglingPrivacy = false
+
+    // AMEN-specific content privacy
+    @State private var prayerRequestsVisibility: String = "followers"   // "everyone" | "followers" | "only_me"
+    @State private var testimoniesVisibility: String = "followers"
+    @State private var isSavingPrivacy = false
+
+    // Interaction controls
+    @State private var mentionPermission: String = "everyone"   // "everyone" | "following" | "nobody"
+    @State private var replyPermission: String   = "everyone"   // "everyone" | "following" | "nobody"
+
+    // Content preferences
+    @State private var filterMatureContent = true
+    @State private var showFaithBasedSuggestions = true
+    @State private var autoPlayVideos = true
+
+    // App info
+    private var appVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
+    }
+    private var buildNumber: String {
+        Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "—"
+    }
 
     // Age / DOB (read-only, loaded from Firestore)
     @State private var birthYear: Int? = nil
@@ -147,357 +170,971 @@ struct AccountSettingsView: View {
     
     var body: some View {
         NavigationStack {
-            List {
-                Section {
-                    // Display Name
-                    Button {
-                        showChangeDisplayName = true
-                    } label: {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Display Name")
-                                    .font(.custom("OpenSans-SemiBold", size: 15))
-                                    .foregroundStyle(.primary)
-                                
-                                if let user = userService.currentUser {
-                                    Text(user.displayName)
-                                        .font(.custom("OpenSans-Regular", size: 13))
-                                        .foregroundStyle(.secondary)
-                                    
-                                    if let pending = user.pendingDisplayNameChange {
-                                        Text("Pending: \(pending)")
-                                            .font(.custom("OpenSans-Regular", size: 12))
-                                            .foregroundStyle(.orange)
-                                    }
-                                }
-                            }
-                            
-                            Spacer()
-                            
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                    
-                    // Username
-                    Button {
-                        showChangeUsername = true
-                    } label: {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Username")
-                                    .font(.custom("OpenSans-SemiBold", size: 15))
-                                    .foregroundStyle(.primary)
-                                
-                                if let user = userService.currentUser {
-                                    Text("@\(user.username)")
-                                        .font(.custom("OpenSans-Regular", size: 13))
-                                        .foregroundStyle(.secondary)
-                                    
-                                    if let pending = user.pendingUsernameChange {
-                                        Text("Pending: @\(pending)")
-                                            .font(.custom("OpenSans-Regular", size: 12))
-                                            .foregroundStyle(.orange)
-                                    }
-                                }
-                            }
-                            
-                            Spacer()
-                            
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                    
-                    // Email
-                    Button {
-                        showChangeEmail = true
-                    } label: {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Email")
-                                    .font(.custom("OpenSans-SemiBold", size: 15))
-                                    .foregroundStyle(.primary)
-                                
-                                if let user = userService.currentUser {
-                                    Text(user.email ?? "No email")
-                                        .font(.custom("OpenSans-Regular", size: 13))
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                            
-                            Spacer()
-                            
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .buttonStyle(PlainButtonStyle())
+            ScrollView {
+                VStack(spacing: 0) {
 
-                    // Date of Birth (read-only)
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Date of Birth")
-                                .font(.custom("OpenSans-SemiBold", size: 15))
-                                .foregroundStyle(.primary)
-
-                            if let year = birthYear {
-                                HStack(spacing: 6) {
-                                    Text("Born \(year)")
-                                        .font(.custom("OpenSans-Regular", size: 13))
-                                        .foregroundStyle(.secondary)
-                                    Text("·")
-                                        .foregroundStyle(.secondary)
-                                    Text(ageTierDisplayName)
-                                        .font(.custom("OpenSans-Regular", size: 13))
-                                        .foregroundStyle(.secondary)
-                                }
-                            } else {
-                                Text("Not set")
-                                    .font(.custom("OpenSans-Regular", size: 13))
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-
-                        Spacer()
-
-                        Image(systemName: "lock.fill")
-                            .font(.system(size: 12))
-                            .foregroundStyle(.tertiary)
-                    }
-                } header: {
+                    // MARK: — ACCOUNT INFORMATION
                     Text("ACCOUNT INFORMATION")
-                        .font(.custom("OpenSans-Bold", size: 12))
-                }
-                
-                Section {
-                    Button {
-                        showChangePassword = true
-                    } label: {
+                        .font(AMENFont.bold(11))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 24)
+                        .padding(.bottom, 8)
+
+                    VStack(spacing: 0) {
+                        // Display Name
+                        Button {
+                            showChangeDisplayName = true
+                        } label: {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Display Name")
+                                        .font(AMENFont.semiBold(15))
+                                        .foregroundStyle(.primary)
+
+                                    if let user = userService.currentUser {
+                                        Text(user.displayName)
+                                            .font(AMENFont.regular(13))
+                                            .foregroundStyle(.secondary)
+
+                                        if let pending = user.pendingDisplayNameChange {
+                                            Text("Pending: \(pending)")
+                                                .font(AMENFont.regular(12))
+                                                .foregroundStyle(.orange)
+                                        }
+                                    }
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+
+                        Divider().padding(.leading, 16)
+
+                        // Username
+                        Button {
+                            showChangeUsername = true
+                        } label: {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Username")
+                                        .font(AMENFont.semiBold(15))
+                                        .foregroundStyle(.primary)
+
+                                    if let user = userService.currentUser {
+                                        Text("@\(user.username)")
+                                            .font(AMENFont.regular(13))
+                                            .foregroundStyle(.secondary)
+
+                                        if let pending = user.pendingUsernameChange {
+                                            Text("Pending: @\(pending)")
+                                                .font(AMENFont.regular(12))
+                                                .foregroundStyle(.orange)
+                                        }
+                                    }
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+
+                        Divider().padding(.leading, 16)
+
+                        // Email
+                        Button {
+                            showChangeEmail = true
+                        } label: {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Email")
+                                        .font(AMENFont.semiBold(15))
+                                        .foregroundStyle(.primary)
+
+                                    if let user = userService.currentUser {
+                                        Text(user.email ?? "No email")
+                                            .font(AMENFont.regular(13))
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+
+                        Divider().padding(.leading, 16)
+
+                        // Date of Birth (read-only)
                         HStack {
-                            Image(systemName: "lock")
-                                .frame(width: 24)
-                            Text("Change Password")
-                                .font(.custom("OpenSans-Regular", size: 15))
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Date of Birth")
+                                    .font(AMENFont.semiBold(15))
+                                    .foregroundStyle(.primary)
+
+                                if let year = birthYear {
+                                    HStack(spacing: 6) {
+                                        Text("Born \(year)")
+                                            .font(AMENFont.regular(13))
+                                            .foregroundStyle(.secondary)
+                                        Text("·")
+                                            .foregroundStyle(.secondary)
+                                        Text(ageTierDisplayName)
+                                            .font(AMENFont.regular(13))
+                                            .foregroundStyle(.secondary)
+                                    }
+                                } else {
+                                    Text("Not set")
+                                        .font(AMENFont.regular(13))
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
                             Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(.secondary)
+                            Image(systemName: "lock.fill")
+                                .font(.system(size: 12))
+                                .foregroundStyle(.tertiary)
                         }
-                        .foregroundStyle(.primary)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
                     }
-                    .buttonStyle(PlainButtonStyle())
-                } header: {
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                    .padding(.horizontal, 16)
+
+                    // MARK: — SECURITY
                     Text("SECURITY")
-                        .font(.custom("OpenSans-Bold", size: 12))
-                }
-                
-                // ✅ Biometric Authentication & Account Linking
-                Section {
-                    BiometricSettingRow()
-                    
-                    NavigationLink(destination: AccountLinkingView()) {
-                        HStack {
-                            Image(systemName: "link.circle.fill")
-                                .frame(width: 24)
-                                .foregroundStyle(.blue)
-                            
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Linked Accounts")
-                                    .font(.custom("OpenSans-SemiBold", size: 15))
-                                Text("Manage sign-in methods")
-                                    .font(.custom("OpenSans-Regular", size: 13))
+                        .font(AMENFont.bold(11))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 24)
+                        .padding(.bottom, 8)
+
+                    VStack(spacing: 0) {
+                        Button {
+                            showChangePassword = true
+                        } label: {
+                            HStack {
+                                Image(systemName: "lock")
+                                    .frame(width: 24)
+                                Text("Change Password")
+                                    .font(AMENFont.regular(15))
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 12, weight: .semibold))
                                     .foregroundStyle(.secondary)
                             }
+                            .foregroundStyle(.primary)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
                         }
+                        .buttonStyle(PlainButtonStyle())
                     }
-                    
-                    NavigationLink(destination: ActiveSessionsView()) {
-                        HStack {
-                            Image(systemName: "iphone.and.arrow.forward")
-                                .frame(width: 24)
-                                .foregroundStyle(.purple)
-                            
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Active Sessions")
-                                    .font(.custom("OpenSans-SemiBold", size: 15))
-                                Text("View signed-in devices")
-                                    .font(.custom("OpenSans-Regular", size: 13))
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                    
-                    NavigationLink(destination: TwoFactorAuthView()) {
-                        HStack {
-                            Image(systemName: "lock.shield.fill")
-                                .frame(width: 24)
-                                .foregroundStyle(.orange)
-                            
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Two-Factor Authentication")
-                                    .font(.custom("OpenSans-SemiBold", size: 15))
-                                Text("Extra security with SMS")
-                                    .font(.custom("OpenSans-Regular", size: 13))
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                } header: {
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                    .padding(.horizontal, 16)
+
+                    // MARK: — AUTHENTICATION
                     Text("AUTHENTICATION")
-                        .font(.custom("OpenSans-Bold", size: 12))
-                }
-                
-                Section {
-                    // P0 FIX: Private Account Toggle
-                    Toggle(isOn: $isPrivateAccount) {
-                        HStack(spacing: 12) {
-                            Image(systemName: isPrivateAccount ? "lock.fill" : "lock.open.fill")
-                                .frame(width: 24)
-                                .foregroundStyle(isPrivateAccount ? .blue : .secondary)
-                            
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Private Account")
-                                    .font(.custom("OpenSans-SemiBold", size: 15))
-                                
-                                Text(isPrivateAccount ? "Only approved followers can see your posts" : "Anyone can see your posts")
-                                    .font(.custom("OpenSans-Regular", size: 13))
+                        .font(AMENFont.bold(11))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 24)
+                        .padding(.bottom, 8)
+
+                    VStack(spacing: 0) {
+                        BiometricSettingRow()
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+
+                        Divider().padding(.leading, 16)
+
+                        NavigationLink(destination: AccountLinkingView()) {
+                            HStack {
+                                Image(systemName: "link.circle.fill")
+                                    .frame(width: 24)
+                                    .foregroundStyle(.blue)
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Linked Accounts")
+                                        .font(AMENFont.semiBold(15))
+                                    Text("Manage sign-in methods")
+                                        .font(AMENFont.regular(13))
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 12, weight: .semibold))
                                     .foregroundStyle(.secondary)
                             }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
                         }
-                    }
-                    .tint(.blue)
-                    .disabled(isTogglingPrivacy)
-                    .onChange(of: isPrivateAccount) { oldValue, newValue in
-                        Task {
-                            await togglePrivateAccount(newValue: newValue)
+                        .buttonStyle(PlainButtonStyle())
+
+                        Divider().padding(.leading, 16)
+
+                        NavigationLink(destination: ActiveSessionsView()) {
+                            HStack {
+                                Image(systemName: "iphone.and.arrow.forward")
+                                    .frame(width: 24)
+                                    .foregroundStyle(.purple)
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Active Sessions")
+                                        .font(AMENFont.semiBold(15))
+                                    Text("View signed-in devices")
+                                        .font(AMENFont.regular(13))
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
                         }
-                    }
-                    
-                    NavigationLink(destination: ProfileVisibilitySettingsView()) {
-                        HStack {
-                            Image(systemName: "eye")
-                                .frame(width: 24)
-                            Text("Profile Visibility")
-                                .font(.custom("OpenSans-Regular", size: 15))
+                        .buttonStyle(PlainButtonStyle())
+
+                        Divider().padding(.leading, 16)
+
+                        NavigationLink(destination: TwoFactorAuthView()) {
+                            HStack {
+                                Image(systemName: "lock.shield.fill")
+                                    .frame(width: 24)
+                                    .foregroundStyle(.orange)
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Two-Factor Authentication")
+                                        .font(AMENFont.semiBold(15))
+                                    Text("Extra security with SMS")
+                                        .font(AMENFont.regular(13))
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
                         }
+                        .buttonStyle(PlainButtonStyle())
                     }
-                    
-                    // ✅ Privacy & Contact Controls
-                    NavigationLink(destination: PrivacyControlsSettingsView()) {
-                        HStack {
-                            Image(systemName: "hand.raised.fill")
-                                .frame(width: 24)
-                                .foregroundStyle(.blue)
-                            Text("Privacy & Contact")
-                                .font(.custom("OpenSans-Regular", size: 15))
-                        }
-                    }
-                } header: {
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                    .padding(.horizontal, 16)
+
+                    // MARK: — PRIVACY
                     Text("PRIVACY")
-                        .font(.custom("OpenSans-Bold", size: 12))
-                } footer: {
-                    Text(isPrivateAccount 
+                        .font(AMENFont.bold(11))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 24)
+                        .padding(.bottom, 8)
+
+                    VStack(spacing: 0) {
+                        // P0 FIX: Private Account Toggle
+                        Toggle(isOn: $isPrivateAccount) {
+                            HStack(spacing: 12) {
+                                Image(systemName: isPrivateAccount ? "lock.fill" : "lock.open.fill")
+                                    .frame(width: 24)
+                                    .foregroundStyle(isPrivateAccount ? .blue : .secondary)
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Private Account")
+                                        .font(AMENFont.semiBold(15))
+                                    Text(isPrivateAccount ? "Only approved followers can see your posts" : "Anyone can see your posts")
+                                        .font(AMENFont.regular(13))
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                        .tint(.blue)
+                        .disabled(isTogglingPrivacy)
+                        .onChange(of: isPrivateAccount) { oldValue, newValue in
+                            Task {
+                                await togglePrivateAccount(newValue: newValue)
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+
+                        Divider().padding(.leading, 16)
+
+                        NavigationLink(destination: ProfileVisibilitySettingsView()) {
+                            HStack {
+                                Image(systemName: "eye")
+                                    .frame(width: 24)
+                                Text("Profile Visibility")
+                                    .font(AMENFont.regular(15))
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+
+                        Divider().padding(.leading, 16)
+
+                        // Privacy & Contact Controls
+                        NavigationLink(destination: PrivacyControlsSettingsView()) {
+                            HStack {
+                                Image(systemName: "hand.raised.fill")
+                                    .frame(width: 24)
+                                    .foregroundStyle(.blue)
+                                Text("Privacy & Contact")
+                                    .font(AMENFont.regular(15))
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                    }
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                    .padding(.horizontal, 16)
+
+                    Text(isPrivateAccount
                         ? "When your account is private, only people you approve can follow you and see your posts. You'll receive follow requests that you can accept or decline."
                         : "Control who can message you, comment on your posts, and mention you")
-                        .font(.custom("OpenSans-Regular", size: 12))
-                }
-                
-                Section {
-                    Button {
-                        showPrivacyDashboard = true
-                    } label: {
-                        HStack {
-                            Image(systemName: "shield.checkered")
-                                .frame(width: 24)
-                                .foregroundStyle(.blue)
-                            Text("Privacy Dashboard")
-                                .font(.custom("OpenSans-SemiBold", size: 15))
-                                .foregroundStyle(.primary)
+                        .font(AMENFont.regular(12))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 8)
+                        .padding(.bottom, 4)
+
+                    // MARK: — INTERACTIONS
+                    Text("INTERACTIONS")
+                        .font(AMENFont.bold(11))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 24)
+                        .padding(.bottom, 8)
+
+                    VStack(spacing: 0) {
+                        // Who can mention me
+                        interactionPermissionRow(
+                            icon: "at",
+                            iconColor: .orange,
+                            title: "Who can mention me",
+                            current: mentionPermission
+                        ) { selected in
+                            mentionPermission = selected
+                            Task { await savePrivacySetting("mentionPermission", value: selected) }
+                        }
+
+                        Divider().padding(.leading, 16)
+
+                        // Who can reply to my posts
+                        interactionPermissionRow(
+                            icon: "arrowshape.turn.up.left.fill",
+                            iconColor: .blue,
+                            title: "Who can reply to my posts",
+                            current: replyPermission
+                        ) { selected in
+                            replyPermission = selected
+                            Task { await savePrivacySetting("replyPermission", value: selected) }
                         }
                     }
-                } header: {
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                    .padding(.horizontal, 16)
+
+                    Text("These settings apply to people who aren't blocked. Followers-only settings apply even on public accounts.")
+                        .font(AMENFont.regular(12))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 8)
+                        .padding(.bottom, 4)
+
+                    // MARK: — PRIVACY & DATA
                     Text("PRIVACY & DATA")
-                        .font(.custom("OpenSans-Bold", size: 12))
-                }
-                
-                // ✅ Sunday Church Focus Mode Setting
-                Section {
-                    SundayChurchFocusSettingRow()
-                } header: {
-                    Text("CHURCH FOCUS")
-                        .font(.custom("OpenSans-Bold", size: 12))
-                } footer: {
-                    Text("When enabled, social features are limited on Sundays from 6:00 AM - 4:00 PM to encourage church focus. Church Notes and Find a Church remain available.")
-                        .font(.custom("OpenSans-Regular", size: 12))
-                }
-                
-                // Translation & Language
-                Section {
-                    NavigationLink(destination: TranslationSettingsView()) {
-                        HStack {
-                            Image(systemName: "globe")
-                                .frame(width: 24)
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Translation & Language")
-                                    .font(.custom("OpenSans-SemiBold", size: 15))
-                                Text(TranslationSettingsManager.shared.preferences.contentTranslationMode.displayLabel)
-                                    .font(.custom("OpenSans-Regular", size: 13))
+                        .font(AMENFont.bold(11))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 24)
+                        .padding(.bottom, 8)
+
+                    VStack(spacing: 0) {
+                        Button {
+                            showPrivacyDashboard = true
+                        } label: {
+                            HStack {
+                                Image(systemName: "shield.checkered")
+                                    .frame(width: 24)
+                                    .foregroundStyle(.blue)
+                                Text("Privacy Dashboard")
+                                    .font(AMENFont.semiBold(15))
+                                    .foregroundStyle(.primary)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 12, weight: .semibold))
                                     .foregroundStyle(.secondary)
                             }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
                         }
+                        .buttonStyle(PlainButtonStyle())
                     }
-                } header: {
-                    Text("LANGUAGE")
-                        .font(.custom("OpenSans-Bold", size: 12))
-                }
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                    .padding(.horizontal, 16)
 
-                // ✅ Scroll Budget & Wellbeing Controls
-                Section {
-                    NavigationLink(destination: ScrollBudgetSettingsView()) {
-                        HStack {
-                            Image(systemName: "hourglass")
-                                .frame(width: 24)
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Scroll Budget")
-                                    .font(.custom("OpenSans-SemiBold", size: 15))
-                                if ScrollBudgetManager.shared.isEnabled {
-                                    Text("\(ScrollBudgetManager.shared.dailyBudgetMinutes) min daily")
-                                        .font(.custom("OpenSans-Regular", size: 13))
+                    // MARK: — CHURCH FOCUS
+                    Text("CHURCH FOCUS")
+                        .font(AMENFont.bold(11))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 24)
+                        .padding(.bottom, 8)
+
+                    VStack(spacing: 0) {
+                        SundayChurchFocusSettingRow()
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                    }
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                    .padding(.horizontal, 16)
+
+                    Text("When enabled, social features are limited on Sundays from 6:00 AM - 4:00 PM to encourage church focus. Church Notes and Find a Church remain available.")
+                        .font(AMENFont.regular(12))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 8)
+                        .padding(.bottom, 4)
+
+                    // MARK: — LANGUAGE
+                    Text("LANGUAGE")
+                        .font(AMENFont.bold(11))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 24)
+                        .padding(.bottom, 8)
+
+                    VStack(spacing: 0) {
+                        NavigationLink(destination: TranslationSettingsView()) {
+                            HStack {
+                                Image(systemName: "globe")
+                                    .frame(width: 24)
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Translation & Language")
+                                        .font(AMENFont.semiBold(15))
+                                    Text(TranslationSettingsManager.shared.preferences.contentTranslationMode.displayLabel)
+                                        .font(AMENFont.regular(13))
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                    }
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                    .padding(.horizontal, 16)
+
+                    // MARK: — WELLBEING
+                    Text("WELLBEING")
+                        .font(AMENFont.bold(11))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 24)
+                        .padding(.bottom, 8)
+
+                    VStack(spacing: 0) {
+                        NavigationLink(destination: ScrollBudgetSettingsView()) {
+                            HStack {
+                                Image(systemName: "hourglass")
+                                    .frame(width: 24)
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Scroll Budget")
+                                        .font(AMENFont.semiBold(15))
+                                    if ScrollBudgetManager.shared.isEnabled {
+                                        Text("\(ScrollBudgetManager.shared.dailyBudgetMinutes) min daily")
+                                            .font(AMENFont.regular(13))
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                    }
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                    .padding(.horizontal, 16)
+
+                    Text("Set daily limits for feed scrolling time with supportive nudges and mindful breaks.")
+                        .font(AMENFont.regular(12))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 8)
+                        .padding(.bottom, 4)
+
+                    // MARK: — NOTIFICATIONS
+                    Text("NOTIFICATIONS")
+                        .font(AMENFont.bold(11))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 24)
+                        .padding(.bottom, 8)
+
+                    VStack(spacing: 0) {
+                        NavigationLink(destination: NotificationsSettingsView()) {
+                            HStack(spacing: 12) {
+                                Image(systemName: "bell.badge.fill")
+                                    .frame(width: 24)
+                                    .foregroundStyle(.red)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text("Notifications")
+                                        .font(AMENFont.semiBold(15))
+                                    Text("Push, email & in-app alerts")
+                                        .font(AMENFont.regular(13))
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                    }
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                    .padding(.horizontal, 16)
+
+                    // MARK: — AMEN PRIVACY
+                    Text("AMEN PRIVACY")
+                        .font(AMENFont.bold(11))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 24)
+                        .padding(.bottom, 8)
+
+                    VStack(spacing: 0) {
+                        // Who can see Prayer Requests
+                        Picker(selection: $prayerRequestsVisibility) {
+                            Text("Everyone").tag("everyone")
+                            Text("Followers").tag("followers")
+                            Text("Only Me").tag("only_me")
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: "hands.sparkles.fill")
+                                    .frame(width: 24)
+                                    .foregroundStyle(Color(red: 0.4, green: 0.25, blue: 0.8))
+                                Text("Who Can See Prayer Requests")
+                                    .font(AMENFont.semiBold(15))
+                            }
+                        }
+                        .onChange(of: prayerRequestsVisibility) { _, val in
+                            Task { await savePrivacySetting("prayerRequestsVisibility", value: val) }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+
+                        Divider().padding(.leading, 16)
+
+                        // Who can see Testimonies
+                        Picker(selection: $testimoniesVisibility) {
+                            Text("Everyone").tag("everyone")
+                            Text("Followers").tag("followers")
+                            Text("Only Me").tag("only_me")
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: "text.badge.star")
+                                    .frame(width: 24)
+                                    .foregroundStyle(Color(red: 0.9, green: 0.55, blue: 0.1))
+                                Text("Who Can See Testimonies")
+                                    .font(AMENFont.semiBold(15))
+                            }
+                        }
+                        .onChange(of: testimoniesVisibility) { _, val in
+                            Task { await savePrivacySetting("testimoniesVisibility", value: val) }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+                    }
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                    .padding(.horizontal, 16)
+
+                    Text("Control who can see your spiritual content. Changes apply to new posts and existing ones.")
+                        .font(AMENFont.regular(12))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 8)
+                        .padding(.bottom, 4)
+
+                    // MARK: — CONTENT PREFERENCES
+                    Text("CONTENT PREFERENCES")
+                        .font(AMENFont.bold(11))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 24)
+                        .padding(.bottom, 8)
+
+                    VStack(spacing: 0) {
+                        Toggle(isOn: $filterMatureContent) {
+                            HStack(spacing: 12) {
+                                Image(systemName: "shield.fill")
+                                    .frame(width: 24)
+                                    .foregroundStyle(.blue)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text("Filter Mature Content")
+                                        .font(AMENFont.semiBold(15))
+                                    Text("Hide potentially sensitive posts")
+                                        .font(AMENFont.regular(13))
                                         .foregroundStyle(.secondary)
                                 }
                             }
                         }
-                    }
-                } header: {
-                    Text("WELLBEING")
-                        .font(.custom("OpenSans-Bold", size: 12))
-                } footer: {
-                    Text("Set daily limits for feed scrolling time with supportive nudges and mindful breaks.")
-                        .font(.custom("OpenSans-Regular", size: 12))
-                }
-                
-                Section {
-                    Button(role: .destructive) {
-                        showDeleteAccount = true
-                    } label: {
-                        HStack {
-                            Image(systemName: "trash")
-                                .frame(width: 24)
-                            Text("Delete Account")
-                                .font(.custom("OpenSans-SemiBold", size: 15))
+                        .tint(.blue)
+                        .onChange(of: filterMatureContent) { _, val in
+                            Task { await savePreference("filterMatureContent", value: val) }
                         }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+
+                        Divider().padding(.leading, 16)
+
+                        Toggle(isOn: $showFaithBasedSuggestions) {
+                            HStack(spacing: 12) {
+                                Image(systemName: "sparkles")
+                                    .frame(width: 24)
+                                    .foregroundStyle(Color(red: 0.5, green: 0.3, blue: 0.9))
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text("Faith-Based Suggestions")
+                                        .font(AMENFont.semiBold(15))
+                                    Text("Personalized scripture & community")
+                                        .font(AMENFont.regular(13))
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                        .tint(Color(red: 0.5, green: 0.3, blue: 0.9))
+                        .onChange(of: showFaithBasedSuggestions) { _, val in
+                            Task { await savePreference("faithSuggestions", value: val) }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+
+                        Divider().padding(.leading, 16)
+
+                        Toggle(isOn: $autoPlayVideos) {
+                            HStack(spacing: 12) {
+                                Image(systemName: "play.circle.fill")
+                                    .frame(width: 24)
+                                    .foregroundStyle(.green)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text("Auto-Play Videos")
+                                        .font(AMENFont.semiBold(15))
+                                    Text("Play videos without tapping")
+                                        .font(AMENFont.regular(13))
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                        .tint(.green)
+                        .onChange(of: autoPlayVideos) { _, val in
+                            Task { await savePreference("autoPlayVideos", value: val) }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
                     }
-                } header: {
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                    .padding(.horizontal, 16)
+
+                    // MARK: — DATA & PERMISSIONS
+                    Text("DATA & PERMISSIONS")
+                        .font(AMENFont.bold(11))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 24)
+                        .padding(.bottom, 8)
+
+                    VStack(spacing: 0) {
+                        Button {
+                            exportUserData()
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: "square.and.arrow.up")
+                                    .frame(width: 24)
+                                    .foregroundStyle(.blue)
+                                Text("Export My Data")
+                                    .font(AMENFont.regular(15))
+                                    .foregroundStyle(.primary)
+                                Spacer()
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+
+                        Divider().padding(.leading, 16)
+
+                        Button {
+                            clearCache()
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: "arrow.triangle.2.circlepath")
+                                    .frame(width: 24)
+                                    .foregroundStyle(.orange)
+                                Text("Clear App Cache")
+                                    .font(AMENFont.regular(15))
+                                    .foregroundStyle(.primary)
+                                Spacer()
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+
+                        Divider().padding(.leading, 16)
+
+                        NavigationLink(destination: PrivacyControlsSettingsView()) {
+                            HStack(spacing: 12) {
+                                Image(systemName: "hand.raised.fill")
+                                    .frame(width: 24)
+                                    .foregroundStyle(.indigo)
+                                Text("Data & Privacy Controls")
+                                    .font(AMENFont.regular(15))
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                    }
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                    .padding(.horizontal, 16)
+
+                    Text("Your data belongs to you. Export a copy or manage how AMEN uses your information.")
+                        .font(AMENFont.regular(12))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 8)
+                        .padding(.bottom, 4)
+
+                    // MARK: — ABOUT
+                    Text("ABOUT")
+                        .font(AMENFont.bold(11))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 24)
+                        .padding(.bottom, 8)
+
+                    VStack(spacing: 0) {
+                        HStack {
+                            Image(systemName: "info.circle.fill")
+                                .frame(width: 24)
+                                .foregroundStyle(.secondary)
+                            Text("Version")
+                                .font(AMENFont.regular(15))
+                            Spacer()
+                            Text("\(appVersion) (\(buildNumber))")
+                                .font(AMENFont.regular(14))
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+
+                        Divider().padding(.leading, 16)
+
+                        Button {
+                            if let url = URL(string: "https://amenapp.com/terms") {
+                                UIApplication.shared.open(url)
+                            }
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: "doc.text")
+                                    .frame(width: 24)
+                                    .foregroundStyle(.secondary)
+                                Text("Terms of Service")
+                                    .font(AMENFont.regular(15))
+                                    .foregroundStyle(.primary)
+                                Spacer()
+                                Image(systemName: "arrow.up.right")
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+
+                        Divider().padding(.leading, 16)
+
+                        Button {
+                            if let url = URL(string: "https://amenapp.com/privacy") {
+                                UIApplication.shared.open(url)
+                            }
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: "lock.doc.fill")
+                                    .frame(width: 24)
+                                    .foregroundStyle(.secondary)
+                                Text("Privacy Policy")
+                                    .font(AMENFont.regular(15))
+                                    .foregroundStyle(.primary)
+                                Spacer()
+                                Image(systemName: "arrow.up.right")
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+
+                        Divider().padding(.leading, 16)
+
+                        Button {
+                            if let url = URL(string: "itms-apps://itunes.apple.com/app/id0000000000?action=write-review") {
+                                UIApplication.shared.open(url)
+                            }
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: "star.fill")
+                                    .frame(width: 24)
+                                    .foregroundStyle(.yellow)
+                                Text("Rate AMEN")
+                                    .font(AMENFont.regular(15))
+                                    .foregroundStyle(.primary)
+                                Spacer()
+                                Image(systemName: "arrow.up.right")
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                    }
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                    .padding(.horizontal, 16)
+
+                    // MARK: — DANGER ZONE
                     Text("DANGER ZONE")
-                        .font(.custom("OpenSans-Bold", size: 12))
+                        .font(AMENFont.bold(11))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 24)
+                        .padding(.bottom, 8)
+
+                    VStack(spacing: 0) {
+                        // Deactivate (temporary — 30-day reversible)
+                        Button {
+                            showDeactivateAccount = true
+                        } label: {
+                            HStack {
+                                Image(systemName: "pause.circle")
+                                    .frame(width: 24)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Deactivate Account")
+                                        .font(AMENFont.semiBold(15))
+                                    Text("Temporarily hide your profile · reversible for 30 days")
+                                        .font(AMENFont.regular(12))
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            .foregroundStyle(.orange)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+
+                        Divider().padding(.leading, 56)
+
+                        // Delete (permanent)
+                        Button {
+                            showDeleteAccount = true
+                        } label: {
+                            HStack {
+                                Image(systemName: "trash")
+                                    .frame(width: 24)
+                                Text("Delete Account")
+                                    .font(AMENFont.semiBold(15))
+                            }
+                            .foregroundStyle(.red)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                    }
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                    .padding(.horizontal, 16)
+
+                    Spacer(minLength: 32)
                 }
             }
+            .background(Color(.systemGroupedBackground).ignoresSafeArea())
             .navigationTitle("Account Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -505,7 +1142,7 @@ struct AccountSettingsView: View {
                     Button("Done") {
                         dismiss()
                     }
-                    .font(.custom("OpenSans-SemiBold", size: 16))
+                    .font(AMENFont.semiBold(16))
                 }
             }
             .sheet(isPresented: $showChangeDisplayName) {
@@ -520,6 +1157,9 @@ struct AccountSettingsView: View {
             .sheet(isPresented: $showChangePassword) {
                 ChangePasswordView()
             }
+            .sheet(isPresented: $showDeactivateAccount) {
+                AccountDeactivationView()
+            }
             .sheet(isPresented: $showDeleteAccount) {
                 DeleteAccountView()
             }
@@ -531,13 +1171,68 @@ struct AccountSettingsView: View {
                     await userService.fetchCurrentUser()
                     await loadPrivateAccountStatus()
                     await loadAgeInfo()
+                    await loadAMENPrivacySettings()
+                    await loadContentPreferences()
                 }
             }
         }
     }
     
+    // MARK: - Interaction Permission Row
+
+    @ViewBuilder
+    private func interactionPermissionRow(
+        icon: String,
+        iconColor: Color,
+        title: String,
+        current: String,
+        onSelect: @escaping (String) -> Void
+    ) -> some View {
+        let labels: [String: String] = [
+            "everyone":  "Everyone",
+            "following": "People I Follow",
+            "nobody":    "Nobody"
+        ]
+        let displayValue = labels[current] ?? "Everyone"
+
+        Menu {
+            ForEach(["everyone", "following", "nobody"], id: \.self) { option in
+                Button {
+                    HapticManager.impact(style: .light)
+                    onSelect(option)
+                } label: {
+                    HStack {
+                        Text(labels[option] ?? option)
+                        if current == option {
+                            Spacer()
+                            Image(systemName: "checkmark")
+                        }
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .foregroundStyle(iconColor)
+                    .frame(width: 24)
+                Text(title)
+                    .font(AMENFont.semiBold(15))
+                    .foregroundStyle(.primary)
+                Spacer()
+                Text(displayValue)
+                    .font(AMENFont.regular(15))
+                    .foregroundStyle(.secondary)
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+        }
+    }
+
     // MARK: - Private Account Helpers
-    
+
     private func loadPrivateAccountStatus() async {
         guard let currentUserId = Auth.auth().currentUser?.uid else { return }
         
@@ -610,6 +1305,90 @@ struct AccountSettingsView: View {
             dlog("❌ Failed to load age info: \(error)")
         }
     }
+
+    // MARK: - AMEN Privacy Settings
+
+    private func loadAMENPrivacySettings() async {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        do {
+            let doc = try await Firestore.firestore()
+                .collection("users").document(uid)
+                .collection("settings").document("privacy")
+                .getDocument()
+            let data = doc.data() ?? [:]
+            await MainActor.run {
+                prayerRequestsVisibility = data["prayerRequestsVisibility"] as? String ?? "followers"
+                testimoniesVisibility    = data["testimoniesVisibility"]    as? String ?? "followers"
+                mentionPermission        = data["mentionPermission"]        as? String ?? "everyone"
+                replyPermission          = data["replyPermission"]          as? String ?? "everyone"
+            }
+        } catch {
+            dlog("⚠️ loadAMENPrivacySettings: \(error.localizedDescription)")
+        }
+    }
+
+    private func savePrivacySetting(_ key: String, value: String) async {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        do {
+            try await Firestore.firestore()
+                .collection("users").document(uid)
+                .collection("settings").document("privacy")
+                .setData([key: value, "updatedAt": FieldValue.serverTimestamp()], merge: true)
+        } catch {
+            dlog("⚠️ savePrivacySetting \(key): \(error.localizedDescription)")
+        }
+    }
+
+    // MARK: - Content Preferences
+
+    private func loadContentPreferences() async {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        do {
+            let doc = try await Firestore.firestore()
+                .collection("users").document(uid)
+                .collection("settings").document("contentPreferences")
+                .getDocument()
+            let data = doc.data() ?? [:]
+            await MainActor.run {
+                filterMatureContent       = data["filterMatureContent"]  as? Bool ?? true
+                showFaithBasedSuggestions = data["faithSuggestions"]     as? Bool ?? true
+                autoPlayVideos            = data["autoPlayVideos"]        as? Bool ?? true
+            }
+        } catch {
+            dlog("⚠️ loadContentPreferences: \(error.localizedDescription)")
+        }
+    }
+
+    private func savePreference(_ key: String, value: Bool) async {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        do {
+            try await Firestore.firestore()
+                .collection("users").document(uid)
+                .collection("settings").document("contentPreferences")
+                .setData([key: value, "updatedAt": FieldValue.serverTimestamp()], merge: true)
+        } catch {
+            dlog("⚠️ savePreference \(key): \(error.localizedDescription)")
+        }
+    }
+
+    // MARK: - Data & Permissions Helpers
+
+    private func exportUserData() {
+        guard let uid = Auth.auth().currentUser?.uid,
+              let email = Auth.auth().currentUser?.email else { return }
+        let body = "Hi AMEN team,\n\nPlease send me a copy of all data associated with my account.\n\nUser ID: \(uid)\nEmail: \(email)\n\nThank you."
+        let subject = "Data Export Request"
+        let encoded = "mailto:privacy@amenapp.com?subject=\(subject.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")&body=\(body.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")"
+        if let url = URL(string: encoded) {
+            UIApplication.shared.open(url)
+        }
+    }
+
+    private func clearCache() {
+        URLCache.shared.removeAllCachedResponses()
+        let haptic = UINotificationFeedbackGenerator()
+        haptic.notificationOccurred(.success)
+    }
 }
 
 // MARK: - Change Display Name View
@@ -663,11 +1442,11 @@ struct ChangeDisplayNameView: View {
                             .padding(.top, 20)
                         
                         Text("Change Display Name")
-                            .font(.custom("OpenSans-Bold", size: 24))
+                            .font(AMENFont.bold(24))
                         
                         if let user = userService.currentUser {
                             Text("Current: \(user.displayName)")
-                                .font(.custom("OpenSans-Regular", size: 15))
+                                .font(AMENFont.regular(15))
                                 .foregroundStyle(.secondary)
                             
                             if let pending = user.pendingDisplayNameChange {
@@ -676,16 +1455,16 @@ struct ChangeDisplayNameView: View {
                                         Image(systemName: "clock.fill")
                                             .foregroundStyle(.orange)
                                         Text("Pending Review")
-                                            .font(.custom("OpenSans-Bold", size: 14))
+                                            .font(AMENFont.bold(14))
                                             .foregroundStyle(.orange)
                                     }
                                     
                                     Text("New name: \(pending)")
-                                        .font(.custom("OpenSans-Regular", size: 14))
+                                        .font(AMENFont.regular(14))
                                         .foregroundStyle(.secondary)
                                     
                                     Text("Your request is being reviewed. This may take 24-48 hours.")
-                                        .font(.custom("OpenSans-Regular", size: 12))
+                                        .font(AMENFont.regular(12))
                                         .foregroundStyle(.secondary)
                                         .multilineTextAlignment(.center)
                                 }
@@ -703,11 +1482,11 @@ struct ChangeDisplayNameView: View {
                         // Change Form
                         VStack(alignment: .leading, spacing: 16) {
                             Text("New Display Name")
-                                .font(.custom("OpenSans-SemiBold", size: 14))
+                                .font(AMENFont.semiBold(14))
                                 .foregroundStyle(.secondary)
                             
                             TextField("Enter new display name", text: $newDisplayName)
-                                .font(.custom("OpenSans-Regular", size: 15))
+                                .font(AMENFont.regular(15))
                                 .padding()
                                 .background(
                                     RoundedRectangle(cornerRadius: 10)
@@ -720,7 +1499,7 @@ struct ChangeDisplayNameView: View {
                                     Image(systemName: "info.circle.fill")
                                         .foregroundStyle(.blue)
                                     Text("Important Information")
-                                        .font(.custom("OpenSans-Bold", size: 14))
+                                        .font(AMENFont.bold(14))
                                 }
                                 
                                 VStack(alignment: .leading, spacing: 8) {
@@ -744,7 +1523,7 @@ struct ChangeDisplayNameView: View {
                                             .progressViewStyle(CircularProgressViewStyle(tint: .white))
                                     } else {
                                         Text("Submit Request")
-                                            .font(.custom("OpenSans-Bold", size: 16))
+                                            .font(AMENFont.bold(16))
                                     }
                                 }
                                 .frame(maxWidth: .infinity)
@@ -767,10 +1546,10 @@ struct ChangeDisplayNameView: View {
                                 .foregroundStyle(.orange)
                             
                             Text("Please Wait")
-                                .font(.custom("OpenSans-Bold", size: 20))
+                                .font(AMENFont.bold(20))
                             
                             Text("You can change your display name again in \(daysUntilNextChange) day\(daysUntilNextChange == 1 ? "" : "s")")
-                                .font(.custom("OpenSans-Regular", size: 15))
+                                .font(AMENFont.regular(15))
                                 .foregroundStyle(.secondary)
                                 .multilineTextAlignment(.center)
                                 .padding(.horizontal, 40)
@@ -912,11 +1691,11 @@ struct ChangeUsernameView: View {
                             .padding(.top, 20)
                         
                         Text("Change Username")
-                            .font(.custom("OpenSans-Bold", size: 24))
+                            .font(AMENFont.bold(24))
                         
                         if let user = userService.currentUser {
                             Text("Current: @\(user.username)")
-                                .font(.custom("OpenSans-Regular", size: 15))
+                                .font(AMENFont.regular(15))
                                 .foregroundStyle(.secondary)
                             
                             if let pending = user.pendingUsernameChange {
@@ -925,16 +1704,16 @@ struct ChangeUsernameView: View {
                                         Image(systemName: "clock.fill")
                                             .foregroundStyle(.orange)
                                         Text("Pending Review")
-                                            .font(.custom("OpenSans-Bold", size: 14))
+                                            .font(AMENFont.bold(14))
                                             .foregroundStyle(.orange)
                                     }
                                     
                                     Text("New username: @\(pending)")
-                                        .font(.custom("OpenSans-Regular", size: 14))
+                                        .font(AMENFont.regular(14))
                                         .foregroundStyle(.secondary)
                                     
                                     Text("Your request is being reviewed. This may take 24-48 hours.")
-                                        .font(.custom("OpenSans-Regular", size: 12))
+                                        .font(AMENFont.regular(12))
                                         .foregroundStyle(.secondary)
                                         .multilineTextAlignment(.center)
                                 }
@@ -952,16 +1731,16 @@ struct ChangeUsernameView: View {
                         // Change Form
                         VStack(alignment: .leading, spacing: 16) {
                             Text("New Username")
-                                .font(.custom("OpenSans-SemiBold", size: 14))
+                                .font(AMENFont.semiBold(14))
                                 .foregroundStyle(.secondary)
                             
                             HStack {
                                 Text("@")
-                                    .font(.custom("OpenSans-Regular", size: 15))
+                                    .font(AMENFont.regular(15))
                                     .foregroundStyle(.secondary)
                                 
                                 TextField("username", text: $newUsername)
-                                    .font(.custom("OpenSans-Regular", size: 15))
+                                    .font(AMENFont.regular(15))
                                     .textInputAutocapitalization(.never)
                                     .autocorrectionDisabled()
                                     .onChange(of: newUsername) { _, newValue in
@@ -985,7 +1764,7 @@ struct ChangeUsernameView: View {
                             // Availability feedback
                             if let available = isAvailable {
                                 Text(available ? "✓ @\(newUsername) is available!" : "✗ @\(newUsername) is already taken")
-                                    .font(.custom("OpenSans-Regular", size: 13))
+                                    .font(AMENFont.regular(13))
                                     .foregroundStyle(available ? .green : .red)
                             }
                             
@@ -995,7 +1774,7 @@ struct ChangeUsernameView: View {
                                     Image(systemName: "info.circle.fill")
                                         .foregroundStyle(.purple)
                                     Text("Important Information")
-                                        .font(.custom("OpenSans-Bold", size: 14))
+                                        .font(AMENFont.bold(14))
                                 }
                                 
                                 VStack(alignment: .leading, spacing: 8) {
@@ -1021,7 +1800,7 @@ struct ChangeUsernameView: View {
                                             .progressViewStyle(CircularProgressViewStyle(tint: .white))
                                     } else {
                                         Text("Submit Request")
-                                            .font(.custom("OpenSans-Bold", size: 16))
+                                            .font(AMENFont.bold(16))
                                     }
                                 }
                                 .frame(maxWidth: .infinity)
@@ -1044,10 +1823,10 @@ struct ChangeUsernameView: View {
                                 .foregroundStyle(.orange)
                             
                             Text("Please Wait")
-                                .font(.custom("OpenSans-Bold", size: 20))
+                                .font(AMENFont.bold(20))
                             
                             Text("You can change your username again in \(daysUntilNextChange) day\(daysUntilNextChange == 1 ? "" : "s")")
-                                .font(.custom("OpenSans-Regular", size: 15))
+                                .font(AMENFont.regular(15))
                                 .foregroundStyle(.secondary)
                                 .multilineTextAlignment(.center)
                                 .padding(.horizontal, 40)
@@ -1167,7 +1946,7 @@ struct InfoRow: View {
                 .frame(width: 16)
             
             Text(text)
-                .font(.custom("OpenSans-Regular", size: 12))
+                .font(AMENFont.regular(12))
                 .foregroundStyle(.secondary)
         }
     }
@@ -1213,10 +1992,10 @@ struct ChangeEmailView: View {
                             .padding(.top, 20)
                         
                         Text(isPasswordlessUser ? "Email Change Not Available" : "Change Email")
-                            .font(.custom("OpenSans-Bold", size: 24))
+                            .font(AMENFont.bold(24))
                         
                         Text(isPasswordlessUser ? "You signed in with \(authProviderName)" : "Enter your new email address")
-                            .font(.custom("OpenSans-Regular", size: 14))
+                            .font(AMENFont.regular(14))
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 40)
@@ -1229,11 +2008,11 @@ struct ChangeEmailView: View {
                                 Image(systemName: "info.circle.fill")
                                     .foregroundStyle(.blue)
                                 Text("About Your Account")
-                                    .font(.custom("OpenSans-Bold", size: 16))
+                                    .font(AMENFont.bold(16))
                             }
                             
                             Text("Your account is managed by \(authProviderName). To change your email, update it through your \(authProviderName) account settings.")
-                                .font(.custom("OpenSans-Regular", size: 14))
+                                .font(AMENFont.regular(14))
                                 .foregroundStyle(.secondary)
                         }
                         .padding()
@@ -1246,14 +2025,14 @@ struct ChangeEmailView: View {
                             // New Email Field
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("New Email")
-                                    .font(.custom("OpenSans-SemiBold", size: 13))
+                                    .font(AMENFont.semiBold(13))
                                     .foregroundStyle(.secondary)
                                 
                                 TextField("", text: $newEmail)
                                     .textContentType(.emailAddress)
                                     .keyboardType(.emailAddress)
                                     .autocapitalization(.none)
-                                    .font(.custom("OpenSans-Regular", size: 16))
+                                    .font(AMENFont.regular(16))
                                     .padding()
                                     .background(Color(.systemGray6))
                                     .cornerRadius(12)
@@ -1264,7 +2043,7 @@ struct ChangeEmailView: View {
                                 
                                 if !newEmail.isEmpty && !isValidEmail {
                                     Text("Please enter a valid email address")
-                                        .font(.custom("OpenSans-Regular", size: 12))
+                                        .font(AMENFont.regular(12))
                                         .foregroundStyle(.red)
                                 }
                             }
@@ -1272,12 +2051,12 @@ struct ChangeEmailView: View {
                             // Current Password Field (for re-authentication)
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("Current Password")
-                                    .font(.custom("OpenSans-SemiBold", size: 13))
+                                    .font(AMENFont.semiBold(13))
                                     .foregroundStyle(.secondary)
                                 
                                 SecureField("", text: $password)
                                     .textContentType(.password)
-                                    .font(.custom("OpenSans-Regular", size: 16))
+                                    .font(AMENFont.regular(16))
                                     .padding()
                                     .background(Color(.systemGray6))
                                     .cornerRadius(12)
@@ -1302,7 +2081,7 @@ struct ChangeEmailView: View {
                                             .tint(.white)
                                     } else {
                                         Text("Change Email")
-                                            .font(.custom("OpenSans-SemiBold", size: 16))
+                                            .font(AMENFont.semiBold(16))
                                             .foregroundStyle(.white)
                                     }
                                 }
@@ -1455,10 +2234,10 @@ struct ChangePasswordView: View {
                             .padding(.top, 20)
                         
                         Text(isPasswordlessUser ? "Password Not Available" : "Change Password")
-                            .font(.custom("OpenSans-Bold", size: 24))
+                            .font(AMENFont.bold(24))
                         
                         Text(isPasswordlessUser ? "You signed in with \(authProviderName)" : "Choose a strong password to keep your account secure")
-                            .font(.custom("OpenSans-Regular", size: 14))
+                            .font(AMENFont.regular(14))
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 40)
@@ -1471,7 +2250,7 @@ struct ChangePasswordView: View {
                                 Image(systemName: "info.circle.fill")
                                     .foregroundStyle(.blue)
                                 Text("About Your Account")
-                                    .font(.custom("OpenSans-Bold", size: 16))
+                                    .font(AMENFont.bold(16))
                             }
                             
                             VStack(alignment: .leading, spacing: 12) {
@@ -1481,7 +2260,7 @@ struct ChangePasswordView: View {
                             }
                             
                             Text("To change your authentication method, you would need to create a new account with email and password.")
-                                .font(.custom("OpenSans-Regular", size: 13))
+                                .font(AMENFont.regular(13))
                                 .foregroundStyle(.secondary)
                                 .padding(.top, 8)
                         }
@@ -1501,11 +2280,11 @@ struct ChangePasswordView: View {
                             // Current Password
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("Current Password")
-                                    .font(.custom("OpenSans-SemiBold", size: 14))
+                                    .font(AMENFont.semiBold(14))
                                     .foregroundStyle(.secondary)
                                 
                                 SecureField("Enter current password", text: $currentPassword)
-                                    .font(.custom("OpenSans-Regular", size: 15))
+                                    .font(AMENFont.regular(15))
                                     .padding()
                                     .background(
                                         RoundedRectangle(cornerRadius: 10)
@@ -1516,11 +2295,11 @@ struct ChangePasswordView: View {
                         // New Password
                         VStack(alignment: .leading, spacing: 8) {
                             Text("New Password")
-                                .font(.custom("OpenSans-SemiBold", size: 14))
+                                .font(AMENFont.semiBold(14))
                                 .foregroundStyle(.secondary)
                             
                             SecureField("Enter new password", text: $newPassword)
-                                .font(.custom("OpenSans-Regular", size: 15))
+                                .font(AMENFont.regular(15))
                                 .padding()
                                 .background(
                                     RoundedRectangle(cornerRadius: 10)
@@ -1538,7 +2317,7 @@ struct ChangePasswordView: View {
                                 }
                                 
                                 Text(passwordStrength.text)
-                                    .font(.custom("OpenSans-SemiBold", size: 12))
+                                    .font(AMENFont.semiBold(12))
                                     .foregroundStyle(passwordStrength.color)
                             }
                         }
@@ -1546,11 +2325,11 @@ struct ChangePasswordView: View {
                         // Confirm Password
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Confirm New Password")
-                                .font(.custom("OpenSans-SemiBold", size: 14))
+                                .font(AMENFont.semiBold(14))
                                 .foregroundStyle(.secondary)
                             
                             SecureField("Confirm new password", text: $confirmPassword)
-                                .font(.custom("OpenSans-Regular", size: 15))
+                                .font(AMENFont.regular(15))
                                 .padding()
                                 .background(
                                     RoundedRectangle(cornerRadius: 10)
@@ -1563,7 +2342,7 @@ struct ChangePasswordView: View {
                                     Image(systemName: newPassword == confirmPassword ? "checkmark.circle.fill" : "xmark.circle.fill")
                                         .foregroundStyle(newPassword == confirmPassword ? .green : .red)
                                     Text(newPassword == confirmPassword ? "Passwords match" : "Passwords don't match")
-                                        .font(.custom("OpenSans-Regular", size: 12))
+                                        .font(AMENFont.regular(12))
                                         .foregroundStyle(newPassword == confirmPassword ? .green : .red)
                                 }
                             }
@@ -1577,7 +2356,7 @@ struct ChangePasswordView: View {
                             Image(systemName: "info.circle.fill")
                                 .foregroundStyle(.blue)
                             Text("Password Requirements")
-                                .font(.custom("OpenSans-Bold", size: 14))
+                                .font(AMENFont.bold(14))
                         }
                         
                         VStack(alignment: .leading, spacing: 8) {
@@ -1604,7 +2383,7 @@ struct ChangePasswordView: View {
                                         .progressViewStyle(CircularProgressViewStyle(tint: .white))
                                 } else {
                                     Text("Change Password")
-                                        .font(.custom("OpenSans-Bold", size: 16))
+                                        .font(AMENFont.bold(16))
                                 }
                             }
                             .frame(maxWidth: .infinity)
@@ -1690,7 +2469,7 @@ struct RequirementRow: View {
                 .foregroundStyle(met ? .green : .gray)
             
             Text(text)
-                .font(.custom("OpenSans-Regular", size: 13))
+                .font(AMENFont.regular(13))
                 .foregroundStyle(met ? .primary : .secondary)
         }
     }

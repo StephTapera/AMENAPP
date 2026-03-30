@@ -1,82 +1,219 @@
 import SwiftUI
 import FirebaseAuth
 
-/// Tappable composer row pinned below the Daily Verse Banner in OpenTable.
-/// Tapping anywhere opens CreatePostView via the provided action closure.
+/// Threads-style inline composer pinned below the Daily Verse Banner in OpenTable.
+/// Tap expands to an inline text field; typing and tapping "Post" quick-posts.
+/// The expand icon opens the full CreatePostView via onTap for media/rich posts.
 struct FeedComposerRow: View {
     let onTap: () -> Void
 
     @ObservedObject private var userService = LegacyUserService.shared
-    @State private var isPressed = false
+    @State private var placeholder = "What's on your heart today?"
+    @State private var text = ""
+    @State private var isExpanded = false
+    @State private var isPosting = false
+    @FocusState private var isFocused: Bool
 
-    private var avatarURL: String? {
-        userService.currentUser?.profileImageURL
+    private var avatarURL: URL? {
+        let raw = userService.currentUser?.profileImageURL
             ?? UserDefaults.standard.string(forKey: "currentUserProfileImageURL")
+        guard let raw, !raw.isEmpty else { return nil }
+        return URL(string: raw)
     }
 
     var body: some View {
-        Button(action: onTap) {
-            HStack(spacing: 12) {
-                // Avatar
-                Group {
-                    if let url = avatarURL, !url.isEmpty, let parsed = URL(string: url) {
-                        AsyncImage(url: parsed) { phase in
-                            switch phase {
-                            case .success(let img):
-                                img.resizable().scaledToFill()
-                            default:
-                                placeholderAvatar
-                            }
-                        }
-                    } else {
-                        placeholderAvatar
+        VStack(spacing: 0) {
+            HStack(spacing: 0) {
+
+                // ── Avatar ──
+                composerAvatar
+                    .padding(.leading, 10)
+
+                if isExpanded {
+                    // ── Inline text field ──
+                    TextField(placeholder, text: $text, axis: .vertical)
+                        .font(.system(size: 15, weight: .regular))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1...5)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 12)
+                        .focused($isFocused)
+                        .submitLabel(.done)
+
+                    // ── Expand to full composer ──
+                    Button {
+                        dismissKeyboard()
+                        isExpanded = false
+                        text = ""
+                        onTap()
+                    } label: {
+                        Image(systemName: "arrow.up.left.and.arrow.down.right")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(.primary.opacity(0.4))
+                            .padding(.trailing, 10)
                     }
+
+                    // ── Hairline ──
+                    Rectangle()
+                        .fill(Color.primary.opacity(0.12))
+                        .frame(width: 0.5, height: 22)
+
+                    // ── Post button ──
+                    Button {
+                        submitPost()
+                    } label: {
+                        if isPosting {
+                            ProgressView()
+                                .scaleEffect(0.75)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 6)
+                        } else {
+                            Text("Post")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                    ? Color.primary.opacity(0.22)
+                                    : Color.primary.opacity(0.85))
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 6)
+                        }
+                    }
+                    .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isPosting)
+
+                } else {
+                    // ── Collapsed placeholder ──
+                    Text(placeholder)
+                        .font(.system(size: 15, weight: .regular))
+                        .foregroundStyle(.primary.opacity(0.28))
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 12)
+                        .animation(.easeInOut(duration: 0.3), value: placeholder)
+                        .onTapGesture { expand() }
+
+                    // ── Hairline divider ──
+                    Rectangle()
+                        .fill(Color.primary.opacity(0.12))
+                        .frame(width: 0.5, height: 22)
+
+                    // ── Post label ──
+                    Text("Post")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(.primary.opacity(0.22))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 6)
+                        .onTapGesture { expand() }
                 }
-                .frame(width: 36, height: 36)
-                .clipShape(Circle())
-
-                // Prompt text
-                Text("What's on your heart?")
-                    .font(.system(size: 15, weight: .regular))
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                // Post button
-                Text("Post")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 7)
-                    .background(Capsule().fill(Color.accentColor))
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .background {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(.ultraThinMaterial)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
-                    )
-            }
-            .scaleEffect(isPressed ? 0.98 : 1.0)
-            .animation(.spring(response: 0.2, dampingFraction: 0.7), value: isPressed)
+            .frame(minHeight: 52)
+            .background(GlassPillBackground(isPressing: false))
+            .clipShape(Capsule())
+            .contentShape(Capsule())
+            .onTapGesture { if !isExpanded { expand() } }
         }
-        .buttonStyle(PlainButtonStyle())
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in isPressed = true }
-                .onEnded { _ in isPressed = false }
-        )
+        .animation(.spring(response: 0.32, dampingFraction: 0.72), value: isExpanded)
+        .task {
+            guard let uid = Auth.auth().currentUser?.uid else { return }
+            let t = await ComposerPlaceholderService.shared.getPlaceholder(for: uid)
+            withAnimation(.easeInOut(duration: 0.3)) { placeholder = t }
+        }
+        .onChange(of: isFocused) { _, focused in
+            if !focused && text.isEmpty {
+                withAnimation(.spring(response: 0.32, dampingFraction: 0.72)) {
+                    isExpanded = false
+                }
+            }
+        }
     }
 
-    private var placeholderAvatar: some View {
+    // MARK: - Actions
+
+    private func expand() {
+        withAnimation(.spring(response: 0.32, dampingFraction: 0.72)) {
+            isExpanded = true
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            isFocused = true
+        }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
+    private func submitPost() {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        isPosting = true
+        dismissKeyboard()
+        PostsManager.shared.createPost(content: trimmed, category: .openTable)
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        withAnimation(.spring(response: 0.32, dampingFraction: 0.72)) {
+            text = ""
+            isExpanded = false
+            isPosting = false
+        }
+    }
+
+    private func dismissKeyboard() {
+        isFocused = false
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder),
+                                        to: nil, from: nil, for: nil)
+    }
+
+    // MARK: - Avatar
+
+    @ViewBuilder
+    private var composerAvatar: some View {
+        Group {
+            if let url = avatarURL {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let img):
+                        img.resizable().scaledToFill()
+                    default:
+                        avatarFallback
+                    }
+                }
+            } else {
+                avatarFallback
+            }
+        }
+        .frame(width: 32, height: 32)
+        .clipShape(Circle())
+        .overlay(Circle().strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5))
+    }
+
+    private var avatarFallback: some View {
         Circle()
-            .fill(Color.accentColor.opacity(0.2))
+            .fill(.ultraThinMaterial)
             .overlay(
-                Text(userService.currentUser?.initials ?? "?")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Color.accentColor)
+                Image(systemName: "person.fill")
+                    .font(.system(size: 14, weight: .regular))
+                    .foregroundStyle(.primary.opacity(0.35))
             )
+    }
+}
+
+// MARK: - Glass Capsule Background
+
+private struct GlassPillBackground: View {
+    let isPressing: Bool
+
+    var body: some View {
+        Capsule()
+            .fill(.ultraThinMaterial)
+            .overlay(
+                Capsule()
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(isPressing ? 0.25 : 0.55),
+                                Color.white.opacity(isPressing ? 0.05 : 0.12)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 0.5
+                    )
+            )
+            .shadow(color: .black.opacity(0.07), radius: 12, x: 0, y: 4)
+            .shadow(color: .black.opacity(0.04), radius: 2,  x: 0, y: 1)
     }
 }

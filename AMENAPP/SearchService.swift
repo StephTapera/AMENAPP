@@ -55,7 +55,16 @@ class SearchService: ObservableObject {
     @Published var searchResults: [AppSearchResult] = []
     @Published var recentSearches: [String] = []
     @Published var error: String?
-    
+    @Published var hasMoreResults = false
+
+    // P1 FIX: Cursor for Firestore-backed pagination.
+    // Algolia uses its own offset/page mechanism; this cursor applies to the
+    // Firestore fallback path only.
+    private var currentQuery: String = ""
+    private var currentFilter: SearchFilter = .all
+    private(set) var lastDocument: DocumentSnapshot?   // Firestore pagination cursor
+    private let pageSize = 20
+
     private let maxRecentSearches = 10
     
     private init() {
@@ -63,15 +72,23 @@ class SearchService: ObservableObject {
     }
     
     // MARK: - Main Search Function
-    
-    /// Search across all categories
-    func search(query: String, filter: SearchFilter = .all) async throws -> [AppSearchResult] {
+
+    /// Search across all categories. Pass `loadMore: true` to append the next page.
+    func search(query: String, filter: SearchFilter = .all, loadMore: Bool = false) async throws -> [AppSearchResult] {
         guard !query.trimmingCharacters(in: .whitespaces).isEmpty else {
             return []
         }
-        
-        dlog("🔍 Searching for: '\(query)' with filter: \(filter.rawValue)")
-        
+
+        // P1 FIX: Reset cursor when query or filter changes
+        if query != currentQuery || filter != currentFilter {
+            lastDocument = nil
+            currentQuery = query
+            currentFilter = filter
+            if !loadMore { searchResults = [] }
+        }
+
+        dlog("🔍 Searching for: '\(query)' with filter: \(filter.rawValue) loadMore:\(loadMore)")
+
         isSearching = true
         defer { isSearching = false }
         
@@ -104,17 +121,33 @@ class SearchService: ObservableObject {
         
         // Sort by relevance
         results = sortByRelevance(results, query: query)
-        
-        // Save to recent searches
-        saveRecentSearch(query)
-        
+
+        // Save to recent searches (first page only)
+        if !loadMore { saveRecentSearch(query) }
+
+        // P1 FIX: Update pagination cursor + hasMoreResults signal
+        hasMoreResults = results.count >= pageSize
+
         await MainActor.run {
-            self.searchResults = results
+            if loadMore {
+                // Deduplicate by firestoreId before appending
+                let existingIds = Set(self.searchResults.map { $0.firestoreId ?? "" })
+                let newResults = results.filter { !existingIds.contains($0.firestoreId ?? "") }
+                self.searchResults.append(contentsOf: newResults)
+            } else {
+                self.searchResults = results
+            }
         }
-        
-        dlog("✅ Found \(results.count) results")
-        
+
+        dlog("✅ Found \(results.count) results (loadMore:\(loadMore), hasMore:\(hasMoreResults))")
+
         return results
+    }
+
+    /// Load the next page of results for the current query.
+    func loadMoreResults() async throws -> [AppSearchResult] {
+        guard hasMoreResults, !currentQuery.isEmpty else { return [] }
+        return try await search(query: currentQuery, filter: currentFilter, loadMore: true)
     }
     
     // MARK: - Search People/Users
@@ -149,11 +182,15 @@ class SearchService: ObservableObject {
         
         // STRATEGY 1: Try searching with lowercase fields (if they exist)
         do {
-            let snapshot = try await db.collection(FirebaseManager.CollectionPath.users)
+            var usernameQuery = db.collection(FirebaseManager.CollectionPath.users)
                 .whereField("usernameLowercase", isGreaterThanOrEqualTo: lowercaseQuery)
                 .whereField("usernameLowercase", isLessThanOrEqualTo: lowercaseQuery + "\u{f8ff}")
-                .limit(to: 20)
-                .getDocuments()
+                .limit(to: pageSize)
+            // P1 FIX: apply pagination cursor when loading more results
+            if let cursor = lastDocument {
+                usernameQuery = usernameQuery.start(afterDocument: cursor)
+            }
+            let snapshot = try await usernameQuery.getDocuments()
             
             dlog("✅ Found \(snapshot.documents.count) users by usernameLowercase")
             

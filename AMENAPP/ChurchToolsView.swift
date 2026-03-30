@@ -105,20 +105,37 @@ final class ChurchToolsStore: ObservableObject {
     @Published var isLoaded = false
 
     private let db = Firestore.firestore()
+
+    // Real-time listener handles — kept so we can stop them on deinit or explicit stop.
+    private var bulletinListener: ListenerRegistration?
+    private var groupsListener:   ListenerRegistration?
+    private var rolesListener:    ListenerRegistration?
+
     private init() {}
 
     func loadTools(churchID: String = "default") {
-        loadBulletin(churchID: churchID)
-        loadSmallGroups(churchID: churchID)
-        loadServingRoles(churchID: churchID)
+        // Cancel any previous listeners before (re)attaching — prevents duplicate rows
+        // if loadTools is called more than once (e.g., view reappears after deep link).
+        stopListening()
+        attachBulletinListener(churchID: churchID)
+        attachGroupsListener(churchID: churchID)
+        attachRolesListener(churchID: churchID)
     }
 
-    private func loadBulletin(churchID: String) {
-        db.collection("churchBulletins")
+    func stopListening() {
+        bulletinListener?.remove(); bulletinListener = nil
+        groupsListener?.remove();   groupsListener   = nil
+        rolesListener?.remove();    rolesListener    = nil
+    }
+
+    // MARK: - Real-time bulletin listener
+
+    private func attachBulletinListener(churchID: String) {
+        bulletinListener = db.collection("churchBulletins")
             .whereField("churchID", isEqualTo: churchID)
             .order(by: "weekOf", descending: true)
             .limit(to: 1)
-            .getDocuments { [weak self] snap, _ in
+            .addSnapshotListener { [weak self] snap, _ in
                 let bulletin = snap?.documents.first.flatMap {
                     try? Firestore.Decoder().decode(ChurchBulletin.self, from: $0.data())
                 }
@@ -130,11 +147,13 @@ final class ChurchToolsStore: ObservableObject {
             }
     }
 
-    private func loadSmallGroups(churchID: String) {
-        db.collection("smallGroups")
+    // MARK: - Real-time small groups listener
+
+    private func attachGroupsListener(churchID: String) {
+        groupsListener = db.collection("smallGroups")
             .order(by: "createdAt", descending: false)
             .limit(to: 30)
-            .getDocuments { [weak self] snap, _ in
+            .addSnapshotListener { [weak self] snap, _ in
                 let loaded = snap?.documents.compactMap {
                     try? Firestore.Decoder().decode(SmallGroup.self, from: $0.data())
                 } ?? []
@@ -145,11 +164,13 @@ final class ChurchToolsStore: ObservableObject {
             }
     }
 
-    private func loadServingRoles(churchID: String) {
-        db.collection("servingRoles")
+    // MARK: - Real-time serving roles listener
+
+    private func attachRolesListener(churchID: String) {
+        rolesListener = db.collection("servingRoles")
             .order(by: "isUrgent", descending: true)
             .limit(to: 20)
-            .getDocuments { [weak self] snap, _ in
+            .addSnapshotListener { [weak self] snap, _ in
                 let loaded = snap?.documents.compactMap {
                     try? Firestore.Decoder().decode(ServingRole.self, from: $0.data())
                 } ?? []
@@ -301,7 +322,7 @@ struct ChurchToolsView: View {
                         .offset(x: 3, y: 4)
                 }
                 Text("Your digital church home — bulletin, groups, serving, and more")
-                    .font(.custom("OpenSans-Regular", size: 12))
+                    .font(AMENFont.regular(12))
                     .foregroundStyle(Color.white.opacity(0.65))
                     .lineLimit(2)
             }
@@ -340,9 +361,9 @@ struct ChurchToolsView: View {
                 // Week header
                 VStack(spacing: 4) {
                     Text(bulletin.churchName)
-                        .font(.custom("OpenSans-Bold", size: 18)).foregroundStyle(.primary)
+                        .font(AMENFont.bold(18)).foregroundStyle(.primary)
                     Text("Week of \(shortDate(bulletin.weekOf))")
-                        .font(.custom("OpenSans-Regular", size: 13)).foregroundStyle(.secondary)
+                        .font(AMENFont.regular(13)).foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
@@ -388,10 +409,10 @@ struct ChurchToolsView: View {
                     Image(systemName: "mic.fill").font(.system(size: 16, weight: .semibold)).foregroundStyle(blue)
                 }
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("This Week's Message").font(.custom("OpenSans-Regular", size: 12)).foregroundStyle(.secondary)
-                    Text(bulletin.sermonTitle).font(.custom("OpenSans-Bold", size: 16)).foregroundStyle(.primary)
+                    Text("This Week's Message").font(AMENFont.regular(12)).foregroundStyle(.secondary)
+                    Text(bulletin.sermonTitle).font(AMENFont.bold(16)).foregroundStyle(.primary)
                     if !bulletin.sermonSeries.isEmpty {
-                        Text(bulletin.sermonSeries).font(.custom("OpenSans-Regular", size: 13)).foregroundStyle(.secondary)
+                        Text(bulletin.sermonSeries).font(AMENFont.regular(13)).foregroundStyle(.secondary)
                     }
                 }
                 Spacer()
@@ -411,7 +432,7 @@ struct ChurchToolsView: View {
                 .foregroundStyle(blue.opacity(0.3))
                 .offset(y: -8)
             Text(text)
-                .font(.custom("OpenSans-Regular", size: 14))
+                .font(AMENFont.regular(14))
                 .foregroundStyle(.primary.opacity(0.85))
                 .italic()
                 .fixedSize(horizontal: false, vertical: true)
@@ -427,10 +448,10 @@ struct ChurchToolsView: View {
                 Image(systemName: "envelope.open.fill")
                     .font(.system(size: 13)).foregroundStyle(Color(red: 0.85, green: 0.47, blue: 0.10))
                 Text("A Note from Your Pastor")
-                    .font(.custom("OpenSans-Bold", size: 14)).foregroundStyle(.primary)
+                    .font(AMENFont.bold(14)).foregroundStyle(.primary)
             }
             Text(text)
-                .font(.custom("OpenSans-Regular", size: 14))
+                .font(AMENFont.regular(14))
                 .foregroundStyle(.primary.opacity(0.85))
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -443,7 +464,7 @@ struct ChurchToolsView: View {
     private func announcementsSection(_ announcements: [BulletinAnnouncement]) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Announcements")
-                .font(.custom("OpenSans-Bold", size: 18)).foregroundStyle(.primary)
+                .font(AMENFont.bold(18)).foregroundStyle(.primary)
                 .padding(.horizontal, 20)
 
             ForEach(announcements) { announcement in
@@ -454,23 +475,23 @@ struct ChurchToolsView: View {
                                 .font(.system(size: 11)).foregroundStyle(blue)
                         }
                         Text(announcement.title)
-                            .font(.custom("OpenSans-Bold", size: 14)).foregroundStyle(.primary)
+                            .font(AMENFont.bold(14)).foregroundStyle(.primary)
                         Spacer()
                         if !announcement.category.isEmpty {
                             Text(announcement.category)
-                                .font(.custom("OpenSans-Regular", size: 10))
+                                .font(AMENFont.regular(10))
                                 .foregroundStyle(blue)
                                 .padding(.horizontal, 8).padding(.vertical, 4)
                                 .background(Capsule().fill(blue.opacity(0.1)))
                         }
                     }
                     Text(announcement.body)
-                        .font(.custom("OpenSans-Regular", size: 13))
+                        .font(AMENFont.regular(13))
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                     if !announcement.actionLabel.isEmpty {
                         Text(announcement.actionLabel)
-                            .font(.custom("OpenSans-SemiBold", size: 13))
+                            .font(AMENFont.semiBold(13))
                             .foregroundStyle(blue)
                     }
                 }
@@ -489,10 +510,10 @@ struct ChurchToolsView: View {
             HStack(spacing: 8) {
                 Image(systemName: "heart.circle.fill")
                     .font(.system(size: 16)).foregroundStyle(Color(red: 0.15, green: 0.62, blue: 0.36))
-                Text("Give").font(.custom("OpenSans-Bold", size: 16)).foregroundStyle(.primary)
+                Text("Give").font(AMENFont.bold(16)).foregroundStyle(.primary)
             }
             if !info.goalLabel.isEmpty {
-                Text(info.goalLabel).font(.custom("OpenSans-Regular", size: 13)).foregroundStyle(.secondary)
+                Text(info.goalLabel).font(AMENFont.regular(13)).foregroundStyle(.secondary)
                 // Progress bar
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
@@ -522,7 +543,7 @@ struct ChurchToolsView: View {
     private func givingMethod(icon: String, label: String, color: Color) -> some View {
         HStack(spacing: 6) {
             Image(systemName: icon).font(.system(size: 14)).foregroundStyle(color)
-            Text(label).font(.custom("OpenSans-Regular", size: 13)).foregroundStyle(.primary)
+            Text(label).font(AMENFont.regular(13)).foregroundStyle(.primary)
         }
         .padding(.horizontal, 12).padding(.vertical, 8)
         .background(RoundedRectangle(cornerRadius: 10).fill(Color(.systemBackground)))
@@ -535,9 +556,9 @@ struct ChurchToolsView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Small Groups")
-                        .font(.custom("OpenSans-Bold", size: 20)).foregroundStyle(.primary)
+                        .font(AMENFont.bold(20)).foregroundStyle(.primary)
                     Text("Find your community within the church")
-                        .font(.custom("OpenSans-Regular", size: 13)).foregroundStyle(.secondary)
+                        .font(AMENFont.regular(13)).foregroundStyle(.secondary)
                 }
                 Spacer()
             }
@@ -564,9 +585,9 @@ struct ChurchToolsView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Serving Opportunities")
-                        .font(.custom("OpenSans-Bold", size: 20)).foregroundStyle(.primary)
+                        .font(AMENFont.bold(20)).foregroundStyle(.primary)
                     Text("Use your gifts for God's kingdom")
-                        .font(.custom("OpenSans-Regular", size: 13)).foregroundStyle(.secondary)
+                        .font(AMENFont.regular(13)).foregroundStyle(.secondary)
                 }
                 Spacer()
             }
@@ -592,7 +613,7 @@ struct ChurchToolsView: View {
         VStack(spacing: 0) {
             HStack {
                 Text("Service Schedule")
-                    .font(.custom("OpenSans-Bold", size: 20)).foregroundStyle(.primary)
+                    .font(AMENFont.bold(20)).foregroundStyle(.primary)
                 Spacer()
             }
             .padding(.horizontal, 20).padding(.vertical, 16)
@@ -603,10 +624,10 @@ struct ChurchToolsView: View {
                     HStack(spacing: 14) {
                         VStack(spacing: 2) {
                             Text(service.day)
-                                .font(.custom("OpenSans-Bold", size: 13))
+                                .font(AMENFont.bold(13))
                                 .foregroundStyle(blue)
                             Text(service.time)
-                                .font(.custom("OpenSans-Bold", size: 15))
+                                .font(AMENFont.bold(15))
                                 .foregroundStyle(.primary)
                         }
                         .frame(width: 80)
@@ -615,12 +636,12 @@ struct ChurchToolsView: View {
 
                         VStack(alignment: .leading, spacing: 2) {
                             Text(service.description)
-                                .font(.custom("OpenSans-Bold", size: 15)).foregroundStyle(.primary)
+                                .font(AMENFont.bold(15)).foregroundStyle(.primary)
                             if !service.location.isEmpty {
                                 HStack(spacing: 4) {
                                     Image(systemName: "mappin").font(.system(size: 11))
                                     Text(service.location)
-                                        .font(.custom("OpenSans-Regular", size: 13))
+                                        .font(AMENFont.regular(13))
                                 }
                                 .foregroundStyle(.secondary)
                             }
@@ -666,35 +687,35 @@ struct SmallGroupCard: View {
                     Image(systemName: "person.3.fill").font(.system(size: 18, weight: .semibold)).foregroundStyle(accentColor)
                 }
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(group.name).font(.custom("OpenSans-Bold", size: 15)).foregroundStyle(.primary)
+                    Text(group.name).font(AMENFont.bold(15)).foregroundStyle(.primary)
                     Text("\(group.meetingDay)s at \(group.meetingTime) · \(group.isOnline ? "Online" : group.location)")
-                        .font(.custom("OpenSans-Regular", size: 12)).foregroundStyle(.secondary).lineLimit(1)
+                        .font(AMENFont.regular(12)).foregroundStyle(.secondary).lineLimit(1)
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 2) {
                     Text("\(group.currentMembers)/\(group.maxMembers)")
-                        .font(.custom("OpenSans-Regular", size: 11)).foregroundStyle(.secondary)
+                        .font(AMENFont.regular(11)).foregroundStyle(.secondary)
                     Circle().fill(group.isAcceptingMembers ? Color(red: 0.18, green: 0.62, blue: 0.36) : Color(.secondaryLabel)).frame(width: 8, height: 8)
                 }
             }
 
             if !group.description.isEmpty {
                 Text(group.description)
-                    .font(.custom("OpenSans-Regular", size: 13)).foregroundStyle(.secondary)
+                    .font(AMENFont.regular(13)).foregroundStyle(.secondary)
                     .lineLimit(2).fixedSize(horizontal: false, vertical: true)
             }
 
             HStack(spacing: 8) {
                 if !group.ageRange.isEmpty {
                     Label(group.ageRange, systemImage: "person.fill")
-                        .font(.custom("OpenSans-Regular", size: 11))
+                        .font(AMENFont.regular(11))
                         .foregroundStyle(accentColor)
                         .padding(.horizontal, 8).padding(.vertical, 4)
                         .background(Capsule().fill(accentColor.opacity(0.1)))
                 }
                 if !group.category.isEmpty {
                     Text(group.category)
-                        .font(.custom("OpenSans-Regular", size: 11))
+                        .font(AMENFont.regular(11))
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 8).padding(.vertical, 4)
                         .background(Capsule().fill(Color(.secondarySystemBackground)))
@@ -703,7 +724,7 @@ struct SmallGroupCard: View {
                 if group.isAcceptingMembers && !isJoined {
                     Button(action: onJoin) {
                         Text("Join Group")
-                            .font(.custom("OpenSans-Bold", size: 13))
+                            .font(AMENFont.bold(13))
                             .foregroundStyle(.white)
                             .padding(.horizontal, 14).padding(.vertical, 8)
                             .background(Capsule().fill(accentColor))
@@ -712,7 +733,7 @@ struct SmallGroupCard: View {
                 } else if isJoined {
                     HStack(spacing: 4) {
                         Image(systemName: "checkmark.circle.fill").font(.system(size: 12)).foregroundStyle(accentColor)
-                        Text("Joined").font(.custom("OpenSans-SemiBold", size: 12)).foregroundStyle(accentColor)
+                        Text("Joined").font(AMENFont.semiBold(12)).foregroundStyle(accentColor)
                     }
                 }
             }
@@ -762,34 +783,34 @@ struct ServingRoleCard: View {
                                 .background(Capsule().fill(Color(red: 0.85, green: 0.20, blue: 0.20)))
                         }
                         Text(role.ministry)
-                            .font(.custom("OpenSans-Regular", size: 11))
+                            .font(AMENFont.regular(11))
                             .foregroundStyle(accentColor)
                             .padding(.horizontal, 8).padding(.vertical, 3)
                             .background(Capsule().fill(accentColor.opacity(0.1)))
                     }
-                    Text(role.title).font(.custom("OpenSans-Bold", size: 15)).foregroundStyle(.primary)
+                    Text(role.title).font(AMENFont.bold(15)).foregroundStyle(.primary)
                 }
                 Spacer()
                 if role.openSpots > 0 {
                     VStack(alignment: .trailing, spacing: 1) {
                         Text("\(role.openSpots)").font(.system(size: 18, weight: .black)).foregroundStyle(accentColor)
-                        Text("open").font(.custom("OpenSans-Regular", size: 10)).foregroundStyle(.secondary)
+                        Text("open").font(AMENFont.regular(10)).foregroundStyle(.secondary)
                     }
                 }
             }
 
             Text(role.description)
-                .font(.custom("OpenSans-Regular", size: 13)).foregroundStyle(.secondary)
+                .font(AMENFont.regular(13)).foregroundStyle(.secondary)
                 .lineLimit(2)
 
             HStack(spacing: 12) {
                 if !role.commitment.isEmpty {
                     Label(role.commitment, systemImage: "clock")
-                        .font(.custom("OpenSans-Regular", size: 12)).foregroundStyle(.secondary)
+                        .font(AMENFont.regular(12)).foregroundStyle(.secondary)
                 }
                 if !role.requirements.isEmpty {
                     Label(role.requirements.first ?? "", systemImage: "checkmark.shield")
-                        .font(.custom("OpenSans-Regular", size: 12)).foregroundStyle(.secondary)
+                        .font(AMENFont.regular(12)).foregroundStyle(.secondary)
                 }
                 Spacer()
             }
@@ -798,7 +819,7 @@ struct ServingRoleCard: View {
                 Button(action: onSignUp) {
                     HStack(spacing: 6) {
                         Image(systemName: "hand.raised.fill").font(.system(size: 13, weight: .semibold))
-                        Text("I Want to Serve").font(.custom("OpenSans-Bold", size: 14))
+                        Text("I Want to Serve").font(AMENFont.bold(14))
                     }
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
@@ -809,7 +830,7 @@ struct ServingRoleCard: View {
             } else {
                 HStack(spacing: 6) {
                     Image(systemName: "checkmark.circle.fill").foregroundStyle(accentColor)
-                    Text("Signed Up to Serve").font(.custom("OpenSans-SemiBold", size: 14)).foregroundStyle(accentColor)
+                    Text("Signed Up to Serve").font(AMENFont.semiBold(14)).foregroundStyle(accentColor)
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 11)

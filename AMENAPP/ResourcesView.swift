@@ -27,9 +27,11 @@ struct ResourcesView: View {
     // Scroll-collapse — same pattern as MessagesView
     @State private var scrollOffset: CGFloat = 0
     @State private var showHeader: Bool = true
+    @Environment(\.tabBarVisible) private var tabBarVisible
     
     enum ResourceCategory: String, CaseIterable {
         case all = "All"
+        case communities = "Communities"
         case mentalHealth = "Mental Health"
         case crisis = "Crisis"
         case giving = "Giving"
@@ -89,10 +91,10 @@ struct ResourcesView: View {
                         contentView
                             .onChange(of: scrollToResults) { _, shouldScroll in
                                 if shouldScroll {
-                                    withAnimation(.easeInOut(duration: 0.4)) {
+                                    withAnimation(.easeOut(duration: 0.2)) {
                                         proxy.scrollTo("searchResults", anchor: .top)
                                     }
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
                                         scrollToResults = false
                                     }
                                 }
@@ -110,6 +112,7 @@ struct ResourcesView: View {
                 )
             }
             .navigationBarHidden(true)
+            .scrollDismissesKeyboard(.interactively)
             .animation(.easeOut(duration: 0.15), value: searchFilteredResources.count)
             .onAppear {
                 setupKeyboardObservers()
@@ -120,8 +123,6 @@ struct ResourcesView: View {
                 aiSearchTask?.cancel()
                 aiSearchTask = nil
             }
-            .padding(.bottom, keyboardHeight)
-            .animation(.easeOut(duration: 0.25), value: keyboardHeight)
         }
     }
 
@@ -131,18 +132,23 @@ struct ResourcesView: View {
         withAnimation(.interactiveSpring(response: 0.25, dampingFraction: 0.8)) {
             scrollOffset = offset
         }
+        
+        // Hide header and tab bar when scrolling down
         if offset < -100 {
             if showHeader {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
                     showHeader = false
                 }
             }
+            tabBarVisible.wrappedValue = false
         } else if offset >= -30 {
+            // Show header and tab bar when near top
             if !showHeader {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
                     showHeader = true
                 }
             }
+            tabBarVisible.wrappedValue = true
         }
     }
     
@@ -178,13 +184,13 @@ struct ResourcesView: View {
                 VStack(alignment: .trailing, spacing: 2) {
                     // Greeting — small, warm
                     Text("Hi, \(userFirstName)")
-                        .font(.custom("OpenSans-Regular", size: 14))
+                        .font(AMENFont.regular(14))
                         .foregroundStyle(.secondary)
 
                     // Main heading with premium red dot accent
                     HStack(alignment: .top, spacing: 0) {
                         Text("Resources")
-                            .font(.custom("OpenSans-Bold", size: 28))
+                            .font(AMENFont.bold(28))
                             .foregroundStyle(.primary)
 
                         Circle()
@@ -225,7 +231,7 @@ struct ResourcesView: View {
             Image(systemName: "line.3.horizontal.decrease.circle.fill")
                 .font(.system(size: 13))
             Text("\(searchFilteredResources.count) result\(searchFilteredResources.count == 1 ? "" : "s")")
-                .font(.custom("OpenSans-SemiBold", size: 13))
+                .font(AMENFont.semiBold(13))
         }
         .foregroundStyle(Color(.label))
         .padding(.horizontal, 12)
@@ -289,7 +295,7 @@ struct ResourcesView: View {
             
             // Text field with custom styling
             TextField("Search resources...", text: $searchText)
-                .font(.custom("OpenSans-Regular", size: 17))
+                .font(AMENFont.regular(17))
                 .foregroundStyle(.primary)
                 .textFieldStyle(.plain)
                 .frame(maxWidth: .infinity)
@@ -384,22 +390,121 @@ struct ResourcesView: View {
     // MARK: - Content View
     private var contentView: some View {
         VStack(alignment: .leading, spacing: 28) {
-            
+
+            // ── Disaster Alerts — shown for All and Crisis categories ──
+            if selectedCategory == .all || selectedCategory == .crisis {
+                DisasterResourcesSection()
+            }
+
+            // ── Communities — Spaces + Workspace ──
+            if selectedCategory == .all || selectedCategory == .communities {
+                resourceSection(title: "Communities", subtitle: "Find your people") {
+                    VStack(spacing: 10) {
+                        // Workspace Hub — featured full-width card
+                        NavigationLink(destination: WorkspaceHubView()) {
+                            ZStack(alignment: .bottomLeading) {
+                                // Gradient background
+                                LinearGradient(
+                                    colors: [Color(hex: "1A0A2E"), Color(hex: "0A1628")],
+                                    startPoint: .topLeading, endPoint: .bottomTrailing
+                                )
+                                .clipShape(RoundedRectangle(cornerRadius: 18))
+
+                                // Platform badge row
+                                VStack(alignment: .leading, spacing: 10) {
+                                    HStack(spacing: 8) {
+                                        ForEach([
+                                            ("K", "F59E0B"),
+                                            ("V", "06B6D4"),
+                                            ("H", "10B981")
+                                        ], id: \.0) { letter, hex in
+                                            Text(letter)
+                                                .font(.system(size: 11, weight: .bold))
+                                                .foregroundColor(.white)
+                                                .frame(width: 22, height: 22)
+                                                .background(Color(hex: hex).opacity(0.25), in: Circle())
+                                                .overlay(Circle().stroke(Color(hex: hex).opacity(0.5), lineWidth: 1))
+                                        }
+                                        Spacer()
+                                        Image(systemName: "square.grid.2x2.fill")
+                                            .font(.system(size: 18))
+                                            .foregroundStyle(
+                                                LinearGradient(colors: [Color(hex: "6B48FF"), Color(hex: "C084FC")],
+                                                               startPoint: .topLeading, endPoint: .bottomTrailing)
+                                            )
+                                    }
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text("Workspace")
+                                            .font(.system(size: 18, weight: .bold))
+                                            .foregroundColor(.white)
+                                        Text("Circles · Live Rooms · Workflows")
+                                            .font(.caption)
+                                            .foregroundColor(.white.opacity(0.55))
+                                    }
+                                }
+                                .padding(16)
+                            }
+                            .frame(height: 110)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 18)
+                                    .stroke(Color(hex: "6B48FF").opacity(0.3), lineWidth: 1)
+                            )
+                        }
+                        .buttonStyle(ResourceCardPressStyle())
+
+                        // Spaces — smaller entry row
+                        NavigationLink(destination: SpacesDiscoveryView()) {
+                            HStack(spacing: 14) {
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .fill(LinearGradient(
+                                            colors: [Color(hex: "6B48FF"), Color(hex: "C084FC")],
+                                            startPoint: .topLeading, endPoint: .bottomTrailing
+                                        ))
+                                        .frame(width: 44, height: 44)
+                                    Image(systemName: "person.3.fill")
+                                        .font(.system(size: 18))
+                                        .foregroundColor(.white)
+                                }
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text("Spaces")
+                                        .font(.system(size: 16, weight: .semibold))
+                                        .foregroundColor(.primary)
+                                    Text("Join AI-curated faith communities")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding(14)
+                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+                            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color(hex: "6B48FF").opacity(0.2), lineWidth: 1))
+                        }
+                        .buttonStyle(ResourceCardPressStyle())
+                    }
+                }
+            }
+
             // ── Living Memory — Soul Engine resonant content ──
             if selectedCategory == .all || selectedCategory == .community {
                 LivingMemorySection()
                     .padding(.top, 8)
             }
             
-            // ── AMEN | Connect — Find Church + Church Notes + AMEN Connect ──
+            // ── AMEN | Connect — Find Church + Church Notes ──
+            // NOTE: AMEN Connect commented out - still needs work
             if selectedCategory == .all || selectedCategory == .community || selectedCategory == .opportunities {
                 resourceSection(title: "Connect", subtitle: "Acts 2:42") {
                     VStack(spacing: 12) {
                         // AMEN Connect — full-width entry card
-                        NavigationLink(destination: AMENConnectView()) {
+                        // TODO: Work on AMEN Connect separately
+                        /* NavigationLink(destination: AMENConnectView()) {
                             AMENConnectEntryCard()
                         }
-                        .buttonStyle(ResourceCardPressStyle())
+                        .buttonStyle(ResourceCardPressStyle()) */
 
                         HStack(spacing: 12) {
                             NavigationLink(destination: FindChurchView()) {
@@ -697,13 +802,13 @@ struct ResourcesView: View {
                             .foregroundStyle(useAISearch ? Color.purple : .secondary)
                             .font(.system(size: 14, weight: .semibold))
                         Text(useAISearch ? "AI Search Results" : "Search Results")
-                            .font(.custom("OpenSans-Bold", size: 20))
+                            .font(AMENFont.bold(20))
                             .foregroundStyle(.primary)
                         
                         Spacer()
                         
                         Text("\(searchFilteredResources.count)")
-                            .font(.custom("OpenSans-Bold", size: 13))
+                            .font(AMENFont.bold(13))
                             .foregroundStyle(searchFilteredResources.isEmpty ? Color.red : Color(.label))
                             .padding(.horizontal, 10)
                             .padding(.vertical, 4)
@@ -720,7 +825,7 @@ struct ResourcesView: View {
                             Image(systemName: "brain.head.profile")
                                 .font(.system(size: 12))
                             Text("Results ranked by AI relevance")
-                                .font(.custom("OpenSans-Regular", size: 13))
+                                .font(AMENFont.regular(13))
                         }
                         .foregroundStyle(.purple.opacity(0.8))
                         .padding(.horizontal, 20)
@@ -743,7 +848,7 @@ struct ResourcesView: View {
                                     
                                     if useAISearch, index < aiSearchResults.count {
                                         Text(aiSearchResults[index].reason)
-                                            .font(.custom("OpenSans-Regular", size: 11))
+                                            .font(AMENFont.regular(11))
                                             .foregroundStyle(.secondary)
                                             .multilineTextAlignment(.center)
                                             .padding(.horizontal, 8)
@@ -772,11 +877,11 @@ struct ResourcesView: View {
                     .frame(width: 3, height: 18)
                     .clipShape(Capsule())
                 Text(title)
-                    .font(.custom("OpenSans-Bold", size: 18))
+                    .font(AMENFont.bold(18))
                     .foregroundStyle(.primary)
                 if let subtitle {
                     Text(subtitle)
-                        .font(.custom("OpenSans-Regular", size: 12))
+                        .font(AMENFont.regular(12))
                         .foregroundStyle(.secondary)
                         .padding(.leading, 2)
                 }
@@ -880,32 +985,32 @@ struct ResourcesView: View {
                 .font(.system(size: 48))
                 .foregroundStyle(.secondary.opacity(0.5))
                 .symbolEffect(.pulse, options: .repeating)
-            
+
             VStack(spacing: 8) {
                 Text(searchText.isEmpty ? "No resources in this category" : "No results found")
-                    .font(.custom("OpenSans-Bold", size: 18))
+                    .font(AMENFont.bold(18))
                     .foregroundStyle(.primary)
-                
-                Text(searchText.isEmpty ? 
-                     "Try selecting 'All' to see all resources" : 
+
+                Text(searchText.isEmpty ?
+                     "Try selecting 'All' to see all resources" :
                      "Try adjusting your search or filter")
-                    .font(.custom("OpenSans-Regular", size: 14))
+                    .font(AMENFont.regular(14))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
-            
+
             if !searchText.isEmpty || selectedCategory != .all {
                 Button {
                     withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
                         searchText = ""
                         selectedCategory = .all
                     }
-                    
+
                     let haptic = UIImpactFeedbackGenerator(style: .medium)
                     haptic.impactOccurred()
                 } label: {
                     Text("Clear Filters")
-                        .font(.custom("OpenSans-SemiBold", size: 14))
+                        .font(AMENFont.semiBold(14))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 20)
                         .padding(.vertical, 10)
@@ -918,7 +1023,10 @@ struct ResourcesView: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 60)
+        .padding(40)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
+        .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.04), radius: 8, y: 3)
         .padding(.horizontal)
     }
 }
@@ -944,7 +1052,7 @@ struct BibleFactCard: View {
                         )
                     
                     Text("Fun Bible Fact")
-                        .font(.custom("OpenSans-Bold", size: 15))
+                        .font(AMENFont.bold(15))
                         .foregroundStyle(.primary)
                 }
                 
@@ -966,7 +1074,7 @@ struct BibleFactCard: View {
             }
             
             Text(fact.text)
-                .font(.custom("OpenSans-Regular", size: 14))
+                .font(AMENFont.regular(14))
                 .foregroundStyle(.primary)
                 .lineSpacing(5)
                 .transition(.asymmetric(
@@ -1042,11 +1150,11 @@ struct FeaturedBanner: View {
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(title)
-                        .font(.custom("OpenSans-Bold", size: 22))
+                        .font(AMENFont.bold(22))
                         .foregroundStyle(.white)
                     
                     Text(subtitle)
-                        .font(.custom("OpenSans-SemiBold", size: 14))
+                        .font(AMENFont.semiBold(14))
                         .foregroundStyle(.white.opacity(0.9))
                 }
                 
@@ -1054,7 +1162,7 @@ struct FeaturedBanner: View {
             }
             
             Text(description)
-                .font(.custom("OpenSans-Regular", size: 15))
+                .font(AMENFont.regular(15))
                 .foregroundStyle(.white.opacity(0.9))
                 .lineSpacing(4)
             
@@ -1063,7 +1171,7 @@ struct FeaturedBanner: View {
                 
                 HStack(spacing: 6) {
                     Text("Explore Now")
-                        .font(.custom("OpenSans-Bold", size: 14))
+                        .font(AMENFont.bold(14))
                     Image(systemName: "arrow.right")
                         .font(.system(size: 12, weight: .bold))
                 }
@@ -1187,7 +1295,7 @@ struct LiquidGlassConnectCard: View {
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(spacing: 6) {
                             Text(title)
-                                .font(.custom("OpenSans-Bold", size: 17))
+                                .font(AMENFont.bold(17))
                                 .foregroundStyle(.primary)
                             
                             if let badge = badge {
@@ -1196,7 +1304,7 @@ struct LiquidGlassConnectCard: View {
                         }
                         
                         Text(description)
-                            .font(.custom("OpenSans-Regular", size: 13))
+                            .font(AMENFont.regular(13))
                             .foregroundStyle(.secondary)
                             .lineLimit(isExpanded ? nil : 2)
                     }
@@ -1222,7 +1330,7 @@ struct LiquidGlassConnectCard: View {
                                     .foregroundStyle(iconColor)
                                 
                                 Text(feature)
-                                    .font(.custom("OpenSans-Regular", size: 14))
+                                    .font(AMENFont.regular(14))
                                     .foregroundStyle(.primary)
                             }
                             .transition(.asymmetric(
@@ -1300,7 +1408,7 @@ struct LiquidGlassConnectCard: View {
     @ViewBuilder
     private func badgeView(badge: String) -> some View {
         Text(badge)
-            .font(.custom("OpenSans-Bold", size: 10))
+            .font(AMENFont.bold(10))
             .foregroundStyle(.white)
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
@@ -1313,7 +1421,7 @@ struct LiquidGlassConnectCard: View {
     private var getStartedButton: some View {
         HStack(spacing: 6) {
             Text("Get Started")
-                .font(.custom("OpenSans-Bold", size: 14))
+                .font(AMENFont.bold(14))
             Image(systemName: "arrow.right.circle.fill")
                 .font(.system(size: 16))
         }
@@ -1349,16 +1457,16 @@ struct ResourceCard: View {
             
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.custom("OpenSans-Bold", size: 16))
+                    .font(AMENFont.bold(16))
                     .foregroundStyle(.primary)
                 
                 Text(description)
-                    .font(.custom("OpenSans-Regular", size: 13))
+                    .font(AMENFont.regular(13))
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
                 
                 Text(category)
-                    .font(.custom("OpenSans-SemiBold", size: 11))
+                    .font(AMENFont.semiBold(11))
                     .foregroundStyle(iconColor)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
@@ -1407,11 +1515,11 @@ struct BibleAppCard: View {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 8) {
                         Text("Bible App")
-                            .font(.custom("OpenSans-Bold", size: 16))
+                            .font(AMENFont.bold(16))
                             .foregroundStyle(.primary)
                         
                         Text("YOUVERSION")
-                            .font(.custom("OpenSans-Bold", size: 10))
+                            .font(AMENFont.bold(10))
                             .foregroundStyle(.white)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
@@ -1422,12 +1530,12 @@ struct BibleAppCard: View {
                     }
                     
                     Text("Read, study, and share scripture")
-                        .font(.custom("OpenSans-Regular", size: 13))
+                        .font(AMENFont.regular(13))
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
                     
                     Text("External App")
-                        .font(.custom("OpenSans-SemiBold", size: 11))
+                        .font(AMENFont.semiBold(11))
                         .foregroundStyle(.blue)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
@@ -1509,11 +1617,11 @@ struct PrayComCard: View {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 8) {
                         Text("Pray.com")
-                            .font(.custom("OpenSans-Bold", size: 16))
+                            .font(AMENFont.bold(16))
                             .foregroundStyle(.primary)
                         
                         Text("FEATURED")
-                            .font(.custom("OpenSans-Bold", size: 10))
+                            .font(AMENFont.bold(10))
                             .foregroundStyle(.white)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
@@ -1524,12 +1632,12 @@ struct PrayComCard: View {
                     }
                     
                     Text("Guided prayers, sleep stories, and worship")
-                        .font(.custom("OpenSans-Regular", size: 13))
+                        .font(AMENFont.regular(13))
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
                     
                     Text("External App")
-                        .font(.custom("OpenSans-SemiBold", size: 11))
+                        .font(AMENFont.semiBold(11))
                         .foregroundStyle(.purple)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
@@ -1607,12 +1715,12 @@ struct PlaceholderResourceView: View {
                 
                 VStack(spacing: 12) {
                     Text(title)
-                        .font(.custom("OpenSans-Bold", size: 28))
+                        .font(AMENFont.bold(28))
                         .foregroundStyle(.primary)
                         .multilineTextAlignment(.center)
                     
                     Text(description)
-                        .font(.custom("OpenSans-Regular", size: 16))
+                        .font(AMENFont.regular(16))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 32)
@@ -1620,11 +1728,11 @@ struct PlaceholderResourceView: View {
                 
                 VStack(alignment: .leading, spacing: 16) {
                     Text("Coming Soon")
-                        .font(.custom("OpenSans-Bold", size: 20))
+                        .font(AMENFont.bold(20))
                         .foregroundStyle(.primary)
                     
                     Text("This feature is currently under development. Check back soon for updates!")
-                        .font(.custom("OpenSans-Regular", size: 15))
+                        .font(AMENFont.regular(15))
                         .foregroundStyle(.secondary)
                         .lineSpacing(4)
                 }
@@ -1759,20 +1867,6 @@ let allResources: [ResourceItem] = [
         description: "Connect with believers in your area",
         category: "Community"
     ),
-    ResourceItem(
-        icon: "heart.text.square.fill",
-        iconColor: .pink,
-        title: "Christian Dating",
-        description: "Find meaningful relationships rooted in faith",
-        category: "Community"
-    ),
-    ResourceItem(
-        icon: "person.2.fill",
-        iconColor: .cyan,
-        title: "Find Friends",
-        description: "Build authentic friendships with fellow believers",
-        category: "Community"
-    ),
     
     // Tools & Apps
     ResourceItem(
@@ -1878,12 +1972,12 @@ struct CompactConnectBanner: View {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
                     Text(title)
-                        .font(.custom("OpenSans-Bold", size: 17))
+                        .font(AMENFont.bold(17))
                         .foregroundStyle(.white)
                     
                     if let badge = badge {
                         Text(badge)
-                            .font(.custom("OpenSans-Bold", size: 9))
+                            .font(AMENFont.bold(9))
                             .foregroundStyle(.white)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
@@ -1895,7 +1989,7 @@ struct CompactConnectBanner: View {
                 }
                 
                 Text(subtitle)
-                    .font(.custom("OpenSans-SemiBold", size: 13))
+                    .font(AMENFont.semiBold(13))
                     .foregroundStyle(.white.opacity(0.85))
             }
             
@@ -2157,7 +2251,7 @@ struct FeaturedCommunityBanner: View {
                                     .symbolEffect(.pulse, options: .repeating)
                                 
                                 Text("NEW")
-                                    .font(.custom("OpenSans-Bold", size: 12))
+                                    .font(AMENFont.bold(12))
                                     .foregroundStyle(.white)
                                     .padding(.horizontal, 8)
                                     .padding(.vertical, 4)
@@ -2172,11 +2266,11 @@ struct FeaturedCommunityBanner: View {
                             }
                             
                             Text("Private Communities")
-                                .font(.custom("OpenSans-Bold", size: 24))
+                                .font(AMENFont.bold(24))
                                 .foregroundStyle(.white)
                             
                             Text("Join your church, university, or organization")
-                                .font(.custom("OpenSans-Regular", size: 14))
+                                .font(AMENFont.regular(14))
                                 .foregroundStyle(.white.opacity(0.95))
                                 .lineSpacing(2)
                         }
@@ -2255,7 +2349,7 @@ struct CommunityStatBadge: View {
                 .foregroundStyle(color)
             
             Text(text)
-                .font(.custom("OpenSans-SemiBold", size: 12))
+                .font(AMENFont.semiBold(12))
                 .foregroundStyle(.primary)
         }
         .frame(maxWidth: .infinity)
@@ -2331,7 +2425,7 @@ struct ResourceComingSoonPlaceholder: View {
                                     .foregroundStyle(.orange)
                                 
                                 Text("COMING SOON")
-                                    .font(.custom("OpenSans-Bold", size: 14))
+                                    .font(AMENFont.bold(14))
                                     .foregroundStyle(.orange)
                                     .tracking(2)
                             }
@@ -2347,12 +2441,12 @@ struct ResourceComingSoonPlaceholder: View {
                             )
                             
                             Text(title)
-                                .font(.custom("OpenSans-Bold", size: 32))
+                                .font(AMENFont.bold(32))
                                 .foregroundStyle(.primary)
                                 .multilineTextAlignment(.center)
                             
                             Text(description)
-                                .font(.custom("OpenSans-Regular", size: 16))
+                                .font(AMENFont.regular(16))
                                 .foregroundStyle(.secondary)
                                 .multilineTextAlignment(.center)
                                 .lineSpacing(6)
@@ -2365,11 +2459,11 @@ struct ResourceComingSoonPlaceholder: View {
                                 Image(systemName: "clock.fill")
                                     .foregroundStyle(iconColor)
                                 Text("We're Working On It")
-                                    .font(.custom("OpenSans-Bold", size: 18))
+                                    .font(AMENFont.bold(18))
                             }
                             
                             Text("This feature is currently under development and will be available in a future update. We're building something amazing for you!")
-                                .font(.custom("OpenSans-Regular", size: 15))
+                                .font(AMENFont.regular(15))
                                 .foregroundStyle(.secondary)
                                 .lineSpacing(4)
                             
@@ -2412,7 +2506,7 @@ struct ResourceComingSoonPlaceholder: View {
                                 Image(systemName: "arrow.left")
                                     .font(.system(size: 16, weight: .semibold))
                                 Text("Back to Resources")
-                                    .font(.custom("OpenSans-Bold", size: 16))
+                                    .font(AMENFont.bold(16))
                             }
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
@@ -2461,7 +2555,7 @@ struct ResourceFeatureHighlightRow: View {
                 .frame(width: 24)
             
             Text(text)
-                .font(.custom("OpenSans-Regular", size: 15))
+                .font(AMENFont.regular(15))
                 .foregroundStyle(.primary)
         }
     }
@@ -2504,7 +2598,7 @@ struct MinimalConnectCard: View {
                         
                         if let badge = badge {
                             Text(badge)
-                                .font(.custom("OpenSans-Bold", size: 9))
+                                .font(AMENFont.bold(9))
                                 .foregroundStyle(accentColor)
                                 .padding(.horizontal, 7)
                                 .padding(.vertical, 3)
@@ -2595,7 +2689,7 @@ struct MinimalResourceCard: View {
                 
                 // Title
                 Text(title)
-                    .font(.custom("OpenSans-Bold", size: 13))
+                    .font(AMENFont.bold(13))
                     .foregroundStyle(.primary)
                     .lineLimit(2)
                     .multilineTextAlignment(.center)
@@ -2717,11 +2811,11 @@ struct SimplifiedFeatureBanner: View {
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(.custom("OpenSans-Bold", size: 16))
+                        .font(AMENFont.bold(16))
                         .foregroundStyle(.primary)
                     
                     Text(subtitle)
-                        .font(.custom("OpenSans-Regular", size: 13))
+                        .font(AMENFont.regular(13))
                         .foregroundStyle(.secondary)
                 }
                 
@@ -2758,7 +2852,7 @@ struct SimplifiedFeatureBanner: View {
                                 .foregroundStyle(accentColor)
                             
                             Text(feature)
-                                .font(.custom("OpenSans-Regular", size: 14))
+                                .font(AMENFont.regular(14))
                                 .foregroundStyle(.primary)
                                 .lineSpacing(3)
                         }
@@ -2830,20 +2924,20 @@ struct SafeAIDailyVerseCard: View {
                             .background(Circle().fill(.ultraThinMaterial))
                         
                         Text("Daily Verse")
-                            .font(.custom("OpenSans-Bold", size: 13))
+                            .font(AMENFont.bold(13))
                             .foregroundStyle(.primary)
                     }
                     .padding(.horizontal, 20)
                     .padding(.top, 16)
                     
                     Text("\"For I know the plans I have for you,\" declares the LORD, \"plans to prosper you and not to harm you, plans to give you hope and a future.\"")
-                        .font(.custom("OpenSans-Regular", size: 16))
+                        .font(AMENFont.regular(16))
                         .foregroundStyle(.primary)
                         .lineSpacing(6)
                         .padding(.horizontal, 20)
                     
                     Text("Jeremiah 29:11")
-                        .font(.custom("OpenSans-Bold", size: 14))
+                        .font(AMENFont.bold(14))
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 20)
                         .padding(.bottom, 16)
@@ -2918,12 +3012,12 @@ struct ResourceHubCard: View {
             // Text zone — bottom half
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
-                    .font(.custom("OpenSans-Bold", size: 15))
+                    .font(AMENFont.bold(15))
                     .foregroundStyle(.primary)
                     .lineLimit(1)
                 
                 Text(subtitle)
-                    .font(.custom("OpenSans-Regular", size: 12))
+                    .font(AMENFont.regular(12))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
@@ -2984,17 +3078,17 @@ struct WellnessCard: View {
             // Text
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.custom("OpenSans-Bold", size: 15))
+                    .font(AMENFont.bold(15))
                     .foregroundStyle(.primary)
                     .lineLimit(1)
                 
                 Text(subtitle)
-                    .font(.custom("OpenSans-SemiBold", size: 12))
+                    .font(AMENFont.semiBold(12))
                     .foregroundStyle(accentColor)
                     .lineLimit(1)
                 
                 Text(detail)
-                    .font(.custom("OpenSans-Regular", size: 11))
+                    .font(AMENFont.regular(11))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }

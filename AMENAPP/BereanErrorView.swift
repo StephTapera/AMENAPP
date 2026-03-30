@@ -28,8 +28,16 @@ enum BereanError: LocalizedError {
         case .invalidResponse:
             return "Invalid Response"
         case .unknown(let message):
-            return message
+            return message.isEmpty ? "Something went wrong" : message
         }
+    }
+    
+    /// Safe initializer from any error
+    static func from(_ error: Error) -> BereanError {
+        if let bereanError = error as? BereanError {
+            return bereanError
+        }
+        return .unknown(error.localizedDescription)
     }
     
     var recoverySuggestion: String? {

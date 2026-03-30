@@ -56,7 +56,13 @@ struct FirestorePost: Codable, Identifiable {
     
     // Church note reference
     var churchNoteId: String?
-    
+
+    // Find a Church share snapshot
+    var isChurchShare: Bool = false
+    var sharedChurchName: String?
+    var sharedChurchDenomination: String?
+    var sharedChurchServiceTime: String?
+
     // Content source label — set when user acknowledges pasted/AI content
     var contentSource: String?
 
@@ -101,6 +107,7 @@ struct FirestorePost: Codable, Identifiable {
         case amenUserIds
         case lightbulbUserIds
         case churchNoteId
+        case isChurchShare, sharedChurchName, sharedChurchDenomination, sharedChurchServiceTime
         case contentSource
         case linkedPrayerRequestId
         case journeyDays
@@ -145,6 +152,10 @@ struct FirestorePost: Codable, Identifiable {
         amenUserIds = try container.decodeIfPresent([String].self, forKey: .amenUserIds) ?? []
         lightbulbUserIds = try container.decodeIfPresent([String].self, forKey: .lightbulbUserIds) ?? []
         churchNoteId = try container.decodeIfPresent(String.self, forKey: .churchNoteId)
+        isChurchShare = try container.decodeIfPresent(Bool.self, forKey: .isChurchShare) ?? false
+        sharedChurchName = try container.decodeIfPresent(String.self, forKey: .sharedChurchName)
+        sharedChurchDenomination = try container.decodeIfPresent(String.self, forKey: .sharedChurchDenomination)
+        sharedChurchServiceTime = try container.decodeIfPresent(String.self, forKey: .sharedChurchServiceTime)
         contentSource = try container.decodeIfPresent(String.self, forKey: .contentSource)
         linkedPrayerRequestId = try container.decodeIfPresent(String.self, forKey: .linkedPrayerRequestId)
         journeyDays = try container.decodeIfPresent(Int.self, forKey: .journeyDays)
@@ -180,6 +191,10 @@ struct FirestorePost: Codable, Identifiable {
         amenUserIds: [String] = [],
         lightbulbUserIds: [String] = [],
         churchNoteId: String? = nil,
+        isChurchShare: Bool = false,
+        sharedChurchName: String? = nil,
+        sharedChurchDenomination: String? = nil,
+        sharedChurchServiceTime: String? = nil,
         contentSource: String? = nil
     ) {
         self.id = id
@@ -208,9 +223,13 @@ struct FirestorePost: Codable, Identifiable {
         self.amenUserIds = amenUserIds
         self.lightbulbUserIds = lightbulbUserIds
         self.churchNoteId = churchNoteId
+        self.isChurchShare = isChurchShare
+        self.sharedChurchName = sharedChurchName
+        self.sharedChurchDenomination = sharedChurchDenomination
+        self.sharedChurchServiceTime = sharedChurchServiceTime
         self.contentSource = contentSource
     }
-    
+
     // Convert to local Post model
     func toPost() -> Post {
         let postCategory: Post.PostCategory = {
@@ -242,14 +261,14 @@ struct FirestorePost: Codable, Identifiable {
         
         let timeAgo = FirestorePost.formatTimeAgo(from: createdAt)
         
-        return Post(
+        var post = Post(
             id: UUID(uuidString: id ?? UUID().uuidString) ?? UUID(),
             firebaseId: id,
             authorId: authorId,
             authorName: authorName,
             authorUsername: authorUsername,
             authorInitials: authorInitials,
-            authorProfileImageURL: authorProfileImageURL,  // ✅ FIX: Added profile image URL
+            authorProfileImageURL: authorProfileImageURL,
             timeAgo: timeAgo,
             content: content,
             category: postCategory,
@@ -282,8 +301,13 @@ struct FirestorePost: Codable, Identifiable {
             intercessorUids: intercessorUids,
             bereanArcInsight: bereanArcInsight
         )
+        post.isChurchShare = isChurchShare
+        post.sharedChurchName = sharedChurchName
+        post.sharedChurchDenomination = sharedChurchDenomination
+        post.sharedChurchServiceTime = sharedChurchServiceTime
+        return post
     }
-    
+
     // Helper function to format time ago
     static func formatTimeAgo(from date: Date) -> String {
         let now = Date()
@@ -473,7 +497,11 @@ class FirebasePostService: ObservableObject {
         allowComments: Bool = true,
         imageURLs: [String]? = nil,
         linkURL: String? = nil,
-        churchNoteId: String? = nil
+        churchNoteId: String? = nil,
+        isChurchShare: Bool = false,
+        sharedChurchName: String? = nil,
+        sharedChurchDenomination: String? = nil,
+        sharedChurchServiceTime: String? = nil
     ) async throws {
         #if DEBUG
         dlog("📝 Creating new post with INSTANT optimistic update...")
@@ -517,7 +545,11 @@ class FirebasePostService: ObservableObject {
                 allowComments: allowComments,
                 imageURLs: imageURLs,
                 linkURL: linkURL,
-                churchNoteId: churchNoteId
+                churchNoteId: churchNoteId,
+                isChurchShare: isChurchShare,
+                sharedChurchName: sharedChurchName,
+                sharedChurchDenomination: sharedChurchDenomination,
+                sharedChurchServiceTime: sharedChurchServiceTime
             )
         }
         inflightPostCreations[idempotencyKey] = creationTask
@@ -535,7 +567,11 @@ class FirebasePostService: ObservableObject {
         allowComments: Bool = true,
         imageURLs: [String]? = nil,
         linkURL: String? = nil,
-        churchNoteId: String? = nil
+        churchNoteId: String? = nil,
+        isChurchShare: Bool = false,
+        sharedChurchName: String? = nil,
+        sharedChurchDenomination: String? = nil,
+        sharedChurchServiceTime: String? = nil
     ) async throws {
 
         // Rate-limit check for new accounts
@@ -555,8 +591,8 @@ class FirebasePostService: ObservableObject {
         let profileImageURL = UserDefaults.standard.string(forKey: "currentUserProfileImageURL")
         
         // 🤖 STEP 1.5: Check for AI-generated content
-        // Church-note shares are the user's own sermon notes — skip AI detection.
-        if churchNoteId == nil {
+        // Church-note and church shares are user-generated content — skip AI detection.
+        if churchNoteId == nil && !isChurchShare {
             let aiDetectionResult = await AIContentDetectionService.shared.detectAIContent(content)
 
             if aiDetectionResult.isAIGenerated {
@@ -599,9 +635,9 @@ class FirebasePostService: ObservableObject {
         
         // 🚀 STEP 2: Create optimistic post object with temporary ID
         let tempId = UUID()
-        let optimisticPost = Post(
+        var optimisticPost = Post(
             id: tempId,
-            firebaseId: nil, // Will be set when Firebase confirms
+            firebaseId: nil,
             authorId: userId,
             authorName: displayName,
             authorUsername: username,
@@ -625,6 +661,10 @@ class FirebasePostService: ObservableObject {
             originalAuthorId: nil,
             churchNoteId: churchNoteId
         )
+        optimisticPost.isChurchShare = isChurchShare
+        optimisticPost.sharedChurchName = sharedChurchName
+        optimisticPost.sharedChurchDenomination = sharedChurchDenomination
+        optimisticPost.sharedChurchServiceTime = sharedChurchServiceTime
         
         // 🚀 STEP 3: INSTANTLY notify ProfileView (UI updates IMMEDIATELY)
         await MainActor.run {
@@ -653,7 +693,11 @@ class FirebasePostService: ObservableObject {
             allowComments: allowComments,
             imageURLs: imageURLs,
             linkURL: linkURL,
-            churchNoteId: churchNoteId
+            churchNoteId: churchNoteId,
+            isChurchShare: isChurchShare,
+            sharedChurchName: sharedChurchName,
+            sharedChurchDenomination: sharedChurchDenomination,
+            sharedChurchServiceTime: sharedChurchServiceTime
         )
         
         // Background save - don't wait for it
@@ -968,14 +1012,21 @@ class FirebasePostService: ObservableObject {
         }
     }
     
-    /// Fetch posts by specific user
-    func fetchUserPosts(userId: String, limit: Int = 50, forceServerFetch: Bool = false) async throws -> [Post] {
-        dlog("📥 Fetching posts for user: \(userId)")
-        
-        let query = db.collection(FirebaseManager.CollectionPath.posts)
+    /// Fetch posts by specific user.
+    /// Pass `before` to fetch posts older than that date (cursor-based pagination).
+    func fetchUserPosts(userId: String, limit: Int = 20, before: Date? = nil, forceServerFetch: Bool = false) async throws -> [Post] {
+        dlog("📥 Fetching posts for user: \(userId) (limit: \(limit), before: \(String(describing: before)))")
+
+        var baseQuery = db.collection(FirebaseManager.CollectionPath.posts)
             .whereField("authorId", isEqualTo: userId)
             .order(by: "createdAt", descending: true)
             .limit(to: limit)
+
+        if let cursor = before {
+            baseQuery = baseQuery.whereField("createdAt", isLessThan: Timestamp(date: cursor))
+        }
+
+        let query = baseQuery
         let snapshot = try await (forceServerFetch
             ? query.getDocuments(source: .server)
             : query.getDocuments())
@@ -1396,6 +1447,7 @@ class FirebasePostService: ObservableObject {
         if let index = posts.firstIndex(where: { $0.firebaseId == postId }) {
             var updatedPost = posts[index]
             updatedPost.content = newContent
+            updatedPost.updatedAt = Date()
             posts[index] = updatedPost
             updateCategoryArrays()
         }

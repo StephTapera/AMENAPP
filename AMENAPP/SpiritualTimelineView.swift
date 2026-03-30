@@ -308,29 +308,95 @@ private struct MilestoneRow: View {
     }
 }
 
-// MARK: - SpiritualTimelineEntry (entry point — NavigationLink or sheet trigger)
+// MARK: - SpiritualTimelineEntry (smart banner entry point)
 
 struct SpiritualTimelineEntry: View {
     @State private var showTimeline = false
 
+    // Deep forest/emerald palette — calm, growth-oriented
+    private let emerald  = Color(red: 0.10, green: 0.47, blue: 0.30)
+    private let emeraldD = Color(red: 0.06, green: 0.28, blue: 0.18)
+
     var body: some View {
-        Button {
-            showTimeline = true
-        } label: {
-            HStack(spacing: 10) {
-                Image(systemName: "clock.arrow.circlepath")
-                    .font(.system(size: 16))
-                    .foregroundStyle(Color(.secondaryLabel))
-                Text("My Spiritual Timeline")
-                    .font(.system(size: 15))
-                    .foregroundStyle(Color(.label))
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 13))
-                    .foregroundStyle(Color(.tertiaryLabel))
+        Button { showTimeline = true } label: {
+            HStack(spacing: 0) {
+                // ── Left panel: gradient + icon ─────────────────────────────
+                ZStack(alignment: .bottomLeading) {
+                    LinearGradient(
+                        stops: [
+                            .init(color: Color(red: 0.10, green: 0.47, blue: 0.30), location: 0.0),
+                            .init(color: Color(red: 0.07, green: 0.36, blue: 0.22), location: 0.55),
+                            .init(color: Color(red: 0.06, green: 0.28, blue: 0.18), location: 1.0),
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+
+                    // Decorative orbit rings
+                    ZStack {
+                        Circle()
+                            .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                            .frame(width: 80, height: 80)
+                        Circle()
+                            .stroke(Color.white.opacity(0.07), lineWidth: 1)
+                            .frame(width: 56, height: 56)
+                        Image(systemName: "clock.arrow.circlepath")
+                            .font(.system(size: 26, weight: .light))
+                            .foregroundStyle(Color.white.opacity(0.90))
+                    }
+                    .padding(.leading, 24)
+                    .padding(.bottom, 20)
+                }
+                .frame(width: 130)
+
+                // ── Right panel: white editorial ─────────────────────────────
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("YOUR JOURNEY")
+                        .font(.system(size: 9, weight: .semibold))
+                        .kerning(2.0)
+                        .foregroundStyle(emerald)
+
+                    Text("Spiritual\nTimeline")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundStyle(.primary)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.85)
+
+                    HStack(spacing: 6) {
+                        Label("AI-powered", systemImage: "sparkles")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(Color(.secondaryLabel))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(.thinMaterial, in: Capsule())
+                        Label("Milestones", systemImage: "flag.checkered")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(Color(.secondaryLabel))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(.thinMaterial, in: Capsule())
+                    }
+
+                    Spacer()
+
+                    HStack(spacing: 4) {
+                        Text("View my timeline")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(emerald)
+                        Image(systemName: "arrow.right")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(emerald)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 16)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color(.systemBackground))
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            .frame(height: 160)
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .shadow(color: emerald.opacity(0.20), radius: 18, x: 0, y: 8)
+            .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
         }
         .buttonStyle(.plain)
         .sheet(isPresented: $showTimeline) {

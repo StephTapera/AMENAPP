@@ -71,4 +71,12 @@ extension Notification.Name {
     /// Posted when a push notification tap requests opening a specific user profile.
     /// UserInfo: ["userId": String]
     static let openProfileFromNotification = Notification.Name("openProfileFromNotification")
+
+    /// Posted when a deep link resolves to a user profile.
+    /// UserInfo: ["userId": String]
+    static let navigateToUser = Notification.Name("navigateToUser")
+
+    /// Posted when a deep link resolves to a specific post.
+    /// UserInfo: ["postId": String]
+    static let navigateToPost = Notification.Name("navigateToPost")
 }

@@ -54,12 +54,14 @@ struct AMENLoadingIndicator: View {
         withAnimation(.easeInOut(duration: animDuration).repeatForever(autoreverses: true)) {
             dot1Up = true
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + stagger) {
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(stagger))
             withAnimation(.easeInOut(duration: animDuration).repeatForever(autoreverses: true)) {
                 dot2Up = true
             }
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + stagger * 2) {
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(stagger * 2))
             withAnimation(.easeInOut(duration: animDuration).repeatForever(autoreverses: true)) {
                 dot3Up = true
             }
@@ -286,7 +288,7 @@ struct ToastView: View {
                 .foregroundColor(.white)
             
             Text(toast.message)
-                .font(.custom("OpenSans-SemiBold", size: 14))
+                .font(AMENFont.semiBold(14))
                 .foregroundColor(.white)
                 .lineLimit(2)
             
@@ -361,7 +363,7 @@ struct LoadingOverlay: View {
                 AMENLoadingIndicator(color: .white)
                 
                 Text(message)
-                    .font(.custom("OpenSans-SemiBold", size: 14))
+                    .font(AMENFont.semiBold(14))
                     .foregroundColor(.white)
             }
             .padding(24)
@@ -409,11 +411,11 @@ struct ErrorView: View {
                 .foregroundColor(.orange)
             
             Text("Something Went Wrong")
-                .font(.custom("OpenSans-Bold", size: 18))
+                .font(AMENFont.bold(18))
                 .foregroundColor(.black)
             
             Text(error.localizedDescription)
-                .font(.custom("OpenSans-Regular", size: 14))
+                .font(AMENFont.regular(14))
                 .foregroundColor(.gray)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
@@ -424,7 +426,7 @@ struct ErrorView: View {
                         Image(systemName: "arrow.clockwise")
                         Text("Try Again")
                     }
-                    .font(.custom("OpenSans-SemiBold", size: 15))
+                    .font(AMENFont.semiBold(15))
                     .foregroundColor(.white)
                     .padding(.horizontal, 24)
                     .padding(.vertical, 12)
@@ -452,7 +454,7 @@ struct SharedUIInlineErrorBanner: View {
                 .foregroundColor(.orange)
             
             Text(message)
-                .font(.custom("OpenSans-Regular", size: 13))
+                .font(AMENFont.regular(13))
                 .foregroundColor(.black)
                 .lineLimit(2)
             

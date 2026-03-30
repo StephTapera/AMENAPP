@@ -16,6 +16,7 @@ struct PostDetailView: View {
 
     @Environment(\.dismiss) var dismiss
     @ObservedObject private var commentService = CommentService.shared
+    @ObservedObject private var commentFocusCoordinator = CommentFocusCoordinator.shared
     @ObservedObject private var userService = UserService.shared
     @ObservedObject private var postsManager = PostsManager.shared
     @ObservedObject private var followService = FollowService.shared
@@ -24,6 +25,9 @@ struct PostDetailView: View {
     @State private var isLoading = false
     @State private var commentText = ""
     @State private var isFollowInFlight = false
+    @State private var expandedCommentClusters: Set<String> = []
+    @State private var highlightedCommentIDs: Set<String> = []
+    @State private var highlightResetTask: Task<Void, Never>?
     @FocusState private var isCommentFocused: Bool
 
     // CommentService uses the full firestoreId as the Realtime Database key.
@@ -57,23 +61,41 @@ struct PostDetailView: View {
     @State private var rateLimitMessage: String? = nil   // Auto-dismissing rate limit notice
     @State private var rateLimitDismissTask: Task<Void, Never>? = nil
     @State private var showCommentsLoadError = false      // P2 FIX: surface loadComments failure
-    @State private var scrollOffset: CGFloat = 0          // Drives scroll-reactive glass overlay
+    @State private var scrollOffset: CGFloat = 0
+    @State private var carouselPage: Int = 0               // Active slide in media carousel
+
+    // Testimony features — only active when post.category == .testimonies
+    @StateObject private var witnessService = TestimonyWitnessService()
+    @StateObject private var strengthService = TestimonyStrengthService()
+    @State private var showRipple = false
+    @State private var showAnsweredComposer = false
+    @State private var linkedTestimonyPost: Post? = nil
+    
+    // Prayer features — fasting chain
+    @State private var isFasting = false
 
     // Scroll-driven sheet expansion (0 = compact hero visible, 1 = full-screen sheet)
 
 
     // Single sheet enum — avoids "only presenting a single sheet" SwiftUI warning
     private enum DetailSheet: Identifiable {
-        case berean(String), share, profile
+        case berean(String), share, profile, report, editPost
         var id: String {
             switch self {
-            case .berean:   return "berean"
-            case .share:    return "share"
-            case .profile:  return "profile"
+            case .berean:    return "berean"
+            case .share:     return "share"
+            case .profile:   return "profile"
+            case .report:    return "report"
+            case .editPost:  return "editPost"
             }
         }
     }
     @State private var activeDetailSheet: DetailSheet?
+    @ObservedObject private var savedPostsService = RealtimeSavedPostsService.shared
+    private var isSaved: Bool {
+        guard let firebaseId = post.firebaseId else { return false }
+        return savedPostsService.savedPostIds.contains(firebaseId)
+    }
 
     // Check if this is the current user's post
     private var isUserPost: Bool {
@@ -97,43 +119,26 @@ struct PostDetailView: View {
         heroImageURL != nil
     }
 
+    // All valid image URLs (supports multi-image carousel)
+    private var allImageURLs: [URL] {
+        (post.imageURLs ?? [])
+            .filter { !$0.isEmpty }
+            .compactMap { URL(string: $0) }
+    }
+
     var body: some View {
-        ZStack(alignment: .topLeading) {
-            Color(.systemBackground).ignoresSafeArea()
+        VStack(spacing: 0) {
+            // ── Top nav bar ─────────────────────────────────────────
+            topNavBar
 
             ScrollView(.vertical, showsIndicators: false) {
-                VStack(spacing: 0) {
-                    // Scroll offset reporter — zero height, must be first child
-                    ScrollOffsetReader()
 
-                    // ── Hero — image posts taller, text-only posts compact ───
-                    GeometryReader { geo in
-                        heroSection
-                            .frame(width: geo.size.width,
-                                   height: hasMedia ? geo.size.width * 0.72 : 160)
-                            .clipped()
-                    }
-                    .frame(height: hasMedia ? 300 : 160)
-                    .overlay(alignment: .topLeading) {
-                        // ── Floating dismiss button — sits just below status bar
-                        Button { dismiss() } label: {
-                            ZStack {
-                                Circle()
-                                    .fill(.ultraThinMaterial)
-                                    .frame(width: 34, height: 34)
-                                    .overlay(
-                                        Circle()
-                                            .strokeBorder(Color.white.opacity(0.25), lineWidth: 1)
-                                    )
-                                    .shadow(color: .black.opacity(0.18), radius: 4, y: 2)
-                                Image(systemName: "xmark")
-                                    .font(.system(size: 13, weight: .semibold))
-                                    .foregroundStyle(.white)
-                            }
-                        }
-                        .buttonStyle(.plain)
-                        .padding(.top, 12)
-                        .padding(.leading, 16)
+                VStack(spacing: 0) {
+                    // ── Media carousel or compact category banner ────────
+                    if !allImageURLs.isEmpty {
+                        mediaCarousel
+                    } else {
+                        textOnlyBanner
                     }
 
                     // ── Full post text (expanded by default in detail view) ──
@@ -178,60 +183,35 @@ struct PostDetailView: View {
 
                     // ── Engagement bar ──────────────────────────────────────
                     engagementBar
-                        .padding(.horizontal, 20)
+                        .padding(.horizontal, 16)
                         .padding(.vertical, 12)
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 4)
+
+                    // ── Prayer Status Track — prayer posts, author only ────────
+                    if post.category == .prayer {
+                        PrayerStatusTrackView(post: post) {
+                            showAnsweredComposer = true
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+
+                        PrayerFulfillmentInsightView(postId: postId)
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 8)
+                    }
 
                     Divider()
 
-                    // ── Berean Insight Card ─────────────────────────────────
-                    // Tap to open Berean AI pre-seeded with the post content.
-                    let insightText = "Help me reflect on: \(post.content.prefix(200))"
-                    Button {
-                        activeDetailSheet = .berean(insightText)
-                    } label: {
-                        HStack(spacing: 12) {
-                            Image("amen-logo")
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 22, height: 22)
-                                .blendMode(.multiply)
-
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Reflect with Berean")
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundStyle(.primary)
-                                Text("Tap to explore this post's deeper meaning")
-                                    .font(.system(size: 12))
-                                    .foregroundStyle(.secondary)
-                            }
-
-                            Spacer()
-
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(.secondary)
-                        }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 12)
-                        .background(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .fill(.ultraThinMaterial)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                        .strokeBorder(Color(.separator).opacity(0.4), lineWidth: 1)
-                                )
-                        )
-                        .scaleEffect(isInsightCardPressed ? 0.97 : 1.0)
-                        .animation(.spring(response: 0.2), value: isInsightCardPressed)
+                    // ── Live Witness Banner — testimony posts only ────────────
+                    if post.category == .testimonies {
+                        WitnessBannerView(service: witnessService)
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 4)
                     }
-                    .buttonStyle(.plain)
-                    .simultaneousGesture(
-                        DragGesture(minimumDistance: 0)
-                            .onChanged { _ in isInsightCardPressed = true }
-                            .onEnded { _ in isInsightCardPressed = false }
-                    )
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
 
                     // ── Prayer Arc — testimony ↔ prayer link ─────────────────
                     // Only shown on testimony posts with linkedPrayerRequestId set.
@@ -239,7 +219,31 @@ struct PostDetailView: View {
                         PrayerArcCard(testimonyPost: post)
                     }
 
+                    // ── Answered prayer banner — prayer posts with linked testimony ──
+                    if post.category == .prayer, post.linkedTestimonyId != nil {
+                        PrayerAnsweredBannerView(post: post) { tp in
+                            linkedTestimonyPost = tp
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 6)
+                    }
+
+                    // ── Testimony origin link — on answered-prayer testimony posts ──
+                    if post.category == .testimonies && post.isAnsweredPrayer {
+                        TestimonyOriginLinkView(post: post)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 4)
+                        TestimonyRippleView(count: post.rippleCount ?? 0)
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 4)
+                    }
+
                     Divider()
+
+                    // ── Testimony Strength Meter — testimony posts only ───────
+                    if post.category == .testimonies {
+                        StrengthMeterView(service: strengthService)
+                    }
 
                     // ── Conversation Thread (Threads-style wisdom UI) ────────
                     if showCommentsLoadError {
@@ -251,6 +255,8 @@ struct PostDetailView: View {
                             commentsWithReplies: commentsWithReplies,
                             isLoading: isLoading,
                             savedBookIds: [],
+                            expandedClusters: $expandedCommentClusters,
+                            highlightedCommentIDs: highlightedCommentIDs,
                             onReply: { parentComment in
                                 if let parent = parentComment {
                                     commentText = "@\(parent.authorUsername) "
@@ -277,30 +283,34 @@ struct PostDetailView: View {
                         )
                     }
 
+                    // Ripple overlay for testimony post reply submit
+                    if post.category == .testimonies && showRipple {
+                        GeometryReader { geo in
+                            Circle()
+                                .fill(Color.accentColor.opacity(0.18))
+                                .frame(width: showRipple ? geo.size.width * 2 : 0,
+                                       height: showRipple ? geo.size.width * 2 : 0)
+                                .position(x: geo.size.width / 2, y: geo.size.height)
+                                .opacity(showRipple ? 0 : 0.3)
+                        }
+                        .frame(height: 60)
+                        .allowsHitTesting(false)
+                    }
+
                     Color.clear.frame(height: 20)
                 }
             }
-            .coordinateSpace(name: "dynamicGlassScroll")
-            .onPreferenceChange(DynamicGlassScrollOffsetKey.self) { value in
-                // Throttle: skip sub-1pt jitter to avoid unnecessary redraws
-                if abs(value - scrollOffset) >= 1 {
-                    scrollOffset = value
-                }
-            }
             .scrollDismissesKeyboard(.interactively)
-            .ignoresSafeArea(edges: .top)
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 commentInputBar
             }
-
-            // ── Scroll-reactive glass fog — sits above scroll content,
-            //    below the comment input bar, never blocks taps ────────────
-            DynamicGlassOverlay(
-                scrollOffset: scrollOffset,
-                coverageFraction: 0.55,
-                rampDistance: 160
-            )
-            .ignoresSafeArea(edges: .bottom)
+        }
+        .background(Color(.systemBackground).ignoresSafeArea())
+        .sheet(isPresented: $showAnsweredComposer) {
+            AnsweredPrayerComposerView(originalPrayerPost: post)
+        }
+        .sheet(item: $linkedTestimonyPost) { tp in
+            PostDetailView(post: tp)
         }
         .navigationBarHidden(true)
         .sheet(item: $activeDetailSheet) { sheet in
@@ -311,17 +321,32 @@ struct PostDetailView: View {
                 PostShareOptionsSheet(post: post)
             case .profile:
                 UserProfileView(userId: post.authorId, showsDismissButton: true)
+            case .report:
+                ReportPostSheet(
+                    post: post,
+                    postAuthor: post.authorName,
+                    category: post.category == .testimonies ? .testimonies : post.category == .prayer ? .prayer : .openTable
+                )
+            case .editPost:
+                EditPostSheet(post: post)
             }
         }
         .task {
             await loadComments()
+            consumePendingCommentFocus()
             if !isListening {
                 commentService.startListening(to: postId)
                 isListening = true
             }
             reactorFetchTask = Task { await loadRecentReactors() }
+            if post.category == .testimonies {
+                witnessService.startWitnessing(postId: postId)
+                strengthService.startListening(postId: postId)
+            }
         }
         .onDisappear {
+            highlightResetTask?.cancel()
+            highlightResetTask = nil
             if isListening {
                 commentService.stopListening(to: postId)
                 pollingTask?.cancel()
@@ -330,62 +355,17 @@ struct PostDetailView: View {
             }
             reactorFetchTask?.cancel()
             reactorFetchTask = nil
+            if post.category == .testimonies {
+                witnessService.stopWitnessing()
+                strengthService.stopListening()
+            }
         }
         // commentsWithReplies is now a computed property derived from @Published
         // CommentService state, so no notification handlers are needed here.
         // SwiftUI automatically re-renders when commentService.comments changes.
     }
 
-    // MARK: - Hero Section
-
-    @ViewBuilder
-    private var heroSection: some View {
-        ZStack(alignment: .bottom) {
-            // Background — image if available, else category-tinted gradient
-            if let url = heroImageURL {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .clipped()
-                    case .empty:
-                        postGradientBackground
-                            .overlay(ProgressView().tint(.white))
-                    case .failure:
-                        // Image URL exists but failed to load — show gradient + icon
-                        postGradientBackground
-                            .overlay(
-                                Image(systemName: "photo")
-                                    .font(.system(size: 28, weight: .light))
-                                    .foregroundStyle(.white.opacity(0.4))
-                            )
-                    @unknown default:
-                        postGradientBackground
-                    }
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .clipped()
-            } else {
-                // Text-only post: category-tinted gradient with subtle pattern
-                postGradientBackground
-            }
-
-            // Scrim gradient so text is readable over any background
-            LinearGradient(
-                colors: [.clear, .black.opacity(hasMedia ? 0.72 : 0.55)],
-                startPoint: .center,
-                endPoint: .bottom
-            )
-
-            // Post metadata pinned to bottom of hero
-            heroMetadata
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
+    // MARK: - Category gradient (used by textOnlyBanner)
     // Category-aware gradient for text-only posts
     private var postGradientBackground: some View {
         let colors: [Color] = {
@@ -402,67 +382,6 @@ struct PostDetailView: View {
         }()
         return LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private var heroMetadata: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            // Author row
-            HStack(spacing: 10) {
-                Button {
-                    activeDetailSheet = .profile
-                } label: {
-                    authorAvatar
-                        .frame(width: 40, height: 40)
-                }
-                .buttonStyle(.plain)
-
-                Button {
-                    activeDetailSheet = .profile
-                } label: {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(post.authorUsername ?? post.authorName)
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(.white)
-                        Text(timeAgo(from: post.createdAt))
-                            .font(.system(size: 13))
-                            .foregroundStyle(.white.opacity(0.75))
-                    }
-                }
-                .buttonStyle(.plain)
-
-                Spacer()
-
-                // Follow button (if not own post)
-                if !isUserPost {
-                    followButton
-                }
-            }
-
-            // Topic tag only — post text shown once in the main content area below
-            if let topicTag = post.topicTag, !topicTag.isEmpty {
-                Text("#\(topicTag)")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.85))
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
-                    .background(
-                        Capsule().fill(.ultraThinMaterial.opacity(0.6))
-                    )
-            }
-
-            // Engagement avatar strip — shown above BereanInsightCard when reactors have photos
-            if !recentReactors.filter({ $0.profileImageURL != nil }).isEmpty {
-                PostEngagementAvatarStrip(
-                    reactors: recentReactors,
-                    reactorCount: reactorCount,
-                    isVisible: reactorsVisible
-                )
-                .transition(.opacity.combined(with: .move(edge: .top)))
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.bottom, 16)
-        .padding(.top, 8)
     }
 
     @ViewBuilder
@@ -484,34 +403,154 @@ struct PostDetailView: View {
         }
     }
 
-    private var followButton: some View {
-        Button {
-            handleFollowTap()
-        } label: {
-            HStack(spacing: 4) {
-                Image(systemName: isFollowing ? "checkmark" : "plus")
-                    .font(.system(size: 11, weight: .bold))
-                Text(isFollowing ? "Following" : "Follow")
-                    .font(.system(size: 12, weight: .semibold))
+    // MARK: - Top Nav Bar
+
+    private var topNavBar: some View {
+        HStack(alignment: .center, spacing: 12) {
+            // X / back button — left, alone
+            Button { dismiss() } label: {
+                ZStack {
+                    Circle()
+                        .fill(Color(.secondarySystemBackground))
+                        .frame(width: 32, height: 32)
+                    Image(systemName: "xmark")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.primary)
+                }
             }
-            .foregroundStyle(isFollowing ? .white.opacity(0.8) : .black)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(
-                Capsule()
-                    .fill(isFollowing ? Color.white.opacity(0.2) : Color.white)
-            )
-            .opacity(isFollowInFlight ? 0.6 : 1.0)
+            .buttonStyle(.plain)
+
+            Spacer()
+
+            // Author info — right side
+            Button { activeDetailSheet = .profile } label: {
+                HStack(spacing: 9) {
+                    authorAvatar
+                        .frame(width: 30, height: 30)
+
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(post.authorUsername ?? post.authorName)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                        if let tag = post.topicTag, !tag.isEmpty {
+                            Text("#\(tag)")
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Text(timeAgo(from: post.createdAt))
+                                .font(.system(size: 11))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+            .buttonStyle(.plain)
         }
-        .disabled(isFollowInFlight)
-        .buttonStyle(.plain)
+        .padding(.horizontal, 16)
+        .frame(height: 52)
+        .background(.regularMaterial)
+        .overlay(alignment: .bottom) { Divider() }
     }
 
-    // MARK: - Expanding Comments Sheet
+    // MARK: - Media Carousel (Threads-style, AMEN liquid glass)
 
-    /// Scroll- and drag-driven sheet that expands from ~52% to full screen.
-    @ViewBuilder
+    private var mediaCarousel: some View {
+        GeometryReader { geo in
+            let imageHeight = min(geo.size.width * 5 / 4, 420)
+            ZStack(alignment: .bottom) {
+                TabView(selection: $carouselPage) {
+                    ForEach(Array(allImageURLs.enumerated()), id: \.offset) { index, url in
+                        AsyncImage(url: url) { phase in
+                            switch phase {
+                            case .success(let image):
+                                image
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: geo.size.width, height: imageHeight)
+                                    .clipped()
+                            case .empty:
+                                Rectangle()
+                                    .fill(Color(.secondarySystemBackground))
+                                    .frame(width: geo.size.width, height: imageHeight)
+                                    .overlay(ProgressView().tint(.secondary))
+                            case .failure:
+                                Rectangle()
+                                    .fill(Color(.secondarySystemBackground))
+                                    .frame(width: geo.size.width, height: imageHeight)
+                                    .overlay(
+                                        Image(systemName: "photo")
+                                            .font(.system(size: 32, weight: .light))
+                                            .foregroundStyle(.secondary)
+                                    )
+                            @unknown default:
+                                Rectangle()
+                                    .fill(Color(.secondarySystemBackground))
+                                    .frame(width: geo.size.width, height: imageHeight)
+                            }
+                        }
+                        .tag(index)
+                    }
+                }
+                .tabViewStyle(.page(indexDisplayMode: .never))
+                .frame(height: imageHeight)
 
+                // Liquid glass pill indicators (multi-image only)
+                if allImageURLs.count > 1 {
+                    carouselIndicators
+                        .padding(.bottom, 14)
+                }
+            }
+            .frame(height: imageHeight)
+        }
+        .frame(maxWidth: .infinity)
+        .aspectRatio(4 / 5, contentMode: .fit)
+    }
+
+    private var carouselIndicators: some View {
+        HStack(spacing: 5) {
+            ForEach(0..<allImageURLs.count, id: \.self) { i in
+                Capsule()
+                    .fill(i == carouselPage
+                          ? Color.white.opacity(0.96)
+                          : Color.white.opacity(0.40))
+                    .frame(width: i == carouselPage ? 18 : 6, height: 6)
+                    .animation(.spring(response: 0.28, dampingFraction: 0.72), value: carouselPage)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 7)
+        .background(
+            Capsule()
+                .fill(.ultraThinMaterial)
+                .overlay(Capsule().strokeBorder(Color.white.opacity(0.22), lineWidth: 0.8))
+        )
+        .shadow(color: .black.opacity(0.22), radius: 6, y: 2)
+    }
+
+    // MARK: - Text-only compact banner
+
+    private var textOnlyBanner: some View {
+        ZStack {
+            postGradientBackground
+            Image(systemName: categorySymbol)
+                .font(.system(size: 26, weight: .light))
+                .foregroundStyle(.white.opacity(0.20))
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 76)
+    }
+
+    private var categorySymbol: String {
+        switch post.category {
+        case .prayer:       return "hands.sparkles"
+        case .testimonies:  return "star.circle"
+        case .openTable:    return "bubble.left.and.bubble.right"
+        default:            return "text.bubble"
+        }
+    }
+
+    // MARK: - Engagement Bar
 
     private var engagementBar: some View {
         HStack(spacing: 20) {
@@ -548,8 +587,75 @@ struct PostDetailView: View {
                 }
             }
             .buttonStyle(.plain)
+            
+            // Join Fast button - only for prayer request posts
+            if post.category == .prayer, post.topicTag == "Prayer Request" {
+                Button {
+                    toggleFasting()
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: isFasting ? "flame.fill" : "flame")
+                            .font(.system(size: 17))
+                            .foregroundStyle(isFasting ? Color.orange : .secondary)
+                        if isFasting {
+                            Text("Fasting")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundStyle(Color.orange)
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+            }
 
             Spacer()
+
+            // Bookmark / Save button
+            Button {
+                HapticManager.impact(style: .light)
+                if let firebaseId = post.firebaseId {
+                    Task { try? await savedPostsService.toggleSavePost(postId: firebaseId) }
+                }
+            } label: {
+                Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
+                    .font(.system(size: 17))
+                    .foregroundStyle(isSaved ? Color.accentColor : .secondary)
+            }
+            .buttonStyle(.plain)
+
+            // Ellipsis menu — report, edit (own posts), block/mute
+            Menu {
+                if isUserPost {
+                    Button {
+                        activeDetailSheet = .editPost
+                    } label: {
+                        Label("Edit Post", systemImage: "pencil")
+                    }
+                    Button(role: .destructive) {
+                        postsManager.deletePost(postId: post.id)
+                        dismiss()
+                    } label: {
+                        Label("Delete Post", systemImage: "trash")
+                    }
+                } else {
+                    Button {
+                        activeDetailSheet = .report
+                    } label: {
+                        Label("Report", systemImage: "flag")
+                    }
+                    Button {
+                        Task {
+                            try? await BlockService.shared.blockUser(userId: post.authorId)
+                            dismiss()
+                        }
+                    } label: {
+                        Label("Block \(post.authorName)", systemImage: "hand.raised")
+                    }
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 17))
+                    .foregroundStyle(.secondary)
+            }
 
             // Berean AI — AMEN logo button (same style as OpenTable top-right)
             Button {
@@ -744,6 +850,13 @@ struct PostDetailView: View {
             do {
                 _ = try await commentService.addComment(postId: postId, content: text, post: post)
                 // UI updates automatically via @Published commentService.comments
+                if post.category == .testimonies {
+                    withAnimation(.easeOut(duration: 0.8)) { showRipple = true }
+                    Task {
+                        try? await Task.sleep(nanoseconds: 900_000_000)
+                        showRipple = false
+                    }
+                }
             } catch {
                 dlog("❌ Failed to post comment: \(error)")
                 let nsError = error as NSError
@@ -754,6 +867,25 @@ struct PostDetailView: View {
                     commentText = text  // restore on failure for other errors
                     UINotificationFeedbackGenerator().notificationOccurred(.error)
                 }
+            }
+        }
+    }
+
+    private func consumePendingCommentFocus() {
+        let pendingFocus = commentFocusCoordinator.consume()
+
+        if let expandId = pendingFocus.expand, !expandId.isEmpty {
+            expandedCommentClusters.insert(expandId)
+        }
+
+        guard let highlightId = pendingFocus.highlight, !highlightId.isEmpty else { return }
+
+        highlightedCommentIDs = [highlightId]
+        highlightResetTask?.cancel()
+        highlightResetTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 2_200_000_000)
+            if highlightedCommentIDs == [highlightId] {
+                highlightedCommentIDs.removeAll()
             }
         }
     }
@@ -793,6 +925,60 @@ struct PostDetailView: View {
                 UINotificationFeedbackGenerator().notificationOccurred(.error)
             }
             isFollowInFlight = false
+        }
+    }
+    
+    // MARK: - Fasting Chain
+    
+    private func toggleFasting() {
+        dlog("🔥 toggleFasting() called in PostDetailView")
+        
+        guard post.category == .prayer, post.topicTag == "Prayer Request" else {
+            dlog("⚠️ Not a prayer request post")
+            return
+        }
+        
+        // Store previous state for rollback
+        let previousState = isFasting
+        
+        // Haptic + optimistic update
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+            isFasting.toggle()
+        }
+        
+        let rtdb = RealtimeDatabaseManager.shared
+        
+        Task {
+            let success: Bool
+            
+            if isFasting {
+                success = await withCheckedContinuation { continuation in
+                    rtdb.joinFast(postId: post.firestoreId) { result in
+                        continuation.resume(returning: result)
+                    }
+                }
+            } else {
+                success = await withCheckedContinuation { continuation in
+                    rtdb.leaveFast(postId: post.firestoreId) { result in
+                        continuation.resume(returning: result)
+                    }
+                }
+            }
+            
+            await MainActor.run {
+                if success {
+                    dlog("✅ \(isFasting ? "Joined" : "Left") fast for post")
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    ToastManager.shared.success(isFasting ? "Joined fast" : "Left fast")
+                } else {
+                    dlog("❌ Failed to \(isFasting ? "join" : "leave") fast")
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                        isFasting = previousState
+                    }
+                    UINotificationFeedbackGenerator().notificationOccurred(.error)
+                }
+            }
         }
     }
 

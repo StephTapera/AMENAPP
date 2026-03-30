@@ -515,6 +515,9 @@ struct InboxHeroHeader: View {
     let greetingName: String
     let onCompose: () -> Void
     let onBack: () -> Void
+    let onSettings: () -> Void
+    let onRequests: () -> Void
+    var requestCount: Int = 0
     @Binding var searchText: String
 
     // Tracks how far the content has scrolled — fed from parent — so the
@@ -543,35 +546,57 @@ struct InboxHeroHeader: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
 
-            // ── Row 1: Avatar chip + compose button ──────────────────────────
+            // ── Row 1: Back button + compose button ──────────────────────────
             HStack(alignment: .center) {
-                // Small user avatar — doubles as navigation hint back to profile
+                // Back button
                 Button(action: onBack) {
-                    Group {
-                        if let urlStr = userService.currentUser?.profileImageURL,
-                           let url = URL(string: urlStr) {
-                            CachedAsyncImage(url: url) { img in
-                                img.resizable()
-                                    .aspectRatio(contentMode: .fill)
-                                    .frame(width: AMENInboxTokens.headerAvatarSize,
-                                           height: AMENInboxTokens.headerAvatarSize)
-                                    .clipShape(Circle())
-                            } placeholder: {
-                                initialsChip
-                            }
-                        } else {
-                            initialsChip
-                        }
-                    }
+                    Image(systemName: "chevron.backward")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(AMENInboxTokens.primaryText)
+                        .frame(width: 40, height: 40)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Back")
 
                 Spacer()
 
-                // Notification Bell Button
-                NotificationBellButton()
-                
+                // 3-dot settings menu
+                Menu {
+                    Button {
+                        onRequests()
+                        HapticManager.impact(style: .light)
+                    } label: {
+                        Label(
+                            requestCount > 0 ? "Message Requests (\(requestCount))" : "Message Requests",
+                            systemImage: "tray.and.arrow.down"
+                        )
+                    }
+
+                    Button {
+                        onCompose()
+                        HapticManager.impact(style: .light)
+                    } label: {
+                        Label("New Group", systemImage: "person.3")
+                    }
+
+                    Divider()
+
+                    Button {
+                        onSettings()
+                        HapticManager.impact(style: .light)
+                    } label: {
+                        Label("Settings", systemImage: "gearshape")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.system(size: 19, weight: .medium))
+                        .foregroundStyle(AMENInboxTokens.primaryText)
+                        .frame(width: 40, height: 40)
+                        .contentShape(Rectangle())
+                }
+                .accessibilityLabel("More options")
+
                 // Compose new message
                 Button(action: onCompose) {
                     Image(systemName: "square.and.pencil")

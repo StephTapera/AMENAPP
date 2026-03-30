@@ -30,14 +30,53 @@ struct ActivityFeedView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                // Tab Picker
-                Picker("Feed Type", selection: $selectedTab) {
+                // Tab Picker — Liquid Glass filter pills
+                HStack(spacing: 8) {
                     ForEach(FeedTab.allCases, id: \.self) { tab in
-                        Text(tab.rawValue).tag(tab)
+                        let isSelected = selectedTab == tab
+                        Button {
+                            withAnimation(.spring(response: 0.28, dampingFraction: 0.78)) {
+                                selectedTab = tab
+                            }
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        } label: {
+                            Text(tab.rawValue)
+                                .font(.custom(isSelected ? "OpenSans-SemiBold" : "OpenSans-Regular", size: 14))
+                                .foregroundStyle(isSelected ? Color.primary : Color.secondary)
+                                .padding(.horizontal, 18)
+                                .padding(.vertical, 8)
+                                .background {
+                                    if isSelected {
+                                        Capsule()
+                                            .fill(.regularMaterial)
+                                            .overlay(
+                                                Capsule().strokeBorder(
+                                                    LinearGradient(
+                                                        colors: [.white.opacity(0.55), .white.opacity(0.12)],
+                                                        startPoint: .topLeading,
+                                                        endPoint: .bottomTrailing
+                                                    ),
+                                                    lineWidth: 0.5
+                                                )
+                                            )
+                                            .shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 2)
+                                    } else {
+                                        Capsule()
+                                            .fill(Color.primary.opacity(0.05))
+                                    }
+                                }
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
-                .pickerStyle(.segmented)
-                .padding()
+                .padding(12)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20)
+                        .strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5)
+                )
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
                 
                 // Activity List
                 ScrollView {
@@ -126,11 +165,11 @@ struct ActivityFeedView: View {
                 .foregroundStyle(.secondary)
 
             Text("No Church Connected")
-                .font(.custom("OpenSans-Bold", size: 18))
+                .font(AMENFont.bold(18))
                 .foregroundStyle(.primary)
 
             Text("Connect with your church in the Find Church tab\nto see your community's activity here.")
-                .font(.custom("OpenSans-Regular", size: 14))
+                .font(AMENFont.regular(14))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }
@@ -145,11 +184,11 @@ struct ActivityFeedView: View {
                 .foregroundStyle(.secondary)
 
             Text("No Community Activity Yet")
-                .font(.custom("OpenSans-Bold", size: 18))
+                .font(AMENFont.bold(18))
                 .foregroundStyle(.primary)
 
             Text("When members of your church interact with posts,\nyou'll see their activity here.")
-                .font(.custom("OpenSans-Regular", size: 14))
+                .font(AMENFont.regular(14))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }
@@ -164,11 +203,11 @@ struct ActivityFeedView: View {
                 .foregroundStyle(.secondary)
             
             Text("No Recent Activity")
-                .font(.custom("OpenSans-Bold", size: 18))
+                .font(AMENFont.bold(18))
                 .foregroundStyle(.primary)
             
             Text("When people you follow interact with posts,\nyou'll see their activity here.")
-                .font(.custom("OpenSans-Regular", size: 14))
+                .font(AMENFont.regular(14))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }
@@ -183,11 +222,11 @@ struct ActivityFeedView: View {
                 .foregroundStyle(.secondary)
 
             Text("Could Not Load Activity")
-                .font(.custom("OpenSans-Bold", size: 18))
+                .font(AMENFont.bold(18))
                 .foregroundStyle(.primary)
 
             Text("Check your connection and try again.")
-                .font(.custom("OpenSans-Regular", size: 14))
+                .font(AMENFont.regular(14))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
 
@@ -195,7 +234,7 @@ struct ActivityFeedView: View {
                 activityService.retryGlobalFeed()
             } label: {
                 Label("Retry", systemImage: "arrow.clockwise")
-                    .font(.custom("OpenSans-SemiBold", size: 15))
+                    .font(AMENFont.semiBold(15))
                     .padding(.horizontal, 24)
                     .padding(.vertical, 10)
                     .background(Color.accentColor.opacity(0.12))
@@ -229,18 +268,18 @@ struct ActivityRow: View {
             // Content
             VStack(alignment: .leading, spacing: 4) {
                 Text(activity.displayText)
-                    .font(.custom("OpenSans-SemiBold", size: 15))
+                    .font(AMENFont.semiBold(15))
                     .foregroundStyle(.primary)
                 
                 if let postContent = activity.postContent {
                     Text(postContent)
-                        .font(.custom("OpenSans-Regular", size: 13))
+                        .font(AMENFont.regular(13))
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
                 }
                 
                 Text(activity.timeAgo)
-                    .font(.custom("OpenSans-Regular", size: 12))
+                    .font(AMENFont.regular(12))
                     .foregroundStyle(.tertiary)
             }
             

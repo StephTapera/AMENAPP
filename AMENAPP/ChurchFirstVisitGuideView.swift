@@ -93,6 +93,7 @@ struct FirstVisitGuideView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
+            .background(Color(.systemGroupedBackground).ignoresSafeArea())
             .navigationTitle("First Visit Guide")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -106,61 +107,132 @@ struct FirstVisitGuideView: View {
 
     @ViewBuilder
     private func guideContent(_ g: FirstVisitGuideData) -> some View {
-        List {
-            if let parking = g.parking {
-                guideSection(title: "Parking", body: parking)
-            }
-            if let arrival = g.arrivalTip {
-                guideSection(title: "Arrival", body: arrival)
-            }
-            if let wear = g.whatToWear {
-                guideSection(title: "What to Wear", body: wear)
-            }
-            if !g.serviceFlow.isEmpty {
-                Section(header: Text("Service Flow").font(.system(size: 13, weight: .semibold)).foregroundStyle(Color(.secondaryLabel))) {
-                    ForEach(g.serviceFlow, id: \.self) { moment in
-                        Text(moment)
-                            .font(.system(size: 15))
-                            .foregroundStyle(Color(.label))
-                    }
-                }
-            }
-            if !g.conversationStarters.isEmpty {
-                Section(header: Text("Conversation Starters").font(.system(size: 13, weight: .semibold)).foregroundStyle(Color(.secondaryLabel))) {
-                    ForEach(g.conversationStarters, id: \.self) { starter in
-                        Text("\"\(starter)\"")
-                            .font(.system(size: 15))
-                            .foregroundStyle(Color(.secondaryLabel))
-                            .italic()
-                    }
-                }
-            }
+        ScrollView {
+            VStack(spacing: 0) {
 
-            Section {
-                Button {
-                    saveToNotes(g)
-                } label: {
-                    HStack {
-                        Image(systemName: savedToNotes ? "checkmark.circle.fill" : "note.text.badge.plus")
-                        Text(savedToNotes ? "Saved to Notes" : "Save to Notes")
-                            .font(.system(size: 15, weight: .semibold))
+                // MARK: Single-body sections (Parking, Arrival, What to Wear)
+                let singleSections: [(String, String?)] = [
+                    ("PARKING", g.parking),
+                    ("ARRIVAL", g.arrivalTip),
+                    ("WHAT TO WEAR", g.whatToWear)
+                ]
+                ForEach(singleSections, id: \.0) { title, body in
+                    if let body {
+                        guideSectionCard(title: title, body: body)
                     }
-                    .foregroundStyle(savedToNotes ? .green : Color(.label))
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.vertical, 4)
                 }
-                .disabled(savedToNotes)
+
+                // MARK: Service Flow
+                if !g.serviceFlow.isEmpty {
+                    Text("SERVICE FLOW")
+                        .font(AMENFont.bold(11))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 24)
+                        .padding(.bottom, 8)
+
+                    VStack(spacing: 0) {
+                        ForEach(Array(g.serviceFlow.enumerated()), id: \.offset) { index, moment in
+                            Text(moment)
+                                .font(.system(size: 15))
+                                .foregroundStyle(Color(.label))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 14)
+                            if index < g.serviceFlow.count - 1 {
+                                Divider().padding(.leading, 16)
+                            }
+                        }
+                    }
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                    .padding(.horizontal, 16)
+                }
+
+                // MARK: Conversation Starters
+                if !g.conversationStarters.isEmpty {
+                    Text("CONVERSATION STARTERS")
+                        .font(AMENFont.bold(11))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 24)
+                        .padding(.bottom, 8)
+
+                    VStack(spacing: 0) {
+                        ForEach(Array(g.conversationStarters.enumerated()), id: \.offset) { index, starter in
+                            Text("\"\(starter)\"")
+                                .font(.system(size: 15))
+                                .foregroundStyle(Color(.secondaryLabel))
+                                .italic()
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 14)
+                            if index < g.conversationStarters.count - 1 {
+                                Divider().padding(.leading, 16)
+                            }
+                        }
+                    }
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                    .padding(.horizontal, 16)
+                }
+
+                // MARK: Save to Notes
+                VStack(spacing: 0) {
+                    Button {
+                        saveToNotes(g)
+                    } label: {
+                        HStack {
+                            Image(systemName: savedToNotes ? "checkmark.circle.fill" : "note.text.badge.plus")
+                            Text(savedToNotes ? "Saved to Notes" : "Save to Notes")
+                                .font(.system(size: 15, weight: .semibold))
+                        }
+                        .foregroundStyle(savedToNotes ? .green : Color(.label))
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+                    }
+                    .disabled(savedToNotes)
+                }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+                .padding(.top, 24)
+
+                Spacer(minLength: 32)
             }
+            .padding(.top, 8)
         }
-        .listStyle(.insetGrouped)
     }
 
-    private func guideSection(title: String, body: String) -> some View {
-        Section(header: Text(title).font(.system(size: 13, weight: .semibold)).foregroundStyle(Color(.secondaryLabel))) {
+    @ViewBuilder
+    private func guideSectionCard(title: String, body: String) -> some View {
+        let isFirst = title == "PARKING"
+        Text(title)
+            .font(AMENFont.bold(11))
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 20)
+            .padding(.top, isFirst ? 16 : 24)
+            .padding(.bottom, 8)
+
+        VStack(spacing: 0) {
             Text(body)
                 .font(.system(size: 15))
                 .foregroundStyle(Color(.label))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
         }
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+        .padding(.horizontal, 16)
     }
 
     private func saveToNotes(_ g: FirstVisitGuideData) {

@@ -18,50 +18,71 @@ import SwiftUI
 import PhotosUI
 import FirebaseAuth
 import FirebaseFirestore
+import UIKit
+import Contacts
+
+// Fix (secondary): centralized URLs so they're updated in one place
+private enum AMENLinks {
+    static let privacy = URL(string: "https://amenapp.com/privacy")!
+    static let terms   = URL(string: "https://amenapp.com/terms")!
+}
 
 // MARK: - Onboarding Container
 
 struct OnboardingView: View {
     @EnvironmentObject var authViewModel: AuthenticationViewModel
+    @ObservedObject private var discoveryService = DiscoveryService.shared
 
     // P1 FIX: Persist onboarding step so force-quit resumes correctly
     @AppStorage("onboardingStep") private var step: Int = 0
     @State private var direction: TransitionDirection = .forward
 
-    // Step 3 — account setup
+    // Step 1 — account setup
     @State private var selectedProfileImage: UIImage?
     @State private var selectedItem: PhotosPickerItem?
+    @State private var displayName: String = ""
     @State private var username: String = ""
     @State private var usernameAvailable: Bool? = nil
     @State private var isCheckingUsername = false
     @State private var usernameCheckTask: Task<Void, Never>?
+    @State private var usernameSuggestions: [String] = []
 
     // DOB
-    @State private var birthDate: Date = Calendar.current.date(
-        byAdding: .year, value: -18, to: Date()
-    ) ?? Date()
+    @State private var birthDate: Date = Calendar.current.date(byAdding: .year, value: -18, to: Date()) ?? Date()
     @State private var showDOBPicker = false
-    private var birthDateIsValid: Bool {
-        // Must be at least 13 (COPPA)
-        let age = Calendar.current.dateComponents([.year], from: birthDate, to: Date()).year ?? 0
-        return age >= 13
-    }
 
-    // Step 4 — notifications toggle
+    // Step 2 — notifications toggle
     @State private var notificationsEnabled = true
     @State private var privateAccount       = false
 
-    // Step 5 — interests
+    // Step 3 — interests
     @State private var selectedInterests: Set<String> = []
 
+    // Step 3 — terms agreement (P0: explicit acceptance required)
+    @State private var hasAgreedToTerms = false
+
+    // Step 4 — contacts
+    @State private var contactsAuthStatus: CNAuthorizationStatus = CNContactStore.authorizationStatus(for: .contacts)
+    @State private var isLoadingContacts = false
+
+    // Step 0 — social proof member count
+    @State private var memberCount: Int? = nil
+
+    // First post prompt (shown after onboarding completes)
+    @State private var showFirstPostPrompt = false
+    // Church sheet (from step 5)
+    @State private var showFindChurch = false
+
     // Submission
-    @State private var isSaving     = false
+    @State private var isSaving      = false
     @State private var saveError: String?
     @State private var showErrorAlert = false
+    // Fix E: guard rapid double-taps from skipping multiple steps
+    @State private var isAdvancing   = false
 
     enum TransitionDirection { case forward, backward }
 
-    let totalSteps = 4  // steps 0-3 (AppLaunchView is step -1 outside this view)
+    let totalSteps = 6  // steps 0-5 (AppLaunchView is step -1 outside this view)
 
     var body: some View {
         ZStack {
@@ -84,6 +105,10 @@ struct OnboardingView: View {
                         ONBStepTransition(step: 2) { privacySafetyPage }
                     case 3:
                         ONBStepTransition(step: 3) { personalizationPage }
+                    case 4:
+                        ONBStepTransition(step: 4) { followSuggestionsPage }
+                    case 5:
+                        ONBStepTransition(step: 5) { communityDiscoveryPage }
                     default:
                         EmptyView()
                     }
@@ -98,6 +123,18 @@ struct OnboardingView: View {
                     await MainActor.run { selectedProfileImage = img }
                 }
             }
+        }
+        .onDisappear {
+            // Cancel any in-flight username availability check so it doesn't
+            // update @State after the view is torn down.
+            usernameCheckTask?.cancel()
+            usernameCheckTask = nil
+        }
+        .sheet(isPresented: $showFindChurch) {
+            FindChurchView()
+        }
+        .sheet(isPresented: $showFirstPostPrompt) {
+            ONBFirstPostSheet(isPresented: $showFirstPostPrompt)
         }
         .alert("Something went wrong", isPresented: $showErrorAlert) {
             Button("Try Again") { Task { await finishOnboarding() } }
@@ -134,8 +171,8 @@ struct OnboardingView: View {
 
             Spacer()
 
-            // Skip button (visible on steps 0-2)
-            if step < 3 {
+            // Skip button — visible on all optional steps; hidden only on the final step
+            if step < totalSteps - 1 {
                 Button {
                     advance(by: 1)
                 } label: {
@@ -157,10 +194,17 @@ struct OnboardingView: View {
     // MARK: - Step Advance
 
     private func advance(by delta: Int) {
+        // Fix E: ignore rapid taps until current step animation settles (~0.5s)
+        guard !isAdvancing else { return }
+        isAdvancing = true
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         direction = delta > 0 ? .forward : .backward
         withAnimation(.spring(response: 0.42, dampingFraction: 0.82)) {
             step = max(0, min(totalSteps - 1, step + delta))
+        }
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            isAdvancing = false
         }
     }
 
@@ -175,8 +219,7 @@ struct OnboardingView: View {
 
                 // Hero headline
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Built different.")
-                        .font(.system(size: 42, weight: .black))
+                    ONBAnimatedHeadline(text: "Built different.")
                         .foregroundStyle(ONB.inkPrimary)
 
                     Text("AMEN is a social platform designed around your faith, not your attention.")
@@ -220,6 +263,25 @@ struct OnboardingView: View {
 
                 Spacer().frame(height: 32)
 
+                // Social proof (P1-4)
+                HStack(spacing: 6) {
+                    Image(systemName: "person.2.fill")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(ONB.accent)
+                    if let count = memberCount {
+                        Text("\(count.formatted()) believers already here")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(ONB.inkSecondary)
+                    } else {
+                        Text("Thousands of believers already here")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(ONB.inkSecondary)
+                    }
+                }
+                .padding(.horizontal, ONB.pagePadding)
+
+                Spacer().frame(height: 24)
+
                 // CTA
                 ONBPrimaryButton(title: "Get Started") { advance(by: 1) }
                     .padding(.horizontal, ONB.pagePadding)
@@ -228,6 +290,15 @@ struct OnboardingView: View {
             }
         }
         .scrollDismissesKeyboard(.interactively)
+        .onAppear {
+            Task {
+                let snap = try? await Firestore.firestore()
+                    .collection("stats").document("global").getDocument()
+                if let count = snap?.data()?["userCount"] as? Int {
+                    await MainActor.run { memberCount = count }
+                }
+            }
+        }
     }
 
     @ViewBuilder
@@ -267,8 +338,7 @@ struct OnboardingView: View {
                 Spacer().frame(height: 28)
 
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Make it yours.")
-                        .font(.system(size: 42, weight: .black))
+                    ONBAnimatedHeadline(text: "Make it yours.")
                         .foregroundStyle(ONB.inkPrimary)
 
                     Text("Add a photo and choose a username. You can always update these later.")
@@ -329,6 +399,31 @@ struct OnboardingView: View {
 
                 Spacer().frame(height: 28)
 
+                // Display name field (P1-5)
+                ONBGlassCard(padding: .init(top: 16, leading: 18, bottom: 16, trailing: 18)) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("DISPLAY NAME")
+                            .font(.system(size: 10, weight: .semibold))
+                            .tracking(1.4)
+                            .foregroundStyle(ONB.inkTertiary)
+                        TextField("Your name", text: $displayName)
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundStyle(ONB.inkPrimary)
+                            .textInputAutocapitalization(.words)
+                            .autocorrectionDisabled()
+                    }
+                }
+                .padding(.horizontal, ONB.pagePadding)
+
+                Spacer().frame(height: 8)
+
+                Text("This is what people see first — your @username is for mentions.")
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundStyle(ONB.inkTertiary)
+                    .padding(.horizontal, ONB.pagePadding + 4)
+
+                Spacer().frame(height: 16)
+
                 // Username field
                 ONBGlassCard(padding: .init(top: 16, leading: 18, bottom: 16, trailing: 18)) {
                     VStack(alignment: .leading, spacing: 6) {
@@ -372,6 +467,34 @@ struct OnboardingView: View {
                                 .transition(.opacity.combined(with: .move(edge: .top)))
                                 .animation(.easeInOut(duration: 0.2), value: avail)
                         }
+
+                        // Username suggestions (P1-3)
+                        if usernameAvailable == false && !usernameSuggestions.isEmpty {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("Try one of these:")
+                                    .font(.system(size: 11, weight: .medium))
+                                    .foregroundStyle(ONB.inkTertiary)
+                                HStack(spacing: 8) {
+                                    ForEach(usernameSuggestions, id: \.self) { suggestion in
+                                        Button {
+                                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                            username = suggestion
+                                            scheduleUsernameCheck(suggestion)
+                                        } label: {
+                                            Text("@\(suggestion)")
+                                                .font(.system(size: 12, weight: .medium))
+                                                .foregroundStyle(ONB.accent)
+                                                .padding(.horizontal, 10)
+                                                .padding(.vertical, 5)
+                                                .background(Capsule().fill(ONB.accentSoft))
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                            }
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                            .animation(.easeInOut(duration: 0.22), value: usernameSuggestions.count)
+                        }
                     }
                 }
                 .padding(.horizontal, ONB.pagePadding)
@@ -385,7 +508,7 @@ struct OnboardingView: View {
 
                 Spacer().frame(height: 20)
 
-                // Date of birth picker
+                // Date of birth
                 ONBGlassCard(padding: .init(top: 16, leading: 18, bottom: 16, trailing: 18)) {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("DATE OF BIRTH")
@@ -422,7 +545,7 @@ struct OnboardingView: View {
                             DatePicker(
                                 "",
                                 selection: $birthDate,
-                                in: ...Calendar.current.date(byAdding: .year, value: -13, to: Date())!,
+                                in: ...Date(),
                                 displayedComponents: .date
                             )
                             .datePickerStyle(.wheel)
@@ -430,33 +553,20 @@ struct OnboardingView: View {
                             .frame(maxWidth: .infinity)
                             .transition(.opacity.combined(with: .move(edge: .top)))
                         }
-
-                        if !birthDateIsValid {
-                            HStack(spacing: 4) {
-                                Image(systemName: "exclamationmark.triangle.fill")
-                                    .font(.system(size: 11))
-                                    .foregroundStyle(.orange)
-                                Text("You must be at least 13 to join AMEN.")
-                                    .font(.system(size: 12))
-                                    .foregroundStyle(.orange)
-                            }
-                            .transition(.opacity)
-                        }
                     }
                 }
                 .padding(.horizontal, ONB.pagePadding)
 
                 Spacer().frame(height: 8)
 
-                Text("Required to verify your age and personalize your experience.")
+                Text("Used to personalise your experience.")
                     .font(.system(size: 12, weight: .regular))
                     .foregroundStyle(ONB.inkTertiary)
                     .padding(.horizontal, ONB.pagePadding + 4)
 
-                Spacer().frame(height: 32)
+                Spacer().frame(height: 16)
 
-                // CTA
-                ONBPrimaryButton(title: "Continue", isEnabled: birthDateIsValid) {
+                ONBPrimaryButton(title: "Continue", isEnabled: true) {
                     advance(by: 1)
                 }
                 .padding(.horizontal, ONB.pagePadding)
@@ -473,6 +583,7 @@ struct OnboardingView: View {
         guard trimmed.count >= 3 else {
             usernameAvailable = nil
             isCheckingUsername = false
+            usernameSuggestions = []
             return
         }
         isCheckingUsername = true
@@ -488,13 +599,35 @@ struct OnboardingView: View {
                     .getDocuments()
                 guard !Task.isCancelled else { return }
                 await MainActor.run {
-                    usernameAvailable = snap.documents.isEmpty
+                    let available = snap.documents.isEmpty
+                    usernameAvailable = available
                     isCheckingUsername = false
+                    // P1-3: Generate suggestions when taken
+                    if !available {
+                        usernameSuggestions = Self.generateUsernameSuggestions(for: trimmed)
+                    } else {
+                        usernameSuggestions = []
+                    }
+                    let announcement = available
+                        ? "@\(trimmed) is available"
+                        : "@\(trimmed) is already taken"
+                    UIAccessibility.post(notification: .announcement, argument: announcement)
                 }
             } catch {
                 await MainActor.run { isCheckingUsername = false }
             }
         }
+    }
+
+    private static func generateUsernameSuggestions(for base: String) -> [String] {
+        let suffix = Int.random(in: 10...99)
+        let candidates = [
+            "\(base)_amen",
+            "\(base)\(suffix)",
+            "\(base).faith",
+        ]
+        // Return up to 3 distinct options, truncated to fit username limits
+        return candidates.map { $0.prefix(30).lowercased().replacingOccurrences(of: ".", with: "_") }
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -507,10 +640,8 @@ struct OnboardingView: View {
                 Spacer().frame(height: 28)
 
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Your data,\nyour rules.")
-                        .font(.system(size: 42, weight: .black))
+                    ONBAnimatedHeadline(text: "Your data,\nyour rules.")
                         .foregroundStyle(ONB.inkPrimary)
-                        .lineSpacing(1)
 
                     Text("We only collect what makes AMEN better for you. Here's exactly what we use and why.")
                         .font(.system(size: 17, weight: .regular))
@@ -551,7 +682,7 @@ struct OnboardingView: View {
                             icon: "person.fill",
                             category: "Account Information",
                             detail: "Name, email, username, date of birth",
-                            why: "To create and secure your account, verify your age (13+), and help others find you."
+                            why: "To create and secure your account, verify your age, and help others find you."
                         )
                         Divider().padding(.horizontal, 4)
                         privacyDividerRow(
@@ -607,13 +738,13 @@ struct OnboardingView: View {
                     Text("Read our full")
                         .font(.system(size: 12, weight: .regular))
                         .foregroundStyle(ONB.inkTertiary)
-                    Link("Privacy Policy", destination: URL(string: "https://amenapp.com/privacy")!)
+                    Link("Privacy Policy", destination: AMENLinks.privacy)
                         .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(ONB.accent)
                     Text("and")
                         .font(.system(size: 12, weight: .regular))
                         .foregroundStyle(ONB.inkTertiary)
-                    Link("Terms of Service", destination: URL(string: "https://amenapp.com/terms")!)
+                    Link("Terms of Service", destination: AMENLinks.terms)
                         .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(ONB.accent)
                 }
@@ -660,16 +791,24 @@ struct OnboardingView: View {
                 Spacer().frame(height: 28)
 
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("What matters\nto you?")
-                        .font(.system(size: 42, weight: .black))
+                    ONBAnimatedHeadline(text: "What matters\nto you?")
                         .foregroundStyle(ONB.inkPrimary)
-                        .lineSpacing(1)
 
                     Text("Choose a few interests and we'll personalize your feed. Skip if you prefer to explore first.")
                         .font(.system(size: 17, weight: .regular))
                         .foregroundStyle(ONB.inkSecondary)
                         .lineSpacing(4)
                         .fixedSize(horizontal: false, vertical: true)
+
+                    // P1-7: Algo training signal
+                    HStack(spacing: 5) {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(ONB.accent)
+                        Text("Your picks shape your For You feed — adjust anytime in Discover.")
+                            .font(.system(size: 12, weight: .regular))
+                            .foregroundStyle(ONB.inkTertiary)
+                    }
                 }
                 .padding(.horizontal, ONB.pagePadding)
 
@@ -700,7 +839,341 @@ struct OnboardingView: View {
 
                 Spacer().frame(height: 32)
 
-                // Completion CTA
+                // Terms agreement checkbox (P0: explicit acceptance required)
+                ONBGlassCard(padding: .init(top: 14, leading: 16, bottom: 14, trailing: 16)) {
+                    Button {
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        withAnimation(.spring(response: 0.28, dampingFraction: 0.72)) {
+                            hasAgreedToTerms.toggle()
+                        }
+                    } label: {
+                        HStack(alignment: .top, spacing: 12) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                    .fill(hasAgreedToTerms ? ONB.accent : Color.clear)
+                                    .frame(width: 22, height: 22)
+                                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                    .strokeBorder(
+                                        hasAgreedToTerms ? ONB.accent : ONB.inkRule,
+                                        lineWidth: 1.5
+                                    )
+                                    .frame(width: 22, height: 22)
+                                if hasAgreedToTerms {
+                                    Image(systemName: "checkmark")
+                                        .font(.system(size: 12, weight: .bold))
+                                        .foregroundStyle(.white)
+                                }
+                            }
+                            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: hasAgreedToTerms)
+
+                            Group {
+                                Text("I agree to AMEN's ") +
+                                Text("Terms of Service").underline() +
+                                Text(" and ") +
+                                Text("Privacy Policy").underline() +
+                                Text(".")
+                            }
+                            .font(.system(size: 13, weight: .regular))
+                            .foregroundStyle(ONB.inkSecondary)
+                            .lineSpacing(2)
+                            .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, ONB.pagePadding)
+
+                Spacer().frame(height: 16)
+
+                // Step 3 advances to follow suggestions; finishOnboarding runs at end of step 5
+                ONBPrimaryButton(
+                    title: "Continue",
+                    isEnabled: hasAgreedToTerms
+                ) {
+                    advance(by: 1)
+                }
+                .padding(.horizontal, ONB.pagePadding)
+
+                Spacer().frame(height: 48)
+            }
+        }
+        .scrollDismissesKeyboard(.interactively)
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // MARK: - Step 4: Follow Suggestions (P1-1)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    private var followSuggestionsPage: some View {
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 0) {
+                Spacer().frame(height: 28)
+
+                VStack(alignment: .leading, spacing: 8) {
+                    ONBAnimatedHeadline(text: "Find your\npeople.")
+                        .foregroundStyle(ONB.inkPrimary)
+
+                    Text("Follow a few believers to seed your feed. You can always change who you follow later.")
+                        .font(.system(size: 17, weight: .regular))
+                        .foregroundStyle(ONB.inkSecondary)
+                        .lineSpacing(4)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.horizontal, ONB.pagePadding)
+
+                Spacer().frame(height: 24)
+
+                // ── Contacts section ──────────────────────────────────
+                contactsSection
+                    .padding(.horizontal, ONB.pagePadding)
+
+                if !discoveryService.contactSuggestions.isEmpty {
+                    Spacer().frame(height: 8)
+                }
+
+                // ── Interest-based / quality suggestions ──────────────
+                VStack(alignment: .leading, spacing: 10) {
+                    if !selectedInterests.isEmpty {
+                        Text("Based on your interests")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(ONB.inkTertiary)
+                            .padding(.horizontal, ONB.pagePadding)
+                            .padding(.top, discoveryService.contactSuggestions.isEmpty ? 0 : 16)
+                    }
+
+                    if discoveryService.isFollowSuggestionsLoading {
+                        VStack(spacing: 10) {
+                            ForEach(0..<4, id: \.self) { _ in ONBFollowSkeleton() }
+                        }
+                        .padding(.horizontal, ONB.pagePadding)
+                    } else {
+                        VStack(spacing: 10) {
+                            ForEach(discoveryService.followSuggestions.prefix(8)) { suggestion in
+                                DiscoveryFollowCard(suggestion: suggestion) {
+                                    Task {
+                                        if suggestion.isFollowing {
+                                            await discoveryService.unfollowUser(userId: suggestion.id)
+                                        } else {
+                                            await discoveryService.followUser(userId: suggestion.id)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        .padding(.horizontal, ONB.pagePadding)
+                    }
+                }
+
+                Spacer().frame(height: 32)
+
+                ONBPrimaryButton(title: "Continue") { advance(by: 1) }
+                    .padding(.horizontal, ONB.pagePadding)
+
+                Spacer().frame(height: 48)
+            }
+        }
+        .scrollDismissesKeyboard(.interactively)
+        .onAppear {
+            // Always reload with current interests when this step is shown
+            Task { await discoveryService.loadOnboardingSuggestions(interests: Array(selectedInterests)) }
+            // If contacts already authorized, load contact suggestions
+            contactsAuthStatus = CNContactStore.authorizationStatus(for: .contacts)
+            if contactsAuthStatus == .authorized {
+                Task { await fetchAndLoadContacts() }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var contactsSection: some View {
+        switch contactsAuthStatus {
+        case .notDetermined:
+            // Invite banner to import contacts
+            Button {
+                Task { await requestContactsAccess() }
+            } label: {
+                HStack(spacing: 14) {
+                    ZStack {
+                        Circle()
+                            .fill(Color(red: 0.35, green: 0.50, blue: 0.95).opacity(0.12))
+                            .frame(width: 40, height: 40)
+                        Image(systemName: "person.crop.circle.badge.plus")
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundStyle(Color(red: 0.35, green: 0.50, blue: 0.95))
+                    }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Find friends from your contacts")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(ONB.inkPrimary)
+                        Text("See who's already on AMEN")
+                            .font(.system(size: 12))
+                            .foregroundStyle(ONB.inkTertiary)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(ONB.inkTertiary)
+                }
+                .padding(14)
+                .background(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(Color(uiColor: .secondarySystemBackground))
+                )
+            }
+            .buttonStyle(.plain)
+
+        case .authorized:
+            if discoveryService.isContactSuggestionsLoading {
+                HStack(spacing: 10) {
+                    ProgressView().scaleEffect(0.8)
+                    Text("Finding friends…")
+                        .font(.system(size: 13))
+                        .foregroundStyle(ONB.inkTertiary)
+                }
+                .padding(.vertical, 8)
+            } else if !discoveryService.contactSuggestions.isEmpty {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("From your contacts")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(ONB.inkTertiary)
+
+                    ForEach(discoveryService.contactSuggestions.prefix(5)) { suggestion in
+                        DiscoveryFollowCard(suggestion: suggestion) {
+                            Task {
+                                if suggestion.isFollowing {
+                                    await discoveryService.unfollowUser(userId: suggestion.id)
+                                } else {
+                                    await discoveryService.followUser(userId: suggestion.id)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            // contacts authorized but no matches — show nothing (suggestions section fills space)
+
+        default:
+            // denied / restricted — no contacts UI shown
+            EmptyView()
+        }
+    }
+
+    // MARK: - Contacts Access
+
+    private func requestContactsAccess() async {
+        let store = CNContactStore()
+        do {
+            let granted = try await store.requestAccess(for: .contacts)
+            await MainActor.run {
+                contactsAuthStatus = granted ? .authorized : .denied
+            }
+            if granted {
+                await fetchAndLoadContacts()
+            }
+        } catch {
+            await MainActor.run { contactsAuthStatus = .denied }
+        }
+    }
+
+    private func fetchAndLoadContacts() async {
+        let store = CNContactStore()
+        let keys = [CNContactPhoneNumbersKey] as [CNKeyDescriptor]
+        let request = CNContactFetchRequest(keysToFetch: keys)
+
+        var phoneNumbers: [String] = []
+        do {
+            try store.enumerateContacts(with: request) { contact, _ in
+                for phone in contact.phoneNumbers {
+                    phoneNumbers.append(phone.value.stringValue)
+                }
+            }
+        } catch {
+            return
+        }
+
+        await discoveryService.loadContactSuggestions(phoneNumbers: phoneNumbers)
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // MARK: - Step 5: Church/Community Discovery (P1-6)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    private var communityDiscoveryPage: some View {
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 0) {
+                Spacer().frame(height: 28)
+
+                VStack(alignment: .leading, spacing: 8) {
+                    ONBAnimatedHeadline(text: "Find your\nchurch.")
+                        .foregroundStyle(ONB.inkPrimary)
+
+                    Text("Connect with your church community on AMEN. You can skip this and find them later in Discover.")
+                        .font(.system(size: 17, weight: .regular))
+                        .foregroundStyle(ONB.inkSecondary)
+                        .lineSpacing(4)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.horizontal, ONB.pagePadding)
+
+                Spacer().frame(height: 28)
+
+                // Church CTA card
+                Button { showFindChurch = true } label: {
+                    ZStack(alignment: .bottomLeading) {
+                        LinearGradient(
+                            colors: [Color(red: 0.06, green: 0.14, blue: 0.28), Color(red: 0.10, green: 0.20, blue: 0.38)],
+                            startPoint: .topLeading, endPoint: .bottomTrailing
+                        )
+                        VStack(alignment: .leading, spacing: 12) {
+                            Image(systemName: "building.columns.fill")
+                                .font(.system(size: 32))
+                                .foregroundStyle(.white.opacity(0.85))
+
+                            Text("Find a Church")
+                                .font(.system(size: 20, weight: .bold))
+                                .foregroundStyle(.white)
+
+                            Text("Search churches by name, denomination, or zip code. Follow your church to see their posts, events and announcements.")
+                                .font(.system(size: 13, weight: .regular))
+                                .foregroundStyle(.white.opacity(0.70))
+                                .lineLimit(3)
+                                .fixedSize(horizontal: false, vertical: true)
+
+                            HStack(spacing: 6) {
+                                Image(systemName: "arrow.right")
+                                    .font(.system(size: 12, weight: .semibold))
+                                Text("Browse churches")
+                                    .font(.system(size: 13, weight: .semibold))
+                            }
+                            .foregroundStyle(.white.opacity(0.85))
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(Capsule().fill(.white.opacity(0.18)))
+                        }
+                        .padding(20)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 240)
+                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 22, style: .continuous)
+                            .strokeBorder(.white.opacity(0.12), lineWidth: 1)
+                    )
+                    .shadow(color: .black.opacity(0.14), radius: 18, x: 0, y: 7)
+                }
+                .buttonStyle(ScaleButtonStyle())
+                .padding(.horizontal, ONB.pagePadding)
+
+                Spacer().frame(height: 16)
+
+                Text("Don't see your church yet? Invite them to join AMEN.")
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundStyle(ONB.inkTertiary)
+                    .padding(.horizontal, ONB.pagePadding + 4)
+
+                Spacer().frame(height: 40)
+
+                // Final completion CTA
                 ONBPrimaryButton(
                     title: "Enter AMEN",
                     isLoading: isSaving,
@@ -709,15 +1182,6 @@ struct OnboardingView: View {
                     Task { await finishOnboarding() }
                 }
                 .padding(.horizontal, ONB.pagePadding)
-
-                Spacer().frame(height: 16)
-
-                Text("By joining you agree to our Terms and Privacy Policy.")
-                    .font(.system(size: 11, weight: .regular))
-                    .foregroundStyle(ONB.inkTertiary)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: .infinity)
-                    .padding(.horizontal, 40)
 
                 Spacer().frame(height: 48)
             }
@@ -732,35 +1196,73 @@ struct OnboardingView: View {
         isSaving = true
 
         do {
-            guard let userId = Auth.auth().currentUser?.uid else { return }
+            guard let userId = Auth.auth().currentUser?.uid else {
+                isSaving = false
+                return
+            }
             let db = Firestore.firestore()
 
             let birthYear = Calendar.current.component(.year, from: birthDate)
+            let trimmedDisplayName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
             var updateData: [String: Any] = [
                 "interests":            Array(selectedInterests),
                 "isPrivate":            privateAccount,
                 "notificationsEnabled": notificationsEnabled,
                 "birthYear":            birthYear,
             ]
+            if !trimmedDisplayName.isEmpty {
+                updateData["displayName"] = trimmedDisplayName
+                // Also update Firebase Auth display name
+                let changeRequest = Auth.auth().currentUser?.createProfileChangeRequest()
+                changeRequest?.displayName = trimmedDisplayName
+                try? await changeRequest?.commitChanges()
+            }
 
-            // Save username if entered and available
+            // Fix B: re-query username availability at submit — never rely on stale local state.
+            // The debounced check could be minutes old; another user may have taken the name since.
             let trimmedUsername = username.lowercased().trimmingCharacters(in: .whitespaces)
-            if !trimmedUsername.isEmpty && (usernameAvailable == true || usernameAvailable == nil) {
+            if !trimmedUsername.isEmpty {
+                let snap = try await db.collection("users")
+                    .whereField("username", isEqualTo: trimmedUsername)
+                    .limit(to: 1)
+                    .getDocuments()
+                guard snap.documents.isEmpty else {
+                    await MainActor.run {
+                        isSaving = false
+                        saveError = "@\(trimmedUsername) was just taken. Please choose a different username."
+                        showErrorAlert = true
+                    }
+                    return
+                }
                 updateData["username"] = trimmedUsername
             }
 
-            // Upload profile image if selected
+            // Fix D: treat image upload as a first-class failure — never silently omit the photo.
             if let img = selectedProfileImage {
                 let userService = UserService()
-                if let imageURL = try? await userService.uploadProfileImage(img) {
+                do {
+                    let imageURL = try await userService.uploadProfileImage(img)
                     updateData["profileImageURL"] = imageURL
+                } catch {
+                    await MainActor.run {
+                        isSaving = false
+                        saveError = "Your profile photo couldn't be uploaded. Tap Try Again to retry, or Skip to continue without a photo."
+                        showErrorAlert = true
+                    }
+                    return
                 }
             }
 
-            try await db.collection("users").document(userId).updateData(updateData)
+            // setData(merge:true) handles both new and existing documents safely.
+            // updateData() would throw if the document doesn't exist (e.g. social sign-in users).
+            try await db.collection("users").document(userId).setData(updateData, merge: true)
             await MainActor.run {
                 isSaving = false
-                step = 0 // Reset persisted step for next time
+                // Persist first-post prompt intent so ContentView can show it after
+                // the onboarding transition completes. Setting showFirstPostPrompt here
+                // is too early — completeOnboarding() immediately tears down this view.
+                UserDefaults.standard.set(true, forKey: "showFirstPostPromptPending")
+                // step reset is handled by completeOnboarding() via UserDefaults.removeObject
                 authViewModel.completeOnboarding()
             }
         } catch {
@@ -769,6 +1271,107 @@ struct OnboardingView: View {
                 saveError = error.localizedDescription
                 showErrorAlert = true
             }
+        }
+    }
+}
+
+// MARK: - First Post Welcome Sheet (P1-2)
+
+struct ONBFirstPostSheet: View {
+    @Binding var isPresented: Bool
+    @State private var showComposer = false
+    @State private var appeared = false
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Handle
+            Capsule()
+                .fill(Color.primary.opacity(0.15))
+                .frame(width: 36, height: 4)
+                .padding(.top, 12)
+
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 0) {
+                    Spacer().frame(height: 32)
+
+                    // Icon
+                    ZStack {
+                        Circle()
+                            .fill(LinearGradient(
+                                colors: [Color(red: 0.35, green: 0.50, blue: 0.95), Color(red: 0.55, green: 0.30, blue: 0.90)],
+                                startPoint: .topLeading, endPoint: .bottomTrailing
+                            ))
+                            .frame(width: 72, height: 72)
+                        Image(systemName: "hands.sparkles.fill")
+                            .font(.system(size: 30, weight: .semibold))
+                            .foregroundStyle(.white)
+                    }
+                    .scaleEffect(appeared ? 1.0 : 0.5)
+                    .opacity(appeared ? 1 : 0)
+                    .animation(.spring(response: 0.55, dampingFraction: 0.70).delay(0.1), value: appeared)
+
+                    Spacer().frame(height: 20)
+
+                    Text("You're in. 🎉")
+                        .font(.system(size: 28, weight: .bold))
+                        .foregroundStyle(.primary)
+                        .opacity(appeared ? 1 : 0)
+                        .offset(y: appeared ? 0 : 10)
+                        .animation(.spring(response: 0.45, dampingFraction: 0.78).delay(0.2), value: appeared)
+
+                    Spacer().frame(height: 10)
+
+                    Text("Your first post is a moment worth marking.\nWhat's on your heart today?")
+                        .font(.system(size: 16, weight: .regular))
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(3)
+                        .padding(.horizontal, 32)
+                        .opacity(appeared ? 1 : 0)
+                        .animation(.easeOut(duration: 0.4).delay(0.3), value: appeared)
+
+                    Spacer().frame(height: 36)
+
+                    // Primary CTA
+                    Button {
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                        showComposer = true
+                    } label: {
+                        Text("Share to AMEN")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 52)
+                            .background(Capsule().fill(Color.black))
+                    }
+                    .buttonStyle(PressableButtonStyle())
+                    .padding(.horizontal, 28)
+                    .opacity(appeared ? 1 : 0)
+                    .animation(.easeOut(duration: 0.35).delay(0.4), value: appeared)
+
+                    Spacer().frame(height: 14)
+
+                    // Dismiss
+                    Button {
+                        isPresented = false
+                    } label: {
+                        Text("Maybe later")
+                            .font(.system(size: 15, weight: .regular))
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .opacity(appeared ? 1 : 0)
+                    .animation(.easeOut(duration: 0.3).delay(0.45), value: appeared)
+
+                    Spacer().frame(height: 48)
+                }
+            }
+        }
+        .presentationDetents([.height(460)])
+        .presentationDragIndicator(.hidden)
+        .onAppear { appeared = true }
+        .fullScreenCover(isPresented: $showComposer) {
+            CreatePostView()
         }
     }
 }
@@ -811,6 +1414,41 @@ private struct ONBInterestChip: View {
         }
         .buttonStyle(.plain)
         .animation(.spring(response: 0.28, dampingFraction: 0.70), value: selected)
+    }
+}
+
+// MARK: - Follow Row Skeleton (onboarding list style)
+
+private struct ONBFollowSkeleton: View {
+    @State private var opacity: Double = 0.4
+    var body: some View {
+        HStack(spacing: 12) {
+            Circle()
+                .fill(Color.primary.opacity(0.08))
+                .frame(width: 44, height: 44)
+            VStack(alignment: .leading, spacing: 6) {
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color.primary.opacity(0.08))
+                    .frame(width: 120, height: 12)
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color.primary.opacity(0.05))
+                    .frame(width: 80, height: 10)
+            }
+            Spacer()
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color.primary.opacity(0.07))
+                .frame(width: 72, height: 32)
+        }
+        .padding(.vertical, 10)
+        .padding(.horizontal, 14)
+        .background(RoundedRectangle(cornerRadius: 14, style: .continuous)
+            .fill(Color(uiColor: .secondarySystemBackground)))
+        .opacity(opacity)
+        .onAppear {
+            withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
+                opacity = 0.9
+            }
+        }
     }
 }
 

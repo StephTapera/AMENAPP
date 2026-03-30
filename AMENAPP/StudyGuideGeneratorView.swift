@@ -205,83 +205,144 @@ struct StudyGuideView: View {
 
     @ViewBuilder
     private func guideContent(_ g: StudyGuide) -> some View {
-        List {
-            // Big idea
-            if !g.bigIdea.isEmpty {
-                Section(header: sectionHeader("Big Idea")) {
-                    Text(g.bigIdea)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(Color(.label))
+        ScrollView {
+            VStack(spacing: 12) {
+                // Big idea
+                if !g.bigIdea.isEmpty {
+                    guideCard {
+                        VStack(alignment: .leading, spacing: 8) {
+                            sectionHeader("Big Idea")
+                            Text(g.bigIdea)
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(Color(.label))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
                 }
-            }
 
-            // Context
-            if !g.context.isEmpty {
-                Section(header: sectionHeader("Background")) {
-                    Text(g.context)
-                        .font(.system(size: 15))
-                        .foregroundStyle(Color(.secondaryLabel))
+                // Context
+                if !g.context.isEmpty {
+                    guideCard {
+                        VStack(alignment: .leading, spacing: 8) {
+                            sectionHeader("Background")
+                            Text(g.context)
+                                .font(.system(size: 15))
+                                .foregroundStyle(Color(.secondaryLabel))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
                 }
-            }
 
-            // Discussion questions grouped by depth
-            let grouped = Dictionary(grouping: g.discussionQuestions) { $0.depth }
-            ForEach([StudyGuide.QuestionDepth.opening, .exploration, .application], id: \.rawValue) { depth in
-                if let qs = grouped[depth], !qs.isEmpty {
-                    Section(header: sectionHeader("\(depth.rawValue) Questions")) {
-                        ForEach(qs) { q in
-                            HStack(alignment: .top, spacing: 10) {
-                                Text("Q")
-                                    .font(.system(size: 11, weight: .bold))
-                                    .foregroundStyle(Color(.tertiaryLabel))
-                                    .padding(.top, 2)
-                                Text(q.question)
-                                    .font(.system(size: 15))
-                                    .foregroundStyle(Color(.label))
+                // Discussion questions grouped by depth
+                let grouped = Dictionary(grouping: g.discussionQuestions) { $0.depth }
+                ForEach([StudyGuide.QuestionDepth.opening, .exploration, .application], id: \.rawValue) { depth in
+                    if let qs = grouped[depth], !qs.isEmpty {
+                        guideCard {
+                            VStack(alignment: .leading, spacing: 10) {
+                                sectionHeader("\(depth.rawValue) Questions")
+                                VStack(spacing: 0) {
+                                    ForEach(Array(qs.enumerated()), id: \.element.id) { idx, q in
+                                        HStack(alignment: .top, spacing: 10) {
+                                            Text("Q")
+                                                .font(.system(size: 11, weight: .bold))
+                                                .foregroundStyle(Color(.tertiaryLabel))
+                                                .padding(.top, 2)
+                                            Text(q.question)
+                                                .font(.system(size: 15))
+                                                .foregroundStyle(Color(.label))
+                                                .frame(maxWidth: .infinity, alignment: .leading)
+                                        }
+                                        .padding(.vertical, 14)
+                                        if idx < qs.count - 1 {
+                                            Divider().padding(.leading, 16)
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            // Scripture for deeper study
-            if !g.scriptureDeep.isEmpty {
-                Section(header: sectionHeader("Dig Deeper")) {
-                    ForEach(g.scriptureDeep, id: \.self) { ref in
-                        Text(ref)
-                            .font(.system(size: 15))
-                            .foregroundStyle(.purple)
-                    }
-                }
-            }
-
-            // Action steps
-            if !g.actionSteps.isEmpty {
-                Section(header: sectionHeader("This Week")) {
-                    ForEach(g.actionSteps, id: \.self) { step in
-                        HStack(alignment: .top, spacing: 8) {
-                            Image(systemName: "checkmark.circle")
-                                .font(.system(size: 14))
-                                .foregroundStyle(Color(.secondaryLabel))
-                                .padding(.top, 2)
-                            Text(step)
-                                .font(.system(size: 15))
+                // Scripture for deeper study
+                if !g.scriptureDeep.isEmpty {
+                    guideCard {
+                        VStack(alignment: .leading, spacing: 10) {
+                            sectionHeader("Dig Deeper")
+                            VStack(spacing: 0) {
+                                ForEach(Array(g.scriptureDeep.enumerated()), id: \.offset) { idx, ref in
+                                    Text(ref)
+                                        .font(.system(size: 15))
+                                        .foregroundStyle(.purple)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .padding(.vertical, 14)
+                                    if idx < g.scriptureDeep.count - 1 {
+                                        Divider().padding(.leading, 16)
+                                    }
+                                }
+                            }
                         }
                     }
                 }
-            }
 
-            // Closing prayer
-            if !g.closingPrayer.isEmpty {
-                Section(header: sectionHeader("Closing Prayer")) {
-                    Text(g.closingPrayer)
-                        .font(.system(size: 15))
-                        .foregroundStyle(Color(.secondaryLabel))
-                        .italic()
+                // Action steps
+                if !g.actionSteps.isEmpty {
+                    guideCard {
+                        VStack(alignment: .leading, spacing: 10) {
+                            sectionHeader("This Week")
+                            VStack(spacing: 0) {
+                                ForEach(Array(g.actionSteps.enumerated()), id: \.offset) { idx, step in
+                                    HStack(alignment: .top, spacing: 8) {
+                                        Image(systemName: "checkmark.circle")
+                                            .font(.system(size: 14))
+                                            .foregroundStyle(Color(.secondaryLabel))
+                                            .padding(.top, 2)
+                                        Text(step)
+                                            .font(.system(size: 15))
+                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                    }
+                                    .padding(.vertical, 14)
+                                    if idx < g.actionSteps.count - 1 {
+                                        Divider().padding(.leading, 16)
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
+
+                // Closing prayer
+                if !g.closingPrayer.isEmpty {
+                    guideCard {
+                        VStack(alignment: .leading, spacing: 8) {
+                            sectionHeader("Closing Prayer")
+                            Text(g.closingPrayer)
+                                .font(.system(size: 15))
+                                .foregroundStyle(Color(.secondaryLabel))
+                                .italic()
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                }
+
+                Color.clear.frame(height: 24)
             }
+            .padding(.vertical, 12)
         }
-        .listStyle(.insetGrouped)
+        .background(Color(.systemGroupedBackground))
+    }
+
+    /// Reusable glass card wrapper for guide sections
+    @ViewBuilder
+    private func guideCard<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        VStack(spacing: 0) {
+            content()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+        .padding(.horizontal, 16)
     }
 
     private func sectionHeader(_ text: String) -> some View {

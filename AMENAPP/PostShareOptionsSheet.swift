@@ -28,10 +28,10 @@ private struct GlassDialogButton: View {
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(.custom("OpenSans-SemiBold", size: 15))
+                        .font(AMENFont.semiBold(15))
                         .foregroundStyle(.black)
                     Text(subtitle)
-                        .font(.custom("OpenSans-Regular", size: 12))
+                        .font(AMENFont.regular(12))
                         .foregroundStyle(.black.opacity(0.5))
                 }
                 
@@ -61,20 +61,21 @@ struct PostShareOptionsSheet: View {
     @Environment(\.dismiss) var dismiss
     @State private var showingExternalShare = false
     @State private var showMessageCompose = false
-    
+    @State private var showInstagramStory = false
+
     var body: some View {
         ZStack {
             Color.black.opacity(0.25)
                 .ignoresSafeArea()
-            
+
             VStack(spacing: 16) {
                 HStack {
                     Text("Share Post")
-                        .font(.custom("OpenSans-SemiBold", size: 18))
+                        .font(AMENFont.semiBold(18))
                         .foregroundStyle(.black)
-                    
+
                     Spacer()
-                    
+
                     Button {
                         dismiss()
                     } label: {
@@ -87,26 +88,33 @@ struct PostShareOptionsSheet: View {
                     }
                     .buttonStyle(.plain)
                 }
-                
+
                 Text("Choose how you want to share this post.")
-                    .font(.custom("OpenSans-Regular", size: 14))
+                    .font(AMENFont.regular(14))
                     .foregroundStyle(.black.opacity(0.6))
                     .frame(maxWidth: .infinity, alignment: .leading)
-                
+
                 VStack(spacing: 10) {
                     GlassDialogButton(title: "Send in Message", subtitle: "Share with a friend", systemImage: "paperplane") {
                         showMessageCompose = true
                     }
-                    
+
+                    GlassDialogButton(title: "Instagram Story", subtitle: "Share as a Story card", systemImage: "camera.fill") {
+                        dismiss()
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                            showInstagramStory = true
+                        }
+                    }
+
                     GlassDialogButton(title: "Share Externally", subtitle: "Share outside the app", systemImage: "square.and.arrow.up") {
                         showingExternalShare = true
                     }
                 }
-                
+
                 Button("Cancel") {
                     dismiss()
                 }
-                .font(.custom("OpenSans-SemiBold", size: 15))
+                .font(AMENFont.semiBold(15))
                 .foregroundStyle(.black)
                 .padding(.top, 4)
             }
@@ -140,6 +148,9 @@ struct PostShareOptionsSheet: View {
         }
         .sheet(isPresented: $showMessageCompose) {
             MessageComposeView(post: post)
+        }
+        .fullScreenCover(isPresented: $showInstagramStory) {
+            AmenStoryShareView(content: .from(post: post))
         }
     }
     
@@ -271,40 +282,64 @@ struct MessageComposeView: View {
                         .foregroundStyle(.secondary)
                     Spacer()
                 } else {
-                    List {
-                        // Existing conversations
-                        if !filteredConversations.isEmpty {
-                            if !suggestedUsers.isEmpty {
-                                Section("Conversations") {
-                                    ForEach(filteredConversations) { conversation in
+                    ScrollView {
+                        VStack(spacing: 0) {
+                            // Existing conversations
+                            if !filteredConversations.isEmpty {
+                                if !suggestedUsers.isEmpty {
+                                    Text("CONVERSATIONS")
+                                        .font(AMENFont.bold(11))
+                                        .foregroundStyle(.secondary)
+                                        .padding(.horizontal, 20)
+                                        .padding(.top, 16)
+                                        .padding(.bottom, 8)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                }
+                                VStack(spacing: 0) {
+                                    ForEach(Array(filteredConversations.enumerated()), id: \.element.id) { index, conversation in
                                         conversationRow(conversation)
-                                            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
-                                            .listRowSeparator(.hidden)
+                                        if index < filteredConversations.count - 1 {
+                                            Divider().padding(.leading, 16)
+                                        }
                                     }
                                 }
-                            } else {
-                                ForEach(filteredConversations) { conversation in
-                                    conversationRow(conversation)
-                                        .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
-                                        .listRowSeparator(.hidden)
-                                }
+                                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                                .padding(.horizontal, 16)
                             }
-                        }
 
-                        // People (following + search results)
-                        if !suggestedUsers.isEmpty {
-                            Section("People") {
-                                ForEach(suggestedUsers) { user in
-                                    userRow(user)
-                                        .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
-                                        .listRowSeparator(.hidden)
+                            // People (following + search results)
+                            if !suggestedUsers.isEmpty {
+                                Text("PEOPLE")
+                                    .font(AMENFont.bold(11))
+                                    .foregroundStyle(.secondary)
+                                    .padding(.horizontal, 20)
+                                    .padding(.top, 16)
+                                    .padding(.bottom, 8)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                                VStack(spacing: 0) {
+                                    ForEach(Array(suggestedUsers.enumerated()), id: \.element.id) { index, user in
+                                        userRow(user)
+                                        if index < suggestedUsers.count - 1 {
+                                            Divider().padding(.leading, 16)
+                                        }
+                                    }
                                 }
+                                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                                .padding(.horizontal, 16)
                             }
+
+                            Spacer(minLength: 32)
                         }
                     }
-                    .listStyle(.plain)
+                    .background(Color(.systemGroupedBackground))
                 }
             }
+            .background(Color(.systemGroupedBackground).ignoresSafeArea())
             .navigationTitle("Send Post")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -447,9 +482,8 @@ struct MessageComposeView: View {
                 sendPostToConversation(conversation)
             }
         }
-        .padding(12)
-        .background(Color(.systemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
     }
 
     // MARK: - Followed user row (start new conversation)
@@ -490,9 +524,8 @@ struct MessageComposeView: View {
                 sendPostToUser(user)
             }
         }
-        .padding(12)
-        .background(Color(.systemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
     }
 
     // MARK: - Shared send button

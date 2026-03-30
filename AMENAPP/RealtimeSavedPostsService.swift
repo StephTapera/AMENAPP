@@ -10,6 +10,7 @@
 
 import Foundation
 import FirebaseDatabase
+import FirebaseFirestore
 import FirebaseAuth
 import Combine
 
@@ -70,12 +71,16 @@ class RealtimeSavedPostsService: ObservableObject {
         if isSaved {
             // Unsave
             dlog("🔖 Unsaving post: \(postId)")
-            
+
             let updates: [String: Any?] = [
                 savedPath: nil
             ]
-            
+
             try await database.updateChildValues(updates as [AnyHashable: Any])
+
+            // Decrement savesCount in Firestore (floor at 0)
+            let postRef = Firestore.firestore().collection("posts").document(postId)
+            try? await postRef.updateData(["savesCount": FieldValue.increment(Int64(-1))])
 
             // Mutate @Published property and post notification on MainActor so
             // @Published propagation is immediate and any observer reading
@@ -102,6 +107,10 @@ class RealtimeSavedPostsService: ObservableObject {
 
             try await database.updateChildValues(updates)
 
+            // Increment savesCount in Firestore
+            let postRef = Firestore.firestore().collection("posts").document(postId)
+            try? await postRef.updateData(["savesCount": FieldValue.increment(Int64(1))])
+
             // Mutate @Published property and post notification on MainActor so
             // @Published propagation is immediate and any observer reading
             // savedPostIds right after this returns sees the updated value.
@@ -113,7 +122,7 @@ class RealtimeSavedPostsService: ObservableObject {
                     userInfo: ["postId": postId]
                 )
             }
-            
+
             dlog("✅ Post saved successfully")
             return true
         }

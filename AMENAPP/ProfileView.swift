@@ -22,6 +22,7 @@ import SwiftUI
 import FirebaseFirestore
 import FirebaseAuth
 import FirebaseDatabase
+import FirebaseFunctions
 
 // MARK: - Profile Tab Enum
 
@@ -55,6 +56,9 @@ struct ProfileView: View {
         case loginHistory
         case followersList
         case followingList
+        case journey
+        case followRequests
+        case changePhoto
         var id: String {
             switch self {
             case .settings: return "settings"
@@ -64,10 +68,19 @@ struct ProfileView: View {
             case .loginHistory: return "loginHistory"
             case .followersList: return "followersList"
             case .followingList: return "followingList"
+            case .journey: return "journey"
+            case .followRequests: return "followRequests"
+            case .changePhoto: return "changePhoto"
             }
         }
     }
     @State private var activeSheet: ProfileSheet? = nil
+
+    // Digest Brain: AI spiritual journey summary banner
+    @State private var digestSummary: String = ""
+    @State private var showDigestBanner: Bool = false
+    @State private var digestDismissTask: Task<Void, Never>? = nil
+    @State private var digestFetchStarted: Bool = false
 
     @State private var showSettings = false     // kept for any legacy call sites
     @State private var showEditProfile = false  // kept for any legacy call sites
@@ -126,7 +139,8 @@ struct ProfileView: View {
     @State private var showFollowersList = false
     @State private var showFollowingList = false
     @ObservedObject private var followService = FollowService.shared
-    
+    @ObservedObject private var followRequestsViewModel = FollowRequestsViewModel.shared
+
     @Namespace private var tabNamespace
     
     // NEW: Toolbar expand/collapse
@@ -146,224 +160,287 @@ struct ProfileView: View {
     // Scroll offset tracking for header animation
     @State private var scrollOffset: CGFloat = 0
     @State private var showCompactHeader = false
-    
+
     // Enhanced refresh state
     @State private var lastRefreshDate: Date?
     @State private var newPostsCount = 0
     @State private var showRefreshToast = false
+
+    // P0-1: Load error state
+    @State private var showLoadError = false
+    @State private var loadErrorMessage = ""
+
+    // P0-2: Track pending post-creation refresh so rapid taps cancel the previous one
+    @State private var refreshAfterCreationTask: Task<Void, Never>?
+
+    // P0-3: Lifecycle-bound task for digest fetch so it cancels on view disappear
+    @State private var digestFetchTask: Task<Void, Never>?
     
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 0) {
-                    // Profile Header
-                    profileHeaderViewWithoutTabs
-                        .background(
-                            GeometryReader { geometry in
-                                Color.clear
-                                    .preference(
-                                        key: ScrollOffsetPreferenceKey.self,
-                                        value: geometry.frame(in: .named("scroll")).minY
-                                    )
-                            }
-                        )
-                    
-                    // Living Memory — preserved life stories section
-                    LivingMemorySection()
-                        .padding(.top, 8)
+            profileRootView
+        }
+    }
 
-                    // 🎯 TAB BAR - Right under action buttons (like Threads)
-                    stickyTabBar
-                        .padding(.top, 0)
-                    
-                    // Content - flows naturally after tabs
-                    if isLoading {
-                        VStack(spacing: 20) {
-                            AMENLoadingIndicator()
-
-                            Text("Loading...")
-                                .font(.custom("OpenSans-SemiBold", size: 16))
-                                .foregroundStyle(.secondary)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.top, 40)
-                    } else {
-                        contentView
-                            .padding(.top, 12)
-                    }
-                }
-            }
-            .coordinateSpace(name: "scroll")
-            .refreshable {
-                await fastRefreshProfile()
-            }
-            .simultaneousGesture(scrollDragGesture)
-            .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
-                scrollOffset = value
-                
-                // Show compact header when scrolled past 200 points
-                let shouldShow = value < -200
-                if showCompactHeader != shouldShow {
-                    withAnimation(.easeOut(duration: 0.15)) {
-                        showCompactHeader = shouldShow
-                    }
-                }
-                
-                // Show tab bar when at top of scroll
-                if value >= 0 {
-                    tabBarVisible.wrappedValue = true
-                }
-            }
-            .scrollContentBackground(.hidden)
-            .background(Color.white)
-            .overlay(refreshToastOverlay)
-            .background(Color.white.ignoresSafeArea())
+    private var profileRootView: some View {
+        profileScrollView
             .navigationTitle("")  // Empty to use custom title
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                // CENTER: Animated Username Title (without @)
-                ToolbarItem(placement: .principal) {
-                    if !profileData.username.isEmpty {
-                        Text("@\(profileData.username)")
-                            .font(.custom("OpenSans-Bold", size: 17))
-                            .foregroundStyle(.black)
-                    }
-                }
-                
-                // TOP LEFT: Compact Profile Header (shows when scrolled)
-                ToolbarItem(placement: .topBarLeading) {
-                    if showCompactHeader {
-                        HStack(spacing: 12) {
-                            // Compact Avatar with profile photo
-                            compactAvatarView
-                            
-                            // Name only (no username)
-                            Text(profileData.name)
-                                .font(.custom("OpenSans-Bold", size: 14))
-                                .foregroundStyle(.black)
-                                .lineLimit(1)
-                        }
-                        .transition(.move(edge: .leading).combined(with: .opacity))
-                    }
-                }
-                
-                ToolbarItem(placement: .topBarTrailing) {
-                    toolbarTrailingButtons
-                }
-            }
-            // Single sheet presentation — avoids "only one sheet at a time" warnings
-            // and prevents re-initialisation of sheet content when not presented.
-            .sheet(item: $activeSheet) { sheet in
-                switch sheet {
-                case .settings:
-                    SettingsView()
-                case .editProfile:
-                    EditProfileView(profileData: $profileData)
-                case .qrCode:
-                    ProfileQRCodeView(username: "@\(profileData.username)", name: profileData.name)
-                case .fullScreenAvatar:
-                    FullScreenAvatarView(name: profileData.name, initials: profileData.initials, profileImageURL: profileData.profileImageURL)
-                case .loginHistory:
-                    LoginHistoryView()
-                case .followersList:
-                    if let userId = Auth.auth().currentUser?.uid {
-                        SocialFollowersListView(userId: userId, listType: .followers)
-                    } else {
-                        Text("Error: Not signed in").padding()
-                    }
-                case .followingList:
-                    if let userId = Auth.auth().currentUser?.uid {
-                        SocialFollowersListView(userId: userId, listType: .following)
-                    } else {
-                        Text("Error: Not signed in").padding()
-                    }
-                }
-            }
-            // Legacy bool bindings: mirror them into activeSheet so old call sites still work
-            .onChange(of: showSettings) { _, v in if v { activeSheet = .settings; showSettings = false } }
-            .onChange(of: showEditProfile) { _, v in if v { activeSheet = .editProfile; showEditProfile = false } }
-            .onChange(of: showQRCode) { _, v in if v { activeSheet = .qrCode; showQRCode = false } }
-            .onChange(of: showFullScreenAvatar) { _, v in if v { activeSheet = .fullScreenAvatar; showFullScreenAvatar = false } }
-            .onChange(of: showLoginHistory) { _, v in if v { activeSheet = .loginHistory; showLoginHistory = false } }
-            .onChange(of: showFollowersList) { _, v in if v { activeSheet = .followersList; showFollowersList = false } }
-            .onChange(of: showFollowingList) { _, v in if v { activeSheet = .followingList; showFollowingList = false } }
-            .task {
-                // Load profile data BEFORE view appears (ensures username shows immediately)
-                dlog("👁️ ProfileView task started")
-                printDataState(context: "task - Before")
-                
-                // ⚡️ INSTANT: Pre-populate posts from PostsManager cache so posts show
-                // immediately without waiting for the Firestore fetch to complete.
-                if userPosts.isEmpty, let currentUserId = Auth.auth().currentUser?.uid {
-                    let cached = PostsManager.shared.allPosts.filter { $0.authorId == currentUserId }
-                    if !cached.isEmpty {
-                        userPosts = cached.sorted { $0.createdAt > $1.createdAt }
-                        dlog("⚡️ [INSTANT] Pre-populated \(userPosts.count) posts from cache")
-                    }
-                }
-                
-                // Load profile data immediately if cache is stale or missing
-                if let lastLoad = lastProfileLoad,
-                   Date().timeIntervalSince(lastLoad) < cacheValidityDuration {
-                    dlog("   ✅ Using cached profile data (loaded \(Int(Date().timeIntervalSince(lastLoad)))s ago)")
-                    printDataState(context: "task - Cache Hit")
-                    // Re-establish listeners if they were torn down on disappear
-                    if !listenersActive, let userId = Auth.auth().currentUser?.uid {
-                        dlog("   🔄 Re-establishing real-time listeners after navigation...")
-                        setupRealtimeDatabaseListeners(userId: userId)
-                        listenersActive = true
-                    }
+            .toolbar { profileToolbarContent }
+        // Single sheet presentation — avoids "only one sheet at a time" warnings
+        // and prevents re-initialisation of sheet content when not presented.
+        .sheet(item: $activeSheet) { sheet in
+            switch sheet {
+            case .settings:
+                SettingsView()
+            case .editProfile:
+                EditProfileView(profileData: $profileData)
+            case .qrCode:
+                ProfileQRCodeView(username: "@\(profileData.username)", name: profileData.name)
+            case .fullScreenAvatar:
+                FullScreenAvatarView(name: profileData.name, initials: profileData.initials, profileImageURL: profileData.profileImageURL)
+            case .loginHistory:
+                LoginHistoryView()
+            case .followersList:
+                if let userId = Auth.auth().currentUser?.uid {
+                    SocialFollowersListView(userId: userId, listType: .followers)
                 } else {
-                    dlog("   🔄 Cache stale or missing, loading profile data...")
-                    await loadProfileData()
-                    lastProfileLoad = Date()
-                    printDataState(context: "task - After Load")
+                    Text("Error: Not signed in").padding()
                 }
-                
-                // Start follow service listeners
-                followService.startListening()
-                dlog("✅ FollowService listeners started")
-                dlog("   Followers: \(followService.currentUserFollowersCount)")
-                dlog("   Following: \(followService.currentUserFollowingCount)")
-            }
-            .onAppear {
-                dlog("👁️ ProfileView appeared")
-                // Set up notification observers
-                setupNotificationObservers()
-            }
-            .onDisappear {
-                dlog("👋 ProfileView disappeared")
-                printDataState(context: "onDisappear")
-                
-                // P0 FIX: Remove ALL listeners to prevent memory leaks
-                postsListener?.remove()
-                postsListener = nil
-                dlog("   ✅ Posts listener removed")
-                
-                // NOTE: Do NOT stop FollowService or RealtimeSavedPostsService here.
-                // Both are global singletons used throughout the app. Stopping them on
-                // profile disappear breaks follow state and saved-post badges app-wide
-                // for the rest of the session. They are only stopped on sign-out.
-                dlog("   ✅ Global singleton listeners kept active (sign-out only)")
-                
-                // P0 FIX: Stop reposts real-time listener
-                if let uid = repostObserverUserId {
-                    RealtimeRepostsService.shared.removeObserver(userId: uid)
-                    repostObserverUserId = nil
+            case .followingList:
+                if let userId = Auth.auth().currentUser?.uid {
+                    SocialFollowersListView(userId: userId, listType: .following)
+                } else {
+                    Text("Error: Not signed in").padding()
                 }
-                dlog("   ✅ Reposts listener stopped")
-                
-                // Clean up notification observers
-                cleanupNotificationObservers()
-                
-                // P0 FIX: Cancel scroll update tasks
-                scrollUpdateTask?.cancel()
-                scrollUpdateTask = nil
+            case .journey:
+                NavigationStack {
+                    LongitudinalSelfView()
+                }
+            case .followRequests:
+                FollowRequestsView()
+            case .changePhoto:
+                ProfilePhotoEditView(
+                    currentImageURL: profileData.profileImageURL,
+                    onPhotoUpdated: { newURL in
+                        profileData.profileImageURL = newURL
+                        lastProfileLoad = nil
+                    }
+                )
+            }
+        }
+        // Legacy bool bindings: mirror them into activeSheet so old call sites still work
+        .onChange(of: showSettings) { _, v in if v { activeSheet = .settings; showSettings = false } }
+        .onChange(of: showEditProfile) { _, v in if v { activeSheet = .editProfile; showEditProfile = false } }
+        .onChange(of: showQRCode) { _, v in if v { activeSheet = .qrCode; showQRCode = false } }
+        .onChange(of: showFullScreenAvatar) { _, v in if v { activeSheet = .fullScreenAvatar; showFullScreenAvatar = false } }
+        .onChange(of: showLoginHistory) { _, v in if v { activeSheet = .loginHistory; showLoginHistory = false } }
+        .onChange(of: showFollowersList) { _, v in if v { activeSheet = .followersList; showFollowersList = false } }
+        .onChange(of: showFollowingList) { _, v in if v { activeSheet = .followingList; showFollowingList = false } }
+        // P0-1: Surface profile load failures so the user can retry
+        .alert("Couldn't Load Profile", isPresented: $showLoadError) {
+            Button("Retry") { Task { await loadProfileData() } }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text(loadErrorMessage)
+        }
+        // P1-6: Bust profile cache when EditProfileView saves changes
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("profileDataUpdated"))) { _ in
+            lastProfileLoad = nil
+            Task { await loadProfileData() }
+        }
+        .task {
+            // Load profile data BEFORE view appears (ensures username shows immediately)
+            dlog("👁️ ProfileView task started")
+            printDataState(context: "task - Before")
+            
+            // ⚡️ INSTANT: Pre-populate posts from PostsManager cache so posts show
+            // immediately without waiting for the Firestore fetch to complete.
+            if userPosts.isEmpty, let currentUserId = Auth.auth().currentUser?.uid {
+                let cached = PostsManager.shared.allPosts.filter { $0.authorId == currentUserId }
+                if !cached.isEmpty {
+                    userPosts = cached.sorted { $0.createdAt > $1.createdAt }
+                    dlog("⚡️ [INSTANT] Pre-populated \(userPosts.count) posts from cache")
+                }
+            }
+            
+            // Load profile data immediately if cache is stale or missing
+            if let lastLoad = lastProfileLoad,
+               Date().timeIntervalSince(lastLoad) < cacheValidityDuration {
+                dlog("   ✅ Using cached profile data (loaded \(Int(Date().timeIntervalSince(lastLoad)))s ago)")
+                printDataState(context: "task - Cache Hit")
+                // Re-establish listeners if they were torn down on disappear
+                if !listenersActive, let userId = Auth.auth().currentUser?.uid {
+                    dlog("   🔄 Re-establishing real-time listeners after navigation...")
+                    setupRealtimeDatabaseListeners(userId: userId)
+                    listenersActive = true
+                }
+            } else {
+                dlog("   🔄 Cache stale or missing, loading profile data...")
+                await loadProfileData()
+                lastProfileLoad = Date()
+                printDataState(context: "task - After Load")
+            }
+            
+            // Start follow service listeners
+            followService.startListening()
+            dlog("✅ FollowService listeners started")
+            dlog("   Followers: \(followService.currentUserFollowersCount)")
+            dlog("   Following: \(followService.currentUserFollowingCount)")
+        }
+        .onAppear {
+            dlog("👁️ ProfileView appeared")
+            // Set up notification observers
+            setupNotificationObservers()
+            // P0-3: Digest fetch stored in a lifecycle-bound Task so it is
+            // cancelled immediately if the view disappears before the delay fires.
+            digestFetchTask = Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 1_500_000_000) // 1.5s
+                guard !Task.isCancelled else { return }
+                fetchDigestBrain()
+            }
+        }
+        .onDisappear {
+            dlog("👋 ProfileView disappeared")
+            printDataState(context: "onDisappear")
 
-                // Mark listeners as inactive
-                listenersActive = false
-                dlog("   ✅ ProfileView cleanup complete")
+            // P0-3: Cancel pending digest fetch so it doesn't fire after teardown
+            digestFetchTask?.cancel()
+            digestFetchTask = nil
+
+            // P0 FIX: Remove ALL listeners to prevent memory leaks
+            postsListener?.remove()
+            postsListener = nil
+            dlog("   ✅ Posts listener removed")
+
+            // NOTE: Do NOT stop FollowService or RealtimeSavedPostsService here.
+            // Both are global singletons used throughout the app. Stopping them on
+            // profile disappear breaks follow state and saved-post badges app-wide
+            // for the rest of the session. They are only stopped on sign-out.
+            dlog("   ✅ Global singleton listeners kept active (sign-out only)")
+
+            // P0 FIX: Stop reposts real-time listener
+            if let uid = repostObserverUserId {
+                RealtimeRepostsService.shared.removeObserver(userId: uid)
+                repostObserverUserId = nil
             }
+            dlog("   ✅ Reposts listener stopped")
+
+            // Clean up notification observers
+            cleanupNotificationObservers()
+
+            // P0 FIX: Cancel scroll update tasks
+            scrollUpdateTask?.cancel()
+            scrollUpdateTask = nil
+            // P0-2: Cancel any in-flight post-creation refresh
+            refreshAfterCreationTask?.cancel()
+            refreshAfterCreationTask = nil
+
+            // Mark listeners as inactive
+            listenersActive = false
+            dlog("   ✅ ProfileView cleanup complete")
+        }
+    }
+
+    private var profileScrollView: some View {
+        ScrollView {
+            profileScrollContent
+        }
+        .coordinateSpace(name: "scroll")
+        .refreshable {
+            await fastRefreshProfile()
+        }
+        .simultaneousGesture(scrollDragGesture)
+        .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
+            scrollOffset = value
+            
+            // Show compact header when scrolled past 200 points
+            let shouldShow = value < -200
+            if showCompactHeader != shouldShow {
+                withAnimation(.easeOut(duration: 0.15)) {
+                    showCompactHeader = shouldShow
+                }
+            }
+            
+            // Show tab bar when at top of scroll
+            if value >= 0 {
+                tabBarVisible.wrappedValue = true
+            }
+        }
+        .scrollContentBackground(.hidden)
+        .background(Color(.systemGroupedBackground))
+        .overlay(refreshToastOverlay)
+        .overlay(digestBrainBanner, alignment: .top)
+        .background(Color(.systemGroupedBackground).ignoresSafeArea())
+    }
+
+    @ViewBuilder
+    private var profileScrollContent: some View {
+        VStack(spacing: 0) {
+            // Profile Header
+            profileHeaderViewWithoutTabs
+                .background(
+                    GeometryReader { geometry in
+                        Color.clear
+                            .preference(
+                                key: ScrollOffsetPreferenceKey.self,
+                                value: geometry.frame(in: .named("scroll")).minY
+                            )
+                    }
+                )
+            
+            // 🎯 TAB BAR - Right under action buttons (like Threads)
+            stickyTabBar
+                .padding(.top, 0)
+            
+            // Content - flows naturally after tabs
+            if isLoading {
+                VStack(spacing: 20) {
+                    AMENLoadingIndicator()
+
+                    Text("Loading...")
+                        .font(AMENFont.semiBold(16))
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.top, 40)
+            } else {
+                contentView
+                    .padding(.top, 12)
+            }
+        }
+    }
+
+    @ToolbarContentBuilder
+    private var profileToolbarContent: some ToolbarContent {
+        // CENTER: Animated Username Title (without @)
+        ToolbarItem(placement: .principal) {
+            if !profileData.username.isEmpty {
+                Text("@\(profileData.username)")
+                    .font(AMENFont.bold(17))
+                    .foregroundStyle(.primary)
+            }
+        }
+        
+        // TOP LEFT: Compact Profile Header (shows when scrolled)
+        ToolbarItem(placement: .topBarLeading) {
+            if showCompactHeader {
+                HStack(spacing: 12) {
+                    // Compact Avatar with profile photo
+                    compactAvatarView
+                    
+                    // Name only (no username)
+                    Text(profileData.name)
+                        .font(AMENFont.bold(14))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                }
+                .transition(.move(edge: .leading).combined(with: .opacity))
+            }
+        }
+        
+        ToolbarItem(placement: .topBarTrailing) {
+            toolbarTrailingButtons
         }
     }
     
@@ -373,9 +450,38 @@ struct ProfileView: View {
     @ViewBuilder
     private var toolbarTrailingButtons: some View {
         HStack(spacing: 10) {
-            // Notification Bell Button (always visible)
-            NotificationBellButton()
-            
+            // Follow requests button — always visible when there are pending requests
+            let pendingFollowCount = followRequestsViewModel.requests.count
+            Button {
+                activeSheet = .followRequests
+                HapticManager.impact(style: .light)
+            } label: {
+                Image(systemName: "person.badge.clock")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .overlay(alignment: .topTrailing) {
+                        if pendingFollowCount > 0 {
+                            Text(pendingFollowCount < 100 ? "\(pendingFollowCount)" : "99+")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 2)
+                                .background(Capsule().fill(Color.red))
+                                .offset(x: 6, y: -6)
+                        }
+                    }
+            }
+
+            // My Journey button — replaces notification bell
+            Button {
+                activeSheet = .journey
+                HapticManager.impact(style: .light)
+            } label: {
+                Image(systemName: "chart.line.uptrend.xyaxis")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(.primary)
+            }
+
             // Conditionally show the 4 buttons when expanded
             if isToolbarExpanded {
                 Button {
@@ -383,50 +489,49 @@ struct ProfileView: View {
                 } label: {
                     Image(systemName: "clock.arrow.circlepath")
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.primary)
                 }
                 .transition(.scale.combined(with: .opacity))
-                
+
                 Button {
                     showQRCode = true
                 } label: {
                     Image(systemName: "qrcode")
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.primary)
                 }
                 .transition(.scale.combined(with: .opacity))
-                
+
                 Button {
                     shareProfile()
                 } label: {
                     Image(systemName: "square.and.arrow.up")
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.primary)
                 }
                 .transition(.scale.combined(with: .opacity))
-                
+
                 Button {
                     showSettings = true
                 } label: {
                     Image(systemName: "line.3.horizontal")
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.primary)
                 }
                 .transition(.scale.combined(with: .opacity))
             }
-            
+
             // Toggle button with enhanced animation
             Button {
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.75, blendDuration: 0.2)) {
                     isToolbarExpanded.toggle()
                 }
-                
                 HapticManager.impact(style: .light)
             } label: {
                 // Icon morphs between ellipsis ↔ xmark with liquid dissolve-reform
                 Image(systemName: isToolbarExpanded ? "xmark" : "ellipsis")
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
                     .frame(width: 28, height: 28)
                     .contentShape(Rectangle())
                     .contentTransition(.symbolEffect(.replace.magic(fallback: .replace)))
@@ -445,7 +550,7 @@ struct ProfileView: View {
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundStyle(.green)
                     Text("\(newPostsCount) new \(newPostsCount == 1 ? "post" : "posts")")
-                        .font(.custom("OpenSans-SemiBold", size: 14))
+                        .font(AMENFont.semiBold(14))
                         .foregroundStyle(.white)
                 }
                 .padding(.horizontal, 16)
@@ -549,9 +654,13 @@ struct ProfileView: View {
                         
                         HapticManager.notification(type: .success)
                         
-                        // Force refresh after 1 second to get confirmed data
-                        Task {
+                        // P0-2: Cancel any in-flight creation refresh before scheduling a new one,
+                        // preventing rapid double-taps from running concurrent fetches that can
+                        // overwrite each other and cause the newest post to vanish.
+                        self.refreshAfterCreationTask?.cancel()
+                        self.refreshAfterCreationTask = Task {
                             try? await Task.sleep(nanoseconds: 1_000_000_000)
+                            guard !Task.isCancelled else { return }
                             await self.refreshPostsAfterCreation()
                         }
                     } else {
@@ -921,6 +1030,19 @@ struct ProfileView: View {
         }
     }
     
+    private func normalizedUsernameForDisplay(rawUsername: String, authUserId: String) -> String {
+        let trimmed = rawUsername.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "user" }
+        if let dashIndex = trimmed.firstIndex(of: "-") {
+            let base = String(trimmed[..<dashIndex])
+            let suffix = String(trimmed[trimmed.index(after: dashIndex)...])
+            if !base.isEmpty, authUserId.lowercased().hasPrefix(suffix.lowercased()) {
+                return base
+            }
+        }
+        return trimmed
+    }
+
     @MainActor
     private func loadProfileData() async {
         let _perfToken = PerfBegin("profile_load")
@@ -955,11 +1077,16 @@ struct ProfileView: View {
             
             // Extract data directly from Firestore
             let displayName = data["displayName"] as? String ?? "User"
-            let username = data["username"] as? String ?? "user"
+            let rawUsername = data["username"] as? String ?? "user"
+            let username = normalizedUsernameForDisplay(rawUsername: rawUsername, authUserId: authUser.uid)
             let bio = data["bio"] as? String ?? ""
             let bioURL = data["bioURL"] as? String // ✅ NEW: Load bio URL
-            let profileImageURL = data["profileImageURL"] as? String
+            // Fallback chain: Firestore field → legacy "photoURL" field → Firebase Auth photoURL
+            let profileImageURL: String? = (data["profileImageURL"] as? String)
+                ?? (data["photoURL"] as? String)
+                ?? authUser.photoURL?.absoluteString
             let interests = data["interests"] as? [String] ?? []
+            let profileTopics = data["profileTopics"] as? [String] ?? []
             
             // Generate initials from display name
             let names = displayName.components(separatedBy: " ")
@@ -987,7 +1114,8 @@ struct ProfileView: View {
                 initials: String(initials),
                 profileImageURL: profileImageURL,
                 interests: interests,
-                socialLinks: socialLinks
+                socialLinks: socialLinks,
+                profileTopics: profileTopics
             )
             
             dlog("✅ ProfileView: Profile data updated")
@@ -1077,8 +1205,11 @@ struct ProfileView: View {
             
         } catch {
             dlog("❌ ProfileView: Error loading profile - \(error.localizedDescription)")
+            // P0-1: Surface the error so the user sees a retry option instead of a silent blank screen
+            loadErrorMessage = "Couldn't load your profile. Please check your connection and try again.\n\n\(error.localizedDescription)"
+            showLoadError = true
         }
-        
+
         isLoading = false
     }
     
@@ -1112,21 +1243,13 @@ struct ProfileView: View {
     // MARK: - Open Social Link Function
     
     private func openSocialLink(_ link: SocialLinkUI) {
-        var urlString = ""
-        
-        switch link.platform {
-        case .twitter:
-            urlString = "https://twitter.com/\(link.username)"
-        case .instagram:
-            urlString = "https://instagram.com/\(link.username)"
-        case .linkedin:
-            urlString = "https://linkedin.com/in/\(link.username)"
-        case .youtube:
-            urlString = "https://youtube.com/@\(link.username)"
-        case .tiktok:
-            urlString = "https://tiktok.com/@\(link.username)"
-        }
-        
+        // P2-3: Delegate URL construction to SocialLinkData.generateURL so
+        // this function doesn't duplicate the platform → URL mapping logic.
+        let urlString = SocialLinkData.generateURL(
+            platform: link.platform.rawValue,
+            username: link.username
+        )
+
         guard let url = URL(string: urlString) else {
             dlog("❌ Invalid social link URL: \(urlString)")
             return
@@ -1231,9 +1354,16 @@ struct ProfileView: View {
             }
 
             Task {
+                // P1-5: Skip state mutation if the view is no longer visible
+                // to avoid updating orphaned state after view teardown.
+                guard self.listenersActive else {
+                    dlog("⏭️ [SAVED] View no longer active — skipping saved posts update")
+                    return
+                }
                 do {
                     let posts = try await RealtimeSavedPostsService.shared.fetchSavedPosts()
                     await MainActor.run {
+                        guard self.listenersActive else { return }
                         let previousCount = self.savedPosts.count
                         let existingIds = Set(self.savedPosts.map { $0.firestoreId })
                         // Only INSERT truly-new posts — never replace the full array.
@@ -1246,7 +1376,6 @@ struct ProfileView: View {
                         }
                         dlog("🔄 [SAVED] Saved posts updated: \(self.savedPosts.count) (was \(previousCount), added \(newPosts.count))")
                         if !newPosts.isEmpty {
-                            // haptic
                             HapticManager.impact(style: .light)
                         }
                     }
@@ -1304,10 +1433,96 @@ struct ProfileView: View {
 
     private func countForTab(_ tab: ProfileTab) -> Int {
         switch tab {
-        case .posts: return userPosts.count
-        case .replies: return 0
-        case .saved: return savedPosts.count
+        case .posts:   return userPosts.count
+        case .replies: return userReplies.count
+        case .saved:   return savedPosts.count
         case .reposts: return reposts.count
+        }
+    }
+
+    // MARK: - Digest Brain
+
+    @ViewBuilder
+    private var digestBrainBanner: some View {
+        if showDigestBanner && !digestSummary.isEmpty {
+            HStack(spacing: 8) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Color.indigo)
+                Text(digestSummary)
+                    .font(AMENFont.regular(12))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                Spacer(minLength: 0)
+                Button { dismissDigestBanner() } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 9)
+            .background(
+                Capsule()
+                    .fill(.ultraThinMaterial)
+                    .overlay(Capsule().strokeBorder(Color.indigo.opacity(0.18), lineWidth: 1))
+            )
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+            .transition(.move(edge: .top).combined(with: .opacity))
+        }
+    }
+
+    private func shouldShowDigestBrainBanner() -> Bool {
+        let key = "digestBrainLastShownDate"
+        if let lastShown = UserDefaults.standard.object(forKey: key) as? Date {
+            if Calendar.current.isDateInToday(lastShown) {
+                return false
+            }
+        }
+        return true
+    }
+
+    private func fetchDigestBrain() {
+        // Only fetch once per view instance and once per day
+        guard !digestFetchStarted,
+              let uid = FirebaseAuth.Auth.auth().currentUser?.uid,
+              shouldShowDigestBrainBanner() else { return }
+        digestFetchStarted = true
+        // Save date immediately so repeated appearances don't re-trigger
+        UserDefaults.standard.set(Date(), forKey: "digestBrainLastShownDate")
+        Task {
+            do {
+                let functions = FirebaseFunctions.Functions.functions()
+                let result = try await functions.httpsCallable("digestBrain").call(["userId": uid])
+                if let data = result.data as? [String: Any],
+                   let summary = data["summary"] as? String,
+                   !summary.isEmpty {
+                    await MainActor.run {
+                        digestSummary = summary
+                        withAnimation(.spring(response: 0.38, dampingFraction: 0.80)) {
+                            showDigestBanner = true
+                        }
+                        // Auto-dismiss after 8 seconds
+                        digestDismissTask = Task {
+                            try? await Task.sleep(nanoseconds: 8_000_000_000)
+                            if !Task.isCancelled {
+                                await MainActor.run { dismissDigestBanner() }
+                            }
+                        }
+                    }
+                }
+            } catch {
+                // Silent fail — digest is optional
+            }
+        }
+    }
+
+    private func dismissDigestBanner() {
+        digestDismissTask?.cancel()
+        withAnimation(.easeOut(duration: 0.25)) {
+            showDigestBanner = false
         }
     }
 
@@ -1315,7 +1530,7 @@ struct ProfileView: View {
 
     private func liquidGlassButtonLabel(text: String) -> some View {
         Text(text)
-            .font(.custom("OpenSans-Bold", size: 15))
+            .font(AMENFont.bold(15))
             .foregroundStyle(.black)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
@@ -1398,14 +1613,26 @@ struct ProfileView: View {
     }
     
     private var avatarInitials: some View {
-        ZStack {
+        ZStack(alignment: .bottomTrailing) {
             Circle()
                 .fill(Color.black)
                 .frame(width: 80, height: 80)
-            
-            Text(profileData.initials)
-                .font(.custom("OpenSans-Bold", size: 28))
-                .foregroundStyle(.white)
+                .overlay(
+                    Text(profileData.initials)
+                        .font(AMENFont.bold(28))
+                        .foregroundStyle(.white)
+                )
+
+            // Camera badge — signals the avatar is tappable to add a photo
+            Circle()
+                .fill(Color.white)
+                .frame(width: 24, height: 24)
+                .overlay(
+                    Image(systemName: "camera.fill")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.black)
+                )
+                .shadow(color: .black.opacity(0.15), radius: 4, y: 2)
         }
     }
     
@@ -1447,7 +1674,7 @@ struct ProfileView: View {
                     .frame(width: 32, height: 32)
                     .overlay(
                         Text(profileData.initials)
-                            .font(.custom("OpenSans-Bold", size: 12))
+                            .font(AMENFont.bold(12))
                             .foregroundStyle(.white)
                     )
             }
@@ -1477,7 +1704,7 @@ struct ProfileView: View {
                         
                         if selectedTab == tab {
                             Text("\(tab.rawValue) (\(countForTab(tab)))")
-                                .font(.custom("OpenSans-Bold", size: 14))
+                                .font(AMENFont.bold(14))
                                 .foregroundStyle(.white)
                                 .transition(.scale(scale: 0.8).combined(with: .opacity))
                         }
@@ -1507,16 +1734,14 @@ struct ProfileView: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(.horizontal, 20)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+        .padding(.horizontal, 16)
         .padding(.top, 8)
         .padding(.bottom, 0)  // ✅ Zero bottom padding - feed starts RIGHT after tabs
-        .background(Color.white)
-        .overlay(
-            Rectangle()
-                .fill(Color.black.opacity(0.05))
-                .frame(height: 1),
-            alignment: .bottom
-        )
     }
     
     // 🎯 NEW: Profile Header WITHOUT Tab Selector
@@ -1528,7 +1753,7 @@ struct ProfileView: View {
                     // Name with verified badge
                     HStack(spacing: 6) {
                         Text(profileData.name)
-                            .font(.custom("OpenSans-Bold", size: 26))
+                            .font(AMENFont.bold(26))
                             .foregroundStyle(.black)
 
                         // ✅ Verified badge for specific user
@@ -1542,6 +1767,8 @@ struct ProfileView: View {
                 Spacer()
                 
                 // Avatar with bounce animation
+                // — No photo: tap opens photo picker directly
+                // — Has photo: tap opens full-screen avatar view
                 Button {
                     withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
                         avatarPressed = true
@@ -1552,7 +1779,12 @@ struct ProfileView: View {
                             avatarPressed = false
                         }
                         try? await Task.sleep(nanoseconds: 50_000_000)
-                        showFullScreenAvatar = true
+                        let hasPhoto = !(profileData.profileImageURL ?? "").isEmpty
+                        if hasPhoto {
+                            showFullScreenAvatar = true
+                        } else {
+                            activeSheet = .changePhoto
+                        }
                     }
                 } label: {
                     profileAvatarView
@@ -1573,9 +1805,11 @@ struct ProfileView: View {
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundStyle(.black)
 
-                        Text(bioURL.replacingOccurrences(of: "https://", with: "").replacingOccurrences(of: "http://", with: "").trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-                                .replacingOccurrences(of: "http://", with: ""))
-                            .font(.custom("OpenSans-SemiBold", size: 11))
+                        Text(bioURL
+                                .replacingOccurrences(of: "https://", with: "")
+                                .replacingOccurrences(of: "http://", with: "")
+                                .trimmingCharacters(in: CharacterSet(charactersIn: "/")))
+                            .font(AMENFont.semiBold(11))
                             .foregroundStyle(.black)
                             .lineLimit(1)
                     }
@@ -1631,6 +1865,27 @@ struct ProfileView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             
+            // Topic chips (Feature 4)
+            if !profileData.profileTopics.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(profileData.profileTopics, id: \.self) { topic in
+                            Text(topic)
+                                .font(AMENFont.semiBold(12))
+                                .foregroundStyle(.primary)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 5)
+                                .background(
+                                    Capsule()
+                                        .fill(Color(.systemGray6))
+                                        .overlay(Capsule().strokeBorder(Color(.systemGray4), lineWidth: 0.5))
+                                )
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
             // Interests with hand-drawn highlight animation
             if !profileData.interests.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -1658,7 +1913,7 @@ struct ProfileView: View {
                                     .foregroundStyle(link.platform.color)
                                 
                                 Text(link.username)
-                                    .font(.custom("OpenSans-Regular", size: 14))
+                                    .font(AMENFont.regular(14))
                                     .foregroundStyle(.black.opacity(0.7))
                                 
                                 Spacer()
@@ -1688,10 +1943,10 @@ struct ProfileView: View {
                     // Avoids training users to optimize for follower accumulation
                     HStack(spacing: 4) {
                         Text("Followers")
-                            .font(.custom("OpenSans-Regular", size: 14))
+                            .font(AMENFont.regular(14))
                             .foregroundStyle(.secondary)
                         Text("\(followService.currentUserFollowersCount)")
-                            .font(.custom("OpenSans-Regular", size: 14))
+                            .font(AMENFont.regular(14))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -1704,10 +1959,10 @@ struct ProfileView: View {
                 } label: {
                     HStack(spacing: 4) {
                         Text("Following")
-                            .font(.custom("OpenSans-Regular", size: 14))
+                            .font(AMENFont.regular(14))
                             .foregroundStyle(.secondary)
                         Text("\(followService.currentUserFollowingCount)")
-                            .font(.custom("OpenSans-Regular", size: 14))
+                            .font(AMENFont.regular(14))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -1723,7 +1978,7 @@ struct ProfileView: View {
                     showEditProfile = true
                 } label: {
                     Text("Edit profile")
-                        .font(.custom("OpenSans-Bold", size: 14))
+                        .font(AMENFont.bold(14))
                         .foregroundStyle(.black)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
@@ -1741,7 +1996,7 @@ struct ProfileView: View {
                     shareProfile()
                 } label: {
                     Text("Share profile")
-                        .font(.custom("OpenSans-Bold", size: 14))
+                        .font(AMENFont.bold(14))
                         .foregroundStyle(.black)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
@@ -1756,16 +2011,17 @@ struct ProfileView: View {
                 }
             }
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, 16)
         .padding(.top, 16)
-        .padding(.bottom, 0)
-        .background(Color.white)
+        .padding(.bottom, 16)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
     }
-    
-    // Keep old header for backwards compatibility (may be referenced elsewhere)
-    private var profileHeaderView: some View {
-        profileHeaderViewWithoutTabs
-    }
+
+
     
     // MARK: - Content View
     
@@ -1815,16 +2071,16 @@ struct ProfileQRCodeView: View {
                         .frame(width: 80, height: 80)
                         .overlay(
                             Text(name.prefix(2).uppercased())
-                                .font(.custom("OpenSans-Bold", size: 28))
+                                .font(AMENFont.bold(28))
                                 .foregroundStyle(.white)
                         )
                     
                     Text(name)
-                        .font(.custom("OpenSans-Bold", size: 24))
+                        .font(AMENFont.bold(24))
                         .foregroundStyle(.black)
                     
                     Text(username)
-                        .font(.custom("OpenSans-Regular", size: 16))
+                        .font(AMENFont.regular(16))
                         .foregroundStyle(.black.opacity(0.5))
                 }
                 
@@ -1852,7 +2108,7 @@ struct ProfileQRCodeView: View {
                     }
                     
                     Text("Scan to view profile")
-                        .font(.custom("OpenSans-SemiBold", size: 15))
+                        .font(AMENFont.semiBold(15))
                         .foregroundStyle(.black.opacity(0.6))
                 }
                 
@@ -1866,7 +2122,7 @@ struct ProfileQRCodeView: View {
                         Image(systemName: "square.and.arrow.up")
                             .font(.system(size: 16, weight: .semibold))
                         Text("Share QR Code")
-                            .font(.custom("OpenSans-Bold", size: 16))
+                            .font(AMENFont.bold(16))
                     }
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
@@ -2244,7 +2500,7 @@ struct ProfilePostCard: View {
             
             if showCount && lightbulbCount > 0 {
                 Text("\(lightbulbCount)")
-                    .font(.custom("OpenSans-SemiBold", size: 10))
+                    .font(AMENFont.semiBold(10))
                     .foregroundStyle(hasLitLightbulb ? Color.primary.opacity(0.8) : Color.secondary.opacity(0.6))
                     .contentTransition(.numericText())
             }
@@ -2356,7 +2612,7 @@ struct ProfilePostCard: View {
                 .font(.system(size: 28, weight: .medium))
                 .foregroundColor(color)
             Text(text)
-                .font(.custom("OpenSans-SemiBold", size: 12))
+                .font(AMENFont.semiBold(12))
                 .foregroundColor(color)
         }
         .scaleEffect(min(Double(abs(swipeOffset)) / 60.0, 1.2))
@@ -2507,11 +2763,11 @@ struct PostsContentView: View {
                         .foregroundStyle(.secondary)
                     
                     Text("No posts yet")
-                        .font(.custom("OpenSans-Bold", size: 18))
+                        .font(AMENFont.bold(18))
                         .foregroundStyle(.primary)
                     
                     Text("Your posts will appear here")
-                        .font(.custom("OpenSans-Regular", size: 14))
+                        .font(AMENFont.regular(14))
                         .foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity, alignment: .top)
@@ -2561,11 +2817,11 @@ struct RepliesContentView: View {
                     .foregroundStyle(Color.secondary)
                 
                 Text("No replies yet")
-                    .font(.custom("OpenSans-Bold", size: 18))
+                    .font(AMENFont.bold(18))
                     .foregroundStyle(Color.primary)
                 
                 Text("Your replies to others will appear here")
-                    .font(.custom("OpenSans-Regular", size: 14))
+                    .font(AMENFont.regular(14))
                     .foregroundStyle(Color.secondary)
             }
             .frame(maxWidth: .infinity, alignment: .top)
@@ -2618,11 +2874,11 @@ struct SavedContentView: View {
                     .foregroundStyle(.secondary)
                 
                 Text("No saved posts")
-                    .font(.custom("OpenSans-Bold", size: 18))
+                    .font(AMENFont.bold(18))
                     .foregroundStyle(.primary)
                 
                 Text("Posts you save will appear here")
-                    .font(.custom("OpenSans-Regular", size: 14))
+                    .font(AMENFont.regular(14))
                     .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity, alignment: .top)
@@ -2655,11 +2911,11 @@ struct RepostsContentView: View {
                     .foregroundStyle(.secondary)
                 
                 Text("No reposts yet")
-                    .font(.custom("OpenSans-Bold", size: 18))
+                    .font(AMENFont.bold(18))
                     .foregroundStyle(.primary)
                 
                 Text("Posts you repost will appear here")
-                    .font(.custom("OpenSans-Regular", size: 14))
+                    .font(AMENFont.regular(14))
                     .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity, alignment: .top)
@@ -2667,9 +2923,19 @@ struct RepostsContentView: View {
             .padding(.bottom, 20)
         } else {
             LazyVStack(spacing: 0) {
-                ForEach(reposts) { post in
-                    ProfilePostCard(post: post)
-                        .padding(.bottom, 10)  // Spacing between cards only
+                ForEach(Array(reposts.enumerated()), id: \.element.id) { index, post in
+                    VStack(spacing: 4) {
+                        // Repost byline strip
+                        RepostBylineStrip(
+                            reposterName: post.authorName,
+                            reposterAvatarURL: post.authorProfileImageURL,
+                            isNew: index == 0
+                        )
+                        .padding(.horizontal, 16)
+                        // Existing post card — unchanged
+                        ProfilePostCard(post: post)
+                    }
+                    .padding(.bottom, 10)
                 }
             }
             .padding(.horizontal, 16)
@@ -2718,7 +2984,7 @@ struct ProfileReplyCard: View {
                                         .frame(width: 32, height: 32)
                                         .overlay(
                                             Text(comment.authorInitials)
-                                                .font(.custom("OpenSans-Bold", size: 14))
+                                                .font(AMENFont.bold(14))
                                                 .foregroundStyle(.white)
                                         )
                                 case .empty:
@@ -2735,7 +3001,7 @@ struct ProfileReplyCard: View {
                                         .frame(width: 32, height: 32)
                                         .overlay(
                                             Text(comment.authorInitials)
-                                                .font(.custom("OpenSans-Bold", size: 14))
+                                                .font(AMENFont.bold(14))
                                                 .foregroundStyle(.white)
                                         )
                                 }
@@ -2746,7 +3012,7 @@ struct ProfileReplyCard: View {
                                 .frame(width: 32, height: 32)
                                 .overlay(
                                     Text(comment.authorInitials)
-                                        .font(.custom("OpenSans-Bold", size: 14))
+                                        .font(AMENFont.bold(14))
                                         .foregroundStyle(.white)
                                 )
                         }
@@ -2756,11 +3022,11 @@ struct ProfileReplyCard: View {
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(comment.authorName)
-                        .font(.custom("OpenSans-Bold", size: 14))
+                        .font(AMENFont.bold(14))
                         .foregroundStyle(.black)
                     
                     Text(comment.timeAgo)
-                        .font(.custom("OpenSans-Regular", size: 12))
+                        .font(AMENFont.regular(12))
                         .foregroundStyle(Color.secondary)
                 }
                 
@@ -2769,7 +3035,7 @@ struct ProfileReplyCard: View {
             
             // Reply content
             Text(comment.content)
-                .font(.custom("OpenSans-Regular", size: 15))
+                .font(AMENFont.regular(15))
                 .foregroundStyle(.black.opacity(0.9))
                 .lineSpacing(4)
             
@@ -2780,7 +3046,7 @@ struct ProfileReplyCard: View {
                     .foregroundStyle(Color.secondary)
                 
                 Text("Replying to post")
-                    .font(.custom("OpenSans-Regular", size: 12))
+                    .font(AMENFont.regular(12))
                     .foregroundStyle(Color.secondary)
             }
             
@@ -2791,7 +3057,7 @@ struct ProfileReplyCard: View {
                         Image(systemName: "hands.clap")
                             .font(.system(size: 11))
                         Text("\(comment.amenCount)")
-                            .font(.custom("OpenSans-SemiBold", size: 12))
+                            .font(AMENFont.semiBold(12))
                     }
                     .foregroundStyle(Color.secondary)
                 }
@@ -2801,7 +3067,7 @@ struct ProfileReplyCard: View {
                         Image(systemName: "bubble.left")
                             .font(.system(size: 11))
                         Text("\(comment.replyCount)")
-                            .font(.custom("OpenSans-SemiBold", size: 12))
+                            .font(AMENFont.semiBold(12))
                     }
                     .foregroundStyle(Color.secondary)
                 }
@@ -2833,6 +3099,9 @@ struct EditProfileView: View {
     @State private var bioURL: String // ✅ NEW: Bio URL field
     @State private var interests: [String]
     @State private var socialLinks: [SocialLinkUI]
+    @State private var profileTopics: [String]     // Feature 4
+    @State private var newTopicText = ""
+    @State private var showAddTopic = false
     @State private var showAddInterest = false
     @State private var showAddSocialLink = false
     @State private var showImagePicker = false
@@ -2868,6 +3137,7 @@ struct EditProfileView: View {
         _bioURL = State(initialValue: profileData.wrappedValue.bioURL ?? "")
         _interests = State(initialValue: profileData.wrappedValue.interests)
         _socialLinks = State(initialValue: profileData.wrappedValue.socialLinks)
+        _profileTopics = State(initialValue: profileData.wrappedValue.profileTopics)
         
         // Store original values for change detection
         self.originalName = profileData.wrappedValue.name
@@ -2987,7 +3257,7 @@ struct EditProfileView: View {
                     dismiss()
                 }
             }
-            .font(.custom("OpenSans-SemiBold", size: 16))
+            .font(AMENFont.semiBold(16))
             .disabled(isSaving)
         }
         
@@ -3028,7 +3298,7 @@ struct EditProfileView: View {
                         .progressViewStyle(CircularProgressViewStyle())
                 } else {
                     Text("Done")
-                        .font(.custom("OpenSans-Bold", size: 16))
+                        .font(AMENFont.bold(16))
                         .foregroundStyle(hasValidationErrors ? .gray : .blue)
                 }
             }
@@ -3063,7 +3333,9 @@ struct EditProfileView: View {
             bioEditorWithValidation
             
             interestsSection
-            
+
+            topicsSection
+
             socialLinksSection
         }
     }
@@ -3074,19 +3346,19 @@ struct EditProfileView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text("Name")
-                    .font(.custom("OpenSans-SemiBold", size: 14))
+                    .font(AMENFont.semiBold(14))
                     .foregroundStyle(.black.opacity(0.6))
                 
                 Spacer()
                 
                 // Character counter
                 Text("\(name.count)/\(nameCharacterLimit)")
-                    .font(.custom("OpenSans-Regular", size: 12))
+                    .font(AMENFont.regular(12))
                     .foregroundStyle(name.count > nameCharacterLimit ? .red : .secondary)
             }
             
             TextField("Your name", text: $name)
-                .font(.custom("OpenSans-Regular", size: 15))
+                .font(AMENFont.regular(15))
                 .padding(12)
                 .background(
                     RoundedRectangle(cornerRadius: 10)
@@ -3105,7 +3377,7 @@ struct EditProfileView: View {
                         .foregroundStyle(.red)
                     
                     Text(error)
-                        .font(.custom("OpenSans-Regular", size: 12))
+                        .font(AMENFont.regular(12))
                         .foregroundStyle(.red)
                 }
             }
@@ -3117,16 +3389,16 @@ struct EditProfileView: View {
     private var usernameReadOnlyField: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Username")
-                .font(.custom("OpenSans-SemiBold", size: 14))
+                .font(AMENFont.semiBold(14))
                 .foregroundStyle(.black.opacity(0.6))
             
             HStack(spacing: 8) {
                 Text("@")
-                    .font(.custom("OpenSans-Regular", size: 15))
+                    .font(AMENFont.regular(15))
                     .foregroundStyle(.black.opacity(0.4))
                 
                 Text(username)
-                    .font(.custom("OpenSans-Regular", size: 15))
+                    .font(AMENFont.regular(15))
                     .foregroundStyle(.black.opacity(0.5))
             }
             .padding(12)
@@ -3141,7 +3413,7 @@ struct EditProfileView: View {
             )
             
             Text("To change your username, go to Account Settings")
-                .font(.custom("OpenSans-Regular", size: 12))
+                .font(AMENFont.regular(12))
                 .foregroundStyle(.secondary)
         }
     }
@@ -3154,7 +3426,7 @@ struct EditProfileView: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Text("Bio")
-                        .font(.custom("OpenSans-SemiBold", size: 14))
+                        .font(AMENFont.semiBold(14))
                         .foregroundStyle(.black.opacity(0.6))
                     
                     Spacer()
@@ -3167,7 +3439,7 @@ struct EditProfileView: View {
                                 .foregroundStyle(.red)
                         }
                         Text("\(bio.count)/\(bioCharacterLimit)")
-                            .font(.custom("OpenSans-SemiBold", size: 12))
+                            .font(AMENFont.semiBold(12))
                             .foregroundStyle(bio.count > bioCharacterLimit ? .red : (bio.count > bioCharacterLimit - 10 ? .orange : .secondary))
                     }
                 }
@@ -3176,14 +3448,14 @@ struct EditProfileView: View {
                     // Placeholder text
                     if bio.isEmpty {
                         Text("Tell us about yourself...")
-                            .font(.custom("OpenSans-Regular", size: 15))
+                            .font(AMENFont.regular(15))
                             .foregroundStyle(.black.opacity(0.3))
                             .padding(.horizontal, 16)
                             .padding(.vertical, 20)
                     }
                     
                     TextEditor(text: $bio)
-                        .font(.custom("OpenSans-Regular", size: 15))
+                        .font(AMENFont.regular(15))
                         .frame(height: 100)
                         .padding(8)
                         .scrollContentBackground(.hidden)
@@ -3206,7 +3478,7 @@ struct EditProfileView: View {
                             .foregroundStyle(.red)
                         
                         Text(error)
-                            .font(.custom("OpenSans-Regular", size: 12))
+                            .font(AMENFont.regular(12))
                             .foregroundStyle(.red)
                     }
                 }
@@ -3217,7 +3489,7 @@ struct EditProfileView: View {
             VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text("Website")
-                    .font(.custom("OpenSans-SemiBold", size: 14))
+                    .font(AMENFont.semiBold(14))
                     .foregroundStyle(.black.opacity(0.6))
                 
                 Spacer()
@@ -3230,7 +3502,7 @@ struct EditProfileView: View {
                             .foregroundStyle(.green)
                         
                         Text("Valid")
-                            .font(.custom("OpenSans-Regular", size: 12))
+                            .font(AMENFont.regular(12))
                             .foregroundStyle(.green)
                     }
                 }
@@ -3243,7 +3515,7 @@ struct EditProfileView: View {
                     .frame(width: 24)
                 
                 TextField("example.com", text: $bioURL)
-                    .font(.custom("OpenSans-Regular", size: 15))
+                    .font(AMENFont.regular(15))
                     .textContentType(.URL)
                     .keyboardType(.URL)
                     .autocapitalization(.none)
@@ -3288,7 +3560,7 @@ struct EditProfileView: View {
                         .foregroundStyle(.red)
                     
                     Text(error)
-                        .font(.custom("OpenSans-Regular", size: 12))
+                        .font(AMENFont.regular(12))
                         .foregroundStyle(.red)
                 }
             } else if !bioURL.isEmpty && bioURLError == nil {
@@ -3298,13 +3570,13 @@ struct EditProfileView: View {
                         .foregroundStyle(.green)
                     
                     Text("Will be saved as: \(bioURL)")
-                        .font(.custom("OpenSans-Regular", size: 12))
+                        .font(AMENFont.regular(12))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
             } else {
                 Text("Add a link to your website, portfolio, or social profile")
-                    .font(.custom("OpenSans-Regular", size: 12))
+                    .font(AMENFont.regular(12))
                     .foregroundStyle(.secondary)
             }
             }
@@ -3315,7 +3587,7 @@ struct EditProfileView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Interests (Max 3)")
-                    .font(.custom("OpenSans-SemiBold", size: 14))
+                    .font(AMENFont.semiBold(14))
                     .foregroundStyle(.black.opacity(0.6))
                 
                 Spacer()
@@ -3338,11 +3610,11 @@ struct EditProfileView: View {
                 // Empty state - encourage adding interests
                 VStack(alignment: .leading, spacing: 8) {
                     Text("No interests added yet")
-                        .font(.custom("OpenSans-Regular", size: 14))
+                        .font(AMENFont.regular(14))
                         .foregroundStyle(.secondary)
                     
                     Text("Add up to 3 interests to help others connect with you")
-                        .font(.custom("OpenSans-Regular", size: 12))
+                        .font(AMENFont.regular(12))
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -3366,11 +3638,77 @@ struct EditProfileView: View {
         }
     }
     
+    // Feature 4 — Topic chips editor
+    private var topicsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Topics (Max 5)")
+                    .font(AMENFont.semiBold(14))
+                    .foregroundStyle(.black.opacity(0.6))
+                Spacer()
+                if profileTopics.count < 5 {
+                    Button {
+                        showAddTopic = true
+                    } label: {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.system(size: 20))
+                            .foregroundStyle(.black)
+                    }
+                }
+            }
+            Text("Add topics that describe your perspective (e.g. Theology, Parenting, Worship)")
+                .font(AMENFont.regular(12))
+                .foregroundStyle(.secondary)
+            if profileTopics.isEmpty {
+                Text("No topics added yet")
+                    .font(AMENFont.regular(14))
+                    .foregroundStyle(.secondary)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(profileTopics, id: \.self) { topic in
+                            HStack(spacing: 4) {
+                                Text(topic)
+                                    .font(AMENFont.semiBold(13))
+                                Button {
+                                    withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                                        profileTopics.removeAll { $0 == topic }
+                                        hasChanges = true
+                                    }
+                                } label: {
+                                    Image(systemName: "xmark")
+                                        .font(.system(size: 10, weight: .bold))
+                                }
+                            }
+                            .foregroundStyle(.primary)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .background(Capsule().fill(Color(.systemGray6)))
+                        }
+                    }
+                }
+            }
+        }
+        .alert("Add Topic", isPresented: $showAddTopic) {
+            TextField("e.g. Theology", text: $newTopicText)
+                .autocorrectionDisabled()
+            Button("Add") {
+                let t = newTopicText.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !t.isEmpty && !profileTopics.contains(t) && profileTopics.count < 5 {
+                    withAnimation { profileTopics.append(t) }
+                    hasChanges = true
+                }
+                newTopicText = ""
+            }
+            Button("Cancel", role: .cancel) { newTopicText = "" }
+        }
+    }
+
     private var socialLinksSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Social Links")
-                    .font(.custom("OpenSans-SemiBold", size: 14))
+                    .font(AMENFont.semiBold(14))
                     .foregroundStyle(.black.opacity(0.6))
                 
                 Spacer()
@@ -3380,7 +3718,7 @@ struct EditProfileView: View {
                 } label: {
                     HStack(spacing: 4) {
                         Text("Edit")
-                            .font(.custom("OpenSans-SemiBold", size: 14))
+                            .font(AMENFont.semiBold(14))
                         Image(systemName: "chevron.right")
                             .font(.system(size: 12, weight: .semibold))
                     }
@@ -3390,7 +3728,7 @@ struct EditProfileView: View {
             
             if socialLinks.isEmpty {
                 Text("No social links added")
-                    .font(.custom("OpenSans-Regular", size: 14))
+                    .font(AMENFont.regular(14))
                     .foregroundStyle(.secondary)
                     .padding(.vertical, 8)
             } else {
@@ -3403,7 +3741,7 @@ struct EditProfileView: View {
                                 .frame(width: 24)
                             
                             Text(link.username)
-                                .font(.custom("OpenSans-Regular", size: 15))
+                                .font(AMENFont.regular(15))
                                 .foregroundStyle(.black)
                             
                             Spacer()
@@ -3441,7 +3779,7 @@ struct EditProfileView: View {
                 showImagePicker = true
             } label: {
                 Text("Change photo")
-                    .font(.custom("OpenSans-SemiBold", size: 14))
+                    .font(AMENFont.semiBold(14))
                     .foregroundStyle(.black)
             }
         }
@@ -3480,7 +3818,7 @@ struct EditProfileView: View {
             .frame(width: 100, height: 100)
             .overlay(
                 Text(profileData.initials)
-                    .font(.custom("OpenSans-Bold", size: 32))
+                    .font(AMENFont.bold(32))
                     .foregroundStyle(.white)
             )
     }
@@ -3578,6 +3916,7 @@ struct EditProfileView: View {
                     "displayNameLowercase": name.lowercased(),
                     "bio": bio,
                     "interests": interests,
+                    "profileTopics": profileTopics,    // Feature 4
                     "updatedAt": FieldValue.serverTimestamp(),
                     // Include profileImageURL so Algolia stays in sync when profile is saved.
                     // Without this, every saveProfile() call would overwrite Algolia with an empty URL.
@@ -3626,6 +3965,7 @@ struct EditProfileView: View {
                 profileData.bioURL = bioURL.isEmpty ? nil : bioURL
                 profileData.interests = interests
                 profileData.socialLinks = socialLinks
+                profileData.profileTopics = profileTopics
                 
                 // ✅ REAL-TIME UPDATE: Cache profile image URL for tab bar
                 if let imageURL = profileData.profileImageURL {
@@ -3643,6 +3983,14 @@ struct EditProfileView: View {
                     userInfo: ["profileImageURL": profileData.profileImageURL ?? ""]
                 )
                 dlog("✅ Posted profilePhotoUpdated notification for tab bar")
+
+                // P1-6: Bust ProfileView's 60s cache so returning to the tab shows
+                // the updated bio/name/links immediately instead of waiting for expiry.
+                NotificationCenter.default.post(
+                    name: Notification.Name("profileDataUpdated"),
+                    object: nil
+                )
+                dlog("✅ Posted profileDataUpdated — ProfileView cache busted")
                 
                 dlog("✅ Profile saved successfully!")
                 
@@ -3878,18 +4226,18 @@ struct EditFieldView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
-                .font(.custom("OpenSans-SemiBold", size: 14))
+                .font(AMENFont.semiBold(14))
                 .foregroundStyle(.black.opacity(0.6))
             
             HStack(spacing: 8) {
                 if !prefix.isEmpty {
                     Text(prefix)
-                        .font(.custom("OpenSans-Regular", size: 15))
+                        .font(AMENFont.regular(15))
                         .foregroundStyle(.black.opacity(0.4))
                 }
                 
                 TextField("", text: $text)
-                    .font(.custom("OpenSans-Regular", size: 15))
+                    .font(AMENFont.regular(15))
             }
             .padding(12)
             .background(
@@ -3907,7 +4255,7 @@ struct InterestChip: View {
     var body: some View {
         HStack(spacing: 6) {
             Text(interest)
-                .font(.custom("OpenSans-SemiBold", size: 13))
+                .font(AMENFont.semiBold(13))
                 .foregroundStyle(.black)
             
             Button {
@@ -3970,7 +4318,7 @@ struct ProfileSection: View {
                 }
                 
                 Text(title)
-                    .font(.custom("OpenSans-SemiBold", size: 16))
+                    .font(AMENFont.semiBold(16))
                     .foregroundStyle(.primary)
                 
                 Spacer()
@@ -4019,20 +4367,20 @@ struct AboutAmenView: View {
                         .padding(.top, 40)
                     
                     Text("AMEN")
-                        .font(.custom("OpenSans-Bold", size: 36))
+                        .font(AMENFont.bold(36))
                     
                     Text("Version 1.0.0 (Build 100)")
-                        .font(.custom("OpenSans-Regular", size: 14))
+                        .font(AMENFont.regular(14))
                         .foregroundStyle(.secondary)
                 }
                 
                 // Tagline
                 VStack(spacing: 8) {
                     Text("Where Faith Meets Innovation")
-                        .font(.custom("OpenSans-SemiBold", size: 18))
+                        .font(AMENFont.semiBold(18))
                     
                     Text("Your digital companion for spiritual growth, authentic community, and AI-powered Bible study")
-                        .font(.custom("OpenSans-Regular", size: 14))
+                        .font(AMENFont.regular(14))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 30)
@@ -4075,11 +4423,11 @@ struct AboutAmenView: View {
                             
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Privacy Policy")
-                                    .font(.custom("OpenSans-SemiBold", size: 13))
+                                    .font(AMENFont.semiBold(13))
                                     .foregroundStyle(.secondary)
                                 
                                 Text("View Policy")
-                                    .font(.custom("OpenSans-Regular", size: 14))
+                                    .font(AMENFont.regular(14))
                                     .foregroundStyle(.blue)
                             }
                             
@@ -4102,11 +4450,11 @@ struct AboutAmenView: View {
                             
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Terms of Service")
-                                    .font(.custom("OpenSans-SemiBold", size: 13))
+                                    .font(AMENFont.semiBold(13))
                                     .foregroundStyle(.secondary)
                                 
                                 Text("View Terms")
-                                    .font(.custom("OpenSans-Regular", size: 14))
+                                    .font(AMENFont.regular(14))
                                     .foregroundStyle(.blue)
                             }
                             
@@ -4126,7 +4474,7 @@ struct AboutAmenView: View {
                 // Features
                 VStack(alignment: .leading, spacing: 16) {
                     Text("Key Features")
-                        .font(.custom("OpenSans-Bold", size: 18))
+                        .font(AMENFont.bold(18))
                         .padding(.horizontal, 30)
                     
                     VStack(spacing: 12) {
@@ -4145,21 +4493,21 @@ struct AboutAmenView: View {
                 // Copyright and Mission
                 VStack(spacing: 16) {
                     Text("Our Mission")
-                        .font(.custom("OpenSans-Bold", size: 16))
+                        .font(AMENFont.bold(16))
                     
                     Text("To empower believers with technology that deepens their faith, strengthens their community, and spreads the Gospel worldwide.")
-                        .font(.custom("OpenSans-Regular", size: 13))
+                        .font(AMENFont.regular(13))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 40)
                     
                     Text("© 2026 AMEN App. All rights reserved.")
-                        .font(.custom("OpenSans-Regular", size: 11))
+                        .font(AMENFont.regular(11))
                         .foregroundStyle(.secondary)
                         .padding(.top, 8)
                     
                     Text("Made with ❤️ for the Body of Christ")
-                        .font(.custom("OpenSans-SemiBold", size: 12))
+                        .font(AMENFont.semiBold(12))
                         .foregroundStyle(.secondary)
                 }
                 .padding(.bottom, 40)
@@ -4187,7 +4535,7 @@ struct PrivacyPolicyView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     Text("Last Updated: January 28, 2026")
-                        .font(.custom("OpenSans-Regular", size: 14))
+                        .font(AMENFont.regular(14))
                         .foregroundStyle(.secondary)
                     
                     PolicySection(
@@ -4283,7 +4631,7 @@ struct PrivacyPolicyView: View {
                     Button("Done") {
                         dismiss()
                     }
-                    .font(.custom("OpenSans-SemiBold", size: 16))
+                    .font(AMENFont.semiBold(16))
                 }
             }
         }
@@ -4300,7 +4648,7 @@ struct TermsOfServiceView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     Text("Last Updated: January 28, 2026")
-                        .font(.custom("OpenSans-Regular", size: 14))
+                        .font(AMENFont.regular(14))
                         .foregroundStyle(.secondary)
                     
                     PolicySection(
@@ -4410,7 +4758,7 @@ struct TermsOfServiceView: View {
                     Button("Done") {
                         dismiss()
                     }
-                    .font(.custom("OpenSans-SemiBold", size: 16))
+                    .font(AMENFont.semiBold(16))
                 }
             }
         }
@@ -4426,11 +4774,11 @@ struct PolicySection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(title)
-                .font(.custom("OpenSans-Bold", size: 18))
+                .font(AMENFont.bold(18))
                 .foregroundStyle(.primary)
             
             Text(content)
-                .font(.custom("OpenSans-Regular", size: 15))
+                .font(AMENFont.regular(15))
                 .foregroundStyle(.secondary)
                 .lineSpacing(6)
         }
@@ -4454,7 +4802,7 @@ struct AboutInfoRow: View {
             
             VStack(alignment: .leading, spacing: 2) {
                 Text(label)
-                    .font(.custom("OpenSans-SemiBold", size: 13))
+                    .font(AMENFont.semiBold(13))
                     .foregroundStyle(.secondary)
                 
                 if isEmail || isURL || isLink {
@@ -4470,12 +4818,12 @@ struct AboutInfoRow: View {
                         }
                     } label: {
                         Text(value)
-                            .font(.custom("OpenSans-Regular", size: 14))
+                            .font(AMENFont.regular(14))
                             .foregroundStyle(.blue)
                     }
                 } else {
                     Text(value)
-                        .font(.custom("OpenSans-Regular", size: 14))
+                        .font(AMENFont.regular(14))
                         .foregroundStyle(.primary)
                 }
             }
@@ -4510,10 +4858,10 @@ struct ProfileFeatureRow: View {
             
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.custom("OpenSans-SemiBold", size: 14))
+                    .font(AMENFont.semiBold(14))
                 
                 Text(description)
-                    .font(.custom("OpenSans-Regular", size: 12))
+                    .font(AMENFont.regular(12))
                     .foregroundStyle(.secondary)
             }
             
@@ -4543,7 +4891,7 @@ struct SettingsRow: View {
                     .frame(width: 24)
                 
                 Text(title)
-                    .font(.custom("OpenSans-Regular", size: 16))
+                    .font(AMENFont.regular(16))
                     .foregroundStyle(.black)
                 
                 Spacer()
@@ -4613,7 +4961,7 @@ struct FullScreenAvatarView: View {
                 
                 // Name
                 Text(name)
-                    .font(.custom("OpenSans-Bold", size: 28))
+                    .font(AMENFont.bold(28))
                     .foregroundStyle(.white)
                     .padding(.top, 24)
                     .opacity(opacity)
@@ -4658,7 +5006,7 @@ struct FullScreenAvatarView: View {
             .frame(width: 300, height: 300)
             .overlay(
                 Text(initials)
-                    .font(.custom("OpenSans-Bold", size: 80))
+                    .font(AMENFont.bold(80))
                     .foregroundStyle(.white)
             )
     }
@@ -4698,7 +5046,7 @@ struct ProfilePhotoEditView: View {
                                 Image(systemName: "photo.on.rectangle")
                                     .font(.system(size: 18, weight: .semibold))
                                 Text(currentImageURL != nil ? "Change Photo" : "Select Photo")
-                                    .font(.custom("OpenSans-Bold", size: 16))
+                                    .font(AMENFont.bold(16))
                             }
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
@@ -4745,7 +5093,7 @@ struct ProfilePhotoEditView: View {
                                         Text("Save Photo")
                                     }
                                 }
-                                .font(.custom("OpenSans-Bold", size: 16))
+                                .font(AMENFont.bold(16))
                                 .foregroundStyle(.white)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 16)
@@ -4767,7 +5115,7 @@ struct ProfilePhotoEditView: View {
                                     Image(systemName: "trash")
                                         .font(.system(size: 18, weight: .semibold))
                                     Text("Remove Photo")
-                                        .font(.custom("OpenSans-Bold", size: 16))
+                                        .font(AMENFont.bold(16))
                                 }
                                 .foregroundStyle(.red)
                                 .frame(maxWidth: .infinity)
@@ -4784,7 +5132,7 @@ struct ProfilePhotoEditView: View {
                     // Error Message
                     if let error = errorMessage {
                         Text(error)
-                            .font(.custom("OpenSans-Regular", size: 14))
+                            .font(AMENFont.regular(14))
                             .foregroundStyle(.red)
                             .multilineTextAlignment(.center)
                             .padding()
@@ -4804,7 +5152,7 @@ struct ProfilePhotoEditView: View {
                     Button("Cancel") {
                         dismiss()
                     }
-                    .font(.custom("OpenSans-SemiBold", size: 16))
+                    .font(AMENFont.semiBold(16))
                 }
             }
             .alert("Remove Profile Photo?", isPresented: $showDeleteConfirmation) {
@@ -4845,7 +5193,7 @@ struct ProfilePhotoEditView: View {
                     .shadow(color: .blue.opacity(0.3), radius: 10, x: 0, y: 5)
                 
                 Text("New photo selected")
-                    .font(.custom("OpenSans-SemiBold", size: 14))
+                    .font(AMENFont.semiBold(14))
                     .foregroundStyle(.blue)
             } else if let currentImageURL = currentImageURL,
                       !currentImageURL.isEmpty,
@@ -4869,14 +5217,14 @@ struct ProfilePhotoEditView: View {
                 }
                 
                 Text("Current photo")
-                    .font(.custom("OpenSans-Regular", size: 14))
+                    .font(AMENFont.regular(14))
                     .foregroundStyle(.secondary)
             } else {
                 // No photo placeholder
                 placeholderAvatar
                 
                 Text("No photo set")
-                    .font(.custom("OpenSans-Regular", size: 14))
+                    .font(AMENFont.regular(14))
                     .foregroundStyle(.secondary)
             }
         }
@@ -4896,7 +5244,7 @@ struct ProfilePhotoEditView: View {
     private var tipsSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Tips for a great profile photo:")
-                .font(.custom("OpenSans-Bold", size: 16))
+                .font(AMENFont.bold(16))
                 .padding(.horizontal)
             
             VStack(spacing: 12) {
@@ -5003,7 +5351,7 @@ struct TipRow: View {
                 .frame(width: 24)
             
             Text(text)
-                .font(.custom("OpenSans-Regular", size: 14))
+                .font(AMENFont.regular(14))
                 .foregroundStyle(.primary)
             
             Spacer()
@@ -5049,7 +5397,7 @@ struct AchievementBadge: View {
                 }
                 
                 Text(title)
-                    .font(.custom("OpenSans-SemiBold", size: 11))
+                    .font(AMENFont.semiBold(11))
                     .foregroundStyle(isUnlocked ? .primary : .secondary)
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
@@ -5106,7 +5454,7 @@ struct ProfileImagePicker: View {
                 
                 PhotosPicker(selection: $selectedItem, matching: .images) {
                     Label("Select Photo", systemImage: "photo")
-                        .font(.custom("OpenSans-SemiBold", size: 16))
+                        .font(AMENFont.semiBold(16))
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .padding()
@@ -5138,7 +5486,7 @@ struct ProfileImagePicker: View {
                                 Text("Save Photo")
                             }
                         }
-                        .font(.custom("OpenSans-Bold", size: 16))
+                        .font(AMENFont.bold(16))
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .padding()
@@ -5153,7 +5501,7 @@ struct ProfileImagePicker: View {
                 
                 if let error = errorMessage {
                     Text(error)
-                        .font(.custom("OpenSans-Regular", size: 14))
+                        .font(AMENFont.regular(14))
                         .foregroundStyle(.red)
                         .padding()
                 }
@@ -5219,6 +5567,7 @@ struct UserProfileData {
     var profileImageURL: String?
     var interests: [String]
     var socialLinks: [SocialLinkUI]
+    var profileTopics: [String] = []   // Feature 4 — topic chips shown below bio
 }
 
 
@@ -5230,13 +5579,13 @@ struct ProfileInfoRow: View {
     var body: some View {
         HStack {
             Text(label)
-                .font(.custom("OpenSans-SemiBold", size: 14))
+                .font(AMENFont.semiBold(14))
                 .foregroundStyle(.black.opacity(0.6))
             
             Spacer()
             
             Text(value)
-                .font(.custom("OpenSans-Regular", size: 14))
+                .font(AMENFont.regular(14))
                 .foregroundStyle(.black)
         }
     }
@@ -5264,10 +5613,10 @@ struct AppearanceSettingsView: View {
                     .pickerStyle(.inline)
                 } header: {
                     Text("COLOR SCHEME")
-                        .font(.custom("OpenSans-Bold", size: 12))
+                        .font(AMENFont.bold(12))
                 } footer: {
                     Text("Choose your preferred color scheme or let the system decide")
-                        .font(.custom("OpenSans-Regular", size: 12))
+                        .font(AMENFont.regular(12))
                 }
                 
                 Section {
@@ -5282,7 +5631,7 @@ struct AppearanceSettingsView: View {
                     // Preview Text
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Preview")
-                            .font(.custom("OpenSans-SemiBold", size: 13))
+                            .font(AMENFont.semiBold(13))
                             .foregroundStyle(.secondary)
                         
                         Text("This is how text will appear in the app")
@@ -5292,19 +5641,19 @@ struct AppearanceSettingsView: View {
                     .padding(.vertical, 8)
                 } header: {
                     Text("TEXT SIZE")
-                        .font(.custom("OpenSans-Bold", size: 12))
+                        .font(AMENFont.bold(12))
                 } footer: {
                     Text("Adjust the size of text throughout the app")
-                        .font(.custom("OpenSans-Regular", size: 12))
+                        .font(AMENFont.regular(12))
                 }
                 
                 Section {
                     Toggle(isOn: $reduceMotion) {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Reduce Motion")
-                                .font(.custom("OpenSans-SemiBold", size: 15))
+                                .font(AMENFont.semiBold(15))
                             Text("Minimize animations and transitions")
-                                .font(.custom("OpenSans-Regular", size: 12))
+                                .font(AMENFont.regular(12))
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -5313,35 +5662,35 @@ struct AppearanceSettingsView: View {
                     Toggle(isOn: $highContrast) {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("High Contrast")
-                                .font(.custom("OpenSans-SemiBold", size: 15))
+                                .font(AMENFont.semiBold(15))
                             Text("Increase contrast for better readability")
-                                .font(.custom("OpenSans-Regular", size: 12))
+                                .font(AMENFont.regular(12))
                                 .foregroundStyle(.secondary)
                         }
                     }
                     .toggleStyle(SwitchToggleStyle(tint: .blue))
                 } header: {
                     Text("ACCESSIBILITY")
-                        .font(.custom("OpenSans-Bold", size: 12))
+                        .font(AMENFont.bold(12))
                 } footer: {
                     Text("These settings improve accessibility for users with visual or motion sensitivities")
-                        .font(.custom("OpenSans-Regular", size: 12))
+                        .font(AMENFont.regular(12))
                 }
                 
                 Section {
                     Toggle(isOn: $showProfileBadges) {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Show Profile Badges")
-                                .font(.custom("OpenSans-SemiBold", size: 15))
+                                .font(AMENFont.semiBold(15))
                             Text("Display verification and achievement badges on profiles")
-                                .font(.custom("OpenSans-Regular", size: 12))
+                                .font(AMENFont.regular(12))
                                 .foregroundStyle(.secondary)
                         }
                     }
                     .toggleStyle(SwitchToggleStyle(tint: .blue))
                 } header: {
                     Text("DISPLAY")
-                        .font(.custom("OpenSans-Bold", size: 12))
+                        .font(AMENFont.bold(12))
                 }
             }
             .navigationTitle("Appearance")
@@ -5351,7 +5700,7 @@ struct AppearanceSettingsView: View {
                     Button("Done") {
                         dismiss()
                     }
-                    .font(.custom("OpenSans-SemiBold", size: 16))
+                    .font(AMENFont.semiBold(16))
                 }
             }
         }
@@ -5405,7 +5754,7 @@ struct SafetySecurityView: View {
                     Button("Done") {
                         dismiss()
                     }
-                    .font(.custom("OpenSans-SemiBold", size: 16))
+                    .font(AMENFont.semiBold(16))
                 }
             }
             .sheet(item: $activeSecuritySheet) { sheet in
@@ -5426,9 +5775,9 @@ struct SafetySecurityView: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Two-Factor Authentication")
-                            .font(.custom("OpenSans-SemiBold", size: 15))
+                            .font(AMENFont.semiBold(15))
                         Text(twoFactorEnabled ? "Enabled" : "Not enabled")
-                            .font(.custom("OpenSans-Regular", size: 12))
+                            .font(AMENFont.regular(12))
                             .foregroundStyle(twoFactorEnabled ? .green : .secondary)
                     }
                     
@@ -5438,26 +5787,26 @@ struct SafetySecurityView: View {
                         activeSecuritySheet = .twoFactor
                     } label: {
                         Text(twoFactorEnabled ? "Manage" : "Enable")
-                            .font(.custom("OpenSans-SemiBold", size: 14))
+                            .font(AMENFont.semiBold(14))
                             .foregroundStyle(.blue)
                     }
                 }
                 .padding(.vertical, 4)
             } header: {
                 Text("AUTHENTICATION")
-                    .font(.custom("OpenSans-Bold", size: 12))
+                    .font(AMENFont.bold(12))
             } footer: {
                 Text("Add an extra layer of security to your account by requiring a code in addition to your password")
-                    .font(.custom("OpenSans-Regular", size: 12))
+                    .font(AMENFont.regular(12))
             }
             
             Section {
                 Toggle(isOn: $loginAlerts) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Login Alerts")
-                            .font(.custom("OpenSans-SemiBold", size: 15))
+                            .font(AMENFont.semiBold(15))
                         Text("Get notified when your account is accessed from a new device")
-                            .font(.custom("OpenSans-Regular", size: 12))
+                            .font(AMENFont.regular(12))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -5473,10 +5822,10 @@ struct SafetySecurityView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Login History")
-                                .font(.custom("OpenSans-SemiBold", size: 15))
+                                .font(AMENFont.semiBold(15))
                                 .foregroundStyle(.primary)
                             Text("View devices where you're logged in")
-                                .font(.custom("OpenSans-Regular", size: 12))
+                                .font(AMENFont.regular(12))
                                 .foregroundStyle(.secondary)
                         }
                         
@@ -5490,16 +5839,16 @@ struct SafetySecurityView: View {
                 .buttonStyle(PlainButtonStyle())
             } header: {
                 Text("ACCOUNT ACTIVITY")
-                    .font(.custom("OpenSans-Bold", size: 12))
+                    .font(AMENFont.bold(12))
             }
             
             Section {
                 Toggle(isOn: $showSensitiveContent) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Show Sensitive Content")
-                            .font(.custom("OpenSans-SemiBold", size: 15))
+                            .font(AMENFont.semiBold(15))
                         Text("See content that may be sensitive or mature")
-                            .font(.custom("OpenSans-Regular", size: 12))
+                            .font(AMENFont.regular(12))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -5512,9 +5861,9 @@ struct SafetySecurityView: View {
                 Toggle(isOn: $requirePasswordForPurchases) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Require Password for Purchases")
-                            .font(.custom("OpenSans-SemiBold", size: 15))
+                            .font(AMENFont.semiBold(15))
                         Text("Always require your password before making in-app purchases")
-                            .font(.custom("OpenSans-Regular", size: 12))
+                            .font(AMENFont.regular(12))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -5525,14 +5874,14 @@ struct SafetySecurityView: View {
                 }
             } header: {
                 Text("CONTENT & PURCHASES")
-                    .font(.custom("OpenSans-Bold", size: 12))
+                    .font(AMENFont.bold(12))
             }
             
             Section {
                 securityTipsView
             } header: {
                 Text("SECURITY TIPS")
-                    .font(.custom("OpenSans-Bold", size: 12))
+                    .font(AMENFont.bold(12))
             }
             
             Section {
@@ -5546,7 +5895,7 @@ struct SafetySecurityView: View {
                             .foregroundStyle(.blue)
                             .frame(width: 24)
                         Text("Privacy Policy")
-                            .font(.custom("OpenSans-Regular", size: 15))
+                            .font(AMENFont.regular(15))
                             .foregroundStyle(.primary)
                         Spacer()
                         Image(systemName: "arrow.up.right")
@@ -5566,7 +5915,7 @@ struct SafetySecurityView: View {
                             .foregroundStyle(.green)
                             .frame(width: 24)
                         Text("Terms of Service")
-                            .font(.custom("OpenSans-Regular", size: 15))
+                            .font(AMENFont.regular(15))
                             .foregroundStyle(.primary)
                         Spacer()
                         Image(systemName: "arrow.up.right")
@@ -5577,7 +5926,7 @@ struct SafetySecurityView: View {
                 .buttonStyle(PlainButtonStyle())
             } header: {
                 Text("LEGAL")
-                    .font(.custom("OpenSans-Bold", size: 12))
+                    .font(AMENFont.bold(12))
             }
         }
     }
@@ -5724,11 +6073,11 @@ struct SecurityTipRow: View {
             
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.custom("OpenSans-SemiBold", size: 14))
+                    .font(AMENFont.semiBold(14))
                     .foregroundStyle(.primary)
                 
                 Text(description)
-                    .font(.custom("OpenSans-Regular", size: 12))
+                    .font(AMENFont.regular(12))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -5751,10 +6100,10 @@ struct TwoFactorSetupView: View {
                         .padding(.top, 40)
                     
                     Text("Two-Factor Authentication")
-                        .font(.custom("OpenSans-Bold", size: 24))
+                        .font(AMENFont.bold(24))
                     
                     Text("Add an extra layer of security to your account")
-                        .font(.custom("OpenSans-Regular", size: 15))
+                        .font(AMENFont.regular(15))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 40)
@@ -5767,7 +6116,7 @@ struct TwoFactorSetupView: View {
                     .padding()
                     
                     Text("Two-factor authentication setup will be available in a future update")
-                        .font(.custom("OpenSans-Regular", size: 13))
+                        .font(AMENFont.regular(13))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 40)
@@ -5802,16 +6151,16 @@ struct SetupStepRow: View {
                     .frame(width: 36, height: 36)
                 
                 Text("\(number)")
-                    .font(.custom("OpenSans-Bold", size: 16))
+                    .font(AMENFont.bold(16))
                     .foregroundStyle(.blue)
             }
             
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.custom("OpenSans-SemiBold", size: 15))
+                    .font(AMENFont.semiBold(15))
                 
                 Text(description)
-                    .font(.custom("OpenSans-Regular", size: 13))
+                    .font(AMENFont.regular(13))
                     .foregroundStyle(.secondary)
             }
             
@@ -5893,7 +6242,7 @@ struct LoginHistoryView: View {
                 Text("Recent Sessions")
             } footer: {
                 Text("If you see any unfamiliar activity, sign out all other devices and change your password.")
-                    .font(.custom("OpenSans-Regular", size: 12))
+                    .font(AMENFont.regular(12))
             }
         }
     }
@@ -5905,10 +6254,10 @@ struct LoginHistoryView: View {
                 .foregroundStyle(.secondary)
             
             Text("No login history")
-                .font(.custom("OpenSans-Bold", size: 18))
+                .font(AMENFont.bold(18))
             
             Text("Your login activity will appear here")
-                .font(.custom("OpenSans-Regular", size: 14))
+                .font(AMENFont.regular(14))
                 .foregroundStyle(.secondary)
         }
     }
@@ -5970,21 +6319,21 @@ struct LoginSessionRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     Text(session.deviceType)
-                        .font(.custom("OpenSans-SemiBold", size: 15))
+                        .font(AMENFont.semiBold(15))
                     
                     if session.isCurrent {
                         Text("• Current")
-                            .font(.custom("OpenSans-Regular", size: 12))
+                            .font(AMENFont.regular(12))
                             .foregroundStyle(.blue)
                     }
                 }
                 
                 Text(session.osVersion)
-                    .font(.custom("OpenSans-Regular", size: 13))
+                    .font(AMENFont.regular(13))
                     .foregroundStyle(.secondary)
                 
                 Text(session.formattedTime)
-                    .font(.custom("OpenSans-Regular", size: 12))
+                    .font(AMENFont.regular(12))
                     .foregroundStyle(.secondary)
             }
             
@@ -5995,7 +6344,7 @@ struct LoginSessionRow: View {
                     onRemove()
                 } label: {
                     Text("Remove")
-                        .font(.custom("OpenSans-SemiBold", size: 13))
+                        .font(AMENFont.semiBold(13))
                         .foregroundStyle(.red)
                 }
             }
@@ -6038,7 +6387,7 @@ struct HandDrawnHighlightText: View {
     
     var body: some View {
         Text(text)
-            .font(.custom("OpenSans-SemiBold", size: 13))
+            .font(AMENFont.semiBold(13))
             .foregroundStyle(.primary)
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
@@ -6098,7 +6447,7 @@ struct BioLinkText: View {
         switch segment.type {
         case .regular:
             Text(segment.text)
-                .font(.custom("OpenSans-Regular", size: 15))
+                .font(AMENFont.regular(15))
                 .foregroundColor(.black)
         
         case .url:
@@ -6106,7 +6455,7 @@ struct BioLinkText: View {
                 openURL(segment.text)
             } label: {
                 Text(segment.text)
-                    .font(.custom("OpenSans-Regular", size: 15))
+                    .font(AMENFont.regular(15))
                     .foregroundColor(.blue)
                     .underline()
             }
@@ -6120,7 +6469,7 @@ struct BioLinkText: View {
                 HapticManager.impact(style: .light)
             } label: {
                 Text(segment.text)
-                    .font(.custom("OpenSans-SemiBold", size: 15))
+                    .font(AMENFont.semiBold(15))
                     .foregroundColor(.blue)
             }
             .buttonStyle(.plain)
@@ -6133,7 +6482,7 @@ struct BioLinkText: View {
                 HapticManager.impact(style: .light)
             } label: {
                 Text(segment.text)
-                    .font(.custom("OpenSans-SemiBold", size: 15))
+                    .font(AMENFont.semiBold(15))
                     .foregroundColor(.blue)
             }
             .buttonStyle(.plain)
@@ -6269,11 +6618,11 @@ struct UserProfileViewWrapper: View {
         NavigationStack {
             VStack {
                 Text("Profile for @\(username)")
-                    .font(.custom("OpenSans-Bold", size: 20))
+                    .font(AMENFont.bold(20))
                     .padding()
                 
                 Text("User profile view coming soon...")
-                    .font(.custom("OpenSans-Regular", size: 14))
+                    .font(AMENFont.regular(14))
                     .foregroundStyle(.secondary)
                 
                 Spacer()
@@ -6299,11 +6648,11 @@ struct HashtagSearchViewWrapper: View {
         NavigationStack {
             VStack {
                 Text("Search results for #\(hashtag)")
-                    .font(.custom("OpenSans-Bold", size: 20))
+                    .font(AMENFont.bold(20))
                     .padding()
                 
                 Text("Hashtag search view coming soon...")
-                    .font(.custom("OpenSans-Regular", size: 14))
+                    .font(AMENFont.regular(14))
                     .foregroundStyle(.secondary)
                 
                 Spacer()
@@ -6324,6 +6673,4 @@ struct HashtagSearchViewWrapper: View {
 #Preview {
     ProfileView()
 }
-
-
 

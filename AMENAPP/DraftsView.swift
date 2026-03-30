@@ -61,7 +61,7 @@ struct DraftsView: View {
                     Button("Done") {
                         dismiss()
                     }
-                    .font(.custom("OpenSans-SemiBold", size: 15))
+                    .font(AMENFont.semiBold(15))
                 }
 
                 if !draftsManager.drafts.isEmpty {
@@ -119,7 +119,7 @@ struct DraftsView: View {
         VStack(spacing: 16) {
             ZStack {
                 Circle()
-                    .fill(Color(.tertiarySystemFill))
+                    .fill(Color.black.opacity(0.03))
                     .frame(width: 80, height: 80)
 
                 Image(systemName: "doc.text")
@@ -129,17 +129,24 @@ struct DraftsView: View {
 
             VStack(spacing: 6) {
                 Text("No Drafts")
-                    .font(.custom("OpenSans-Bold", size: 20))
+                    .font(AMENFont.bold(20))
                     .foregroundStyle(.primary)
 
                 Text("Posts you save while composing\nappear here for up to 7 days.")
-                    .font(.custom("OpenSans-Regular", size: 14))
+                    .font(AMENFont.regular(14))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .lineSpacing(3)
             }
         }
-        .padding(.horizontal, 40)
+        .padding(40)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .strokeBorder(Color.black.opacity(0.08), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.04), radius: 12, x: 0, y: 4)
+        .padding(.horizontal, 16)
     }
 
     // MARK: - Info Bar
@@ -151,11 +158,19 @@ struct DraftsView: View {
                 .foregroundStyle(.secondary)
 
             Text("Drafts are saved locally · auto-deleted after 7 days")
-                .font(.custom("OpenSans-Regular", size: 12))
+                .font(AMENFont.regular(12))
                 .foregroundStyle(.secondary)
 
             Spacer()
         }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(Color.black.opacity(0.08), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.03), radius: 8, x: 0, y: 2)
     }
 }
 
@@ -189,7 +204,7 @@ struct DraftCard: View {
                         // Category label styled like author name
                         HStack(spacing: 6) {
                             Text(draft.category)
-                                .font(.custom("OpenSans-Bold", size: 15))
+                                .font(AMENFont.bold(15))
                                 .foregroundStyle(.primary)
 
                             // Expiry badge — urgent only
@@ -201,11 +216,11 @@ struct DraftCard: View {
                         // Topic tag styled like username line
                         if let tag = draft.topicTag {
                             Text(tag)
-                                .font(.custom("OpenSans-Regular", size: 13))
+                                .font(AMENFont.regular(13))
                                 .foregroundStyle(.secondary)
                         } else {
                             Text(timeAgoString(from: draft.savedAt))
-                                .font(.custom("OpenSans-Regular", size: 13))
+                                .font(AMENFont.regular(13))
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -215,7 +230,7 @@ struct DraftCard: View {
                     // Days remaining — non-urgent, quiet
                     if draft.daysRemaining > 2 {
                         Text("\(draft.daysRemaining)d")
-                            .font(.custom("OpenSans-Regular", size: 12))
+                            .font(AMENFont.regular(12))
                             .foregroundStyle(.tertiary)
                     }
                 }
@@ -224,7 +239,7 @@ struct DraftCard: View {
 
                 // ── Content preview ─────────────────────────────────────────
                 Text(draft.content)
-                    .font(.custom("OpenSans-Regular", size: 15))
+                    .font(AMENFont.regular(15))
                     .foregroundStyle(.primary)
                     .lineLimit(4)
                     .lineSpacing(3)
@@ -259,9 +274,13 @@ struct DraftCard: View {
             }
             .background(
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(Color(.systemBackground))
-                    .shadow(color: .black.opacity(0.04), radius: 4, y: 2)
+                    .fill(.ultraThinMaterial)
             )
+            .overlay(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .strokeBorder(Color.black.opacity(0.08), lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.04), radius: 12, x: 0, y: 4)
             // Thin left accent bar matching category color
             .overlay(alignment: .leading) {
                 RoundedRectangle(cornerRadius: 2, style: .continuous)
@@ -288,7 +307,7 @@ struct DraftCard: View {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 9))
             Text(isExpiring ? "Expires today" : "\(draft.daysRemaining)d left")
-                .font(.custom("OpenSans-Bold", size: 10))
+                .font(AMENFont.bold(10))
         }
         .foregroundStyle(isExpiring ? .red : .orange)
         .padding(.horizontal, 7)
@@ -304,7 +323,7 @@ struct DraftCard: View {
             Image(systemName: icon)
                 .font(.system(size: 10, weight: .medium))
             Text(label)
-                .font(.custom("OpenSans-SemiBold", size: 11))
+                .font(AMENFont.semiBold(11))
         }
         .foregroundStyle(color)
         .padding(.horizontal, 8)
@@ -372,19 +391,19 @@ struct EditDraftView: View {
 
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(draft.category)
-                                    .font(.custom("OpenSans-Bold", size: 15))
+                                    .font(AMENFont.bold(15))
                                     .foregroundStyle(.primary)
 
                                 HStack(spacing: 6) {
                                     Text("Saved \(timeAgoString(from: draft.savedAt))")
-                                        .font(.custom("OpenSans-Regular", size: 13))
+                                        .font(AMENFont.regular(13))
                                         .foregroundStyle(.secondary)
 
                                     if let tag = draft.topicTag {
                                         Text("·")
                                             .foregroundStyle(.tertiary)
                                         Text(tag)
-                                            .font(.custom("OpenSans-Regular", size: 13))
+                                            .font(AMENFont.regular(13))
                                             .foregroundStyle(.secondary)
                                     }
                                 }
@@ -395,10 +414,10 @@ struct EditDraftView: View {
                             // Expiry indicator
                             VStack(alignment: .trailing, spacing: 1) {
                                 Text("\(draft.daysRemaining)")
-                                    .font(.custom("OpenSans-Bold", size: 17))
+                                    .font(AMENFont.bold(17))
                                     .foregroundStyle(draft.daysRemaining <= 2 ? (draft.daysRemaining == 0 ? .red : .orange) : .primary)
                                 Text("days left")
-                                    .font(.custom("OpenSans-Regular", size: 11))
+                                    .font(AMENFont.regular(11))
                                     .foregroundStyle(.secondary)
                             }
                         }
@@ -411,7 +430,7 @@ struct EditDraftView: View {
 
                         // ── Text editor ──────────────────────────────────────
                         TextEditor(text: $content)
-                            .font(.custom("OpenSans-Regular", size: 16))
+                            .font(AMENFont.regular(16))
                             .focused($editorFocused)
                             .frame(minHeight: 220)
                             .scrollContentBackground(.hidden)
@@ -429,7 +448,7 @@ struct EditDraftView: View {
                                     .font(.system(size: 14, weight: .medium))
                                     .foregroundStyle(.blue)
                                 Text(link)
-                                    .font(.custom("OpenSans-Regular", size: 13))
+                                    .font(AMENFont.regular(13))
                                     .foregroundStyle(.secondary)
                                     .lineLimit(1)
                                 Spacer()
@@ -448,7 +467,7 @@ struct EditDraftView: View {
                                 .font(.system(size: 13, weight: .medium))
                                 .foregroundStyle(.secondary)
                             Text(draft.visibility)
-                                .font(.custom("OpenSans-Regular", size: 13))
+                                .font(AMENFont.regular(13))
                                 .foregroundStyle(.secondary)
                             Spacer()
                         }
@@ -476,7 +495,7 @@ struct EditDraftView: View {
                     Button("Cancel") {
                         dismiss()
                     }
-                    .font(.custom("OpenSans-SemiBold", size: 15))
+                    .font(AMENFont.semiBold(15))
                 }
 
                 ToolbarItem(placement: .primaryAction) {
@@ -525,7 +544,7 @@ struct EditDraftView: View {
                             .font(.system(size: 14, weight: .medium))
                     }
                     Text(isSaving ? "Saving…" : "Save")
-                        .font(.custom("OpenSans-SemiBold", size: 15))
+                        .font(AMENFont.semiBold(15))
                 }
                 .foregroundStyle(.primary)
                 .frame(maxWidth: .infinity)
@@ -551,7 +570,7 @@ struct EditDraftView: View {
                             .font(.system(size: 14, weight: .medium))
                     }
                     Text(isPublishing ? "Publishing…" : "Publish")
-                        .font(.custom("OpenSans-Bold", size: 15))
+                        .font(AMENFont.bold(15))
                 }
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)

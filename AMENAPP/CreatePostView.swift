@@ -30,6 +30,8 @@ struct CreatePostView: View {
     @Environment(\.dismiss) var dismiss
     @ObservedObject private var postsManager: PostsManager = .shared
     @ObservedObject private var draftsManager: DraftsManager = .shared
+    @ObservedObject private var userService: UserService = .shared
+    @AppStorage("currentUserProfileImageURL") private var cachedProfileImageURL: String = ""
     @State private var postText = ""
     @State private var selectedCategory: PostCategory = .openTable
     @State private var selectedImages: [PhotosPickerItem] = []
@@ -56,6 +58,7 @@ struct CreatePostView: View {
     @State private var errorTitle = "Error"
     @State private var showingSuccessNotice = false
     @State private var showCancelConfirmation = false
+    @State private var shouldPersistDraftOnExit = true
 
     // P1-6 FIX: Better error recovery
     @State private var isRetryableError = false
@@ -298,6 +301,10 @@ struct CreatePostView: View {
     }
     
     var body: some View {
+        mainView
+    }
+    
+    private var mainView: some View {
         NavigationStack {
             ZStack {
                 Color(.systemBackground).ignoresSafeArea()
@@ -534,7 +541,7 @@ struct CreatePostView: View {
                             HStack(spacing: 12) {
                                 ProgressView().tint(.blue)
                                 Text("Uploading images... \(Int(uploadProgress * 100))%")
-                                    .font(.custom("OpenSans-SemiBold", size: 14))
+                                    .font(AMENFont.semiBold(14))
                                     .foregroundStyle(.primary)
                             }
                         }
@@ -580,10 +587,12 @@ struct CreatePostView: View {
                     .foregroundStyle(.primary)
                     .confirmationDialog("", isPresented: $showCancelConfirmation, titleVisibility: .hidden) {
                         Button("Save Draft") {
+                            shouldPersistDraftOnExit = false
                             saveDraft()
                             dismiss()
                         }
                         Button("Discard Post", role: .destructive) {
+                            shouldPersistDraftOnExit = false
                             dismiss()
                         }
                         Button("Cancel", role: .cancel) { }
@@ -594,28 +603,22 @@ struct CreatePostView: View {
                     Text("New post")
                         .font(.system(size: 16, weight: .semibold))
                 }
+                
+                // Draft button - positioned before Post button
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        showDraftsSheet = true
+                    } label: {
+                        Image(systemName: "doc.text")
+                            .font(.system(size: 16, weight: .regular))
+                            .foregroundStyle(.primary)
+                    }
+                }
 
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    ZStack {
-                        // Character count arc — appears when approaching limit
-                        let fraction = min(Double(postText.count) / 500.0, 1.0)
-                        if postText.count > 400 {
-                            Circle()
-                                .trim(from: 0, to: fraction)
-                                .stroke(
-                                    postText.count > 500 ? Color.red :
-                                    postText.count > 480 ? Color.orange : Color(.systemGray3),
-                                    style: StrokeStyle(lineWidth: 2, lineCap: .round)
-                                )
-                                .frame(width: 50, height: 50)
-                                .rotationEffect(.degrees(-90))
-                                .animation(.easeOut(duration: 0.15), value: fraction)
-                        }
-                        CirclePostButton(postText: $postText) {
-                            await publishPostAsync()
-                        }
+                    ThreadsPostButton(postText: $postText) {
+                        await publishPostAsync()
                     }
-                    .frame(width: 50, height: 50)
                 }
             }
             .safeAreaInset(edge: .bottom) {
@@ -810,17 +813,26 @@ struct CreatePostView: View {
                 publishPost()
             }
         }
+        .task {
+            // Load current user if not yet available so the composer header shows
+            // the real username and avatar instead of the "@you" fallback.
+            if userService.currentUser == nil {
+                await userService.fetchCurrentUser()
+            }
+        }
         .onAppear {
             isTextFieldFocused = true
             updateHashtagSuggestions()
-            
+
             // Check for auto-saved draft recovery
             checkForDraftRecovery()
-            
+
             // Start auto-save timer (every 30 seconds)
             startAutoSaveTimer()
         }
         .onDisappear {
+            persistDraftIfNeeded()
+
             // Stop auto-save task when view disappears
             autoSaveTask?.cancel()
             autoSaveTask = nil
@@ -852,6 +864,16 @@ struct CreatePostView: View {
     }
     
     // MARK: - Computed Properties
+    private var hasDraftableContent: Bool {
+        let trimmedText = postText.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !trimmedText.isEmpty
+            || !selectedImageData.isEmpty
+            || cameraImage != nil
+            || showingPoll
+            || !linkURL.isEmpty
+            || !attachedVerseReference.isEmpty
+    }
+
     private var canPost: Bool {
         let hasText = !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         let isWithinLimit = postText.count <= 500
@@ -1085,11 +1107,18 @@ struct CreatePostView: View {
 
     /// User row: avatar + name + category picker (Threads-style)
     private var threadsUserRow: some View {
-        HStack(spacing: 12) {
+        // Resolve photo URL: live profile takes priority, cached AppStorage as fallback
+        let photoURLString = userService.currentUser?.profileImageURL?.nilIfEmpty
+            ?? cachedProfileImageURL.nilIfEmpty
+        // Resolve display name: prefer @username, fall back to display name
+        let nameToShow = userService.currentUser?.username.nilIfEmpty
+            ?? userService.currentUser?.displayName.nilIfEmpty
+            ?? "you"
+        let initial = String(nameToShow.prefix(1)).uppercased()
+
+        return HStack(spacing: 12) {
             // Profile photo
-            if let photoURL = UserService.shared.currentUser?.profileImageURL,
-               !photoURL.isEmpty,
-               let url = URL(string: photoURL) {
+            if let urlString = photoURLString, let url = URL(string: urlString) {
                 CachedAsyncImage(url: url) { image in
                     image.resizable().scaledToFill()
                         .frame(width: 44, height: 44)
@@ -1099,7 +1128,7 @@ struct CreatePostView: View {
                         .fill(Color.primary.opacity(0.08))
                         .frame(width: 44, height: 44)
                         .overlay(
-                            Text(String(UserService.shared.currentUser?.displayName.prefix(1) ?? "A").uppercased())
+                            Text(initial)
                                 .font(.system(size: 18, weight: .semibold))
                                 .foregroundStyle(.secondary)
                         )
@@ -1109,7 +1138,7 @@ struct CreatePostView: View {
                     .fill(Color.primary.opacity(0.08))
                     .frame(width: 44, height: 44)
                     .overlay(
-                        Text(String(UserService.shared.currentUser?.displayName.prefix(1) ?? "A").uppercased())
+                        Text(initial)
                             .font(.system(size: 18, weight: .semibold))
                             .foregroundStyle(.secondary)
                     )
@@ -1117,7 +1146,7 @@ struct CreatePostView: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 4) {
-                    Text(UserService.shared.currentUser?.displayName ?? "You")
+                    Text("@\(nameToShow)")
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(.primary)
 
@@ -1206,8 +1235,8 @@ struct CreatePostView: View {
                 showCommentControls = true
             } label: {
                 Text(commentPermission == .everyone ? "Anyone can reply" : commentPermission.rawValue)
-                    .font(.system(size: 13, weight: .regular))
-                    .foregroundStyle(.secondary)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Color.primary.opacity(0.75))
             }
             .buttonStyle(.plain)
 
@@ -1220,14 +1249,25 @@ struct CreatePostView: View {
                     .foregroundStyle(
                         postText.count > 500 ? .red :
                         postText.count > 480 ? .orange :
-                        .secondary.opacity(0.5)
+                        .secondary.opacity(0.6)
                     )
                     .transition(.opacity.animation(.easeIn(duration: 0.3)))
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(Color(.systemBackground))
+        .padding(.horizontal, 14)
+        .padding(.vertical, 6)
+        .frame(maxWidth: .infinity)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(Color.primary.opacity(0.12), lineWidth: 0.5)
+                )
+                .shadow(color: .black.opacity(0.08), radius: 8, y: 4)
+        )
+        .padding(.horizontal, 12)
+        .padding(.bottom, 6)
     }
 
     private var bottomToolbar: some View {
@@ -1238,7 +1278,7 @@ struct CreatePostView: View {
                     Image(systemName: characterCountIcon)
                         .font(.system(size: 9, weight: .semibold))
                     Text("\(postText.count)/500")
-                        .font(.custom("OpenSans-SemiBold", size: 10))
+                        .font(AMENFont.semiBold(10))
                 }
                 .foregroundStyle(characterCountColor)
                 .padding(.horizontal, 8)
@@ -1261,7 +1301,12 @@ struct CreatePostView: View {
                 // X (close) — always visible, left anchor
                 CompactGlassButton(icon: "xmark", isActive: false) {
                     isTextFieldFocused = false
-                    if !postText.isEmpty { saveDraft() }
+                    if hasDraftableContent {
+                        shouldPersistDraftOnExit = false
+                        saveDraft()
+                    } else {
+                        shouldPersistDraftOnExit = false
+                    }
                     dismiss()
                 }
                 .accessibilityLabel("Close")
@@ -1378,6 +1423,19 @@ struct CreatePostView: View {
                                 showingTagPeopleSheet = true
                             }
                             .accessibilityLabel("Tag people")
+                            .transition(.scale.combined(with: .opacity))
+
+                            // Content warning
+                            CompactGlassButton(
+                                icon: hasSensitiveContent ? "exclamationmark.triangle.fill" : "exclamationmark.triangle",
+                                isActive: hasSensitiveContent
+                            ) {
+                                withAnimation(.spring(response: 0.25, dampingFraction: 0.82)) {
+                                    hasSensitiveContent.toggle()
+                                }
+                                HapticManager.impact(style: .light)
+                            }
+                            .accessibilityLabel(hasSensitiveContent ? "Remove content warning" : "Mark as sensitive content")
                             .transition(.scale.combined(with: .opacity))
 
                             // Draft (only when text exists)
@@ -1527,20 +1585,20 @@ struct CreatePostView: View {
                 .foregroundStyle(.red)
             
             Text(selectedCategory == .testimonies ? "Testimony Category" : selectedCategory == .openTable ? "Topic Tag" : "Prayer Type")
-                .font(.custom("OpenSans-Bold", size: 15))
+                .font(AMENFont.bold(15))
                 .foregroundStyle(.primary)
             
             Spacer()
             
             if selectedTopicTag.isEmpty && selectedCategory != .testimonies {
                 Text("* Required")
-                    .font(.custom("OpenSans-Regular", size: 12))
+                    .font(AMENFont.regular(12))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
             } else if selectedTopicTag.isEmpty && selectedCategory == .testimonies {
                 Text("Optional")
-                    .font(.custom("OpenSans-SemiBold", size: 12))
+                    .font(AMENFont.semiBold(12))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
@@ -1557,7 +1615,7 @@ struct CreatePostView: View {
             if selectedTopicTag.isEmpty {
                 HStack(spacing: 6) {
                     Text(selectedCategory == .testimonies ? "Select a category (optional)" : selectedCategory == .openTable ? "Select a topic tag" : "Select prayer type")
-                        .font(.custom("OpenSans-Regular", size: 15))
+                        .font(AMENFont.regular(15))
                         .foregroundStyle(.secondary)
                     if selectedCategory != .testimonies {
                         Text("Required")
@@ -1577,7 +1635,7 @@ struct CreatePostView: View {
                 }
                 
                 Text(selectedTopicTag)
-                    .font(.custom("OpenSans-Bold", size: 15))
+                    .font(AMENFont.bold(15))
                     .foregroundStyle(.primary)
             }
             
@@ -1603,7 +1661,7 @@ struct CreatePostView: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(.blue)
                 Text("Audience")
-                    .font(.custom("OpenSans-Bold", size: 15))
+                    .font(AMENFont.bold(15))
                     .foregroundStyle(.primary)
                 Spacer()
             }
@@ -1618,7 +1676,7 @@ struct CreatePostView: View {
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(postVisibility.tintColor)
                     Text(postVisibility.displayName)
-                        .font(.custom("OpenSans-Bold", size: 15))
+                        .font(AMENFont.bold(15))
                         .foregroundStyle(.primary)
                     Spacer()
                     Image(systemName: "chevron.right")
@@ -1646,11 +1704,11 @@ struct CreatePostView: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(.orange)
                 Text("Scripture")
-                    .font(.custom("OpenSans-Bold", size: 15))
+                    .font(AMENFont.bold(15))
                     .foregroundStyle(.primary)
                 Spacer()
                 Text("Optional")
-                    .font(.custom("OpenSans-SemiBold", size: 12))
+                    .font(AMENFont.semiBold(12))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
@@ -1665,16 +1723,16 @@ struct CreatePostView: View {
                 HStack {
                     if attachedVerseReference.isEmpty {
                         Text("Attach a Bible verse")
-                            .font(.custom("OpenSans-Regular", size: 15))
+                            .font(AMENFont.regular(15))
                             .foregroundStyle(.secondary)
                     } else {
                         VStack(alignment: .leading, spacing: 3) {
                             Text(attachedVerseReference)
-                                .font(.custom("OpenSans-Bold", size: 15))
+                                .font(AMENFont.bold(15))
                                 .foregroundStyle(.primary)
                             if !attachedVerseText.isEmpty {
                                 Text(attachedVerseText)
-                                    .font(.custom("OpenSans-Regular", size: 13))
+                                    .font(AMENFont.regular(13))
                                     .foregroundStyle(.secondary)
                                     .lineLimit(2)
                             }
@@ -1720,11 +1778,11 @@ struct CreatePostView: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(.indigo)
                 Text("Tag a Church")
-                    .font(.custom("OpenSans-Bold", size: 15))
+                    .font(AMENFont.bold(15))
                     .foregroundStyle(.primary)
                 Spacer()
                 Text("Optional")
-                    .font(.custom("OpenSans-SemiBold", size: 12))
+                    .font(AMENFont.semiBold(12))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
@@ -1739,11 +1797,11 @@ struct CreatePostView: View {
                 HStack {
                     if taggedChurchName.isEmpty {
                         Text("Tag your church")
-                            .font(.custom("OpenSans-Regular", size: 15))
+                            .font(AMENFont.regular(15))
                             .foregroundStyle(.secondary)
                     } else {
                         Text(taggedChurchName)
-                            .font(.custom("OpenSans-Bold", size: 15))
+                            .font(AMENFont.bold(15))
                             .foregroundStyle(.primary)
                     }
                     Spacer()
@@ -1782,7 +1840,7 @@ struct CreatePostView: View {
             GeometryReader { geometry in
                 ZStack(alignment: .topLeading) {
                     TextEditor(text: $postText)
-                        .font(.custom("OpenSans-Regular", size: 17))
+                        .font(AMENFont.regular(17))
                         .focused($isTextFieldFocused)
                         .scrollContentBackground(.hidden)
                         .onChange(of: postText) { oldValue, newValue in
@@ -1845,7 +1903,7 @@ struct CreatePostView: View {
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(Color.purple)
                 Text("Tagged")
-                    .font(.custom("OpenSans-Bold", size: 12))
+                    .font(AMENFont.bold(12))
                     .foregroundStyle(.secondary)
             }
             ScrollView(.horizontal, showsIndicators: false) {
@@ -1853,7 +1911,7 @@ struct CreatePostView: View {
                     ForEach(taggedUsers, id: \.userId) { user in
                         HStack(spacing: 5) {
                             Text("@\(user.username)")
-                                .font(.custom("OpenSans-SemiBold", size: 12))
+                                .font(AMENFont.semiBold(12))
                                 .foregroundStyle(.purple)
                             Button {
                                 withAnimation(.easeOut(duration: 0.15)) {
@@ -1891,7 +1949,7 @@ struct CreatePostView: View {
                     .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(.secondary)
                 Text("Mention User")
-                    .font(.custom("OpenSans-SemiBold", size: 12))
+                    .font(AMENFont.semiBold(12))
                     .foregroundStyle(.secondary)
             }
             .padding(.horizontal, 14)
@@ -1934,7 +1992,7 @@ struct CreatePostView: View {
                     .foregroundStyle(Color.blue)
                 
                 Text("Suggested Hashtags")
-                    .font(.custom("OpenSans-Bold", size: 13))
+                    .font(AMENFont.bold(13))
                     .foregroundStyle(.secondary)
             }
             
@@ -1945,7 +2003,7 @@ struct CreatePostView: View {
                             insertHashtag(tag)
                         } label: {
                             Text(tag)
-                                .font(.custom("OpenSans-SemiBold", size: 13))
+                                .font(AMENFont.semiBold(13))
                                 .foregroundStyle(.blue)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 6)
@@ -1977,7 +2035,7 @@ struct CreatePostView: View {
             // Left accent block — day number
             VStack(spacing: 1) {
                 Text(scheduledDate, format: .dateTime.weekday(.abbreviated))
-                    .font(.custom("OpenSans-Bold", size: 9))
+                    .font(AMENFont.bold(9))
                     .foregroundStyle(accentDark.opacity(0.75))
                     .tracking(0.8)
                     .textCase(.uppercase)
@@ -1993,7 +2051,7 @@ struct CreatePostView: View {
             HStack(spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Scheduled for")
-                        .font(.custom("OpenSans-Regular", size: 11))
+                        .font(AMENFont.regular(11))
                         .foregroundStyle(ink.opacity(0.50))
                     ScheduledWhenLine(date: scheduledDate)
                 }
@@ -2034,7 +2092,7 @@ struct CreatePostView: View {
                         .foregroundStyle(characterCountColor)
                     
                     Text(characterCountText)
-                        .font(.custom("OpenSans-SemiBold", size: 13))
+                        .font(AMENFont.semiBold(13))
                         .foregroundStyle(characterCountColor)
                 }
                 
@@ -2044,12 +2102,12 @@ struct CreatePostView: View {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .font(.system(size: 10))
                         Text("Character limit exceeded - cannot post")
-                            .font(.custom("OpenSans-Bold", size: 11))
+                            .font(AMENFont.bold(11))
                     }
                     .foregroundStyle(.red)
                 } else if postText.count > 450 {
                     Text("Consider shortening your post")
-                        .font(.custom("OpenSans-Regular", size: 11))
+                        .font(AMENFont.regular(11))
                         .foregroundStyle(.orange)
                 }
             }
@@ -2250,17 +2308,47 @@ struct CreatePostView: View {
     }
     
     private func updateHashtagSuggestions() {
+        // Optimistic fallback per category while Firestore loads
+        let fallback: [String]
         switch selectedCategory {
         case .openTable:
-            hashtagSuggestions = ["#AIandFaith", "#TechEthics", "#Innovation", "#DigitalMinistry", "#TechForGood"]
+            fallback = ["#AIandFaith", "#TechEthics", "#Innovation", "#DigitalMinistry", "#TechForGood"]
         case .testimonies:
-            hashtagSuggestions = ["#Testimony", "#FaithJourney", "#Blessed", "#Miracle", "#GodIsGood"]
+            fallback = ["#Testimony", "#FaithJourney", "#Blessed", "#Miracle", "#GodIsGood"]
         case .prayer:
-            hashtagSuggestions = ["#PrayerRequest", "#PraiseReport", "#Intercession", "#DailyPrayer", "#PrayerWarrior"]
+            fallback = ["#PrayerRequest", "#PraiseReport", "#Intercession", "#DailyPrayer", "#PrayerWarrior"]
         case .tip:
-            hashtagSuggestions = ["#TipOfTheDay", "#HelpfulTips", "#ProTip", "#LifeHack", "#Advice"]
+            fallback = ["#TipOfTheDay", "#HelpfulTips", "#ProTip", "#LifeHack", "#Advice"]
         case .funFact:
-            hashtagSuggestions = ["#FunFact", "#DidYouKnow", "#Interesting", "#TodayILearned", "#Facts"]
+            fallback = ["#FunFact", "#DidYouKnow", "#Interesting", "#TodayILearned", "#Facts"]
+        }
+        hashtagSuggestions = fallback
+
+        // Fetch live trending tags from Firestore in background
+        let categoryKey = selectedCategory.rawValue
+        Task {
+            do {
+                let snapshot = try await FirebaseManager.shared.firestore
+                    .collection("trendingHashtags")
+                    .whereField("category", isEqualTo: categoryKey)
+                    .order(by: "useCount", descending: true)
+                    .limit(to: 8)
+                    .getDocuments()
+
+                let liveTags = snapshot.documents.compactMap { doc -> String? in
+                    guard let tag = doc.data()["tag"] as? String else { return nil }
+                    return tag.hasPrefix("#") ? tag : "#\(tag)"
+                }
+
+                if !liveTags.isEmpty {
+                    await MainActor.run {
+                        hashtagSuggestions = liveTags
+                    }
+                }
+            } catch {
+                // Network failure — fallback already shown, silently skip
+                dlog("⚠️ [Hashtags] Firestore fetch failed, using fallback: \(error.localizedDescription)")
+            }
         }
     }
     
@@ -2365,7 +2453,9 @@ struct CreatePostView: View {
         return nil
     }
     
-    private func saveDraft() {
+    private func saveDraft(showNotice: Bool = true) {
+        guard hasDraftableContent else { return }
+
         // Save post using DraftsManager
         draftsManager.saveDraft(
             content: postText,
@@ -2374,20 +2464,26 @@ struct CreatePostView: View {
             linkURL: linkURL.isEmpty ? nil : linkURL,
             visibility: postVisibility.rawValue
         )
-        
+
+        guard showNotice else { return }
+
         withAnimation {
             showingDraftSavedNotice = true
         }
-        
+
         // P0-2 FIX: Use cancellable task instead of DispatchQueue
         scheduleDelayedAction(seconds: 2) {
             withAnimation {
                 showingDraftSavedNotice = false
             }
         }
-        
     }
-    
+
+    private func persistDraftIfNeeded() {
+        guard shouldPersistDraftOnExit, !isPublishing else { return }
+        saveDraft(showNotice: false)
+    }
+
     /// Triggers a short shake animation on the publish button to signal rejection.
     private func triggerPublishShake() {
         let haptic = UINotificationFeedbackGenerator()
@@ -2688,6 +2784,14 @@ struct CreatePostView: View {
                 allowComments: allowComments,
                 linkURL: linkURL.isEmpty ? linkController.activeURL?.absoluteString : linkURL,
                 scheduledFor: scheduledDate
+            )
+        } else if isThreadMode && threadPosts.filter({ !$0.trimmingCharacters(in: .whitespaces).isEmpty }).count > 1 {
+            dlog("🧵 Publishing thread (\(threadPosts.count) posts)")
+            publishThread(
+                posts: threadPosts,
+                category: postCategory,
+                topicTag: selectedTopicTag.isEmpty ? nil : selectedTopicTag,
+                allowComments: allowComments
             )
         } else {
             dlog("📤 Publishing immediately")
@@ -3096,6 +3200,14 @@ struct CreatePostView: View {
                     dlog("   📊 Poll attached: \(filledOptions.count) options, expires: \(String(describing: pollDuration.expiryDate))")
                 }
 
+                // ✅ Sensitive content flag — surfaced in feed behind a tap-to-reveal blur
+                if hasSensitiveContent {
+                    postData["hasSensitiveContent"] = true
+                    if !sensitiveContentReason.isEmpty {
+                        postData["sensitiveContentReason"] = sensitiveContentReason
+                    }
+                }
+
                 // SECURITY: Stamp every post with moderationStatus="pending" so the
                 // server-side Cloud Function trigger (posts/{postId} onCreate) always
                 // runs a second-pass moderation check. A modified client that bypasses
@@ -3118,6 +3230,7 @@ struct CreatePostView: View {
                         inFlightPostId = nil
                         linkController.reset()
                         UserDefaults.standard.removeObject(forKey: "autoSavedDraft")
+                        shouldPersistDraftOnExit = false
                         withAnimation { showingSuccessNotice = true }
                         // P0-2 FIX: Critical - cancellable dismiss task
                         scheduleDelayedAction(seconds: 0.15) {
@@ -3212,6 +3325,7 @@ struct CreatePostView: View {
                     inFlightPostId = nil
                     postContentSource = nil  // reset source label for next post
                     UserDefaults.standard.removeObject(forKey: "autoSavedDraft")
+                    shouldPersistDraftOnExit = false
                     
                     // ✅ Show success and dismiss ONLY after Firestore success
                     withAnimation {
@@ -3528,6 +3642,154 @@ struct CreatePostView: View {
         return imageData
     }
     
+    // MARK: - Thread Publishing
+
+    /// Publishes each post in the thread sequentially, linking them via a shared threadId.
+    /// The head post (index 0) gets isThreadHead=true and threadPostCount=N.
+    private func publishThread(
+        posts: [String],
+        category: Post.PostCategory,
+        topicTag: String?,
+        allowComments: Bool
+    ) {
+        dlog("🧵 [Thread DEBUG] publishThread() called with \(posts.count) posts")
+        
+        let filledPosts = posts.map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        
+        dlog("🧵 [Thread DEBUG] Filtered to \(filledPosts.count) non-empty posts")
+        
+        guard filledPosts.count > 1 else {
+            dlog("🧵 [Thread DEBUG] Less than 2 posts, falling back to publishImmediately")
+            publishImmediately(
+                content: filledPosts.first ?? "",
+                category: category,
+                topicTag: topicTag,
+                allowComments: allowComments,
+                linkURL: linkURL.isEmpty ? linkController.activeURL?.absoluteString : linkURL
+            )
+            return
+        }
+
+        Task {
+            defer {
+                Task { @MainActor in
+                    if isPublishing { isPublishing = false; inFlightPostId = nil }
+                }
+            }
+
+            dlog("🧵 [Thread DEBUG] Task started, checking currentUser...")
+            
+            guard let currentUser = Auth.auth().currentUser else {
+                dlog("❌ [Thread DEBUG] No currentUser found!")
+                await MainActor.run {
+                    isPublishing = false
+                    inFlightPostId = nil
+                    errorMessage = "You must be signed in to post."
+                }
+                return
+            }
+            
+            dlog("🧵 [Thread DEBUG] currentUser found: \(currentUser.uid)")
+
+            let threadId = UUID().uuidString
+            let threadCount = filledPosts.count
+            var authorProfileImageURL: String? = nil
+
+            // Fetch author profile image once
+            authorProfileImageURL = UserProfileImageCache.shared.cachedProfileImageURL
+            
+            dlog("🧵 [Thread DEBUG] Profile image URL: \(authorProfileImageURL ?? "nil")")
+            dlog("🧵 [Thread] Publishing \(threadCount) posts with threadId: \(threadId)")
+
+            for (index, postContent) in filledPosts.enumerated() {
+                dlog("🧵 [Thread DEBUG] Preparing post \(index + 1)/\(threadCount)...")
+                
+                let postId = UUID()
+                let timestamp = Date().addingTimeInterval(Double(index) * 0.05)
+                
+                dlog("🧵 [Thread DEBUG] Post ID: \(postId.uuidString), timestamp: \(timestamp)")
+                
+                var postData: [String: Any] = [
+                    "authorId": currentUser.uid,
+                    "authorName": currentUser.displayName ?? "User",
+                    "authorInitials": String((currentUser.displayName ?? "U").prefix(1)),
+                    "content": postContent,
+                    "category": category.rawValue,
+                    "topicTag": topicTag as Any,
+                    "visibility": postVisibility.rawValue,
+                    "allowComments": allowComments,
+                    "createdAt": Timestamp(date: timestamp),
+                    "amenCount": 0,
+                    "commentCount": 0,
+                    "repostCount": 0,
+                    "lightbulbCount": 0,
+                    "threadId": threadId,
+                    "threadIndex": index,
+                    "isThreadHead": index == 0,
+                    "threadPostCount": index == 0 ? threadCount : 0,
+                    "moderationStatus": "pending",
+                    "clientSafetyVersion": 1
+                ]
+                
+                dlog("🧵 [Thread DEBUG] Base postData created")
+
+                if let url = authorProfileImageURL {
+                    postData["authorProfileImageURL"] = url
+                }
+                if hasSensitiveContent {
+                    postData["hasSensitiveContent"] = true
+                }
+                // First post in thread carries link preview if any
+                if index == 0, let lm = linkController.metadata {
+                    postData["linkPreviewTitle"] = lm.title as Any
+                    postData["linkPreviewDescription"] = lm.description as Any
+                    postData["linkPreviewImageURL"] = lm.imageURL?.absoluteString as Any
+                    postData["linkPreviewSiteName"] = lm.siteName as Any
+                    dlog("🧵 [Thread DEBUG] Added link preview to first post")
+                }
+                
+                dlog("🧵 [Thread DEBUG] Writing post \(index + 1) to Firestore...")
+
+                do {
+                    try await FirebaseManager.shared.firestore
+                        .collection("posts")
+                        .document(postId.uuidString)
+                        .setData(postData)
+                    dlog("✅ [Thread] Post \(index + 1)/\(threadCount) published successfully")
+                } catch {
+                    dlog("❌ [Thread] Failed to publish post \(index + 1): \(error)")
+                    dlog("❌ [Thread DEBUG] Error details: \(error.localizedDescription)")
+                    await MainActor.run {
+                        isPublishing = false
+                        inFlightPostId = nil
+                        errorMessage = "Thread post \(index + 1) failed to publish. Please try again."
+                    }
+                    return
+                }
+            }
+
+            dlog("🧵 [Thread DEBUG] All posts written successfully, cleaning up UI state...")
+
+            await MainActor.run {
+                dlog("🧵 [Thread DEBUG] On MainActor, resetting state...")
+                inFlightPostId = nil
+                isThreadMode = false
+                threadPosts = [""]
+                currentThreadIndex = 0
+                linkController.reset()
+                UserDefaults.standard.removeObject(forKey: "autoSavedDraft")
+                shouldPersistDraftOnExit = false
+                withAnimation { showingSuccessNotice = true }
+                HapticManager.notification(type: .success)
+                dlog("🧵 [Thread DEBUG] Scheduling dismiss...")
+                scheduleDelayedAction(seconds: 0.15) { dismiss() }
+            }
+
+            dlog("✅ [Thread] All \(threadCount) posts published successfully")
+        }
+    }
+
     private func schedulePost(
         content: String,
         category: Post.PostCategory,
@@ -3579,6 +3841,7 @@ struct CreatePostView: View {
                     
                     isPublishing = false
                     inFlightPostId = nil  // FIX: clear hash so user can post again after scheduling
+                    shouldPersistDraftOnExit = false
                     
                     // P0-2 FIX: Cancellable dismiss
                     scheduleDelayedAction(seconds: 0.5) {
@@ -3588,18 +3851,9 @@ struct CreatePostView: View {
                     dlog("✅ Post scheduled successfully for: \(scheduledFor)")
                 }
                 
-                // NOTE: Cloud Function will publish at scheduled time
-                // TODO: [BACKEND] Deploy executeScheduledPosts Cloud Function to publish pending scheduled posts
-                // Example Cloud Function (deploy separately):
-                // exports.publishScheduledPosts = functions.pubsub.schedule('every 1 minutes')
-                //   .onRun(async (context) => {
-                //     const now = admin.firestore.Timestamp.now();
-                //     const scheduled = await admin.firestore().collection('scheduled_posts')
-                //       .where('scheduledFor', '<=', now)
-                //       .where('status', '==', 'pending')
-                //       .get();
-                //     // Process and publish each post
-                //   });
+                // ✅ executeScheduledPosts Cloud Function deployed in scheduledPostsFunctions.js
+                // Runs every 5 minutes via Cloud Scheduler — queries scheduled_posts where
+                // status="pending" and scheduledFor <= now, creates real posts, marks as "published".
                 
             } catch {
                 await MainActor.run {
@@ -3799,13 +4053,13 @@ struct CreatePostView: View {
         var body: some View {
             HStack(spacing: 0) {
                 Text(date, style: .date)
-                    .font(.custom("OpenSans-Bold", size: 14))
+                    .font(AMENFont.bold(14))
                     .foregroundStyle(.primary)
                 Text(" at ")
-                    .font(.custom("OpenSans-Regular", size: 14))
+                    .font(AMENFont.regular(14))
                     .foregroundStyle(.secondary)
                 Text(date, style: .time)
-                    .font(.custom("OpenSans-Bold", size: 14))
+                    .font(AMENFont.bold(14))
                     .foregroundStyle(.primary)
             }
         }
@@ -3822,7 +4076,7 @@ struct CreatePostView: View {
             Group {
                 if isEmpty {
                     Text(placeholder)
-                        .font(.custom("OpenSans-Regular", size: 17))
+                        .font(AMENFont.regular(17))
                         .foregroundStyle(.secondary)
                         .padding(.top, 8)
                         .allowsHitTesting(false)
@@ -4070,6 +4324,135 @@ struct CirclePostButton: View {
     }
 }
 
+// MARK: - Threads-Style Post Button
+
+struct ThreadsPostButton: View {
+    @Binding var postText: String
+    let onPost: () async -> Void
+    
+    @State private var buttonState: PostButtonState = .idle
+    @State private var isPressed = false
+    @State private var showSpinner = false
+    @State private var showCheck = false
+    
+    var body: some View {
+        Button {
+            guard buttonState == .ready else { return }
+            triggerPost()
+        } label: {
+            ZStack {
+                // "Post" text (idle/ready state)
+                if !showSpinner && !showCheck {
+                    Text("Post")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(buttonState == .ready ? Color.primary : Color.secondary)
+                }
+                
+                // Spinner (posting state)
+                if showSpinner {
+                    ProgressView()
+                        .tint(.primary)
+                        .scaleEffect(0.8)
+                        .transition(.scale.combined(with: .opacity))
+                }
+                
+                // Checkmark (sent state)
+                if showCheck {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(.primary)
+                        .transition(.scale.combined(with: .opacity))
+                }
+            }
+            .frame(minWidth: 44)
+            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: showSpinner)
+            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: showCheck)
+        }
+        .buttonStyle(.plain)
+        .disabled(buttonState != .ready)
+        .scaleEffect(isPressed ? 0.95 : 1.0)
+        .animation(.spring(response: 0.2, dampingFraction: 0.6), value: isPressed)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in
+                    if !isPressed && buttonState == .ready {
+                        isPressed = true
+                        HapticManager.impact(style: .light)
+                    }
+                }
+                .onEnded { _ in
+                    isPressed = false
+                }
+        )
+        .onChange(of: postText) { oldValue, newValue in
+            updateButtonState(for: newValue)
+        }
+    }
+    
+    private func updateButtonState(for text: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        if !trimmed.isEmpty && buttonState == .idle {
+            withAnimation(.easeOut(duration: 0.25)) {
+                buttonState = .ready
+            }
+        } else if trimmed.isEmpty && buttonState == .ready {
+            withAnimation(.easeOut(duration: 0.25)) {
+                buttonState = .idle
+            }
+        }
+    }
+    
+    private func triggerPost() {
+        guard buttonState == .ready else { return }
+        
+        // Transition to posting state
+        buttonState = .posting
+        
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            showSpinner = true
+        }
+        
+        // Execute post action
+        Task {
+            await onPost()
+            
+            // Transition to sent state after posting completes
+            await MainActor.run {
+                transitionToSent()
+            }
+        }
+    }
+    
+    private func transitionToSent() {
+        buttonState = .sent
+        
+        // Hide spinner
+        withAnimation(.easeOut(duration: 0.2)) {
+            showSpinner = false
+        }
+        
+        // Show checkmark after brief delay
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
+                showCheck = true
+            }
+            
+            // Reset to idle after 1s
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                withAnimation(.easeOut(duration: 0.3)) {
+                    resetToIdle()
+                }
+            }
+        }
+    }
+    
+    private func resetToIdle() {
+        buttonState = .idle
+        showCheck = false
+    }
+}
+
 // MARK: - Spinner Ring
 
 struct SpinnerRing: View {
@@ -4288,7 +4671,7 @@ struct EnhancedToolbarButton: View {
                     .foregroundStyle(isActive ? activeColor : Color.primary.opacity(0.6))
                 
                 Text(label)
-                    .font(.custom("OpenSans-SemiBold", size: 10))
+                    .font(AMENFont.semiBold(10))
                     .foregroundStyle(isActive ? activeColor : .secondary)
             }
             .frame(width: 54, height: 48)
@@ -4403,14 +4786,14 @@ struct TopicTagSheet: View {
                 VStack(spacing: 16) {
                     VStack(alignment: .leading, spacing: 8) {
                         Text(selectedCategory == .prayer ? "Select Prayer Type" : selectedCategory == .testimonies ? "Testimony Category" : "Select a Topic Tag")
-                            .font(.custom("OpenSans-Bold", size: 20))
+                            .font(AMENFont.bold(20))
                         
                         Text(selectedCategory == .prayer ?
                              "Let others know what kind of prayer this is" :
                              selectedCategory == .testimonies ?
                              "Choose a category so others can find your testimony" :
                              "Help others discover your post in #OPENTABLE")
-                            .font(.custom("OpenSans-Regular", size: 14))
+                            .font(AMENFont.regular(14))
                             .foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -4424,7 +4807,7 @@ struct TopicTagSheet: View {
                             .foregroundStyle(.black.opacity(0.4))
                         
                         TextField("Search topics...", text: $searchText)
-                            .font(.custom("OpenSans-Regular", size: 15))
+                            .font(AMENFont.regular(15))
                             .autocorrectionDisabled()
                         
                         if !searchText.isEmpty {
@@ -4457,10 +4840,10 @@ struct TopicTagSheet: View {
                                 .font(.system(size: 40))
                                 .foregroundStyle(.secondary.opacity(0.5))
                             Text("No topics found")
-                                .font(.custom("OpenSans-SemiBold", size: 16))
+                                .font(AMENFont.semiBold(16))
                                 .foregroundStyle(.secondary)
                             Text("Try a different search term")
-                                .font(.custom("OpenSans-Regular", size: 14))
+                                .font(AMENFont.regular(14))
                                 .foregroundStyle(.secondary.opacity(0.7))
                         }
                         .frame(maxWidth: .infinity)
@@ -4546,7 +4929,7 @@ struct TopicTagCard: View {
                 .scaleEffect(isPressed ? 0.9 : 1.0)
                 
                 Text(title)
-                    .font(.custom("OpenSans-Bold", size: 13))
+                    .font(AMENFont.bold(13))
                     .foregroundStyle(.primary)
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
@@ -4625,7 +5008,7 @@ struct SchedulePostSheet: View {
                     .buttonStyle(.plain)
                     Spacer()
                     Text("Schedule Post")
-                        .font(.custom("OpenSans-Bold", size: 15))
+                        .font(AMENFont.bold(15))
                         .foregroundStyle(ink)
                     Spacer()
                     // balance
@@ -4645,7 +5028,7 @@ struct SchedulePostSheet: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Spacer()
                         Text(dayOfWeek)
-                            .font(.custom("OpenSans-Bold", size: 11))
+                            .font(AMENFont.bold(11))
                             .foregroundStyle(Color.white.opacity(0.55))
                             .tracking(1.5)
 
@@ -4656,7 +5039,7 @@ struct SchedulePostSheet: View {
                             .minimumScaleFactor(0.6)
 
                         Text(monthYear)
-                            .font(.custom("OpenSans-SemiBold", size: 11))
+                            .font(AMENFont.semiBold(11))
                             .foregroundStyle(Color.white.opacity(0.55))
                             .tracking(1.0)
 
@@ -4668,7 +5051,7 @@ struct SchedulePostSheet: View {
                                 .font(.system(size: 10, weight: .semibold))
                                 .foregroundStyle(accentDark)
                             Text(timeString)
-                                .font(.custom("OpenSans-Bold", size: 13))
+                                .font(AMENFont.bold(13))
                                 .foregroundStyle(accentDark)
                         }
                         .padding(.horizontal, 10)
@@ -4683,7 +5066,7 @@ struct SchedulePostSheet: View {
                                 .font(.system(size: 9))
                                 .foregroundStyle(Color.white.opacity(0.45))
                             Text(timezoneString)
-                                .font(.custom("OpenSans-Regular", size: 10))
+                                .font(AMENFont.regular(10))
                                 .foregroundStyle(Color.white.opacity(0.45))
                         }
                         .padding(.top, 2)
@@ -4697,7 +5080,7 @@ struct SchedulePostSheet: View {
                     // RIGHT — light panel, native date picker
                     VStack(alignment: .leading, spacing: 0) {
                         Text("PICK DATE & TIME")
-                            .font(.custom("OpenSans-Bold", size: 10))
+                            .font(AMENFont.bold(10))
                             .foregroundStyle(subtext)
                             .tracking(1.2)
                             .padding(.horizontal, 14)
@@ -4735,10 +5118,10 @@ struct SchedulePostSheet: View {
                     }
                     VStack(alignment: .leading, spacing: 1) {
                         Text("Auto-publishes at selected time")
-                            .font(.custom("OpenSans-SemiBold", size: 13))
+                            .font(AMENFont.semiBold(13))
                             .foregroundStyle(ink)
                         Text("Minimum 5 minutes from now · \(timezoneString)")
-                            .font(.custom("OpenSans-Regular", size: 11))
+                            .font(AMENFont.regular(11))
                             .foregroundStyle(subtext)
                     }
                     Spacer()
@@ -4765,13 +5148,13 @@ struct SchedulePostSheet: View {
                         }
                         VStack(alignment: .leading, spacing: 1) {
                             Text("Currently scheduled")
-                                .font(.custom("OpenSans-SemiBold", size: 12))
+                                .font(AMENFont.semiBold(12))
                                 .foregroundStyle(subtext)
                             if let sd = scheduledDate {
                                 Text("\(sd, style: .date)  \(sd, style: .time)")
                             }
                         }
-                        .font(.custom("OpenSans-Bold", size: 13))
+                        .font(AMENFont.bold(13))
                         .foregroundStyle(ink)
                         Spacer()
                     }
@@ -4802,7 +5185,7 @@ struct SchedulePostSheet: View {
                             Image(systemName: "calendar.badge.checkmark")
                                 .font(.system(size: 15, weight: .bold))
                             Text("Schedule Post")
-                                .font(.custom("OpenSans-Bold", size: 16))
+                                .font(AMENFont.bold(16))
                         }
                         .foregroundStyle(accentDark)
                         .frame(maxWidth: .infinity)
@@ -4823,7 +5206,7 @@ struct SchedulePostSheet: View {
                             isPresented = false
                         } label: {
                             Text("Remove Schedule")
-                                .font(.custom("OpenSans-SemiBold", size: 15))
+                                .font(AMENFont.semiBold(15))
                                 .foregroundStyle(ink.opacity(0.70))
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 14)
@@ -4868,7 +5251,7 @@ struct MinimalCategoryButton: View {
         }) {
             VStack(spacing: 6) {
                 Text(category.displayName)
-                    .font(.custom("OpenSans-Bold", size: 15))
+                    .font(AMENFont.bold(15))
                     .foregroundStyle(isSelected ? Color.primary : Color.primary.opacity(0.4))
                 
                 if isSelected {
@@ -4997,7 +5380,7 @@ struct EnhancedCategoryChip: View {
                     )
                 
                 Text(category.displayName)
-                    .font(.custom("OpenSans-Bold", size: 13))
+                    .font(AMENFont.bold(13))
                     .foregroundStyle(textGradient)
             }
             .padding(.horizontal, 16)
@@ -5183,11 +5566,11 @@ struct LinkInputSheet: View {
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Add Link")
-                .font(.custom("OpenSans-Bold", size: 18))
+                .font(AMENFont.bold(18))
                 .foregroundStyle(.primary)
             
             Text("Paste or enter a URL to add to your post")
-                .font(.custom("OpenSans-Regular", size: 14))
+                .font(AMENFont.regular(14))
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -5198,7 +5581,7 @@ struct LinkInputSheet: View {
     private var urlInputField: some View {
         VStack(alignment: .leading, spacing: 8) {
             TextField("https://example.com", text: $inputURL)
-                .font(.custom("OpenSans-Regular", size: 16))
+                .font(AMENFont.regular(16))
                 .padding(16)
                 .background(
                     RoundedRectangle(cornerRadius: 12)
@@ -5215,7 +5598,7 @@ struct LinkInputSheet: View {
                         .foregroundStyle(.orange)
                     
                     Text("Please enter a valid URL")
-                        .font(.custom("OpenSans-Regular", size: 13))
+                        .font(AMENFont.regular(13))
                         .foregroundStyle(.orange)
                 }
             }
@@ -5230,7 +5613,7 @@ struct LinkInputSheet: View {
             isPresented = false
         } label: {
             Text("Add Link")
-                .font(.custom("OpenSans-Bold", size: 16))
+                .font(AMENFont.bold(16))
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
@@ -5291,24 +5674,24 @@ struct LinkPreviewCardView: View {
             VStack(alignment: .leading, spacing: 4) {
                 if let title = metadata?.title {
                     Text(title)
-                        .font(.custom("OpenSans-Bold", size: 14))
+                        .font(AMENFont.bold(14))
                         .foregroundStyle(.primary)
                         .lineLimit(2)
                 } else {
                     Text("Link")
-                        .font(.custom("OpenSans-Bold", size: 14))
+                        .font(AMENFont.bold(14))
                         .foregroundStyle(.primary)
                 }
                 
                 if let description = metadata?.description {
                     Text(description)
-                        .font(.custom("OpenSans-Regular", size: 11))
+                        .font(AMENFont.regular(11))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
                 
                 Text(url)
-                    .font(.custom("OpenSans-Regular", size: 10))
+                    .font(AMENFont.regular(10))
                     .foregroundStyle(.tertiary)
                     .lineLimit(1)
             }
@@ -5684,7 +6067,7 @@ struct PollComposerCard: View {
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(.secondary)
                 Text("Poll")
-                    .font(.custom("OpenSans-SemiBold", size: 14))
+                    .font(AMENFont.semiBold(14))
                     .foregroundStyle(.secondary)
                 Spacer()
                 Button(action: onRemove) {
@@ -5717,7 +6100,7 @@ struct PollComposerCard: View {
 
                         TextField(index < 2 ? "Option \(index + 1)" : "Add option \(index + 1)",
                                   text: $options[index])
-                            .font(.custom("OpenSans-Regular", size: 15))
+                            .font(AMENFont.regular(15))
                             .focused($focusedIndex, equals: index)
                             .submitLabel(index < options.count - 1 ? .next : .done)
                             .onSubmit {
@@ -5756,7 +6139,7 @@ struct PollComposerCard: View {
                         Image(systemName: "plus.circle")
                             .font(.system(size: 15, weight: .medium))
                         Text("Add option")
-                            .font(.custom("OpenSans-Regular", size: 14))
+                            .font(AMENFont.regular(14))
                     }
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -5774,7 +6157,7 @@ struct PollComposerCard: View {
                     .font(.system(size: 13))
                     .foregroundStyle(.secondary)
                 Text("Duration")
-                    .font(.custom("OpenSans-Regular", size: 14))
+                    .font(AMENFont.regular(14))
                     .foregroundStyle(.secondary)
                 Spacer()
                 Picker("Duration", selection: $duration) {
@@ -5783,7 +6166,7 @@ struct PollComposerCard: View {
                     }
                 }
                 .pickerStyle(.menu)
-                .font(.custom("OpenSans-Regular", size: 14))
+                .font(AMENFont.regular(14))
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
@@ -5870,7 +6253,7 @@ struct CompactGlassButton: View {
                     // Badge for count (e.g., image count)
                     if count > 0 {
                         Text("\(count)")
-                            .font(.custom("OpenSans-Bold", size: 9))
+                            .font(AMENFont.bold(9))
                             .foregroundStyle(.white)
                             .padding(.horizontal, 4)
                             .padding(.vertical, 2)
@@ -6073,17 +6456,17 @@ struct AuthenticityPromptSheet: View {
                         
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Add a Personal Touch")
-                                .font(.custom("OpenSans-Bold", size: 20))
+                                .font(AMENFont.bold(20))
                                 .foregroundStyle(.primary)
                             
                             Text("Make it uniquely yours")
-                                .font(.custom("OpenSans-Regular", size: 14))
+                                .font(AMENFont.regular(14))
                                 .foregroundStyle(.secondary)
                         }
                     }
                     
                     Text(message)
-                        .font(.custom("OpenSans-Regular", size: 15))
+                        .font(AMENFont.regular(15))
                         .foregroundStyle(.secondary)
                         .padding(.top, 8)
                 }
@@ -6092,11 +6475,11 @@ struct AuthenticityPromptSheet: View {
                 // Text field
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Share your personal thoughts:")
-                        .font(.custom("OpenSans-SemiBold", size: 14))
+                        .font(AMENFont.semiBold(14))
                         .foregroundStyle(.secondary)
                     
                     TextEditor(text: $personalContext)
-                        .font(.custom("OpenSans-Regular", size: 15))
+                        .font(AMENFont.regular(15))
                         .frame(height: 120)
                         .padding(12)
                         .background(Color(.systemGray6))
@@ -6108,7 +6491,7 @@ struct AuthenticityPromptSheet: View {
                         )
                     
                     Text("\(personalContext.count)/280")
-                        .font(.custom("OpenSans-Regular", size: 12))
+                        .font(AMENFont.regular(12))
                         .foregroundStyle(personalContext.count > 280 ? .red : .secondary)
                 }
                 .padding(.horizontal)
@@ -6121,7 +6504,7 @@ struct AuthenticityPromptSheet: View {
                         HStack {
                             Image(systemName: "checkmark.circle.fill")
                             Text("Continue Posting")
-                                .font(.custom("OpenSans-SemiBold", size: 16))
+                                .font(AMENFont.semiBold(16))
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
@@ -6136,7 +6519,7 @@ struct AuthenticityPromptSheet: View {
                     
                     Button(action: onCancel) {
                         Text("Cancel")
-                            .font(.custom("OpenSans-Regular", size: 15))
+                            .font(AMENFont.regular(15))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -6288,7 +6671,7 @@ private struct PostedPill: View {
             .frame(width: 26, height: 26)
 
             Text(labelText)
-                .font(.custom("OpenSans-SemiBold", size: 15))
+                .font(AMENFont.semiBold(15))
                 .foregroundStyle(.white)
                 .opacity(labelOpacity)
                 .offset(x: labelOffset)
@@ -6502,12 +6885,12 @@ struct AlgoliaMentionSuggestionRow: View {
                                 .clipShape(Circle())
                         } placeholder: {
                             Text(user.displayName.prefix(1).uppercased())
-                                .font(.custom("OpenSans-Bold", size: 16))
+                                .font(AMENFont.bold(16))
                                 .foregroundStyle(.primary)
                         }
                     } else {
                         Text(user.displayName.prefix(1).uppercased())
-                            .font(.custom("OpenSans-Bold", size: 16))
+                            .font(AMENFont.bold(16))
                             .foregroundStyle(.primary)
                     }
                 }
@@ -6523,7 +6906,7 @@ struct AlgoliaMentionSuggestionRow: View {
                 VStack(alignment: .leading, spacing: 2) {
                     // Display name with yellow marker highlight
                     Text(user.displayName)
-                        .font(.custom("OpenSans-Bold", size: 15))
+                        .font(AMENFont.bold(15))
                         .foregroundStyle(.primary)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 1)
@@ -6533,7 +6916,7 @@ struct AlgoliaMentionSuggestionRow: View {
                         }
 
                     Text("@\(user.username)")
-                        .font(.custom("OpenSans-Regular", size: 13))
+                        .font(AMENFont.regular(13))
                         .foregroundStyle(.secondary)
                 }
 
@@ -6658,7 +7041,7 @@ private struct BereanTonePopup: View {
                             Text(suggestion != nil
                                  ? "Here's a kinder way to say this"
                                  : "Your post sounds great as-is!")
-                                .font(.custom("OpenSans-Regular", size: 13))
+                                .font(AMENFont.regular(13))
                                 .foregroundStyle(Color.secondary)
                         }
                         Spacer()
@@ -6687,7 +7070,7 @@ private struct BereanTonePopup: View {
                                     .font(.system(size: 11))
                                     .foregroundStyle(Color(red: 0.10, green: 0.45, blue: 0.35))
                                 Text("Suggested rewrite — tap \"Use this\" to replace your post")
-                                    .font(.custom("OpenSans-SemiBold", size: 11))
+                                    .font(AMENFont.semiBold(11))
                                     .foregroundStyle(Color(red: 0.10, green: 0.45, blue: 0.35))
                             }
                             .padding(.horizontal, 10)
@@ -6700,7 +7083,7 @@ private struct BereanTonePopup: View {
 
                             // Suggestion text on frosted glass card
                             Text(suggestion)
-                                .font(.custom("OpenSans-Regular", size: 15))
+                                .font(AMENFont.regular(15))
                                 .foregroundStyle(Color.primary)
                                 .lineSpacing(5)
                                 .padding(16)
@@ -6730,7 +7113,7 @@ private struct BereanTonePopup: View {
                                         Image(systemName: "checkmark.circle.fill")
                                             .font(.system(size: 15, weight: .semibold))
                                         Text("Use this")
-                                            .font(.custom("OpenSans-Bold", size: 15))
+                                            .font(AMENFont.bold(15))
                                     }
                                     .foregroundStyle(.white)
                                     .frame(maxWidth: .infinity)
@@ -6761,7 +7144,7 @@ private struct BereanTonePopup: View {
                                         Image(systemName: "pencil")
                                             .font(.system(size: 13, weight: .semibold))
                                         Text("Keep mine")
-                                            .font(.custom("OpenSans-Bold", size: 15))
+                                            .font(AMENFont.bold(15))
                                     }
                                     .foregroundStyle(Color.primary)
                                     .frame(maxWidth: .infinity)
@@ -6790,13 +7173,13 @@ private struct BereanTonePopup: View {
                             Text("✅")
                                 .font(.system(size: 40))
                             Text("Your post has a great tone!\nNo changes needed.")
-                                .font(.custom("OpenSans-Regular", size: 15))
+                                .font(AMENFont.regular(15))
                                 .foregroundStyle(Color.secondary)
                                 .multilineTextAlignment(.center)
                                 .lineSpacing(4)
                             Button { onDismiss() } label: {
                                 Text("Got it")
-                                    .font(.custom("OpenSans-Bold", size: 15))
+                                    .font(AMENFont.bold(15))
                                     .foregroundStyle(.white)
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 15)
@@ -6925,7 +7308,7 @@ private struct SourceLabelPrompt: View {
                             .rotationEffect(.degrees(-1))
 
                         Text("AMEN values your authentic voice.\nIf this isn't fully your own writing, label it so your community knows.")
-                            .font(.custom("OpenSans-Regular", size: 14))
+                            .font(AMENFont.regular(14))
                             .foregroundStyle(Color.secondary)
                             .multilineTextAlignment(.center)
                             .lineSpacing(3)
@@ -6940,7 +7323,7 @@ private struct SourceLabelPrompt: View {
                                 .font(.system(size: 10, weight: .bold))
                                 .foregroundStyle(Color(red: 0.20, green: 0.40, blue: 0.80))
                             Text("source label")
-                                .font(.custom("OpenSans-Bold", size: 10))
+                                .font(AMENFont.bold(10))
                                 .foregroundStyle(Color(red: 0.20, green: 0.40, blue: 0.80))
                                 .textCase(.uppercase)
                                 .kerning(0.8)
@@ -6988,7 +7371,7 @@ private struct SourceLabelPrompt: View {
                             .font(.system(size: 11))
                             .foregroundStyle(Color.secondary)
                         Text("Your post will show a \"via \(selectedSource)\" label")
-                            .font(.custom("OpenSans-Regular", size: 12))
+                            .font(AMENFont.regular(12))
                             .foregroundStyle(Color.secondary)
                     }
                     .padding(.horizontal, 16)
@@ -7008,7 +7391,7 @@ private struct SourceLabelPrompt: View {
                                 Image(systemName: "paperplane.fill")
                                     .font(.system(size: 14, weight: .semibold))
                                 Text("Post with source label")
-                                    .font(.custom("OpenSans-Bold", size: 15))
+                                    .font(AMENFont.bold(15))
                             }
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
@@ -7039,7 +7422,7 @@ private struct SourceLabelPrompt: View {
                                 Image(systemName: "pencil")
                                     .font(.system(size: 13, weight: .semibold))
                                 Text("Write it myself")
-                                    .font(.custom("OpenSans-Bold", size: 15))
+                                    .font(AMENFont.bold(15))
                             }
                             .foregroundStyle(Color.primary)
                             .frame(maxWidth: .infinity)
@@ -7115,10 +7498,10 @@ struct PostAudienceSheet: View {
                 // Header description
                 VStack(spacing: 6) {
                     Text("Who can see this post?")
-                        .font(.custom("OpenSans-Bold", size: 17))
+                        .font(AMENFont.bold(17))
                         .foregroundStyle(.primary)
                     Text("Choose who will be able to view and interact with your post.")
-                        .font(.custom("OpenSans-Regular", size: 13))
+                        .font(AMENFont.regular(13))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 24)
@@ -7144,10 +7527,10 @@ struct PostAudienceSheet: View {
 
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(option.displayName)
-                                        .font(.custom("OpenSans-SemiBold", size: 15))
+                                        .font(AMENFont.semiBold(15))
                                         .foregroundStyle(.primary)
                                     Text(option.audienceDescription)
-                                        .font(.custom("OpenSans-Regular", size: 12))
+                                        .font(AMENFont.regular(12))
                                         .foregroundStyle(.secondary)
                                 }
 
@@ -7182,7 +7565,7 @@ struct PostAudienceSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
-                        .font(.custom("OpenSans-Regular", size: 16))
+                        .font(AMENFont.regular(16))
                 }
             }
         }
@@ -7234,7 +7617,7 @@ struct PostVersePickerSheet: View {
                             .foregroundStyle(.secondary)
                             .font(.system(size: 16))
                         TextField("Search a verse or type reference (e.g. John 3:16)", text: $searchQuery)
-                            .font(.custom("OpenSans-Regular", size: 15))
+                            .font(AMENFont.regular(15))
                             .focused($searchFocused)
                             .autocorrectionDisabled()
                             .submitLabel(.search)
@@ -7270,7 +7653,7 @@ struct PostVersePickerSheet: View {
                                     if !searchQuery.isEmpty { triggerSearch() }
                                 } label: {
                                     Text(version.rawValue.uppercased())
-                                        .font(.custom("OpenSans-SemiBold", size: 12))
+                                        .font(AMENFont.semiBold(12))
                                         .padding(.horizontal, 12)
                                         .padding(.vertical, 6)
                                         .background(
@@ -7301,7 +7684,7 @@ struct PostVersePickerSheet: View {
                                 Image(systemName: "exclamationmark.circle")
                                     .foregroundStyle(.orange)
                                 Text(error)
-                                    .font(.custom("OpenSans-Regular", size: 14))
+                                    .font(AMENFont.regular(14))
                                     .foregroundStyle(.secondary)
                             }
                             .padding(16)
@@ -7325,11 +7708,11 @@ struct PostVersePickerSheet: View {
 
                                             VStack(alignment: .leading, spacing: 4) {
                                                 Text(passage.reference)
-                                                    .font(.custom("OpenSans-SemiBold", size: 15))
+                                                    .font(AMENFont.semiBold(15))
                                                     .foregroundStyle(.primary)
                                                 if !passage.text.isEmpty {
                                                     Text(passage.text)
-                                                        .font(.custom("OpenSans-Regular", size: 13))
+                                                        .font(AMENFont.regular(13))
                                                         .foregroundStyle(.secondary)
                                                         .lineLimit(3)
                                                         .italic()
@@ -7359,7 +7742,7 @@ struct PostVersePickerSheet: View {
                                     .font(.system(size: 40))
                                     .foregroundStyle(Color.indigo.opacity(0.4))
                                 Text("Search by keyword or reference")
-                                    .font(.custom("OpenSans-SemiBold", size: 16))
+                                    .font(AMENFont.semiBold(16))
                                     .foregroundStyle(.primary)
                                 VStack(spacing: 6) {
                                     ForEach(["\"strength\"", "\"peace\"", "\"Philippians 4:13\"", "\"John 3:16\""], id: \.self) { hint in
@@ -7368,7 +7751,7 @@ struct PostVersePickerSheet: View {
                                             triggerSearch()
                                         } label: {
                                             Text(hint)
-                                                .font(.custom("OpenSans-Regular", size: 14))
+                                                .font(AMENFont.regular(14))
                                                 .foregroundStyle(.indigo)
                                                 .padding(.horizontal, 14)
                                                 .padding(.vertical, 6)
@@ -7390,7 +7773,7 @@ struct PostVersePickerSheet: View {
                                     .font(.system(size: 32))
                                     .foregroundStyle(.secondary.opacity(0.5))
                                 Text("No results for \"\(searchQuery)\"")
-                                    .font(.custom("OpenSans-Regular", size: 15))
+                                    .font(AMENFont.regular(15))
                                     .foregroundStyle(.secondary)
                             }
                             .frame(maxWidth: .infinity)
@@ -7401,7 +7784,7 @@ struct PostVersePickerSheet: View {
                         if !selectedReference.isEmpty {
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("Selected Verse")
-                                    .font(.custom("OpenSans-SemiBold", size: 13))
+                                    .font(AMENFont.semiBold(13))
                                     .foregroundStyle(.secondary)
                                     .padding(.horizontal, 16)
 
@@ -7411,16 +7794,16 @@ struct PostVersePickerSheet: View {
                                             .font(.system(size: 12))
                                             .foregroundStyle(.indigo)
                                         Text(selectedReference)
-                                            .font(.custom("OpenSans-Bold", size: 13))
+                                            .font(AMENFont.bold(13))
                                             .foregroundStyle(.indigo)
                                         Spacer()
                                         Text(selectedVersion.rawValue.uppercased())
-                                            .font(.custom("OpenSans-Regular", size: 11))
+                                            .font(AMENFont.regular(11))
                                             .foregroundStyle(Color.indigo.opacity(0.7))
                                     }
                                     if !selectedText.isEmpty {
                                         Text(selectedText)
-                                            .font(.custom("OpenSans-Regular", size: 13))
+                                            .font(AMENFont.regular(13))
                                             .foregroundStyle(.primary)
                                             .italic()
                                     }
@@ -7443,7 +7826,7 @@ struct PostVersePickerSheet: View {
                                     selectedText = ""
                                 } label: {
                                     Label("Remove", systemImage: "trash")
-                                        .font(.custom("OpenSans-Regular", size: 13))
+                                        .font(AMENFont.regular(13))
                                 }
                                 .padding(.horizontal, 16)
                                 .padding(.bottom, 8)
@@ -7459,7 +7842,7 @@ struct PostVersePickerSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { isPresented = false }
-                        .font(.custom("OpenSans-Regular", size: 16))
+                        .font(AMENFont.regular(16))
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Attach") {
@@ -7467,7 +7850,7 @@ struct PostVersePickerSheet: View {
                         verseText = selectedText
                         isPresented = false
                     }
-                    .font(.custom("OpenSans-SemiBold", size: 16))
+                    .font(AMENFont.semiBold(16))
                     .disabled(selectedReference.isEmpty)
                 }
             }
@@ -7557,7 +7940,7 @@ struct PostChurchTagSheet: View {
                         .foregroundStyle(.secondary)
                         .font(.system(size: 15))
                     TextField("Search churches by name", text: $searchText)
-                        .font(.custom("OpenSans-Regular", size: 15))
+                        .font(AMENFont.regular(15))
                         .focused($searchFocused)
                         .onChange(of: searchText) { _, newValue in
                             triggerSearch(query: newValue)
@@ -7592,9 +7975,9 @@ struct PostChurchTagSheet: View {
                                 .background(Circle().fill(Color.purple.opacity(0.1)))
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(taggedChurchName)
-                                    .font(.custom("OpenSans-SemiBold", size: 15))
+                                    .font(AMENFont.semiBold(15))
                                 Text("Currently tagged")
-                                    .font(.custom("OpenSans-Regular", size: 12))
+                                    .font(AMENFont.regular(12))
                                     .foregroundStyle(.secondary)
                             }
                             Spacer()
@@ -7604,7 +7987,7 @@ struct PostChurchTagSheet: View {
                                 isPresented = false
                             } label: {
                                 Text("Remove")
-                                    .font(.custom("OpenSans-Regular", size: 14))
+                                    .font(AMENFont.regular(14))
                             }
                         }
                         .padding(.horizontal, 20)
@@ -7618,7 +8001,7 @@ struct PostChurchTagSheet: View {
                             .font(.system(size: 32))
                             .foregroundStyle(Color(uiColor: .tertiaryLabel))
                         Text("Search for a church to tag")
-                            .font(.custom("OpenSans-Regular", size: 14))
+                            .font(AMENFont.regular(14))
                             .foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -7634,7 +8017,7 @@ struct PostChurchTagSheet: View {
                             .font(.system(size: 28))
                             .foregroundStyle(Color(uiColor: .tertiaryLabel))
                         Text("No churches found for \"\(searchText)\"")
-                            .font(.custom("OpenSans-Regular", size: 14))
+                            .font(AMENFont.regular(14))
                             .foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -7654,11 +8037,11 @@ struct PostChurchTagSheet: View {
                                     .background(Circle().fill(Color.purple.opacity(0.1)))
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(church.name)
-                                        .font(.custom("OpenSans-SemiBold", size: 14))
+                                        .font(AMENFont.semiBold(14))
                                         .foregroundStyle(.primary)
                                     if !church.city.isEmpty {
                                         Text(church.city)
-                                            .font(.custom("OpenSans-Regular", size: 12))
+                                            .font(AMENFont.regular(12))
                                             .foregroundStyle(.secondary)
                                     }
                                 }
@@ -7681,7 +8064,7 @@ struct PostChurchTagSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { isPresented = false }
-                        .font(.custom("OpenSans-Regular", size: 16))
+                        .font(AMENFont.regular(16))
                 }
             }
             .onAppear {
@@ -7726,3 +8109,9 @@ struct PostChurchTagSheet: View {
     }
 }
 
+
+
+private extension String {
+    /// Returns nil if the string is empty, otherwise returns self.
+    var nilIfEmpty: String? { isEmpty ? nil : self }
+}

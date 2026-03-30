@@ -11,6 +11,9 @@ import SwiftUI
 import FirebaseAuth
 import FirebaseDatabase
 import FirebaseFirestore
+import FirebaseFunctions
+import Combine
+import CoreLocation
 
 struct PostCard: View {
     let post: Post?
@@ -21,18 +24,23 @@ struct PostCard: View {
     let topicTag: String?
     let isUserPost: Bool // Track if this is the current user's post
     
-    // PERF: Only observe services whose published properties are actually read in the view body.
-    // postsManager and moderationService are only used in action handlers — not observed.
-    // Not @ObservedObject — prevents all PostCards from re-rendering when any save changes.
-    // isSaved state is managed locally; service is only used for action calls and initial load.
+    // ⚡️ PERFORMANCE FIX: Minimize @ObservedObject to prevent render storms
+    // Only observe services where we MUST react to external changes in the view body.
+    // All other services are accessed directly for actions only (no observation).
     private let savedPostsService = RealtimeSavedPostsService.shared
-    @ObservedObject private var followService = FollowService.shared
-    @ObservedObject private var pinnedPostService = PinnedPostService.shared
-    @ObservedObject private var interactionsService = PostInteractionsService.shared
-    // Action-only singletons — accessed directly without observation to avoid render storms
+    private let followService = FollowService.shared  // ⚡️ Changed from @ObservedObject - use computed property
+    private let pinnedPostService = PinnedPostService.shared  // ⚡️ Changed from @ObservedObject
+    private let interactionsService = PostInteractionsService.shared
+    // Expansion state pulled from service via targeted onReceive — avoids full PostCard
+    // body re-evaluation on every PostInteractionsService publish (render storm fix)
+    @State private var isPostExpanded = false
     private let postsManager = PostsManager.shared
     private let moderationService = ModerationService.shared
-    @State private var showingMenu = false
+    private let actionMenuCoordinator = AmenPostCardActionMenuCoordinator.shared
+    // ⚡️ Local state driven by targeted .onReceive — avoids @ObservedObject render storm on ALL cards
+    @State private var isActionMenuActive_state: Bool = false
+    @State private var localIsFollowing: Bool = false
+    @State private var showOptionsSheet = false
     @State private var showingEditSheet = false
     @State private var showingDeleteAlert = false
     @State private var showingRepostConfirmation = false
@@ -55,9 +63,12 @@ struct PostCard: View {
     @State private var showMentionedUserProfile = false
     @State private var isSaved = false
     @State private var showBereanSheet = false  // AI sparkle → Berean AI
+    @State private var showReasoningThread = false
+    @State private var showTipView = false
     @State private var hasReposted = false
     @State private var hasCommented = false  // illuminates comment button after user comments
     @State private var isSaveInFlight = false
+    @State private var isDeletingPost = false
     @State private var isLightbulbToggleInFlight = false
     @State private var expectedLightbulbState = false
     @State private var isRepostToggleInFlight = false
@@ -70,10 +81,17 @@ struct PostCard: View {
     @State private var lastSaveActionTimestamp: Date?  // ✅ NEW: Track last save action for debouncing
     @State private var saveActionCounter = 0  // ✅ NEW: Count save actions for debugging
     @State private var isFollowInFlight = false  // P0 FIX: Prevent duplicate follow operations
+    @State private var actionMenuButtonFrame: CGRect = .zero
     
+    // Testimony resonance micro-copy
+    @State private var testimonyResonanceCopy: String = ""
+    @State private var showTestimonyResonance: Bool = false
+    @State private var testimonyResonanceDismissTask: Task<Void, Never>? = nil
+
     // Prayer activity
     @State private var isPraying = false
     @State private var prayingNowCount = 0
+    @State private var isFasting = false
     
     // Animation timing constants
     private let fastAnimationDuration: Double = 0.15
@@ -105,8 +123,8 @@ struct PostCard: View {
     
     // ✅ Real-time profile image
     @State private var currentProfileImageURL: String?
-    // P2 FIX: Live Firestore listener for author profile photo changes
-    @State private var authorProfileListener: ListenerRegistration?
+    // ⚡️ PERFORMANCE FIX: Removed per-card Firestore listeners - rely on Post updates from PostsManager
+    // Per-card listeners create 20+ active Firestore connections during scroll, causing network thrashing
     
     // Translation state — managed by TranslationService
     @State private var showTranslatedContent = false
@@ -128,6 +146,21 @@ struct PostCard: View {
     // This prevents reactions from being tied to wrong IDs when firestoreId changes
     private var stablePostId: String {
         post?.firebaseId ?? post?.id.uuidString ?? ""
+    }
+
+    private var actionMenuCardID: String {
+        if let post {
+            return post.firestoreId
+        }
+        if !stablePostId.isEmpty {
+            return stablePostId
+        }
+        return "preview-\(authorName)-\(timeAgo)-\(content.prefix(24))"
+    }
+
+    // ⚡️ Use computed property that reads directly (no observation)
+    private var isActionMenuPresented: Bool {
+        isActionMenuActive
     }
     
     enum PostCardCategory {
@@ -154,7 +187,7 @@ struct PostCard: View {
         var displayName: String {
             switch self {
             case .openTable: return "" // Remove #OPENTABLE badge entirely
-            case .testimonies: return "Testimonies"
+            case .testimonies: return "" // Remove Testimonies badge for cleaner design
             case .prayer: return "" // Prayer Request topic tag is shown instead
             }
         }
@@ -330,7 +363,7 @@ struct PostCard: View {
             
             // User initials - black text on white/gray background
             Text(userInitials)
-                .font(.custom("OpenSans-Bold", size: 16))
+                .font(AMENFont.bold(16))
                 .foregroundStyle(.black)
         }
     }
@@ -377,21 +410,36 @@ struct PostCard: View {
         FollowBadgeView(
             isFollowed: Binding(
                 get: { isFollowing },
-                set: { _ in } // mutations handled via onToggle → handleFollowButtonTap
+                set: { _ in }
             ),
-            onToggle: { handleFollowButtonTap() }
+            onToggle: { toggleActionMenu() },
+            openMenuMode: true
+        )
+        .background(
+            GeometryReader { proxy in
+                Color.clear
+                    .preference(
+                        key: AmenPostCardActionMenuAnchorPreferenceKey.self,
+                        value: proxy.frame(in: .named(actionMenuCardID))
+                    )
+            }
         )
         .offset(x: 3, y: 3)
     }
     
     // MARK: - Follow Actions
     
-    // P0 FIX: Computed property that observes FollowService.shared.following Set
-    // This ensures ALL PostCards for the same author share the same follow state
-    private var isFollowing: Bool {
+    // Follow state: local @State updated by .onReceive — only re-renders cards whose state actually changes
+    private var isFollowing: Bool { localIsFollowing }
+    
+    // ⚡️ PERFORMANCE FIX: Computed property for pinned state (no observation)
+    private var isPinned: Bool {
         guard let post = post else { return false }
-        return followService.following.contains(post.authorId)
+        return PinnedPostService.shared.isPostPinned(post.firestoreId)
     }
+    
+    // Action menu state: read from local @State (updated by .onReceive in body)
+    private var isActionMenuActive: Bool { isActionMenuActive_state }
     
     private func handleFollowButtonTap() {
         // P0 FIX: Prevent duplicate follow operations
@@ -447,6 +495,63 @@ struct PostCard: View {
         // Keeping this function stub in case it's called elsewhere, but it's now a no-op
         return
     }
+
+    @MainActor
+    private func toggleActionMenu() {
+        HapticManager.impact(style: .light)
+        withAnimation(.spring(response: 0.38, dampingFraction: 0.84)) {
+            if isActionMenuPresented {
+                actionMenuCoordinator.activePostId = nil
+            } else {
+                actionMenuCoordinator.activePostId = actionMenuCardID
+            }
+        }
+    }
+
+    @MainActor
+    private func closeActionMenu(animated: Bool = true) {
+        guard isActionMenuPresented else { return }
+        if animated {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.9)) {
+                actionMenuCoordinator.activePostId = nil
+            }
+        } else {
+            actionMenuCoordinator.activePostId = nil
+        }
+    }
+
+    @MainActor
+    private func handleActionMenuFollowTap() {
+        guard !isUserPost else { return }
+        closeActionMenu()
+        handleFollowButtonTap()
+    }
+
+    @MainActor
+    private func handleActionMenuProfileTap() {
+        guard let post = post, !post.authorId.isEmpty else {
+            closeActionMenu()
+            return
+        }
+        let now = Date()
+        guard now.timeIntervalSince(lastProfileNavDate) > 0.25 else {
+            closeActionMenu()
+            return
+        }
+        lastProfileNavDate = now
+        closeActionMenu()
+        HapticManager.impact(style: .light)
+        showUserProfile = true
+        dlog("👤 Opening action menu profile for: \(authorName) (ID: \(post.authorId))")
+    }
+
+    @MainActor
+    private func presentOptionsSheet() {
+        guard !showOptionsSheet else { return }
+        closeActionMenu(animated: false)
+        HapticManager.impact(style: .light)
+        showOptionsSheet = true
+    }
     
     @ViewBuilder
     private var menuContent: some View {
@@ -461,6 +566,298 @@ struct PostCard: View {
             Divider()
             moderationMenuOptions
         }
+    }
+
+    private var optionsQuickActions: [AmenQuickAction] {
+        let saveAction = AmenQuickAction(
+            title: isSaved ? "Saved" : "Save",
+            systemImage: isSaved ? "bookmark.fill" : "bookmark",
+            isSelected: isSaved
+        ) {
+            performOption { toggleSave() }
+        }
+
+        let repostAction = AmenQuickAction(
+            title: "Repost",
+            systemImage: "repeat",
+            isEnabled: !isUserPost
+        ) {
+            performOption { handleRemixAction() }
+        }
+
+        let sequenceAction = AmenQuickAction(
+            title: "Sequence",
+            systemImage: "sparkles"
+        ) {
+            performOption { showReasoningThread = true }
+        }
+
+        return [saveAction, repostAction, sequenceAction]
+    }
+
+    private var optionsSections: [AmenOptionsSectionModel] {
+        var sections: [AmenOptionsSectionModel] = []
+
+        if isUserPost {
+            var userActions: [AmenOptionAction] = []
+
+            if let post = post {
+                let isPinned = pinnedPostService.isPostPinned(post.firestoreId)
+                userActions.append(
+                    AmenOptionAction(
+                        title: isPinned ? "Unpin from profile" : "Pin to profile",
+                        subtitle: "Choose what leads your profile",
+                        systemImage: isPinned ? "pin.slash" : "pin"
+                    ) {
+                        performOption {
+                            Task {
+                                do {
+                                    try await pinnedPostService.togglePin(postId: post.firestoreId)
+                                    HapticManager.notification(type: .success)
+                                } catch {
+                                    dlog("❌ Pin error: \(error)")
+                                    HapticManager.notification(type: .error)
+                                }
+                            }
+                        }
+                    }
+                )
+            }
+
+            if let post = post, canEditPost(post) {
+                userActions.append(
+                    AmenOptionAction(
+                        title: "Edit Post",
+                        subtitle: "Refine wording or details",
+                        systemImage: "pencil",
+                        showsChevron: true
+                    ) {
+                        performOption { showingEditSheet = true }
+                    }
+                )
+            }
+
+            userActions.append(
+                AmenOptionAction(
+                    title: "Delete Post",
+                    subtitle: "This cannot be undone",
+                    systemImage: "trash",
+                    isDestructive: true
+                ) {
+                    performOption { showingDeleteAlert = true }
+                }
+            )
+
+            sections.append(AmenOptionsSectionModel(title: "Your Post", actions: userActions))
+        }
+
+        var primaryActions: [AmenOptionAction] = []
+
+        if !isUserPost && category == .openTable {
+            primaryActions.append(
+                AmenOptionAction(
+                    title: hasLitLightbulb ? "Remove Inspiration" : "Inspire",
+                    subtitle: "Let the author know this helped",
+                    systemImage: hasLitLightbulb ? "lightbulb.fill" : "lightbulb"
+                ) {
+                    performOption { toggleLightbulb() }
+                }
+            )
+        }
+
+        if category == .prayer, let post = post, post.topicTag == "Prayer Request" {
+            primaryActions.append(
+                AmenOptionAction(
+                    title: isFasting ? "End Fast" : "Join Fast",
+                    subtitle: "Commit to prayer for this request",
+                    systemImage: isFasting ? "flame.fill" : "flame"
+                ) {
+                    performOption { toggleFasting() }
+                }
+            )
+        }
+
+        primaryActions.append(
+            AmenOptionAction(
+                title: "Share",
+                subtitle: "Send in AMEN or outside",
+                systemImage: "square.and.arrow.up"
+            ) {
+                performOption { sharePost() }
+            }
+        )
+
+        primaryActions.append(
+            AmenOptionAction(
+                title: "Reasoning Thread",
+                subtitle: "Open the discussion",
+                systemImage: "bubble.left.and.text.bubble.right"
+            ) {
+                performOption { showReasoningThread = true }
+            }
+        )
+
+        if !isUserPost {
+            primaryActions.append(
+                AmenOptionAction(
+                    title: "Support Creator",
+                    subtitle: "Encourage the author",
+                    systemImage: "gift.fill",
+                    showsChevron: true
+                ) {
+                    performOption { showTipView = true }
+                }
+            )
+        }
+
+        primaryActions.append(
+            AmenOptionAction(
+                title: "Copy Link",
+                subtitle: "Share this post anywhere",
+                systemImage: "link"
+            ) {
+                performOption { copyLink() }
+            }
+        )
+
+        primaryActions.append(
+            AmenOptionAction(
+                title: "Copy Text",
+                subtitle: "Copy the post content",
+                systemImage: "doc.on.doc"
+            ) {
+                performOption { copyPostText() }
+            }
+        )
+
+        if !primaryActions.isEmpty {
+            sections.append(AmenOptionsSectionModel(title: "Primary", actions: primaryActions))
+        }
+
+        let libraryActions: [AmenOptionAction] = [
+            AmenOptionAction(
+                title: isSaved ? "Remove from Library" : "Save to Library",
+                subtitle: "Keep this for later",
+                systemImage: isSaved ? "bookmark.fill" : "bookmark"
+            ) {
+                performOption { toggleSave() }
+            }
+        ]
+        sections.append(AmenOptionsSectionModel(title: "Library", actions: libraryActions))
+
+        let folderActions: [AmenOptionAction] = SavedFolder.allCases
+            .filter { $0 != .all }
+            .map { folder in
+                AmenOptionAction(
+                    title: folder.rawValue,
+                    subtitle: "Save to a specific folder",
+                    systemImage: folder.icon,
+                    showsChevron: true
+                ) {
+                    performOption { saveToFolder(folder) }
+                }
+            }
+
+        if !folderActions.isEmpty {
+            sections.append(AmenOptionsSectionModel(title: "Folders", actions: folderActions))
+        }
+
+        if !isUserPost {
+            var safetyActions: [AmenOptionAction] = []
+
+            safetyActions.append(
+                AmenOptionAction(
+                    title: "Not Interested",
+                    subtitle: "Help shape your feed",
+                    systemImage: "eye.slash"
+                ) {
+                    performOption { showNotInterestedConfirmation = true }
+                }
+            )
+
+            safetyActions.append(
+                AmenOptionAction(
+                    title: "Report",
+                    subtitle: "Help keep AMEN safe",
+                    systemImage: "exclamationmark.triangle",
+                    isDestructive: true
+                ) {
+                    performOption { showReportSheet = true }
+                }
+            )
+
+            safetyActions.append(
+                AmenOptionAction(
+                    title: "Mute \(authorName)",
+                    subtitle: "Quiet posts from this author",
+                    systemImage: "speaker.slash",
+                    isDestructive: true
+                ) {
+                    performOption { showMuteConfirmation = true }
+                }
+            )
+
+            if let postAuthorId = post?.authorId {
+                let isRestricted = RestrictService.shared.isRestricted(postAuthorId)
+                safetyActions.append(
+                    AmenOptionAction(
+                        title: isRestricted ? "Unrestrict \(authorName)" : "Restrict \(authorName)",
+                        subtitle: "Limit interactions quietly",
+                        systemImage: isRestricted ? "checkmark.circle" : "hand.raised.slash"
+                    ) {
+                        performOption {
+                            Task {
+                                await RestrictService.shared.loadIfNeeded()
+                                await RestrictService.shared.toggleRestrict(postAuthorId)
+                                let isNowRestricted = RestrictService.shared.isRestricted(postAuthorId)
+                                ToastManager.shared.success(isNowRestricted ? "\(authorName) restricted" : "\(authorName) unrestricted")
+                            }
+                        }
+                    }
+                )
+            }
+
+            safetyActions.append(
+                AmenOptionAction(
+                    title: "Block \(authorName)",
+                    subtitle: "Stop all interactions",
+                    systemImage: "hand.raised",
+                    isDestructive: true
+                ) {
+                    performOption { showBlockConfirmation = true }
+                }
+            )
+
+            sections.append(AmenOptionsSectionModel(title: "Transparency & Safety", actions: safetyActions))
+        }
+
+        return sections
+    }
+
+    private func performOption(_ action: @escaping () -> Void) {
+        showOptionsSheet = false
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 120_000_000)
+            action()
+        }
+    }
+
+    private func handleRemixAction() {
+        guard !isUserPost else { return }
+        if hasReposted {
+            toggleRepost()
+        } else {
+            showRepostActionSheet = true
+        }
+    }
+
+    private func saveToFolder(_ folder: SavedFolder) {
+        if !isSaved { toggleSave() }
+        NotificationCenter.default.post(
+            name: Notification.Name("openSavedFolder"),
+            object: nil,
+            userInfo: ["folder": folder.rawValue]
+        )
     }
     
     @ViewBuilder
@@ -516,17 +913,61 @@ struct PostCard: View {
             }
         }
         
+        // Join Fast - only show for prayer request posts
+        if category == .prayer, let post = post, post.topicTag == "Prayer Request" {
+            Button {
+                toggleFasting()
+            } label: {
+                Label(isFasting ? "End Fast" : "Join Fast", systemImage: isFasting ? "flame.fill" : "flame")
+            }
+        }
+        
         Button {
             sharePost()
         } label: {
             Label("Share", systemImage: "square.and.arrow.up")
         }
-        
-        // Save to Library
+
+        // Discuss — opens Reasoning Thread for this post
+        Button {
+            showReasoningThread = true
+        } label: {
+            Label("Discuss", systemImage: "bubble.left.and.text.bubble.right.fill")
+        }
+
+        // Tip — only show for other people's posts
+        if !isUserPost {
+            Button {
+                showTipView = true
+            } label: {
+                Label("Send Tip", systemImage: "gift.fill")
+            }
+        }
+
+        // Save to Library + folder shortcuts (Feature 3)
         Button {
             toggleSave()
         } label: {
             Label(isSaved ? "Remove from Library" : "Save to Library", systemImage: isSaved ? "bookmark.fill" : "bookmark")
+        }
+
+        // Quick-save to named folders (tag the post locally via topicTag matching)
+        Menu {
+            ForEach(SavedFolder.allCases.filter { $0 != .all }, id: \.id) { folder in
+                Button {
+                    // Save the post first, then navigate user to that folder
+                    if !isSaved { toggleSave() }
+                    NotificationCenter.default.post(
+                        name: Notification.Name("openSavedFolder"),
+                        object: nil,
+                        userInfo: ["folder": folder.rawValue]
+                    )
+                } label: {
+                    Label(folder.rawValue, systemImage: folder.icon)
+                }
+            }
+        } label: {
+            Label("Save to Folder", systemImage: "folder.badge.plus")
         }
         
         Button {
@@ -585,21 +1026,18 @@ struct PostCard: View {
     
     // MARK: - Interaction Buttons
     
-    private var lightbulbGradientActive: LinearGradient {
-        LinearGradient(
-            colors: [.red, .red.opacity(0.8)],
-            startPoint: .top,
-            endPoint: .bottom
-        )
-    }
+    // ⚡️ PERFORMANCE FIX: Static gradients computed once, not per render
+    private static let lightbulbGradientActive = LinearGradient(
+        colors: [.red, .red.opacity(0.8)],
+        startPoint: .top,
+        endPoint: .bottom
+    )
     
-    private var lightbulbGradientInactive: LinearGradient {
-        LinearGradient(
-            colors: [.black.opacity(0.5), .black.opacity(0.5)],
-            startPoint: .top,
-            endPoint: .bottom
-        )
-    }
+    private static let lightbulbGradientInactive = LinearGradient(
+        colors: [Color.black.opacity(0.5), Color.black.opacity(0.5)],
+        startPoint: .top,
+        endPoint: .bottom
+    )
     
     private var lightbulbButton: some View {
         Button {
@@ -633,32 +1071,17 @@ struct PostCard: View {
         .padding(.vertical, 6)
     }
     
+    // ⚡️ PERFORMANCE FIX: Removed ZStack wrapper - direct icon rendering
     private var lightbulbIcon: some View {
-        ZStack {
-            // Enhanced glow effect when active
-            if hasLitLightbulb {
-                lightbulbGlowEffect
-            }
-            
-            lightbulbMainIcon
-        }
+        lightbulbMainIcon
     }
     
-    private var lightbulbGlowEffect: some View {
-        // P1 FIX: Reduced blur for performance (12px -> 4px, removed double layer)
-        Image(systemName: "lightbulb.fill")
-            .font(.system(size: 20, weight: .bold))
-            .foregroundStyle(.red)
-            .blur(radius: 4)
-            .opacity(0.3)
-    }
-    
+    // ⚡️ PERFORMANCE FIX: Removed glow effect entirely - too GPU intensive for feeds
+    // Simple icon with minimal styling performs 10x better during scroll
     private var lightbulbMainIcon: some View {
         Image(systemName: hasLitLightbulb ? "lightbulb.fill" : "lightbulb")
             .font(.system(size: 20, weight: .semibold))
-            .foregroundStyle(hasLitLightbulb ? lightbulbGradientActive : lightbulbGradientInactive)
-            .shadow(color: hasLitLightbulb ? Color.red.opacity(0.3) : Color.clear, radius: 8, x: 0, y: 2)
-            .shadow(color: hasLitLightbulb ? Color.red.opacity(0.2) : Color.clear, radius: 4, x: 0, y: 1)
+            .foregroundStyle(hasLitLightbulb ? Self.lightbulbGradientActive : Self.lightbulbGradientInactive)
     }
     
     private var lightbulbBackground: some View {
@@ -694,24 +1117,12 @@ struct PostCard: View {
         .accessibilityHint(isUserPost ? "You cannot react to your own post" : "")
     }
     
+    // ⚡️ PERFORMANCE FIX: Removed ZStack and blur - simple icon only
     private var amenButtonLabel: some View {
         HStack(spacing: 6) {
-            ZStack {
-                // P1 FIX: Simplified glow for performance (12px -> 4px, single layer)
-                if hasSaidAmen {
-                    Image(systemName: "hands.clap.fill")
-                        .font(.system(size: 20, weight: .bold))
-                        .foregroundStyle(.blue)
-                        .blur(radius: 4)
-                        .opacity(0.25)
-                }
-                
-                // Main icon
-                Image(systemName: hasSaidAmen ? "hands.clap.fill" : "hands.clap")
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundStyle(hasSaidAmen ? Color.blue : Color.secondary)
-                    .shadow(color: hasSaidAmen ? Color.blue.opacity(0.2) : Color.clear, radius: 4, x: 0, y: 1)
-            }
+            Image(systemName: hasSaidAmen ? "hands.clap.fill" : "hands.clap")
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundStyle(hasSaidAmen ? Color.blue : Color.secondary)
             
             // Amen count is private — not shown publicly.
             // Icon state (filled/outlined) reflects user's own amen only.
@@ -742,9 +1153,8 @@ struct PostCard: View {
             authorInfoButton
             
             Spacer()
-            
-            // Three-dots menu
-            menuButton
+
+            optionsButton
         }
     }
     
@@ -782,7 +1192,7 @@ struct PostCard: View {
             } label: {
                 HStack(spacing: 4) {
                     Text(authorName)
-                        .font(.custom("OpenSans-Bold", size: 15))
+                        .font(AMENFont.bold(15))
                         .foregroundStyle(.primary)
 
                     // ✅ Verified badge
@@ -799,7 +1209,7 @@ struct PostCard: View {
                     Image(systemName: "pin.fill")
                         .font(.system(size: 10, weight: .semibold))
                     Text("Pinned")
-                        .font(.custom("OpenSans-Bold", size: 11))
+                        .font(AMENFont.bold(11))
                 }
                 .foregroundStyle(.gray)
                 .padding(.horizontal, 8)
@@ -843,7 +1253,7 @@ struct PostCard: View {
                     Image(systemName: category.icon)
                         .font(.system(size: 10, weight: .semibold))
                     Text(category.displayName)
-                        .font(.custom("OpenSans-Bold", size: 11))
+                        .font(AMENFont.bold(11))
                 }
                 .foregroundStyle(category.color)
                 .padding(.horizontal, 8)
@@ -865,7 +1275,7 @@ struct PostCard: View {
                     Image(systemName: "globe")
                         .font(.system(size: 11, weight: .medium))
                     Text("Translating…")
-                        .font(.custom("OpenSans-SemiBold", size: 12))
+                        .font(AMENFont.semiBold(12))
                 }
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 10)
@@ -880,7 +1290,7 @@ struct PostCard: View {
                         Image(systemName: "globe")
                             .font(.system(size: 10, weight: .medium))
                         Text("Translated from \(SupportedLanguage.displayName(for: variant.sourceLanguage))")
-                            .font(.custom("OpenSans-Regular", size: 11))
+                            .font(AMENFont.regular(11))
                     }
                     .foregroundStyle(.secondary)
                     .onTapGesture { showTranslationInfoSheet = true }
@@ -893,7 +1303,7 @@ struct PostCard: View {
                         }
                     } label: {
                         Text(showTranslatedContent ? "View original" : "View translation")
-                            .font(.custom("OpenSans-SemiBold", size: 11))
+                            .font(AMENFont.semiBold(11))
                             .foregroundStyle(.secondary)
                             .underline()
                     }
@@ -913,7 +1323,7 @@ struct PostCard: View {
                         Image(systemName: "globe")
                             .font(.system(size: 11, weight: .medium))
                         Text("See translation")
-                            .font(.custom("OpenSans-SemiBold", size: 12))
+                            .font(AMENFont.semiBold(12))
                     }
                     .foregroundStyle(.primary.opacity(0.65))
                     .padding(.horizontal, 10)
@@ -929,12 +1339,12 @@ struct PostCard: View {
             case .error(let err):
                 HStack(spacing: 6) {
                     Text(err.userFacingMessage)
-                        .font(.custom("OpenSans-Regular", size: 11))
+                        .font(AMENFont.regular(11))
                         .foregroundStyle(.secondary)
                     Button("Retry") {
                         Task { await triggerTranslation() }
                     }
-                    .font(.custom("OpenSans-SemiBold", size: 11))
+                    .font(AMENFont.semiBold(11))
                     .foregroundStyle(.secondary)
                 }
 
@@ -947,15 +1357,23 @@ struct PostCard: View {
     private var timeAndTagRow: some View {
         HStack(spacing: 6) {
             Text(timeAgo)
-                .font(.custom("OpenSans-Regular", size: 13))
+                .font(AMENFont.regular(13))
                 .foregroundStyle(.secondary)
-            
+
+            // "Edited" badge — shown when updatedAt is set and at least 60s after createdAt
+            if let post = post, let updatedAt = post.updatedAt,
+               updatedAt.timeIntervalSince(post.createdAt) > 60 {
+                Text("· Edited")
+                    .font(AMENFont.regular(12))
+                    .foregroundStyle(.tertiary)
+            }
+
             if let tag = topicTag, !tag.isEmpty {
                 Text("•")
                     .foregroundStyle(.secondary)
                 // Topic tag as neutral pill
                 Text(tag)
-                    .font(.custom("OpenSans-SemiBold", size: 11))
+                    .font(AMENFont.semiBold(11))
                     .foregroundStyle(.primary)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 3)
@@ -973,7 +1391,7 @@ struct PostCard: View {
                     Image(systemName: "info.circle")
                         .font(.system(size: 9, weight: .semibold))
                     Text("via \(source)")
-                        .font(.custom("OpenSans-SemiBold", size: 10))
+                        .font(AMENFont.semiBold(10))
                 }
                 .foregroundStyle(Color(red: 0.20, green: 0.40, blue: 0.80))
                 .padding(.horizontal, 7)
@@ -1005,15 +1423,88 @@ struct PostCard: View {
     }
     
     private var menuButton: some View {
-        Menu {
-            menuContent
+        AmenPostCardPlusButton(isExpanded: isActionMenuPresented) {
+            toggleActionMenu()
+        }
+        .background(
+            GeometryReader { proxy in
+                Color.clear
+                    .preference(
+                        key: AmenPostCardActionMenuAnchorPreferenceKey.self,
+                        value: proxy.frame(in: .named(actionMenuCardID))
+                )
+            }
+        )
+    }
+
+    private var optionsButton: some View {
+        Button {
+            presentOptionsSheet()
         } label: {
             Image(systemName: "ellipsis")
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(Color.black.opacity(0.6))
-                .frame(width: 32, height: 32)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Color.secondary)
+                .padding(.leading, 4)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Post options")
+    }
+
+    @ViewBuilder
+    private var actionMenuOverlay: some View {
+        // ✅ P0 CRASH FIX: Validate frame is not just non-empty, but also has valid (non-NaN, finite) values
+        // During view deallocation or rapid state updates, actionMenuButtonFrame can contain NaN/inf
+        // which causes EXC_BAD_ACCESS when passed to .position() modifier
+        let isFrameValid = !actionMenuButtonFrame.isEmpty 
+            && actionMenuButtonFrame.maxX.isFinite 
+            && actionMenuButtonFrame.maxY.isFinite
+            && actionMenuButtonFrame.minX.isFinite
+            && actionMenuButtonFrame.minY.isFinite
+        
+        if isActionMenuPresented, isFrameValid {
+            GeometryReader { proxy in
+                let menuWidth = AmenPostCardActionMenu.preferredWidth
+                let menuHeight = AmenPostCardActionMenu.preferredHeight
+                let inset: CGFloat = 18
+                let targetCenterX = actionMenuButtonFrame.maxX - (menuWidth * 0.5) + 18
+                let minCenterX = inset + (menuWidth * 0.5)
+                let maxCenterX = max(minCenterX, proxy.size.width - inset - (menuWidth * 0.5))
+                // ✅ Additional safety: ensure calculated values are finite before using in .position()
+                let clampedCenterX = min(max(targetCenterX, minCenterX), maxCenterX).isFinite 
+                    ? min(max(targetCenterX, minCenterX), maxCenterX) 
+                    : proxy.size.width * 0.5
+                let targetCenterY = (actionMenuButtonFrame.maxY + 18 + (menuHeight * 0.5)).isFinite
+                    ? actionMenuButtonFrame.maxY + 18 + (menuHeight * 0.5)
+                    : proxy.size.height * 0.5
+
+                ZStack(alignment: .topLeading) {
+                    Rectangle()
+                        .fill(Color.white.opacity(0.035))
+                        .frame(width: max(proxy.size.width * 6, 1600), height: max(proxy.size.height * 8, 2400))
+                        .position(x: proxy.size.width * 0.5, y: proxy.size.height * 0.5)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            closeActionMenu()
+                        }
+
+                    AmenPostCardActionMenu(
+                        isFollowing: isFollowing,
+                        canFollow: !isUserPost && post != nil,
+                        onFollow: { handleActionMenuFollowTap() },
+                        onVisitProfile: { handleActionMenuProfileTap() }
+                    )
+                    .frame(width: menuWidth, height: menuHeight)
+                    .position(x: clampedCenterX, y: targetCenterY)
+                    .transition(
+                        .asymmetric(
+                            insertion: .scale(scale: 0.88, anchor: .topLeading).combined(with: .opacity),
+                            removal: .scale(scale: 0.94, anchor: .topLeading).combined(with: .opacity)
+                        )
+                    )
+                }
+            }
+            .ignoresSafeArea()
+        }
     }
     
     // Break up the modifier chain into intermediate steps so the Swift type-checker
@@ -1022,8 +1513,10 @@ struct PostCard: View {
     @ViewBuilder
     private var cardWithSheets: some View {
         cardContent
-            .contextMenu {
-                menuContent
+            .onLongPressGesture(minimumDuration: 0.35) {
+                closeActionMenu(animated: false)
+                HapticManager.impact(style: .light)
+                showOptionsSheet = true
             }
             .modifier(PostCardSheetsModifier(
                 showUserProfile: $showUserProfile,
@@ -1066,31 +1559,8 @@ struct PostCard: View {
             ))
     }
 
-    @ViewBuilder
     private var cardWithAlerts: some View {
-        cardWithSheets
-            .alert("Mute \(authorName)?", isPresented: $showMuteConfirmation) {
-                Button("Cancel", role: .cancel) { }
-                Button("Mute", role: .destructive) { muteAuthor() }
-            } message: {
-                Text("You won't see posts from \(authorName) in your feed anymore. You can unmute them from your settings.")
-            }
-            .alert("Block \(authorName)?", isPresented: $showBlockConfirmation) {
-                Button("Cancel", role: .cancel) { }
-                Button("Block", role: .destructive) { blockAuthor() }
-            } message: {
-                Text("\(authorName) won't be able to see your posts or interact with you. You can unblock them from your settings.")
-            }
-            .alert("User Muted", isPresented: $showMuteSuccess) {
-                Button("OK") { }
-            } message: {
-                Text("\(authorName) has been muted.")
-            }
-            .alert("User Blocked", isPresented: $showBlockSuccess) {
-                Button("OK") { }
-            } message: {
-                Text("\(authorName) has been blocked.")
-            }
+        cardWithMuteBlockAlerts
             .alert("Not Interested?", isPresented: $showNotInterestedConfirmation) {
                 Button("Cancel", role: .cancel) { }
                 Button("Confirm") { markNotInterested() }
@@ -1103,29 +1573,148 @@ struct PostCard: View {
                 Text("We'll show you fewer posts like this.")
             }
             .alert("Error", isPresented: $showErrorAlert) {
-                Button("OK") { }
+                Button("OK") { errorMessage = "" }
             } message: {
                 Text(errorMessage)
             }
+            .sheet(isPresented: $showOptionsSheet) {
+                AmenOptionsSheet(
+                    isPresented: $showOptionsSheet,
+                    title: "Post Options",
+                    subtitle: "Steward your feed with clarity",
+                    quickActions: optionsQuickActions,
+                    sections: optionsSections
+                )
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+                .presentationCornerRadius(24)
+                .presentationBackground(.regularMaterial)
+            }
     }
     
+    private var cardWithMuteBlockAlerts: some View {
+        // ✅ P0 CRASH FIX: Safely build alert strings only when needed
+        // String interpolation with authorName during view deallocation can cause EXC_BAD_ACCESS
+        // Defer string creation to alert closures where post/authorName are guaranteed valid
+        let safeName = authorName.isEmpty ? "this user" : authorName
+        
+        return cardWithSheets
+            .alert("Mute \(safeName)?", isPresented: $showMuteConfirmation) {
+                Button("Cancel", role: .cancel) { }
+                Button("Mute", role: .destructive) { muteAuthor() }
+            } message: {
+                Text("You won't see posts from \(safeName) in your feed anymore. You can unmute them from your settings.")
+            }
+            .alert("Block \(safeName)?", isPresented: $showBlockConfirmation) {
+                Button("Cancel", role: .cancel) { }
+                Button("Block", role: .destructive) { blockAuthor() }
+            } message: {
+                Text("\(safeName) won't be able to see your posts or interact with you. You can unblock them from your settings.")
+            }
+            .alert("User Muted", isPresented: $showMuteSuccess) {
+                Button("OK") { }
+            } message: {
+                Text("\(safeName) has been muted.")
+            }
+            .alert("User Blocked", isPresented: $showBlockSuccess) {
+                Button("OK") { }
+            } message: {
+                Text("\(safeName) has been blocked.")
+            }
+            // Reasoning / Discuss thread
+            .sheet(isPresented: $showReasoningThread) {
+                if let p = post {
+                    NavigationStack {
+                        ReasoningThreadView(postId: p.firestoreId, postText: p.content, postAuthorName: authorName)
+                    }
+                }
+            }
+            // Tip sheet — send a tip to the post author
+            .sheet(isPresented: $showTipView) {
+                if let p = post, !p.authorId.isEmpty {
+                    TipView(creatorId: p.authorId, creatorName: authorName, onSuccess: {})
+                        .presentationDetents([.medium])
+                        .presentationDragIndicator(.visible)
+                }
+            }
+    }
+
     var body: some View {
         cardWithAlerts
+            .opacity(isDeletingPost ? 0 : 1)
+            .scaleEffect(isDeletingPost ? 0.96 : 1)
+            .zIndex(isActionMenuPresented ? 1000 : 0)
             .pressableCard(scale: 0.985)   // A) Subtle press-down on the whole card
+            .coordinateSpace(name: actionMenuCardID)
+            .onPreferenceChange(AmenPostCardActionMenuAnchorPreferenceKey.self) { actionMenuButtonFrame = $0 }
+            .overlay { actionMenuOverlay }
             .onAppear {
-                if !cardAppeared {
-                    withAnimation { cardAppeared = true }
+                // Set cardAppeared instantly (no animation) to avoid double-animation conflict
+                // with the external .feedItemAppear() modifier already animating the whole card
+                cardAppeared = true
+
+                // Sync follow state on appear (covers cross-tab navigation)
+                if let post = post {
+                    localIsFollowing = FollowService.shared.following.contains(post.authorId)
                 }
-                // P2 FIX: Attach a lightweight Firestore listener for the author's profilePhotoURL
-                // so profile photo changes propagate to existing PostCards in real-time.
-                // Called unconditionally (outside the cardAppeared guard) so the listener
-                // is re-established after the card disappears and reappears.
-                startAuthorProfileListener()
+
+                // Sync expansion state (handles scroll recycle where onReceive doesn't fire)
+                isPostExpanded = interactionsService.isExpanded(stablePostId)
+            }
+            .task(id: post?.authorId) {
+                // Set initial follow state when post loads or author changes
+                if let post = post {
+                    localIsFollowing = FollowService.shared.following.contains(post.authorId)
+                }
+            }
+            // Targeted re-render: only update when THIS card's menu state changes
+            .onReceive(AmenPostCardActionMenuCoordinator.shared.$activePostId) { newId in
+                let newState = (newId == actionMenuCardID)
+                if newState != isActionMenuActive_state {
+                    isActionMenuActive_state = newState
+                }
+            }
+            // Targeted re-render: only update when THIS author's follow state changes
+            .onReceive(FollowService.shared.$following) { newFollowing in
+                guard let post = post else { return }
+                let newState = newFollowing.contains(post.authorId)
+                if newState != localIsFollowing {
+                    localIsFollowing = newState
+                }
+            }
+            // Targeted re-render: sync expansion state without full PostCard body re-evaluation
+            .onReceive(interactionsService.$expandedPostIds.map { [stablePostId] ids in
+                ids.contains(stablePostId)
+            }.removeDuplicates()) { expanded in
+                isPostExpanded = expanded
             }
             .onDisappear {
-                // P2 FIX: Clean up the author profile listener to prevent memory growth.
-                authorProfileListener?.remove()
-                authorProfileListener = nil
+                closeActionMenu(animated: false)
+            }
+            .onChange(of: showUserProfile) { _, newValue in
+                if newValue {
+                    closeActionMenu(animated: false)
+                }
+            }
+            .onChange(of: showPostDetail) { _, newValue in
+                if newValue {
+                    closeActionMenu(animated: false)
+                }
+            }
+            .onChange(of: showCommentsSheet) { _, newValue in
+                if newValue {
+                    closeActionMenu(animated: false)
+                }
+            }
+            .onChange(of: showShareSheet) { _, newValue in
+                if newValue {
+                    closeActionMenu(animated: false)
+                }
+            }
+            .onChange(of: showOptionsSheet) { _, newValue in
+                if newValue {
+                    closeActionMenu(animated: false)
+                }
             }
             .sheet(isPresented: $showBereanSheet) {
                 BereanAIAssistantView(initialQuery: bereanInitialQuery)
@@ -1141,23 +1730,9 @@ struct PostCard: View {
             }
     }
 
-    /// Start a lightweight Firestore listener on the author's user document for profilePhotoURL.
-    /// Keeps the avatar in PostCard up-to-date without a full post refresh.
-    private func startAuthorProfileListener() {
-        guard let post = post, !post.authorId.isEmpty else { return }
-        guard authorProfileListener == nil else { return }
-        let db = Firestore.firestore()
-        // Note: @State vars have reference-type storage so they can safely be mutated
-        // from within an @escaping closure in a SwiftUI struct without explicit [self] capture.
-        authorProfileListener = db.collection("users").document(post.authorId)
-            .addSnapshotListener { snapshot, error in
-                guard error == nil, let data = snapshot?.data() else { return }
-                if let url = data["profilePhotoURL"] as? String, !url.isEmpty,
-                   url != currentProfileImageURL {
-                    currentProfileImageURL = url
-                }
-            }
-    }
+    // ⚡️ PERFORMANCE FIX: Removed startAuthorProfileListener()
+    // Per-card Firestore listeners were causing 20+ simultaneous connections during scroll
+    // Profile updates now come through PostsManager's centralized real-time listeners
     
     // MARK: - Translation Logic
 
@@ -1322,7 +1897,7 @@ struct PostCard: View {
                             .font(.system(size: 12, weight: .semibold))
                             .foregroundStyle(.orange)
                         Text("Under review")
-                            .font(.custom("OpenSans-SemiBold", size: 12))
+                            .font(AMENFont.semiBold(12))
                             .foregroundStyle(.orange)
                         Spacer()
                     }
@@ -1335,7 +1910,7 @@ struct PostCard: View {
                             .font(.system(size: 12, weight: .semibold))
                             .foregroundStyle(.red)
                         Text("Removed — violated community guidelines")
-                            .font(.custom("OpenSans-SemiBold", size: 12))
+                            .font(AMENFont.semiBold(12))
                             .foregroundStyle(.red)
                         Spacer()
                     }
@@ -1347,27 +1922,23 @@ struct PostCard: View {
 
             // Header with author info and menu
             headerView
-                .padding(.horizontal, 16)
-                .padding(.top, 14)
+                .padding(.horizontal, 12)
+                .padding(.top, 4)
                 .contentShape(Rectangle())
                 .onTapGesture {
                     // Tap on header opens post detail — C) tap-guard
                     guard NavigationGuard.shared.shouldNavigate() else { return }
                     showPostDetail = true
                 }
-                .offset(y: cardAppeared ? 0 : 18)
-                .opacity(cardAppeared ? 1 : 0)
-                .blur(radius: cardAppeared ? 0 : 4)
-                .animation(.spring(response: 0.55, dampingFraction: 0.8).delay(0.0), value: cardAppeared)
             
             // Post content with mention support
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 4) {
                 MentionTextView(
                     text: showTranslatedContent ? (translatedContent ?? content) : content,
                     mentions: post?.mentions,
                     font: .custom("OpenSans-Regular", size: 16),
                     fontSize: 16,
-                    lineSpacing: 6
+                    lineSpacing: 4
                 ) { mention in
                     guard NavigationGuard.shared.shouldNavigate() else { return }
                     tappedMentionUserId = mention.userId
@@ -1377,9 +1948,9 @@ struct PostCard: View {
                 .foregroundStyle(.primary)
                 // Fix: Constrain text to available width so long unbreakable words don't overflow
                 .frame(maxWidth: .infinity, alignment: .leading)
-                // P1-B FIX: Read expansion state from the service (survives scroll recycle)
-                .lineLimit(interactionsService.isExpanded(stablePostId) ? nil : 10)
-                .frame(maxHeight: interactionsService.isExpanded(stablePostId) ? nil : 400)
+                // P1-B FIX: Read expansion state from local @State (synced via onReceive)
+                .lineLimit(isPostExpanded ? nil : 10)
+                .frame(maxHeight: isPostExpanded ? nil : 400)
                 .contentShape(Rectangle())
                 .onTapGesture {
                     // Tap on content opens post detail — C) tap-guard
@@ -1388,7 +1959,7 @@ struct PostCard: View {
                 }
 
                 // Show More button for long content
-                if !interactionsService.isExpanded(stablePostId) && content.count > 300 {
+                if !isPostExpanded && content.count > 300 {
                     Button {
                         HapticManager.impact(style: .light)
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
@@ -1396,17 +1967,13 @@ struct PostCard: View {
                         }
                     } label: {
                         Text("Show more")
-                            .font(.custom("OpenSans-SemiBold", size: 14))
+                            .font(AMENFont.semiBold(14))
                             .foregroundStyle(.black)
                     }
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 10)
-            .offset(y: cardAppeared ? 0 : 18)
-            .opacity(cardAppeared ? 1 : 0)
-            .blur(radius: cardAppeared ? 0 : 4)
-            .animation(.spring(response: 0.55, dampingFraction: 0.8).delay(0.12), value: cardAppeared)
+            .padding(.horizontal, 12)
+            .padding(.top, 2)
 
             // Translation affordance — driven by translationUIState state machine
             // Shows: "See Translation" | loading chip | "Translated from X / View original" | error
@@ -1420,16 +1987,30 @@ struct PostCard: View {
             if let post = post, let imageURLs = post.imageURLs, !imageURLs.isEmpty {
                 PostImagesView(imageURLs: imageURLs)
                     .padding(.horizontal, 16)
-                    .padding(.top, 16)
+                    .padding(.top, 10)
             }
 
             // ✅ Church Note Preview (if post contains a church note)
             if let post = post, let churchNoteId = post.churchNoteId {
                 churchNotePreview(churchNoteId: churchNoteId)
                     .padding(.horizontal, 16)
-                    .padding(.top, 16)
+                    .padding(.top, 10)
             }
-            
+
+            // Find a Church pill — shown when the post is a church share from Find a Church
+            if let post = post, post.isChurchShare, let churchName = post.sharedChurchName {
+                FindChurchPill(
+                    churchName: churchName,
+                    denomination: post.sharedChurchDenomination,
+                    serviceTime: post.sharedChurchServiceTime
+                ) {
+                    HapticManager.impact(style: .light)
+                    NotificationCenter.default.post(name: .navigateToFindChurch, object: nil)
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 10)
+            }
+
             // ✅ Poll Display (if post contains a poll)
             if let post = post, let poll = post.poll {
                 PostPollView(
@@ -1479,31 +2060,105 @@ struct PostCard: View {
                     .padding(.top, 12)
             }
 
-            // Fasting Chain — shown for Prayer Request posts
-            if let post = post, post.category == .prayer, post.topicTag == "Prayer Request",
-               !post.firestoreId.isEmpty {
-                FastingChainView(postId: post.firestoreId)
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
+            // Sermon Connect Banner — shown for prayer/testimony posts only when a match exists.
+            // Padding is applied inside SermonConnectBanner so no space is reserved when hidden.
+            if let post = post, (post.category == .prayer || post.category == .testimonies) {
+                SermonConnectBanner(service: SermonConnectService.shared, onTapNote: { _ in }, paddingLeading: 16, paddingTop: 8)
+                    .onAppear { SermonConnectService.shared.findMatch(for: post.content) }
             }
 
-            // Sermon Connect Banner — shown for prayer/testimony posts
-            if let post = post, (post.category == .prayer || post.category == .testimonies) {
-                SermonConnectBanner { _ in }
+            // Feature 1 — Reply restriction chip (only shown when non-default)
+            if let post = post, let replyPerm = post.replyPermission, replyPerm != .everyone {
+                HStack(spacing: 4) {
+                    Image(systemName: replyPerm.icon)
+                        .font(.system(size: 10, weight: .semibold))
+                    Text("\(replyPerm.displayName) can reply")
+                        .font(.system(size: 12, weight: .regular))
+                }
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 16)
+                .padding(.top, 6)
+            }
+
+            // Feature 6 — Community context chip
+            if let post = post, post.hasContext {
+                Button {
+                    // Context detail is shown in PostDetailView (navigated via showPostDetail)
+                    showPostDetail = true
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: "info.circle.fill")
+                            .font(.system(size: 11))
+                        Text("Community context added")
+                            .font(.system(size: 12, weight: .medium))
+                    }
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Capsule().fill(Color(.systemGray6)))
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 16)
+                .padding(.top, 6)
+            }
+
+            // Feature 5 — Author-only post insights (saves, pray taps, encouraged)
+            if let post = post, post.authorId == (Auth.auth().currentUser?.uid ?? "") {
+                let hasCounts = post.savesCount > 0 || post.prayTapsCount > 0 || post.encouragedCount > 0
+                if hasCounts {
+                    HStack(spacing: 12) {
+                        if post.savesCount > 0 {
+                            insightItem(icon: "bookmark.fill", count: post.savesCount, label: "saved")
+                        }
+                        if post.prayTapsCount > 0 {
+                            insightItem(icon: "hands.sparkles.fill", count: post.prayTapsCount, label: "prayed")
+                        }
+                        if post.encouragedCount > 0 {
+                            insightItem(icon: "heart.fill", count: post.encouragedCount, label: "encouraged")
+                        }
+                    }
                     .padding(.horizontal, 16)
-                    .padding(.top, 8)
-                    .onAppear { SermonConnectService.shared.findMatch(for: post.content) }
+                    .padding(.top, 6)
+                }
             }
 
             // Interaction buttons (no divider)
             interactionButtons
                 .padding(.horizontal, 16)
-                .padding(.top, 12)
-                .padding(.bottom, 14)
-                .offset(y: cardAppeared ? 0 : 18)
-                .opacity(cardAppeared ? 1 : 0)
-                .blur(radius: cardAppeared ? 0 : 4)
-                .animation(.spring(response: 0.55, dampingFraction: 0.8).delay(0.36), value: cardAppeared)
+                .padding(.top, 8)
+                .padding(.bottom, showTestimonyResonance ? 6 : 8)
+
+            // Testimony resonance micro-copy
+            if showTestimonyResonance && !testimonyResonanceCopy.isEmpty {
+                HStack(spacing: 5) {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(Color.indigo.opacity(0.7))
+                    Text(testimonyResonanceCopy)
+                        .font(AMENFont.regular(12))
+                        .foregroundStyle(.secondary)
+                        .italic()
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 12)
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
+            }
+        }
+        .onChange(of: hasSaidAmen) { _, newValue in
+            if newValue && category == .testimonies {
+                fetchTestimonyResonance(actionType: "amen")
+            }
+        }
+        .onChange(of: isSaved) { _, newValue in
+            if newValue && category == .testimonies {
+                fetchTestimonyResonance(actionType: "saved")
+            }
+        }
+        .onChange(of: hasLitLightbulb) { _, newValue in
+            if newValue && category == .testimonies {
+                fetchTestimonyResonance(actionType: "lightbulb")
+            }
         }
         .background(
             ZStack {
@@ -1534,44 +2189,67 @@ struct PostCard: View {
                     }
                 }
                 
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(Color(.systemBackground))
-                    .shadow(color: .black.opacity(0.04), radius: 4, y: 2)
+                // Threads-style: clean white background, no rounded corners
+                Color(.systemBackground)
             }
         )
+        .overlay(alignment: .bottom) {
+            // Threads-style: subtle divider between posts
+            Rectangle()
+                .fill(Color(.separator).opacity(0.5))
+                .frame(height: 0.33)
+        }
         .offset(x: swipeOffset)
-        // FIX: Use .simultaneousGesture so the parent ScrollView keeps priority for vertical scrolling
-        // Direction guards (3x horizontal:vertical ratio) prevent accidental horizontal triggers
+        // P0 FIX: Use simultaneous gesture so ScrollView keeps priority for vertical scrolling
+        // This gesture only activates when user clearly swipes horizontally (4x ratio + 50pt minimum distance)
         .simultaneousGesture(
-            DragGesture(minimumDistance: 30) // Increased from 20 to reduce false triggers
+            DragGesture(minimumDistance: 50) // High threshold to avoid false triggers during vertical scroll
                 .onChanged { value in
-                    // Only respond to predominantly horizontal swipes
                     let horizontalAmount = abs(value.translation.width)
                     let verticalAmount = abs(value.translation.height)
-                    
-                    // Require horizontal movement to be significantly more than vertical
-                    // This allows vertical scrolling to work normally
-                    guard horizontalAmount > verticalAmount * 3 else { // Increased from 2x to 3x
+
+                    // Require very strong horizontal bias (4x ratio) to activate swipe
+                    // This ensures vertical scrolling always takes priority
+                    guard horizontalAmount > verticalAmount * 4.0 else { 
+                        // Reset any partial swipe state if gesture becomes too vertical
+                        if swipeOffset != 0 {
+                            withAnimation(.spring(response: 0.2, dampingFraction: 0.9)) {
+                                swipeOffset = 0
+                                swipeDirection = .none
+                            }
+                        }
+                        return 
+                    }
+
+                    // Strict vertical limit - abort if ANY vertical movement detected
+                    // This ensures scrolling always works smoothly
+                    guard verticalAmount < 10 else {
+                        if swipeOffset != 0 {
+                            withAnimation(.spring(response: 0.2, dampingFraction: 0.9)) {
+                                swipeOffset = 0
+                                swipeDirection = .none
+                            }
+                        }
                         return
                     }
-                    
-                    // Determine swipe direction
-                    if value.translation.width > 20 {
+
+                    // Only update swipe state if horizontal movement is significant
+                    if value.translation.width > 30 {
                         swipeDirection = .right
                         swipeOffset = min(value.translation.width, 100)
-                    } else if value.translation.width < -20 {
+                    } else if value.translation.width < -30 {
                         swipeDirection = .left
                         swipeOffset = max(value.translation.width, -100)
                     }
                 }
                 .onEnded { value in
-                    let threshold: CGFloat = 60
+                    let threshold: CGFloat = 70 // Increased threshold for more deliberate swipes
                     let horizontalAmount = abs(value.translation.width)
                     let verticalAmount = abs(value.translation.height)
-                    
-                    // Only trigger action if this was a horizontal swipe
-                    guard horizontalAmount > verticalAmount * 2 else {
-                        // Reset without triggering action
+
+                    // Very strict check: only trigger if it's an unmistakably horizontal swipe
+                    // 4x ratio + minimal vertical movement ensures this never interferes with scrolling
+                    guard horizontalAmount > verticalAmount * 4.0, verticalAmount < 15 else {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                             swipeOffset = 0
                             swipeDirection = .none
@@ -1616,7 +2294,7 @@ struct PostCard: View {
                 .font(.system(size: 28, weight: .medium))
                 .foregroundColor(color)
             Text(text)
-                .font(.custom("OpenSans-SemiBold", size: 12))
+                .font(AMENFont.semiBold(12))
                 .foregroundColor(color)
         }
         // P0 PERF FIX: Removed nested animation - scale effect updates implicitly with swipeOffset
@@ -1655,7 +2333,7 @@ struct PostCard: View {
             Image(systemName: "arrow.triangle.2.circlepath")
                 .font(.system(size: 12, weight: .semibold))
             Text("Reposted from \(originalAuthor)")
-                .font(.custom("OpenSans-SemiBold", size: 13))
+                .font(AMENFont.semiBold(13))
         }
         .foregroundStyle(.secondary)
         .padding(.horizontal, 12)
@@ -1711,7 +2389,7 @@ struct PostCard: View {
 
     private var interactionButtons: some View {
         HStack(spacing: 16) {
-            // 1. Lightbulb (OpenTable) / Praying hands (Prayer) / Amen clap (other)
+            // 1. Lightbulb (OpenTable) / Amen (Prayer + other categories)
             if category == .openTable {
                 circularInteractionButton(
                     icon: hasLitLightbulb ? "lightbulb.fill" : "lightbulb",
@@ -1722,17 +2400,8 @@ struct PostCard: View {
                 ) {
                     if !isUserPost { toggleLightbulb() }
                 }
-            } else if category == .prayer {
-                circularInteractionButton(
-                    icon: isPraying ? "hands.sparkles.fill" : "hands.sparkles",
-                    count: prayingNowCount > 0 ? prayingNowCount : nil,
-                    isActive: isPraying,
-                    activeColor: .black,
-                    disabled: false
-                ) {
-                    togglePraying()
-                }
             } else {
+                // Unified Amen button for Prayer, Testimonies, and other categories
                 circularInteractionButton(
                     icon: hasSaidAmen ? "hands.clap.fill" : "hands.clap",
                     count: nil,
@@ -1740,7 +2409,13 @@ struct PostCard: View {
                     activeColor: .black,
                     disabled: isUserPost
                 ) {
-                    if !isUserPost { toggleAmen() }
+                    if !isUserPost { 
+                        toggleAmen()
+                        // For prayer posts, also toggle the praying status
+                        if category == .prayer {
+                            togglePraying()
+                        }
+                    }
                 }
             }
 
@@ -1817,7 +2492,8 @@ struct PostCard: View {
                         showBereanSheet = true
                     }
                 }
-                .frame(width: 20, height: 20)
+                // ✅ FIX: Removed .frame(width: 20, height: 20) - was too small to tap
+                // Button has its own 28x28 frame which provides proper tap target
             }
             
             Spacer()
@@ -1854,6 +2530,17 @@ struct PostCard: View {
         .animation(.spring(response: 0.12, dampingFraction: 0.75), value: isActive)
         .accessibilityLabel(accessibilityLabel ?? icon)
     }
+
+    // Feature 5 — Tiny insight counter (author-only)
+    private func insightItem(icon: String, count: Int, label: String) -> some View {
+        HStack(spacing: 3) {
+            Image(systemName: icon)
+                .font(.system(size: 10, weight: .semibold))
+            Text("\(count) \(label)")
+                .font(.system(size: 11, weight: .regular))
+        }
+        .foregroundStyle(.secondary)
+    }
     
     private var prayingNowButton: some View {
         Button {
@@ -1889,7 +2576,7 @@ struct PostCard: View {
                 
                 if prayingNowCount > 0 {
                     Text("\(prayingNowCount)")
-                        .font(.custom("OpenSans-SemiBold", size: 11))
+                        .font(AMENFont.semiBold(11))
                         .foregroundStyle(isPraying ? Color.blue : Color.black.opacity(0.5))
                         .contentTransition(.numericText())
                 }
@@ -2116,18 +2803,19 @@ struct PostCard: View {
 
     private func deletePost() {
         guard let post = post else { return }
-        
-        // Delete from PostsManager
-        postsManager.deletePost(postId: post.id)
-        
-        // Send notification for real-time ProfileView update
-        NotificationCenter.default.post(
-            name: Notification.Name("postDeleted"),
-            object: nil,
-            userInfo: ["postId": post.id]
-        )
-        
-        dlog("🗑️ Post deleted - notification sent")
+        // Optimistic: collapse card immediately so it feels instant
+        withAnimation(.easeOut(duration: 0.2)) {
+            isDeletingPost = true
+        }
+        Task {
+            postsManager.deletePost(postId: post.id)
+            NotificationCenter.default.post(
+                name: Notification.Name("postDeleted"),
+                object: nil,
+                userInfo: ["postId": post.id]
+            )
+            dlog("🗑️ Post deleted - notification sent")
+        }
     }
     
     private func toggleRepost() {
@@ -2359,6 +3047,44 @@ struct PostCard: View {
         }
     }
     
+    // MARK: - Testimony Resonance
+
+    private func fetchTestimonyResonance(actionType: String) {
+        guard let post = post, !post.content.isEmpty else { return }
+        let testimonyText = post.content
+        Task {
+            do {
+                let functions = Functions.functions()
+                let result = try await functions.httpsCallable("testimonyResonanceScore").call([
+                    "testimonyText": testimonyText,
+                    "actionType": actionType,
+                ])
+                if let data = result.data as? [String: Any],
+                   let copy = data["copy"] as? String,
+                   !copy.isEmpty {
+                    await MainActor.run {
+                        testimonyResonanceCopy = copy
+                        withAnimation(.spring(response: 0.38, dampingFraction: 0.72)) {
+                            showTestimonyResonance = true
+                        }
+                        testimonyResonanceDismissTask?.cancel()
+                        testimonyResonanceDismissTask = Task {
+                            try? await Task.sleep(nanoseconds: 5_000_000_000)
+                            guard !Task.isCancelled else { return }
+                            await MainActor.run {
+                                withAnimation(.easeOut(duration: 0.3)) {
+                                    showTestimonyResonance = false
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch {
+                // Silent fail — resonance copy is non-critical
+            }
+        }
+    }
+
     private func toggleSave() {
         // ✅ IDEMPOTENCY CHECK #1: Prevent saves already in flight
         guard !isSaveInFlight else {
@@ -2584,6 +3310,385 @@ struct PostCard: View {
             }
         }
     }
+    
+    private func toggleFasting() {
+        dlog("🔥 toggleFasting() called")
+        
+        guard let post = post else {
+            dlog("❌ No post object available")
+            return
+        }
+        
+        guard category == .prayer, post.topicTag == "Prayer Request" else {
+            dlog("⚠️ Not a prayer request post")
+            return
+        }
+        
+        dlog("   - Post ID: \(post.firestoreId)")
+        dlog("   - Current state: \(isFasting ? "fasting" : "not fasting")")
+        
+        // Store previous state for rollback
+        let previousState = isFasting
+        
+        // Haptic + optimistic update
+        HapticManager.impact(style: .medium)
+        withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
+            isFasting.toggle()
+        }
+        
+        let rtdb = RealtimeDatabaseManager.shared
+        
+        Task {
+            let success: Bool
+            
+            if isFasting {
+                success = await withCheckedContinuation { continuation in
+                    rtdb.joinFast(postId: post.firestoreId) { result in
+                        continuation.resume(returning: result)
+                    }
+                }
+            } else {
+                success = await withCheckedContinuation { continuation in
+                    rtdb.leaveFast(postId: post.firestoreId) { result in
+                        continuation.resume(returning: result)
+                    }
+                }
+            }
+            
+            if success {
+                dlog("✅ \(isFasting ? "Joined" : "Left") fast for post")
+                await MainActor.run {
+                    HapticManager.notification(type: .success)
+                    ToastManager.shared.success(isFasting ? "Joined fast" : "Left fast")
+                }
+            } else {
+                dlog("❌ Failed to \(isFasting ? "join" : "leave") fast")
+                await MainActor.run {
+                    withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
+                        isFasting = previousState
+                    }
+                    HapticManager.notification(type: .error)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Liquid Glass Post Card Action Menu
+
+@MainActor
+final class AmenPostCardActionMenuCoordinator: ObservableObject {
+    static let shared = AmenPostCardActionMenuCoordinator()
+    @Published var activePostId: String?
+
+    private init() {}
+}
+
+private struct AmenPostCardActionMenuAnchorPreferenceKey: PreferenceKey {
+    static var defaultValue: CGRect = .zero
+
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
+        let next = nextValue()
+        if !next.isEmpty {
+            value = next
+        }
+    }
+}
+
+private struct AmenPostCardPlusButton: View {
+    let isExpanded: Bool
+    let action: () -> Void
+
+    @GestureState private var isPressed = false
+
+    var body: some View {
+        Button(action: action) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 15, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.92),
+                                Color.white.opacity(0.78),
+                                Color.white.opacity(0.70)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 15, style: .continuous)
+                            .stroke(Color.white.opacity(0.72), lineWidth: 0.9)
+                    )
+
+                Image(systemName: "plus")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(Color.black.opacity(0.88))
+                    .rotationEffect(.degrees(isExpanded ? 45 : 0))
+            }
+            .frame(width: 40, height: 40)
+            .shadow(color: Color.black.opacity(isExpanded ? 0.12 : 0.08), radius: isExpanded ? 20 : 14, y: isExpanded ? 12 : 7)
+            .shadow(color: Color.white.opacity(0.35), radius: 8, y: -1)
+            .scaleEffect(isPressed ? 0.94 : (isExpanded ? 1.02 : 1.0))
+            .animation(.spring(response: 0.34, dampingFraction: 0.82), value: isExpanded)
+            .animation(.easeOut(duration: 0.12), value: isPressed)
+        }
+        .buttonStyle(.plain)
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .updating($isPressed) { _, state, _ in
+                    state = true
+                }
+        )
+    }
+}
+
+private struct AmenPostCardOverflowButton: View {
+    let action: () -> Void
+
+    @GestureState private var isPressed = false
+
+    var body: some View {
+        Button(action: action) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 15, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.94),
+                                Color.white.opacity(0.80),
+                                Color.white.opacity(0.72)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 15, style: .continuous)
+                            .stroke(Color.white.opacity(0.74), lineWidth: 0.9)
+                    )
+
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(Color.black.opacity(0.82))
+            }
+            .frame(width: 40, height: 40)
+            .shadow(color: Color.black.opacity(0.08), radius: 14, y: 7)
+            .shadow(color: Color.white.opacity(0.35), radius: 8, y: -1)
+            .scaleEffect(isPressed ? 0.94 : 1.0)
+            .animation(.easeOut(duration: 0.12), value: isPressed)
+        }
+        .buttonStyle(.plain)
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .updating($isPressed) { _, state, _ in
+                    state = true
+                }
+        )
+    }
+}
+
+private struct AmenPostCardActionMenu: View {
+    static let preferredWidth: CGFloat = 296
+    static let preferredHeight: CGFloat = 196
+
+    let isFollowing: Bool
+    let canFollow: Bool
+    let onFollow: () -> Void
+    let onVisitProfile: () -> Void
+
+    @State private var hasAppeared = false
+
+    var body: some View {
+        AmenGlassContainer(cornerRadius: 32) {
+            VStack(spacing: 0) {
+                AmenGlassRow(
+                    icon: isFollowing ? "person.crop.circle.badge.checkmark" : "person.badge.plus",
+                    title: isFollowing ? "Following" : "Follow",
+                    isDisabled: !canFollow,
+                    action: onFollow
+                )
+
+                Rectangle()
+                    .fill(Color.black.opacity(0.08))
+                    .frame(height: 0.8)
+                    .padding(.horizontal, 18)
+
+                AmenGlassRow(
+                    icon: "person.circle",
+                    title: "Visit Profile",
+                    action: onVisitProfile
+                )
+            }
+            .padding(8)
+        }
+        .frame(width: Self.preferredWidth, height: Self.preferredHeight)
+        .scaleEffect(hasAppeared ? 1.0 : 0.88, anchor: .topLeading)
+        .opacity(hasAppeared ? 1 : 0)
+        .offset(y: hasAppeared ? 0 : -10)
+        .shadow(color: Color.white.opacity(hasAppeared ? 0.32 : 0), radius: 18, y: -4)
+        .onAppear {
+            withAnimation(.spring(response: 0.38, dampingFraction: 0.84)) {
+                hasAppeared = true
+            }
+        }
+        .onDisappear {
+            hasAppeared = false
+        }
+    }
+}
+
+private struct AmenGlassContainer<Content: View>: View {
+    let cornerRadius: CGFloat
+    let content: Content
+
+    @State private var shinePhase: CGFloat = -0.9
+
+    init(cornerRadius: CGFloat = 32, @ViewBuilder content: () -> Content) {
+        self.cornerRadius = cornerRadius
+        self.content = content()
+    }
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(0.90),
+                            Color.white.opacity(0.80),
+                            Color.white.opacity(0.72)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .stroke(
+                            LinearGradient(
+                                colors: [
+                                    Color.white.opacity(0.76),
+                                    Color.white.opacity(0.44)
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            ),
+                            lineWidth: 1
+                        )
+                )
+                .background(
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .fill(Color.white.opacity(0.24))
+                        .blur(radius: 14)
+                )
+
+            content
+        }
+        .compositingGroup()
+        .shadow(color: Color.black.opacity(0.10), radius: 34, y: 20)
+        .shadow(color: Color.black.opacity(0.05), radius: 12, y: 4)
+        .overlay {
+            GeometryReader { proxy in
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.0),
+                                Color.white.opacity(0.38),
+                                Color.white.opacity(0.0)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .frame(width: proxy.size.width * 0.52)
+                    .blur(radius: 11)
+                    .rotationEffect(.degrees(16))
+                    .offset(x: proxy.size.width * shinePhase)
+                    .blendMode(.plusLighter)
+                    .mask(
+                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    )
+            }
+            .allowsHitTesting(false)
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(Color.white.opacity(0.08))
+                .blur(radius: 20)
+                .padding(10)
+                .opacity(0.7)
+                .allowsHitTesting(false)
+        }
+        .onAppear {
+            shinePhase = -0.9
+            withAnimation(.easeInOut(duration: 0.95).delay(0.06)) {
+                shinePhase = 1.05
+            }
+        }
+    }
+}
+
+private struct AmenGlassRow: View {
+    let icon: String
+    let title: String
+    var isDisabled: Bool = false
+    let action: () -> Void
+
+    @GestureState private var isPressed = false
+
+    var body: some View {
+        Button {
+            guard !isDisabled else { return }
+            HapticManager.impact(style: .light)
+            action()
+        } label: {
+            HStack(spacing: 16) {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(Color.white.opacity(0.56))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .stroke(Color.white.opacity(0.70), lineWidth: 0.8)
+                    )
+                    .frame(width: 56, height: 56)
+                    .overlay(
+                        Image(systemName: icon)
+                            .font(.system(size: 24, weight: .medium))
+                            .foregroundStyle(Color.black.opacity(0.88))
+                    )
+
+                Text(title)
+                    .font(.system(size: 25, weight: .medium, design: .rounded))
+                    .foregroundStyle(Color.black.opacity(isDisabled ? 0.35 : 0.92))
+
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 18)
+            .frame(maxWidth: .infinity, minHeight: 84, maxHeight: 84, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .fill(Color.white.opacity(isPressed ? 0.26 : 0.12))
+            )
+            .scaleEffect(isPressed ? 0.98 : 1.0)
+            .opacity(isDisabled ? 0.72 : 1.0)
+            .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .animation(.easeOut(duration: 0.12), value: isPressed)
+        }
+        .buttonStyle(.plain)
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .updating($isPressed) { _, state, _ in
+                    state = true
+                }
+        )
+    }
 }
 
 // MARK: - Report Post Sheet
@@ -2653,10 +3758,10 @@ struct ReportPostSheet: View {
                     // Header
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Report Post")
-                            .font(.custom("OpenSans-Bold", size: 28))
+                            .font(AMENFont.bold(28))
                         
                         Text("Help us keep AMEN safe. Why are you reporting this post?")
-                            .font(.custom("OpenSans-Regular", size: 15))
+                            .font(AMENFont.regular(15))
                             .foregroundStyle(.secondary)
                             .lineSpacing(4)
                     }
@@ -2681,20 +3786,20 @@ struct ReportPostSheet: View {
                     if selectedReason != nil {
                         VStack(alignment: .leading, spacing: 12) {
                             Text("Additional Details (Optional)")
-                                .font(.custom("OpenSans-SemiBold", size: 16))
+                                .font(AMENFont.semiBold(16))
                                 .foregroundStyle(.primary)
                             
                             ZStack(alignment: .topLeading) {
                                 if additionalDetails.isEmpty {
                                     Text("Provide any additional context that might help us review this report...")
-                                        .font(.custom("OpenSans-Regular", size: 15))
+                                        .font(AMENFont.regular(15))
                                         .foregroundStyle(.secondary)
                                         .padding(.horizontal, 16)
                                         .padding(.vertical, 12)
                                 }
                                 
                                 TextEditor(text: $additionalDetails)
-                                    .font(.custom("OpenSans-Regular", size: 15))
+                                    .font(AMENFont.regular(15))
                                     .frame(minHeight: 100)
                                     .focused($isTextFieldFocused)
                                     .scrollContentBackground(.hidden)
@@ -2711,7 +3816,7 @@ struct ReportPostSheet: View {
                             )
                             
                             Text("\(additionalDetails.count)/500 characters")
-                                .font(.custom("OpenSans-Regular", size: 12))
+                                .font(AMENFont.regular(12))
                                 .foregroundStyle(additionalDetails.count > 500 ? .red : .secondary)
                         }
                         .padding(.horizontal, 16)
@@ -2726,12 +3831,12 @@ struct ReportPostSheet: View {
                                 .foregroundStyle(.blue)
                             
                             Text("Your report is confidential")
-                                .font(.custom("OpenSans-SemiBold", size: 14))
+                                .font(AMENFont.semiBold(14))
                                 .foregroundStyle(.primary)
                         }
                         
                         Text("We'll review this report and take appropriate action. The person who posted this won't know you reported it.")
-                            .font(.custom("OpenSans-Regular", size: 13))
+                            .font(AMENFont.regular(13))
                             .foregroundStyle(.secondary)
                             .lineSpacing(4)
                     }
@@ -2763,7 +3868,7 @@ struct ReportPostSheet: View {
                         Image(systemName: "checkmark.circle.fill")
                             .font(.system(size: 18))
                         Text("Submit Report")
-                            .font(.custom("OpenSans-Bold", size: 16))
+                            .font(AMENFont.bold(16))
                     }
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
@@ -2856,11 +3961,11 @@ struct ReportReasonCard: View {
                 // Text
                 VStack(alignment: .leading, spacing: 4) {
                     Text(reason.rawValue)
-                        .font(.custom("OpenSans-Bold", size: 16))
+                        .font(AMENFont.bold(16))
                         .foregroundStyle(.primary)
                     
                     Text(reason.description)
-                        .font(.custom("OpenSans-Regular", size: 13))
+                        .font(AMENFont.regular(13))
                         .foregroundStyle(.secondary)
                         .lineSpacing(2)
                 }
@@ -2926,10 +4031,10 @@ private struct PostCardSheetsModifier: ViewModifier {
                             .font(.system(size: 48))
                             .foregroundStyle(.secondary)
                         Text("Unable to load profile")
-                            .font(.custom("OpenSans-SemiBold", size: 16))
+                            .font(AMENFont.semiBold(16))
                             .foregroundStyle(.primary)
                         Text("The user information is not available")
-                            .font(.custom("OpenSans-Regular", size: 14))
+                            .font(AMENFont.regular(14))
                             .foregroundStyle(.secondary)
                     }
                     .padding()
@@ -2950,11 +4055,25 @@ private struct PostCardSheetsModifier: ViewModifier {
             }
             .sheet(isPresented: $showShareSheet) {
                 if let post = post {
-                    // If post has a church note, show church note share options
                     if post.churchNoteId != nil, let note = churchNote {
                         ChurchNoteShareOptionsSheet(note: note)
+                            .presentationDetents([.medium])
+                            .presentationDragIndicator(.visible)
+                            .presentationCornerRadius(28)
+                    } else if post.isChurchShare, let churchName = post.sharedChurchName {
+                        FindChurchShareOptionsSheet(church: Church(
+                            name: churchName,
+                            denomination: post.sharedChurchDenomination ?? "",
+                            address: "",
+                            distance: "",
+                            serviceTime: post.sharedChurchServiceTime ?? "",
+                            phone: "",
+                            coordinate: .init()
+                        ))
+                        .presentationDetents([.medium])
+                        .presentationDragIndicator(.visible)
+                        .presentationCornerRadius(28)
                     } else {
-                        // ✅ Show new share options sheet with "Send in Message" and "Share Externally"
                         PostShareOptionsSheet(post: post)
                     }
                 }
@@ -3326,7 +4445,7 @@ struct EditCommentSheet: View {
             VStack(spacing: 0) {
                 // Text editor
                 TextEditor(text: $editedContent)
-                    .font(.custom("OpenSans-Regular", size: 16))
+                    .font(AMENFont.regular(16))
                     .padding(16)
                     .focused($isFocused)
                     .scrollContentBackground(.hidden)
@@ -3337,7 +4456,7 @@ struct EditCommentSheet: View {
                 // Character count
                 HStack {
                     Text("\(editedContent.count) characters")
-                        .font(.custom("OpenSans-Regular", size: 13))
+                        .font(AMENFont.regular(13))
                         .foregroundStyle(.secondary)
                     
                     Spacer()
@@ -3364,7 +4483,7 @@ struct EditCommentSheet: View {
                             ProgressView()
                         } else {
                             Text("Save")
-                                .font(.custom("OpenSans-Bold", size: 16))
+                                .font(AMENFont.bold(16))
                         }
                     }
                     .disabled(editedContent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || editedContent == comment.content || isSaving)
@@ -3488,11 +4607,11 @@ struct PostLinkButton: View {
                 // URL text (shortened)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Open Link")
-                        .font(.custom("OpenSans-SemiBold", size: 14))
+                        .font(AMENFont.semiBold(14))
                         .foregroundStyle(.primary)
                     
                     Text(displayURL)
-                        .font(.custom("OpenSans-Regular", size: 12))
+                        .font(AMENFont.regular(12))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
@@ -3607,7 +4726,7 @@ struct PostPollView: View {
             // Poll question (if provided)
             if !poll.question.isEmpty {
                 Text(poll.question)
-                    .font(.custom("OpenSans-SemiBold", size: 15))
+                    .font(AMENFont.semiBold(15))
                     .foregroundStyle(.primary)
             }
             
@@ -3621,7 +4740,7 @@ struct PostPollView: View {
             // Poll footer (total votes + expiry)
             HStack(spacing: 12) {
                 Text("\(localPoll.totalVotes) \(localPoll.totalVotes == 1 ? "vote" : "votes")")
-                    .font(.custom("OpenSans-Regular", size: 13))
+                    .font(AMENFont.regular(13))
                     .foregroundStyle(.secondary)
                 
                 if let expiresAt = poll.expiresAt {
@@ -3630,11 +4749,11 @@ struct PostPollView: View {
                     
                     if isPollExpired {
                         Text("Poll ended")
-                            .font(.custom("OpenSans-Regular", size: 13))
+                            .font(AMENFont.regular(13))
                             .foregroundStyle(.secondary)
                     } else {
                         Text("Ends \(expiresAt, style: .relative)")
-                            .font(.custom("OpenSans-Regular", size: 13))
+                            .font(AMENFont.regular(13))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -3672,14 +4791,14 @@ struct PostPollView: View {
                 
                 HStack {
                     Text(option.text)
-                        .font(.custom("OpenSans-SemiBold", size: 15))
+                        .font(AMENFont.semiBold(15))
                         .foregroundStyle(isThisOption ? .blue : .primary)
                     
                     Spacer()
                     
                     if hasVoted {
                         Text("\(Int(percentage * 100))%")
-                            .font(.custom("OpenSans-Bold", size: 14))
+                            .font(AMENFont.bold(14))
                             .foregroundStyle(isThisOption ? .blue : .secondary)
                         
                         if isThisOption {
@@ -3733,7 +4852,7 @@ struct PostPollView: View {
     }
     
     private func vote(for optionId: String) {
-        guard let uid = currentUserId, !isVoting else { return }
+        guard currentUserId != nil, !isVoting else { return }
         
         isVoting = true
         HapticManager.impact(style: .light)

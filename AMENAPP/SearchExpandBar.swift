@@ -89,15 +89,19 @@ struct SearchExpandBar: View {
             open()
         } label: {
             ZStack {
-                // Black pill
+                // Liquid glass pill
                 Capsule()
-                    .fill(Color.primary)
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        Capsule()
+                            .strokeBorder(Color.black.opacity(0.1), lineWidth: 1)
+                    )
                     .frame(width: 44, height: 44)
-                    .shadow(color: .black.opacity(0.18), radius: 6, y: 3)
+                    .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 4)
 
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(Color(uiColor: .systemBackground))
+                    .foregroundStyle(.primary)
             }
         }
         .buttonStyle(ScaleButtonStyle())
@@ -108,10 +112,12 @@ struct SearchExpandBar: View {
 
     private var expandedBar: some View {
         HStack(spacing: 0) {
-            // Left: magnifying glass icon
+            // Left: magnifying glass icon — scales slightly when focused
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 15, weight: .medium))
                 .foregroundStyle(.secondary)
+                .scaleEffect(fieldFocused ? 1.06 : 1.0)
+                .animation(.spring(response: 0.48, dampingFraction: 0.82), value: fieldFocused)
                 .frame(width: 36, height: 44)
                 .padding(.leading, 4)
 
@@ -119,48 +125,58 @@ struct SearchExpandBar: View {
             ZStack(alignment: .leading) {
                 if query.isEmpty {
                     Text("Search people, posts, churches...")
-                        .font(.custom("OpenSans-Regular", size: 15))
+                        .font(AMENFont.regular(15))
                         .foregroundStyle(.tertiary)
                         .opacity(expandProgress)
                         .allowsHitTesting(false)
                 }
 
                 TextField("", text: $query)
-                    .font(.custom("OpenSans-Regular", size: 15))
+                    .font(AMENFont.regular(15))
                     .foregroundStyle(.primary)
                     .autocorrectionDisabled()
                     .textInputAutocapitalization(.never)
                     .focused($fieldFocused)
                     .submitLabel(.search)
                     .onSubmit {
-                        if !query.isEmpty {
-                            onQueryChanged(query)
-                        }
+                        if !query.isEmpty { onQueryChanged(query) }
                     }
                     .accessibilityLabel("Search field")
             }
             .frame(maxWidth: .infinity)
 
-            // Right: xmark close — chevron.right was confusing (looks like "go forward")
-            Button {
-                close()
-            } label: {
+            // Right: xmark close
+            Button { close() } label: {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 17, weight: .regular))
-                    .foregroundStyle(Color(uiColor: .tertiaryLabel))
+                    .font(.system(size: 17))
+                    .foregroundStyle(Color(.tertiaryLabel))
                     .frame(width: 36, height: 44)
                     .padding(.trailing, 4)
             }
             .accessibilityLabel("Clear and close search")
         }
         .background(
+            // Updated: gradient fill + lift shadow matching AMENSearchBar spec
             Capsule()
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    Capsule()
-                        .strokeBorder(Color.primary.opacity(0.1), lineWidth: 1)
+                .fill(
+                    LinearGradient(
+                        stops: [
+                            .init(color: Color.white.opacity(0.92), location: 0),
+                            .init(color: Color(.systemGray6).opacity(0.95), location: 1)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
                 )
-                .shadow(color: .black.opacity(0.08), radius: 8, y: 2)
+                .overlay(Capsule().strokeBorder(Color.black.opacity(0.06), lineWidth: 1))
+                .shadow(
+                    color: .black.opacity(fieldFocused ? 0.10 : 0.06),
+                    radius: fieldFocused ? 28 : 12,
+                    x: 0,
+                    y: fieldFocused ? 10 : 4
+                )
+                .offset(y: fieldFocused ? -2 : 0)
+                .animation(.spring(response: 0.48, dampingFraction: 0.82), value: fieldFocused)
         )
     }
 
@@ -186,13 +202,13 @@ struct SearchExpandBar: View {
 
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(result.name)
-                                    .font(.custom("OpenSans-SemiBold", size: 15))
+                                    .font(AMENFont.semiBold(15))
                                     .foregroundStyle(.primary)
                                     .lineLimit(1)
 
                                 if let subtitle = result.subtitle, !subtitle.isEmpty {
                                     Text(subtitle)
-                                        .font(.custom("OpenSans-Regular", size: 13))
+                                        .font(AMENFont.regular(13))
                                         .foregroundStyle(.secondary)
                                         .lineLimit(1)
                                 }

@@ -53,7 +53,7 @@ struct FollowRequestsView: View {
                     requestsListView
                 }
             }
-            .background(Color(white: 0.98))
+            .background(Color(.systemGroupedBackground).ignoresSafeArea())
             .navigationTitle("Follow Requests")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -61,7 +61,7 @@ struct FollowRequestsView: View {
                     Button("Done") {
                         dismiss()
                     }
-                    .font(.custom("OpenSans-SemiBold", size: 16))
+                    .font(AMENFont.semiBold(16))
                 }
             }
             .task {
@@ -81,7 +81,7 @@ struct FollowRequestsView: View {
                 .scaleEffect(1.5)
             
             Text("Loading requests...")
-                .font(.custom("OpenSans-Regular", size: 15))
+                .font(AMENFont.regular(15))
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -104,10 +104,10 @@ struct FollowRequestsView: View {
             }
             
             Text("No Follow Requests")
-                .font(.custom("OpenSans-Bold", size: 22))
+                .font(AMENFont.bold(22))
             
             Text("When someone wants to follow you, their request will appear here")
-                .font(.custom("OpenSans-Regular", size: 15))
+                .font(AMENFont.regular(15))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
@@ -137,7 +137,7 @@ struct FollowRequestsView: View {
                 )
             }
         }
-        .padding(20)
+        .padding(.vertical, 12)
     }
 }
 
@@ -170,12 +170,12 @@ struct FollowRequestCard: View {
                                     .clipShape(Circle())
                             } placeholder: {
                                 Text(user.initials)
-                                    .font(.custom("OpenSans-Bold", size: 22))
+                                    .font(AMENFont.bold(22))
                                     .foregroundStyle(.white)
                             }
                         } else {
                             Text(user.initials)
-                                .font(.custom("OpenSans-Bold", size: 22))
+                                .font(AMENFont.bold(22))
                                 .foregroundStyle(.white)
                         }
                     }
@@ -184,15 +184,15 @@ struct FollowRequestCard: View {
                 // User Info
                 VStack(alignment: .leading, spacing: 6) {
                     Text(user.displayName)
-                        .font(.custom("OpenSans-Bold", size: 16))
+                        .font(AMENFont.bold(16))
                         .foregroundStyle(.black)
                     
                     Text("@\(user.username)")
-                        .font(.custom("OpenSans-Regular", size: 14))
+                        .font(AMENFont.regular(14))
                         .foregroundStyle(.secondary)
                     
                     Text(timeAgo(from: request.createdAt))
-                        .font(.custom("OpenSans-Regular", size: 12))
+                        .font(AMENFont.regular(12))
                         .foregroundStyle(.secondary)
                 }
             } else {
@@ -222,7 +222,7 @@ struct FollowRequestCard: View {
                         onAccept()
                     } label: {
                         Text("Accept")
-                            .font(.custom("OpenSans-Bold", size: 14))
+                            .font(AMENFont.bold(14))
                             .foregroundStyle(.white)
                             .frame(width: 80)
                             .padding(.vertical, 8)
@@ -238,7 +238,7 @@ struct FollowRequestCard: View {
                         onReject()
                     } label: {
                         Text("Decline")
-                            .font(.custom("OpenSans-Bold", size: 14))
+                            .font(AMENFont.bold(14))
                             .foregroundStyle(.black.opacity(0.6))
                             .frame(width: 80)
                             .padding(.vertical, 8)
@@ -255,11 +255,13 @@ struct FollowRequestCard: View {
             }
         }
         .padding(16)
-        .background(
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .overlay(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color.white)
-                .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 6)
+                .strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5)
         )
+        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+        .padding(.horizontal, 16)
     }
     
     private static let relativeDateFormatter: RelativeDateTimeFormatter = {

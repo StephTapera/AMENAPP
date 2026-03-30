@@ -50,21 +50,33 @@ struct JobPostingView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                stepProgressBar
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-                Divider()
-                ScrollView {
-                    if didPost {
-                        successView
-                    } else {
-                        stepContent
-                            .padding(16)
+            ZStack {
+                Color(.systemGroupedBackground).ignoresSafeArea()
+                VStack(spacing: 0) {
+                    stepProgressBar
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                        .background(.regularMaterial)
+                        .overlay(Divider(), alignment: .bottom)
+                    ScrollView(.vertical, showsIndicators: false) {
+                        if didPost {
+                            successView
+                        } else {
+                            VStack(spacing: 0) {
+                                stepContent
+                                    .padding(16)
+                                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                                    .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                                    .padding(.horizontal, 16)
+                                    .padding(.top, 20)
+                                    .padding(.bottom, 24)
+                            }
+                        }
                     }
-                }
-                if !didPost {
-                    navigationBar
+                    if !didPost {
+                        navigationBar
+                    }
                 }
             }
             .navigationTitle("Post a Job")
@@ -125,25 +137,25 @@ struct JobPostingView: View {
         VStack(alignment: .leading, spacing: 20) {
             JobFormField(label: "Job Title *") {
                 TextField("e.g. Worship Pastor", text: $title)
-                    .font(.custom("OpenSans-Regular", size: 14))
+                    .font(AMENFont.regular(14))
                     .padding(12)
-                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
             }
             JobFormField(label: "Description * (min 20 chars)") {
                 ZStack(alignment: .topLeading) {
                     if description.isEmpty {
                         Text("Describe the role, mission, and who you're looking for...")
-                            .font(.custom("OpenSans-Regular", size: 14))
+                            .font(AMENFont.regular(14))
                             .foregroundStyle(.secondary.opacity(0.7))
                             .padding(14)
                     }
                     TextEditor(text: $description)
-                        .font(.custom("OpenSans-Regular", size: 14))
+                        .font(AMENFont.regular(14))
                         .frame(height: 130)
                         .padding(10)
                         .scrollContentBackground(.hidden)
                 }
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
             }
             JobFormField(label: "Job Type") {
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -151,7 +163,7 @@ struct JobPostingView: View {
                         ForEach(JobType.allCases) { type in
                             Button { jobType = type } label: {
                                 Text(type.label)
-                                    .font(.custom("OpenSans-SemiBold", size: 11))
+                                    .font(AMENFont.semiBold(11))
                                     .foregroundStyle(jobType == type ? .white : type.color)
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 7)
@@ -166,7 +178,7 @@ struct JobPostingView: View {
                     ForEach(WorkArrangement.allCases) { arr in
                         Button { arrangement = arr } label: {
                             Label(arr.label, systemImage: arr.icon)
-                                .font(.custom("OpenSans-SemiBold", size: 12))
+                                .font(AMENFont.semiBold(12))
                                 .foregroundStyle(arrangement == arr ? .white : .primary)
                                 .padding(.horizontal, 14)
                                 .padding(.vertical, 8)
@@ -185,7 +197,7 @@ struct JobPostingView: View {
                         ForEach(JobClassification.allCases) { cls in
                             Button { classification = cls } label: {
                                 Text(cls.label)
-                                    .font(.custom("OpenSans-SemiBold", size: 11))
+                                    .font(AMENFont.semiBold(11))
                                     .foregroundStyle(classification == cls ? .white : cls.color)
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 7)
@@ -203,7 +215,7 @@ struct JobPostingView: View {
                 }
                 .pickerStyle(.menu)
                 .padding(10)
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
             }
         }
     }
@@ -216,9 +228,9 @@ struct JobPostingView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
                         TextField("Add a requirement", text: $requirementText)
-                            .font(.custom("OpenSans-Regular", size: 13))
+                            .font(AMENFont.regular(13))
                             .padding(10)
-                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
+                            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
                         Button {
                             let trimmed = requirementText.trimmingCharacters(in: .whitespaces)
                             if !trimmed.isEmpty { requirements.append(trimmed); requirementText = "" }
@@ -233,7 +245,7 @@ struct JobPostingView: View {
                             Image(systemName: "checkmark.circle.fill")
                                 .font(.system(size: 12))
                                 .foregroundStyle(Color(red: 0.20, green: 0.70, blue: 0.45))
-                            Text(req).font(.custom("OpenSans-Regular", size: 13)).foregroundStyle(.primary)
+                            Text(req).font(AMENFont.regular(13)).foregroundStyle(.primary)
                             Spacer()
                             Button { requirements.removeAll { $0 == req } } label: {
                                 Image(systemName: "xmark.circle.fill").font(.system(size: 14)).foregroundStyle(.secondary)
@@ -250,7 +262,7 @@ struct JobPostingView: View {
                 }
                 .pickerStyle(.menu)
                 .padding(10)
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
             }
             JobFormField(label: "Compensation") {
                 VStack(alignment: .leading, spacing: 10) {
@@ -261,21 +273,21 @@ struct JobPostingView: View {
                     }
                     .pickerStyle(.menu)
                     .padding(8)
-                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
 
                     if compensationType == .salaried || compensationType == .hourly || compensationType == .stipend {
                         HStack(spacing: 10) {
                             TextField("Min", text: $salaryMin)
-                                .font(.custom("OpenSans-Regular", size: 13))
+                                .font(AMENFont.regular(13))
                                 .keyboardType(.decimalPad)
                                 .padding(10)
-                                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
+                                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
                             Text("–").foregroundStyle(.secondary)
                             TextField("Max", text: $salaryMax)
-                                .font(.custom("OpenSans-Regular", size: 13))
+                                .font(AMENFont.regular(13))
                                 .keyboardType(.decimalPad)
                                 .padding(10)
-                                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
+                                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
                             Picker("Period", selection: $salaryPeriod) {
                                 ForEach(SalaryPeriod.allCases) { p in
                                     Text(p.shortLabel).tag(p)
@@ -290,13 +302,13 @@ struct JobPostingView: View {
                 JobFormField(label: "Location") {
                     HStack(spacing: 10) {
                         TextField("City", text: $city)
-                            .font(.custom("OpenSans-Regular", size: 13))
+                            .font(AMENFont.regular(13))
                             .padding(10)
-                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
+                            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
                         TextField("State / Region", text: $state)
-                            .font(.custom("OpenSans-Regular", size: 13))
+                            .font(AMENFont.regular(13))
                             .padding(10)
-                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
+                            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
                     }
                 }
             }
@@ -304,9 +316,9 @@ struct JobPostingView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
                         TextField("Add a benefit", text: $benefitText)
-                            .font(.custom("OpenSans-Regular", size: 13))
+                            .font(AMENFont.regular(13))
                             .padding(10)
-                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
+                            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
                         Button {
                             let trimmed = benefitText.trimmingCharacters(in: .whitespaces)
                             if !trimmed.isEmpty { benefits.append(trimmed); benefitText = "" }
@@ -317,7 +329,7 @@ struct JobPostingView: View {
                     ForEach(benefits, id: \.self) { b in
                         HStack {
                             Image(systemName: "star.fill").font(.system(size: 10)).foregroundStyle(Color(red: 0.90, green: 0.65, blue: 0.20))
-                            Text(b).font(.custom("OpenSans-Regular", size: 13)).foregroundStyle(.primary)
+                            Text(b).font(AMENFont.regular(13)).foregroundStyle(.primary)
                             Spacer()
                             Button { benefits.removeAll { $0 == b } } label: {
                                 Image(systemName: "xmark.circle.fill").font(.system(size: 14)).foregroundStyle(.secondary)
@@ -343,8 +355,8 @@ struct JobPostingView: View {
                                     .foregroundStyle(applyModel == model ? Color(red: 0.20, green: 0.55, blue: 0.95) : .secondary)
                                     .frame(width: 28)
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text(model.label).font(.custom("OpenSans-SemiBold", size: 14)).foregroundStyle(.primary)
-                                    Text(applyModelDescription(model)).font(.custom("OpenSans-Regular", size: 11)).foregroundStyle(.secondary)
+                                    Text(model.label).font(AMENFont.semiBold(14)).foregroundStyle(.primary)
+                                    Text(applyModelDescription(model)).font(AMENFont.regular(11)).foregroundStyle(.secondary)
                                 }
                                 Spacer()
                                 if applyModel == model {
@@ -352,8 +364,9 @@ struct JobPostingView: View {
                                 }
                             }
                             .padding(14)
-                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
-                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(applyModel == model ? Color(red: 0.20, green: 0.55, blue: 0.95).opacity(0.4) : .clear, lineWidth: 1.5))
+                            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+                            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(applyModel == model ? Color(red: 0.20, green: 0.55, blue: 0.95).opacity(0.5) : Color.black.opacity(0.06), lineWidth: applyModel == model ? 1.5 : 0.5))
+                            .shadow(color: .black.opacity(0.04), radius: 8, y: 2)
                         }
                         .buttonStyle(.plain)
                     }
@@ -362,9 +375,9 @@ struct JobPostingView: View {
             if applyModel == .externalApply {
                 JobFormField(label: "Application URL *") {
                     TextField("https://yourorg.com/apply", text: $externalURL)
-                        .font(.custom("OpenSans-Regular", size: 14))
+                        .font(AMENFont.regular(14))
                         .padding(12)
-                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
                         .keyboardType(.URL)
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.never)
@@ -373,14 +386,14 @@ struct JobPostingView: View {
             if let warning = safetyWarning {
                 HStack(alignment: .top, spacing: 8) {
                     Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 14)).foregroundStyle(Color(red: 0.90, green: 0.65, blue: 0.20))
-                    Text(warning).font(.custom("OpenSans-Regular", size: 12)).foregroundStyle(.primary)
+                    Text(warning).font(AMENFont.regular(12)).foregroundStyle(.primary)
                 }
                 .padding(12)
                 .background(RoundedRectangle(cornerRadius: 12).fill(Color(red: 0.90, green: 0.65, blue: 0.20).opacity(0.10)))
             }
             VStack(alignment: .leading, spacing: 10) {
                 Text("Review")
-                    .font(.custom("OpenSans-Bold", size: 16))
+                    .font(AMENFont.bold(16))
                 jobReviewRow(icon: "briefcase.fill", label: "Title", value: title.isEmpty ? "(not set)" : title)
                 jobReviewRow(icon: category.icon, label: "Category", value: category.label)
                 jobReviewRow(icon: jobType.icon, label: "Type", value: jobType.label)
@@ -389,9 +402,11 @@ struct JobPostingView: View {
                 jobReviewRow(icon: applyModel.icon, label: "Apply via", value: applyModel.label)
             }
             .padding(14)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
+            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+            .shadow(color: .black.opacity(0.04), radius: 8, y: 2)
             if let err = errorMessage {
-                Text(err).font(.custom("OpenSans-Regular", size: 12)).foregroundStyle(Color(red: 0.80, green: 0.35, blue: 0.35))
+                Text(err).font(AMENFont.regular(12)).foregroundStyle(Color(red: 0.80, green: 0.35, blue: 0.35))
             }
         }
     }
@@ -399,11 +414,11 @@ struct JobPostingView: View {
     private func jobReviewRow(icon: String, label: String, value: String) -> some View {
         HStack {
             Label(label, systemImage: icon)
-                .font(.custom("OpenSans-Regular", size: 13))
+                .font(AMENFont.regular(13))
                 .foregroundStyle(.secondary)
             Spacer()
             Text(value)
-                .font(.custom("OpenSans-SemiBold", size: 13))
+                .font(AMENFont.semiBold(13))
                 .foregroundStyle(.primary)
                 .lineLimit(1)
         }
@@ -417,13 +432,13 @@ struct JobPostingView: View {
                 .font(.system(size: 60))
                 .foregroundStyle(Color(red: 0.20, green: 0.55, blue: 0.95))
             Text("Job Posted!")
-                .font(.custom("OpenSans-Bold", size: 22))
+                .font(AMENFont.bold(22))
             Text("Your opportunity is live. Qualified candidates will be able to discover and apply.")
-                .font(.custom("OpenSans-Regular", size: 14))
+                .font(AMENFont.regular(14))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             Button("Done") { dismiss() }
-                .font(.custom("OpenSans-Bold", size: 15))
+                .font(AMENFont.bold(15))
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
                 .frame(height: 48)
@@ -438,10 +453,10 @@ struct JobPostingView: View {
         HStack(spacing: 12) {
             if step > 0 {
                 Button("Back") { withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { step -= 1 } }
-                    .font(.custom("OpenSans-SemiBold", size: 15))
+                    .font(AMENFont.semiBold(15))
                     .foregroundStyle(.primary)
                     .frame(width: 80, height: 48)
-                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
             }
             Button {
                 if step < 2 {
@@ -459,7 +474,7 @@ struct JobPostingView: View {
                         ProgressView().tint(.white)
                     } else {
                         Text(step < 2 ? "Next" : "Post Job")
-                            .font(.custom("OpenSans-Bold", size: 15))
+                            .font(AMENFont.bold(15))
                     }
                 }
                 .foregroundStyle(.white)
@@ -584,7 +599,7 @@ struct JobFormField<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(label)
-                .font(.custom("OpenSans-SemiBold", size: 13))
+                .font(AMENFont.semiBold(13))
                 .foregroundStyle(.primary)
             content
         }

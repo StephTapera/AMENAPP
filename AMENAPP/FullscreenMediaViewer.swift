@@ -140,7 +140,7 @@ struct FullscreenMediaViewer: View {
                 .font(.system(size: 48, weight: .light))
                 .foregroundStyle(.white.opacity(0.7))
             Text("Media unavailable")
-                .font(.custom("OpenSans-Regular", size: 15))
+                .font(AMENFont.regular(15))
                 .foregroundStyle(.white.opacity(0.7))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -195,7 +195,7 @@ struct FullscreenMediaViewer: View {
     
     private var counterBadge: some View {
         Text("\(currentIndex + 1) / \(media.count)")
-            .font(.custom("OpenSans-SemiBold", size: 13))
+            .font(AMENFont.semiBold(13))
             .foregroundStyle(.white)
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
@@ -314,17 +314,22 @@ private struct VideoPlayerFullscreen: View {
     let url: String
     let thumbnailURL: String?
     
-    @StateObject private var viewModel = VideoPlayerViewModel()
+    @State private var player: AVPlayer?
     
     var body: some View {
-        VideoPlayer(player: viewModel.player)
+        VideoPlayer(player: player)
             .ignoresSafeArea()
             .onAppear {
-                viewModel.setupPlayer(url: url)
-                viewModel.play()
+                setupPlayer()
             }
             .onDisappear {
-                viewModel.pause()
+                player?.pause()
             }
+    }
+    
+    private func setupPlayer() {
+        guard let videoURL = URL(string: url) else { return }
+        player = AVPlayer(url: videoURL)
+        player?.play()
     }
 }

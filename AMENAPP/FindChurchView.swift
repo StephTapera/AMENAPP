@@ -1539,7 +1539,10 @@ struct FindChurchView: View {
         case .denomination(let denomination):
             DenominationInfoSheet(denomination: denomination)
         case .share(let church):
-            ShareSheet(items: [church.shareText])
+            FindChurchShareOptionsSheet(church: church)
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
+                .presentationCornerRadius(28)
         case .schedule:
             ChurchScheduleView(
                 savedChurches: persistenceManager.savedChurches,
@@ -2189,7 +2192,7 @@ struct FindChurchHeader: View {
                                 Image(systemName: "location.fill")
                                     .font(.system(size: 11, weight: .semibold))
                                 Text(locationStatus)
-                                    .font(.custom("OpenSans-SemiBold", size: 13))
+                                    .font(AMENFont.semiBold(13))
                                     .lineLimit(1)
                                 Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
                                     .font(.system(size: 10, weight: .bold))
@@ -2275,7 +2278,7 @@ struct FindChurchHeader: View {
                         Image(systemName: "mappin.circle.fill")
                             .foregroundStyle(.green)
                         Text("Live location enabled")
-                            .font(.custom("OpenSans-SemiBold", size: 13))
+                            .font(AMENFont.semiBold(13))
                             .foregroundStyle(Color(red: 0.2, green: 0.2, blue: 0.2))
                     }
                     
@@ -2283,7 +2286,7 @@ struct FindChurchHeader: View {
                         Image(systemName: "bell.fill")
                             .foregroundStyle(.orange)
                         Text("Smart notifications active")
-                            .font(.custom("OpenSans-SemiBold", size: 13))
+                            .font(AMENFont.semiBold(13))
                             .foregroundStyle(Color(red: 0.2, green: 0.2, blue: 0.2))
                     }
                 }
@@ -2344,7 +2347,7 @@ struct FindChurchHeader: View {
                             isSearchFocused = false
                         } label: {
                             Text("Cancel")
-                                .font(.custom("OpenSans-SemiBold", size: 14))
+                                .font(AMENFont.semiBold(14))
                                 .foregroundStyle(.blue)
                         }
                         .transition(.move(edge: .trailing).combined(with: .opacity))
@@ -2406,11 +2409,11 @@ struct EnhancedLocationPermissionBanner: View {
             
             VStack(alignment: .leading, spacing: 6) {
                 Text("Enable Location Access")
-                    .font(.custom("OpenSans-Bold", size: 16))
+                    .font(AMENFont.bold(16))
                     .foregroundStyle(.primary)
                 
                 Text("Find churches near you and get smart notifications")
-                    .font(.custom("OpenSans-Regular", size: 13))
+                    .font(AMENFont.regular(13))
                     .foregroundStyle(.secondary)
                     .lineSpacing(2)
             }
@@ -2426,7 +2429,7 @@ struct EnhancedLocationPermissionBanner: View {
                     Image(systemName: "checkmark")
                         .font(.system(size: 13, weight: .bold))
                     Text("Enable")
-                        .font(.custom("OpenSans-Bold", size: 15))
+                        .font(AMENFont.bold(15))
                 }
                 .foregroundStyle(.white)
                 .padding(.horizontal, 18)
@@ -2491,14 +2494,14 @@ struct EnhancedChurchCard: View {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 8) {
                         Text(church.name)
-                            .font(.custom("OpenSans-Bold", size: 22))
+                            .font(AMENFont.bold(22))
                             .foregroundStyle(Color(red: 0.15, green: 0.15, blue: 0.15))
                             .lineLimit(2)
                         
                         HStack(spacing: 10) {
                             // Denomination badge
                             Text(church.denomination)
-                                .font(.custom("OpenSans-SemiBold", size: 12))
+                                .font(AMENFont.semiBold(12))
                                 .foregroundStyle(church.denominationColor)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 6)
@@ -2512,7 +2515,7 @@ struct EnhancedChurchCard: View {
                                 Image(systemName: "location.fill")
                                     .font(.system(size: 11))
                                 Text(church.distance)
-                                    .font(.custom("OpenSans-SemiBold", size: 13))
+                                    .font(AMENFont.semiBold(13))
                             }
                             .foregroundStyle(.gray)
                         }
@@ -2585,7 +2588,7 @@ struct EnhancedChurchCard: View {
                                     .font(.system(size: 16))
                             }
                             Text("Call")
-                                .font(.custom("OpenSans-Bold", size: 15))
+                                .font(AMENFont.bold(15))
                         }
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
@@ -2621,7 +2624,7 @@ struct EnhancedChurchCard: View {
                                     .font(.system(size: 16))
                             }
                             Text("Directions")
-                                .font(.custom("OpenSans-Bold", size: 15))
+                                .font(AMENFont.bold(15))
                         }
                         .foregroundStyle(Color(red: 0.2, green: 0.2, blue: 0.2))
                         .frame(maxWidth: .infinity)
@@ -2658,7 +2661,7 @@ struct EnhancedChurchCard: View {
                                             .frame(width: 24)
                                         
                                         Text(website)
-                                            .font(.custom("OpenSans-Regular", size: 15))
+                                            .font(AMENFont.regular(15))
                                             .foregroundStyle(.purple)
                                             .underline()
                                         
@@ -2688,7 +2691,7 @@ struct EnhancedChurchCard: View {
                 } label: {
                     HStack {
                         Text(isExpanded ? "Show Less" : "Show More")
-                            .font(.custom("OpenSans-SemiBold", size: 14))
+                            .font(AMENFont.semiBold(14))
                         Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
                             .font(.system(size: 12))
                     }
@@ -2741,11 +2744,11 @@ struct ModernQuickInfoTile: View {
                 .foregroundStyle(color)
             
             Text(title)
-                .font(.custom("OpenSans-Regular", size: 11))
+                .font(AMENFont.regular(11))
                 .foregroundStyle(.gray)
             
             Text(value)
-                .font(.custom("OpenSans-Bold", size: 14))
+                .font(AMENFont.bold(14))
                 .foregroundStyle(Color(red: 0.2, green: 0.2, blue: 0.2))
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
@@ -2777,7 +2780,7 @@ struct ModernDetailRow: View {
                 .frame(width: 24)
             
             Text(text)
-                .font(.custom("OpenSans-Regular", size: 15))
+                .font(AMENFont.regular(15))
                 .foregroundStyle(Color(red: 0.3, green: 0.3, blue: 0.3))
             
             Spacer()
@@ -2797,10 +2800,10 @@ struct LocationPermissionBanner: View {
             
             VStack(alignment: .leading, spacing: 4) {
                 Text("Enable Location")
-                    .font(.custom("OpenSans-Bold", size: 14))
+                    .font(AMENFont.bold(14))
                 
                 Text("Find churches near you")
-                    .font(.custom("OpenSans-Regular", size: 12))
+                    .font(AMENFont.regular(12))
                     .foregroundStyle(.secondary)
             }
             
@@ -2810,7 +2813,7 @@ struct LocationPermissionBanner: View {
                 onRequestLocation()
             } label: {
                 Text("Enable")
-                    .font(.custom("OpenSans-Bold", size: 14))
+                    .font(AMENFont.bold(14))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
@@ -2844,10 +2847,10 @@ struct NotificationPermissionBanner: View {
                     
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Enable Notifications")
-                            .font(.custom("OpenSans-Bold", size: 14))
+                            .font(AMENFont.bold(14))
                         
                         Text("Get reminders for service times")
-                            .font(.custom("OpenSans-Regular", size: 12))
+                            .font(AMENFont.regular(12))
                             .foregroundStyle(.secondary)
                     }
                     
@@ -2857,7 +2860,7 @@ struct NotificationPermissionBanner: View {
                         requestNotificationPermission()
                     } label: {
                         Text("Enable")
-                            .font(.custom("OpenSans-Bold", size: 14))
+                            .font(AMENFont.bold(14))
                             .foregroundStyle(.white)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 8)
@@ -2931,11 +2934,11 @@ struct QuickStatsBanner: View {
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text("\(churchCount)")
-                        .font(.custom("OpenSans-Bold", size: 22))
+                        .font(AMENFont.bold(22))
                         .foregroundStyle(.primary)
                     
                     Text("Churches Found")
-                        .font(.custom("OpenSans-Regular", size: 12))
+                        .font(AMENFont.regular(12))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -2964,11 +2967,11 @@ struct QuickStatsBanner: View {
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(nearestDistance.replacingOccurrences(of: " away", with: ""))
-                        .font(.custom("OpenSans-Bold", size: 18))
+                        .font(AMENFont.bold(18))
                         .foregroundStyle(.primary)
                     
                     Text("Nearest Church")
-                        .font(.custom("OpenSans-Regular", size: 12))
+                        .font(AMENFont.regular(12))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -2998,10 +3001,10 @@ struct EmptyChurchesView: View {
                 .foregroundStyle(.secondary)
             
             Text(isFiltered ? "No Churches Found" : "No Churches Nearby")
-                .font(.custom("OpenSans-Bold", size: 20))
+                .font(AMENFont.bold(20))
             
             Text(isFiltered ? "Try adjusting your filters" : "We couldn't find any churches in this area")
-                .font(.custom("OpenSans-Regular", size: 14))
+                .font(AMENFont.regular(14))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }
@@ -3102,7 +3105,7 @@ struct ChurchMapAnnotation: View {
             }
             
             Text(church.name)
-                .font(.custom("OpenSans-SemiBold", size: 10))
+                .font(AMENFont.semiBold(10))
                 .foregroundStyle(.primary)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 3)
@@ -3144,13 +3147,13 @@ struct ChurchCard: View {
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(church.name)
-                        .font(.custom("OpenSans-Bold", size: 16))
+                        .font(AMENFont.bold(16))
                         .foregroundStyle(.primary)
 
                     // Denomination + vibe pill on same line
                     HStack(spacing: 6) {
                         Text(church.denomination)
-                            .font(.custom("OpenSans-SemiBold", size: 12))
+                            .font(AMENFont.semiBold(12))
                             .foregroundStyle(.blue)
                         SundayVibePill(churchId: church.id.uuidString)
                     }
@@ -3161,7 +3164,7 @@ struct ChurchCard: View {
                             .foregroundStyle(.secondary)
 
                         Text(church.distance)
-                            .font(.custom("OpenSans-Regular", size: 12))
+                            .font(AMENFont.regular(12))
                             .foregroundStyle(.secondary)
 
                         // Prayer momentum badge (e.g. "· rising")
@@ -3205,7 +3208,7 @@ struct ChurchCard: View {
                             .foregroundStyle(.blue)
                         
                         Text(church.address)
-                            .font(.custom("OpenSans-Regular", size: 14))
+                            .font(AMENFont.regular(14))
                             .foregroundStyle(.primary)
                     }
                     
@@ -3216,12 +3219,12 @@ struct ChurchCard: View {
                         
                         VStack(alignment: .leading, spacing: 2) {
                             Text(church.serviceTime)
-                                .font(.custom("OpenSans-Regular", size: 14))
+                                .font(AMENFont.regular(14))
                                 .foregroundStyle(.primary)
                             
                             if let nextService = church.nextServiceCountdown {
                                 Text(nextService)
-                                    .font(.custom("OpenSans-SemiBold", size: 12))
+                                    .font(AMENFont.semiBold(12))
                                     .foregroundStyle(.green)
                             }
                         }
@@ -3233,7 +3236,7 @@ struct ChurchCard: View {
                             .foregroundStyle(.blue)
                         
                         Text(church.phone)
-                            .font(.custom("OpenSans-Regular", size: 14))
+                            .font(AMENFont.regular(14))
                             .foregroundStyle(.primary)
                     }
                     
@@ -3245,7 +3248,7 @@ struct ChurchCard: View {
                             
                             if let websiteURL = URL(string: website.hasPrefix("http://") || website.hasPrefix("https://") ? website : "https://\(website)") {
                                 Link(website, destination: websiteURL)
-                                    .font(.custom("OpenSans-Regular", size: 14))
+                                    .font(AMENFont.regular(14))
                                     .foregroundStyle(.blue)
                             }
                         }
@@ -3259,7 +3262,7 @@ struct ChurchCard: View {
                         HStack {
                             Image(systemName: "phone.fill")
                             Text("Call")
-                                .font(.custom("OpenSans-Bold", size: 14))
+                                .font(AMENFont.bold(14))
                         }
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
@@ -3276,7 +3279,7 @@ struct ChurchCard: View {
                         HStack {
                             Image(systemName: "location.fill")
                             Text("Directions")
-                                .font(.custom("OpenSans-Bold", size: 14))
+                                .font(AMENFont.bold(14))
                         }
                         .foregroundStyle(.black)
                         .frame(maxWidth: .infinity)
@@ -3328,11 +3331,11 @@ struct SmartFeaturesBanner: View {
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Smart Reminders Active")
-                        .font(.custom("OpenSans-Bold", size: 16))
+                        .font(AMENFont.bold(16))
                         .foregroundStyle(.primary)
                     
                     Text("\(savedCount) church\(savedCount == 1 ? "" : "es") saved")
-                        .font(.custom("OpenSans-Regular", size: 13))
+                        .font(AMENFont.regular(13))
                         .foregroundStyle(.secondary)
                 }
                 
@@ -3421,11 +3424,11 @@ struct SmartFeatureRow: View {
             
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
-                    .font(.custom("OpenSans-SemiBold", size: 14))
+                    .font(AMENFont.semiBold(14))
                     .foregroundStyle(.primary)
                 
                 Text(description)
-                    .font(.custom("OpenSans-Regular", size: 12))
+                    .font(AMENFont.regular(12))
                     .foregroundStyle(.secondary)
             }
             
@@ -3459,11 +3462,11 @@ struct LiveSearchBanner: View {
             
             VStack(alignment: .leading, spacing: 3) {
                 Text("Live Search Active")
-                    .font(.custom("OpenSans-Bold", size: 15))
+                    .font(AMENFont.bold(15))
                     .foregroundStyle(.primary)
                 
                 Text("\(churchCount) real churches from Apple Maps")
-                    .font(.custom("OpenSans-Regular", size: 12))
+                    .font(AMENFont.regular(12))
                     .foregroundStyle(.secondary)
             }
             
@@ -3531,11 +3534,11 @@ struct SearchResultsBanner: View {
             
             VStack(alignment: .leading, spacing: 3) {
                 Text("Search Results")
-                    .font(.custom("OpenSans-Bold", size: 15))
+                    .font(AMENFont.bold(15))
                     .foregroundStyle(.primary)
                 
                 Text("\(resultCount) of \(totalCount) churches match '\(searchQuery)'")
-                    .font(.custom("OpenSans-Regular", size: 12))
+                    .font(AMENFont.regular(12))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
@@ -3657,10 +3660,10 @@ struct ChurchComparisonView: View {
                             .foregroundStyle(.secondary)
                         
                         Text("No Churches Selected")
-                            .font(.custom("OpenSans-Bold", size: 22))
+                            .font(AMENFont.bold(22))
                         
                         Text("Select churches from the list to compare them side-by-side")
-                            .font(.custom("OpenSans-Regular", size: 14))
+                            .font(AMENFont.regular(14))
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 40)
@@ -3671,7 +3674,7 @@ struct ChurchComparisonView: View {
                     VStack(spacing: 20) {
                         // Comparison Header
                         Text("Comparing \(churches.count) Churches")
-                            .font(.custom("OpenSans-Bold", size: 24))
+                            .font(AMENFont.bold(24))
                             .padding(.top)
                         
                         // Distance Comparison
@@ -3712,7 +3715,7 @@ struct ChurchComparisonView: View {
                             ForEach(churches) { church in
                                 VStack(alignment: .leading, spacing: 8) {
                                     Text(church.name)
-                                        .font(.custom("OpenSans-SemiBold", size: 14))
+                                        .font(AMENFont.semiBold(14))
                                     
                                     if let telURL = URL(string: "tel://\(church.phone.replacingOccurrences(of: "[^0-9]", with: "", options: .regularExpression))") {
                                     Link(destination: telURL) {
@@ -3720,7 +3723,7 @@ struct ChurchComparisonView: View {
                                             Image(systemName: "phone.fill")
                                                 .font(.system(size: 12))
                                             Text(church.phone)
-                                                .font(.custom("OpenSans-Regular", size: 13))
+                                                .font(AMENFont.regular(13))
                                         }
                                         .foregroundStyle(.blue)
                                     }
@@ -3764,7 +3767,7 @@ struct ComparisonSection<Content: View>: View {
                     .foregroundStyle(color)
                 
                 Text(title)
-                    .font(.custom("OpenSans-Bold", size: 18))
+                    .font(AMENFont.bold(18))
                     .foregroundStyle(.primary)
             }
             
@@ -3789,14 +3792,14 @@ struct ComparisonRow: View {
     var body: some View {
         HStack {
             Text(label)
-                .font(.custom("OpenSans-SemiBold", size: 13))
+                .font(AMENFont.semiBold(13))
                 .foregroundStyle(.primary)
                 .lineLimit(1)
             
             Spacer()
             
             Text(value)
-                .font(.custom("OpenSans-Regular", size: 13))
+                .font(AMENFont.regular(13))
                 .foregroundStyle(highlight ? .green : .secondary)
                 .lineLimit(1)
             
@@ -4738,7 +4741,8 @@ struct EnhancedMinimalChurchCard: View {
                             }
                             .foregroundStyle(Color(red: 0.4, green: 0.4, blue: 0.4))
                             .padding(.horizontal, 10).padding(.vertical, 6)
-                            .background(Capsule().fill(Color(white: 0.96)))
+                            .background(.ultraThinMaterial, in: Capsule())
+                            .overlay(Capsule().strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                         }
                         .buttonStyle(.plain)
                         Button(action: onShare) {
@@ -4748,7 +4752,8 @@ struct EnhancedMinimalChurchCard: View {
                             }
                             .foregroundStyle(Color(red: 0.4, green: 0.4, blue: 0.4))
                             .padding(.horizontal, 10).padding(.vertical, 6)
-                            .background(Capsule().fill(Color(white: 0.96)))
+                            .background(.ultraThinMaterial, in: Capsule())
+                            .overlay(Capsule().strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                         }
                         .buttonStyle(.plain)
                     }
@@ -4830,11 +4835,9 @@ struct EnhancedMinimalChurchCard: View {
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color.white)
-                .shadow(color: Color.black.opacity(0.04), radius: 20, y: 8)
-        )
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.04), radius: 20, y: 8)
         .animation(.spring(response: 0.4, dampingFraction: 0.7), value: isExpanded)
         .onAppear {
             // Fetch church fit score

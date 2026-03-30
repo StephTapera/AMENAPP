@@ -76,7 +76,9 @@ class AppDelegate: NSObject, UIApplicationDelegate {
                 dlog("✅ App Check token pre-warmed: \(token.token.prefix(20))...")
             } catch {
                 // Non-fatal — SDK will fall back to placeholder token when unenforced
-                dlog("⚠️ App Check pre-warm failed (monitoring mode will handle): \(error.localizedDescription)")
+                // NOTE: HTTP 403 on simulator is EXPECTED until debug token is registered in Firebase Console
+                // Go to: Firebase Console → App Check → Apps → Register debug token from logs
+                dlog("⚠️ App Check pre-warm failed (expected on first simulator run): \(error.localizedDescription)")
             }
         }
         
@@ -109,6 +111,16 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         
         // Setup push notifications
         setupPushNotifications()
+
+        // Subscribe to disaster alert FCM topics (idempotent — safe to call on every launch)
+        Messaging.messaging().subscribe(toTopic: "disasters_general") { error in
+            if let error { dlog("⚠️ FCM disaster_general subscribe: \(error.localizedDescription)") }
+            else { dlog("✅ FCM subscribed: disasters_general") }
+        }
+        Messaging.messaging().subscribe(toTopic: "disasters_critical") { error in
+            if let error { dlog("⚠️ FCM disaster_critical subscribe: \(error.localizedDescription)") }
+            else { dlog("✅ FCM subscribed: disasters_critical") }
+        }
 
         // ── QUICK ACTIONS: Cold launch ───────────────────────────────────────────
         // When the user long-presses the app icon and taps a shortcut while the app

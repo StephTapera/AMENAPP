@@ -129,7 +129,7 @@ final class BereanGenkitService: ObservableObject {
         maxTokens: Int = 2000,
         temperature: Double = 0.7,
         systemPromptSuffix: String? = nil,
-        mode: BereanMode = .shepherd
+        mode: BereanPersonalityMode = .shepherd
     ) -> AsyncThrowingStream<String, Error> {
         let safeMessage = trimmed(message, maxLength: 4000)
         let chatHistory = conversationHistory.map { msg in
@@ -167,7 +167,7 @@ final class BereanGenkitService: ObservableObject {
     func sendMessageSync(
         _ message: String,
         conversationHistory: [BereanMessage] = [],
-        mode: BereanMode = .shepherd
+        mode: BereanPersonalityMode = .shepherd
     ) async throws -> String {
         let safeMessage = trimmed(message, maxLength: 4000)
         let chatHistory = conversationHistory.map { msg in

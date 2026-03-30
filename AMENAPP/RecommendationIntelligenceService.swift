@@ -64,7 +64,31 @@ final class RecommendationIntelligenceService {
     private var cache: [String: CachedRecommendations] = [:]
     private let cacheTTL: TimeInterval = 600  // 10 minutes
 
+    // P2 FIX: Post-level relevance score cache keyed by postId.
+    // HomeFeedAlgorithm reads these scores at sort time via getCachedRelevance().
+    // Set by callers who evaluate recommendations for a set of posts (e.g. PostsManager).
+    private var postRelevanceCache: [String: Double] = [:]
+
     private init() {}
+
+    // MARK: - Feed Integration
+
+    /// Returns a cached relevance score for a post (0–1.0). Returns 0 on miss.
+    /// HomeFeedAlgorithm calls this during ScoringContext capture.
+    func getCachedRelevance(for postId: String) -> Double {
+        postRelevanceCache[postId] ?? 0
+    }
+
+    /// Store a relevance score for a post. Call this when recommendation scores
+    /// are computed (e.g. after Vertex AI embedding similarity for a batch of posts).
+    func cacheRelevance(_ score: Double, for postId: String) {
+        postRelevanceCache[postId] = max(0, min(1, score))
+    }
+
+    /// Evict all cached relevance scores (call on feed refresh to prevent stale boosts).
+    func clearRelevanceCache() {
+        postRelevanceCache.removeAll()
+    }
 
     // MARK: - Surface-Specific APIs
 

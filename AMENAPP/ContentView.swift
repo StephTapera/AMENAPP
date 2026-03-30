@@ -42,6 +42,8 @@ struct ContentView: View {
     @State private var selectedPostCategory: CreatePostView.PostCategory = .openTable
     @State private var showBereanQuickActions = false
     @State private var showBereanAssistantFromMenu = false
+    @State private var tabBarBadges = AMENBadgeCounts()
+    @AppStorage("currentUserProfileImageURL") private var currentUserProfileImageURL: String = ""
     @State private var postingBarState: PostingBarState = .hidden
     @State private var postingBarCategory: String = ""
     @State private var postingBarPost: Post? = nil
@@ -52,11 +54,35 @@ struct ContentView: View {
     @State private var discoverTabObserver: NSObjectProtocol?
     @State private var postingBarDismissTask: Task<Void, Never>? = nil
     @State private var showTabBar = true  // ✅ Control tab bar visibility
-    @State private var lastScrollOffset: CGFloat = 0  // Track scroll position for tab bar auto-hide
+    @ObservedObject private var tabScrollBridge = AMENTabBarScrollBridge.shared
+    @State private var keyboardShowObserver: NSObjectProtocol?
+    @State private var keyboardHideObserver: NSObjectProtocol?
     @State private var showCommunityCovenant = false
     @State private var needsCovenantAgreement = false
+    // P1-1 FIX: First-post prompt deferred from OnboardingView so it fires after the
+    // onboarding→main-app transition completes rather than during view teardown.
+    @State private var showFirstPostPrompt = false
     @State private var showCompulsiveReopenRedirect = false
     @State private var compulsiveReopenCount = 0
+    
+    // ✅ SHEET COORDINATION: Prevents simultaneous modal presentation conflicts
+    enum ActiveModal: Identifiable {
+        case sundayPrompt
+        case authSuccess
+        case welcomeToAMEN
+        case compulsiveReopenRedirect(Int)
+        
+        var id: String {
+            switch self {
+            case .sundayPrompt: return "sundayPrompt"
+            case .authSuccess: return "authSuccess"
+            case .welcomeToAMEN: return "welcomeToAMEN"
+            case .compulsiveReopenRedirect: return "compulsiveReopenRedirect"
+            }
+        }
+    }
+    
+    @State private var activeModal: ActiveModal?
     // isResolvingAuthState removed: AppReadyStateManager.isShowingLoadingScreen is now
     // pre-set to true on init for cached users, so the overlay covers the entire auth
     // resolution window. There is no separate Screen 1 anymore — one loading screen only.
@@ -105,9 +131,8 @@ struct ContentView: View {
     
     var body: some View {
         Group {
-            // AppReadyStateManager.isShowingLoadingScreen covers the auth-resolution window
-            // (it is pre-set to true for cached users before this body evaluates).
-            // We go straight to routing — the overlay handles the "loading" visual.
+            // ✅ INSTAGRAM/THREADS PATTERN: No loading screen for returning users
+            // Authenticated users go straight to main content
             if authViewModel.needs2FAVerification {
                 // P0 SECURITY: 2FA verification gate (before email verification)
                 TwoFactorVerificationGateView()
@@ -127,11 +152,35 @@ struct ContentView: View {
 
                     // Splash (on top, fades out after animation completes)
                     if showSplash {
-                        SplashView {
-                            withAnimation(.easeIn(duration: 0.2)) { showSplash = false }
+                        // Returning user: premium auto-login splash with cached profile
+                        if authViewModel.hasCachedUser {
+                            AutoLoginSplashView(
+                                cachedUsername: authViewModel.cachedUsername,
+                                cachedPhotoURL: authViewModel.cachedPhotoURL,
+                                onSuccess: {
+                                    // Auth resolved: dismiss splash; auth listener will
+                                    // set isAuthenticated = true and show main app
+                                    withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                                        showSplash = false
+                                    }
+                                },
+                                onFailure: {
+                                    // Timeout / failed: fall through to login screen
+                                    withAnimation(.spring(response: 0.5, dampingFraction: 0.85)) {
+                                        showSplash = false
+                                    }
+                                }
+                            )
+                            .zIndex(1)
+                            .transition(.opacity)
+                        } else {
+                            // New / logged-out user: standard splash
+                            SplashView {
+                                withAnimation(.easeIn(duration: 0.2)) { showSplash = false }
+                            }
+                            .zIndex(1)
+                            .transition(.opacity)
                         }
-                        .zIndex(1)
-                        .transition(.opacity)
                     }
                 }
                 .onAppear {
@@ -140,6 +189,16 @@ struct ContentView: View {
                         AppReadyStateManager.shared.signalReady()
                     }
                 }
+            } else if authViewModel.isDeactivated {
+                // Account deactivated — show reactivation prompt (user is signed in to Firebase
+                // but their profile is hidden; they must explicitly reactivate to proceed)
+                ReactivationPromptView(status: authViewModel.deactivationStatus)
+                    .environmentObject(authViewModel)
+                    .transition(.opacity.combined(with: .move(edge: .trailing)))
+                    .onAppear {
+                        dlog("🚦 [LAUNCH] ContentView → ReactivationPromptView appeared")
+                        AppReadyStateManager.shared.signalReady()
+                    }
             } else if authViewModel.needsUsernameSelection {
                 // Show username selection for social sign-in users (before onboarding)
                 UsernameSelectionView()
@@ -153,17 +212,9 @@ struct ContentView: View {
                         // Mark username selection as complete when dismissed
                         authViewModel.completeUsernameSelection()
                     }
-            } else if authViewModel.needsEmailVerification {
-                // P0: Email verification gate before main app
-                EmailVerificationGateView()
-                    .environmentObject(authViewModel)
-                    .transition(.opacity.combined(with: .move(edge: .trailing)))
-                    .onAppear {
-                        dlog("🚦 [LAUNCH] ContentView → EmailVerificationGateView appeared")
-                        AppReadyStateManager.shared.signalReady()
-                    }
             } else if authViewModel.needsOnboarding {
-                // Show onboarding flow for new users
+                // Show onboarding flow for new users (before email verification gate,
+                // so new sign-ups reach onboarding immediately after account creation)
                 OnboardingView()
                     .environmentObject(authViewModel)
                     .transition(.opacity.combined(with: .move(edge: .trailing)))
@@ -174,19 +225,39 @@ struct ContentView: View {
                         // so it doesn't cover the entire onboarding flow.
                         AppReadyStateManager.shared.signalReady()
                     }
+            } else if authViewModel.needsEmailVerification {
+                // P0: Email verification gate — shown after onboarding completes
+                EmailVerificationGateView()
+                    .environmentObject(authViewModel)
+                    .transition(.opacity.combined(with: .move(edge: .trailing)))
+                    .onAppear {
+                        dlog("🚦 [LAUNCH] ContentView → EmailVerificationGateView appeared")
+                        AppReadyStateManager.shared.signalReady()
+                    }
             } else {
                 // Main app content
                 mainContent
                     .transition(.opacity)
-                    .sheet(isPresented: $showSundayPrompt) {
-                        SundayShabbatPromptView()
-                            .presentationDetents([.medium])
-                            .presentationDragIndicator(.visible)
-                    }
                     .onAppear {
                         dlog("🚦 [LAUNCH] mainContent.onAppear fired (hasStartedCoreServices=\(hasStartedCoreServices))")
+                        dlog("🔍 [SCROLL DEBUG] UI State Check:")
+                        dlog("   - isShowingLoadingScreen: \(isShowingLoadingScreen)")
+                        dlog("   - showTimeoutWarning: \(showTimeoutWarning)")
+                        dlog("   - showTabBar: \(showTabBar)")
+                        dlog("   - showLimitReachedDialog: \(showLimitReachedDialog)")
                         // Stamp the current app version so the next launch can detect updates.
                         welcomeManager.recordLaunch()
+
+                        // P1-1 FIX: Show first-post welcome prompt if onboarding just completed.
+                        // The flag is set by OnboardingView.finishOnboarding() before completeOnboarding()
+                        // tears the view down, so the sheet now appears from stable main-app context.
+                        if UserDefaults.standard.bool(forKey: "showFirstPostPromptPending") {
+                            UserDefaults.standard.removeObject(forKey: "showFirstPostPromptPending")
+                            Task { @MainActor in
+                                try? await Task.sleep(nanoseconds: 600_000_000) // let transition settle
+                                showFirstPostPrompt = true
+                            }
+                        }
 
                         // Show cinematic loading screen if this is a fresh sign-in
                         AppReadyStateManager.shared.startIfNeeded()
@@ -198,10 +269,16 @@ struct ContentView: View {
                         guard !hasStartedCoreServices else { return }
                         hasStartedCoreServices = true
 
-                        // Phase 1 — CRITICAL: feed ready signal (blocks cinematic overlay)
+                        // Phase 1 — CRITICAL: feed ready signal (blocks loading overlay)
                         Task(priority: .high) {
                             _ = PostsManager.shared
                             await waitForFeedReady()
+                            AppReadyStateManager.shared.signalReady()
+                        }
+
+                        // SAFETY: Absolute maximum timeout — loading screen always dismisses
+                        Task {
+                            try? await Task.sleep(nanoseconds: 5_000_000_000) // 5s hard cap
                             AppReadyStateManager.shared.signalReady()
                         }
 
@@ -216,6 +293,10 @@ struct ContentView: View {
                         // when the app launched directly into any other tab via push tap.
                         NotificationService.shared.startListening()
 
+                        // Signal the deep-link router that the nav tree is ready.
+                        // Any cold-start push notification route queued before this fires now.
+                        NotificationDeepLinkRouter.shared.markAppReady()
+
                         // Phase 3 — DEFERRED: non-blocking checks
                         Task(priority: .utility) {
                             await authViewModel.checkEmailVerification()
@@ -227,29 +308,47 @@ struct ContentView: View {
                         Task(priority: .utility) {
                             // Run user search migration on first launch (production-ready, silent)
                             await runUserSearchMigrationIfNeeded()
-                            
-                            // Run post profile image migration on first launch
-                            await runPostProfileImageMigrationIfNeeded()
                         }
                     }
             }
         }
         .animation(.easeOut(duration: 0.2), value: authViewModel.needs2FAVerification)
         .animation(.easeOut(duration: 0.2), value: authViewModel.isAuthenticated)
+        .animation(.easeOut(duration: 0.2), value: authViewModel.isDeactivated)
         .animation(.easeOut(duration: 0.2), value: authViewModel.needsUsernameSelection)
         .animation(.easeOut(duration: 0.2), value: authViewModel.needsOnboarding)
         .animation(.easeOut(duration: 0.2), value: authViewModel.needsEmailVerification)
-        .fullScreenCover(isPresented: $authViewModel.showAuthSuccess) {
-            AuthSuccessCheckmarkView(isPresented: $authViewModel.showAuthSuccess)
+        // ✅ CONSOLIDATED MODAL PRESENTATIONS (prevents auth flow conflicts)
+        .sheet(item: $activeModal) { modal in
+            switch modal {
+            case .sundayPrompt:
+                SundayShabbatPromptView()
+                    .presentationDetents([.medium])
+                    .presentationDragIndicator(.visible)
+            case .authSuccess:
+                AuthSuccessCheckmarkView(isPresented: Binding(
+                    get: { activeModal != nil },
+                    set: { if !$0 { activeModal = nil } }
+                ))
+            case .welcomeToAMEN:
+                WelcomeToAMENView()
+                    .onDisappear {
+                        authViewModel.dismissWelcomeToAMEN()
+                        activeModal = nil
+                    }
+            case .compulsiveReopenRedirect(let count):
+                CompulsiveReopenRedirectView(reopenCount: count)
+            }
         }
-        // Welcome package shown after onboarding completes.
-        // Must be on the root Group (not mainContent) so it fires reliably
-        // even while the view tree is transitioning from OnboardingView → mainContent.
-        .fullScreenCover(isPresented: $authViewModel.showWelcomeToAMEN) {
-            WelcomeToAMENView()
-                .onDisappear {
-                    authViewModel.dismissWelcomeToAMEN()
-                }
+        .onChange(of: authViewModel.showAuthSuccess) { _, newValue in
+            if newValue {
+                activeModal = .authSuccess
+            }
+        }
+        .onChange(of: authViewModel.showWelcomeToAMEN) { _, newValue in
+            if newValue {
+                activeModal = .welcomeToAMEN
+            }
         }
         .onChange(of: authViewModel.isAuthenticated) { oldValue, newValue in
             dlog("🚦 [LAUNCH] isAuthenticated changed: \(oldValue) → \(newValue) (needsOnboarding=\(authViewModel.needsOnboarding))")
@@ -321,10 +420,16 @@ struct ContentView: View {
                         // Dismiss warning on background tap
                         SessionTimeoutManager.shared.extendSession()
                     }
+                    .onAppear {
+                        dlog("⚠️ [SCROLL DEBUG] Timeout warning overlay appeared - BLOCKS INTERACTION")
+                    }
 
                 SessionTimeoutWarningView()
                     .transition(.scale.combined(with: .opacity))
             }
+        }
+        .onChange(of: showTimeoutWarning) { oldValue, newValue in
+            dlog("🔄 [SCROLL DEBUG] showTimeoutWarning changed: \(oldValue) → \(newValue)")
         }
         // Single launch overlay — covers auth resolution AND post-sign-in data loading.
         // AppLoadingScreen shows the logo + tagline + loading dots all in one view
@@ -333,84 +438,84 @@ struct ContentView: View {
             if isShowingLoadingScreen {
                 AppLoadingScreen()
                     .ignoresSafeArea()
-                    .transition(.opacity)
+                    .transition(.opacity.animation(.easeInOut(duration: 0.35)))
                     .zIndex(10)
+                    .allowsHitTesting(false)
             }
         }
-        .animation(.easeOut(duration: 0.2), value: isShowingLoadingScreen)
     }
     
     @ViewBuilder
     private var selectedTabView: some View {
-        // ✅ OPTIMIZED: Single view rendering with directional transitions
-        // Only the selected tab is rendered, reducing CPU/memory by 20-30%
-        // Asymmetric transitions provide spatial context for navigation
         Group {
             // ✅ Shabbat Mode: Gate restricted features
             if SundayChurchFocusManager.shared.shouldGateFeature() && !isAllowedDuringChurchFocus(viewModel.selectedTab) {
                 SundayChurchFocusGateView(selectedTab: $viewModel.selectedTab)
                     .id("shabbatModeGate")
             } else {
-                switch viewModel.selectedTab {
-                case 0:
-                    HomeView(showBereanQuickActions: $showBereanQuickActions, showBereanAssistantFromMenu: $showBereanAssistantFromMenu)
-                        .id("home")
-                        .task {
-                            // PERFORMANCE FIX: Use .task instead of .onAppear for one-time setup
-                            NotificationAggregationService.shared.updateCurrentScreen(.home)
+                ZStack {
+                    // HomeView stays mounted — instant return with scroll position + all state preserved.
+                    // Hiding via opacity avoids the 15-PostCard × 35-@State recreation cost on every tab switch.
+                    HomeView(showBereanQuickActions: $showBereanQuickActions, showBereanAssistantFromMenu: $showBereanAssistantFromMenu, selectedPostCategory: $selectedPostCategory)
+                        .opacity(viewModel.selectedTab == 0 ? 1 : 0)
+                        .allowsHitTesting(viewModel.selectedTab == 0)
+                        .onAppear {
+                            if viewModel.selectedTab == 0 {
+                                NotificationAggregationService.shared.updateCurrentScreen(.home)
+                            }
                         }
-                case 1:
-                    AMENDiscoveryView()
-                        .id("discovery")
-                        .task {
-                            NotificationAggregationService.shared.updateCurrentScreen(.none)
+                        .onChange(of: viewModel.selectedTab) { _, tab in
+                            if tab == 0 {
+                                NotificationAggregationService.shared.updateCurrentScreen(.home)
+                            }
                         }
-                case 2:
-                    MessagesView()
-                        .id("messages")
-                        .environmentObject(messagingCoordinator)
-                        .task {
-                            NotificationAggregationService.shared.updateCurrentScreen(.messages)
-                            // P1 FIX: Clear the messages badge when the tab is opened.
-                            // Previously the badge count got stuck at its peak value
-                            // because clearMessages() was never called on tab entry.
-                            BadgeCountManager.shared.clearMessages()
+
+                    // Other tabs — rendered on demand (recreated per selection)
+                    if viewModel.selectedTab != 0 {
+                        switch viewModel.selectedTab {
+                        case 1:
+                            AMENDiscoveryView()
+                                .id("discovery")
+                                .task {
+                                    NotificationAggregationService.shared.updateCurrentScreen(.none)
+                                }
+                        case 2:
+                            MessagesView()
+                                .id("messages")
+                                .environmentObject(messagingCoordinator)
+                                .task {
+                                    NotificationAggregationService.shared.updateCurrentScreen(.messages)
+                                    BadgeCountManager.shared.clearMessages()
+                                }
+                                .ageGated(feature: .dms)
+                        case 3:
+                            ResourcesView()
+                                .id("resources")
+                                .task {
+                                    NotificationAggregationService.shared.updateCurrentScreen(.none)
+                                }
+                        case 4:
+                            NotificationsView()
+                                .id("notifications")
+                                .task {
+                                    NotificationAggregationService.shared.updateCurrentScreen(.notifications)
+                                }
+                        case 5:
+                            ProfileView()
+                                .environmentObject(authViewModel)
+                                .id("profile")
+                                .task {
+                                    let uid = Auth.auth().currentUser?.uid ?? ""
+                                    NotificationAggregationService.shared.updateCurrentScreen(.profile(userId: uid))
+                                }
+                        default:
+                            EmptyView()
                         }
-                        .ageGated(feature: .dms)
-                case 3:
-                    ResourcesView()
-                        .id("resources")
-                        .task {
-                            NotificationAggregationService.shared.updateCurrentScreen(.none)
-                        }
-                case 4:
-                    NotificationsView()
-                        .id("notifications")
-                        .task {
-                            NotificationAggregationService.shared.updateCurrentScreen(.notifications)
-                        }
-                case 5:
-                    ProfileView()
-                        .environmentObject(authViewModel)
-                        .id("profile")
-                        .task {
-                            let uid = Auth.auth().currentUser?.uid ?? ""
-                            NotificationAggregationService.shared.updateCurrentScreen(.profile(userId: uid))
-                        }
-                default:
-                    HomeView(showBereanQuickActions: $showBereanQuickActions, showBereanAssistantFromMenu: $showBereanAssistantFromMenu)
-                        .id("home")
-                        .task {
-                            NotificationAggregationService.shared.updateCurrentScreen(.home)
-                        }
+                    }
                 }
             }
         }
-        .transition(.asymmetric(
-            insertion: .move(edge: .trailing).combined(with: .opacity),
-            removal: .move(edge: .leading).combined(with: .opacity)
-        ))
-        .animation(.navigation, value: viewModel.selectedTab)
+        .animation(nil, value: viewModel.selectedTab)
     }
     
     // ✅ Shabbat Mode: Check if tab is allowed during focus window
@@ -491,12 +596,31 @@ struct ContentView: View {
         // NotificationDeepLinkRouter.shared publishes activeDestination whenever
         // a push is tapped. This modifier observes it and switches selectedTab.
         .handleNotificationNavigation(selectedTab: $viewModel.selectedTab)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            // Reserve space for the floating tab bar so ScrollViews don't clip content
+            // Always reserve space - tab bar moves offscreen with keyboard instead of disappearing
+            Color.clear
+                .frame(height: showTabBar ? 74 : 0) // capsule height (54) + bottom padding (10) + extra (10)
+                .animation(.easeOut(duration: 0.25), value: showTabBar)
+        }
         .overlay(alignment: .bottom) {
-            // Custom compact tab bar (fixed at bottom) with smooth hide/show animation
-            CompactTabBar(selectedTab: $viewModel.selectedTab, showCreatePost: $showCreatePost, showCreateQuickActions: $showCreateQuickActions)
-                .offset(y: showTabBar ? 0 : 120)  // ✅ Increased from 100 to 120 for larger tab bar
-                .animation(.easeInOut(duration: 0.25), value: showTabBar)
-                .ignoresSafeArea(.keyboard) // Don't move when keyboard appears
+            // Always render tab bar, move it offscreen when keyboard appears
+            AMENTabBar(
+                selectedTab: $viewModel.selectedTab,
+                badges: $tabBarBadges,
+                onCompose: {
+                    tabScrollBridge.expand()
+                    selectedPostCategory = .openTable
+                    showCreatePost = true
+                },
+                profilePhotoURL: currentUserProfileImageURL.isEmpty ? nil : currentUserProfileImageURL,
+                isMinimized: tabScrollBridge.isMinimized
+            )
+            .offset(y: showTabBar ? 0 : 150) // Move offscreen when keyboard appears
+            .animation(.easeOut(duration: 0.25), value: showTabBar)
+            .onChange(of: viewModel.selectedTab) { _, _ in
+                tabScrollBridge.expand()
+            }
         }
         .overlay {
             // Long press menu as a separate overlay - won't affect tab bar
@@ -574,8 +698,16 @@ struct ContentView: View {
         .onReceive(BadgeCountManager.shared.$totalBadgeCount) { count in
             totalBadgeCount = count
         }
+        .onReceive(BadgeCountManager.shared.$unreadMessages) { count in
+            tabBarBadges.messages = count
+        }
+        .onReceive(BadgeCountManager.shared.$unreadNotifications) { count in
+            tabBarBadges.notifications = count
+        }
         .onReceive(SundayChurchFocusManager.shared.$showSundayPrompt) { show in
-            showSundayPrompt = show
+            if show {
+                activeModal = .sundayPrompt
+            }
         }
         .onReceive(FTUEManager.shared.$shouldShowCoachMarks) { show in
             showFTUE = show
@@ -628,11 +760,9 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: .compulsiveReopenDetected)) { notification in
             // Show supportive redirect when compulsive reopening detected
             compulsiveReopenCount = notification.userInfo?["reopenCount"] as? Int ?? 0
-            showCompulsiveReopenRedirect = true
+            activeModal = .compulsiveReopenRedirect(compulsiveReopenCount)
         }
-        .sheet(isPresented: $showCompulsiveReopenRedirect) {
-            CompulsiveReopenRedirectView(reopenCount: compulsiveReopenCount)
-        }
+
         .task {
             // Ensure we start on Home tab (OpenTable view)
             dlog("🚦 [TAB] .task → selectedTab = 0 (Home)")
@@ -667,15 +797,21 @@ struct ContentView: View {
             setupSavedSearchObserver()
             setupPostSuccessObserver()
             setupDiscoverTabObserver()
+            setupKeyboardObservers()
         }
         .onReceive(NotificationCenter.default.publisher(for: .openCreatePost)) { _ in
             withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                 showCreatePost = true
             }
         }
+        // P1-1 FIX: First-post welcome prompt shown once after onboarding completes.
+        // Triggered by the UserDefaults flag set in OnboardingView.finishOnboarding().
+        .sheet(isPresented: $showFirstPostPrompt) {
+            ONBFirstPostSheet(isPresented: $showFirstPostPrompt)
+        }
         .onDisappear {
             // P0-3: Add comprehensive listener cleanup to prevent memory leaks
-            
+
             // Stop tracking when view disappears
             AppUsageTracker.shared.endSession()
             
@@ -713,6 +849,16 @@ struct ContentView: View {
                 NotificationCenter.default.removeObserver(discoverTabObserver)
                 self.discoverTabObserver = nil
             }
+            
+            if let keyboardShowObserver {
+                NotificationCenter.default.removeObserver(keyboardShowObserver)
+                self.keyboardShowObserver = nil
+            }
+            
+            if let keyboardHideObserver {
+                NotificationCenter.default.removeObserver(keyboardHideObserver)
+                self.keyboardHideObserver = nil
+            }
         }
     }
     
@@ -727,6 +873,30 @@ struct ContentView: View {
                 withAnimation(.easeInOut(duration: 0.3)) {
                     viewModel.selectedTab = 1
                 }
+            }
+        }
+    }
+    
+    private func setupKeyboardObservers() {
+        guard keyboardShowObserver == nil else { return }
+        
+        keyboardShowObserver = NotificationCenter.default.addObserver(
+            forName: UIResponder.keyboardWillShowNotification,
+            object: nil,
+            queue: .main
+        ) { [self] _ in
+            withAnimation(.easeOut(duration: 0.2)) {
+                showTabBar = false
+            }
+        }
+        
+        keyboardHideObserver = NotificationCenter.default.addObserver(
+            forName: UIResponder.keyboardWillHideNotification,
+            object: nil,
+            queue: .main
+        ) { [self] _ in
+            withAnimation(.easeOut(duration: 0.2)) {
+                showTabBar = true
             }
         }
     }
@@ -885,19 +1055,23 @@ struct ContentView: View {
     /// Minimum: 2.5 s (lets the orbital discs complete ~1 full rotation visible).
     /// Maximum: 5 s (graceful timeout on very slow connections).
     private func waitForFeedReady() async {
-        // Minimum just long enough for the logo entrance to complete (~1 frame at 60fps).
-        // Posts are pre-warmed from Firestore local cache — exit as soon as they're ready.
-        let minimumDisplay: TimeInterval = 0.2
+        let minDisplay: TimeInterval = 0.5   // Always show loading screen at least 500ms
         let maxWait: TimeInterval = 3.0
-        let pollInterval: TimeInterval = 0.1
+        let pollInterval: TimeInterval = 0.05
         let start = Date()
 
-        // Wait until BOTH conditions are met: posts loaded AND minimum time elapsed
         while true {
             let elapsed = Date().timeIntervalSince(start)
-            let hasPosts = !FirebasePostService.shared.posts.isEmpty
-            if hasPosts && elapsed >= minimumDisplay { return }
-            if elapsed >= maxWait { return }
+            let hasPosts = FirebasePostService.shared.posts.count > 0
+
+            // Wait for both: minimum display time AND posts available
+            if hasPosts && elapsed >= minDisplay {
+                return
+            }
+
+            if elapsed >= maxWait {
+                return
+            }
             try? await Task.sleep(nanoseconds: UInt64(pollInterval * 1_000_000_000))
         }
     }
@@ -922,29 +1096,6 @@ struct ContentView: View {
             }
         } catch {
             // Silent — search fallback handles it
-        }
-    }
-    
-    // MARK: - Post Profile Image Migration (Production - Runs Silently)
-    
-    /// Automatically runs post profile image migration on first app launch
-    private func runPostProfileImageMigrationIfNeeded() async {
-        // Check if migration has already run
-        guard !UserDefaults.standard.bool(forKey: "hasRunPostProfileImageMigration_v1") else {
-            return
-        }
-        
-        do {
-            let status = try await PostProfileImageMigration.shared.checkStatus()
-            
-            if status.needsMigration > 0 {
-                try await PostProfileImageMigration.shared.migrateAllPosts()
-                UserDefaults.standard.set(true, forKey: "hasRunPostProfileImageMigration_v1")
-            } else {
-                UserDefaults.standard.set(true, forKey: "hasRunPostProfileImageMigration_v1")
-            }
-        } catch {
-            // Silent — profile images fall back to initials
         }
     }
     
@@ -1380,11 +1531,16 @@ struct CompactTabBar: View {
     @State private var badgePulse: Bool = false
     @State private var newPostsBadgePulse: Bool = false
     @State private var lastSeenPostTime: Date = Date()
-    @Namespace private var tabNamespace
-    
+    @Namespace private var pillNS
+
+    // Tab haptic handled by AMENTabBar's .sensoryFeedback(.selection) — no duplicate needed
+
     // PERFORMANCE FIX: Navigation tap protection
     @State private var isNavigating = false
     @State private var lastTapTime: Date = .distantPast
+    @State private var lastHomeRefreshDate: Date = .distantPast
+    @State private var isHomeRefreshInFlight = false
+    private let homeAutoRefreshCooldown: TimeInterval = 60
 
     // ✅ REAL-TIME PROFILE PHOTO UPDATE
     @State private var profilePhotoUpdateTrigger = UUID() // Force AsyncImage to reload
@@ -1411,27 +1567,26 @@ struct CompactTabBar: View {
     }
     
     var body: some View {
-        HStack(spacing: 4) {  // Compact spacing for smaller floating bar
-            ForEach(Array(allTabs.enumerated()), id: \.element.tag) { index, tab in
-                // Tab Button
-                tabButton(for: tab, isSelected: selectedTab == tab.tag)
-                
-                // Add Create button after Messages (index 2)
-                if index == 2 {
-                    createButton
+        HStack(alignment: .center, spacing: 10) {
+
+            // ── Floating pill with all nav icons ──
+            HStack(spacing: 0) {
+                ForEach(Array(allTabs.enumerated()), id: \.element.tag) { _, tab in
+                    tabButton(for: tab, isSelected: selectedTab == tab.tag)
                 }
             }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 8)
+            .background(glassmorphicBackground)
+            .clipShape(Capsule())
+            .shadow(color: .black.opacity(0.45), radius: 20, x: 0, y: 8)
+            .shadow(color: .black.opacity(0.15), radius: 4,  x: 0, y: 2)
+
+            // ── Compose button — separate glass circle ──
+            createButton
         }
-        .fixedSize()
-        .padding(.horizontal, 8)   // Smaller horizontal padding
-        .padding(.vertical, 6)     // Smaller vertical padding for compact look
-        .background(glassmorphicBackground)
-        .clipShape(Capsule())
-        .shadow(color: .black.opacity(0.18), radius: 20, x: 0, y: 8)  // Stronger shadow for depth
-        .shadow(color: .black.opacity(0.10), radius: 6, x: 0, y: 3)   // Mid-tone shadow
-        .shadow(color: .white.opacity(0.1), radius: 1, x: 0, y: -1)  // Subtle top highlight
-        .padding(.horizontal, 12)  // Tighter outer padding for floating effect
-        .padding(.bottom, 5)       // Smaller bottom padding, keeps it floating
+        .padding(.horizontal, 16)
+        .padding(.bottom, 5)
         .onChange(of: totalUnreadCount) { oldValue, newValue in
             // Trigger pulse animation when unread count increases
             if newValue > oldValue {
@@ -1497,66 +1652,12 @@ struct CompactTabBar: View {
         }
     }
     
-    // MARK: - Enhanced Glassmorphic Background (More Visible Liquid Glass)
+    // MARK: - Glassmorphic Background
 
     private var glassmorphicBackground: some View {
-        ZStack {
-            // Base frosted glass (more opaque for better visibility)
-            Capsule()
-                .fill(.ultraThinMaterial)
-                .opacity(0.95)  // Increased from 0.7 for better visibility
-
-            // Liquid glass gradient overlay (stronger)
-            Capsule()
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color.white.opacity(0.25),  // Increased from 0.12
-                            Color.white.opacity(0.08)   // Increased from 0.04
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-
-            // Shimmer highlight at top (more pronounced)
-            Capsule()
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color.white.opacity(0.4),  // Increased from 0.25
-                            Color.clear
-                        ],
-                        startPoint: .top,
-                        endPoint: .center
-                    )
-                )
-                .padding(0.5)
-                .blur(radius: 0.5)
-
-            // Border with gradient (more visible)
-            Capsule()
-                .strokeBorder(
-                    LinearGradient(
-                        colors: [
-                            Color.white.opacity(0.5),  // Increased from 0.3
-                            Color.white.opacity(0.2)   // Increased from 0.1
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 0.8  // Increased from 0.5
-                )
-
-            // Subtle inner glow for depth
-            Capsule()
-                .stroke(
-                    Color.white.opacity(0.08),
-                    lineWidth: 1
-                )
-                .blur(radius: 1)
-                .padding(1)
-        }
+        Capsule()
+            .fill(Color(white: 0.92))
+            .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 2)
     }
     
     // MARK: - Tab Button (Smaller Icon-Only Pill Style)
@@ -1588,14 +1689,23 @@ struct CompactTabBar: View {
             isNavigating = true
             
             dlog("🚦 [TAB] User tapped tab bar → selectedTab = \(tab.tag) (from \(selectedTab))")
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+            withAnimation(.spring(response: 0.38, dampingFraction: 0.72)) {
                 selectedTab = tab.tag
             }
             
             // Auto-refresh Home feed when switching to Home tab from another tab
             if tab.tag == 0 {
-                Task {
-                    await postsManager.refreshPosts()
+                let shouldRefresh = postsManager.openTablePosts.isEmpty
+                    || Date().timeIntervalSince(lastHomeRefreshDate) > homeAutoRefreshCooldown
+                if shouldRefresh && !isHomeRefreshInFlight {
+                    isHomeRefreshInFlight = true
+                    Task {
+                        await postsManager.refreshPosts()
+                        await MainActor.run {
+                            lastHomeRefreshDate = Date()
+                            isHomeRefreshInFlight = false
+                        }
+                    }
                 }
                 // Mark posts as seen
                 lastSeenPostTime = Date()
@@ -1617,73 +1727,69 @@ struct CompactTabBar: View {
             }
         } label: {
             ZStack {
-                // Selected state background with glassmorphic effect
+                // ── Sliding active pill — matchedGeometryEffect moves it between tabs ──
                 if isSelected {
                     Capsule()
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    Color.black.opacity(0.2),
-                                    Color.black.opacity(0.12)
-                                ],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
+                        .fill(Color(white: 0.24, opacity: 0.95))
                         .overlay(
                             Capsule()
-                                .fill(
-                                    LinearGradient(
-                                        colors: [
-                                            Color.white.opacity(0.1),
-                                            Color.clear
-                                        ],
-                                        startPoint: .top,
-                                        endPoint: .center
-                                    )
-                                )
+                                .strokeBorder(Color.white.opacity(0.12), lineWidth: 0.5)
                         )
-                        .matchedGeometryEffect(id: "TAB_BACKGROUND", in: tabNamespace)
-                        .animation(.spring(response: 0.4, dampingFraction: 0.6), value: selectedTab)
+                        .matchedGeometryEffect(id: "activePill", in: pillNS)
                 }
-                
-                // Icon with badge OR profile photo for Profile tab
+
+                // Icon + badge stack
                 VStack(spacing: 2) {
                     ZStack(alignment: .topTrailing) {
-                        // Profile tab (tag 5) shows user's profile photo if available
+                        // Selection circle background
+                        Circle()
+                            .fill(Color.white.opacity(isSelected ? 0.4 : 0))
+                            .frame(width: 44, height: 44)
+                            .animation(.spring(response: 0.35, dampingFraction: 0.7), value: isSelected)
+                        
+                        // Profile tab shows user's photo if available
                         if tab.tag == 5 {
                             profileTabContent(isSelected: isSelected)
                         } else {
-                            // Regular icon for other tabs
                             Image(systemName: tab.icon)
-                                .font(.system(size: 18, weight: isSelected ? .semibold : .medium))
-                                .foregroundStyle(isSelected ? .primary : .secondary)
+                                // Icon pops to semibold + slightly larger when selected
+                                .font(.system(
+                                    size: isSelected ? 22 : 20,
+                                    weight: isSelected ? .semibold : .regular
+                                ))
+                                .foregroundStyle(Color.black)
+                                // Scales up ahead of the pill landing (snappier spring)
+                                .scaleEffect(isSelected ? 1.12 : 1.0)
+                                .animation(
+                                    .spring(response: 0.32, dampingFraction: 0.65),
+                                    value: isSelected
+                                )
+                                // Native bounce fires once on selection (iOS 17+)
                                 .symbolEffect(.bounce, value: isSelected)
                         }
 
-                        // Smart badge for Messages tab (shows count then transitions to dot)
+                        // Messages unread badge
                         if tab.tag == 2 && totalUnreadCount > 0 {
                             SmartMessageBadge(unreadCount: totalUnreadCount, pulse: badgePulse)
                                 .offset(x: 2, y: -2)
                         }
 
-                        // Simple dot indicator for Home tab
+                        // Home new-posts dot
                         if tab.tag == 0 && hasNewPosts {
                             UnreadDot(pulse: newPostsBadgePulse)
                                 .offset(x: 2, y: -2)
                         }
 
-                        // Red dot for Notifications tab (tag 4 = bell)
+                        // Notifications dot
                         if tab.tag == 4 && badgeCountManager.unreadNotifications > 0 {
                             UnreadDot(pulse: false)
                                 .offset(x: 2, y: -2)
                         }
                     }
-                    .scaleEffect(isSelected ? 1.25 : 1.0)
                     .offset(y: isSelected ? -2 : 0)
-                    .animation(.spring(response: 0.4, dampingFraction: 0.6), value: isSelected)
+                    .animation(.spring(response: 0.38, dampingFraction: 0.72), value: isSelected)
 
-                    // Gold dot indicator below active tab
+                    // Gold active dot
                     Circle()
                         .fill(Color(red: 0.788, green: 0.659, blue: 0.298))
                         .frame(width: 4, height: 4)
@@ -1691,9 +1797,9 @@ struct CompactTabBar: View {
                         .opacity(isSelected ? 1.0 : 0)
                         .animation(.spring(response: 0.35, dampingFraction: 0.5), value: isSelected)
                 }
-                .frame(width: 44, height: 38)  // Smaller compact button size
+                .frame(width: 44, height: 40)
             }
-            .frame(width: 44, height: 38)  // Smaller compact button size
+            .frame(width: 44, height: 40)
             .contentShape(Rectangle())
         }
         .buttonStyle(PlainButtonStyle())
@@ -1787,20 +1893,21 @@ struct CompactTabBar: View {
     @State private var isLongPressing = false
     
     private var createButton: some View {
-        // Black circle with white plus — elevated above the tab bar
         ZStack {
             Circle()
-                .fill(Color.black)
-                .frame(width: 48, height: 48)
-                .shadow(color: .black.opacity(0.25), radius: 8, x: 0, y: 4)
+                .fill(Color(white: 0.92))
+                .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 2)
+                .frame(width: 54, height: 54)
 
             Image(systemName: "plus")
-                .font(.system(size: 22, weight: .bold))
-                .foregroundStyle(.white)
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(.black)
+                // Rotates 45° → 0° on first appear — subtle "unfurl"
+                .transition(.opacity)
         }
-        .offset(y: 0) // Inline with other tab bar buttons
         .scaleEffect(createButtonScale)
-        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: createButtonScale)
+        .brightness(isLongPressing ? 0.06 : 0)
+        .animation(.spring(response: 0.22, dampingFraction: 0.55), value: createButtonScale)
         .contentShape(Circle())
         .accessibilityLabel("Create post")
         .accessibilityHint("Tap to compose a new post. Long press for quick options.")
@@ -1826,7 +1933,7 @@ struct CompactTabBar: View {
             withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
                 showCreatePost = true
             }
-            HapticManager.impact(style: .heavy)
+            HapticManager.impact(style: .light)
         }
         .simultaneousGesture(
             // Long press - show quick actions menu (optional feature)
@@ -1956,17 +2063,45 @@ struct SmartMessageBadge: View {
     }
 }
 
+// MARK: - Feed Mode
+
+enum LegacyFeedMode: String, CaseIterable {
+    case everyone = "Everyone"
+    case following = "Following"
+    case quiet = "Quiet Mode"
+
+    var icon: String {
+        switch self {
+        case .everyone:  return "globe"
+        case .following: return "person.2"
+        case .quiet:     return "bell.slash"
+        }
+    }
+}
+
 struct HomeView: View {
+    private struct NotificationPostSheetRoute: Identifiable, Equatable {
+        let postId: String
+        let scrollToCommentId: String?
+
+        var id: String {
+            "\(postId)::\(scrollToCommentId ?? "")"
+        }
+    }
+
     @StateObject private var viewModel = HomeViewModel()
     @ObservedObject private var notificationService = NotificationService.shared
     @ObservedObject private var postsManager = PostsManager.shared  // ✅ FIXED: Use @ObservedObject for singletons
     @State private var isCategoriesExpanded = false
+    @State private var selectedFeedMode: LegacyFeedMode = .everyone
+    @State private var showFeedModeDropdown = false
+    @State private var showCommunitiesSheet = false
     @State private var showBereanAssistant = false
     @Binding var showBereanQuickActions: Bool
     @Binding var showBereanAssistantFromMenu: Bool
+    @Binding var selectedPostCategory: CreatePostView.PostCategory
     // Deep link navigation: post opened from a push notification tap
-    @State private var notificationDeepLinkPostId: String?
-    @State private var showNotificationPostDetail = false
+    @State private var notificationPostSheetRoute: NotificationPostSheetRoute?
     #if DEBUG
     @State private var showAdminCleanup = false
     @State private var showMigrationPanel = false  // NEW: Migration panel
@@ -1979,9 +2114,9 @@ struct HomeView: View {
     @State private var showToolbar = true
     @Environment(\.tabBarVisible) private var tabBarVisible  // ✅ Access tab bar visibility
     
-    // P0 FIX: Hysteresis thresholds to prevent tab bar flicker
-    private let scrollUpThreshold: CGFloat = 10  // Restore header after small upward scroll
-    private let scrollDownThreshold: CGFloat = 80  // Must scroll 80pts down to hide
+    // Hysteresis thresholds — hide quickly on downward scroll, restore on upward
+    private let scrollUpThreshold: CGFloat = 8   // Restore bar after modest upward scroll
+    private let scrollDownThreshold: CGFloat = 18 // Hide bar after 18pts downward movement
     
     // Helper function for adaptive spacing
     private func adaptiveSpacing(for width: CGFloat) -> CGFloat {
@@ -1995,8 +2130,9 @@ struct HomeView: View {
     // MARK: - Scroll Handling (P0 FIX: Single source with hysteresis)
     
     private func handleScroll(offset: CGFloat) {
-        // Debounce - only process changes > 3pts to reduce jitter
-        guard abs(offset - scrollOffset) > 3 else { return }
+        // ✅ PERFORMANCE FIX: Increased debounce threshold to reduce lag
+        // Only process changes > 8pts to reduce excessive UI updates during scroll
+        guard abs(offset - scrollOffset) > 8 else { return }
         
         _ = scrollOffset
         scrollOffset = offset
@@ -2006,6 +2142,7 @@ struct HomeView: View {
         
         // At top (within 20pts of zero) - always show UI, no animation fighting
         if offset > -20 {
+            AMENTabBarScrollBridge.shared.expand()
             if !showToolbar || !tabBarVisible.wrappedValue {
                 // Single smooth animation without bounce
                 withAnimation(.easeOut(duration: 0.2)) {
@@ -2018,6 +2155,7 @@ struct HomeView: View {
         
         // Scrolling up significantly - show UI
         if delta > scrollUpThreshold {
+            AMENTabBarScrollBridge.shared.expand()
             if !showToolbar || !tabBarVisible.wrappedValue {
                 withAnimation(.easeOut(duration: 0.2)) {
                     showToolbar = true
@@ -2025,10 +2163,11 @@ struct HomeView: View {
                 }
             }
         }
-        // Scrolling down significantly AND past threshold - hide UI
-        else if delta < -scrollDownThreshold && offset < -150 {
+        // Scrolling down past threshold — hide bar quickly for more screen real estate
+        else if delta < -scrollDownThreshold && offset < -50 {
+            AMENTabBarScrollBridge.shared.minimize()
             if showToolbar || tabBarVisible.wrappedValue {
-                withAnimation(.easeOut(duration: 0.2)) {
+                withAnimation(.easeOut(duration: 0.15)) {
                     showToolbar = false
                     tabBarVisible.wrappedValue = false
                 }
@@ -2046,16 +2185,54 @@ struct HomeView: View {
     }
     
     var body: some View {
-        // FeedDrawerGestureWrapper intercepts left-swipe to reveal the
-        // community / feed-mode utility drawer from the trailing edge.
-        FeedDrawerGestureWrapper {
-            NavigationStack {
-                mainScrollContent
-                    .navigationTitle("AMEN")
-                    .navigationBarTitleDisplayMode(.inline)
-                    // Auto-hide header when scrolling down
-                    .toolbar(showToolbar ? .visible : .hidden, for: .navigationBar)
-                    .toolbar {
+        // ✅ REMOVED: FeedDrawerGestureWrapper swipe gesture for Communities
+        NavigationStack {
+            mainScrollContent
+                .navigationTitle("AMEN")
+                .navigationBarTitleDisplayMode(.inline)
+                // Auto-hide header when scrolling down
+                .toolbar(showToolbar ? .visible : .hidden, for: .navigationBar)
+                .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    // ✅ MERGED: Combined feed mode + communities menu button
+                    Menu {
+                        Section("Feed Mode") {
+                            ForEach(LegacyFeedMode.allCases, id: \.self) { mode in
+                                Button {
+                                    HapticManager.impact(style: .light)
+                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                        selectedFeedMode = mode
+                                    }
+                                } label: {
+                                    Label(mode.rawValue, systemImage: mode.icon)
+                                    if selectedFeedMode == mode {
+                                        Image(systemName: "checkmark")
+                                    }
+                                }
+                            }
+                        }
+                        
+                        Section("Communities") {
+                            Button {
+                                HapticManager.impact(style: .light)
+                                showCommunitiesSheet = true
+                            } label: {
+                                Label("Browse Communities", systemImage: "person.3.fill")
+                            }
+                        }
+                    } label: {
+                        Image(systemName: "person.3.fill")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundStyle(.primary)
+                            .frame(width: 22, height: 22)
+                            .padding(8)
+                            .overlay {
+                                Circle()
+                                    .stroke(Color.white.opacity(0.22), lineWidth: 1)
+                            }
+                    }
+                    .opacity(showToolbar ? 1 : 0)
+                }
                     ToolbarItem(placement: .topBarTrailing) {
                         // Search Button - hides with toolbar
                         SearchButton(isVisible: showToolbar, action: {
@@ -2091,7 +2268,7 @@ struct HomeView: View {
                         } label: {
                             HStack(spacing: 4) {
                                 Text("amen")
-                                    .font(.custom("OpenSans-Bold", size: 24))
+                                    .font(AMENFont.bold(24))
                                     .foregroundStyle(.primary)
                                 Image(systemName: "chevron.up")
                                     .font(.system(size: 9, weight: .medium))
@@ -2108,11 +2285,28 @@ struct HomeView: View {
                 .fullScreenCover(isPresented: $showBereanAssistant) {
                     BereanAIAssistantView()
                 }
+                .sheet(isPresented: $showCommunitiesSheet) {
+                    FeedCommunitiesSheet(
+                        selectedMode: $selectedFeedMode,
+                        onDismiss: { showCommunitiesSheet = false }
+                    )
+                }
                 .onChange(of: showBereanAssistantFromMenu) { _, newValue in
                     if newValue {
                         showBereanAssistant = true
                         showBereanAssistantFromMenu = false // Reset
                     }
+                }
+                // CaughtUpCard redirect actions: switch to Prayer feed or open Berean
+                // when the user is caught up and wants to do something purposeful.
+                .onReceive(NotificationCenter.default.publisher(for: .caughtUpOpenPrayer)) { _ in
+                    withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
+                        viewModel.selectedCategory = "Prayer"
+                        selectedFeedMode = .everyone
+                    }
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .caughtUpOpenBerean)) { _ in
+                    showBereanAssistant = true
                 }
                 #if DEBUG
                 .sheet(isPresented: $showAdminCleanup) {
@@ -2124,23 +2318,45 @@ struct HomeView: View {
                 #endif
                 // Notification listener started in mainContent.onAppear (not here,
                 // so it fires regardless of which tab opens first)
-            }
-            // Deep link: open a specific post when a push notification is tapped
-            .onReceive(NotificationCenter.default.publisher(for: .openPostFromNotification)) { notification in
-                if let postId = notification.userInfo?["postId"] as? String {
-                    notificationDeepLinkPostId = postId
-                    showNotificationPostDetail = true
-                }
-            }
-            .sheet(isPresented: $showNotificationPostDetail, onDismiss: {
-                notificationDeepLinkPostId = nil
-            }) {
-                if let postId = notificationDeepLinkPostId {
-                    NavigationStack {
-                        NotificationPostDetailView(postId: postId)
-                            .navigationBarTitleDisplayMode(.inline)
+                // Feed mode dropdown overlay
+                .overlay(alignment: .topLeading) {
+                    if showFeedModeDropdown {
+                        ZStack(alignment: .topLeading) {
+                            Color.clear
+                                .contentShape(Rectangle())
+                                .ignoresSafeArea()
+                                .onTapGesture {
+                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                        showFeedModeDropdown = false
+                                    }
+                                }
+                            FeedModeDropdownMenu(
+                                selectedMode: $selectedFeedMode,
+                                isVisible: $showFeedModeDropdown
+                            )
+                            .padding(.top, 50)
+                            .padding(.leading, 8)
+                        }
                     }
                 }
+            }
+        // Deep link: open a specific post when a push notification is tapped
+        .onReceive(NotificationCenter.default.publisher(for: .openPostFromNotification)) { notification in
+            if let postId = notification.userInfo?["postId"] as? String {
+                let scrollToCommentId = notification.userInfo?["scrollToCommentId"] as? String
+                notificationPostSheetRoute = NotificationPostSheetRoute(
+                    postId: postId,
+                    scrollToCommentId: scrollToCommentId
+                )
+            }
+        }
+        .sheet(item: $notificationPostSheetRoute) { route in
+            NavigationStack {
+                NotificationPostDetailView(
+                    postId: route.postId,
+                    focusCommentId: route.scrollToCommentId
+                )
+                .navigationBarTitleDisplayMode(.inline)
             }
         }
     }
@@ -2154,6 +2370,9 @@ struct HomeView: View {
                     Color.clear
                         .frame(height: 1)
                         .id("top")
+                        .onAppear {
+                            dlog("📜 [SCROLL DEBUG] ScrollView content appeared - should be scrollable")
+                        }
                     
                     // Expandable Category Pills
                     if isCategoriesExpanded {
@@ -2161,9 +2380,21 @@ struct HomeView: View {
                             .padding(.top, 4)
                             .padding(.bottom, 8)
                     }
-                    
-                    // Subtle collaboration suggestions (only in OpenTable)
-                    if viewModel.selectedCategory == "#OPENTABLE" {
+
+                    // Feed mode indicator strip — visible when not in Everyone mode
+                    if selectedFeedMode != .everyone {
+                        FeedModeIndicatorStrip(mode: selectedFeedMode) {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                selectedFeedMode = .everyone
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
+                        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: selectedFeedMode)
+                    }
+
+                    // Subtle collaboration suggestions (only in OpenTable / Everyone mode)
+                    if viewModel.selectedCategory == "#OPENTABLE" && selectedFeedMode == .everyone {
                         SubtleCollaborationSuggestionsView()
                             .padding(.top, 8)
                     }
@@ -2173,27 +2404,42 @@ struct HomeView: View {
                 }
                 .padding(.bottom, 100)
             }
+            .contentShape(Rectangle())
+            .onAppear {
+                dlog("📜 [SCROLL DEBUG] Main ScrollView appeared")
+            }
+            // ✅ DISABLED: Excessive scroll gesture logging causes memory pressure and app kills
+            // .simultaneousGesture(
+            //     DragGesture(minimumDistance: 0)
+            //         .onChanged { value in
+            //             dlog("👆 [SCROLL DEBUG] Scroll gesture detected - translation: \(value.translation)")
+            //         }
+            // )
             // Native scroll offset tracking — does not replace SwiftUI's internal UIScrollViewDelegate
+            // ✅ PERFORMANCE FIX: Throttle scroll updates to reduce lag
             .onScrollGeometryChange(for: CGFloat.self) { geo in
                 geo.contentOffset.y
             } action: { _, newOffset in
                 handleScroll(offset: -newOffset)
             }
-            // GESTURE: Double-tap to scroll to top
-            .onTapGesture(count: 2) {
-                withAnimation(.easeOut(duration: 0.3)) {
-                    proxy.scrollTo("top", anchor: .center)
-                    showToolbar = true
-                    tabBarVisible.wrappedValue = true
-                }
-                HapticManager.impact(style: .light)
-            }
+            // P0 FIX: Removed .onTapGesture(count: 2) - it was blocking ScrollView scrolling
+            // .onTapGesture(count: 2) {
+            //     withAnimation(.easeOut(duration: 0.18)) {
+            //         proxy.scrollTo("top", anchor: .center)
+            //         showToolbar = true
+            //         tabBarVisible.wrappedValue = true
+            //     }
+            //     HapticManager.impact(style: .light)
+            // }
             .refreshable {
                 await refreshCurrentCategory()
+                withAnimation(.easeOut(duration: 0.18)) {
+                    proxy.scrollTo("top", anchor: .top)
+                }
             }
             // Tab bar home button re-tap: scroll to top and refresh feed
             .onReceive(NotificationCenter.default.publisher(for: .homeTabTapped)) { _ in
-                withAnimation(.easeOut(duration: 0.3)) {
+                withAnimation(.easeOut(duration: 0.18)) {
                     proxy.scrollTo("top", anchor: .top)
                     showToolbar = true
                     tabBarVisible.wrappedValue = true
@@ -2212,20 +2458,18 @@ struct HomeView: View {
     /// Refresh the currently selected category
     private func refreshCurrentCategory() async {
         HapticManager.impact(style: .light)
-        
-        // Post notification to refresh the current category
-        NotificationCenter.default.post(
-            name: Notification.Name("refreshCategory"),
-            object: nil,
-            userInfo: ["category": viewModel.selectedCategory]
-        )
-        
-        // Wait a moment for the refresh to complete
-        try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
-        
-        await MainActor.run {
-            HapticManager.notification(type: .success)
+        switch viewModel.selectedCategory {
+        case "Prayer":
+            await PostsManager.shared.fetchFilteredPosts(for: .prayer, filter: "all")
+        case "Testimonies":
+            await PostsManager.shared.fetchFilteredPosts(for: .testimonies, filter: "all")
+        default:
+            await PostsManager.shared.refreshPosts()
         }
+        NotificationCenter.default.post(name: .feedDidRefresh,
+                                        object: nil,
+                                        userInfo: ["category": viewModel.selectedCategory])
+        HapticManager.notification(type: .success)
     }
     
     private var categoryPillsView: some View {
@@ -2257,23 +2501,274 @@ struct HomeView: View {
     }
     
     private var selectedCategoryView: some View {
-        // All three views stay mounted simultaneously — only opacity changes on switch.
-        // This prevents the destroy/recreate cycle that caused Firebase listeners to
-        // stop and restart on every category tap (the "🎧 Starting / 🔇 Stopping" loop).
-        // alignment: .top ensures Prayer/Testimonies views align to the top of the ZStack
-        // and don't get vertically centered when they're shorter than OpenTableView.
+        // P0 FIX: Block hit testing on hidden views to prevent scroll blocking.
+        // All views stay mounted (prevents listener restart) but hidden views
+        // have .allowsHitTesting(false) so they don't intercept gestures.
         ZStack(alignment: .top) {
-            OpenTableView()
-                .opacity(viewModel.selectedCategory == "#OPENTABLE" || viewModel.selectedCategory == "" ? 1 : 0)
-                .allowsHitTesting(viewModel.selectedCategory == "#OPENTABLE" || viewModel.selectedCategory == "")
+            // Everyone mode — category-based views
+            let isOpenTable = selectedFeedMode == .everyone && (viewModel.selectedCategory == "#OPENTABLE" || viewModel.selectedCategory == "")
+            let isTestimonies = selectedFeedMode == .everyone && viewModel.selectedCategory == "Testimonies"
+            let isPrayer = selectedFeedMode == .everyone && viewModel.selectedCategory == "Prayer"
+            let isFollowing = selectedFeedMode == .following
+            let isQuiet = selectedFeedMode == .quiet
+
+            OpenTableView(selectedPostCategory: $selectedPostCategory)
+                .opacity(isOpenTable ? 1 : 0)
+                .zIndex(isOpenTable ? 1 : 0)
+                .allowsHitTesting(isOpenTable)
+                .frame(height: isOpenTable ? nil : 0, alignment: .top)
+                .clipped()
             TestimoniesView()
-                .opacity(viewModel.selectedCategory == "Testimonies" ? 1 : 0)
-                .allowsHitTesting(viewModel.selectedCategory == "Testimonies")
+                .opacity(isTestimonies ? 1 : 0)
+                .zIndex(isTestimonies ? 1 : 0)
+                .allowsHitTesting(isTestimonies)
+                .frame(height: isTestimonies ? nil : 0, alignment: .top)
+                .clipped()
             PrayerView()
-                .opacity(viewModel.selectedCategory == "Prayer" ? 1 : 0)
-                .allowsHitTesting(viewModel.selectedCategory == "Prayer")
+                .opacity(isPrayer ? 1 : 0)
+                .zIndex(isPrayer ? 1 : 0)
+                .allowsHitTesting(isPrayer)
+                .frame(height: isPrayer ? nil : 0, alignment: .top)
+                .clipped()
+            // Following feed mode — posts from accounts the current user follows
+            FollowingFeedView()
+                .opacity(isFollowing ? 1 : 0)
+                .zIndex(isFollowing ? 1 : 0)
+                .allowsHitTesting(isFollowing)
+                .frame(height: isFollowing ? nil : 0, alignment: .top)
+                .clipped()
+            // Quiet feed mode — chronological, no algorithmic boost
+            QuietFeedView()
+                .opacity(isQuiet ? 1 : 0)
+                .zIndex(isQuiet ? 1 : 0)
+                .allowsHitTesting(isQuiet)
+                .frame(height: isQuiet ? nil : 0, alignment: .top)
+                .clipped()
         }
         .animation(.easeInOut(duration: 0.15), value: viewModel.selectedCategory)
+        .animation(.easeInOut(duration: 0.15), value: selectedFeedMode)
+    }
+}
+
+// MARK: - Following Feed View
+
+/// Shows only posts from accounts the current user follows.
+/// Filters PostsManager.allPosts client-side using FollowService.followingIds.
+struct FollowingFeedView: View {
+    @ObservedObject private var postsManager = PostsManager.shared
+    @ObservedObject private var followService = FollowService.shared
+
+    private var followingPosts: [Post] {
+        let ids = followService.following
+        guard !ids.isEmpty else { return [] }
+        return postsManager.allPosts
+            .filter { ids.contains($0.authorId) }
+            .sorted { $0.createdAt > $1.createdAt }
+    }
+
+    var body: some View {
+        Group {
+            if followingPosts.isEmpty {
+                VStack(spacing: 16) {
+                    Image(systemName: "person.2")
+                        .font(.system(size: 48))
+                        .foregroundStyle(.secondary.opacity(0.4))
+                    Text("Follow people to see their posts here")
+                        .font(AMENFont.regular(15))
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(.top, 80)
+            } else {
+                // P0 FIX: Changed from LazyVStack to VStack - LazyVStack doesn't work inside another ScrollView.
+                // The parent ScrollView in ContentView handles the scrolling.
+                VStack(spacing: 0) {
+                    ForEach(followingPosts) { post in
+                        PostCard(post: post)
+                        Divider().padding(.leading, 16)
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Quiet Feed View
+
+/// Chronological feed with no algorithmic boost, ads, or trending injections.
+/// Shows a max of ~40 most recent posts.
+struct QuietFeedView: View {
+    @ObservedObject private var postsManager = PostsManager.shared
+
+    private var quietPosts: [Post] {
+        Array(postsManager.allPosts
+            .sorted { $0.createdAt > $1.createdAt }
+            .prefix(40))
+    }
+
+    var body: some View {
+        Group {
+            if quietPosts.isEmpty {
+                VStack(spacing: 16) {
+                    Image(systemName: "moon.stars")
+                        .font(.system(size: 48))
+                        .foregroundStyle(.secondary.opacity(0.4))
+                    Text("Nothing here yet.\nPosts will appear as they're shared.")
+                        .font(AMENFont.regular(15))
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(.top, 80)
+            } else {
+                // P0 FIX: Changed from LazyVStack to VStack - LazyVStack doesn't work inside another ScrollView.
+                // The parent ScrollView in ContentView handles the scrolling.
+                VStack(spacing: 0) {
+                    ForEach(quietPosts) { post in
+                        PostCard(post: post)
+                        Divider().padding(.leading, 16)
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Feed Mode Nav Button
+
+struct FeedModeNavButton: View {
+    @Binding var selectedMode: LegacyFeedMode
+    @Binding var showDropdown: Bool
+
+    var body: some View {
+        Button {
+            HapticManager.impact(style: .light)
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                showDropdown.toggle()
+            }
+        } label: {
+            Image(systemName: selectedMode == .everyone ? "person.2" : selectedMode.icon)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(.primary)
+                .frame(width: 22, height: 22)
+                .padding(8)
+                .overlay {
+                    Circle()
+                        .stroke(Color.white.opacity(0.22), lineWidth: 1)
+                }
+        }
+    }
+}
+
+// MARK: - Feed Mode Dropdown Menu
+
+struct FeedModeDropdownMenu: View {
+    @Binding var selectedMode: LegacyFeedMode
+    @Binding var isVisible: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(LegacyFeedMode.allCases, id: \.self) { mode in
+                Button {
+                    HapticManager.impact(style: .light)
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        selectedMode = mode
+                        isVisible = false
+                    }
+                } label: {
+                    HStack(spacing: 12) {
+                        // Icon with background for selected state
+                        ZStack {
+                            if selectedMode == mode {
+                                Circle()
+                                    .fill(Color.primary.opacity(0.1))
+                                    .frame(width: 28, height: 28)
+                            }
+                            Image(systemName: mode.icon)
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundStyle(selectedMode == mode ? .primary : .secondary)
+                        }
+                        .frame(width: 28)
+
+                        Text(mode.rawValue)
+                            .font(AMENFont.semiBold(14))
+                            .foregroundStyle(selectedMode == mode ? .primary : .secondary)
+
+                        Spacer()
+
+                        if selectedMode == mode {
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(.primary)
+                        }
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(selectedMode == mode ? Color.primary.opacity(0.04) : Color.clear)
+                    )
+                }
+                .buttonStyle(.plain)
+
+                if mode != LegacyFeedMode.allCases.last {
+                    Divider()
+                        .padding(.horizontal, 14)
+                        .opacity(0.5)
+                }
+            }
+        }
+        .padding(.vertical, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .strokeBorder(Color.black.opacity(0.08), lineWidth: 1)
+                )
+        )
+        .frame(width: 200)
+        .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 4)
+        .transition(.asymmetric(
+            insertion: .scale(scale: 0.92, anchor: .topLeading).combined(with: .opacity),
+            removal:   .scale(scale: 0.92, anchor: .topLeading).combined(with: .opacity)
+        ))
+    }
+}
+
+// MARK: - Feed Mode Indicator Strip
+
+struct FeedModeIndicatorStrip: View {
+    let mode: LegacyFeedMode
+    let onClear: () -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: mode.icon)
+                .font(.system(size: 12, weight: .medium))
+            Text(mode.rawValue)
+                .font(AMENFont.semiBold(13))
+            Spacer()
+            Button(action: onClear) {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 16))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .foregroundStyle(.primary)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .strokeBorder(Color.black.opacity(0.08), lineWidth: 1)
+                )
+        )
+        .shadow(color: .black.opacity(0.04), radius: 6, x: 0, y: 2)
+        .transition(.move(edge: .top).combined(with: .opacity))
     }
 }
 
@@ -2796,11 +3291,11 @@ struct CommunityCard: View {
                 Spacer()
                 
                 Text(title)
-                    .font(.custom("OpenSans-Bold", size: 13))
+                    .font(AMENFont.bold(13))
                     .foregroundStyle(.black)
                 
                 Text(subtitle)
-                    .font(.custom("OpenSans-Regular", size: 11))
+                    .font(AMENFont.regular(11))
                     .foregroundStyle(.black.opacity(0.6))
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -2869,11 +3364,11 @@ struct SmartCommunityCard: View {
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(.custom("OpenSans-Bold", size: 13))
+                        .font(AMENFont.bold(13))
                         .foregroundStyle(.primary)
                     
                     Text(subtitle)
-                        .font(.custom("OpenSans-Regular", size: 10))
+                        .font(AMENFont.regular(10))
                         .foregroundStyle(.secondary)
                 }
                 
@@ -2954,7 +3449,7 @@ struct TrendingCard: View {
                     .frame(height: 40)
                 
                 Text(title)
-                    .font(.custom("OpenSans-Bold", size: 12))
+                    .font(AMENFont.bold(12))
                     .foregroundStyle(.black)
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
@@ -3094,11 +3589,11 @@ struct TrendingTopicDetailView: View {
                         }
                         
                         Text(title)
-                            .font(.custom("OpenSans-Bold", size: 28))
+                            .font(AMENFont.bold(28))
                             .foregroundStyle(.black)
                         
                         Text(topicContent.description)
-                            .font(.custom("OpenSans-Regular", size: 15))
+                            .font(AMENFont.regular(15))
                             .foregroundStyle(.black.opacity(0.7))
                             .multilineTextAlignment(.center)
                             .padding(.horizontal)
@@ -3111,11 +3606,11 @@ struct TrendingTopicDetailView: View {
                         ForEach(topicContent.stats, id: \.0) { stat in
                             VStack(spacing: 6) {
                                 Text(stat.1)
-                                    .font(.custom("OpenSans-Bold", size: 22))
+                                    .font(AMENFont.bold(22))
                                     .foregroundStyle(.black)
                                 
                                 Text(stat.0)
-                                    .font(.custom("OpenSans-Regular", size: 12))
+                                    .font(AMENFont.regular(12))
                                     .foregroundStyle(.black.opacity(0.6))
                             }
                             .frame(maxWidth: .infinity)
@@ -3141,7 +3636,7 @@ struct TrendingTopicDetailView: View {
                             HStack {
                                 Image(systemName: "bubble.left.and.bubble.right.fill")
                                 Text("Join Discussion")
-                                    .font(.custom("OpenSans-Bold", size: 16))
+                                    .font(AMENFont.bold(16))
                             }
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
@@ -3157,7 +3652,7 @@ struct TrendingTopicDetailView: View {
                                 HStack {
                                     Image(systemName: "bell.fill")
                                     Text("Follow")
-                                        .font(.custom("OpenSans-Bold", size: 14))
+                                        .font(AMENFont.bold(14))
                                 }
                                 .foregroundStyle(.black)
                                 .frame(maxWidth: .infinity)
@@ -3179,7 +3674,7 @@ struct TrendingTopicDetailView: View {
                                 HStack {
                                     Image(systemName: "square.and.arrow.up")
                                     Text("Share")
-                                        .font(.custom("OpenSans-Bold", size: 14))
+                                        .font(AMENFont.bold(14))
                                 }
                                 .foregroundStyle(.black)
                                 .frame(maxWidth: .infinity)
@@ -3201,7 +3696,7 @@ struct TrendingTopicDetailView: View {
                     // Related Topics
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Related Topics")
-                            .font(.custom("OpenSans-Bold", size: 18))
+                            .font(AMENFont.bold(18))
                             .foregroundStyle(.black)
                             .padding(.horizontal)
                         
@@ -3209,7 +3704,7 @@ struct TrendingTopicDetailView: View {
                             HStack(spacing: 8) {
                                 ForEach(topicContent.relatedTopics, id: \.self) { topic in
                                     Text(topic)
-                                        .font(.custom("OpenSans-SemiBold", size: 13))
+                                        .font(AMENFont.semiBold(13))
                                         .foregroundStyle(.black)
                                         .padding(.horizontal, 14)
                                         .padding(.vertical, 8)
@@ -3231,7 +3726,7 @@ struct TrendingTopicDetailView: View {
                     // Resources
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Helpful Resources")
-                            .font(.custom("OpenSans-Bold", size: 18))
+                            .font(AMENFont.bold(18))
                             .foregroundStyle(.black)
                             .padding(.horizontal)
                         
@@ -3243,11 +3738,11 @@ struct TrendingTopicDetailView: View {
                                     HStack {
                                         VStack(alignment: .leading, spacing: 4) {
                                             Text(resource.0)
-                                                .font(.custom("OpenSans-Bold", size: 14))
+                                                .font(AMENFont.bold(14))
                                                 .foregroundStyle(.black)
                                             
                                             Text(resource.1)
-                                                .font(.custom("OpenSans-Regular", size: 12))
+                                                .font(AMENFont.regular(12))
                                                 .foregroundStyle(.black.opacity(0.6))
                                         }
                                         
@@ -3317,7 +3812,7 @@ struct ReactionButton: View {
                 
                 if let count = count {
                     Text("\(count)")
-                        .font(.custom("OpenSans-SemiBold", size: 11))
+                        .font(AMENFont.semiBold(11))
                         .foregroundStyle(isActive ? .black : .black.opacity(0.5))
                 }
             }
@@ -3444,7 +3939,7 @@ struct CommentCard: View {
                 .frame(width: 36, height: 36)
                 .overlay(
                     Text(comment.authorInitials)
-                        .font(.custom("OpenSans-SemiBold", size: 12))
+                        .font(AMENFont.semiBold(12))
                         .foregroundStyle(comment.avatarColor)
                 )
             
@@ -3452,21 +3947,21 @@ struct CommentCard: View {
                 // Author and time
                 HStack(spacing: 6) {
                     Text(comment.authorName)
-                        .font(.custom("OpenSans-SemiBold", size: 13))
+                        .font(AMENFont.semiBold(13))
                         .foregroundStyle(.primary)
                     
                     Text("•")
-                        .font(.custom("OpenSans-Regular", size: 13))
+                        .font(AMENFont.regular(13))
                         .foregroundStyle(.secondary)
                     
                     Text(comment.timeAgo)
-                        .font(.custom("OpenSans-Regular", size: 13))
+                        .font(AMENFont.regular(13))
                         .foregroundStyle(.secondary)
                 }
                 
                 // Comment content
                 Text(comment.content)
-                    .font(.custom("OpenSans-Regular", size: 14))
+                    .font(AMENFont.regular(14))
                     .foregroundStyle(.primary)
                     .fixedSize(horizontal: false, vertical: true)
                 
@@ -3485,7 +3980,7 @@ struct CommentCard: View {
                                 .font(.system(size: 11))
                             if localAmenCount > 0 {
                                 Text("\(localAmenCount)")
-                                    .font(.custom("OpenSans-SemiBold", size: 12))
+                                    .font(AMENFont.semiBold(12))
                             }
                         }
                         .foregroundStyle(hasAmened ? Color(red: 1.0, green: 0.84, blue: 0.0) : .secondary)
@@ -3495,7 +3990,7 @@ struct CommentCard: View {
                         // Reply action
                     } label: {
                         Text("Reply")
-                            .font(.custom("OpenSans-SemiBold", size: 12))
+                            .font(AMENFont.semiBold(12))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -3609,7 +4104,7 @@ struct FullCommentsView: View {
                 Spacer()
                 
                 Text("Comments")
-                    .font(.custom("OpenSans-Bold", size: 18))
+                    .font(AMENFont.bold(18))
                     .foregroundStyle(.primary)
                 
                 Spacer()
@@ -3639,7 +4134,7 @@ struct FullCommentsView: View {
                 if let replyingTo = replyingTo {
                     HStack {
                         Text("Replying to \(replyingTo.authorName)")
-                            .font(.custom("OpenSans-SemiBold", size: 12))
+                            .font(AMENFont.semiBold(12))
                             .foregroundStyle(.secondary)
                         
                         Spacer()
@@ -3673,14 +4168,14 @@ struct FullCommentsView: View {
                         .frame(width: 36, height: 36)
                         .overlay(
                             Text("ME")
-                                .font(.custom("OpenSans-SemiBold", size: 11))
+                                .font(AMENFont.semiBold(11))
                                 .foregroundStyle(.white)
                         )
                     
                     // Glass-style text field
                     HStack(spacing: 8) {
                         TextField("Add a comment...", text: $commentText, axis: .vertical)
-                            .font(.custom("OpenSans-Regular", size: 15))
+                            .font(AMENFont.regular(15))
                             .foregroundStyle(.primary)
                             .lineLimit(1...4)
                             .focused($isCommentFocused)
@@ -3781,7 +4276,7 @@ struct FullCommentsView: View {
                     }
                 } label: {
                     Text("B")
-                        .font(.custom("OpenSans-Bold", size: 14))
+                        .font(AMENFont.bold(14))
                         .foregroundStyle(isBold ? .white : .primary)
                         .frame(width: 32, height: 32)
                         .background(
@@ -3839,7 +4334,7 @@ struct FullCommentsView: View {
                 }
             } label: {
                 Text("B")
-                    .font(.custom("OpenSans-Bold", size: 14))
+                    .font(AMENFont.bold(14))
                     .foregroundStyle(isBold ? .white : .primary)
                     .frame(width: 32, height: 32)
                     .background(
@@ -3945,7 +4440,7 @@ struct CommentThreadCard: View {
                             Image(systemName: showReplies ? "chevron.down" : "chevron.right")
                                 .font(.system(size: 12, weight: .semibold))
                             Text("\(comment.replies.count) \(comment.replies.count == 1 ? "reply" : "replies")")
-                                .font(.custom("OpenSans-SemiBold", size: 13))
+                                .font(AMENFont.semiBold(13))
                         }
                         .foregroundStyle(.secondary)
                         .padding(.leading, 48)
@@ -3986,11 +4481,11 @@ struct CommentThreadCard: View {
                             .foregroundStyle(.primary)
                         
                         Text("•")
-                            .font(.custom("OpenSans-Regular", size: 13))
+                            .font(AMENFont.regular(13))
                             .foregroundStyle(.secondary)
                         
                         Text(comment.timeAgo)
-                            .font(.custom("OpenSans-Regular", size: 13))
+                            .font(AMENFont.regular(13))
                             .foregroundStyle(.secondary)
                     }
                     
@@ -4035,7 +4530,7 @@ struct CommentThreadCard: View {
                                     .font(.system(size: 13))
                                 if localAmenCount > 0 {
                                     Text("\(localAmenCount)")
-                                        .font(.custom("OpenSans-SemiBold", size: 13))
+                                        .font(AMENFont.semiBold(13))
                                 }
                             }
                             .foregroundStyle(hasAmened ? Color(red: 1.0, green: 0.84, blue: 0.0) : .secondary)
@@ -4049,7 +4544,7 @@ struct CommentThreadCard: View {
                                 Image(systemName: "arrowshape.turn.up.left")
                                     .font(.system(size: 12))
                                 Text("Reply")
-                                    .font(.custom("OpenSans-SemiBold", size: 13))
+                                    .font(AMENFont.semiBold(13))
                             }
                             .foregroundStyle(.secondary)
                         }
@@ -4112,7 +4607,7 @@ struct GIFPickerView: View {
                         .foregroundStyle(.secondary)
                     
                     TextField("Search GIFs", text: $searchText)
-                        .font(.custom("OpenSans-Regular", size: 16))
+                        .font(AMENFont.regular(16))
                 }
                 .padding(12)
                 .background(
@@ -4271,7 +4766,7 @@ struct FollowButton: View {
                     .font(.system(size: 10, weight: .bold))
             }
             Text(isFollowing ? "Following" : "Follow")
-                .font(.custom("OpenSans-Bold", size: 12))
+                .font(AMENFont.bold(12))
         }
         .foregroundStyle(isFollowing ? Color.secondary : Color.white)
         .padding(.horizontal, 12)
@@ -4338,6 +4833,7 @@ struct OpenTableView: View {
 
     // MARK: - Composer
     @State private var showCreatePost = false
+    @Binding var selectedPostCategory: CreatePostView.PostCategory
 
     // MARK: - Pagination State
     @State private var visiblePostCount = 20 // Start with 20 posts
@@ -4345,7 +4841,11 @@ struct OpenTableView: View {
 
     // Phase 4: Cancel in-flight ranking when new posts arrive to avoid stale reorder jank.
     @State private var personalizationTask: Task<Void, Never>?
-    
+
+    // Network error state
+    @ObservedObject private var networkMonitor = AMENNetworkMonitor.shared
+    @State private var showOfflineBanner = false
+
     @Environment(\.tabBarVisible) private var tabBarVisible
     
     var body: some View {
@@ -4368,7 +4868,7 @@ struct OpenTableView: View {
                         
                         HStack {
                             Text("#OPENTABLE")
-                                .font(.custom("OpenSans-Bold", size: 24))
+                                .font(AMENFont.bold(24))
                                 .foregroundStyle(.black)
                             
                             Spacer()
@@ -4380,7 +4880,7 @@ struct OpenTableView: View {
                         }
                         
                         Text("Gather. Share. Grow.")
-                            .font(.custom("OpenSans-Regular", size: 12))
+                            .font(AMENFont.regular(12))
                             .foregroundStyle(.secondary)
                     }
                     .padding(.horizontal)
@@ -4389,9 +4889,14 @@ struct OpenTableView: View {
                 }
                 
                 // Daily Verse Banner (hidden if user disabled it in Settings)
-                if prefsService.preferences.dailyVerseWidgetEnabled {
+                // Guard on isLoaded so the banner never flashes during the async Firestore fetch
+                if prefsService.isLoaded && prefsService.preferences.widgetsEnabled && prefsService.preferences.dailyVerseWidgetEnabled {
                     DailyVerseBanner()
                         .padding(.horizontal)
+                        .transition(.opacity.animation(.easeIn(duration: 0.2)))
+                        .onAppear {
+                            dlog("📊 Daily Verse Banner displayed: widgetsEnabled=\(prefsService.preferences.widgetsEnabled), dailyVerseWidgetEnabled=\(prefsService.preferences.dailyVerseWidgetEnabled)")
+                        }
                 }
 
                 // Feed Composer Row
@@ -4400,7 +4905,9 @@ struct OpenTableView: View {
                     .padding(.top, 4)
 
                 // Feed Section - Dynamic posts from PostsManager (Trending section removed)
-                LazyVStack(spacing: 16) {
+                // P0 FIX: Changed from LazyVStack to VStack - LazyVStack doesn't work inside another ScrollView.
+                // The parent ScrollView in ContentView handles the scrolling.
+                VStack(spacing: 0) {
                     let allPosts = hasPersonalized && !personalizedPosts.isEmpty ? personalizedPosts : postsManager.openTablePosts
                     let displayPosts = Array(allPosts.prefix(visiblePostCount))
 
@@ -4470,6 +4977,24 @@ struct OpenTableView: View {
                         }
                     }
 
+                    // Offline banner — shown when network drops and feed is empty
+                    if showOfflineBanner && allPosts.isEmpty {
+                        HStack(spacing: 10) {
+                            Image(systemName: "wifi.slash")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundStyle(.secondary)
+                            Text("You're offline. Pull down to retry when connected.")
+                                .font(AMENFont.regular(13))
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+                        .padding(.horizontal, 20)
+                        .padding(.top, 16)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                    }
+
                     // Show empty state only after initial load completes
                     if !isInitialLoad && allPosts.isEmpty && !isRefreshing {
                         EmptyFeedView()
@@ -4498,8 +5023,8 @@ struct OpenTableView: View {
                 }
             }
         .task {
-            // Start real-time listener for openTable posts
-            FirebasePostService.shared.startListening(category: .openTable)
+            // ✅ FIX: Removed duplicate listener - already started in AMENAPPApp.swift:237
+            // FirebasePostService.shared.startListening(category: .openTable)
 
             // Load user interests once
             if !hasPersonalized {
@@ -4511,6 +5036,19 @@ struct OpenTableView: View {
             // If posts already cached (re-appear), dismiss skeleton immediately
             if !postsManager.openTablePosts.isEmpty {
                 isInitialLoad = false
+            } else {
+                // Safety timeout: if no posts arrive within 4 seconds (new user, truly
+                // empty feed, slow connection), drop the skeleton so the empty state shows.
+                // The fetch continues in the background — pull-to-refresh still works.
+                try? await Task.sleep(nanoseconds: 4_000_000_000)
+                if isInitialLoad {
+                    withAnimation(.easeOut(duration: 0.25)) { isInitialLoad = false }
+                }
+            }
+        }
+        .onChange(of: networkMonitor.isConnected) { _, isConnected in
+            withAnimation(.easeOut(duration: 0.25)) {
+                showOfflineBanner = !isConnected
             }
         }
         .onAppear {
@@ -4562,15 +5100,16 @@ struct OpenTableView: View {
                 }
             )
         }
-        .onChange(of: postsManager.openTablePosts) { oldValue, newValue in
-            if !newValue.isEmpty { isInitialLoad = false }
+        .onChange(of: postsManager.openTablePosts.count) { oldValue, newValue in
+            let posts = postsManager.openTablePosts
+            if !posts.isEmpty { isInitialLoad = false }
             // Only re-personalize if there are new posts
-            if oldValue.count != newValue.count {
+            if oldValue != newValue {
                 personalizeFeeds()
             }
             // Update the 72-hour window for caught-up detection
             let cutoff = Date().addingTimeInterval(-72 * 3600)
-            let windowIds = Set(newValue.compactMap { post -> String? in
+            let windowIds = Set(posts.compactMap { post -> String? in
                 guard post.createdAt > cutoff else { return nil }
                 return post.firestoreId
             })
@@ -4639,7 +5178,7 @@ struct OpenTableView: View {
             ScrollBudgetLockedView()
         }
         .sheet(isPresented: $showCreatePost) {
-            CreatePostView(initialCategory: .openTable)
+            CreatePostView(initialCategory: selectedPostCategory)
         }
     }
 
@@ -4738,6 +5277,7 @@ struct OpenTableView: View {
         // Haptic feedback on completion
         await MainActor.run {
             isRefreshing = false
+            isInitialLoad = false   // Ensure skeleton never re-locks after a pull-to-refresh
             HapticManager.notification(type: .success)
         }
         
@@ -4795,7 +5335,7 @@ struct CollapsibleTrendingSection: View {
             } label: {
                 HStack {
                     Text("Trending")
-                        .font(.custom("OpenSans-Bold", size: 16))
+                        .font(AMENFont.bold(16))
                         .foregroundStyle(.primary)
                     
                     Spacer()
@@ -5094,7 +5634,7 @@ struct BannerColorPickerSheet: View {
                 .padding(.top, 12)
 
             Text("Banner Color")
-                .font(.custom("OpenSans-Bold", size: 17))
+                .font(AMENFont.bold(17))
                 .foregroundStyle(.primary)
 
             ScrollView(.horizontal, showsIndicators: false) {
@@ -5130,7 +5670,7 @@ struct BannerColorPickerSheet: View {
                                     }
                                 }
                                 Text(option.label)
-                                    .font(.custom("OpenSans-Regular", size: 11))
+                                    .font(AMENFont.regular(11))
                                     .foregroundStyle(.secondary)
                             }
                         }
@@ -5216,7 +5756,7 @@ struct DailyVerseBanner: View {
                 VStack(alignment: .leading, spacing: 4) {
                     if let verse = verseService.todayVerse {
                         Text(verse.text)
-                            .font(.custom("OpenSans-Regular", size: 12))
+                            .font(AMENFont.regular(12))
                             .foregroundStyle(.white)
                             .lineSpacing(3)
                             .lineLimit(3)
@@ -5226,7 +5766,7 @@ struct DailyVerseBanner: View {
                             .opacity(versePhase == .visible ? 1 : 0)
                             .animation(.easeInOut(duration: 0.35), value: versePhase)
                         Text("— \(verse.reference)")
-                            .font(.custom("OpenSans-SemiBold", size: 11))
+                            .font(AMENFont.semiBold(11))
                             .foregroundStyle(.white.opacity(0.80))
                             .rotation3DEffect(.degrees(verseRefRotation), axis: (x: 1, y: 0, z: 0))
                             .animation(.spring(response: 0.35, dampingFraction: 0.8), value: verseRefRotation)
@@ -5234,12 +5774,12 @@ struct DailyVerseBanner: View {
                         HStack(spacing: 8) {
                             AMENLoadingIndicator(color: .white, dotSize: 7, spacing: 6, bounceHeight: 8)
                             Text("Loading verse...")
-                                .font(.custom("OpenSans-Regular", size: 12))
+                                .font(AMENFont.regular(12))
                                 .foregroundStyle(.white.opacity(0.80))
                         }
                     } else {
                         Text("\"For I know the plans I have for you,\" declares the LORD, \"plans to prosper you and not to harm you.\"")
-                            .font(.custom("OpenSans-Regular", size: 12))
+                            .font(AMENFont.regular(12))
                             .foregroundStyle(.white)
                             .lineSpacing(3)
                             .lineLimit(3)
@@ -5249,7 +5789,7 @@ struct DailyVerseBanner: View {
                             .opacity(versePhase == .visible ? 1 : 0)
                             .animation(.easeInOut(duration: 0.35), value: versePhase)
                         Text("— Jeremiah 29:11")
-                            .font(.custom("OpenSans-SemiBold", size: 11))
+                            .font(AMENFont.semiBold(11))
                             .foregroundStyle(.white.opacity(0.80))
                             .rotation3DEffect(.degrees(verseRefRotation), axis: (x: 1, y: 0, z: 0))
                             .animation(.spring(response: 0.35, dampingFraction: 0.8), value: verseRefRotation)
@@ -5350,13 +5890,13 @@ struct DailyVerseDetailSheet: View {
                     // Verse card
                     VStack(spacing: 16) {
                         Text(text)
-                            .font(.custom("OpenSans-Regular", size: 20))
+                            .font(AMENFont.regular(20))
                             .foregroundStyle(.white)
                             .lineSpacing(6)
                             .multilineTextAlignment(.leading)
 
                         Text("— \(reference)")
-                            .font(.custom("OpenSans-SemiBold", size: 15))
+                            .font(AMENFont.semiBold(15))
                             .foregroundStyle(.white.opacity(0.8))
                             .frame(maxWidth: .infinity, alignment: .trailing)
                     }
@@ -5379,7 +5919,7 @@ struct DailyVerseDetailSheet: View {
                             showBerean = true
                         } label: {
                             Label("Reflect with Berean", systemImage: "sparkles")
-                                .font(.custom("OpenSans-SemiBold", size: 16))
+                                .font(AMENFont.semiBold(16))
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 14)
                                 .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -5387,7 +5927,7 @@ struct DailyVerseDetailSheet: View {
 
                         ShareLink(item: "\(text)\n\n— \(reference)\n\nShared from AMEN") {
                             Label("Share Verse", systemImage: "square.and.arrow.up")
-                                .font(.custom("OpenSans-SemiBold", size: 16))
+                                .font(AMENFont.semiBold(16))
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 14)
                                 .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -5399,10 +5939,10 @@ struct DailyVerseDetailSheet: View {
                     if let reflection = verse?.reflection, !reflection.isEmpty {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Today's Reflection")
-                                .font(.custom("OpenSans-Bold", size: 15))
+                                .font(AMENFont.bold(15))
                                 .foregroundStyle(.primary)
                             Text(reflection)
-                                .font(.custom("OpenSans-Regular", size: 15))
+                                .font(AMENFont.regular(15))
                                 .foregroundStyle(.secondary)
                                 .lineSpacing(4)
                         }
@@ -5416,7 +5956,7 @@ struct DailyVerseDetailSheet: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") { dismiss() }
-                        .font(.custom("OpenSans-SemiBold", size: 16))
+                        .font(AMENFont.semiBold(16))
                 }
             }
             .sheet(isPresented: $showBerean) {
@@ -5443,7 +5983,7 @@ struct CollapsibleCommunitySection: View {
             } label: {
                 HStack {
                     Text("Community")
-                        .font(.custom("OpenSans-Bold", size: 16))
+                        .font(AMENFont.bold(16))
                         .foregroundStyle(.primary)
                     
                     Spacer()
@@ -5675,11 +6215,11 @@ struct SmartTrendingCard: View {
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(title)
-                        .font(.custom("OpenSans-Bold", size: 17))
+                        .font(AMENFont.bold(17))
                         .foregroundStyle(.white)
                     
                     Text(subtitle)
-                        .font(.custom("OpenSans-Regular", size: 12))
+                        .font(AMENFont.regular(12))
                         .foregroundStyle(.white.opacity(0.85))
                 }
                 
@@ -5802,7 +6342,7 @@ struct TopIdeasView: View {
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Top Ideas")
-                                    .font(.custom("OpenSans-Bold", size: 32))
+                                    .font(AMENFont.bold(32))
                                     .foregroundStyle(
                                         LinearGradient(
                                             colors: [.black, .black.opacity(0.8)],
@@ -5812,7 +6352,7 @@ struct TopIdeasView: View {
                                     )
                                 
                                 Text("The brightest ideas from our community")
-                                    .font(.custom("OpenSans-Regular", size: 14))
+                                    .font(AMENFont.regular(14))
                                     .foregroundStyle(.secondary)
                             }
                             
@@ -5862,7 +6402,7 @@ struct TopIdeasView: View {
                                         }
                                     } label: {
                                         Text(timeframe.rawValue)
-                                            .font(.custom("OpenSans-SemiBold", size: 13))
+                                            .font(AMENFont.semiBold(13))
                                             .foregroundStyle(selectedTimeframe == timeframe ? .white : .primary)
                                             .padding(.horizontal, 16)
                                             .padding(.vertical, 8)
@@ -5912,7 +6452,7 @@ struct TopIdeasView: View {
                                                 .font(.system(size: 10, weight: .semibold))
                                             
                                             Text(category.rawValue)
-                                                .font(.custom("OpenSans-SemiBold", size: 12))
+                                                .font(AMENFont.semiBold(12))
                                         }
                                         .foregroundStyle(selectedCategory == category ? .white : category.color)
                                         .padding(.horizontal, 12)
@@ -5949,7 +6489,7 @@ struct TopIdeasView: View {
                         VStack(spacing: 12) {
                             AMENLoadingIndicator()
                             Text("Finding the brightest ideas...")
-                                .font(.custom("OpenSans-Regular", size: 14))
+                                .font(AMENFont.regular(14))
                                 .foregroundStyle(.secondary)
                         }
                         .frame(maxWidth: .infinity)
@@ -5960,9 +6500,9 @@ struct TopIdeasView: View {
                                 .font(.system(size: 48))
                                 .foregroundStyle(.secondary)
                             Text("No trending ideas yet")
-                                .font(.custom("OpenSans-Bold", size: 18))
+                                .font(AMENFont.bold(18))
                             Text("Be the first to share a brilliant idea!")
-                                .font(.custom("OpenSans-Regular", size: 14))
+                                .font(AMENFont.regular(14))
                                 .foregroundStyle(.secondary)
                         }
                         .frame(maxWidth: .infinity)
@@ -6095,17 +6635,17 @@ struct TopIdeaCard: View {
                         .frame(width: 40, height: 40)
                     
                     Text("#\(idea.rank)")
-                        .font(.custom("OpenSans-Bold", size: 16))
+                        .font(AMENFont.bold(16))
                         .foregroundStyle(.white)
                 }
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(idea.authorName)
-                        .font(.custom("OpenSans-Bold", size: 15))
+                        .font(AMENFont.bold(15))
                         .foregroundStyle(.primary)
                     
                     Text(idea.timeAgo)
-                        .font(.custom("OpenSans-Regular", size: 13))
+                        .font(AMENFont.regular(13))
                         .foregroundStyle(.secondary)
                 }
                 
@@ -6115,7 +6655,7 @@ struct TopIdeaCard: View {
                 HStack(spacing: 4) {
                     ForEach(idea.badges, id: \.self) { badge in
                         Text(badge)
-                            .font(.custom("OpenSans-SemiBold", size: 10))
+                            .font(AMENFont.semiBold(10))
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
                             .background(
@@ -6128,7 +6668,7 @@ struct TopIdeaCard: View {
             
             // Content
             Text(idea.content)
-                .font(.custom("OpenSans-Regular", size: 15))
+                .font(AMENFont.regular(15))
                 .foregroundStyle(.primary)
                 .lineSpacing(4)
             
@@ -6180,7 +6720,7 @@ struct TopIdeaCard: View {
                             }
                             
                             Text("\(localLightbulbCount)")
-                                .font(.custom("OpenSans-SemiBold", size: 13))
+                                .font(AMENFont.semiBold(13))
                                 .foregroundStyle(hasLightbulbed ? .orange : .black.opacity(0.5))
                                 .contentTransition(.numericText())
                         }
@@ -6490,11 +7030,11 @@ struct PostSuccessToast: View {
             // Text content
             VStack(alignment: .leading, spacing: 2) {
                 Text("Posted to \(categoryInfo.name)")
-                    .font(.custom("OpenSans-Bold", size: 14))
+                    .font(AMENFont.bold(14))
                     .foregroundStyle(.primary)
                 
                 Text("Your post is now live")
-                    .font(.custom("OpenSans-Regular", size: 12))
+                    .font(AMENFont.regular(12))
                     .foregroundStyle(.secondary)
             }
             
@@ -6564,47 +7104,131 @@ struct PostSuccessToast: View {
 struct EmptyFeedView: View {
     @ObservedObject private var followService = FollowService.shared
 
+    // Which variant to show
+    private var isNewUser: Bool { followService.following.isEmpty }
+
     var body: some View {
-        VStack(spacing: 16) {
-            Image(systemName: followService.following.isEmpty ? "person.2.slash" : "tray")
-                .font(.system(size: 48))
-                .foregroundStyle(.secondary)
+        VStack(spacing: 0) {
+            Spacer().frame(height: 48)
 
-            Text(followService.following.isEmpty ? "Find people to follow" : "No posts yet")
-                .font(.custom("OpenSans-Bold", size: 18))
-                .foregroundStyle(.primary)
-
-            Text(
-                followService.following.isEmpty
-                    ? "Follow fellow believers to see their posts here."
-                    : "Be the first to share an idea!"
-            )
-            .font(.custom("OpenSans-Regular", size: 14))
-            .foregroundStyle(.secondary)
-            .multilineTextAlignment(.center)
-
-            if followService.following.isEmpty {
-                Button {
-                    NotificationCenter.default.post(name: .switchToDiscoverTab, object: nil)
-                } label: {
-                    Label("Discover People", systemImage: "person.badge.plus")
-                        .font(.custom("OpenSans-SemiBold", size: 15))
-                        .padding(.horizontal, 24)
-                        .padding(.vertical, 10)
-                        .background(Color.accentColor.opacity(0.12))
-                        .foregroundStyle(Color.accentColor)
-                        .clipShape(Capsule())
-                }
+            if isNewUser {
+                newUserState
+            } else {
+                followingButEmptyState
             }
+
+            Spacer().frame(height: 48)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 60)
-        .padding(.horizontal)
+        .padding(.horizontal, 28)
+    }
+
+    // ── New user: hasn't followed anyone yet ──────────────────────────────
+    private var newUserState: some View {
+        VStack(spacing: 0) {
+            // Icon cluster
+            ZStack {
+                Circle()
+                    .fill(Color(.secondarySystemBackground))
+                    .frame(width: 80, height: 80)
+                Image(systemName: "person.2.fill")
+                    .font(.system(size: 32, weight: .medium))
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer().frame(height: 20)
+
+            Text("Follow people to see their posts")
+                .font(AMENFont.bold(20))
+                .foregroundStyle(.primary)
+                .multilineTextAlignment(.center)
+
+            Spacer().frame(height: 8)
+
+            Text("When you follow fellow believers, their prayers, testimonies, and thoughts will appear here.")
+                .font(AMENFont.regular(15))
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .lineSpacing(3)
+
+            Spacer().frame(height: 28)
+
+            // Primary CTA — find people
+            Button {
+                NotificationCenter.default.post(name: .switchToDiscoverTab, object: nil)
+            } label: {
+                Text("Find People to Follow")
+                    .font(AMENFont.semiBold(15))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 48)
+                    .background(Color.primary, in: RoundedRectangle(cornerRadius: 12))
+            }
+            .buttonStyle(ScaleButtonStyle())
+        }
+    }
+
+    // ── Following people but their feed is empty ──────────────────────────
+    private var followingButEmptyState: some View {
+        VStack(spacing: 0) {
+            // Icon cluster showing "all caught up / nothing new"
+            ZStack {
+                Circle()
+                    .fill(Color(.secondarySystemBackground))
+                    .frame(width: 80, height: 80)
+                Image(systemName: "sparkles")
+                    .font(.system(size: 32, weight: .medium))
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer().frame(height: 20)
+
+            Text("Nothing here yet")
+                .font(AMENFont.bold(20))
+                .foregroundStyle(.primary)
+                .multilineTextAlignment(.center)
+
+            Spacer().frame(height: 8)
+
+            Text("The people you follow haven't posted recently. Be the first to share something — a prayer, a testimony, or what's on your heart.")
+                .font(AMENFont.regular(15))
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .lineSpacing(3)
+
+            Spacer().frame(height: 28)
+
+            // Primary CTA — create a post
+            Button {
+                NotificationCenter.default.post(name: .openCreatePost, object: nil)
+            } label: {
+                Text("Share Something")
+                    .font(AMENFont.semiBold(15))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 48)
+                    .background(Color.primary, in: RoundedRectangle(cornerRadius: 12))
+            }
+            .buttonStyle(ScaleButtonStyle())
+
+            Spacer().frame(height: 12)
+
+            // Secondary — find more people
+            Button {
+                NotificationCenter.default.post(name: .switchToDiscoverTab, object: nil)
+            } label: {
+                Text("Find more people to follow")
+                    .font(AMENFont.semiBold(14))
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+        }
     }
 }
 
 extension Notification.Name {
     static let switchToDiscoverTab = Notification.Name("switchToDiscoverTab")
+    static let feedDidRefresh = Notification.Name("feedDidRefresh")
 }
 
 #Preview("Posting Bar - Posting") {
@@ -6726,3 +7350,301 @@ struct CreateQuickActionRow: View {
     }
 }
 
+
+// MARK: - Rotate Transition (compose button + icon unfurl)
+
+extension AnyTransition {
+    static var rotate: AnyTransition {
+        .modifier(
+            active:   RotateModifier(angle: 45),
+            identity: RotateModifier(angle: 0)
+        )
+    }
+}
+
+private struct RotateModifier: ViewModifier {
+    let angle: Double
+    func body(content: Content) -> some View {
+        content.rotationEffect(.degrees(angle))
+    }
+}
+
+// MARK: - Feed Communities Sheet
+
+struct FeedCommunitiesSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Binding var selectedMode: LegacyFeedMode
+    @StateObject private var drawerState = FeedDrawerState()
+    let onDismiss: () -> Void
+    
+    var body: some View {
+        NavigationStack {
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 0) {
+                    
+                    // Feed Modes Section
+                    feedModesSection
+                        .padding(.top, 8)
+                        .padding(.bottom, 4)
+                    
+                    Divider()
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 12)
+                        .opacity(0.3)
+                    
+                    // Communities Sections
+                    if !DrawerCommunity.sampleOwned.isEmpty {
+                        communitySection(
+                            title: "Led by You",
+                            icon: "crown.fill",
+                            communities: DrawerCommunity.sampleOwned
+                        )
+                        .padding(.bottom, 4)
+                    }
+                    
+                    if !DrawerCommunity.sampleJoined.isEmpty {
+                        communitySection(
+                            title: "Your Communities",
+                            icon: "person.3.fill",
+                            communities: DrawerCommunity.sampleJoined
+                        )
+                        .padding(.bottom, 4)
+                    }
+                    
+                    if !DrawerCommunity.sampleSuggested.isEmpty {
+                        suggestedSection
+                            .padding(.bottom, 4)
+                    }
+                    
+                    Spacer(minLength: 40)
+                }
+            }
+            .background(Color(.systemGroupedBackground))
+            .navigationTitle("Communities")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        onDismiss()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 24))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+    }
+    
+    // MARK: - Feed Modes Section
+    
+    private var feedModesSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionLabel("Feed Mode", icon: "slider.horizontal.3")
+            
+            VStack(spacing: 0) {
+                ForEach(DrawerFeedMode.allCases) { mode in
+                    feedModeRow(mode)
+                    if mode != DrawerFeedMode.allCases.last {
+                        Divider()
+                            .padding(.leading, 52)
+                            .opacity(0.25)
+                    }
+                }
+            }
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .padding(.horizontal, 16)
+        }
+    }
+    
+    private func feedModeRow(_ mode: DrawerFeedMode) -> some View {
+        let isActive = drawerState.activeFeedMode == mode
+        return Button {
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                drawerState.activeFeedMode = mode
+            }
+            HapticManager.impact(style: .light)
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: mode.icon)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(isActive ? Color.white : Color.primary)
+                    .frame(width: 32, height: 32)
+                    .background(isActive ? Color.accentColor : Color.clear, in: Circle())
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(mode.rawValue)
+                        .font(AMENFont.semiBold(14))
+                        .foregroundStyle(.primary)
+                    Text(mode.subtitle)
+                        .font(AMENFont.regular(11))
+                        .foregroundStyle(.secondary)
+                }
+                
+                Spacer()
+                
+                if isActive {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(Color.accentColor)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+    
+    // MARK: - Community Section
+    
+    private func communitySection(title: String, icon: String, communities: [DrawerCommunity]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionLabel(title, icon: icon)
+            
+            VStack(spacing: 0) {
+                ForEach(communities) { community in
+                    communityRow(community)
+                    if community.id != communities.last?.id {
+                        Divider()
+                            .padding(.leading, 56)
+                            .opacity(0.25)
+                    }
+                }
+            }
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .padding(.horizontal, 16)
+        }
+    }
+    
+    private func communityRow(_ community: DrawerCommunity) -> some View {
+        Button {
+            HapticManager.impact(style: .light)
+            // TODO: Navigate to community feed
+        } label: {
+            HStack(spacing: 12) {
+                // Community icon circle
+                ZStack {
+                    Circle()
+                        .fill(Color.accentColor.opacity(0.15))
+                        .frame(width: 40, height: 40)
+                    Image(systemName: community.icon)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Color.accentColor)
+                }
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(community.name)
+                        .font(AMENFont.semiBold(14))
+                        .foregroundStyle(.primary)
+                    Text(community.subtitle)
+                        .font(AMENFont.regular(11))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                
+                Spacer()
+                
+                // Activity indicator
+                if community.recentActivity > 0 {
+                    ZStack {
+                        Circle()
+                            .fill(Color.blue)
+                            .frame(width: 20, height: 20)
+                        Text("\(community.recentActivity)")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(.white)
+                    }
+                }
+                
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+    
+    // MARK: - Suggested Section
+    
+    private var suggestedSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionLabel("Suggested", icon: "sparkles")
+            
+            VStack(spacing: 0) {
+                ForEach(DrawerCommunity.sampleSuggested) { community in
+                    suggestedCommunityRow(community)
+                    if community.id != DrawerCommunity.sampleSuggested.last?.id {
+                        Divider()
+                            .padding(.leading, 56)
+                            .opacity(0.25)
+                    }
+                }
+            }
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .padding(.horizontal, 16)
+        }
+    }
+    
+    private func suggestedCommunityRow(_ community: DrawerCommunity) -> some View {
+        HStack(spacing: 12) {
+            // Community icon
+            ZStack {
+                Circle()
+                    .fill(Color.orange.opacity(0.15))
+                    .frame(width: 40, height: 40)
+                Image(systemName: community.icon)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Color.orange)
+            }
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(community.name)
+                    .font(AMENFont.semiBold(14))
+                    .foregroundStyle(.primary)
+                Text(community.subtitle)
+                    .font(AMENFont.regular(11))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            
+            Spacer()
+            
+            Button {
+                HapticManager.impact(style: .light)
+                // TODO: Join community
+            } label: {
+                Text("Join")
+                    .font(AMENFont.semiBold(12))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 6)
+                    .background(Color.accentColor, in: Capsule())
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+    }
+    
+    // MARK: - Helper Views
+    
+    private func sectionLabel(_ title: String, icon: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(.secondary)
+            Text(title)
+                .font(AMENFont.semiBold(12))
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 4)
+    }
+}

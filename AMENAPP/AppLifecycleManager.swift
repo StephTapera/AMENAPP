@@ -42,6 +42,7 @@ final class AppLifecycleManager {
         FollowService.shared.stopListening()
         NotificationService.shared.stopListening()
         BlockService.shared.stopListening()
+        PostsManager.shared.stopListeningForProfileUpdates()
 
         // ── Jobs & Opportunities platform ────────────────────────────────────
         JobService.shared.stopListening()
@@ -55,6 +56,10 @@ final class AppLifecycleManager {
         // ── AI service caches ────────────────────────────────────────────────
         OpenAIService.shared.reset()
         ClaudeService.shared.reset()
+        EnforcementService.shared.dismissBanner()  // Clear any in-memory enforcement state
+
+        // ── Trust score cache ─────────────────────────────────────────────────
+        ContentTrustScoreService.shared.clearAll()
 
         // ── Safety service caches (privacy: prevent data leaking to next session) ──
         if let uid = Auth.auth().currentUser?.uid {

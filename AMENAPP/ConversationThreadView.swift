@@ -182,6 +182,8 @@ struct ConversationThreadView: View {
     let commentsWithReplies: [CommentWithReplies]
     let isLoading: Bool
     let savedBookIds: Set<String>
+    @Binding var expandedClusters: Set<String>
+    let highlightedCommentIDs: Set<String>
 
     var onReply: (Comment?) -> Void       // nil = reply to post
     var onAmen: (Comment) -> Void
@@ -190,7 +192,6 @@ struct ConversationThreadView: View {
     var onBerean: (String) -> Void
 
     @State private var sort: ThreadSort = .thoughtful
-    @State private var expandedClusters: Set<String> = []
     @State private var reflectionCounter = 0
     @State private var showReflectionCard = false
     @State private var reflectionTriggerIds: Set<String> = []
@@ -235,6 +236,8 @@ struct ConversationThreadView: View {
                             ThreadReplyRow(
                                 comment: item.comment,
                                 replies: item.replies,
+                                isHighlighted: highlightedCommentIDs.contains(commentAnchorID(for: item.comment)),
+                                highlightedCommentIDs: highlightedCommentIDs,
                                 isClusterExpanded: expandedClusters.contains(item.comment.id ?? ""),
                                 onExpandCluster: {
                                     withAnimation(.spring(response: 0.38, dampingFraction: 0.78)) {
@@ -396,6 +399,10 @@ struct ConversationThreadView: View {
             reflectionTriggerIds.insert(commentId)
         }
     }
+
+    private func commentAnchorID(for comment: Comment) -> String {
+        comment.id ?? comment.stableId
+    }
 }
 
 // MARK: - Sort Picker Overlay
@@ -453,6 +460,8 @@ private struct ThreadSortPicker: View {
 struct ThreadReplyRow: View {
     let comment: Comment
     let replies: [Comment]
+    let isHighlighted: Bool
+    let highlightedCommentIDs: Set<String>
     let isClusterExpanded: Bool
     let onExpandCluster: () -> Void
     let onReply: () -> Void
@@ -620,6 +629,7 @@ struct ThreadReplyRow: View {
                 ThreadBranchCluster(
                     replies: replies,
                     parentComment: comment,
+                    highlightedCommentIDs: highlightedCommentIDs,
                     onReplyAmen: onReplyAmen,
                     onReplyDelete: onReplyDelete,
                     onReplyProfile: onReplyProfile,
@@ -634,6 +644,7 @@ struct ThreadReplyRow: View {
                 .padding(.leading, 52)
                 .opacity(0.5)
         }
+        .background(rootHighlightBackground)
         .onAppear {
             let uid = Auth.auth().currentUser?.uid ?? ""
             hasAmened = !uid.isEmpty && comment.amenUserIds.contains(uid)
@@ -663,6 +674,21 @@ struct ThreadReplyRow: View {
         }
         .frame(width: CGFloat(min(replies.count, 3)) * 10 + 18)
     }
+
+    @ViewBuilder
+    private var rootHighlightBackground: some View {
+        if isHighlighted {
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(Color.black.opacity(0.035))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .stroke(Color.black.opacity(0.08), lineWidth: 0.8)
+                )
+                .padding(.horizontal, 12)
+                .padding(.vertical, 4)
+                .transition(.opacity)
+        }
+    }
 }
 
 // MARK: - Thread Branch Cluster (nested replies)
@@ -670,6 +696,7 @@ struct ThreadReplyRow: View {
 private struct ThreadBranchCluster: View {
     let replies: [Comment]
     let parentComment: Comment
+    let highlightedCommentIDs: Set<String>
     let onReplyAmen: (Comment) -> Void
     let onReplyDelete: (Comment) -> Void
     let onReplyProfile: (Comment) -> Void
@@ -688,6 +715,7 @@ private struct ThreadBranchCluster: View {
             ForEach(Array(visibleReplies.enumerated()), id: \.element.stableId) { idx, reply in
                 ThreadReplyBranchRow(
                     reply: reply,
+                    isHighlighted: highlightedCommentIDs.contains(reply.id ?? reply.stableId),
                     isFirst: idx == 0,
                     hasMoreBelow: idx < visibleReplies.count - 1,
                     onAmen: { onReplyAmen(reply) },
@@ -726,6 +754,7 @@ private struct ThreadBranchCluster: View {
 
 private struct ThreadReplyBranchRow: View {
     let reply: Comment
+    let isHighlighted: Bool
     let isFirst: Bool
     let hasMoreBelow: Bool
     let onAmen: () -> Void
@@ -832,6 +861,7 @@ private struct ThreadReplyBranchRow: View {
             .padding(.trailing, 16)
             .padding(.vertical, 10)
         }
+        .background(replyHighlightBackground)
         .onAppear {
             let uid = Auth.auth().currentUser?.uid ?? ""
             hasAmened = !uid.isEmpty && reply.amenUserIds.contains(uid)
@@ -843,6 +873,21 @@ private struct ThreadReplyBranchRow: View {
         }
         .onChange(of: reply.amenCount) { _, newCount in
             localAmenCount = newCount
+        }
+    }
+
+    @ViewBuilder
+    private var replyHighlightBackground: some View {
+        if isHighlighted {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(Color.black.opacity(0.03))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .stroke(Color.black.opacity(0.07), lineWidth: 0.8)
+                )
+                .padding(.trailing, 12)
+                .padding(.vertical, 4)
+                .transition(.opacity)
         }
     }
 }

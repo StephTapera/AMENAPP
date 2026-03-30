@@ -7,6 +7,7 @@
 
 import SwiftUI
 import AuthenticationServices
+import CryptoKit
 
 struct AMENAuthLandingView: View {
     @EnvironmentObject var authViewModel: AuthenticationViewModel
@@ -32,10 +33,14 @@ struct AMENAuthLandingView: View {
     // Email flows
     @State private var showEmailSignUp = false
     @State private var showEmailSignIn = false
+    
+    // Apple Sign In nonce
+    @State private var currentNonce: String?
 
     var body: some View {
         NavigationStack {
             ZStack {
+                // Pure white background to match logo's white background
                 Color.white.ignoresSafeArea()
 
                 VStack(spacing: 0) {
@@ -45,8 +50,7 @@ struct AMENAuthLandingView: View {
                     VStack(spacing: 14) {
                         Image("amen-logo")
                             .resizable()
-                            .renderingMode(.template)
-                            .foregroundStyle(Color.black)
+                            .renderingMode(.original)
                             .scaledToFit()
                             .frame(width: 52, height: 56)
                             .scaleEffect(logoScale)
@@ -88,6 +92,7 @@ struct AMENAuthLandingView: View {
                             .opacity(linkOpacity)
                             .padding(.top, 4)
                     }
+                    .frame(maxWidth: 375)
                     .padding(.horizontal, 28)
                     .padding(.bottom, 52)
                 }
@@ -108,33 +113,32 @@ struct AMENAuthLandingView: View {
     // MARK: - Apple button
 
     private var appleButton: some View {
-        Button {
-            print("Apple sign in")
-        } label: {
-            HStack(spacing: 0) {
-                Image(systemName: "apple.logo")
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundStyle(.white)
-                    .frame(width: 52, alignment: .leading)
-                Spacer()
-                Text("Continue with Apple")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(.white)
-                Spacer()
-                Color.clear.frame(width: 52)
+        SignInWithAppleButton(
+            onRequest: { request in
+                let nonce = randomNonceString()
+                currentNonce = nonce
+                request.requestedScopes = [.fullName, .email]
+                request.nonce = sha256(nonce)
+            },
+            onCompletion: { result in
+                Task {
+                    await handleAppleSignIn(result: result)
+                }
             }
-            .frame(maxWidth: .infinity)
-            .frame(height: 52)
-            .background(Color.black, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        }
-        .buttonStyle(ScaleButtonStyle())
+        )
+        .signInWithAppleButtonStyle(.black)
+        .frame(maxWidth: .infinity)
+        .frame(height: 52)
+        .cornerRadius(14)
     }
 
     // MARK: - Google button
 
     private var googleButton: some View {
         Button {
-            print("Google sign in")
+            Task {
+                await handleGoogleSignIn()
+            }
         } label: {
             HStack(spacing: 0) {
                 GoogleGLogo()
@@ -221,6 +225,44 @@ struct AMENAuthLandingView: View {
         }
     }
 
+    // MARK: - Authentication Handlers
+    
+    private func handleAppleSignIn(result: Result<ASAuthorization, Error>) async {
+        switch result {
+        case .success(let authorization):
+            guard let appleIDCredential = authorization.credential as? ASAuthorizationAppleIDCredential,
+                  let identityToken = appleIDCredential.identityToken,
+                  let idTokenString = String(data: identityToken, encoding: .utf8),
+                  let nonce = currentNonce else {
+                print("❌ Missing Apple credential data")
+                return
+            }
+            
+            do {
+                _ = try await FirebaseManager.shared.signInWithApple(
+                    idToken: idTokenString,
+                    nonce: nonce,
+                    fullName: appleIDCredential.fullName
+                )
+                print("✅ Apple sign-in successful")
+            } catch {
+                print("❌ Apple sign-in failed: \(error.localizedDescription)")
+            }
+            
+        case .failure(let error):
+            print("❌ Apple sign-in error: \(error.localizedDescription)")
+        }
+    }
+    
+    private func handleGoogleSignIn() async {
+        do {
+            _ = try await FirebaseManager.shared.signInWithGoogle()
+            print("✅ Google sign-in successful")
+        } catch {
+            print("❌ Google sign-in failed: \(error.localizedDescription)")
+        }
+    }
+
     // MARK: - Entry animation
 
     private func runEntryAnimation() {
@@ -248,6 +290,49 @@ struct AMENAuthLandingView: View {
         withAnimation(.easeOut(duration: 0.3).delay(0.46)) {
             linkOpacity = 1
         }
+    }
+    
+    // MARK: - Nonce Helpers
+    
+    private func randomNonceString(length: Int = 32) -> String {
+        precondition(length > 0)
+        let charset: [Character] = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._")
+        var result = ""
+        var remainingLength = length
+        
+        while remainingLength > 0 {
+            let randoms: [UInt8] = (0..<16).map { _ in
+                var random: UInt8 = 0
+                let errorCode = SecRandomCopyBytes(kSecRandomDefault, 1, &random)
+                if errorCode != errSecSuccess {
+                    fatalError("Unable to generate nonce. SecRandomCopyBytes failed with OSStatus \(errorCode)")
+                }
+                return random
+            }
+            
+            randoms.forEach { random in
+                if remainingLength == 0 {
+                    return
+                }
+                
+                if random < charset.count {
+                    result.append(charset[Int(random)])
+                    remainingLength -= 1
+                }
+            }
+        }
+        
+        return result
+    }
+    
+    private func sha256(_ input: String) -> String {
+        let inputData = Data(input.utf8)
+        let hashedData = SHA256.hash(data: inputData)
+        let hashString = hashedData.compactMap {
+            String(format: "%02x", $0)
+        }.joined()
+        
+        return hashString
     }
 }
 
@@ -316,25 +401,21 @@ private struct EmailButtonStyle: ButtonStyle {
 // MARK: - Stub email views
 
 struct EmailSignUpView: View {
-    @EnvironmentObject var authViewModel: AuthenticationViewModel
-    @Environment(\.dismiss) private var dismiss
-
     var body: some View {
-        // Hands off to the full existing SignInView in sign-up mode.
-        // Replace with real email sign-up flow when ready.
-        SignInView()
-            .environmentObject(authViewModel)
+        MinimalAuthenticationView(
+            initialMode: .signup,
+            showsEmailFormOnAppear: true
+        )
             .navigationBarHidden(true)
     }
 }
 
 struct EmailSignInView: View {
-    @EnvironmentObject var authViewModel: AuthenticationViewModel
-    @Environment(\.dismiss) private var dismiss
-
     var body: some View {
-        SignInView()
-            .environmentObject(authViewModel)
+        MinimalAuthenticationView(
+            initialMode: .login,
+            showsEmailFormOnAppear: true
+        )
             .navigationBarHidden(true)
     }
 }

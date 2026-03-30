@@ -34,6 +34,9 @@ struct Post: Identifiable, Codable, Equatable {
     let visibility: PostVisibility
     let allowComments: Bool
     var commentPermissions: CommentPermissions? // Who can comment
+    var replyPermission: ReplyPermission?     // Who can reply (everyone if nil)
+    var quotesAllowed: QuotePermission?       // Who can quote-repost (everyone if nil)
+    var trustedCircle: TrustedCircle?         // nil = public; set = visible to that circle only
     let imageURLs: [String]?
     let linkURL: String?
     let linkPreviewTitle: String?      // Link preview title
@@ -44,6 +47,7 @@ struct Post: Identifiable, Codable, Equatable {
     let verseReference: String?        // e.g. "John 3:16"
     let verseText: String?             // verse body text (optional)
     let createdAt: Date
+    var updatedAt: Date? = nil  // Set when post is edited; nil means never edited
     var amenCount: Int
     var lightbulbCount: Int
     var commentCount: Int
@@ -67,17 +71,47 @@ struct Post: Identifiable, Codable, Equatable {
 
     // Prayer Arc — testimony ↔ prayer link
     var linkedPrayerRequestId: String? = nil  // Set on testimony posts
-    var linkedPrayerText: String? = nil       // Optional excerpt of the answered prayer
-    var linkedTestimonyId: String? = nil      // Set on prayer posts when answered
-    var prayerStatus: String? = nil           // "praying" | "believing" | "answered"
     var journeyDays: Int? = nil               // Days from prayer to testimony
     var stoneCount: Int? = nil                // Total stones laid
     var intercessorUids: [String]? = nil      // UIDs of stone layers
     var bereanArcInsight: String? = nil       // Cached Claude insight phrase
 
+    // Prayer → Testimony connection
+    var prayerStatus: String? = nil           // "praying" | "believing" | "answered"
+    var linkedTestimonyId: String? = nil      // Set on prayer posts when answered
+    var isAnsweredPrayer: Bool = false        // Set on testimony posts
+    var linkedPrayerText: String? = nil       // Copied from original prayer when testimony is written
+
+    // Ripple & community engagement
+    var rippleCount: Int? = nil
+    var neededCount: Int? = nil
+    var witnessCount: Int? = nil
+    var prayerEchoCount: Int? = nil
+    var scriptureCount: Int? = nil
+    var testimonyStrength: Int? = nil
+
     // Church tag — optional church the post is associated with
     var taggedChurchId: String? = nil
     var taggedChurchName: String? = nil
+
+    // Find a Church share — embeds church snapshot so the pill displays without a Firestore fetch
+    var isChurchShare: Bool = false
+    var sharedChurchName: String? = nil
+    var sharedChurchDenomination: String? = nil
+    var sharedChurchServiceTime: String? = nil
+
+    // Insight counts (Feature 5 — meaningful engagement metrics)
+    var savesCount: Int = 0        // Incremented by toggleSavePost
+    var sharesCount: Int = 0       // Incremented when shared via share sheet
+    var prayTapsCount: Int = 0     // Amen taps on prayer posts
+    var encouragedCount: Int = 0   // "Felt encouraged" reactions
+
+    // Community context flag (Feature 6 — set true server-side when context is submitted)
+    var hasContext: Bool = false
+
+    // Author privacy — cached from the author's user document at post-load time.
+    // nil means unknown (treat as public). true = private account (gate by follow).
+    var authorIsPrivate: Bool? = nil
 
     // Moderation metadata (set by server-side onPostCreate trigger)
     var flaggedForReview: Bool = false // Post is under review by moderators
@@ -85,7 +119,17 @@ struct Post: Identifiable, Codable, Equatable {
 
     // Poll attachment — nil when the post has no poll
     var poll: PostPoll? = nil
-    
+
+    // Thread / chain — nil on standalone posts
+    var threadId: String? = nil      // shared UUID across all posts in a thread
+    var threadIndex: Int? = nil      // 0 = head, 1…N = continuations
+    var isThreadHead: Bool = false   // true only on the first post in a thread
+    var threadPostCount: Int = 0     // total posts in thread (set on head only)
+
+    // Sensitive content — blurred in feed until tapped
+    var hasSensitiveContent: Bool = false
+    var sensitiveContentReason: String? = nil
+
     // Pinned post metadata — user can pin important posts to their profile
     var isPinned: Bool = false
     var pinnedAt: Date? = nil
@@ -112,10 +156,10 @@ struct Post: Identifiable, Codable, Equatable {
         /// Whether this category should show its badge on post cards
         var showCategoryBadge: Bool {
             switch self {
-            case .openTable, .testimonies, .prayer:
+            case .openTable, .prayer:
                 return true
-            case .tip, .funFact:
-                return false  // Hide category badge for Tips and Fun Facts
+            case .testimonies, .tip, .funFact:
+                return false  // Hide category badge for cleaner design
             }
         }
         
@@ -165,7 +209,7 @@ struct Post: Identifiable, Codable, Equatable {
         case following = "People I follow"
         case mentioned = "Mentioned only"
         case off = "Comments off"
-        
+
         var icon: String {
             switch self {
             case .everyone: return "globe"
@@ -175,12 +219,98 @@ struct Post: Identifiable, Codable, Equatable {
             }
         }
     }
+
+    // MARK: - Reply Permissions (who can reply to this post)
+    enum ReplyPermission: String, Codable, CaseIterable {
+        case everyone  = "everyone"
+        case followers = "followers"
+        case mutuals   = "mutuals"
+        case mentioned = "mentioned"
+
+        var displayName: String {
+            switch self {
+            case .everyone:  return "Everyone"
+            case .followers: return "Followers"
+            case .mutuals:   return "Mutuals Only"
+            case .mentioned: return "People I Mention"
+            }
+        }
+        var icon: String {
+            switch self {
+            case .everyone:  return "globe"
+            case .followers: return "person.2.fill"
+            case .mutuals:   return "arrow.left.arrow.right"
+            case .mentioned: return "at"
+            }
+        }
+    }
+
+    // MARK: - Quote Permission (who can quote-repost this post)
+    enum QuotePermission: String, Codable, CaseIterable {
+        case everyone  = "everyone"
+        case followers = "followers"
+        case none      = "none"
+
+        var displayName: String {
+            switch self {
+            case .everyone:  return "Everyone"
+            case .followers: return "Followers Only"
+            case .none:      return "No Quotes"
+            }
+        }
+        var icon: String {
+            switch self {
+            case .everyone:  return "quote.bubble"
+            case .followers: return "person.2.fill"
+            case .none:      return "quote.bubble.fill"
+            }
+        }
+    }
+
+    // MARK: - Trusted Circle (Instagram Close Friends equivalent)
+    enum TrustedCircle: String, Codable, CaseIterable {
+        case prayer    = "prayer"
+        case family    = "family"
+        case mentors   = "mentors"
+        case church    = "church_leadership"
+        case all       = "all"           // visible to all trusted circles the user has
+
+        var displayName: String {
+            switch self {
+            case .prayer:  return "Prayer Circle"
+            case .family:  return "Family"
+            case .mentors: return "Mentors"
+            case .church:  return "Church Leadership"
+            case .all:     return "All Trusted Circles"
+            }
+        }
+        var icon: String {
+            switch self {
+            case .prayer:  return "hands.sparkles.fill"
+            case .family:  return "house.fill"
+            case .mentors: return "person.badge.shield.checkmark.fill"
+            case .church:  return "building.columns.fill"
+            case .all:     return "person.3.fill"
+            }
+        }
+        var tintColor: Color {
+            switch self {
+            case .prayer:  return Color(red: 0.35, green: 0.50, blue: 0.95)
+            case .family:  return Color(red: 0.85, green: 0.48, blue: 0.18)
+            case .mentors: return Color(red: 0.20, green: 0.62, blue: 0.45)
+            case .church:  return Color(red: 0.55, green: 0.30, blue: 0.90)
+            case .all:     return Color(red: 0.60, green: 0.35, blue: 0.20)
+            }
+        }
+    }
     
     // MARK: - Custom Decoding (Handle Missing Fields)
     
     enum CodingKeys: String, CodingKey {
         case id, firebaseId, authorId, authorName, authorUsername, authorInitials, authorProfileImageURL, timeAgo
         case content, category, topicTag, visibility, allowComments, commentPermissions
+        case replyPermission, quotesAllowed, trustedCircle
+        case savesCount, sharesCount, prayTapsCount, encouragedCount, hasContext
         case imageURLs, linkURL, linkPreviewTitle, linkPreviewDescription, linkPreviewImageURL, linkPreviewSiteName
         case linkPreviewType, verseReference, verseText
         case createdAt
@@ -189,7 +319,11 @@ struct Post: Identifiable, Codable, Equatable {
         case taggedUserIds, tagStatusByUid
         case originalContent, detectedLanguage, isTranslated
         case contentSource
-        case linkedPrayerRequestId, linkedPrayerText, linkedTestimonyId, prayerStatus, journeyDays, stoneCount, intercessorUids, bereanArcInsight
+        case linkedPrayerRequestId, journeyDays, stoneCount, intercessorUids, bereanArcInsight
+        case prayerStatus, linkedTestimonyId, isAnsweredPrayer, linkedPrayerText
+        case rippleCount, neededCount, witnessCount, prayerEchoCount, scriptureCount, testimonyStrength
+        case taggedChurchId, taggedChurchName
+        case isChurchShare, sharedChurchName, sharedChurchDenomination, sharedChurchServiceTime
     }
     
     init(from decoder: Decoder) throws {
@@ -215,6 +349,14 @@ struct Post: Identifiable, Codable, Equatable {
         visibility = try container.decode(PostVisibility.self, forKey: .visibility)
         allowComments = try container.decode(Bool.self, forKey: .allowComments)
         commentPermissions = try container.decodeIfPresent(CommentPermissions.self, forKey: .commentPermissions)
+        replyPermission    = try container.decodeIfPresent(ReplyPermission.self,    forKey: .replyPermission)
+        quotesAllowed      = try container.decodeIfPresent(QuotePermission.self,    forKey: .quotesAllowed)
+        trustedCircle      = try container.decodeIfPresent(TrustedCircle.self,      forKey: .trustedCircle)
+        savesCount         = try container.decodeIfPresent(Int.self, forKey: .savesCount)     ?? 0
+        sharesCount        = try container.decodeIfPresent(Int.self, forKey: .sharesCount)    ?? 0
+        prayTapsCount      = try container.decodeIfPresent(Int.self, forKey: .prayTapsCount)  ?? 0
+        encouragedCount    = try container.decodeIfPresent(Int.self, forKey: .encouragedCount) ?? 0
+        hasContext         = try container.decodeIfPresent(Bool.self, forKey: .hasContext)     ?? false
         imageURLs = try container.decodeIfPresent([String].self, forKey: .imageURLs)
         linkURL = try container.decodeIfPresent(String.self, forKey: .linkURL)
         linkPreviewTitle = try container.decodeIfPresent(String.self, forKey: .linkPreviewTitle)
@@ -241,13 +383,26 @@ struct Post: Identifiable, Codable, Equatable {
         isTranslated = try container.decodeIfPresent(Bool.self, forKey: .isTranslated) ?? false
         contentSource = try container.decodeIfPresent(String.self, forKey: .contentSource)
         linkedPrayerRequestId = try container.decodeIfPresent(String.self, forKey: .linkedPrayerRequestId)
-        linkedPrayerText = try container.decodeIfPresent(String.self, forKey: .linkedPrayerText)
-        linkedTestimonyId = try container.decodeIfPresent(String.self, forKey: .linkedTestimonyId)
-        prayerStatus = try container.decodeIfPresent(String.self, forKey: .prayerStatus)
         journeyDays = try container.decodeIfPresent(Int.self, forKey: .journeyDays)
         stoneCount = try container.decodeIfPresent(Int.self, forKey: .stoneCount)
         intercessorUids = try container.decodeIfPresent([String].self, forKey: .intercessorUids)
         bereanArcInsight = try container.decodeIfPresent(String.self, forKey: .bereanArcInsight)
+        prayerStatus = try container.decodeIfPresent(String.self, forKey: .prayerStatus)
+        linkedTestimonyId = try container.decodeIfPresent(String.self, forKey: .linkedTestimonyId)
+        isAnsweredPrayer = try container.decodeIfPresent(Bool.self, forKey: .isAnsweredPrayer) ?? false
+        linkedPrayerText = try container.decodeIfPresent(String.self, forKey: .linkedPrayerText)
+        rippleCount = try container.decodeIfPresent(Int.self, forKey: .rippleCount)
+        neededCount = try container.decodeIfPresent(Int.self, forKey: .neededCount)
+        witnessCount = try container.decodeIfPresent(Int.self, forKey: .witnessCount)
+        prayerEchoCount = try container.decodeIfPresent(Int.self, forKey: .prayerEchoCount)
+        scriptureCount = try container.decodeIfPresent(Int.self, forKey: .scriptureCount)
+        testimonyStrength = try container.decodeIfPresent(Int.self, forKey: .testimonyStrength)
+        taggedChurchId = try container.decodeIfPresent(String.self, forKey: .taggedChurchId)
+        taggedChurchName = try container.decodeIfPresent(String.self, forKey: .taggedChurchName)
+        isChurchShare = try container.decodeIfPresent(Bool.self, forKey: .isChurchShare) ?? false
+        sharedChurchName = try container.decodeIfPresent(String.self, forKey: .sharedChurchName)
+        sharedChurchDenomination = try container.decodeIfPresent(String.self, forKey: .sharedChurchDenomination)
+        sharedChurchServiceTime = try container.decodeIfPresent(String.self, forKey: .sharedChurchServiceTime)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -267,6 +422,14 @@ struct Post: Identifiable, Codable, Equatable {
         try container.encode(visibility, forKey: .visibility)
         try container.encode(allowComments, forKey: .allowComments)
         try container.encodeIfPresent(commentPermissions, forKey: .commentPermissions)
+        try container.encodeIfPresent(replyPermission,   forKey: .replyPermission)
+        try container.encodeIfPresent(quotesAllowed,     forKey: .quotesAllowed)
+        try container.encodeIfPresent(trustedCircle,     forKey: .trustedCircle)
+        try container.encode(savesCount,      forKey: .savesCount)
+        try container.encode(sharesCount,     forKey: .sharesCount)
+        try container.encode(prayTapsCount,   forKey: .prayTapsCount)
+        try container.encode(encouragedCount, forKey: .encouragedCount)
+        try container.encode(hasContext,      forKey: .hasContext)
         try container.encodeIfPresent(imageURLs, forKey: .imageURLs)
         try container.encodeIfPresent(linkURL, forKey: .linkURL)
         try container.encodeIfPresent(linkPreviewTitle, forKey: .linkPreviewTitle)
@@ -292,16 +455,14 @@ struct Post: Identifiable, Codable, Equatable {
         try container.encodeIfPresent(detectedLanguage, forKey: .detectedLanguage)
         try container.encode(isTranslated, forKey: .isTranslated)
         try container.encodeIfPresent(contentSource, forKey: .contentSource)
-        try container.encodeIfPresent(linkedPrayerRequestId, forKey: .linkedPrayerRequestId)
-        try container.encodeIfPresent(linkedPrayerText, forKey: .linkedPrayerText)
-        try container.encodeIfPresent(linkedTestimonyId, forKey: .linkedTestimonyId)
-        try container.encodeIfPresent(prayerStatus, forKey: .prayerStatus)
-        try container.encodeIfPresent(journeyDays, forKey: .journeyDays)
-        try container.encodeIfPresent(stoneCount, forKey: .stoneCount)
-        try container.encodeIfPresent(intercessorUids, forKey: .intercessorUids)
-        try container.encodeIfPresent(bereanArcInsight, forKey: .bereanArcInsight)
+        try container.encodeIfPresent(taggedChurchId, forKey: .taggedChurchId)
+        try container.encodeIfPresent(taggedChurchName, forKey: .taggedChurchName)
+        try container.encode(isChurchShare, forKey: .isChurchShare)
+        try container.encodeIfPresent(sharedChurchName, forKey: .sharedChurchName)
+        try container.encodeIfPresent(sharedChurchDenomination, forKey: .sharedChurchDenomination)
+        try container.encodeIfPresent(sharedChurchServiceTime, forKey: .sharedChurchServiceTime)
     }
-    
+
     init(
         id: UUID = UUID(),
         firebaseId: String? = nil,
@@ -317,6 +478,9 @@ struct Post: Identifiable, Codable, Equatable {
         visibility: PostVisibility = .everyone,
         allowComments: Bool = true,
         commentPermissions: CommentPermissions? = .everyone,
+        replyPermission: ReplyPermission? = nil,
+        quotesAllowed: QuotePermission? = nil,
+        trustedCircle: TrustedCircle? = nil,
         imageURLs: [String]? = nil,
         linkURL: String? = nil,
         linkPreviewTitle: String? = nil,
@@ -335,15 +499,7 @@ struct Post: Identifiable, Codable, Equatable {
         originalAuthorName: String? = nil,
         originalAuthorId: String? = nil,
         churchNoteId: String? = nil,
-        contentSource: String? = nil,
-        linkedPrayerRequestId: String? = nil,
-        linkedPrayerText: String? = nil,
-        linkedTestimonyId: String? = nil,
-        prayerStatus: String? = nil,
-        journeyDays: Int? = nil,
-        stoneCount: Int? = nil,
-        intercessorUids: [String]? = nil,
-        bereanArcInsight: String? = nil
+        contentSource: String? = nil
     ) {
         self.id = id
         self.firebaseId = firebaseId
@@ -359,6 +515,9 @@ struct Post: Identifiable, Codable, Equatable {
         self.visibility = visibility
         self.allowComments = allowComments
         self.commentPermissions = commentPermissions
+        self.replyPermission = replyPermission
+        self.quotesAllowed = quotesAllowed
+        self.trustedCircle = trustedCircle
         self.imageURLs = imageURLs
         self.linkURL = linkURL
         self.linkPreviewTitle = linkPreviewTitle
@@ -378,14 +537,6 @@ struct Post: Identifiable, Codable, Equatable {
         self.originalAuthorId = originalAuthorId
         self.churchNoteId = churchNoteId
         self.contentSource = contentSource
-        self.linkedPrayerRequestId = linkedPrayerRequestId
-        self.linkedPrayerText = linkedPrayerText
-        self.linkedTestimonyId = linkedTestimonyId
-        self.prayerStatus = prayerStatus
-        self.journeyDays = journeyDays
-        self.stoneCount = stoneCount
-        self.intercessorUids = intercessorUids
-        self.bereanArcInsight = bereanArcInsight
     }
 
     var backendId: String {
@@ -429,8 +580,9 @@ struct PostPoll: Codable, Equatable {
 
 // MARK: - Posts Manager
 
+@MainActor
 class PostsManager: ObservableObject {
-    @MainActor static let shared = PostsManager()
+    static let shared = PostsManager()
     
     @Published var openTablePosts: [Post] = []
     @Published var testimoniesPosts: [Post] = []
@@ -683,6 +835,7 @@ class PostsManager: ObservableObject {
                 updatePostInAllArrays(postId: postId) { post in
                     var updatedPost = post
                     updatedPost.content = newContent
+                    updatedPost.updatedAt = Date()
                     return updatedPost
                 }
                 
@@ -883,6 +1036,11 @@ class PostsManager: ObservableObject {
     private var hasStartedProfileRefresh = false
 
     private func startListeningForProfileUpdates() async {
+        guard Auth.auth().currentUser != nil else {
+            dlog("⏭️ Skipping profile refresh timer start — no authenticated user")
+            return
+        }
+
         // Guard: only start once
         guard !hasStartedProfileRefresh else {
             dlog("⏭️ Profile refresh timer already running — skipping")
@@ -903,6 +1061,12 @@ class PostsManager: ObservableObject {
         }
 
         dlog("✅ Batch profile update timer started (5 min intervals)")
+    }
+
+    @MainActor
+    func resumeListeningForProfileUpdatesIfNeeded() async {
+        guard Auth.auth().currentUser != nil else { return }
+        await startListeningForProfileUpdates()
     }
     
     /// Batch refresh profile images for all unique authors
@@ -935,8 +1099,11 @@ class PostsManager: ObservableObject {
                 
                 for document in snapshot.documents {
                     if let profileImageURL = document.data()["profileImageURL"] as? String {
+                        let normalizedURL = profileImageURL.trimmingCharacters(in: .whitespacesAndNewlines)
+                        guard !normalizedURL.isEmpty else { continue }
+
                         await MainActor.run {
-                            self.updatePostsForUser(userId: document.documentID, newProfileImageURL: profileImageURL)
+                            self.updatePostsForUser(userId: document.documentID, newProfileImageURL: normalizedURL)
                         }
                     }
                 }
@@ -966,6 +1133,7 @@ class PostsManager: ObservableObject {
         // Cancel the background refresh loop
         profileRefreshTask?.cancel()
         profileRefreshTask = nil
+        hasStartedProfileRefresh = false
         
         dlog("✅ All profile listeners stopped")
     }
@@ -978,11 +1146,14 @@ class PostsManager: ObservableObject {
 
         allPosts = allPosts.map { post in
             guard post.authorId == userId else { return post }
+            guard post.authorProfileImageURL != newProfileImageURL else { return post }
             postsUpdated += 1
             var updated = post
             updated.authorProfileImageURL = newProfileImageURL
             return updated
         }
+
+        guard postsUpdated > 0 else { return }
 
         // Derive category arrays from the already-updated allPosts (no extra iteration)
         openTablePosts  = allPosts.filter { $0.category == .openTable }
@@ -1129,3 +1300,4 @@ class PostsManager: ObservableObject {
         }
     }
 }
+

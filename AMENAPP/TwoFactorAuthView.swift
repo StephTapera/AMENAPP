@@ -11,7 +11,7 @@ import FirebaseAuth
 struct TwoFactorAuthView: View {
     @Environment(\.dismiss) var dismiss
     @ObservedObject private var twoFactorService = TwoFactorAuthService.shared
-    
+
     @State private var phoneNumber = ""
     @State private var verificationCode = ""
     @State private var showSetup = false
@@ -21,56 +21,92 @@ struct TwoFactorAuthView: View {
     @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var showError = false
-    
+
     var body: some View {
         NavigationStack {
-            List {
-                Section {
-                    if twoFactorService.is2FAEnabled {
-                        enabledState
-                    } else {
-                        disabledState
-                    }
-                } header: {
+            ScrollView {
+                VStack(spacing: 0) {
+
+                    // MARK: 2FA Status Section
                     Text("TWO-FACTOR AUTHENTICATION")
-                } footer: {
+                        .font(AMENFont.bold(11))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 24)
+                        .padding(.bottom, 8)
+
+                    VStack(spacing: 0) {
+                        if twoFactorService.is2FAEnabled {
+                            enabledState
+                        } else {
+                            disabledState
+                        }
+                    }
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                    .padding(.horizontal, 16)
+
+                    // Footer
                     Text(twoFactorService.is2FAEnabled
                         ? "2FA is enabled. You'll need to verify your phone number when signing in from new devices."
                         : "Add an extra layer of security. You'll need both your password and phone to sign in.")
-                        .font(.system(size: 13))
-                }
-                
-                if !twoFactorService.is2FAEnabled {
-                    Section {
-                        VStack(alignment: .leading, spacing: 16) {
+                        .font(AMENFont.regular(12))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 8)
+
+                    // MARK: Benefits Section (only when disabled)
+                    if !twoFactorService.is2FAEnabled {
+                        Text("BENEFITS")
+                            .font(AMENFont.bold(11))
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 20)
+                            .padding(.top, 24)
+                            .padding(.bottom, 8)
+
+                        VStack(spacing: 0) {
                             TwoFAFeatureRow(
                                 icon: "lock.shield.fill",
                                 title: "Enhanced Security",
                                 description: "Protects your account even if your password is compromised"
                             )
-                            
-                            Divider()
-                            
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+
+                            Divider().padding(.leading, 16)
+
                             TwoFAFeatureRow(
                                 icon: "bell.badge.fill",
                                 title: "Login Alerts",
                                 description: "Get notified of sign-in attempts on new devices"
                             )
-                            
-                            Divider()
-                            
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+
+                            Divider().padding(.leading, 16)
+
                             TwoFAFeatureRow(
                                 icon: "checkmark.shield.fill",
                                 title: "Verified Access",
                                 description: "Only you can access your account with your phone"
                             )
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
                         }
-                        .padding(.vertical, 8)
-                    } header: {
-                        Text("BENEFITS")
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                        .padding(.horizontal, 16)
                     }
+
+                    Spacer(minLength: 40)
                 }
             }
+            .background(Color(.systemGroupedBackground).ignoresSafeArea())
             .navigationTitle("Two-Factor Auth")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -125,15 +161,16 @@ struct TwoFactorAuthView: View {
             }
         }
     }
-    
+
     private var enabledState: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 0) {
+            // Status row
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Status")
                         .font(.system(size: 14))
                         .foregroundStyle(.secondary)
-                    
+
                     HStack {
                         Image(systemName: "checkmark.circle.fill")
                             .foregroundStyle(.green)
@@ -141,26 +178,29 @@ struct TwoFactorAuthView: View {
                             .font(.system(size: 16, weight: .semibold))
                     }
                 }
-                
                 Spacer()
             }
-            
-            Divider()
-            
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+
+            Divider().padding(.leading, 16)
+
+            // Phone row
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Phone Number")
                         .font(.system(size: 14))
                         .foregroundStyle(.secondary)
-                    
+
                     Text(twoFactorService.maskedPhone ?? "Not set")
                         .font(.system(size: 16, weight: .medium))
                 }
-                
                 Spacer()
             }
-            
-            Divider()
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+
+            Divider().padding(.leading, 16)
 
             // Backup codes row
             Button {
@@ -179,14 +219,18 @@ struct TwoFactorAuthView: View {
                     }
                     Spacer()
                     Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(.secondary)
-                        .font(.system(size: 13, weight: .semibold))
                 }
-                .padding(.vertical, 4)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
             }
+            .buttonStyle(PlainButtonStyle())
 
             // Low-stock warning banner
             if twoFactorService.isBackupCodesLow {
+                Divider().padding(.leading, 16)
+
                 HStack(spacing: 10) {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundStyle(.orange)
@@ -203,10 +247,13 @@ struct TwoFactorAuthView: View {
                 .padding(12)
                 .background(Color.orange.opacity(0.1))
                 .clipShape(RoundedRectangle(cornerRadius: 10))
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
             }
-            
-            Divider()
-            
+
+            Divider().padding(.leading, 16)
+
+            // Disable row
             Button {
                 showDisableConfirmation = true
             } label: {
@@ -214,10 +261,11 @@ struct TwoFactorAuthView: View {
                     .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(.red)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
             }
+            .buttonStyle(PlainButtonStyle())
         }
-        .padding(.vertical, 8)
         .task {
             if let userId = FirebaseAuth.Auth.auth().currentUser?.uid {
                 await twoFactorService.loadBackupCodeCount(userId: userId)
@@ -227,7 +275,7 @@ struct TwoFactorAuthView: View {
             BackupCodesManagementView()
         }
     }
-    
+
     private var disabledState: some View {
         Button {
             showSetup = true
@@ -236,60 +284,63 @@ struct TwoFactorAuthView: View {
                 Image(systemName: "shield.lefthalf.filled")
                     .font(.system(size: 18))
                     .foregroundStyle(.blue)
-                
+
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Enable Two-Factor Authentication")
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(.primary)
-                    
+
                     Text("Add an extra layer of security")
                         .font(.system(size: 13))
                         .foregroundStyle(.secondary)
                 }
-                
+
                 Spacer()
-                
+
                 Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(.secondary)
             }
-            .padding(.vertical, 8)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
         }
+        .buttonStyle(PlainButtonStyle())
     }
-    
+
     // MARK: - Actions
-    
+
     private func sendVerificationCode() async {
         isLoading = true
-        
+
         do {
             _ = try await twoFactorService.setupTwoFactor(phoneNumber: phoneNumber)
-            
+
             await MainActor.run {
                 showSetup = false
                 showVerification = true
-                
+
                 // Success haptic
                 let haptic = UINotificationFeedbackGenerator()
                 haptic.notificationOccurred(.success)
             }
-            
+
         } catch {
             await MainActor.run {
                 errorMessage = error.localizedDescription
                 showError = true
-                
+
                 // Error haptic
                 let haptic = UINotificationFeedbackGenerator()
                 haptic.notificationOccurred(.error)
             }
         }
-        
+
         isLoading = false
     }
-    
+
     private func verifyCode() async {
         isLoading = true
-        
+
         do {
             try await twoFactorService.verifyAndEnable2FA(verificationCode: verificationCode)
 
@@ -297,54 +348,54 @@ struct TwoFactorAuthView: View {
             if let userId = Auth.auth().currentUser?.uid {
                 _ = try? await twoFactorService.regenerateBackupCodes(userId: userId)
             }
-            
+
             await MainActor.run {
                 showVerification = false
                 // Open backup codes sheet so user can save their codes immediately
                 showBackupCodesSheet = true
-                
+
                 // Success haptic
                 let haptic = UINotificationFeedbackGenerator()
                 haptic.notificationOccurred(.success)
             }
-            
+
         } catch {
             await MainActor.run {
                 errorMessage = error.localizedDescription
                 showError = true
-                
+
                 // Error haptic
                 let haptic = UINotificationFeedbackGenerator()
                 haptic.notificationOccurred(.error)
             }
         }
-        
+
         isLoading = false
     }
-    
+
     private func disable2FA() async {
         isLoading = true
-        
+
         do {
             try await twoFactorService.disable2FA()
-            
+
             await MainActor.run {
                 // Success haptic
                 let haptic = UINotificationFeedbackGenerator()
                 haptic.notificationOccurred(.success)
             }
-            
+
         } catch {
             await MainActor.run {
                 errorMessage = error.localizedDescription
                 showError = true
-                
+
                 // Error haptic
                 let haptic = UINotificationFeedbackGenerator()
                 haptic.notificationOccurred(.error)
             }
         }
-        
+
         isLoading = false
     }
 }
@@ -355,18 +406,18 @@ private struct TwoFAFeatureRow: View {
     let icon: String
     let title: String
     let description: String
-    
+
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: icon)
                 .font(.system(size: 20))
                 .foregroundStyle(.blue)
                 .frame(width: 28)
-            
+
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
                     .font(.system(size: 15, weight: .semibold))
-                
+
                 Text(description)
                     .font(.system(size: 13))
                     .foregroundStyle(.secondary)
@@ -381,7 +432,7 @@ struct SetupPhoneView: View {
     @Environment(\.dismiss) var dismiss
     @Binding var phoneNumber: String
     let onContinue: () -> Void
-    
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 24) {
@@ -389,18 +440,18 @@ struct SetupPhoneView: View {
                     .font(.system(size: 60))
                     .foregroundStyle(.blue)
                     .padding(.top, 40)
-                
+
                 VStack(spacing: 8) {
                     Text("Enter Your Phone Number")
                         .font(.system(size: 24, weight: .bold))
-                    
+
                     Text("We'll send you a verification code to confirm it's really you")
                         .font(.system(size: 15))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal)
                 }
-                
+
                 TextField("Phone Number", text: $phoneNumber)
                     .keyboardType(.phonePad)
                     .textContentType(.telephoneNumber)
@@ -409,7 +460,7 @@ struct SetupPhoneView: View {
                     .background(Color(.systemGray6))
                     .clipShape(RoundedRectangle(cornerRadius: 10))
                     .padding(.horizontal)
-                
+
                 Button {
                     onContinue()
                     dismiss()
@@ -425,7 +476,7 @@ struct SetupPhoneView: View {
                 }
                 .disabled(phoneNumber.count < 10)
                 .opacity(phoneNumber.count < 10 ? 0.5 : 1.0)
-                
+
                 Spacer()
             }
             .navigationTitle("Set Up 2FA")
@@ -449,7 +500,7 @@ struct VerificationCodeView: View {
     let phoneNumber: String
     let onVerify: () -> Void
     let onResend: () -> Void
-    
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 24) {
@@ -457,18 +508,18 @@ struct VerificationCodeView: View {
                     .font(.system(size: 60))
                     .foregroundStyle(.green)
                     .padding(.top, 40)
-                
+
                 VStack(spacing: 8) {
                     Text("Enter Verification Code")
                         .font(.system(size: 24, weight: .bold))
-                    
+
                     Text("We sent a code to \(phoneNumber)")
                         .font(.system(size: 15))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal)
                 }
-                
+
                 TextField("6-Digit Code", text: $verificationCode)
                     .keyboardType(.numberPad)
                     .textContentType(.oneTimeCode)
@@ -478,7 +529,7 @@ struct VerificationCodeView: View {
                     .background(Color(.systemGray6))
                     .clipShape(RoundedRectangle(cornerRadius: 10))
                     .padding(.horizontal)
-                
+
                 Button {
                     onVerify()
                     dismiss()
@@ -494,7 +545,7 @@ struct VerificationCodeView: View {
                 }
                 .disabled(verificationCode.count != 6)
                 .opacity(verificationCode.count != 6 ? 0.5 : 1.0)
-                
+
                 Button {
                     onResend()
                 } label: {
@@ -502,7 +553,7 @@ struct VerificationCodeView: View {
                         .font(.system(size: 14))
                         .foregroundStyle(.blue)
                 }
-                
+
                 Spacer()
             }
             .navigationTitle("Verify Phone")

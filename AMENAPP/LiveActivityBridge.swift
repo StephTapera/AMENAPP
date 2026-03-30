@@ -16,12 +16,14 @@ struct RestoredActivityIds {
     let prayer: String?
     let music: String?
     let reply: String?
+    let berean: String?
 
-    init(church: String? = nil, prayer: String? = nil, music: String? = nil, reply: String? = nil) {
+    init(church: String? = nil, prayer: String? = nil, music: String? = nil, reply: String? = nil, berean: String? = nil) {
         self.church = church
         self.prayer = prayer
         self.music = music
         self.reply = reply
+        self.berean = berean
     }
 }
 
@@ -289,7 +291,8 @@ final class LiveActivityBridge {
         let prayer = ActivityKit.Activity<PrayerReminderActivityAttributes>.activities.first?.id
         let music  = ActivityKit.Activity<WorshipMusicActivityAttributes>.activities.first?.id
         let reply  = ActivityKit.Activity<ReplyActivityAttributes>.activities.first?.id
-        return RestoredActivityIds(church: church, prayer: prayer, music: music, reply: reply)
+        let berean = ActivityKit.Activity<BereanDynamicIslandAttributes>.activities.first?.id
+        return RestoredActivityIds(church: church, prayer: prayer, music: music, reply: reply, berean: berean)
     }
 
     // MARK: - Badge Count Sync
@@ -331,7 +334,7 @@ final class LiveActivityBridge {
     func startReplyActivity(replyType: ReplyActivityAttributes.ReplyType, entityId: String, subEntityId: String?, displayName: String?, createdAtISO: String, expiresAtISO: String, privacyLevel: ReplyActivityAttributes.PrivacyLevel, contextSnippet: String?) async -> String? { nil }
     func updateReplyActivity(id: String, suggestion1: String, suggestion2: String, suggestion3: String, privacyLevel: ReplyActivityAttributes.PrivacyLevel, contextSnippet: String?) async {}
     func endReplyActivity(id: String, animated: Bool) async {}
-    func restoreActiveIds() async -> RestoredActivityIds { RestoredActivityIds() }
+    func restoreActiveIds() async -> RestoredActivityIds { RestoredActivityIds(berean: nil) }
     func updateBadgeCount(_ count: Int) async {}
 }
 

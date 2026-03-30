@@ -112,8 +112,15 @@ class ProfilePhotoService: ObservableObject {
             .child(fileName)
         
         dlog("📂 Storage path: \(storageRef.fullPath)")
-        dlog("   - Bucket: \(storageRef.bucket)")
-        dlog("   - Full URL: gs://\(storageRef.bucket)/\(storageRef.fullPath)")
+        
+        // ✅ CRASH FIX: Safely access bucket property
+        let bucketName = storageRef.bucket
+        if !bucketName.isEmpty {
+            dlog("   - Bucket: \(bucketName)")
+            dlog("   - Full URL: gs://\(bucketName)/\(storageRef.fullPath)")
+        } else {
+            dlog("   - Bucket: (empty - using default)")
+        }
         
         // Set metadata
         let metadata = StorageMetadata()
@@ -121,7 +128,8 @@ class ProfilePhotoService: ObservableObject {
         
         dlog("📤 Starting upload...")
         dlog("   - Content type: image/jpeg")
-        dlog("   - Metadata: \(metadata)")
+        // ✅ CRASH FIX: Avoid logging entire metadata object which can cause crashes
+        dlog("   - Metadata contentType: \(metadata.contentType ?? "unknown")")
         
         // Upload with progress tracking
         let uploadTask = storageRef.putData(imageData, metadata: metadata)
@@ -364,33 +372,30 @@ class ProfilePhotoService: ObservableObject {
         
         var actualWidth = image.size.width
         var actualHeight = image.size.height
-        var imgRatio = actualWidth / actualHeight
-        let maxRatio = maxWidth / maxHeight
         
-        // Resize if needed
+        // Calculate aspect ratio and resize dimensions
         if actualHeight > maxHeight || actualWidth > maxWidth {
-            if imgRatio < maxRatio {
-                imgRatio = maxHeight / actualHeight
-                actualWidth = imgRatio * actualWidth
-                actualHeight = maxHeight
-            } else if imgRatio > maxRatio {
-                imgRatio = maxWidth / actualWidth
-                actualHeight = imgRatio * actualHeight
-                actualWidth = maxWidth
-            } else {
-                actualHeight = maxHeight
-                actualWidth = maxWidth
-            }
+            let widthRatio = maxWidth / actualWidth
+            let heightRatio = maxHeight / actualHeight
+            let ratio = min(widthRatio, heightRatio)
+            
+            actualWidth = actualWidth * ratio
+            actualHeight = actualHeight * ratio
         }
         
-        let rect = CGRect(x: 0.0, y: 0.0, width: actualWidth, height: actualHeight)
-        UIGraphicsBeginImageContextWithOptions(rect.size, false, 1.0)
-        image.draw(in: rect)
-        let img = UIGraphicsGetImageFromCurrentImageContext()
-        UIGraphicsEndImageContext()
+        // Use UIGraphicsImageRenderer for safer image rendering (iOS 10+)
+        let size = CGSize(width: actualWidth, height: actualHeight)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1.0
+        format.opaque = false
+        
+        let renderer = UIGraphicsImageRenderer(size: size, format: format)
+        let resizedImage = renderer.image { context in
+            image.draw(in: CGRect(origin: .zero, size: size))
+        }
         
         // Compress to JPEG with quality
-        return img?.jpegData(compressionQuality: 0.8)
+        return resizedImage.jpegData(compressionQuality: 0.8)
     }
 }
 

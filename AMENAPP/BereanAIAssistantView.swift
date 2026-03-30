@@ -9,6 +9,7 @@ import SwiftUI
 import Combine
 import FirebaseFirestore
 import FirebaseAuth
+import UserNotifications
 
 /// Berean AI Assistant - Your intelligent Bible study companion
 struct BereanAIAssistantView: View {
@@ -83,18 +84,79 @@ struct BereanAIAssistantView: View {
     @ObservedObject private var dataManager = BereanDataManager.shared
     @ObservedObject private var premiumManager = PremiumManager.shared
     @ObservedObject private var userPreferences = BereanUserPreferences.shared
+    @ObservedObject private var modeStore = BereanModeStore.shared
+    @ObservedObject private var memoryScopeStore = BereanMemoryScopeStore.shared
+    @State private var showProjectsSheet = false
     
     // Advanced AI features
     @State private var showDevotionalGenerator = false
     @State private var showStudyPlanner = false
     @State private var showScriptureAnalyzer = false
     
+    // ✅ SHEET COORDINATION: Single enum to manage all modal presentations
+    enum ActiveModal: Identifiable {
+        case translationPicker
+        case bereanChats
+        case history
+        case savedMessages
+        case reportIssue(BereanMessage)
+        case premiumUpgrade
+        case devotionalGenerator
+        case studyPlanner
+        case scriptureAnalyzer
+        case imagePicker
+        case snapPreview(ChurchNote)
+        case sermonRecorder
+        case verseDetail(String)
+        case onboarding
+        case selahView(BereanMessage)
+        
+        var id: String {
+            switch self {
+            case .translationPicker: return "translationPicker"
+            case .bereanChats: return "bereanChats"
+            case .history: return "history"
+            case .savedMessages: return "savedMessages"
+            case .reportIssue: return "reportIssue"
+            case .premiumUpgrade: return "premiumUpgrade"
+            case .devotionalGenerator: return "devotionalGenerator"
+            case .studyPlanner: return "studyPlanner"
+            case .scriptureAnalyzer: return "scriptureAnalyzer"
+            case .imagePicker: return "imagePicker"
+            case .snapPreview: return "snapPreview"
+            case .sermonRecorder: return "sermonRecorder"
+            case .verseDetail: return "verseDetail"
+            case .onboarding: return "onboarding"
+            case .selahView: return "selahView"
+            }
+        }
+    }
+    
+    enum ActiveAlert: Identifiable {
+        case newConversation
+        case clearAll
+        case snapError(String)
+        
+        var id: String {
+            switch self {
+            case .newConversation: return "newConversation"
+            case .clearAll: return "clearAll"
+            case .snapError: return "snapError"
+            }
+        }
+    }
+    
+    @State private var activeModal: ActiveModal?
+    @State private var activeAlert: ActiveAlert?
+    
 
     
-    // Selah reading view
+    // Selah reading view (existing response reader)
     @State private var selahMessage: BereanMessage?
     @State private var showSelahView = false
     @State private var selahQuery = ""
+
+
 
     // Folder nav drawer
     @State private var showConversationDrawer = false
@@ -156,13 +218,6 @@ struct BereanAIAssistantView: View {
     @AppStorage("berean_interrupted_query") private var persistedInterruptedQuery = ""
     @State private var streamWasInterrupted = false
     
-    // Dynamic Island micro-interaction
-    @State private var statusPillPulseScale: CGFloat = 1.0
-
-    // Mode chip selection animation
-    @State private var modeTapScale: [BereanPersonalityMode: CGFloat] = [:]
-    @Namespace private var modeChipNamespace
-
     // Welcome section animations
     @State private var bibleIconScale: CGFloat = 0.5
     @State private var bibleIconRotation: Double = 0
@@ -368,7 +423,6 @@ struct BereanAIAssistantView: View {
         }
         return base
             .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
-                scrollOffset = value  // Drive chip repositioning (fix #10)
                 let scrolledDown = value < -10
                 let backAtTop = value > -50
                 let collapse = value < -110
@@ -445,7 +499,8 @@ struct BereanAIAssistantView: View {
                 })
                 .environmentObject(dataManager)
                 if isThinking {
-                    ThinkingIndicatorView()
+                    BereanThinkingStatus(modeID: modeStore.selectedMode.id)
+                        .padding(.leading, 16)
                         .transition(.scale.combined(with: .opacity))
                 }
             }
@@ -467,8 +522,7 @@ struct BereanAIAssistantView: View {
             onOpenSelah: { msg in
                 selahQuery = viewModel.messages
                     .last(where: { $0.isFromUser })?.content ?? ""
-                selahMessage = msg
-                showSelahView = true
+                activeModal = .selahView(msg)
             },
             onFollowUp: isLastBerean ? { prompt in
                 sendMessage(prompt)
@@ -479,9 +533,21 @@ struct BereanAIAssistantView: View {
             onEdit: message.isFromUser ? { msg in
                 beginEditMessage(msg)
             } : nil,
-            claims: messageClaims[message.id] ?? [],
-            isActivelyStreaming: !message.isFromUser && isGenerating &&
-                viewModel.messages.last?.id == message.id
+            onReportIssue: { msg in
+                activeModal = .reportIssue(msg)
+            },
+            onSaveToChurchNotes: { msg in
+                saveMessageToChurchNotes(msg)
+            },
+            onSaveToPrayer: { msg in
+                saveMessageToPrayer(msg)
+            },
+            onDigIn: { msg in
+                let preview = String(msg.content.prefix(80)).trimmingCharacters(in: .whitespacesAndNewlines)
+                messageText = "Tell me more about: \"\(preview)\""
+                isInputFocused = true
+            },
+            claims: messageClaims[message.id] ?? []
         )
         .id(message.id)
         .transition(.asymmetric(
@@ -489,6 +555,16 @@ struct BereanAIAssistantView: View {
             removal: .opacity
         ))
         .animation(.easeOut(duration: 0.2), value: viewModel.messages.count)
+
+        if isLastBerean {
+            BereanFollowUpChipRow(
+                modeID: modeStore.selectedMode.id,
+                responseHint: message.content,
+                onChipTap: { prompt in sendMessage(prompt) },
+                onSaveAction: { dataManager.saveMessage(message) }
+            )
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+        }
     }
 
     var body: some View {
@@ -526,41 +602,6 @@ struct BereanAIAssistantView: View {
                 .padding(.bottom, 4)
             }
             
-            // Dynamic Island style status pill — appears when Berean is thinking/streaming
-            if isGenerating || isThinking {
-                VStack {
-                    HStack(spacing: 6) {
-                        Circle()
-                            .fill(Color.black)
-                            .frame(width: 6, height: 6)
-                            .scaleEffect(statusPillPulseScale)
-                            .onAppear {
-                                withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) {
-                                    statusPillPulseScale = 1.5
-                                }
-                            }
-                            .onDisappear {
-                                statusPillPulseScale = 1.0
-                            }
-                        Text(isThinking ? "Berean is thinking..." : "Generating response...")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(.black.opacity(0.7))
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 7)
-                    .background(.ultraThinMaterial)
-                    .background(Color.white.opacity(0.8))
-                    .clipShape(Capsule())
-                    .shadow(color: .black.opacity(0.08), radius: 8, y: 3)
-                    Spacer()
-                }
-                .padding(.top, 8)
-                .transition(.move(edge: .top).combined(with: .opacity))
-                .animation(.spring(response: 0.4, dampingFraction: 0.8), value: isGenerating || isThinking)
-                .zIndex(5)
-                .allowsHitTesting(false)
-            }
-
             // Smart Features Overlay
             if showSmartFeatures {
                 SmartFeaturesPanel(isShowing: $showSmartFeatures, onFeatureSelect: { feature in
@@ -592,161 +633,176 @@ struct BereanAIAssistantView: View {
             
             // Premium Upgrade Modal handled by .sheet modifier below
             
-            // Conversation Drawer Overlay — floating panel with semi-transparent backdrop
+            // Conversation Drawer Overlay
             if showConversationDrawer {
-                ZStack(alignment: .trailing) {
-                    // Semi-transparent backdrop — tap to dismiss
-                    Color.black.opacity(0.25)
-                        .ignoresSafeArea()
-                        .onTapGesture {
-                            withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
-                                showConversationDrawer = false
-                            }
+                BereanConversationDrawer(
+                    isShowing: $showConversationDrawer,
+                    conversations: $viewModel.savedConversations,
+                    onNewChat: {
+                        startNewConversation()
+                        showConversationDrawer = false
+                    },
+                    onSelectConversation: { conversation in
+                        viewModel.loadConversation(conversation)
+                        showConversationDrawer = false
+                    },
+                    onDeleteConversation: { conversation in
+                        viewModel.deleteConversation(conversation)
+                    },
+                    onPinConversation: { conversation in
+                        viewModel.togglePin(conversation)
+                    },
+                    onStarConversation: { conversation in
+                        viewModel.toggleStar(conversation)
+                    },
+                    onShowSaved: {
+                        showConversationDrawer = false
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            activeModal = .savedMessages
                         }
-                        .transition(.opacity)
-
-                    // Floating panel — 85% width, slides in from trailing edge
-                    BereanConversationDrawer(
-                        isShowing: $showConversationDrawer,
-                        conversations: $viewModel.savedConversations,
-                        onNewChat: {
-                            startNewConversation()
-                            showConversationDrawer = false
-                        },
-                        onSelectConversation: { conversation in
-                            viewModel.loadConversation(conversation)
-                            showConversationDrawer = false
-                        },
-                        onDeleteConversation: { conversation in
-                            viewModel.deleteConversation(conversation)
-                        },
-                        onPinConversation: { conversation in
-                            viewModel.togglePin(conversation)
-                        },
-                        onStarConversation: { conversation in
-                            viewModel.toggleStar(conversation)
-                        },
-                        onShowSaved: {
-                            showConversationDrawer = false
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                                showSavedMessages = true
-                            }
-                        },
-                        onShowTranslation: {
-                            showConversationDrawer = false
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                                showTranslationPicker = true
-                            }
-                        },
-                        onShowOnboarding: {
-                            showConversationDrawer = false
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                                showOnboarding = true
-                            }
-                        },
-                        onClearAll: {
-                            showConversationDrawer = false
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                                showClearAllAlert = true
-                            }
+                    },
+                    onShowTranslation: {
+                        showConversationDrawer = false
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            activeModal = .translationPicker
                         }
-                    )
-                    .frame(width: UIScreen.main.bounds.width * 0.85)
-                    .transition(.move(edge: .trailing))
-                }
-                .transition(.opacity)
+                    },
+                    onShowOnboarding: {
+                        showConversationDrawer = false
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            activeModal = .onboarding
+                        }
+                    },
+                    onClearAll: {
+                        showConversationDrawer = false
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            activeAlert = .clearAll
+                        }
+                    }
+                )
+                .transition(.asymmetric(
+                    insertion: .move(edge: .trailing).combined(with: .opacity),
+                    removal: .move(edge: .trailing).combined(with: .opacity)
+                ))
                 .zIndex(20)
             }
         }
         .navigationBarHidden(true)
-        // ✅ Translation Picker Sheet
-        .sheet(isPresented: $showTranslationPicker) {
-            BibleTranslationPicker(
-                selectedTranslation: $viewModel.selectedTranslation,
-                isShowing: $showTranslationPicker
-            )
-        }
-        // ✅ Conversation History Sheet
-        .sheet(isPresented: $showBereanChatsView) {
-            BereanChatsListView()
-        }
-        .sheet(isPresented: $showHistoryView) {
-            BereanConversationManagementView(
-                conversations: $viewModel.savedConversations,
-                isLoading: $isLoadingHistory,  // ✅ P1-2: Loading state
-                onSelect: { conversation in
-                    isLoadingHistory = true
-                    viewModel.loadConversation(conversation)
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        isLoadingHistory = false
-                        showHistoryView = false
+        .sheet(isPresented: $showProjectsSheet) { BereanProjectsView() }
+        // ✅ CONSOLIDATED MODAL PRESENTATIONS (prevents "only presenting a single sheet" warnings)
+        .sheet(item: $activeModal) { modal in
+            switch modal {
+            case .translationPicker:
+                BibleTranslationPicker(
+                    selectedTranslation: $viewModel.selectedTranslation,
+                    isShowing: Binding(
+                        get: { activeModal != nil },
+                        set: { if !$0 { activeModal = nil } }
+                    )
+                )
+            case .bereanChats:
+                BereanChatsListView()
+            case .history:
+                BereanConversationManagementView(
+                    conversations: $viewModel.savedConversations,
+                    isLoading: $isLoadingHistory,
+                    onSelect: { conversation in
+                        isLoadingHistory = true
+                        viewModel.loadConversation(conversation)
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            isLoadingHistory = false
+                            activeModal = nil
+                        }
+                    },
+                    onDelete: { conversation in
+                        viewModel.deleteConversation(conversation)
+                    },
+                    onUpdate: { conversation, newTitle in
+                        viewModel.updateConversationTitle(conversation, newTitle: newTitle)
                     }
-                },
-                onDelete: { conversation in
-                    viewModel.deleteConversation(conversation)
-                },
-                onUpdate: { conversation, newTitle in
-                    viewModel.updateConversationTitle(conversation, newTitle: newTitle)
+                )
+            case .savedMessages:
+                BereanSavedMessagesView()
+            case .reportIssue(let message):
+                BereanReportIssueView(message: message, isPresented: Binding(
+                    get: { activeModal != nil },
+                    set: { if !$0 { activeModal = nil } }
+                ))
+            case .premiumUpgrade:
+                PremiumUpgradeView()
+            case .devotionalGenerator:
+                DevotionalGeneratorView()
+            case .studyPlanner:
+                StudyPlanGeneratorView()
+            case .scriptureAnalyzer:
+                ScriptureAnalyzerView()
+            case .imagePicker:
+                BereanImagePicker(selectedImage: $selectedImage)
+            case .snapPreview(let draft):
+                SermonNotePreviewSheet(
+                    draft: draft,
+                    source: .snap,
+                    onSave: { savedNote in
+                        Task { try? await notesService.createNote(savedNote) }
+                        activeModal = nil
+                    },
+                    onDiscard: { activeModal = nil }
+                )
+            case .sermonRecorder:
+                SermonRecordingSheet(
+                    onSave: { draft in
+                        guard let uid = Auth.auth().currentUser?.uid else { return }
+                        let note = draft.toChurchNote(userId: uid)
+                        Task { try? await notesService.createNote(note) }
+                        activeModal = nil
+                    },
+                    onDismiss: { activeModal = nil }
+                )
+            case .verseDetail(let verse):
+                VerseDetailView(verseReference: verse)
+            case .onboarding:
+                BereanOnboardingView {
+                    activeModal = nil
                 }
-            )
-        }
-        // ✅ New Conversation Alert
-        .alert("Start New Conversation?", isPresented: $showNewConversationAlert) {
-            Button("Cancel", role: .cancel) { }
-            Button("New Conversation") {
-                startNewConversation()
-            }
-        } message: {
-            Text("Current conversation will be saved to history.")
-        }
-        // ✅ Clear All Data Alert
-        .alert("Clear All Data?", isPresented: $showClearAllAlert) {
-            Button("Cancel", role: .cancel) { }
-            Button("Clear All", role: .destructive) {
-                clearAllData()
-            }
-        } message: {
-            Text("This will permanently delete all conversations and data. This action cannot be undone.")
-        }
-        // ✅ Onboarding
-        .fullScreenCover(isPresented: $showOnboarding) {
-            BereanOnboardingView {
-                showOnboarding = false
+            case .selahView(let msg):
+                SelahView(
+                    message: msg,
+                    originalQuery: selahQuery,
+                    onContinueInChat: nil,
+                    onAskFollowUp: { followUp in
+                        messageText = followUp
+                    }
+                )
             }
         }
-        // Selah reading view
-        .fullScreenCover(item: $selahMessage) { msg in
-            SelahView(
-                message: msg,
-                originalQuery: selahQuery,
-                onContinueInChat: nil,
-                onAskFollowUp: { followUp in
-                    messageText = followUp
-                }
-            )
-        }
-        // ✅ Saved Messages
-        .sheet(isPresented: $showSavedMessages) {
-            BereanSavedMessagesView()
-        }
-        // ✅ Report Issue
-        .sheet(isPresented: $showReportIssue) {
-            if let message = messageToReport {
-                BereanReportIssueView(message: message, isPresented: $showReportIssue)
+        // ✅ CONSOLIDATED ALERTS
+        .alert(item: $activeAlert) { alert in
+            switch alert {
+            case .newConversation:
+                return Alert(
+                    title: Text("Start New Conversation?"),
+                    message: Text("Current conversation will be saved to history."),
+                    primaryButton: .cancel(),
+                    secondaryButton: .default(Text("New Conversation")) {
+                        startNewConversation()
+                    }
+                )
+            case .clearAll:
+                return Alert(
+                    title: Text("Clear All Data?"),
+                    message: Text("This will permanently delete all conversations and data. This action cannot be undone."),
+                    primaryButton: .cancel(),
+                    secondaryButton: .destructive(Text("Clear All")) {
+                        clearAllData()
+                    }
+                )
+            case .snapError(let message):
+                return Alert(
+                    title: Text("Sermon Snap Error"),
+                    message: Text(message),
+                    dismissButton: .default(Text("OK"))
+                )
             }
-        }
-        .sheet(isPresented: $showPremiumUpgrade) {
-            PremiumUpgradeView()
-        }
-        // ✅ Advanced AI Features
-        .sheet(isPresented: $showDevotionalGenerator) {
-            DevotionalGeneratorView()
-        }
-        .sheet(isPresented: $showStudyPlanner) {
-            StudyPlanGeneratorView()
-        }
-        .sheet(isPresented: $showScriptureAnalyzer) {
-            ScriptureAnalyzerView()
         }
         // ✅ Plus Menu
         .overlay {
@@ -754,7 +810,7 @@ struct BereanAIAssistantView: View {
                 BereanPlusMenu(
                     isShowing: $showPlusMenu,
                     onImageUpload: {
-                        showImagePicker = true
+                        activeModal = .imagePicker
                     },
                     onBibleSearch: {
                         messageText = "Search for "
@@ -767,7 +823,7 @@ struct BereanAIAssistantView: View {
                         dlog("Saved prompts tapped")
                     },
                     onSermonRecord: {
-                        showSermonRecorder = true
+                        activeModal = .sermonRecorder
                     }
                 )
                 .transition(.asymmetric(
@@ -803,50 +859,10 @@ struct BereanAIAssistantView: View {
             }
         }
         .animation(.spring(response: 0.4, dampingFraction: 0.8), value: isVoiceListening)
-        // ✅ Image Picker
-        .sheet(isPresented: $showImagePicker) {
-            BereanImagePicker(selectedImage: $selectedImage)
-        }
+        // ✅ Handle image selection after picker dismisses
         .onChange(of: selectedImage) { _, newImage in
             if let image = newImage {
                 handleImageUpload(image)
-            }
-        }
-        // Sermon Snap preview
-        .sheet(isPresented: $showSnapPreview) {
-            if let draft = snapDraft {
-                SermonNotePreviewSheet(
-                    draft: draft,
-                    source: .snap,
-                    onSave: { savedNote in
-                        Task { try? await notesService.createNote(savedNote) }
-                        showSnapPreview = false
-                    },
-                    onDiscard: { showSnapPreview = false }
-                )
-            }
-        }
-        .alert("Sermon Snap Error", isPresented: $showSnapError) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(snapErrorMessage)
-        }
-        // Sermon Recorder
-        .sheet(isPresented: $showSermonRecorder) {
-            SermonRecordingSheet(
-                onSave: { draft in
-                    guard let uid = Auth.auth().currentUser?.uid else { return }
-                    let note = draft.toChurchNote(userId: uid)
-                    Task { try? await notesService.createNote(note) }
-                    showSermonRecorder = false
-                },
-                onDismiss: { showSermonRecorder = false }
-            )
-        }
-        // ✅ Verse Detail
-        .sheet(isPresented: $showVerseDetail) {
-            if let verse = selectedVerse {
-                VerseDetailView(verseReference: verse)
             }
         }
         .onAppear {
@@ -1269,7 +1285,7 @@ struct BereanAIAssistantView: View {
             haptic.impactOccurred()
             
             withAnimation(.easeOut(duration: 0.25)) {
-                showPremiumUpgrade = true
+                activeModal = .premiumUpgrade
             }
         } label: {
             HStack(spacing: 4) {
@@ -1320,10 +1336,24 @@ struct BereanAIAssistantView: View {
 
     private var settingsMenuButton: some View {
         HStack(spacing: 8) {
+            // Projects — opens BereanProjectsView
+            Button {
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                showProjectsSheet = true
+            } label: {
+                Image(systemName: "folder.badge.plus")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(Color(white: 0.26))
+                    .frame(width: 36, height: 36)
+                    .background(Circle().fill(Color.white).shadow(color: .black.opacity(0.07), radius: 5, y: 2))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Open projects")
+
             // Chats history — opens BereanChatsView
             Button {
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                showBereanChatsView = true
+                activeModal = .bereanChats
             } label: {
                 Image(systemName: "clock")
                     .font(.system(size: 15, weight: .medium))
@@ -1337,6 +1367,8 @@ struct BereanAIAssistantView: View {
             folderNavButton
         }
     }
+
+
 
     private var folderNavButton: some View {
         Button {
@@ -1418,7 +1450,7 @@ struct BereanAIAssistantView: View {
         HStack(spacing: 6) {
             Image(systemName: "brain")
                 .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(Color(white: 0.4))
+                .foregroundStyle(Color(red: 0.4, green: 0.7, blue: 1.0))
 
             Text("\(viewModel.messages.count) message\(viewModel.messages.count == 1 ? "" : "s") in session")
                 .font(.system(size: 12, weight: .medium))
@@ -1482,30 +1514,17 @@ struct BereanAIAssistantView: View {
             HStack(spacing: 6) {
                 ForEach(BereanPersonalityMode.allCases) { mode in
                     Button {
-                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                        withAnimation(.easeOut(duration: 0.2)) {
                             personalityMode = mode
                         }
-                        // Brief scale-up pulse: 1.0 → 1.06 → 1.0
-                        withAnimation(.spring(response: 0.18, dampingFraction: 0.5)) {
-                            modeTapScale[mode] = 1.06
-                        }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
-                            withAnimation(.spring(response: 0.22, dampingFraction: 0.7)) {
-                                modeTapScale[mode] = 1.0
-                            }
-                        }
+                        let haptic = UIImpactFeedbackGenerator(style: .light)
+                        haptic.impactOccurred()
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: mode.icon)
                                 .font(.system(size: 10, weight: .medium))
-                            VStack(alignment: .leading, spacing: 1) {
-                                Text(mode.rawValue)
-                                    .font(.system(size: 11, weight: .semibold))
-                                Text(mode.amenLabel)
-                                    .font(.system(size: 8, weight: .medium))
-                                    .opacity(0.75)
-                            }
+                            Text(mode.rawValue)
+                                .font(.system(size: 11, weight: .semibold))
                         }
                         .foregroundStyle(personalityMode == mode ? .white : Color(white: 0.38))
                         .padding(.horizontal, 11)
@@ -1527,10 +1546,6 @@ struct BereanAIAssistantView: View {
                                         endPoint: .bottom
                                       )
                                 )
-                                .matchedGeometryEffect(
-                                    id: personalityMode == mode ? "selectedMode" : mode.id,
-                                    in: modeChipNamespace
-                                )
                                 .shadow(
                                     color: personalityMode == mode
                                         ? Color(red: 0.88, green: 0.38, blue: 0.28).opacity(0.25)
@@ -1538,10 +1553,8 @@ struct BereanAIAssistantView: View {
                                     radius: 6, y: 2
                                 )
                         )
-                        .scaleEffect(modeTapScale[mode] ?? 1.0)
-                        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: personalityMode)
                     }
-                    .accessibilityLabel("\(mode.rawValue) mode (\(mode.amenLabel)): \(mode.description)")
+                    .accessibilityLabel("\(mode.rawValue) mode: \(mode.description)")
                 }
             }
             .padding(.horizontal, 12)
@@ -1575,13 +1588,9 @@ struct BereanAIAssistantView: View {
                     isInputFocused = true
                     withAnimation(.easeOut(duration: 0.2)) { showFollowUps = false }
                 }
-                .opacity(scrollOffset < -50 ? max(0, 1 - (-scrollOffset - 50) / 100) : 1)
-                .offset(y: scrollOffset < -50 ? min(0, (scrollOffset + 50) / 4) : 0)
-                .animation(.easeOut(duration: 0.2), value: scrollOffset)
             }
 
             // Quick Action chips — shown above composer when no conversation is active
-            // Fade + shift up as user scrolls down
             if viewModel.messages.isEmpty && messageText.isEmpty {
                 BereanQuickActionsView(
                     inputText: $messageText,
@@ -1590,9 +1599,6 @@ struct BereanAIAssistantView: View {
                     messageText = chip.prompt
                     isInputFocused = true
                 }
-                .opacity(scrollOffset < -50 ? max(0, 1 - (-scrollOffset - 50) / 100) : 1)
-                .offset(y: scrollOffset < -50 ? min(0, (scrollOffset + 50) / 4) : 0)
-                .animation(.easeOut(duration: 0.2), value: scrollOffset)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
 
@@ -1636,7 +1642,7 @@ struct BereanAIAssistantView: View {
         .background(composerBackground)
         // Breathing pulse border when idle, sharp border when focused
         .overlay(
-            RoundedRectangle(cornerRadius: 28)
+            RoundedRectangle(cornerRadius: 16)
                 .stroke(
                     isInputFocused
                         ? Color.black.opacity(0.22)
@@ -1711,6 +1717,25 @@ struct BereanAIAssistantView: View {
             .opacity(isGenerating ? 0.3 : 1.0)
             .accessibilityLabel("Search scripture")
 
+            // Mode chip — shows active Berean mode, taps to switch
+            BereanModeChip()
+                .disabled(isGenerating)
+                .opacity(isGenerating ? 0.4 : 1.0)
+
+            // Memory scope chip — shows retention level
+            BereanMemoryScopeChip()
+                .disabled(isGenerating)
+                .opacity(isGenerating ? 0.4 : 1.0)
+
+            // Tools hub — grid of AI capabilities
+            BereanToolsButton { tool in
+                modeStore.selectedMode = BereanMode.catalog.first { $0.id == tool.modeID } ?? .standard
+                messageText = tool.seedPrompt
+                isInputFocused = true
+            }
+            .disabled(isGenerating)
+            .opacity(isGenerating ? 0.4 : 1.0)
+
             Spacer()
 
             // Send / Voice / Stop — Liquid Glass blue pill (right-anchored)
@@ -1722,19 +1747,15 @@ struct BereanAIAssistantView: View {
     }
 
     private var composerBackground: some View {
-        // True liquid glass card — ultraThinMaterial base + translucent white wash + dual stroke rings
-        ZStack {
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .fill(.ultraThinMaterial)
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .fill(Color.white.opacity(0.55))
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .stroke(Color.white.opacity(0.6), lineWidth: 0.5)
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .stroke(Color.black.opacity(0.06), lineWidth: 1)
-        }
-        .shadow(color: Color.black.opacity(0.08), radius: 18, y: 5)
-        .shadow(color: Color.black.opacity(0.03), radius: 3, y: 1)
+        // Clean white card matching reference images — subtle border + soft shadow
+        RoundedRectangle(cornerRadius: 22, style: .continuous)
+            .fill(Color.white)
+            .overlay(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .stroke(Color.black.opacity(0.07), lineWidth: 0.5)
+            )
+            .shadow(color: Color.black.opacity(0.09), radius: 18, y: 5)
+            .shadow(color: Color.black.opacity(0.03), radius: 3, y: 1)
     }
 
     private func getSafeAreaBottom() -> CGFloat {
@@ -1795,7 +1816,7 @@ struct BereanAIAssistantView: View {
                 .lineLimit(1...6)
                 .focused($isInputFocused)
                 .disabled(isGenerating)
-                .tint(Color(white: 0.2))
+                .tint(Color(red: 0.35, green: 0.62, blue: 0.98))
                 .onSubmit {
                     if !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         sendMessage(messageText)
@@ -1824,7 +1845,7 @@ struct BereanAIAssistantView: View {
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(
                         LinearGradient(
-                            colors: [Color(white: 0.35).opacity(0.8), Color(white: 0.2).opacity(0.8)],
+                            colors: [.purple.opacity(0.6), .blue.opacity(0.6)],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
@@ -1908,7 +1929,7 @@ struct BereanAIAssistantView: View {
                 // Listening pulse ring
                 if isVoiceListening {
                     Circle()
-                        .stroke(Color(white: 0.3).opacity(0.55), lineWidth: 2)
+                        .stroke(Color(red: 0.35, green: 0.62, blue: 0.98).opacity(0.55), lineWidth: 2)
                         .frame(width: 36, height: 36)
                         .scaleEffect(1.25)
                         .opacity(0)
@@ -1932,17 +1953,27 @@ struct BereanAIAssistantView: View {
             haptic.impactOccurred()
             sendMessage(messageText)
         } label: {
-            // Liquid Glass black pill
+            // Liquid Glass blue pill — matches reference images (IMG_1207, IMG_1326)
             ZStack {
+                // Glass base: radial gradient from light blue center to deeper blue edge
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(Color.black)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color(red: 0.55, green: 0.82, blue: 1.00),
+                                Color(red: 0.35, green: 0.62, blue: 0.98)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
                     .overlay(
                         // Inner highlight — top specular reflection (glassy sheen)
                         RoundedRectangle(cornerRadius: 18, style: .continuous)
                             .fill(
                                 LinearGradient(
                                     colors: [
-                                        Color.white.opacity(0.12),
+                                        Color.white.opacity(0.35),
                                         Color.white.opacity(0.0)
                                     ],
                                     startPoint: .top,
@@ -1951,10 +1982,11 @@ struct BereanAIAssistantView: View {
                             )
                     )
                     .overlay(
+                        // Outer ring — subtle blue border
                         RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .stroke(Color.white.opacity(0.12), lineWidth: 1.0)
+                            .stroke(Color(red: 0.30, green: 0.58, blue: 0.95).opacity(0.5), lineWidth: 1.0)
                     )
-                    .shadow(color: Color.black.opacity(0.25), radius: 8, y: 3)
+                    .shadow(color: Color(red: 0.30, green: 0.55, blue: 0.95).opacity(0.35), radius: 8, y: 3)
                     .frame(width: 72, height: 36)
 
                 Image(systemName: "arrow.up")
@@ -2131,12 +2163,13 @@ struct BereanAIAssistantView: View {
     
     /// Check if onboarding should be shown
     private func checkOnboardingStatus() {
-        let hasCompletedOnboarding = UserDefaults.standard.bool(forKey: "berean_onboarding_completed")
-        
+        let hasCompletedOnboarding = UserDefaults.standard.bool(forKey: "bereanOnboardingComplete")
+            || UserDefaults.standard.bool(forKey: "berean_onboarding_completed")
+
         if !hasCompletedOnboarding {
             // Delay slightly to ensure view is loaded
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                showOnboarding = true
+                activeModal = .onboarding
             }
         }
     }
@@ -2324,22 +2357,83 @@ struct BereanAIAssistantView: View {
     private func handleBereanQuickAction(message: BereanMessage, action: BereanResponseAction) {
         switch action {
         case .saveToNotes:
-            // Save to BereanDataManager saved messages with a "notes" tag
             dataManager.saveMessage(message, tags: ["notes"])
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
 
-        case .shareAsPost:
+        case .shareAsPost, .shareWithGroup:
             messageToShare = message
-            withAnimation(.easeOut(duration: 0.2)) {
-                showShareSheet = true
-            }
+            withAnimation(.easeOut(duration: 0.2)) { showShareSheet = true }
 
-        case .turnIntoPrayer, .applyPractically, .journalPrompt:
-            // Send the associated follow-up prompt as a new message
+        case .translate:
+            activeModal = .translationPicker
+
+        case .remindMeLater:
+            scheduleStudyReminder(for: message)
+
+        case .turnIntoPrayer, .applyPractically, .journalPrompt, .simplify:
             let prompt = action.followUpPrompt
             guard !prompt.isEmpty else { return }
             sendMessage(prompt)
         }
+    }
+
+    /// Saves a Berean response as a Church Note (private, tagged "Berean Insight").
+    private func saveMessageToChurchNotes(_ message: BereanMessage) {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        let preview = String(message.content.prefix(60)).trimmingCharacters(in: .whitespacesAndNewlines)
+        let title = preview.isEmpty ? "Berean Insight" : preview
+        let note = ChurchNote(
+            userId: uid,
+            title: title,
+            sermonTitle: nil,
+            content: message.content,
+            tags: ["berean", "insight"],
+            permission: .privateNote,
+            claudeTags: ["ai-saved"]
+        )
+        Task {
+            do {
+                try await notesService.createNote(note)
+                await MainActor.run {
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                }
+            } catch {
+                // Non-fatal — silently fail; user can retry via Church Notes
+            }
+        }
+    }
+
+    /// Saves a Berean response as a personal prayer reflection in Firestore.
+    private func saveMessageToPrayer(_ message: BereanMessage) {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        let db = Firestore.firestore()
+        let data: [String: Any] = [
+            "userId": uid,
+            "content": message.content,
+            "source": "berean",
+            "type": "reflection",
+            "createdAt": Timestamp(date: Date()),
+            "isPinned": false
+        ]
+        db.collection("users").document(uid).collection("prayerReflections").addDocument(data: data) { _ in }
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+    }
+
+    /// Schedules a local notification 30 minutes from now so the user can return to this insight.
+    private func scheduleStudyReminder(for message: BereanMessage) {
+        let content = UNMutableNotificationContent()
+        content.title = "Continue your Berean study"
+        let preview = String(message.content.prefix(120))
+        content.body = preview.isEmpty ? "Pick up where you left off." : preview
+        content.sound = .default
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 30 * 60, repeats: false)
+        let request = UNNotificationRequest(
+            identifier: "berean-reminder-\(message.id.uuidString)",
+            content: content,
+            trigger: trigger
+        )
+        UNUserNotificationCenter.current().add(request) { _ in }
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
     }
 
     /// Handle image upload via Sermon Snap: uploads to Storage → Claude vision → preview sheet
@@ -2351,12 +2445,12 @@ struct BereanAIAssistantView: View {
                 let draft = try await BereanSnapService.shared.processSermonImage(image)
                 await MainActor.run {
                     snapDraft = draft
-                    showSnapPreview = true
+                    activeModal = .snapPreview(draft)
                 }
             } catch {
                 await MainActor.run {
                     snapErrorMessage = error.localizedDescription
-                    showSnapError = true
+                    activeAlert = .snapError(error.localizedDescription)
                 }
             }
         }
@@ -2365,7 +2459,7 @@ struct BereanAIAssistantView: View {
     /// Handle verse reference tap to show full verse
     func handleVerseTap(_ reference: String) {
         selectedVerse = reference
-        showVerseDetail = true
+        activeModal = .verseDetail(reference)
     }
     
     /// Stop AI generation
@@ -2431,7 +2525,7 @@ struct BereanAIAssistantView: View {
             // Show upgrade prompt after short delay
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 withAnimation(.easeOut(duration: 0.3)) {
-                    showPremiumUpgrade = true
+                    activeModal = .premiumUpgrade
                 }
             }
             
@@ -2520,7 +2614,7 @@ struct BereanAIAssistantView: View {
             onChunk: { chunk in
                 // Preserve the existing message ID so SwiftUI treats this as an in-place
                 // update rather than a remove+insert cycle. Without preserving the ID,
-                // MessageBubbleView is destroyed and recreated on every chunk, which
+                // BereanMessageBubbleView is destroyed and recreated on every chunk, which
                 // triggers the .onAppear entrance animation and causes the blink.
                 // NOTE: onChunk is always called on MainActor by generateResponseStreaming.
                 if let lastIndex = viewModel.messages.lastIndex(where: { $0.role == .assistant }) {
@@ -2643,6 +2737,29 @@ struct BereanAIAssistantView: View {
                             bereanError = .unknown("Cannot connect to AI service. Please check your internet connection.")
                         default:
                             bereanError = .unknown("Network error: \(urlError.localizedDescription)")
+                        }
+                    } else if (error as NSError).domain == "com.firebase.functions" {
+                        // Firebase Cloud Function (HttpsError) codes
+                        let code = (error as NSError).code
+                        switch code {
+                        case 1:  // cancelled
+                            bereanError = .unknown("Request was cancelled. Please try again.")
+                        case 2:  // unknown
+                            bereanError = .aiServiceUnavailable
+                        case 7, 16:  // permission-denied / unauthenticated
+                            #if targetEnvironment(simulator)
+                            bereanError = .unknown("Berean is blocked by App Check in the simulator. Add the debug token in Firebase Console (App Check → Debug tokens), then try again.")
+                            #else
+                            bereanError = .unknown("Berean is not available right now. Please try again later.")
+                            #endif
+                        case 8:  // resource-exhausted (rate limit)
+                            bereanError = .rateLimitExceeded
+                        case 13: // internal
+                            bereanError = .unknown("Berean service encountered an error. Please try again.")
+                        case 14: // unavailable
+                            bereanError = .aiServiceUnavailable
+                        default:
+                            bereanError = .unknown("Could not reach Berean. Please check your connection and try again.")
                         }
                     } else {
                         bereanError = .aiServiceUnavailable
@@ -2968,10 +3085,16 @@ struct BereanMessageBubbleView: View {
     var onRegenerate: (() -> Void)? = nil
     /// Called when user taps "Edit" on a user message.
     var onEdit: ((BereanMessage) -> Void)? = nil
+    /// Called when user taps "Report Issue" on a message.
+    var onReportIssue: ((BereanMessage) -> Void)? = nil
+    /// Called when user saves this response to Church Notes.
+    var onSaveToChurchNotes: ((BereanMessage) -> Void)? = nil
+    /// Called when user saves this response as a prayer.
+    var onSaveToPrayer: ((BereanMessage) -> Void)? = nil
+    /// Called when user taps "Dig In" on long-press menu — seeds the input with a follow-up.
+    var onDigIn: ((BereanMessage) -> Void)? = nil
     /// PROMPT 5: fact confidence claims extracted from this message
     var claims: [FactClaim] = []
-    /// Whether this assistant message is currently being streamed (shows blinking cursor)
-    var isActivelyStreaming: Bool = false
     @State private var showActions = false
     @State private var lightbulbPressed = false
     @State private var praisePressed = false
@@ -2980,19 +3103,10 @@ struct BereanMessageBubbleView: View {
     @State private var appeared = false
     @State private var showFollowUpRow = false
     @State private var copied = false   // brief checkmark flash after copy
-    @State private var showQuickActions = false
-    @State private var quickChipsVisible = false
     // PROMPT 1: long-press action menu
     @State private var showMessageMenu = false
     @State private var menuScale: CGFloat = 0.92
     @State private var menuOpacity: Double = 0
-    // Text selection & floating action strip
-    @State private var showTextActions = false
-    // Response card expansion
-    @State private var isExpanded = false
-    // Typewriter cursor blink
-    @State private var cursorVisible = true
-    private let cursorTimer = Timer.publish(every: 0.5, on: .main, in: .common).autoconnect()
     @Environment(\.messageShareHandler) private var shareHandler
     @Environment(\.bereanQuickActionHandler) private var quickActionEnv
     @EnvironmentObject private var dataManager: BereanDataManager
@@ -3106,60 +3220,13 @@ struct BereanMessageBubbleView: View {
 
             // Main content — no bubble, full-width editorial text
             VStack(alignment: .leading, spacing: 0) {
-                // Message text — clean, readable, with text selection enabled
-                // Shows blinking cursor ▋ at end when actively streaming
-                Text(isActivelyStreaming
-                     ? (message.content + (cursorVisible ? "▋" : ""))
-                     : message.content)
+                // Message text — clean, readable, selectable for highlight-to-ask
+                Text(message.content)
                     .font(.system(size: 16, weight: .regular))
                     .foregroundStyle(Color(white: 0.14))
                     .lineSpacing(9)
                     .fixedSize(horizontal: false, vertical: true)
                     .textSelection(.enabled)
-                    .onReceive(cursorTimer) { _ in
-                        if isActivelyStreaming {
-                            cursorVisible.toggle()
-                        }
-                    }
-
-                // Floating action strip — appears on long-press
-                if showTextActions {
-                    HStack(spacing: 8) {
-                        ForEach(["Ask Deeper", "Summarize", "Refine", "Compare"], id: \.self) { action in
-                            Button {
-                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                                switch action {
-                                case "Ask Deeper":
-                                    onFollowUp?("Can you go deeper on what you just shared?")
-                                case "Summarize":
-                                    onFollowUp?("Give me a brief summary of the key points.")
-                                case "Refine":
-                                    onFollowUp?("Can you refine and improve your previous response?")
-                                case "Compare":
-                                    onFollowUp?("Compare this with other passages or perspectives.")
-                                default: break
-                                }
-                                withAnimation(.easeOut(duration: 0.2)) { showTextActions = false }
-                            } label: {
-                                Text(action)
-                                    .font(.system(size: 12, weight: .medium))
-                                    .foregroundStyle(Color(white: 0.15))
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 6)
-                                    .background(.ultraThinMaterial)
-                                    .background(Color.white.opacity(0.8))
-                                    .clipShape(Capsule())
-                                    .overlay(Capsule().stroke(Color.black.opacity(0.08), lineWidth: 0.5))
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding(.top, 10)
-                    .transition(.asymmetric(
-                        insertion: .scale(scale: 0.9).combined(with: .opacity),
-                        removal: .opacity
-                    ))
-                }
 
                 // Verse references — shown below content as tappable chips
                 if !message.verseReferences.isEmpty {
@@ -3213,10 +3280,10 @@ struct BereanMessageBubbleView: View {
                                 Text("Selah")
                                     .font(.system(size: 11, weight: .semibold))
                             }
-                            .foregroundStyle(BereanDesign.coral)
+                            .foregroundStyle(Color.accentColor)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
-                            .background(BereanDesign.coral.opacity(0.10), in: Capsule())
+                            .background(Color.accentColor.opacity(0.10), in: Capsule())
                         }
                         .buttonStyle(.plain)
                         .transition(.scale.combined(with: .opacity))
@@ -3278,6 +3345,33 @@ struct BereanMessageBubbleView: View {
                             Label("Copy Text", systemImage: "doc.on.doc")
                         }
 
+                        if let onSaveToChurchNotes {
+                            Button {
+                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                onSaveToChurchNotes(message)
+                            } label: {
+                                Label("Save to Church Notes", systemImage: "note.text.badge.plus")
+                            }
+                        }
+
+                        if let onSaveToPrayer {
+                            Button {
+                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                onSaveToPrayer(message)
+                            } label: {
+                                Label("Save to Prayer", systemImage: "hands.sparkles")
+                            }
+                        }
+
+                        if let onDigIn {
+                            Button {
+                                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                                onDigIn(message)
+                            } label: {
+                                Label("Dig Deeper", systemImage: "magnifyingglass.circle")
+                            }
+                        }
+
                         Button {
                             dataManager.saveMessage(message)
                             UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -3288,8 +3382,7 @@ struct BereanMessageBubbleView: View {
                         Divider()
 
                         Button(role: .destructive) {
-                            messageToReport = message
-                            showReportIssue = true
+                            onReportIssue?(message)
                         } label: {
                             Label("Report Issue", systemImage: "exclamationmark.triangle")
                         }
@@ -3303,122 +3396,20 @@ struct BereanMessageBubbleView: View {
                 .padding(.top, 14)
             }
 
-            // Timestamp + expand toggle row
-            HStack {
-                Text(message.timestamp, style: .time)
-                    .font(.system(size: 10, weight: .regular))
-                    .foregroundStyle(Color(white: 0.52))
+            // Timestamp
+            Text(message.timestamp, style: .time)
+                .font(.system(size: 10, weight: .regular))
+                .foregroundStyle(Color(white: 0.52))
+                .padding(.top, 6)
 
-                Spacer()
-
-                // Expand/collapse chevron — only on longer responses
-                if message.content.count > 300 {
-                    Button {
-                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                        withAnimation(.spring(response: 0.38, dampingFraction: 0.75)) {
-                            isExpanded.toggle()
-                        }
-                    } label: {
-                        HStack(spacing: 4) {
-                            Text(isExpanded ? "Show less" : "Expand")
-                                .font(.system(size: 10, weight: .medium))
-                                .foregroundStyle(Color(white: 0.45))
-                            Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                                .font(.system(size: 9, weight: .medium))
-                                .foregroundStyle(Color(white: 0.45))
-                        }
-                    }
-                    .buttonStyle(.plain)
-
-                    if isExpanded {
-                        // Ask Deeper + Save inline buttons in expanded state
-                        HStack(spacing: 8) {
-                            Button {
-                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                                onFollowUp?("Can you go deeper on what you just shared?")
-                            } label: {
-                                Text("Ask Deeper")
-                                    .font(.system(size: 10, weight: .medium))
-                                    .foregroundStyle(Color(white: 0.3))
-                                    .padding(.horizontal, 9)
-                                    .padding(.vertical, 4)
-                                    .background(Capsule().fill(Color(white: 0.93)).overlay(Capsule().stroke(Color(white: 0.86), lineWidth: 0.5)))
-                            }
-                            .buttonStyle(.plain)
-
-                            Button {
-                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                                dataManager.saveMessage(message)
-                            } label: {
-                                Text("Save")
-                                    .font(.system(size: 10, weight: .medium))
-                                    .foregroundStyle(Color(white: 0.3))
-                                    .padding(.horizontal, 9)
-                                    .padding(.vertical, 4)
-                                    .background(Capsule().fill(Color(white: 0.93)).overlay(Capsule().stroke(Color(white: 0.86), lineWidth: 0.5)))
-                            }
-                            .buttonStyle(.plain)
-                        }
-                        .transition(.asymmetric(insertion: .scale(scale: 0.9).combined(with: .opacity), removal: .opacity))
-                    }
-                }
-            }
-            .padding(.top, 6)
-
-            // Follow-up action row — appears after a brief settle delay
+            // Unified primary + secondary action row — appears after a brief settle delay
             if showFollowUpRow, let followUp = onFollowUp {
                 BereanFollowUpActionsRow(
-                    onExplainMore: { followUp("Can you explain that in more depth?") },
-                    onShowVerses:  { followUp("Show me related Bible verses for this.") },
-                    onSummarize:   { followUp("Can you give me a brief summary?") },
-                    onReflect:     { followUp("Help me reflect personally on what you just shared.") }
+                    message: message,
+                    onFollowUp: followUp,
+                    onQuickAction: { msg, action in quickActionEnv(msg, action) }
                 )
-                .padding(.horizontal, -22) // bleed to edge so pills don't feel inset
-            }
-
-            // Berean quick-action row — spiritual actions on this response
-            if showQuickActions {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(Array(BereanResponseAction.allCases.enumerated()), id: \.element) { index, action in
-                            Button {
-                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                                quickActionEnv(message, action)
-                            } label: {
-                                HStack(spacing: 5) {
-                                    Image(systemName: action.icon)
-                                        .font(.system(size: 11, weight: .medium))
-                                    Text(action.rawValue)
-                                        .font(.system(size: 12, weight: .medium))
-                                }
-                                .foregroundStyle(Color(white: 0.3))
-                                .padding(.horizontal, 11)
-                                .padding(.vertical, 6)
-                                .background(
-                                    Capsule()
-                                        .fill(Color(white: 0.93))
-                                        .overlay(Capsule().stroke(Color(white: 0.86), lineWidth: 0.5))
-                                )
-                            }
-                            .buttonStyle(.plain)
-                            .opacity(quickChipsVisible ? 1 : 0)
-                            .scaleEffect(quickChipsVisible ? 1.0 : 0.84)
-                            .animation(.interpolatingSpring(stiffness: 200, damping: 18).delay(Double(index) * 0.065), value: quickChipsVisible)
-                        }
-                    }
-                    .padding(.horizontal, 22)
-                    .padding(.vertical, 2)
-                }
                 .padding(.horizontal, -22)
-                .padding(.top, 6)
-                .transition(.asymmetric(
-                    insertion: .move(edge: .bottom).combined(with: .opacity),
-                    removal: .opacity
-                ))
-                .onAppear {
-                    guard !quickChipsVisible else { return }
-                    quickChipsVisible = true
-                }
             }
 
             // PROMPT 5: Fact Shield — confidence indicators
@@ -3445,11 +3436,6 @@ struct BereanMessageBubbleView: View {
                         showFollowUpRow = true
                     }
                 }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.85) {
-                    withAnimation(.easeOut(duration: 0.22)) {
-                        showQuickActions = true
-                    }
-                }
             }
         }
         // Report issue sheet
@@ -3458,7 +3444,7 @@ struct BereanMessageBubbleView: View {
                 BereanReportIssueView(message: msg, isPresented: $showReportIssue)
             }
         }
-        // PROMPT 1: Long-press message action menu + text actions strip
+        // PROMPT 1: Long-press message action menu
         .onLongPressGesture(minimumDuration: 0.4) {
             guard !message.isFromUser else { return }
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
@@ -3468,7 +3454,6 @@ struct BereanMessageBubbleView: View {
                 showMessageMenu = true
                 menuScale = 1.0
                 menuOpacity = 1.0
-                showTextActions = true
             }
         }
         .overlay(alignment: .topLeading) {
@@ -3480,7 +3465,10 @@ struct BereanMessageBubbleView: View {
                             showMessageMenu = false
                         }
                     },
-                    onPostToAMEN: { _ in }
+                    onPostToAMEN: { _ in },
+                    onDigIn: { onDigIn?(message) },
+                    onSaveToPrayer: { onSaveToPrayer?(message) },
+                    onSaveToNotes: { onSaveToChurchNotes?(message) }
                 )
                 .scaleEffect(menuScale, anchor: .bottomLeading)
                 .opacity(menuOpacity)
@@ -3491,40 +3479,6 @@ struct BereanMessageBubbleView: View {
         .onTapGesture {
             if showMessageMenu {
                 withAnimation(.easeOut(duration: 0.18)) { showMessageMenu = false }
-            }
-            if showTextActions {
-                withAnimation(.easeOut(duration: 0.18)) { showTextActions = false }
-            }
-        }
-        .contextMenu {
-            Button {
-                UIPasteboard.general.string = message.content
-                UINotificationFeedbackGenerator().notificationOccurred(.success)
-            } label: { Label("Copy", systemImage: "doc.on.doc") }
-
-            Button {
-                dataManager.saveMessage(message)
-                UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            } label: { Label("Save Response", systemImage: "bookmark") }
-
-            Button {
-                shareHandler?(message)
-            } label: { Label("Share", systemImage: "square.and.arrow.up") }
-
-            if let onFollowUp {
-                Button {
-                    onFollowUp("Can you go deeper on what you just shared?")
-                } label: { Label("Ask Deeper", systemImage: "arrow.down.circle") }
-            }
-
-            if !message.isFromUser {
-                Button {
-                    onFollowUp?("Give me a brief summary of the key points.")
-                } label: { Label("Summarize", systemImage: "text.quote") }
-
-                Button {
-                    onFollowUp?("Can you refine and improve your previous response?")
-                } label: { Label("Refine", systemImage: "wand.and.stars") }
             }
         }
     }
@@ -3547,19 +3501,29 @@ extension EnvironmentValues {
 // MARK: - Berean Response Action (quick-action chips on responses)
 
 enum BereanResponseAction: String, CaseIterable {
-    case turnIntoPrayer   = "Turn into prayer"
-    case saveToNotes      = "Save to Notes"
+    // Primary tier — send a follow-up prompt or direct save
+    case turnIntoPrayer   = "Pray about this"
+    case saveToNotes      = "Save"
     case applyPractically = "Apply this"
     case journalPrompt    = "Journal prompt"
     case shareAsPost      = "Share insight"
+    case simplify         = "Simplify"
+    // Secondary tier — utility / continuity actions
+    case translate        = "Translate"
+    case remindMeLater    = "Remind me later"
+    case shareWithGroup   = "Share with group"
 
     var icon: String {
         switch self {
         case .turnIntoPrayer:   return "hands.sparkles"
-        case .saveToNotes:      return "note.text.badge.plus"
+        case .saveToNotes:      return "bookmark"
         case .applyPractically: return "figure.walk"
         case .journalPrompt:    return "pencil.and.scribble"
         case .shareAsPost:      return "arrow.up.circle"
+        case .simplify:         return "text.magnifyingglass"
+        case .translate:        return "globe"
+        case .remindMeLater:    return "bell"
+        case .shareWithGroup:   return "person.2"
         }
     }
 
@@ -3568,13 +3532,21 @@ enum BereanResponseAction: String, CaseIterable {
         case .turnIntoPrayer:
             return "Turn the insight you just shared into a heartfelt prayer I can pray."
         case .saveToNotes:
-            return "" // handled specially in the view (saves, no new query)
+            return "" // handled directly (saves, no new query)
         case .applyPractically:
             return "Give me 3 practical ways I can apply what you just shared to my daily life."
         case .journalPrompt:
             return "Give me a meaningful journal reflection prompt based on what you just shared."
         case .shareAsPost:
-            return "" // handled specially (opens share sheet)
+            return "" // handled directly (opens share sheet)
+        case .simplify:
+            return "Can you explain what you just shared in simpler, everyday language?"
+        case .translate:
+            return "" // handled directly (opens translation picker)
+        case .remindMeLater:
+            return "" // handled directly (schedules local notification)
+        case .shareWithGroup:
+            return "" // handled directly (opens share sheet)
         }
     }
 }
@@ -5255,7 +5227,7 @@ struct ShareToFeedSheet: View {
     private var headerSection: some View {
         HStack {
             Text("Share to OpenTable")
-                .font(.custom("OpenSans-Bold", size: 22))
+                .font(AMENFont.bold(22))
                 .foregroundStyle(.white)
             
             Spacer()
@@ -5277,7 +5249,7 @@ struct ShareToFeedSheet: View {
     
     private var subtitleText: some View {
         Text("Share this insight with your faith community")
-            .font(.custom("OpenSans-Regular", size: 13))
+            .font(AMENFont.regular(13))
             .foregroundStyle(.white.opacity(0.6))
             .padding(.horizontal, 24)
             .padding(.bottom, 24)
@@ -5303,7 +5275,7 @@ struct ShareToFeedSheet: View {
             messagePreviewHeader
             
             Text(message.content)
-                .font(.custom("OpenSans-Regular", size: 14))
+                .font(AMENFont.regular(14))
                 .foregroundStyle(.white.opacity(0.85))
                 .lineSpacing(5)
                 .lineLimit(6)
@@ -5323,7 +5295,7 @@ struct ShareToFeedSheet: View {
                 .foregroundStyle(Color(red: 0.4, green: 0.7, blue: 1.0))
             
             Text("Berean AI Insight")
-                .font(.custom("OpenSans-Bold", size: 13))
+                .font(AMENFont.bold(13))
                 .foregroundStyle(.white.opacity(0.9))
             
             Spacer()
@@ -5334,7 +5306,7 @@ struct ShareToFeedSheet: View {
         HStack(spacing: 8) {
             ForEach(message.verseReferences.prefix(3), id: \.self) { reference in
                 Text(reference)
-                    .font(.custom("OpenSans-SemiBold", size: 11))
+                    .font(AMENFont.semiBold(11))
                     .foregroundStyle(Color(red: 0.4, green: 0.7, blue: 1.0))
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
@@ -5367,7 +5339,7 @@ struct ShareToFeedSheet: View {
                     .foregroundStyle(addPersonalNote ? Color(red: 0.4, green: 0.85, blue: 0.7) : .white.opacity(0.5))
                 
                 Text("Add personal note")
-                    .font(.custom("OpenSans-SemiBold", size: 15))
+                    .font(AMENFont.semiBold(15))
                     .foregroundStyle(.white.opacity(0.9))
                 
                 Spacer()
@@ -5390,11 +5362,11 @@ struct ShareToFeedSheet: View {
     private var personalNoteField: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Your thoughts")
-                .font(.custom("OpenSans-SemiBold", size: 13))
+                .font(AMENFont.semiBold(13))
                 .foregroundStyle(.white.opacity(0.6))
             
             TextEditor(text: $personalNote)
-                .font(.custom("OpenSans-Regular", size: 15))
+                .font(AMENFont.regular(15))
                 .foregroundStyle(.white)
                 .scrollContentBackground(.hidden)
                 .frame(height: 100)
@@ -5432,7 +5404,7 @@ struct ShareToFeedSheet: View {
                     .font(.system(size: 16, weight: .semibold))
                 
                 Text("Share to Feed")
-                    .font(.custom("OpenSans-Bold", size: 16))
+                    .font(AMENFont.bold(16))
             }
             .foregroundStyle(.black)
             .frame(maxWidth: .infinity)
@@ -5529,13 +5501,13 @@ struct BereanPremiumUpgradeView: View {
                 Image(systemName: "crown.fill")
                     .font(.system(size: 28))
                 Text("Berean Pro")
-                    .font(.custom("OpenSans-Bold", size: 32))
+                    .font(AMENFont.bold(32))
             }
             .foregroundStyle(.white)
             .shadow(color: .white.opacity(0.3), radius: 20)
             
             Text("Unlock the full power of AI-assisted Bible study")
-                .font(.custom("OpenSans-Regular", size: 17))
+                .font(AMENFont.regular(17))
                 .foregroundStyle(.white.opacity(0.8))
                 .multilineTextAlignment(.center)
                 .lineSpacing(4)
@@ -5568,7 +5540,7 @@ struct BereanPremiumUpgradeView: View {
     private var featuresSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Everything Included")
-                .font(.custom("OpenSans-Bold", size: 20))
+                .font(AMENFont.bold(20))
                 .foregroundStyle(.white)
                 .padding(.horizontal, 20)
             
@@ -5601,7 +5573,7 @@ struct BereanPremiumUpgradeView: View {
                         .font(.system(size: 18, weight: .bold))
                     
                     Text("Upgrade to Pro")
-                        .font(.custom("OpenSans-Bold", size: 18))
+                        .font(AMENFont.bold(18))
                 }
                 .foregroundStyle(.black)
                 .frame(maxWidth: .infinity)
@@ -5613,7 +5585,7 @@ struct BereanPremiumUpgradeView: View {
                 .shadow(color: .white.opacity(0.3), radius: 20, y: 10)
                 
                 Text("7-day free trial • Cancel anytime")
-                    .font(.custom("OpenSans-Regular", size: 12))
+                    .font(AMENFont.regular(12))
                     .foregroundStyle(.white.opacity(0.6))
             }
         }
@@ -5636,7 +5608,7 @@ struct PremiumPricingCard: View {
             VStack(alignment: .leading, spacing: 4) {
                 if let savings = savings {
                     Text(savings)
-                        .font(.custom("OpenSans-Bold", size: 11))
+                        .font(AMENFont.bold(11))
                         .foregroundStyle(Color(red: 0.4, green: 0.85, blue: 0.7))
                         .padding(.horizontal, 8)
                         .padding(.vertical, 3)
@@ -5647,18 +5619,18 @@ struct PremiumPricingCard: View {
                 }
                 
                 Text(title)
-                    .font(.custom("OpenSans-Bold", size: 18))
+                    .font(AMENFont.bold(18))
                     .foregroundStyle(.white)
                 
                 Text(period)
-                    .font(.custom("OpenSans-Regular", size: 13))
+                    .font(AMENFont.regular(13))
                     .foregroundStyle(.white.opacity(0.6))
             }
             
             Spacer()
             
             Text(price)
-                .font(.custom("OpenSans-Bold", size: 26))
+                .font(AMENFont.bold(26))
                 .foregroundStyle(.white)
         }
         .padding(20)
@@ -5699,13 +5671,13 @@ struct PremiumFeatureCard: View {
             }
             
             Text(title)
-                .font(.custom("OpenSans-Bold", size: 14))
+                .font(AMENFont.bold(14))
                 .foregroundStyle(.white)
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
             
             Text(description)
-                .font(.custom("OpenSans-Regular", size: 11))
+                .font(AMENFont.regular(11))
                 .foregroundStyle(.white.opacity(0.6))
                 .lineLimit(3)
                 .fixedSize(horizontal: false, vertical: true)
@@ -5967,7 +5939,7 @@ struct TranslationRow: View {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 8) {
                         Text(code)
-                            .font(.custom("OpenSans-Bold", size: 18))
+                            .font(AMENFont.bold(18))
                             .foregroundStyle(.white)
                         
                         if isSelected {
@@ -5978,11 +5950,11 @@ struct TranslationRow: View {
                     }
                     
                     Text(name)
-                        .font(.custom("OpenSans-SemiBold", size: 14))
+                        .font(AMENFont.semiBold(14))
                         .foregroundStyle(.white.opacity(0.8))
                     
                     Text(description)
-                        .font(.custom("OpenSans-Regular", size: 12))
+                        .font(AMENFont.regular(12))
                         .foregroundStyle(.white.opacity(0.5))
                 }
                 
@@ -6054,11 +6026,11 @@ struct ConversationHistoryView: View {
                 .foregroundStyle(.white.opacity(0.3))
             
             Text("No Saved Conversations")
-                .font(.custom("OpenSans-Bold", size: 20))
+                .font(AMENFont.bold(20))
                 .foregroundStyle(.white)
             
             Text("Your conversation history will appear here")
-                .font(.custom("OpenSans-Regular", size: 14))
+                .font(AMENFont.regular(14))
                 .foregroundStyle(.white.opacity(0.6))
         }
     }
@@ -6073,7 +6045,7 @@ struct ConversationHistoryRow: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Text(conversation.title)
-                        .font(.custom("OpenSans-SemiBold", size: 15))
+                        .font(AMENFont.semiBold(15))
                         .foregroundStyle(.white)
                         .lineLimit(2)
                     
@@ -6086,21 +6058,21 @@ struct ConversationHistoryRow: View {
                 
                 HStack(spacing: 12) {
                     Label(conversation.translation, systemImage: "book.fill")
-                        .font(.custom("OpenSans-Regular", size: 12))
+                        .font(AMENFont.regular(12))
                         .foregroundStyle(.white.opacity(0.5))
                     
                     Text("•")
                         .foregroundStyle(.white.opacity(0.3))
                     
                     Text(conversation.date.formatted(date: .abbreviated, time: .shortened))
-                        .font(.custom("OpenSans-Regular", size: 12))
+                        .font(AMENFont.regular(12))
                         .foregroundStyle(.white.opacity(0.5))
                     
                     Text("•")
                         .foregroundStyle(.white.opacity(0.3))
                     
                     Text("\(conversation.messages.count) messages")
-                        .font(.custom("OpenSans-Regular", size: 12))
+                        .font(AMENFont.regular(12))
                         .foregroundStyle(.white.opacity(0.5))
                 }
             }
@@ -6317,7 +6289,7 @@ enum BereanResponseMode: String, CaseIterable {
     var color: Color {
         switch self {
         case .quick: return .orange
-        case .balanced: return Color(white: 0.2)
+        case .balanced: return .blue
         case .study: return .purple
         case .devotional: return .pink
         }
@@ -6359,19 +6331,6 @@ enum BereanPersonalityMode: String, CaseIterable, Identifiable {
         case .strategist: return "Structured study planning"
         case .creator:    return "Creative devotional content"
         case .debater:    return "Socratic faith exploration"
-        }
-    }
-
-    /// AMEN mode label shown as a secondary subtitle on each personality chip.
-    var amenLabel: String {
-        switch self {
-        case .shepherd:   return "Growth"
-        case .scholar:    return "Reflection"
-        case .coach:      return "Growth"
-        case .builder:    return "Growth"
-        case .strategist: return "Exploration"
-        case .creator:    return "Reflection"
-        case .debater:    return "Exploration"
         }
     }
 
@@ -6668,39 +6627,79 @@ struct BereanPillButton: View {
 }
 
 // MARK: - BereanFollowUpActionsRow
-/// Horizontal pill-button row shown below a Berean message response.
-/// Gives the user one-tap follow-up actions relevant to the current response.
+/// Two-tier action panel below a Berean response.
+/// Primary row: high-utility prompt-based actions (prominent pills).
+/// Secondary row: quiet utility actions (softer, smaller text).
 
 struct BereanFollowUpActionsRow: View {
-    let onExplainMore: () -> Void
-    let onShowVerses: () -> Void
-    let onSummarize: () -> Void
-    let onReflect: () -> Void
+    let message: BereanMessage
+    var onFollowUp: (String) -> Void
+    var onQuickAction: (BereanMessage, BereanResponseAction) -> Void
 
-    @State private var chipsVisible = false
+    @State private var secondaryVisible = false
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                BereanPillButton(label: "Explain more", icon: "arrow.down.doc", style: .secondary, action: onExplainMore)
-                    .opacity(chipsVisible ? 1 : 0)
-                    .scaleEffect(chipsVisible ? 1.0 : 0.84)
-                    .animation(.interpolatingSpring(stiffness: 200, damping: 18).delay(0 * 0.065), value: chipsVisible)
-                BereanPillButton(label: "Show verses", icon: "book.closed", style: .secondary, action: onShowVerses)
-                    .opacity(chipsVisible ? 1 : 0)
-                    .scaleEffect(chipsVisible ? 1.0 : 0.84)
-                    .animation(.interpolatingSpring(stiffness: 200, damping: 18).delay(1 * 0.065), value: chipsVisible)
-                BereanPillButton(label: "Summarize", icon: "text.alignleft", style: .secondary, action: onSummarize)
-                    .opacity(chipsVisible ? 1 : 0)
-                    .scaleEffect(chipsVisible ? 1.0 : 0.84)
-                    .animation(.interpolatingSpring(stiffness: 200, damping: 18).delay(2 * 0.065), value: chipsVisible)
-                BereanPillButton(label: "Reflect", icon: "heart.text.square", style: .ghost, action: onReflect)
-                    .opacity(chipsVisible ? 1 : 0)
-                    .scaleEffect(chipsVisible ? 1.0 : 0.84)
-                    .animation(.interpolatingSpring(stiffness: 200, damping: 18).delay(3 * 0.065), value: chipsVisible)
+        VStack(alignment: .leading, spacing: 10) {
+            // ── Primary tier ────────────────────────────────────────────
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    BereanPillButton(
+                        label: "Pray about this",
+                        icon: "hands.sparkles",
+                        style: .secondary
+                    ) { onFollowUp(BereanResponseAction.turnIntoPrayer.followUpPrompt) }
+
+                    BereanPillButton(
+                        label: "See verses",
+                        icon: "book.closed",
+                        style: .secondary
+                    ) { onFollowUp("Show me related Bible verses for this.") }
+
+                    BereanPillButton(
+                        label: "Simplify",
+                        icon: "text.magnifyingglass",
+                        style: .secondary
+                    ) { onFollowUp(BereanResponseAction.simplify.followUpPrompt) }
+
+                    BereanPillButton(
+                        label: "Save",
+                        icon: "bookmark",
+                        style: .secondary
+                    ) { onQuickAction(message, .saveToNotes) }
+                }
+                .padding(.horizontal, 22)
+                .padding(.vertical, 2)
             }
-            .padding(.horizontal, 22)
-            .padding(.vertical, 4)
+
+            // ── Secondary tier — reveal after brief settle ──────────────
+            if secondaryVisible {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 14) {
+                        ForEach([
+                            ("globe",     "Translate",       BereanResponseAction.translate),
+                            ("bell",      "Remind me later", .remindMeLater),
+                            ("person.2",  "Share with group",.shareWithGroup),
+                        ] as [(String, String, BereanResponseAction)], id: \.1) { icon, label, action in
+                            Button {
+                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                onQuickAction(message, action)
+                            } label: {
+                                HStack(spacing: 5) {
+                                    Image(systemName: icon)
+                                        .font(.system(size: 11, weight: .medium))
+                                    Text(label)
+                                        .font(.system(size: 12, weight: .medium))
+                                }
+                                .foregroundStyle(Color(white: 0.55))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal, 22)
+                    .padding(.vertical, 2)
+                }
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
+            }
         }
         .padding(.top, 10)
         .transition(.asymmetric(
@@ -6708,8 +6707,11 @@ struct BereanFollowUpActionsRow: View {
             removal: .opacity
         ))
         .onAppear {
-            guard !chipsVisible else { return }
-            chipsVisible = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                withAnimation(.easeOut(duration: 0.22)) {
+                    secondaryVisible = true
+                }
+            }
         }
     }
 }

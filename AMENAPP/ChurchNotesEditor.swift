@@ -119,6 +119,7 @@ struct EnhancedChurchNoteEditor: View {
 
     // Animation 3: Focus Mode + Word Momentum
     @State private var focusMode = false
+    @State private var titleSectionAppeared = false
     @State private var wordCount = 0
     @State private var lastMilestone = 0
     @State private var milestoneRingScale: CGFloat = 0.3
@@ -175,15 +176,16 @@ struct EnhancedChurchNoteEditor: View {
     
     var body: some View {
         ZStack {
-            Color(red: 0.96, green: 0.96, blue: 0.96)
+            Color(.systemGroupedBackground)
                 .ignoresSafeArea()
-            
+
             VStack(spacing: 0) {
                 // Header with auto-save indicator
                 headerView
-                
-                Divider()
-                    .background(Color.black.opacity(0.1))
+
+                Rectangle()
+                    .fill(Color.black.opacity(0.06))
+                    .frame(height: 0.5)
                 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 24) {
@@ -194,6 +196,9 @@ struct EnhancedChurchNoteEditor: View {
                             scriptureSection
                         }
                         .opacity(focusMode ? 0.2 : 1.0)
+                        .offset(y: titleSectionAppeared ? 0 : 12)
+                        .opacity(titleSectionAppeared ? 1 : 0)
+                        .animation(.spring(response: 0.52, dampingFraction: 0.84).delay(0.05), value: titleSectionAppeared)
                         .allowsHitTesting(!focusMode)
                         .animation(.easeInOut(duration: 0.35), value: focusMode)
 
@@ -242,6 +247,11 @@ struct EnhancedChurchNoteEditor: View {
             withAnimation(.spring(response: 0.45, dampingFraction: 0.75)) {
                 // Auto-expand if any metadata is missing; collapse if all filled
                 metaExpanded = anyMetaEmpty
+            }
+        }
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+                withAnimation { titleSectionAppeared = true }
             }
         }
         .sheet(isPresented: $showSongSearch) {
@@ -327,7 +337,7 @@ struct EnhancedChurchNoteEditor: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 16)
-        .background(Color(red: 0.96, green: 0.96, blue: 0.96))
+        .background(.thinMaterial)
     }
 
     // MARK: - Title Field (with Ghost Autocomplete)
@@ -336,12 +346,16 @@ struct EnhancedChurchNoteEditor: View {
         ZStack(alignment: .topLeading) {
             // Ghost text overlay — drawn behind, non-interactive
             if !ghostSuggestion.isEmpty {
-                (Text(title).foregroundColor(.clear) +
-                 Text(ghostSuggestion).foregroundColor(Color(.tertiaryLabel)))
-                    .font(.system(size: 32, weight: .medium))
-                    .padding(.horizontal, 20)
-                    .padding(.top, 20)
-                    .allowsHitTesting(false)
+                HStack(spacing: 0) {
+                    Text(title)
+                        .foregroundStyle(.clear)
+                    Text(ghostSuggestion)
+                        .foregroundStyle(Color(.tertiaryLabel))
+                }
+                .font(.system(size: 32, weight: .medium))
+                .padding(.horizontal, 20)
+                .padding(.top, 20)
+                .allowsHitTesting(false)
             }
 
             VStack(alignment: .leading, spacing: 6) {
@@ -477,9 +491,13 @@ struct EnhancedChurchNoteEditor: View {
                         }
                         .padding(.horizontal, 16)
                         .padding(.vertical, 14)
-                        .background(Color.white)
-                        .cornerRadius(8)
-                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.black.opacity(0.1), lineWidth: 1))
+                        .background(
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(.thinMaterial)
+                                .overlay(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.68)))
+                                .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.black.opacity(0.07), lineWidth: 0.75))
+                        )
+                        .shadow(color: .black.opacity(0.04), radius: 4, y: 1)
                         .padding(.horizontal, 20)
                     }
                 }
@@ -549,10 +567,14 @@ struct EnhancedChurchNoteEditor: View {
                 .disabled(scripture.trimmingCharacters(in: .whitespaces).isEmpty || isLookingUpVerse)
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-            .background(Color.white)
-            .cornerRadius(8)
-            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.black.opacity(0.1), lineWidth: 1))
+            .padding(.vertical, 13)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(.thinMaterial)
+                    .overlay(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.68)))
+                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.black.opacity(0.07), lineWidth: 0.75))
+            )
+            .shadow(color: .black.opacity(0.04), radius: 4, y: 1)
             .padding(.horizontal, 20)
 
             // Verse preview — slides in below the field
@@ -671,21 +693,26 @@ struct EnhancedChurchNoteEditor: View {
             ZStack {
                 TextEditor(text: $content)
                     .font(.system(size: 16))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
                     .frame(minHeight: 300)
                     .padding(16)
-                    .background(Color.white)
-                    .cornerRadius(8)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(
-                                focusMode
-                                    ? Color.purple.opacity(0.45)
-                                    : (isContentFocused ? Color.black.opacity(0.2) : Color.black.opacity(0.1)),
-                                lineWidth: focusMode ? 1.5 : 1
+                    .scrollContentBackground(.hidden)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(.thinMaterial)
+                            .overlay(RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(0.70)))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .strokeBorder(
+                                        focusMode
+                                            ? Color.purple.opacity(0.35)
+                                            : (isContentFocused ? Color.black.opacity(0.14) : Color.black.opacity(0.07)),
+                                        lineWidth: focusMode ? 1.5 : 1
+                                    )
+                                    .animation(.easeInOut(duration: 0.22), value: focusMode)
                             )
-                            .animation(.easeInOut(duration: 0.3), value: focusMode)
                     )
+                    .shadow(color: .black.opacity(isContentFocused ? 0.06 : 0.03), radius: 8, y: 2)
                     .focused($isContentFocused)
 
                 // Animation 3: Milestone ring + floating label
@@ -1236,13 +1263,13 @@ struct QuickInsertButton: View {
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
-            .background(Color.white)
-            .foregroundStyle(.black.opacity(0.8))
-            .cornerRadius(8)
-            .overlay(
+            .background(
                 RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color.black.opacity(0.1), lineWidth: 1)
+                    .fill(.thinMaterial)
+                    .overlay(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.68)))
+                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.black.opacity(0.07), lineWidth: 0.75))
             )
+            .foregroundStyle(.primary)
         }
     }
 }
@@ -1444,27 +1471,28 @@ private struct EditorMinimalTextField: View {
     let icon: String
     let placeholder: String
     @Binding var text: String
-    
+
     var body: some View {
         HStack {
             Image(systemName: icon)
-                .font(.system(size: 16))
-                .foregroundStyle(.black.opacity(0.4))
-                .frame(width: 24)
-            
+                .font(.system(size: 15))
+                .foregroundStyle(.secondary)
+                .frame(width: 22)
+
             TextField(placeholder, text: $text)
                 .font(.system(size: 16))
-                .foregroundStyle(.black)
-                .tint(.black)
+                .foregroundStyle(.primary)
+                .tint(.primary)
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 14)
-        .background(Color.white)
-        .cornerRadius(8)
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.black.opacity(0.1), lineWidth: 1)
+        .padding(.vertical, 13)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(.thinMaterial)
+                .overlay(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.68)))
+                .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.black.opacity(0.07), lineWidth: 0.75))
         )
+        .shadow(color: .black.opacity(0.04), radius: 4, y: 1)
         .padding(.horizontal, 20)
     }
 }

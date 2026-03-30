@@ -64,7 +64,7 @@ struct ProfilePicturePicker: View {
                                 }
                                 
                                 Text(isUploading ? "Uploading..." : "Upload Photo")
-                                    .font(.custom("OpenSans-Bold", size: 16))
+                                    .font(AMENFont.bold(16))
                             }
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
@@ -87,7 +87,7 @@ struct ProfilePicturePicker: View {
                         // Change Photo Button
                         PhotosPicker(selection: $selectedItem, matching: .images) {
                             Text("Choose Different Photo")
-                                .font(.custom("OpenSans-SemiBold", size: 15))
+                                .font(AMENFont.semiBold(15))
                                 .foregroundStyle(.white.opacity(0.7))
                         }
                         
@@ -106,11 +106,11 @@ struct ProfilePicturePicker: View {
                             
                             VStack(spacing: 12) {
                                 Text("Add Profile Photo")
-                                    .font(.custom("OpenSans-Bold", size: 24))
+                                    .font(AMENFont.bold(24))
                                     .foregroundStyle(.white)
                                 
                                 Text("Choose a photo that represents you")
-                                    .font(.custom("OpenSans-Regular", size: 15))
+                                    .font(AMENFont.regular(15))
                                     .foregroundStyle(.white.opacity(0.7))
                                     .multilineTextAlignment(.center)
                             }
@@ -121,7 +121,7 @@ struct ProfilePicturePicker: View {
                                         .font(.system(size: 18))
                                     
                                     Text("Choose Photo")
-                                        .font(.custom("OpenSans-Bold", size: 16))
+                                        .font(AMENFont.bold(16))
                                 }
                                 .foregroundStyle(.white)
                                 .frame(maxWidth: .infinity)
@@ -201,6 +201,13 @@ struct ProfilePicturePicker: View {
     private func uploadImage() {
         guard let image = selectedImage else { return }
         
+        // Validate the image has valid data before attempting upload
+        guard image.cgImage != nil || image.ciImage != nil else {
+            errorMessage = "Invalid image format. Please try selecting a different photo."
+            showError = true
+            return
+        }
+        
         isUploading = true
         
         Task {
@@ -215,8 +222,16 @@ struct ProfilePicturePicker: View {
             } catch {
                 await MainActor.run {
                     isUploading = false
-                    errorMessage = error.localizedDescription
+                    // Provide user-friendly error messages
+                    if error.localizedDescription.contains("compression") {
+                        errorMessage = "Failed to process image. Please try a different photo or reduce the image size."
+                    } else if error.localizedDescription.contains("network") {
+                        errorMessage = "Network error. Please check your connection and try again."
+                    } else {
+                        errorMessage = error.localizedDescription
+                    }
                     showError = true
+                    dlog("❌ Profile picture upload failed: \(error)")
                 }
             }
         }

@@ -1250,7 +1250,8 @@ extension PostInteractionsService {
                     dlog("✅ Firebase Realtime Database: CONNECTED")
                     hasLoggedInitialConnection = true
                 } else if !connected {
-                    dlog("⚠️ Firebase Realtime Database: DISCONNECTED (will auto-reconnect)")
+                    // Expected during app launch/network changes - auto-reconnects
+                    // dlog("⚠️ Firebase Realtime Database: DISCONNECTED (will auto-reconnect)")
                 }
                 #endif
             }

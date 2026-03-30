@@ -98,17 +98,41 @@ final class NotificationDeepLinkRouter: ObservableObject {
                 destination = .notifications
             }
             
-        case "comment", "reply":
+        case "comment":
             if let postId = userInfo["postId"] as? String {
                 let commentId = userInfo["commentId"] as? String
+                // Pre-load comment focus so PostDetailView scrolls to target on appear
+                if let commentId {
+                    CommentFocusCoordinator.shared.set(scrollTarget: commentId, highlight: commentId)
+                }
                 destination = .post(postId: postId, scrollToCommentId: commentId)
             } else {
                 destination = .notifications
             }
-            
+
+        case "reply":
+            if let postId = userInfo["postId"] as? String {
+                let replyId = userInfo["commentId"] as? String
+                let parentId = userInfo["parentCommentId"] as? String
+                if let replyId {
+                    CommentFocusCoordinator.shared.set(
+                        scrollTarget: replyId,
+                        highlight: replyId,
+                        expandThread: parentId
+                    )
+                }
+                destination = .post(postId: postId, scrollToCommentId: replyId)
+            } else {
+                destination = .notifications
+            }
+
         case "mention":
             if let postId = userInfo["postId"] as? String {
-                destination = .post(postId: postId)
+                let commentId = userInfo["commentId"] as? String
+                if let commentId {
+                    CommentFocusCoordinator.shared.set(scrollTarget: commentId, highlight: commentId)
+                }
+                destination = .post(postId: postId, scrollToCommentId: commentId)
             } else {
                 destination = .notifications
             }
@@ -202,12 +226,18 @@ final class NotificationDeepLinkRouter: ObservableObject {
             }
             return .notifications
             
-        case .churchNoteShared:
+        case .churchNoteShared, .churchNoteReplied:
             if let noteId = notification.noteId {
                 return .churchNote(noteId: noteId)
             }
             return .notifications
-            
+
+        case .prayerSupported:
+            if let prayerId = notification.prayerId {
+                return .prayer(prayerId: prayerId)
+            }
+            return .notifications
+
         case .unknown:
             return .notifications
         }
@@ -275,10 +305,18 @@ final class NotificationDeepLinkRouter: ObservableObject {
         performNavigation(to: destination)
     }
     
-    private func isAppReady() -> Bool {
-        // Check if root view is loaded and user is authenticated
-        // This is a simple check - in production you might have more sophisticated logic
-        return true  // For now, assume app is always ready
+    /// True once the user is authenticated and the root navigation tree is mounted.
+    /// Call `appDidBecomeReady()` from ContentView.onAppear (after auth resolves) to release
+    /// any queued cold-start routes.
+    private var appReady = false
+
+    private func isAppReady() -> Bool { appReady }
+
+    /// Override for testing or explicit opt-in.
+    func markAppReady() {
+        guard !appReady else { return }
+        appReady = true
+        appDidBecomeReady()
     }
     
     // MARK: - URL Scheme Support (for external deep links)

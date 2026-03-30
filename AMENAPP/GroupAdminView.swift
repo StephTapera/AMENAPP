@@ -44,27 +44,28 @@ struct GroupInfoView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 24) {
+                VStack(spacing: 0) {
                     // Group header
                     groupHeader
-                    
+
                     // Members section
                     membersSection
-                    
+
                     // Admin actions (only for admins)
                     if isAdmin {
                         adminActionsSection
                     }
-                    
+
                     // General actions
                     generalActionsSection
-                    
+
                     // Leave group
                     leaveGroupSection
+
+                    Spacer(minLength: 32)
                 }
-                .padding()
             }
-            .background(Color(.systemGroupedBackground))
+            .background(Color(.systemGroupedBackground).ignoresSafeArea())
             .navigationTitle("Group Info")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -109,7 +110,7 @@ struct GroupInfoView: View {
     }
     
     // MARK: - Group Header
-    
+
     private var groupHeader: some View {
         VStack(spacing: 16) {
             // Group avatar
@@ -126,61 +127,70 @@ struct GroupInfoView: View {
                         )
                     )
                     .frame(width: 100, height: 100)
-                
+
                 Image(systemName: "person.3.fill")
                     .font(.system(size: 40))
                     .foregroundStyle(conversation.avatarColor)
             }
-            
+
             // Group name
             Text(groupName.isEmpty ? conversation.name : groupName)
-                .font(.custom("OpenSans-Bold", size: 24))
+                .font(AMENFont.bold(24))
                 .foregroundStyle(.primary)
-            
+
             // Member count
             Text("\(groupMembers.count) members")
-                .font(.custom("OpenSans-Regular", size: 15))
+                .font(AMENFont.regular(15))
                 .foregroundStyle(.secondary)
-            
+
             // Edit name button (admin only)
             if isAdmin {
                 Button {
                     showEditName = true
                 } label: {
                     Label("Edit Group Name", systemImage: "pencil")
-                        .font(.custom("OpenSans-SemiBold", size: 14))
+                        .font(AMENFont.semiBold(14))
                         .foregroundStyle(.blue)
                 }
             }
         }
         .frame(maxWidth: .infinity)
-        .padding()
-        .background(Color(.systemBackground))
-        .cornerRadius(16)
+        .padding(.vertical, 24)
+        .padding(.horizontal, 16)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+        .padding(.horizontal, 16)
+        .padding(.top, 20)
+        .padding(.bottom, 8)
     }
     
     // MARK: - Members Section
-    
+
     private var membersSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 0) {
             HStack {
-                Text("Members")
-                    .font(.custom("OpenSans-Bold", size: 18))
-                    .foregroundStyle(.primary)
-                
+                Text("MEMBERS")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+
                 Spacer()
-                
+
                 if isAdmin {
                     Button {
                         showAddMembers = true
                     } label: {
                         Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 24))
+                            .font(.system(size: 22))
                             .foregroundStyle(.blue)
                     }
+                    .padding(.trailing, 20)
                 }
             }
-            
+            .padding(.horizontal, 20)
+            .padding(.top, 24)
+            .padding(.bottom, 8)
+
             VStack(spacing: 0) {
                 ForEach(groupMembers) { member in
                     GroupMemberRow(
@@ -197,26 +207,30 @@ struct GroupInfoView: View {
                             removeMember(member)
                         }
                     )
-                    
+
                     if member.id != groupMembers.last?.id {
-                        Divider()
-                            .padding(.leading, 60)
+                        Divider().padding(.leading, 16)
                     }
                 }
             }
-            .background(Color(.systemBackground))
-            .cornerRadius(12)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+            .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+            .padding(.horizontal, 16)
         }
     }
     
     // MARK: - Admin Actions Section
-    
+
     private var adminActionsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Admin Settings")
-                .font(.custom("OpenSans-Bold", size: 18))
-                .foregroundStyle(.primary)
-            
+        VStack(alignment: .leading, spacing: 0) {
+            Text("ADMIN SETTINGS")
+                .font(AMENFont.bold(11))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 20)
+                .padding(.top, 24)
+                .padding(.bottom, 8)
+
             VStack(spacing: 0) {
                 AdminActionRow(
                     icon: "person.badge.plus",
@@ -225,10 +239,9 @@ struct GroupInfoView: View {
                 ) {
                     showAddMembers = true
                 }
-                
-                Divider()
-                    .padding(.leading, 60)
-                
+
+                Divider().padding(.leading, 16)
+
                 AdminActionRow(
                     icon: "pencil",
                     title: "Edit Group Name",
@@ -236,10 +249,9 @@ struct GroupInfoView: View {
                 ) {
                     showEditName = true
                 }
-                
-                Divider()
-                    .padding(.leading, 60)
-                
+
+                Divider().padding(.leading, 16)
+
                 AdminActionRow(
                     icon: isUploadingPhoto ? "arrow.triangle.2.circlepath" : "photo",
                     title: isUploadingPhoto ? "Uploading..." : "Change Group Photo",
@@ -249,19 +261,24 @@ struct GroupInfoView: View {
                 }
                 .disabled(isUploadingPhoto)
             }
-            .background(Color(.systemBackground))
-            .cornerRadius(12)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+            .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+            .padding(.horizontal, 16)
         }
     }
     
     // MARK: - General Actions Section
-    
+
     private var generalActionsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Actions")
-                .font(.custom("OpenSans-Bold", size: 18))
-                .foregroundStyle(.primary)
-            
+        VStack(alignment: .leading, spacing: 0) {
+            Text("ACTIONS")
+                .font(AMENFont.bold(11))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 20)
+                .padding(.top, 24)
+                .padding(.bottom, 8)
+
             VStack(spacing: 0) {
                 AdminActionRow(
                     icon: isMuted ? "bell" : "bell.slash",
@@ -271,10 +288,9 @@ struct GroupInfoView: View {
                     Task { await toggleMute() }
                 }
                 .disabled(isTogglingMute)
-                
-                Divider()
-                    .padding(.leading, 60)
-                
+
+                Divider().padding(.leading, 16)
+
                 AdminActionRow(
                     icon: "magnifyingglass",
                     title: "Search in Conversation",
@@ -283,32 +299,41 @@ struct GroupInfoView: View {
                     // TODO: Implement search
                 }
             }
-            .background(Color(.systemBackground))
-            .cornerRadius(12)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+            .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+            .padding(.horizontal, 16)
         }
     }
     
     // MARK: - Leave Group Section
-    
+
     private var leaveGroupSection: some View {
-        Button {
-            showLeaveConfirmation = true
-        } label: {
-            HStack {
-                Image(systemName: "rectangle.portrait.and.arrow.right")
-                    .font(.system(size: 20))
-                    .foregroundStyle(.red)
-                
-                Text("Leave Group")
-                    .font(.custom("OpenSans-SemiBold", size: 16))
-                    .foregroundStyle(.red)
-                
-                Spacer()
+        VStack(spacing: 0) {
+            Button {
+                showLeaveConfirmation = true
+            } label: {
+                HStack {
+                    Image(systemName: "rectangle.portrait.and.arrow.right")
+                        .font(.system(size: 20))
+                        .foregroundStyle(.red)
+
+                    Text("Leave Group")
+                        .font(AMENFont.semiBold(16))
+                        .foregroundStyle(.red)
+
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
+                .contentShape(Rectangle())
             }
-            .padding()
-            .background(Color(.systemBackground))
-            .cornerRadius(12)
         }
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+        .padding(.horizontal, 16)
+        .padding(.top, 24)
     }
     
     // MARK: - Actions
@@ -550,19 +575,19 @@ struct GroupMemberRow: View {
                 .frame(width: 44, height: 44)
                 .overlay(
                     Text(member.name.prefix(2).uppercased())
-                        .font(.custom("OpenSans-Bold", size: 14))
+                        .font(AMENFont.bold(14))
                         .foregroundStyle(.blue)
                 )
             
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(member.name)
-                        .font(.custom("OpenSans-SemiBold", size: 15))
+                        .font(AMENFont.semiBold(15))
                         .foregroundStyle(.primary)
                     
                     if member.isAdmin {
                         Text("Admin")
-                            .font(.custom("OpenSans-SemiBold", size: 11))
+                            .font(AMENFont.semiBold(11))
                             .foregroundStyle(.white)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 3)
@@ -572,7 +597,7 @@ struct GroupMemberRow: View {
                 
                 if isCurrentUser {
                     Text("You")
-                        .font(.custom("OpenSans-Regular", size: 13))
+                        .font(AMENFont.regular(13))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -610,7 +635,8 @@ struct GroupMemberRow: View {
                 }
             }
         }
-        .padding()
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
         .contentShape(Rectangle())
     }
 }
@@ -632,7 +658,7 @@ struct AdminActionRow: View {
                     .frame(width: 30)
                 
                 Text(title)
-                    .font(.custom("OpenSans-Regular", size: 16))
+                    .font(AMENFont.regular(16))
                     .foregroundStyle(.primary)
                 
                 Spacer()
@@ -641,7 +667,8 @@ struct AdminActionRow: View {
                     .font(.system(size: 14))
                     .foregroundStyle(.secondary.opacity(0.5))
             }
-            .padding()
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
             .contentShape(Rectangle())
         }
     }
@@ -690,7 +717,7 @@ struct AddGroupMembersView: View {
                             ProgressView()
                         } else {
                             Text("Add")
-                                .font(.custom("OpenSans-Bold", size: 16))
+                                .font(AMENFont.bold(16))
                         }
                     }
                     .disabled(selectedUsers.isEmpty || isAdding)
@@ -705,7 +732,7 @@ struct AddGroupMembersView: View {
                 .foregroundStyle(.secondary)
             
             TextField("Search people", text: $searchText)
-                .font(.custom("OpenSans-Regular", size: 15))
+                .font(AMENFont.regular(15))
         }
         .padding()
         .background(Color(.systemGray6))
@@ -740,12 +767,12 @@ struct AddGroupMembersView: View {
                             .frame(width: 40, height: 40)
                             .overlay(
                                 Text(user.displayName.prefix(2).uppercased())
-                                    .font(.custom("OpenSans-Bold", size: 14))
+                                    .font(AMENFont.bold(14))
                                     .foregroundStyle(.blue)
                             )
                         
                         Text(user.displayName)
-                            .font(.custom("OpenSans-Regular", size: 15))
+                            .font(AMENFont.regular(15))
                         
                         Spacer()
                         
@@ -820,7 +847,7 @@ struct EditGroupNameView: View {
         NavigationStack {
             VStack(spacing: 20) {
                 TextField("Group name", text: $newName)
-                    .font(.custom("OpenSans-Regular", size: 17))
+                    .font(AMENFont.regular(17))
                     .padding()
                     .background(Color(.systemGray6))
                     .cornerRadius(12)
@@ -845,7 +872,7 @@ struct EditGroupNameView: View {
                             ProgressView()
                         } else {
                             Text("Save")
-                                .font(.custom("OpenSans-Bold", size: 16))
+                                .font(AMENFont.bold(16))
                         }
                     }
                     .disabled(!canSave || isSaving)

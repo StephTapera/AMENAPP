@@ -59,6 +59,16 @@ class HomeFeedAlgorithm: ObservableObject {
         let modeWeightsRecency: Double
         let modeWeightsFollowing: Double
         let currentUserId: String?
+        // Feature 8: pre-captured trust scores keyed by author UID (0–100)
+        let trustScores: [String: Double]
+        // P2 FIX: pre-captured recommendation relevance scores keyed by post ID (0–1.0)
+        // from RecommendationIntelligenceService. Lets the feed ranking reward posts
+        // that are semantically relevant to the user's interests.
+        let recommendationScores: [String: Double]
+        // Author UIDs who both follow the viewer and are followed back (mutual connections).
+        // Used to add a depth signal: prefer content from reciprocal relationships over
+        // one-way broadcast accounts.
+        let mutualFollowIds: Set<String>
 
         @MainActor
         static func capture() -> ScoringContext {
@@ -70,6 +80,19 @@ class HomeFeedAlgorithm: ObservableObject {
             for topic in FeedTopic.allCases {
                 topicWeights[topic] = svc.getTopicWeight(topic)
             }
+            // Capture cached trust scores for all authors currently in the feed.
+            // TrustScoreService.getCachedScore returns 0 on miss and kicks off a background refresh.
+            // The feed will improve on subsequent sorts as scores warm up.
+            let cachedTrust = HomeFeedAlgorithm.shared.personalizedPosts.reduce(into: [String: Double]()) {
+                $0[$1.authorId] = ContentTrustScoreService.shared.getCachedScore(for: $1.authorId)
+            }
+            // P2 FIX: Capture recommendation relevance scores so scorePost can use them.
+            // RecommendationIntelligenceService.getCachedRelevance returns 0 on miss.
+            let cachedRecommendations = HomeFeedAlgorithm.shared.personalizedPosts.reduce(into: [String: Double]()) {
+                let id = $1.id.uuidString
+                $0[id] = RecommendationIntelligenceService.shared.getCachedRelevance(for: id)
+            }
+            let mutualFollowIds = FollowService.shared.following.intersection(FollowService.shared.followers)
             return ScoringContext(
                 prefsLoaded: svc.lastRefreshTime != nil,
                 mutedAuthors: prefs.mutedAuthors,
@@ -80,7 +103,10 @@ class HomeFeedAlgorithm: ObservableObject {
                 topicWeights: topicWeights,
                 modeWeightsRecency: weights.recency,
                 modeWeightsFollowing: weights.following,
-                currentUserId: Auth.auth().currentUser?.uid
+                currentUserId: Auth.auth().currentUser?.uid,
+                trustScores: cachedTrust,
+                recommendationScores: cachedRecommendations,
+                mutualFollowIds: mutualFollowIds
             )
         }
     }
@@ -151,8 +177,20 @@ class HomeFeedAlgorithm: ObservableObject {
         if prefsLoaded && mutedAuthors.contains(post.authorId) { return 0.0 }
         if prefsLoaded && hiddenPosts.contains(post.firebaseId ?? post.id.uuidString) { return 0.0 }
 
-        // Privacy gate: followers-only posts must not appear for non-followers.
-        if post.visibility == .followers && !followingIds.contains(post.authorId) {
+        // Privacy gate: only block non-followers from seeing a post when the author
+        // has a private account. Public accounts' posts are visible to everyone
+        // regardless of visibility setting — matching Instagram/Threads behaviour.
+        // Server-side Firestore rules enforce the same logic authoritatively.
+        if post.visibility == .followers
+            && post.authorIsPrivate == true
+            && !followingIds.contains(post.authorId) {
+            if let uid = currentUserId, post.authorId != uid { return 0.0 }
+        }
+
+        // Trusted-circle gate: posts scoped to a circle are handled server-side
+        // via Firestore rules. Client-side we hide them from the feed unless the
+        // viewer is the author (own posts always visible in own feed).
+        if post.trustedCircle != nil {
             if let uid = currentUserId, post.authorId != uid { return 0.0 }
         }
 
@@ -203,6 +241,27 @@ class HomeFeedAlgorithm: ObservableObject {
             let livingWallScore = LivingWallRanker.shared.score(post)
             // Normalize to 0-10 contribution to avoid overpowering other signals
             score += min(10, livingWallScore * 0.05)
+        }
+
+        // 14. Trust signal boost (Feature 8)
+        // Pre-captured from TrustScoreService cache — 0 on miss, warms up over time.
+        // Contributes up to ~15 points for fully-trusted mutuals/verified leaders.
+        let trustScore = context?.trustScores[post.authorId] ?? 0
+        score += trustScore * 0.15
+
+        // P2 FIX: Feed back recommendation relevance scores from RecommendationIntelligenceService.
+        // Posts that already appear as "related content" recommendations have high semantic
+        // relevance for this user — reward them with up to 8 additional score points.
+        // The relevance score is a 0–1 float from on-device embedding similarity.
+        let recommendationBoost = context?.recommendationScores[post.id.uuidString] ?? 0
+        score += recommendationBoost * 8.0
+
+        // 15. Mutual follow depth signal (+6 pts)
+        // Posts from mutual connections (viewer follows them AND they follow viewer) represent
+        // the highest-trust peer relationships. Prefer their content over one-way broadcast
+        // accounts to reward depth over reach — a core AMEN product principle.
+        if context?.mutualFollowIds.contains(post.authorId) == true {
+            score += 6.0
         }
 
         return min(100, max(0, score))
@@ -396,16 +455,18 @@ class HomeFeedAlgorithm: ObservableObject {
         var penalty: Double = 0.0
         
         // Signal 1: Abnormally high comment-to-reaction ratio (debate/argument)
-        // Healthy posts have ~1:3 comment-to-reaction ratio
-        // Controversial posts have ~1:1 or higher (lots of debate)
-        if post.amenCount > 0 {
+        // Healthy posts have ~1:3 comment-to-reaction ratio.
+        // Require ≥10 comments before firing — small discussions (3 comments, 1 amen)
+        // are genuine depth, not controversy. Only penalize posts where the volume
+        // itself signals a wide debate rather than a focused exchange.
+        if post.amenCount > 0 && post.commentCount >= 10 {
             let commentToReactionRatio = Double(post.commentCount) / Double(post.amenCount)
-            
+
             if commentToReactionRatio > 1.5 {
-                // Very high ratio = likely controversial
+                // Very high ratio at scale = likely controversial
                 penalty += 30
             } else if commentToReactionRatio > 1.0 {
-                // Moderate ratio = possibly controversial
+                // Moderate ratio at scale = possibly controversial
                 penalty += 15
             }
         }
@@ -490,7 +551,7 @@ class HomeFeedAlgorithm: ObservableObject {
             // Filter 1: No duplicate/near-duplicate content
             let contentHash = post.content.lowercased().prefix(50)
             guard !seen.contains(String(contentHash)) else {
-                dlog("🚫 [SPAM FILTER] Duplicate content blocked")
+                // ✅ Silently filter duplicates (reduced logging to avoid spam)
                 return false
             }
             seen.insert(String(contentHash))
@@ -659,7 +720,13 @@ class HomeFeedAlgorithm: ObservableObject {
             let db = Firestore.firestore()
             let doc = try await db.collection("users").document(userId).getDocument()
             
-            if let goals = doc.data()?["goals"] as? [String], !goals.isEmpty {
+            // Onboarding saves selected chips under "interests". Legacy / server-written
+            // profiles may use "goals". Check both fields so neither version is silently dropped.
+            let rawGoals = (doc.data()?["goals"] as? [String])
+                ?? (doc.data()?["interests"] as? [String])
+                ?? []
+            let goals = rawGoals.filter { !$0.isEmpty }
+            if !goals.isEmpty {
                 await MainActor.run {
                     userInterests.onboardingGoals = goals
                     dlog("✅ Loaded \(goals.count) goals from Firestore: \(goals.joined(separator: ", "))")

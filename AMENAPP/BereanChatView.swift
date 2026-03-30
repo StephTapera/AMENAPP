@@ -1,92 +1,121 @@
 // BereanChatView.swift
-// AMEN App — Berean AI Chat · White Liquid Glass redesign
-// All backend logic preserved. Only the visual layer is changed.
+// AMEN App — Berean AI core chat conversation screen.
+// White Liquid Glass design. Streaming via ClaudeService.shared.sendMessage.
+// Replaces the previous BereanChatView with a full redesign.
 
 import SwiftUI
 import Combine
 import FirebaseAuth
 import FirebaseFirestore
 
-// ─── MARK: Models ────────────────────────────────────────────────────────────
-// Unchanged — all logic preserved.
+// MARK: - Models
 
 struct BereanChatMsg: Identifiable, Equatable {
-    let id = UUID()
-    let role: BereanMsgRole
+    var id: UUID = UUID()
+    var role: BereanChatMsgRole
     var content: String
-    let timestamp: Date
+    var timestamp: Date
+    var isStreaming: Bool = false
 
-    enum BereanMsgRole { case user, assistant }
+    enum BereanChatMsgRole: String, Codable {
+        case user, assistant
+    }
 }
 
-// ─── MARK: ViewModel ─────────────────────────────────────────────────────────
-// Unchanged — all logic preserved.
+// MARK: - ViewModel
 
 @MainActor
 final class BereanChatViewModel: ObservableObject {
     @Published var messages: [BereanChatMsg] = []
     @Published var inputText: String = ""
-    @Published var isStreaming: Bool = false
-    @Published var errorMessage: String?
+    @Published var isThinking: Bool = false
+    @Published var errorMessage: String? = nil
+    @Published var currentMode: BereanPersonalityMode = .shepherd
 
     private let db = Firestore.firestore()
     private var userId: String { Auth.auth().currentUser?.uid ?? "demo_user" }
+    private var streamTask: Task<Void, Never>? = nil
 
     private let freeMsgLimit = 10
     @Published var messageCount: Int = 0
     @Published var isProUser: Bool = false
-
     var isAtLimit: Bool { !isProUser && messageCount >= freeMsgLimit }
 
-    init() {
+    init(mode: BereanPersonalityMode = .shepherd) {
+        self.currentMode = mode
         messages.append(BereanChatMsg(
             role: .assistant,
-            content: "Hey — I'm Berean. Ask me anything. Scripture, life, business, whatever's on your mind. I'll give you the real answer.",
+            content: "Hey — I'm Berean. Ask me anything. Scripture, life, business, whatever's on your mind.",
             timestamp: .now
         ))
         loadMessageCount()
     }
 
+    // MARK: Send
+
     func send() {
         let text = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty, !isStreaming, !isAtLimit else { return }
+        guard !text.isEmpty, !isThinking, !isAtLimit else { return }
 
         inputText = ""
+        errorMessage = nil
 
         let userMsg = BereanChatMsg(role: .user, content: text, timestamp: .now)
         messages.append(userMsg)
         messageCount += 1
 
-        var assistantMsg = BereanChatMsg(role: .assistant, content: "", timestamp: .now)
+        // Placeholder for streaming assistant message
+        let assistantMsg = BereanChatMsg(
+            role: .assistant,
+            content: "",
+            timestamp: .now,
+            isStreaming: true
+        )
         messages.append(assistantMsg)
         let assistantIndex = messages.count - 1
 
-        isStreaming = true
-        errorMessage = nil
+        isThinking = true
 
-        let history: [ClaudeMessage] = messages
-            .dropLast()
+        // Build history from existing messages (excluding the empty placeholder)
+        let history: [OpenAIChatMessage] = messages
+            .dropLast(2)
             .suffix(10)
-            .map { ClaudeMessage(role: $0.role == .user ? "user" : "assistant", content: $0.content) }
+            .map { OpenAIChatMessage(content: $0.content, isFromUser: $0.role == .user) }
 
-        Task {
+        streamTask = Task {
             do {
-                let stream = await ClaudeAPIService.shared.stream(
-                    system: BereanPrompts.bereanChat,
-                    messages: history,
-                    maxTokens: 1024
+                let stream = ClaudeService.shared.sendMessage(
+                    text,
+                    conversationHistory: history,
+                    mode: currentMode
                 )
-                for try await token in stream {
-                    messages[assistantIndex].content += token
+                for try await chunk in stream {
+                    try Task.checkCancellation()
+                    messages[assistantIndex].content += chunk
                 }
+                messages[assistantIndex].isStreaming = false
                 saveConversation()
+            } catch is CancellationError {
+                messages[assistantIndex].isStreaming = false
+                if messages[assistantIndex].content.isEmpty {
+                    messages[assistantIndex].content = "Cancelled."
+                }
             } catch {
-                messages[assistantIndex].content = "Something went wrong. Try again."
+                messages[assistantIndex].isStreaming = false
+                messages[assistantIndex].content = "Something went wrong. Please try again."
                 errorMessage = error.localizedDescription
+                dlog("BereanChatView stream error: \(error)")
             }
-            isStreaming = false
+            isThinking = false
         }
     }
+
+    func cancelStreaming() {
+        streamTask?.cancel()
+        streamTask = nil
+    }
+
+    // MARK: Persistence
 
     private func saveConversation() {
         guard let last = messages.last else { return }
@@ -102,316 +131,315 @@ final class BereanChatViewModel: ObservableObject {
     private func loadMessageCount() {
         db.collection("users").document(userId)
             .getDocument { [weak self] doc, _ in
-                self?.messageCount = doc?.data()?["chatMessageCount"] as? Int ?? 0
+                DispatchQueue.main.async {
+                    self?.messageCount = doc?.data()?["chatMessageCount"] as? Int ?? 0
+                }
             }
     }
 }
 
-// ─── MARK: BereanChatView ────────────────────────────────────────────────────
+// MARK: - BereanChatView
 
 struct BereanChatView: View {
-    @StateObject private var vm = BereanChatViewModel()
-    // TODO: Re-enable guardrail once BereanGuardrailSystem.swift is properly added to project
-    // @StateObject private var guardrail = BereanGuardrailEngine()
-    @State private var selectedMode: BereanQuickMode = .berean
-    @State private var activeChip: BereanChipAction? = nil
-    @State private var isRecording = false
-    @State private var showOnboardingGuardrail = false
-    @AppStorage("berean_onboarding_shown") private var onboardingShown = false
+    /// Pass a mode to seed the conversation; defaults to shepherd.
+    var initialMode: BereanPersonalityMode = .shepherd
+    /// Optional initial query auto-sent on appear.
+    var initialQuery: String? = nil
+    /// Optional conversation title shown in nav bar center.
+    var conversationTitle: String? = nil
 
-    /// True once user has sent at least one message — switches from landing → chat layout
-    private var isInChat: Bool { vm.messages.count > 1 }
+    @StateObject private var vm: BereanChatViewModel
+    @State private var showModeSheet = false
+    @FocusState private var inputFocused: Bool
+    @Environment(\.dismiss) private var dismiss
+
+    init(initialMode: BereanPersonalityMode = .shepherd,
+         initialQuery: String? = nil,
+         conversationTitle: String? = nil) {
+        self.initialMode = initialMode
+        self.initialQuery = initialQuery
+        self.conversationTitle = conversationTitle
+        _vm = StateObject(wrappedValue: BereanChatViewModel(mode: initialMode))
+    }
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            // ── Background ───────────────────────────────────────────────────
-            AmenColor.background.ignoresSafeArea()
+            Color.white.ignoresSafeArea()
 
-            // ── Content ──────────────────────────────────────────────────────
             VStack(spacing: 0) {
-                header
-
-                if isInChat {
-                    chatScrollView
-                } else {
-                    landingHeroArea
-                }
-
-                Spacer(minLength: 0)
-            }
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                // Reserve space for composer to prevent content from being hidden
-                Color.clear
-                    .frame(height: vm.isAtLimit ? 165 : (isInChat ? 95 : 150))
+                navigationBar
+                messageScrollView
             }
 
-            // ── Composer + Chips anchored at bottom ──────────────────────────
-            // Using overlay instead of ZStack ensures proper keyboard avoidance
-            VStack(spacing: 12) {
-                if !isInChat {
-                    BereanActionChipRow(activeChip: $activeChip) { chip in
-                        vm.inputText = chip.promptSeed
-                    }
-                }
-
-                // ── Community Guardrail Prompt ───────────────────────────────
-                // TODO: Re-enable once BereanGuardrailSystem.swift is properly added to project
-                /* if guardrail.shouldShowCommunityPrompt, let promptType = guardrail.communityPromptType {
-                    BereanCommunityPromptCard(
-                        promptType: promptType,
-                        onFindChurch: {
-                            guardrail.logCommunityPromptShown(type: promptType, userAction: "find_church")
-                            guardrail.shouldShowCommunityPrompt = false
-                            // Navigate to Find Church
-                        },
-                        onReachOut: {
-                            guardrail.logCommunityPromptShown(type: promptType, userAction: "reach_out")
-                            guardrail.shouldShowCommunityPrompt = false
-                            // Open contacts or messaging
-                        },
-                        onContinue: {
-                            guardrail.logCommunityPromptShown(type: promptType, userAction: "continue")
-                            guardrail.shouldShowCommunityPrompt = false
-                            guardrail.markPromptShown()
-                        }
-                    )
-                    .padding(.horizontal, 14)
-                    .transition(.asymmetric(
-                        insertion: .scale(scale: 0.92).combined(with: .opacity),
-                        removal: .scale(scale: 0.96).combined(with: .opacity)
-                    ))
-                } */
-
+            // Input bar anchored at bottom
+            VStack(spacing: 0) {
                 if vm.isAtLimit {
                     paywallBanner
+                        .padding(.horizontal, 14)
+                        .padding(.bottom, 8)
                 }
-
-                BereanGlassComposer(
-                    text: $vm.inputText,
-                    selectedMode: $selectedMode,
-                    isRecording: $isRecording,
-                    isStreaming: vm.isStreaming,
-                    isAtLimit: vm.isAtLimit,
-                    onSend: { 
-                        // TODO: Re-enable guardrail analysis
-                        // guardrail.analyzeMessage(vm.inputText, role: .user)
-                        vm.send() 
-                    },
-                    onMicToggle: { isRecording.toggle() },
-                    onAttach: nil,
-                    onCamera: nil,
-                    onNotes: nil,
-                    onScripture: {
-                        selectedMode = .scripture
-                    }
-                )
-                .padding(.horizontal, 14)
+                inputBar
+                    .padding(.horizontal, 14)
+                    .padding(.bottom, 20)
             }
-            .padding(.bottom, 12)
-            .background(AmenColor.background)
-        }
-        .navigationBarHidden(true)
-        // TODO: Re-enable guardrail onboarding once BereanGuardrailSystem.swift is properly added
-        /* .sheet(isPresented: $showOnboardingGuardrail) {
-            BereanOnboardingGuardrailView(
-                onFindChurch: {
-                    showOnboardingGuardrail = false
-                    onboardingShown = true
-                    // Navigate to Find Church
-                },
-                onTalkToSomeone: {
-                    showOnboardingGuardrail = false
-                    onboardingShown = true
-                    // Open contacts
-                },
-                onContinue: {
-                    showOnboardingGuardrail = false
-                    onboardingShown = true
-                }
+            .background(
+                LinearGradient(
+                    colors: [Color.white.opacity(0), Color.white],
+                    startPoint: .top,
+                    endPoint: UnitPoint(x: 0.5, y: 0.3)
+                )
             )
         }
+        .navigationBarHidden(true)
+        .sheet(isPresented: $showModeSheet) {
+            BereanModesSheet(selectedMode: $vm.currentMode)
+        }
         .onAppear {
-            if !onboardingShown && !isInChat {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-                    showOnboardingGuardrail = true
-                }
+            if let query = initialQuery, !query.isEmpty {
+                vm.inputText = query
+                vm.send()
             }
-        } */
+        }
     }
 
-    // ─── Header ──────────────────────────────────────────────────────────────
+    // MARK: - Navigation Bar
 
-    private var header: some View {
+    private var navigationBar: some View {
         HStack(spacing: 10) {
-            // Berean avatar — gold B on white glass
-            ZStack {
-                Circle()
-                    .fill(Color.white.opacity(0.92))
-                    .background(Circle().fill(.ultraThinMaterial))
-                    .overlay(Circle().stroke(Color.white.opacity(0.30), lineWidth: 0.75))
-                    .shadow(color: .black.opacity(0.06), radius: 8, x: 0, y: 3)
+            // Back button
+            Button { dismiss() } label: {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(BereanColor.textPrimary)
                     .frame(width: 36, height: 36)
-
-                Text("B")
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundColor(AmenColor.accent)
+                    .background(
+                        Circle()
+                            .fill(.ultraThinMaterial)
+                            .overlay(Circle().fill(Color.white.opacity(0.60)))
+                            .overlay(Circle().strokeBorder(BereanColor.glassStroke, lineWidth: 0.5))
+                    )
             }
-
-            VStack(alignment: .leading, spacing: 1) {
-                Text("Berean AI")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(AmenColor.titleText)
-
-                HStack(spacing: 4) {
-                    Circle()
-                        .fill(Color(red: 0.133, green: 0.773, blue: 0.369))
-                        .frame(width: 6, height: 6)
-                    Text("Online · Powered by AMEN")
-                        .font(.system(size: 11))
-                        .foregroundColor(AmenColor.mutedText)
-                }
-            }
+            .buttonStyle(.plain)
 
             Spacer()
 
-            if !vm.isProUser {
-                Text("\(max(0, 10 - vm.messageCount)) left")
-                    .font(.system(size: 11, weight: .medium, design: .monospaced))
-                    .foregroundColor(AmenColor.accent)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
-                    .background(AmenColor.accentMuted)
-                    .clipShape(Capsule())
-                    .overlay(Capsule().stroke(AmenColor.accent.opacity(0.30), lineWidth: 0.5))
+            // Center title
+            Text(conversationTitle ?? "Berean")
+                .font(AMENFont.semiBold(17))
+                .foregroundColor(BereanColor.textPrimary)
+                .lineLimit(1)
+
+            Spacer()
+
+            // Mode pill
+            Button { showModeSheet = true } label: {
+                BereanModePill(mode: vm.currentMode)
             }
+            .buttonStyle(.plain)
         }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 13)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
         .background(
-            AmenColor.background
-                .overlay(Divider().background(AmenColor.divider), alignment: .bottom)
+            Color.white
+                .overlay(Divider().background(BereanColor.separator), alignment: .bottom)
         )
     }
 
-    // ─── Landing Hero Area ───────────────────────────────────────────────────
-    // Shown before the user sends any message.
+    // MARK: - Message Scroll View
 
-    private var landingHeroArea: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Spacer(minLength: 32)
-
-            VStack(alignment: .leading, spacing: 6) {
-                // Animation 2 — staggered hero text lines
-                HeroTextLine(
-                    text: "Good morning.",
-                    font: .system(size: 34, weight: .bold),
-                    color: AmenColor.titleText,
-                    delay: 0.08,
-                    lineHeight: 44
-                )
-                HeroTextLine(
-                    text: "What's on your heart?",
-                    font: .system(size: 34, weight: .bold),
-                    color: AmenColor.titleText,
-                    delay: 0.22,
-                    lineHeight: 44
-                )
-                HeroTextLine(
-                    text: "Berean is ready.",
-                    font: .system(size: 16),
-                    color: AmenColor.mutedText,
-                    delay: 0.38,
-                    lineHeight: 24
-                )
-            }
-            .padding(.horizontal, 22)
-
-            Spacer()
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    // ─── Chat Scroll View ────────────────────────────────────────────────────
-    // Shown after the user has sent at least one message.
-
-    private var chatScrollView: some View {
+    private var messageScrollView: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(spacing: 12) {
+                LazyVStack(spacing: 14) {
                     ForEach(vm.messages) { msg in
-                        BereanLiquidMessageBubble(message: msg)
+                        BereanChatBubble(message: msg)
                             .id(msg.id)
+                            .contextMenu {
+                                messageContextMenu(msg)
+                            }
                     }
-                    if vm.isStreaming {
-                        BereanLiquidTypingIndicator()
-                            .id("typing")
+
+                    // Thinking indicator shown while waiting for first streaming chunk
+                    if vm.isThinking && (vm.messages.last?.content.isEmpty ?? false) {
+                        BereanThinkingIndicator()
+                            .id("thinking")
+                            .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .leading)))
                     }
-                    // Bottom anchor — accounts for composer height
-                    Color.clear.frame(height: 180).id("bottom")
+
+                    // Auto-scroll anchor
+                    Color.clear.frame(height: 160).id("bottom")
                 }
                 .padding(.horizontal, 16)
-                .padding(.top, 12)
+                .padding(.top, 14)
+                .animation(.easeOut(duration: 0.2), value: vm.isThinking)
             }
             .onChange(of: vm.messages.count) { _ in
-                withAnimation(.easeOut(duration: 0.3)) {
+                withAnimation(.easeOut(duration: 0.25)) {
                     proxy.scrollTo("bottom", anchor: .bottom)
                 }
             }
-            .onChange(of: vm.isStreaming) { _ in
-                withAnimation { proxy.scrollTo("bottom", anchor: .bottom) }
+            .onChange(of: vm.messages.last?.content) { _ in
+                proxy.scrollTo("bottom", anchor: .bottom)
             }
         }
     }
 
-    // ─── Paywall Banner ──────────────────────────────────────────────────────
+    // MARK: - Message Context Menu
+
+    @ViewBuilder
+    private func messageContextMenu(_ msg: BereanChatMsg) -> some View {
+        Button {
+            UIPasteboard.general.string = msg.content
+        } label: {
+            Label("Copy", systemImage: "doc.on.doc")
+        }
+
+        Button {
+            // Read aloud (placeholder — wire to AVSpeechSynthesizer if desired)
+            dlog("Read aloud: \(msg.id)")
+        } label: {
+            Label("Read Aloud", systemImage: "speaker.wave.2")
+        }
+
+        Button {
+            // Save to notes (placeholder — wire to ChurchNotesService)
+            dlog("Save to notes: \(msg.id)")
+        } label: {
+            Label("Save to Notes", systemImage: "note.text.badge.plus")
+        }
+
+        if msg.role == .assistant {
+            Button {
+                vm.cancelStreaming()
+                // Remove the last assistant message and re-send previous user message
+                if let lastUser = vm.messages.last(where: { $0.role == .user }) {
+                    vm.messages.removeAll { $0.id == msg.id }
+                    vm.inputText = lastUser.content
+                    vm.messages.removeAll { $0.id == lastUser.id }
+                    vm.send()
+                }
+            } label: {
+                Label("Regenerate", systemImage: "arrow.clockwise")
+            }
+        }
+    }
+
+    // MARK: - Input Bar
+
+    private var inputBar: some View {
+        HStack(alignment: .bottom, spacing: 10) {
+            // Attach button
+            Button {
+                // Attach action placeholder
+                dlog("Berean: attach tapped")
+            } label: {
+                Image(systemName: "paperclip")
+                    .font(.system(size: 18, weight: .light))
+                    .foregroundColor(BereanColor.textSecondary)
+            }
+            .padding(.bottom, 10)
+
+            // Text field
+            ZStack(alignment: .leading) {
+                if vm.inputText.isEmpty {
+                    Text("Ask Berean...")
+                        .font(BereanType.body())
+                        .foregroundColor(BereanColor.textTertiary)
+                        .padding(.horizontal, 4)
+                }
+                TextField("", text: $vm.inputText, axis: .vertical)
+                    .font(BereanType.body())
+                    .foregroundColor(BereanColor.textPrimary)
+                    .lineLimit(1...5)
+                    .focused($inputFocused)
+                    .padding(.horizontal, 4)
+                    .disabled(vm.isAtLimit)
+            }
+            .padding(.vertical, 10)
+
+            // Voice + Send
+            HStack(spacing: 6) {
+                if vm.inputText.isEmpty && !vm.isThinking {
+                    Button {
+                        dlog("Berean: mic tapped")
+                    } label: {
+                        Image(systemName: "mic")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(BereanColor.textSecondary)
+                    }
+                }
+
+                Button {
+                    if vm.isThinking {
+                        vm.cancelStreaming()
+                    } else {
+                        vm.send()
+                        inputFocused = false
+                    }
+                } label: {
+                    ZStack {
+                        Circle()
+                            .fill(vm.isThinking
+                                  ? Color.black
+                                  : (vm.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                     ? Color(white: 0.85) : Color.black))
+                            .frame(width: 34, height: 34)
+                        Image(systemName: vm.isThinking ? "stop.fill" : "arrow.up")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(.white)
+                    }
+                }
+                .padding(.bottom, 2)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 6)
+        .modifier(LiquidGlassInputBar())
+    }
+
+    // MARK: - Paywall Banner
 
     private var paywallBanner: some View {
         HStack(spacing: 10) {
             Image(systemName: "lock.fill")
                 .font(.system(size: 13))
-                .foregroundColor(AmenColor.accent)
-
+                .foregroundColor(Color(red: 0.788, green: 0.659, blue: 0.298))
             VStack(alignment: .leading, spacing: 1) {
                 Text("Free limit reached")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(AmenColor.titleText)
+                    .font(AMENFont.semiBold(13))
+                    .foregroundColor(BereanColor.textPrimary)
                 Text("Upgrade to Pro for unlimited Berean AI")
-                    .font(.system(size: 11))
-                    .foregroundColor(AmenColor.mutedText)
+                    .font(AMENFont.regular(11))
+                    .foregroundColor(BereanColor.textSecondary)
             }
-
             Spacer()
-
-            Button("Upgrade") { /* Navigate to paywall */ }
-                .font(.system(size: 12, weight: .bold))
+            Button("Upgrade") { }
+                .font(AMENFont.semiBold(12))
                 .foregroundColor(.white)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 7)
-                .background(AmenColor.titleText)
-                .clipShape(Capsule())
+                .background(Color.black.clipShape(Capsule()))
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color.white.opacity(0.86))
-                .background(
+                .fill(.ultraThinMaterial)
+                .overlay(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(.ultraThinMaterial)
+                        .fill(Color.white.opacity(0.82))
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(AmenColor.accentMuted, lineWidth: 1)
+                        .strokeBorder(BereanColor.glassStroke, lineWidth: 0.5)
                 )
         )
-        .padding(.horizontal, 14)
     }
 }
 
-// ─── MARK: BereanLiquidMessageBubble ─────────────────────────────────────────
-// White LG redesign of message bubbles. Animation 4 — bubble entry.
+// MARK: - BereanChatBubble
 
-struct BereanLiquidMessageBubble: View {
+struct BereanChatBubble: View {
     let message: BereanChatMsg
     private var isUser: Bool { message.role == .user }
 
@@ -419,110 +447,88 @@ struct BereanLiquidMessageBubble: View {
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 8) {
-            if isUser { Spacer(minLength: 56) }
+            if isUser { Spacer(minLength: 52) }
 
             if !isUser {
-                // Berean avatar dot
-                ZStack {
-                    Circle()
-                        .fill(Color.white)
-                        .shadow(color: .black.opacity(0.06), radius: 6, x: 0, y: 2)
-                        .frame(width: 28, height: 28)
-                    Text("B")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(AmenColor.accent)
-                }
-                .alignmentGuide(.bottom) { $0[.bottom] }
+                avatarView
             }
 
             VStack(alignment: isUser ? .trailing : .leading, spacing: 4) {
-                // Bubble content
-                Text(message.content.isEmpty ? "▌" : message.content)
-                    .font(.system(size: 15))
-                    .foregroundColor(isUser ? AmenColor.userBubbleText : AmenColor.bereanBubbleText)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .background(bubbleBackground)
-
-                // Timestamp
+                bubbleBody
                 Text(message.timestamp.formatted(date: .omitted, time: .shortened))
-                    .font(.system(size: 10))
-                    .foregroundColor(AmenColor.mutedText)
+                    .font(BereanType.micro())
+                    .foregroundColor(BereanColor.textTertiary)
                     .padding(.horizontal, 4)
             }
 
-            if !isUser { Spacer(minLength: 56) }
+            if !isUser { Spacer(minLength: 52) }
         }
-        // Animation 4 — bubble entry
         .opacity(appeared ? 1 : 0)
         .offset(x: appeared ? 0 : (isUser ? 10 : -10))
         .scaleEffect(appeared ? 1 : 0.97, anchor: isUser ? .bottomTrailing : .bottomLeading)
         .onAppear {
-            withAnimation(.spring(response: 0.45, dampingFraction: 0.70)) {
+            withAnimation(.spring(response: 0.42, dampingFraction: 0.72)) {
                 appeared = true
             }
         }
     }
 
+    private var avatarView: some View {
+        ZStack {
+            Circle()
+                .fill(Color.white)
+                .shadow(color: .black.opacity(0.06), radius: 5, x: 0, y: 2)
+                .frame(width: 26, height: 26)
+            Text("B")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(Color(red: 0.788, green: 0.659, blue: 0.298))
+        }
+        .alignmentGuide(.bottom) { $0[.bottom] }
+    }
+
+    @ViewBuilder
+    private var bubbleBody: some View {
+        let displayText = message.content.isEmpty && message.isStreaming ? "▌" : message.content
+
+        Text(displayText)
+            .font(BereanType.body())
+            .foregroundColor(isUser ? Color.white : BereanColor.textPrimary)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(bubbleBackground)
+    }
+
     @ViewBuilder
     private var bubbleBackground: some View {
         if isUser {
-            RoundedRectangle(cornerRadius: AmenRadius.bubble, style: .continuous)
-                .fill(AmenColor.userBubble)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color(white: 0.92))
         } else {
-            RoundedRectangle(cornerRadius: AmenRadius.bubble, style: .continuous)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(Color.white.opacity(0.88))
                 .background(
-                    RoundedRectangle(cornerRadius: AmenRadius.bubble, style: .continuous)
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
                         .fill(.ultraThinMaterial)
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: AmenRadius.bubble, style: .continuous)
-                        .stroke(Color.white.opacity(0.30), lineWidth: 0.5)
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .strokeBorder(Color.white.opacity(0.30), lineWidth: 0.5)
                 )
                 .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
         }
     }
 }
 
-// ─── MARK: BereanLiquidTypingIndicator ───────────────────────────────────────
-// White LG typing indicator — replaces dark BereanTypingIndicator.
+// MARK: - Typing Indicator (reexported for backward compat)
 
 struct BereanLiquidTypingIndicator: View {
-    var body: some View {
-        HStack(alignment: .bottom, spacing: 8) {
-            // Berean avatar
-            ZStack {
-                Circle()
-                    .fill(Color.white)
-                    .shadow(color: .black.opacity(0.06), radius: 6, x: 0, y: 2)
-                    .frame(width: 28, height: 28)
-                Text("B")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(AmenColor.accent)
-            }
+    var body: some View { BereanThinkingIndicator() }
+}
 
-            // Glass bubble with animated dots
-            HStack(spacing: 5) {
-                BereanTypingDots()
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 13)
-            .background(
-                RoundedRectangle(cornerRadius: AmenRadius.bubble, style: .continuous)
-                    .fill(Color.white.opacity(0.88))
-                    .background(
-                        RoundedRectangle(cornerRadius: AmenRadius.bubble, style: .continuous)
-                            .fill(.ultraThinMaterial)
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: AmenRadius.bubble, style: .continuous)
-                            .stroke(Color.white.opacity(0.30), lineWidth: 0.5)
-                    )
-                    .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
-            )
+// MARK: - Preview
 
-            Spacer(minLength: 56)
-        }
+struct BereanChatView_Previews: PreviewProvider {
+    static var previews: some View {
+        BereanChatView(initialMode: .shepherd, conversationTitle: "Romans Study")
     }
 }

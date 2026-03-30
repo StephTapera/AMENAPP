@@ -9,6 +9,7 @@
 import SwiftUI
 import FirebaseFirestore
 import FirebaseAuth
+import FirebaseFunctions
 import Combine
 import CoreLocation
 
@@ -546,11 +547,15 @@ struct PeopleDiscoveryViewNew: View {
     @State private var selectedTopic: TrendingTopic? = nil
     // scopeHaptic replaced by HapticManager
 
+    // Vibe Match: AI reason why each suggested user connects with current user
+    @State private var vibeMatchReasons: [String: String] = [:]
+    @State private var vibeMatchLoading: Set<String> = []
+
     var body: some View {
         NavigationStack {
             ZStack(alignment: .top) {
                 // Background
-                Color(uiColor: .systemBackground)
+                Color(.systemGroupedBackground)
                     .ignoresSafeArea()
 
                 ScrollView(showsIndicators: false) {
@@ -728,7 +733,7 @@ struct PeopleDiscoveryViewNew: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Text("Recent Searches")
-                    .font(.custom("OpenSans-SemiBold", size: 16))
+                    .font(AMENFont.semiBold(16))
                     .foregroundStyle(.primary)
                 Spacer()
                 Button("Clear") {
@@ -737,7 +742,7 @@ struct PeopleDiscoveryViewNew: View {
                     }
                     HapticManager.impact(style: .light)
                 }
-                .font(.custom("OpenSans-Medium", size: 14))
+                .font(AMENFont.medium(14))
                 .foregroundStyle(.blue)
             }
             .padding(.horizontal, 20)
@@ -756,7 +761,7 @@ struct PeopleDiscoveryViewNew: View {
                                 .frame(width: 22)
 
                             Text(term)
-                                .font(.custom("OpenSans-Regular", size: 15))
+                                .font(AMENFont.regular(15))
                                 .foregroundStyle(.primary)
 
                             Spacer()
@@ -777,10 +782,12 @@ struct PeopleDiscoveryViewNew: View {
                     }
                 }
             }
-            .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(Color(uiColor: .secondarySystemBackground))
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5)
             )
+            .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
             .padding(.horizontal, 16)
         }
         .padding(.bottom, 28)
@@ -791,7 +798,7 @@ struct PeopleDiscoveryViewNew: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Trending Topics")
-                    .font(.custom("OpenSans-SemiBold", size: 16))
+                    .font(AMENFont.semiBold(16))
                     .foregroundStyle(.primary)
                 Spacer()
             }
@@ -805,10 +812,12 @@ struct PeopleDiscoveryViewNew: View {
                         if i < 3 { Divider().padding(.leading, 70) }
                     }
                 }
-                .background(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(Color(uiColor: .secondarySystemBackground))
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5)
                 )
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)
             } else if vm.trendingTopics.isEmpty {
                 // P2: Proper empty state for no trending topics
@@ -819,7 +828,7 @@ struct PeopleDiscoveryViewNew: View {
                             .font(.system(size: 28, weight: .light))
                             .foregroundStyle(.tertiary)
                         Text("No trending topics yet")
-                            .font(.custom("OpenSans-Regular", size: 14))
+                            .font(AMENFont.regular(14))
                             .foregroundStyle(.secondary)
                     }
                     .padding(.vertical, 28)
@@ -847,11 +856,11 @@ struct PeopleDiscoveryViewNew: View {
 
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(topic.title)
-                                        .font(.custom("OpenSans-SemiBold", size: 15))
+                                        .font(AMENFont.semiBold(15))
                                         .foregroundStyle(.primary)
                                     // P1: Fixed post count format — correct K rounding
                                     Text(formattedPostCount(topic.postsCount))
-                                        .font(.custom("OpenSans-Regular", size: 13))
+                                        .font(AMENFont.regular(13))
                                         .foregroundStyle(.secondary)
                                 }
 
@@ -874,10 +883,12 @@ struct PeopleDiscoveryViewNew: View {
                         }
                     }
                 }
-                .background(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(Color(uiColor: .secondarySystemBackground))
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5)
                 )
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)
             }
         }
@@ -900,7 +911,7 @@ struct PeopleDiscoveryViewNew: View {
     private var suggestedPeopleSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Suggested People")
-                .font(.custom("OpenSans-SemiBold", size: 16))
+                .font(AMENFont.semiBold(16))
                 .foregroundStyle(.primary)
                 .padding(.horizontal, 20)
 
@@ -912,10 +923,12 @@ struct PeopleDiscoveryViewNew: View {
                         if i < 4 { Divider().padding(.leading, 74) }
                     }
                 }
-                .background(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(Color(uiColor: .secondarySystemBackground))
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5)
                 )
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)
             } else if !vm.isLoadingSuggestions && vm.suggestedPeople.isEmpty {
                 // P1: Genuine empty state (not a loading state)
@@ -926,10 +939,10 @@ struct PeopleDiscoveryViewNew: View {
                             .font(.system(size: 32, weight: .light))
                             .foregroundStyle(.tertiary)
                         Text("No suggestions right now")
-                            .font(.custom("OpenSans-SemiBold", size: 15))
+                            .font(AMENFont.semiBold(15))
                             .foregroundStyle(.primary)
                         Text("Check back soon as your community grows.")
-                            .font(.custom("OpenSans-Regular", size: 13))
+                            .font(AMENFont.regular(13))
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
                     }
@@ -940,19 +953,33 @@ struct PeopleDiscoveryViewNew: View {
             } else {
                 LazyVStack(spacing: 0) {
                     ForEach(Array(vm.suggestedPeople.enumerated()), id: \.element.id) { idx, user in
-                        DiscoveryPersonRow(
-                            user: user,
-                            isFollowing: vm.followingUserIds.contains(user.id ?? ""),
-                            cardIndex: idx,
-                            onTap: { showProfileSheet = user },
-                            onFollow: {
-                                if let uid = user.id { vm.toggleFollow(userId: uid) }
+                        VStack(spacing: 0) {
+                            DiscoveryPersonRow(
+                                user: user,
+                                isFollowing: vm.followingUserIds.contains(user.id ?? ""),
+                                cardIndex: idx,
+                                onTap: { showProfileSheet = user },
+                                onFollow: {
+                                    if let uid = user.id { vm.toggleFollow(userId: uid) }
+                                }
+                            )
+                            .onAppear {
+                                let threshold = Int(Double(vm.suggestedPeople.count) * 0.8)
+                                if idx >= threshold && vm.hasMore {
+                                    Task { await vm.loadMoreSuggested() }
+                                }
+                                if let uid = user.id { fetchVibeMatch(for: uid) }
                             }
-                        )
-                        .onAppear {
-                            let threshold = Int(Double(vm.suggestedPeople.count) * 0.8)
-                            if idx >= threshold && vm.hasMore {
-                                Task { await vm.loadMoreSuggested() }
+
+                            // Vibe Match: AI connection reason line
+                            if let uid = user.id {
+                                VibeMatchRow(
+                                    reason: vibeMatchReasons[uid],
+                                    isLoading: vibeMatchLoading.contains(uid)
+                                )
+                                .padding(.leading, 74)
+                                .padding(.trailing, 16)
+                                .padding(.bottom, 10)
                             }
                         }
 
@@ -970,10 +997,12 @@ struct PeopleDiscoveryViewNew: View {
                         .padding(.vertical, 16)
                     }
                 }
-                .background(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(Color(uiColor: .secondarySystemBackground))
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5)
                 )
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)
             }
         }
@@ -990,7 +1019,7 @@ struct PeopleDiscoveryViewNew: View {
                 VStack(spacing: 12) {
                     AMENLoadingIndicator()
                     Text("Searching...")
-                        .font(.custom("OpenSans-Regular", size: 14))
+                        .font(AMENFont.regular(14))
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
@@ -1004,10 +1033,10 @@ struct PeopleDiscoveryViewNew: View {
                     .font(.system(size: 40, weight: .light))
                     .foregroundStyle(.orange)
                 Text("Search unavailable")
-                    .font(.custom("OpenSans-SemiBold", size: 17))
+                    .font(AMENFont.semiBold(17))
                     .foregroundStyle(.primary)
                 Text(errorMsg)
-                    .font(.custom("OpenSans-Regular", size: 14))
+                    .font(AMENFont.regular(14))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                 Button {
@@ -1015,7 +1044,7 @@ struct PeopleDiscoveryViewNew: View {
                     HapticManager.impact(style: .light)
                 } label: {
                     Text("Retry")
-                        .font(.custom("OpenSans-SemiBold", size: 15))
+                        .font(AMENFont.semiBold(15))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 28)
                         .padding(.vertical, 10)
@@ -1032,10 +1061,10 @@ struct PeopleDiscoveryViewNew: View {
                     .font(.system(size: 44, weight: .light))
                     .foregroundStyle(.tertiary)
                 Text("No results for \"\(searchText)\"")
-                    .font(.custom("OpenSans-SemiBold", size: 17))
+                    .font(AMENFont.semiBold(17))
                     .foregroundStyle(.primary)
                 Text("Try a different search term")
-                    .font(.custom("OpenSans-Regular", size: 14))
+                    .font(AMENFont.regular(14))
                     .foregroundStyle(.secondary)
             }
             .padding(.top, 80)
@@ -1092,24 +1121,101 @@ struct PeopleDiscoveryViewNew: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text(title)
-                    .font(.custom("OpenSans-SemiBold", size: 16))
+                    .font(AMENFont.semiBold(16))
                     .foregroundStyle(.primary)
                 Text("(\(count))")
-                    .font(.custom("OpenSans-Regular", size: 14))
+                    .font(AMENFont.regular(14))
                     .foregroundStyle(.secondary)
                 Spacer()
             }
             .padding(.horizontal, 20)
 
             VStack(spacing: 0) { content() }
-                .background(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(Color(uiColor: .secondarySystemBackground))
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5)
                 )
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)
         }
         .padding(.bottom, 24)
         .transition(.opacity.combined(with: .move(edge: .top)))
+    }
+
+    // MARK: - Vibe Match
+
+    private func fetchVibeMatch(for targetUserId: String) {
+        guard vibeMatchReasons[targetUserId] == nil,
+              !vibeMatchLoading.contains(targetUserId),
+              let currentUserId = FirebaseAuth.Auth.auth().currentUser?.uid,
+              currentUserId != targetUserId else { return }
+        vibeMatchLoading.insert(targetUserId)
+        Task {
+            do {
+                let functions = Functions.functions()
+                let result = try await functions.httpsCallable("vibeMatch").call([
+                    "currentUserId": currentUserId,
+                    "targetUserId": targetUserId,
+                ])
+                if let data = result.data as? [String: Any],
+                   let reason = data["reason"] as? String,
+                   !reason.isEmpty {
+                    await MainActor.run {
+                        vibeMatchReasons[targetUserId] = reason
+                        vibeMatchLoading.remove(targetUserId)
+                    }
+                } else {
+                    await MainActor.run { vibeMatchLoading.remove(targetUserId) }
+                }
+            } catch {
+                await MainActor.run { vibeMatchLoading.remove(targetUserId) }
+            }
+        }
+    }
+}
+
+// MARK: - Vibe Match Row
+
+struct VibeMatchRow: View {
+    let reason: String?
+    let isLoading: Bool
+
+    @State private var isExpanded = false
+
+    var body: some View {
+        if isLoading {
+            HStack(spacing: 5) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 10))
+                    .foregroundStyle(Color.indigo.opacity(0.5))
+                Capsule()
+                    .fill(Color(.systemGray5))
+                    .frame(width: 120, height: 10)
+            }
+            .transition(.opacity)
+        } else if let reason = reason {
+            Button {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.72)) {
+                    isExpanded.toggle()
+                }
+            } label: {
+                HStack(alignment: .top, spacing: 5) {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(Color.indigo)
+                        .padding(.top, 1)
+                    Text(reason)
+                        .font(AMENFont.regular(12))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(isExpanded ? 2 : 1)
+                        .multilineTextAlignment(.leading)
+                    Spacer(minLength: 0)
+                }
+            }
+            .buttonStyle(.plain)
+            .transition(.opacity.combined(with: .move(edge: .bottom)))
+        }
     }
 }
 
@@ -1126,7 +1232,7 @@ struct ScopeTabButton: View {
                 Image(systemName: scope.icon)
                     .font(.system(size: 13, weight: .medium))
                 Text(scope.rawValue)
-                    .font(.custom("OpenSans-SemiBold", size: 13))
+                    .font(AMENFont.semiBold(13))
             }
             .foregroundStyle(isSelected ? Color(uiColor: .systemBackground) : .primary)
             .padding(.horizontal, 14)
@@ -1176,12 +1282,12 @@ struct DiscoveryPersonRow: View {
                                 .clipShape(Circle())
                         } placeholder: {
                             Text(user.initials)
-                                .font(.custom("OpenSans-Bold", size: 17))
+                                .font(AMENFont.bold(17))
                                 .foregroundStyle(.secondary)
                         }
                     } else {
                         Text(user.initials)
-                            .font(.custom("OpenSans-Bold", size: 17))
+                            .font(AMENFont.bold(17))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -1196,13 +1302,13 @@ struct DiscoveryPersonRow: View {
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 5) {
                         Text(user.displayName)
-                            .font(.custom("OpenSans-SemiBold", size: 15))
+                            .font(AMENFont.semiBold(15))
                             .foregroundStyle(.primary)
                             .lineLimit(1)
 
                         if localIsFollowing {
                             Text("Following")
-                                .font(.custom("OpenSans-Medium", size: 11))
+                                .font(AMENFont.medium(11))
                                 .foregroundStyle(.secondary)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
@@ -1214,7 +1320,7 @@ struct DiscoveryPersonRow: View {
 
                     HStack(spacing: 5) {
                         Text("@\(user.username)")
-                            .font(.custom("OpenSans-Regular", size: 13))
+                            .font(AMENFont.regular(13))
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
 
@@ -1226,14 +1332,14 @@ struct DiscoveryPersonRow: View {
                                 .accessibilityHidden(true)
                             // P2: format large follower counts
                             Text(formatFollowerCount(user.followersCount))
-                                .font(.custom("OpenSans-Regular", size: 13))
+                                .font(AMENFont.regular(13))
                                 .foregroundStyle(.secondary)
                         }
                     }
 
                     if let bio = user.bio, !bio.isEmpty {
                         Text(bio)
-                            .font(.custom("OpenSans-Regular", size: 12))
+                            .font(AMENFont.regular(12))
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
@@ -1273,7 +1379,7 @@ struct DiscoveryPersonRow: View {
                         Capsule()
                             .strokeBorder(Color.secondary.opacity(0.4), lineWidth: 1.5)
                         Text("Following")
-                            .font(.custom("OpenSans-SemiBold", size: 13))
+                            .font(AMENFont.semiBold(13))
                             .foregroundStyle(.secondary)
                             .transition(.scale.combined(with: .opacity))
                     } else {
@@ -1282,7 +1388,7 @@ struct DiscoveryPersonRow: View {
                             .fill(Color.primary)
                             .shadow(color: .black.opacity(0.15), radius: 6, y: 3)
                         Text("Follow")
-                            .font(.custom("OpenSans-Bold", size: 13))
+                            .font(AMENFont.bold(13))
                             .foregroundStyle(Color(uiColor: .systemBackground))
                             .transition(.scale.combined(with: .opacity))
                     }
@@ -1366,25 +1472,25 @@ struct DiscoveryPostRow: View {
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(post.content)
-                        .font(.custom("OpenSans-Regular", size: 14))
+                        .font(AMENFont.regular(14))
                         .foregroundStyle(.primary)
                         .lineLimit(2)
 
                     HStack(spacing: 6) {
                         Text("by \(post.authorName)")
-                            .font(.custom("OpenSans-Medium", size: 12))
+                            .font(AMENFont.medium(12))
                             .foregroundStyle(.secondary)
 
                         Text("•").foregroundStyle(.tertiary).accessibilityHidden(true)
 
                         Text(post.category.capitalized)
-                            .font(.custom("OpenSans-Medium", size: 12))
+                            .font(AMENFont.medium(12))
                             .foregroundStyle(categoryColor(post.category))
 
                         if let count = post.amenCount, count > 0 {
                             Text("•").foregroundStyle(.tertiary).accessibilityHidden(true)
                             Text("\(count) Amens")
-                                .font(.custom("OpenSans-Regular", size: 12))
+                                .font(AMENFont.regular(12))
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -1449,7 +1555,7 @@ private struct PostDetailViewWrapper: View {
                 VStack(spacing: 14) {
                     AMENLoadingIndicator()
                     Text("Loading post…")
-                        .font(.custom("OpenSans-Regular", size: 14))
+                        .font(AMENFont.regular(14))
                         .foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -1459,9 +1565,9 @@ private struct PostDetailViewWrapper: View {
                         .font(.system(size: 40, weight: .light))
                         .foregroundStyle(.orange)
                     Text("Post unavailable")
-                        .font(.custom("OpenSans-SemiBold", size: 17))
+                        .font(AMENFont.semiBold(17))
                     Button("Close") { dismiss() }
-                        .font(.custom("OpenSans-SemiBold", size: 15))
+                        .font(AMENFont.semiBold(15))
                 }
             } else if let p = post {
                 PostDetailView(post: p)
@@ -1471,7 +1577,7 @@ private struct PostDetailViewWrapper: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Done") { dismiss() }
-                    .font(.custom("OpenSans-SemiBold", size: 15))
+                    .font(AMENFont.semiBold(15))
             }
         }
         .task {
@@ -1531,20 +1637,20 @@ struct DiscoveryChurchRow: View {
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(church.name)
-                        .font(.custom("OpenSans-SemiBold", size: 15))
+                        .font(AMENFont.semiBold(15))
                         .foregroundStyle(.primary)
                         .lineLimit(1)
 
                     if !church.address.isEmpty {
                         Text(church.address)
-                            .font(.custom("OpenSans-Regular", size: 13))
+                            .font(AMENFont.regular(13))
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
 
                     if let denom = church.denomination, !denom.isEmpty {
                         Text(denom)
-                            .font(.custom("OpenSans-Regular", size: 12))
+                            .font(AMENFont.regular(12))
                             .foregroundStyle(.tertiary)
                             .lineLimit(1)
                     }
@@ -1570,7 +1676,7 @@ struct DiscoveryChurchRow: View {
                     .toolbar {
                         ToolbarItem(placement: .topBarTrailing) {
                             Button("Done") { showProfile = false }
-                                .font(.custom("OpenSans-SemiBold", size: 15))
+                                .font(AMENFont.semiBold(15))
                         }
                     }
             }
@@ -1628,7 +1734,7 @@ struct TrendingTopicFeedView: View {
                 VStack(spacing: 14) {
                     AMENLoadingIndicator()
                     Text("Loading posts…")
-                        .font(.custom("OpenSans-Regular", size: 14))
+                        .font(AMENFont.regular(14))
                         .foregroundStyle(.secondary)
                 }
             } else if let err = loadError {
@@ -1637,16 +1743,16 @@ struct TrendingTopicFeedView: View {
                         .font(.system(size: 42, weight: .light))
                         .foregroundStyle(.orange)
                     Text("Couldn't load posts")
-                        .font(.custom("OpenSans-SemiBold", size: 17))
+                        .font(AMENFont.semiBold(17))
                     Text(err)
-                        .font(.custom("OpenSans-Regular", size: 14))
+                        .font(AMENFont.regular(14))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 32)
                     Button("Retry") {
                         Task { await loadPosts() }
                     }
-                    .font(.custom("OpenSans-SemiBold", size: 15))
+                    .font(AMENFont.semiBold(15))
                     .padding(.horizontal, 24).padding(.vertical, 10)
                     .background(Capsule().fill(Color.primary))
                     .foregroundStyle(Color(uiColor: .systemBackground))
@@ -1663,10 +1769,10 @@ struct TrendingTopicFeedView: View {
                             .foregroundStyle(topic.iconColor)
                     }
                     Text("No posts yet for \"\(topic.title)\"")
-                        .font(.custom("OpenSans-SemiBold", size: 17))
+                        .font(AMENFont.semiBold(17))
                         .foregroundStyle(.primary)
                     Text("Be the first to share your thoughts!")
-                        .font(.custom("OpenSans-Regular", size: 14))
+                        .font(AMENFont.regular(14))
                         .foregroundStyle(.secondary)
                 }
             } else {

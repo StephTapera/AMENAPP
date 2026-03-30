@@ -210,6 +210,87 @@ struct ShareLinkResult {
     let shareLinkId: String
 }
 
+// MARK: - Feature 9: Share Selected Content + Testimony Draft
+
+extension ChurchNotesShareService {
+
+    /// Share a specific selected passage from a note (not the whole note).
+    /// Opens the system share sheet with the selection and a note attribution line.
+    func shareSelectedContent(text: String, from note: ChurchNote) {
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+
+        let df = DateFormatter(); df.dateStyle = .medium
+        var attribution = "— from my notes"
+        if let church = note.churchName, !church.isEmpty {
+            attribution += " at \(church)"
+        }
+        attribution += " (\(df.string(from: note.date)))"
+        if let ref = note.scripture, !ref.isEmpty {
+            attribution += "\n\(ref)"
+        }
+
+        let shareText = "\"\(text)\"\n\n\(attribution)"
+
+        DispatchQueue.main.async {
+            guard let windowScene = UIApplication.shared.connectedScenes
+                    .first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene,
+                  let rootVC = windowScene.windows.first?.rootViewController else { return }
+
+            let activityVC = UIActivityViewController(activityItems: [shareText], applicationActivities: nil)
+            activityVC.popoverPresentationController?.sourceView = rootVC.view
+            rootVC.present(activityVC, animated: true)
+        }
+    }
+
+    /// Formats a church note as a first-person testimony draft.
+    /// Returns a string the user can edit before sharing to social or the feed.
+    func convertToTestimonyDraft(note: ChurchNote) -> String {
+        let df = DateFormatter(); df.dateStyle = .long
+        var draft = ""
+
+        draft += "I want to share something that moved me in worship "
+        if let church = note.churchName, !church.isEmpty {
+            draft += "at \(church) "
+        }
+        draft += "on \(df.string(from: note.date)).\n\n"
+
+        if let sermon = note.sermonTitle, !sermon.isEmpty {
+            draft += "The message \"\(sermon)\" "
+        } else {
+            draft += "The message "
+        }
+        if let pastor = note.pastor, !pastor.isEmpty {
+            draft += "by \(pastor) "
+        }
+        draft += "really spoke to my heart.\n\n"
+
+        // Pull first meaningful paragraph from content
+        let paragraphs = note.content
+            .components(separatedBy: "\n\n")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { $0.count > 40 }
+        if let first = paragraphs.first {
+            let snippet = first.count > 200 ? String(first.prefix(197)) + "..." : first
+            draft += snippet + "\n\n"
+        }
+
+        // Add scripture
+        if let ref = note.scripture, !ref.isEmpty {
+            draft += "\"\(ref)\" has been on my heart since.\n\n"
+        } else if let ref = note.scriptureReferences.first {
+            draft += "\(ref) has been on my heart since.\n\n"
+        }
+
+        // Key point call-to-action
+        if let kp = note.keyPoints.first {
+            draft += "One thing I'm taking with me: \(kp)\n\n"
+        }
+
+        draft += "Has God been speaking to you about something similar? I'd love to hear your story."
+        return draft
+    }
+}
+
 // MARK: - Errors
 
 enum ShareError: LocalizedError {

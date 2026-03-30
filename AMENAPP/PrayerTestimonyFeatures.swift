@@ -324,7 +324,7 @@ struct ChurchPulseSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Label("Church Pulse", systemImage: "waveform.path.ecg")
-                .font(.custom("OpenSans-Bold", size: 16))
+                .font(AMENFont.bold(16))
 
             if service.isLoading {
                 ProgressView().frame(maxWidth: .infinity).padding(.vertical, 8)
@@ -337,13 +337,13 @@ struct ChurchPulseSection: View {
                 if !service.recentTestimonies.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Recent Testimonies")
-                            .font(.custom("OpenSans-SemiBold", size: 13))
+                            .font(AMENFont.semiBold(13))
                             .foregroundStyle(.secondary)
                         ForEach(service.recentTestimonies) { post in
                             HStack(spacing: 8) {
                                 Image(systemName: "checkmark.circle.fill").foregroundStyle(.green).font(.caption)
                                 Text(post.content.prefix(60) + (post.content.count > 60 ? "…" : ""))
-                                    .font(.custom("OpenSans-Regular", size: 12))
+                                    .font(AMENFont.regular(12))
                                     .foregroundStyle(.primary)
                                     .lineLimit(1)
                             }
@@ -361,8 +361,8 @@ struct ChurchPulseSection: View {
     private func pulseStat(value: String, label: String, icon: String, color: Color) -> some View {
         VStack(spacing: 6) {
             Image(systemName: icon).font(.title2).foregroundStyle(color)
-            Text(value).font(.custom("OpenSans-Bold", size: 22))
-            Text(label).font(.custom("OpenSans-Regular", size: 11)).foregroundStyle(.secondary).multilineTextAlignment(.center)
+            Text(value).font(AMENFont.bold(22))
+            Text(label).font(AMENFont.regular(11)).foregroundStyle(.secondary).multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
@@ -417,6 +417,9 @@ class SermonConnectService: ObservableObject {
 struct SermonConnectBanner: View {
     @ObservedObject var service = SermonConnectService.shared
     var onTapNote: (String) -> Void  // called with noteId
+    /// Padding applied only when the banner has content — prevents blank space when no match exists.
+    var paddingLeading: CGFloat = 0
+    var paddingTop: CGFloat = 0
 
     var body: some View {
         if let title = service.matchedNoteTitle, !service.isDismissed {
@@ -441,6 +444,8 @@ struct SermonConnectBanner: View {
             .background(Color.orange.opacity(0.08))
             .cornerRadius(10)
             .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.orange.opacity(0.2), lineWidth: 0.5))
+            .padding(.horizontal, paddingLeading)
+            .padding(.top, paddingTop)
             .transition(.move(edge: .top).combined(with: .opacity))
         }
     }

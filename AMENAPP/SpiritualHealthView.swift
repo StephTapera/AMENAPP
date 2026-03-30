@@ -444,15 +444,20 @@ struct SpiritualHealthView: View {
                                             .fill(Color(red: 0.28, green: 0.15, blue: 0.65))
                                     } else {
                                         Capsule()
-                                            .fill(Color(.secondarySystemBackground))
+                                            .fill(.regularMaterial)
                                     }
                                 }
+                            )
+                            .overlay(
+                                Capsule()
+                                    .strokeBorder(selectedTab == tab ? Color.clear : Color.black.opacity(0.06), lineWidth: 0.5)
                             )
                     }
                     .buttonStyle(.plain)
                 }
             }
             .padding(.horizontal, 20)
+            .padding(.vertical, 4)
         }
     }
 
@@ -560,7 +565,9 @@ struct SpiritualHealthView: View {
                                 .foregroundStyle(.secondary)
                         }
                         .padding(12)
-                        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
+                        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                     }
                     .buttonStyle(.plain)
                     
@@ -586,7 +593,9 @@ struct SpiritualHealthView: View {
                                 .foregroundStyle(.secondary)
                         }
                         .padding(12)
-                        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
+                        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                     }
                     .buttonStyle(.plain)
                     
@@ -612,7 +621,9 @@ struct SpiritualHealthView: View {
                                 .foregroundStyle(.secondary)
                         }
                         .padding(12)
-                        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
+                        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                     }
                     .buttonStyle(.plain)
                 }
@@ -635,7 +646,9 @@ struct SpiritualHealthView: View {
         }
         .padding(24)
         .frame(maxWidth: .infinity)
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 18))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
+        .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
     }
 
     private func latestScoreCard(checkIn: SpiritualCheckIn) -> some View {
@@ -709,11 +722,12 @@ struct SpiritualHealthView: View {
             }
         }
         .padding(20)
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 18))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
         .overlay(
             RoundedRectangle(cornerRadius: 18)
-                .stroke(scoreColor(store.checkIns.first?.overallScore ?? 3).opacity(0.2), lineWidth: 1.5)
+                .strokeBorder(scoreColor(store.checkIns.first?.overallScore ?? 3).opacity(0.2), lineWidth: 1.5)
         )
+        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
     }
 
     private func scoreColor(_ score: Double) -> Color {
@@ -817,7 +831,9 @@ struct SpiritualHealthView: View {
             }
         }
         .padding(20)
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 18))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
+        .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
     }
 
     private func dimensionsCard(checkIn: SpiritualCheckIn) -> some View {
@@ -864,7 +880,9 @@ struct SpiritualHealthView: View {
             }
         }
         .padding(20)
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 18))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
+        .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
     }
 
     // Rotating set of Berean AI-style reflection prompts
@@ -918,11 +936,12 @@ struct SpiritualHealthView: View {
             .buttonStyle(.plain)
         }
         .padding(20)
-        .background(Color(red: 0.93, green: 0.90, blue: 1.0), in: RoundedRectangle(cornerRadius: 18))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
         .overlay(
             RoundedRectangle(cornerRadius: 18)
-                .stroke(Color(red: 0.42, green: 0.24, blue: 0.82).opacity(0.2), lineWidth: 1)
+                .strokeBorder(Color(red: 0.42, green: 0.24, blue: 0.82).opacity(0.2), lineWidth: 1)
         )
+        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
     }
 
     // MARK: - History Tab
@@ -991,7 +1010,9 @@ struct SpiritualHealthView: View {
             }
         }
         .padding(16)
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
         .opacity(appeared ? 1 : 0)
         .offset(x: appeared ? 0 : 20)
         .animation(.spring(response: 0.4, dampingFraction: 0.75).delay(delay), value: appeared)
@@ -1083,7 +1104,9 @@ struct SpiritualHealthView: View {
             }
         }
         .padding(16)
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
         .opacity(appeared ? 1 : 0)
         .offset(y: appeared ? 0 : 16)
         .animation(.spring(response: 0.4, dampingFraction: 0.75).delay(delay), value: appeared)
@@ -1166,14 +1189,12 @@ struct SpiritualHealthView: View {
             }
         }
         .padding(16)
-        .background(
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
+        .overlay(
             RoundedRectangle(cornerRadius: 14)
-                .fill(achieved ? m.color.opacity(0.08) : Color(.secondarySystemBackground))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14)
-                        .stroke(achieved ? m.color.opacity(0.3) : Color.clear, lineWidth: 1.5)
-                )
+                .strokeBorder(achieved ? m.color.opacity(0.3) : Color.black.opacity(0.06), lineWidth: achieved ? 1.5 : 0.5)
         )
+        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
         .opacity(appeared ? 1 : 0)
         .offset(x: appeared ? 0 : -20)
         .animation(.spring(response: 0.4, dampingFraction: 0.75).delay(delay), value: appeared)
@@ -1420,7 +1441,9 @@ struct CheckInSheet: View {
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 15)
-                        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
+                        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 }
                 .buttonStyle(.plain)
             }

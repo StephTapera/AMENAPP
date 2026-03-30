@@ -10,181 +10,426 @@ struct SmartNotificationSettingsView: View {
 
     var body: some View {
         NavigationView {
-            Form {
-                // MARK: Master Push Toggle
-                Section {
-                    Toggle("Push Notifications", isOn: $viewModel.masterPushEnabled)
-                } header: {
-                    Text("Master Switch")
-                } footer: {
+            ScrollView {
+                VStack(spacing: 0) {
+
+                    // MARK: - MASTER SWITCH
+                    Text("MASTER SWITCH")
+                        .font(AMENFont.bold(11))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 24)
+                        .padding(.bottom, 8)
+
+                    VStack(spacing: 0) {
+                        Toggle("Push Notifications", isOn: $viewModel.masterPushEnabled)
+                            .font(AMENFont.semiBold(15))
+                            .tint(.blue)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                    }
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                    .padding(.horizontal, 16)
+
                     Text(viewModel.masterPushEnabled
                          ? "You will receive push notifications per your settings below."
                          : "All push notifications are disabled. You will still see notifications in the app.")
-                }
+                        .font(AMENFont.regular(12))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 8)
 
-                // MARK: Notification Style
-                if viewModel.masterPushEnabled {
-                    Section {
-                        Picker("Notification Style", selection: $viewModel.preferences.mode) {
-                            Text("Meaningful Only").tag(SmartNotificationPreferences.NotificationMode.meaningful)
-                            Text("Balanced").tag(SmartNotificationPreferences.NotificationMode.balanced)
-                            Text("Everything").tag(SmartNotificationPreferences.NotificationMode.everything)
+                    if viewModel.masterPushEnabled {
+
+                        // MARK: - NOTIFICATION STYLE
+                        Text("NOTIFICATION STYLE")
+                            .font(AMENFont.bold(11))
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 20)
+                            .padding(.top, 24)
+                            .padding(.bottom, 8)
+
+                        VStack(spacing: 0) {
+                            Picker("Notification Style", selection: $viewModel.preferences.mode) {
+                                Text("Meaningful Only").tag(SmartNotificationPreferences.NotificationMode.meaningful)
+                                Text("Balanced").tag(SmartNotificationPreferences.NotificationMode.balanced)
+                                Text("Everything").tag(SmartNotificationPreferences.NotificationMode.everything)
+                            }
+                            .pickerStyle(.segmented)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+
+                            Divider().padding(.leading, 16)
+
+                            Text(modeDescription)
+                                .font(AMENFont.regular(13))
+                                .foregroundStyle(.secondary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 14)
                         }
-                        .pickerStyle(.segmented)
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                        .padding(.horizontal, 16)
 
-                        Text(modeDescription)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    } header: {
-                        Text("Notification Style")
-                    } footer: {
                         Text("Controls how many notifications you receive. Meaningful Only shows only what matters.")
-                    }
+                            .font(AMENFont.regular(12))
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 20)
+                            .padding(.top, 8)
 
-                    // MARK: Per-Type Quick Toggles
-                    Section {
-                        ForEach(NotificationCategory.allCases, id: \.self) { category in
-                            if category != .crisisAlerts {
+                        // MARK: - BY TYPE
+                        Text("BY TYPE")
+                            .font(AMENFont.bold(11))
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 20)
+                            .padding(.top, 24)
+                            .padding(.bottom, 8)
+
+                        VStack(spacing: 0) {
+                            let editableCategories = NotificationCategory.allCases.filter { $0 != .crisisAlerts }
+                            ForEach(Array(editableCategories.enumerated()), id: \.element) { index, category in
                                 QuickCategoryToggleRow(
                                     category: category,
                                     setting: viewModel.bindingSetting(for: category)
                                 )
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 14)
+
+                                Divider().padding(.leading, 16)
+                            }
+
+                            // Crisis alerts — always on, non-editable
+                            HStack {
+                                Label("Crisis Alerts", systemImage: "exclamationmark.shield.fill")
+                                    .foregroundColor(.red)
+                                    .font(AMENFont.semiBold(15))
+                                Spacer()
+                                Text("Always On")
+                                    .font(AMENFont.regular(13))
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                        }
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                        .padding(.horizontal, 16)
+
+                        Text("Tap a type for push, sound, and badge options.")
+                            .font(AMENFont.regular(12))
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 20)
+                            .padding(.top, 8)
+                    }
+
+                    // MARK: - PRIVACY
+                    Text("PRIVACY")
+                        .font(AMENFont.bold(11))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 24)
+                        .padding(.bottom, 8)
+
+                    VStack(spacing: 0) {
+                        Picker("Lock Screen Privacy", selection: $viewModel.preferences.lockScreenPrivacy) {
+                            Text("Show Full Content").tag(SmartNotificationPreferences.LockScreenPrivacy.full)
+                            Text("Hide Content").tag(SmartNotificationPreferences.LockScreenPrivacy.minimal)
+                            Text("Hide Name & Content").tag(SmartNotificationPreferences.LockScreenPrivacy.nameOnly)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+
+                        Divider().padding(.leading, 16)
+
+                        Text(privacyDescription)
+                            .font(AMENFont.regular(13))
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                    }
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                    .padding(.horizontal, 16)
+
+                    Text("Controls what's visible on your lock screen.")
+                        .font(AMENFont.regular(12))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 8)
+
+                    // MARK: - QUIET TIMES
+                    Text("QUIET TIMES")
+                        .font(AMENFont.bold(11))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 24)
+                        .padding(.bottom, 8)
+
+                    VStack(spacing: 0) {
+                        Toggle("Enable Quiet Hours", isOn: Binding(
+                            get: { viewModel.quietHoursEnabled },
+                            set: { viewModel.quietHoursEnabled = $0 }
+                        ))
+                        .font(AMENFont.semiBold(15))
+                        .tint(.blue)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+
+                        if viewModel.quietHoursEnabled {
+                            Divider().padding(.leading, 16)
+
+                            Button(action: { viewModel.showStartTimePicker = true }) {
+                                HStack {
+                                    Text("Start Time")
+                                        .font(AMENFont.semiBold(15))
+                                        .foregroundStyle(.primary)
+                                    Spacer()
+                                    Text(viewModel.quietHoursStart)
+                                        .font(AMENFont.regular(15))
+                                        .foregroundColor(.secondary)
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(.tertiary)
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 14)
+                            }
+                            .buttonStyle(PlainButtonStyle())
+
+                            Divider().padding(.leading, 16)
+
+                            Button(action: { viewModel.showEndTimePicker = true }) {
+                                HStack {
+                                    Text("End Time")
+                                        .font(AMENFont.semiBold(15))
+                                        .foregroundStyle(.primary)
+                                    Spacer()
+                                    Text(viewModel.quietHoursEnd)
+                                        .font(AMENFont.regular(15))
+                                        .foregroundColor(.secondary)
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(.tertiary)
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 14)
+                            }
+                            .buttonStyle(PlainButtonStyle())
+
+                            Divider().padding(.leading, 16)
+
+                            Toggle("Allow DMs during quiet hours", isOn: $viewModel.allowDMsDuringQuiet)
+                                .font(AMENFont.regular(15))
+                                .tint(.blue)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 14)
+
+                            Divider().padding(.leading, 16)
+                        }
+
+                        Toggle("Sunday Mode", isOn: $viewModel.preferences.sundayMode)
+                            .font(AMENFont.semiBold(15))
+                            .tint(.blue)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+
+                        Divider().padding(.leading, 16)
+
+                        Text("Extra quiet on Sundays for worship and rest")
+                            .font(AMENFont.regular(13))
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                    }
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                    .padding(.horizontal, 16)
+
+                    Text("Only crisis alerts (and optionally DMs) arrive during quiet hours.")
+                        .font(AMENFont.regular(12))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 8)
+
+                    // MARK: - NOTIFICATION BUNDLING
+                    Text("NOTIFICATION BUNDLING")
+                        .font(AMENFont.bold(11))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 24)
+                        .padding(.bottom, 8)
+
+                    VStack(spacing: 0) {
+                        Picker("Digest Frequency", selection: $viewModel.preferences.digestCadence) {
+                            Text("Realtime").tag(SmartNotificationPreferences.DigestCadence.realtime)
+                            Text("Twice Daily").tag(SmartNotificationPreferences.DigestCadence.twiceDaily)
+                            Text("Daily Summary").tag(SmartNotificationPreferences.DigestCadence.daily)
+                            Text("Weekly Summary").tag(SmartNotificationPreferences.DigestCadence.weekly)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+
+                        Divider().padding(.leading, 16)
+
+                        Text(digestDescription)
+                            .font(AMENFont.regular(13))
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                    }
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                    .padding(.horizontal, 16)
+
+                    Text("Low-priority notifications (likes, follows) bundled into summaries to reduce noise.")
+                        .font(AMENFont.regular(12))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 8)
+
+                    // MARK: - AI SUMMARY
+                    Text("AI SUMMARY")
+                        .font(AMENFont.bold(11))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 24)
+                        .padding(.bottom, 8)
+
+                    VStack(spacing: 0) {
+                        Toggle("AI Activity Summary", isOn: $viewModel.aiSummaryEnabled)
+                            .font(AMENFont.semiBold(15))
+                            .tint(.blue)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+
+                        if viewModel.aiSummaryEnabled {
+                            Divider().padding(.leading, 16)
+
+                            Picker("Frequency", selection: $viewModel.aiSummaryFrequency) {
+                                Text("Smart (activity-based)").tag("smart")
+                                Text("Daily Digest").tag("daily")
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+
+                            Divider().padding(.leading, 16)
+
+                            Text("\"Today: 3 replies, 12 likes, 2 new followers\" — one item per window.")
+                                .font(AMENFont.regular(13))
+                                .foregroundStyle(.secondary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 14)
+                        }
+                    }
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                    .padding(.horizontal, 16)
+
+                    Text("Opt-in. A single summary notification replaces a flood of individual alerts when you have many notifications.")
+                        .font(AMENFont.regular(12))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 8)
+
+                    // MARK: - ADVANCED
+                    Text("ADVANCED")
+                        .font(AMENFont.bold(11))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 24)
+                        .padding(.bottom, 8)
+
+                    VStack(spacing: 0) {
+                        NavigationLink(destination: NotificationCategorySettingsView(preferences: $viewModel.preferences)) {
+                            HStack {
+                                Text("Customize by Category")
+                                    .font(AMENFont.semiBold(15))
+                                    .foregroundStyle(.primary)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(.tertiary)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                    }
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                    .padding(.horizontal, 16)
+
+                    // MARK: - SUGGESTED MUTES
+                    if !viewModel.muteSuggestions.isEmpty {
+                        Text("SUGGESTED MUTES")
+                            .font(AMENFont.bold(11))
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 20)
+                            .padding(.top, 24)
+                            .padding(.bottom, 8)
+
+                        VStack(spacing: 0) {
+                            ForEach(Array(viewModel.muteSuggestions.enumerated()), id: \.element.id) { index, suggestion in
+                                MuteSuggestionRow(
+                                    suggestion: suggestion,
+                                    onApply: { Task { await viewModel.applySuggestion(suggestion) } },
+                                    onDismiss: { viewModel.dismissSuggestion(suggestion.id) }
+                                )
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 14)
+
+                                if index < viewModel.muteSuggestions.count - 1 {
+                                    Divider().padding(.leading, 16)
+                                }
                             }
                         }
-                        // Crisis alerts — always on, non-editable
-                        HStack {
-                            Label("Crisis Alerts", systemImage: "exclamationmark.shield.fill")
-                                .foregroundColor(.red)
-                            Spacer()
-                            Text("Always On")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                    } header: {
-                        Text("By Type")
-                    } footer: {
-                        Text("Tap a type for push, sound, and badge options.")
-                    }
-                }
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                        .padding(.horizontal, 16)
 
-                // MARK: Lock Screen Privacy
-                Section {
-                    Picker("Lock Screen Privacy", selection: $viewModel.preferences.lockScreenPrivacy) {
-                        Text("Show Full Content").tag(SmartNotificationPreferences.LockScreenPrivacy.full)
-                        Text("Hide Content").tag(SmartNotificationPreferences.LockScreenPrivacy.minimal)
-                        Text("Hide Name & Content").tag(SmartNotificationPreferences.LockScreenPrivacy.nameOnly)
-                    }
-
-                    Text(privacyDescription)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                } header: {
-                    Text("Privacy")
-                } footer: {
-                    Text("Controls what's visible on your lock screen.")
-                }
-
-                // MARK: Quiet Hours
-                Section {
-                    Toggle("Enable Quiet Hours", isOn: $viewModel.quietHoursEnabled)
-
-                    if viewModel.quietHoursEnabled {
-                        HStack {
-                            Text("Start Time")
-                            Spacer()
-                            Text(viewModel.quietHoursStart)
-                                .foregroundColor(.secondary)
-                        }
-                        .contentShape(Rectangle())
-                        .onTapGesture { viewModel.showStartTimePicker = true }
-
-                        HStack {
-                            Text("End Time")
-                            Spacer()
-                            Text(viewModel.quietHoursEnd)
-                                .foregroundColor(.secondary)
-                        }
-                        .contentShape(Rectangle())
-                        .onTapGesture { viewModel.showEndTimePicker = true }
-
-                        Toggle("Allow DMs during quiet hours", isOn: $viewModel.allowDMsDuringQuiet)
-                            .font(.subheadline)
-                    }
-
-                    Toggle("Sunday Mode", isOn: $viewModel.preferences.sundayMode)
-
-                    Text("Extra quiet on Sundays for worship and rest")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                } header: {
-                    Text("Quiet Times")
-                } footer: {
-                    Text("Only crisis alerts (and optionally DMs) arrive during quiet hours.")
-                }
-
-                // MARK: Digest / Rollup
-                Section {
-                    Picker("Digest Frequency", selection: $viewModel.preferences.digestCadence) {
-                        Text("Realtime").tag(SmartNotificationPreferences.DigestCadence.realtime)
-                        Text("Twice Daily").tag(SmartNotificationPreferences.DigestCadence.twiceDaily)
-                        Text("Daily Summary").tag(SmartNotificationPreferences.DigestCadence.daily)
-                        Text("Weekly Summary").tag(SmartNotificationPreferences.DigestCadence.weekly)
-                    }
-
-                    Text(digestDescription)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                } header: {
-                    Text("Notification Bundling")
-                } footer: {
-                    Text("Low-priority notifications (likes, follows) bundled into summaries to reduce noise.")
-                }
-
-                // MARK: AI Summary
-                Section {
-                    Toggle("AI Activity Summary", isOn: $viewModel.aiSummaryEnabled)
-
-                    if viewModel.aiSummaryEnabled {
-                        Picker("Frequency", selection: $viewModel.aiSummaryFrequency) {
-                            Text("Smart (activity-based)").tag("smart")
-                            Text("Daily Digest").tag("daily")
-                        }
-                        Text("\"Today: 3 replies, 12 likes, 2 new followers\" — one item per window.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                } header: {
-                    Text("AI Summary")
-                } footer: {
-                    Text("Opt-in. A single summary notification replaces a flood of individual alerts when you have many notifications.")
-                }
-
-                // MARK: Advanced (full per-category config)
-                Section {
-                    NavigationLink("Customize by Category") {
-                        NotificationCategorySettingsView(preferences: $viewModel.preferences)
-                    }
-                } header: {
-                    Text("Advanced")
-                }
-
-                // MARK: Smart Mute Suggestions
-                if !viewModel.muteSuggestions.isEmpty {
-                    Section {
-                        ForEach(viewModel.muteSuggestions) { suggestion in
-                            MuteSuggestionRow(
-                                suggestion: suggestion,
-                                onApply: { Task { await viewModel.applySuggestion(suggestion) } },
-                                onDismiss: { viewModel.dismissSuggestion(suggestion.id) }
-                            )
-                        }
-                    } header: {
-                        Text("Suggested Mutes")
-                    } footer: {
                         Text("Based on your activity patterns")
+                            .font(AMENFont.regular(12))
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 20)
+                            .padding(.top, 8)
                     }
+
+                    Spacer(minLength: 32)
                 }
             }
+            .background(Color(.systemGroupedBackground).ignoresSafeArea())
             .navigationTitle("Notifications")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -195,6 +440,7 @@ struct SmartNotificationSettingsView: View {
                             dismiss()
                         }
                     }
+                    .font(AMENFont.semiBold(16))
                 }
             }
             .sheet(isPresented: $viewModel.showStartTimePicker) {
@@ -209,7 +455,7 @@ struct SmartNotificationSettingsView: View {
             }
         }
     }
-    
+
     private var modeDescription: String {
         switch viewModel.preferences.mode {
         case .meaningful:
@@ -220,7 +466,7 @@ struct SmartNotificationSettingsView: View {
             return "All activity and interactions"
         }
     }
-    
+
     private var privacyDescription: String {
         switch viewModel.preferences.lockScreenPrivacy {
         case .full:
@@ -231,7 +477,7 @@ struct SmartNotificationSettingsView: View {
             return "\"You have a new message\""
         }
     }
-    
+
     private var digestDescription: String {
         switch viewModel.preferences.digestCadence {
         case .realtime:
@@ -255,6 +501,7 @@ struct QuickCategoryToggleRow: View {
     var body: some View {
         HStack {
             Label(category.displayName, systemImage: categoryIcon)
+                .font(AMENFont.semiBold(15))
                 .frame(maxWidth: .infinity, alignment: .leading)
             Toggle("", isOn: Binding(
                 get: { setting.mode != .off },
@@ -264,6 +511,7 @@ struct QuickCategoryToggleRow: View {
                 }
             ))
             .labelsHidden()
+            .tint(.blue)
         }
     }
 
@@ -287,22 +535,40 @@ struct QuickCategoryToggleRow: View {
 
 struct NotificationCategorySettingsView: View {
     @Binding var preferences: SmartNotificationPreferences
-    
+
     var body: some View {
-        Form {
-            ForEach(NotificationCategory.allCases, id: \.self) { category in
-                if category != .crisisAlerts {
-                    NotificationCategoryRow(
-                        category: category,
-                        setting: bindingSetting(for: category)
-                    )
+        ScrollView {
+            VStack(spacing: 0) {
+                let categories = NotificationCategory.allCases.filter { $0 != .crisisAlerts }
+
+                VStack(spacing: 0) {
+                    ForEach(Array(categories.enumerated()), id: \.element) { index, category in
+                        NotificationCategoryRow(
+                            category: category,
+                            setting: bindingSetting(for: category)
+                        )
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+
+                        if index < categories.count - 1 {
+                            Divider().padding(.leading, 16)
+                        }
+                    }
                 }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+                .padding(.top, 24)
+
+                Spacer(minLength: 32)
             }
         }
+        .background(Color(.systemGroupedBackground).ignoresSafeArea())
         .navigationTitle("By Category")
         .navigationBarTitleDisplayMode(.inline)
     }
-    
+
     private func bindingSetting(for category: NotificationCategory) -> Binding<SmartNotificationPreferences.CategorySetting> {
         Binding(
             get: {
@@ -318,12 +584,12 @@ struct NotificationCategorySettingsView: View {
 struct NotificationCategoryRow: View {
     let category: NotificationCategory
     @Binding var setting: SmartNotificationPreferences.CategorySetting
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text(category.displayName)
-                    .font(.headline)
+                    .font(AMENFont.semiBold(15))
                 Spacer()
                 Picker("", selection: $setting.mode) {
                     Text("Off").tag(SmartNotificationPreferences.CategorySetting.CategoryMode.off)
@@ -334,18 +600,18 @@ struct NotificationCategoryRow: View {
                 .pickerStyle(.menu)
                 .labelsHidden()
             }
-            
+
             if setting.mode != .off {
                 HStack(spacing: 16) {
                     Toggle("Push", isOn: $setting.pushEnabled)
                         .toggleStyle(.button)
                         .controlSize(.small)
-                    
+
                     Toggle("Sound", isOn: $setting.soundEnabled)
                         .toggleStyle(.button)
                         .controlSize(.small)
                         .disabled(!setting.pushEnabled)
-                    
+
                     Toggle("Badge", isOn: $setting.badgeEnabled)
                         .toggleStyle(.button)
                         .controlSize(.small)
@@ -353,7 +619,6 @@ struct NotificationCategoryRow: View {
                 .font(.caption)
             }
         }
-        .padding(.vertical, 4)
     }
 }
 
@@ -363,35 +628,35 @@ struct MuteSuggestionRow: View {
     let suggestion: MuteSuggestion
     let onApply: () -> Void
     let onDismiss: () -> Void
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Image(systemName: iconName)
                     .foregroundColor(.orange)
                     .font(.system(size: 20))
-                
+
                 VStack(alignment: .leading, spacing: 2) {
                     Text(suggestion.displayMessage)
-                        .font(.subheadline)
-                    
+                        .font(AMENFont.semiBold(14))
+
                     if let spike = suggestion.activitySpike {
                         Text("\(Int(spike.currentRate))x normal activity")
-                            .font(.caption)
+                            .font(AMENFont.regular(12))
                             .foregroundColor(.secondary)
                     }
                 }
-                
+
                 Spacer()
             }
-            
+
             HStack {
                 Button("Mute") {
                     onApply()
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.small)
-                
+
                 Button("Dismiss") {
                     onDismiss()
                 }
@@ -399,9 +664,8 @@ struct MuteSuggestionRow: View {
                 .controlSize(.small)
             }
         }
-        .padding(.vertical, 4)
     }
-    
+
     private var iconName: String {
         switch suggestion.reason {
         case .activitySpike: return "bell.badge"
@@ -418,9 +682,9 @@ struct TimePickerSheet: View {
     let title: String
     @Binding var selectedTime: String
     @Environment(\.dismiss) var dismiss
-    
+
     @State private var date: Date = Date()
-    
+
     var body: some View {
         NavigationView {
             VStack {
@@ -431,7 +695,7 @@ struct TimePickerSheet: View {
                 )
                 .datePickerStyle(.wheel)
                 .labelsHidden()
-                
+
                 Spacer()
             }
             .navigationTitle(title)
@@ -453,7 +717,6 @@ struct TimePickerSheet: View {
             }
         }
         .onAppear {
-            // Parse current time
             let formatter = DateFormatter()
             formatter.dateFormat = "HH:mm"
             if let parsedDate = formatter.date(from: selectedTime) {

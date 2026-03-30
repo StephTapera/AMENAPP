@@ -21,6 +21,12 @@ private extension Color {
     static let controlStroke = Color.white.opacity(0.15)
 }
 
+private extension ShapeStyle where Self == Color {
+    static var glassOverlay: Color { Color.white.opacity(0.08) }
+    static var glassStroke: Color { Color.white.opacity(0.25)  }
+    static var controlBackground: Color { Color.black.opacity(0.3) }
+}
+
 // MARK: - Glass Gradient Overlay
 
 /// Subtle gradient overlay for text readability on media
@@ -85,7 +91,7 @@ struct GlassImageView: View {
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .strokeBorder(Color.glassStroke, lineWidth: 0.5)
+                .strokeBorder(.glassStroke, lineWidth: 0.5)
         )
         .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         .onTapGesture {
@@ -118,7 +124,7 @@ struct GlassImageView: View {
                         .font(.system(size: 28, weight: .light))
                         .foregroundStyle(.secondary)
                     Text("Image unavailable")
-                        .font(.custom("OpenSans-Regular", size: 13))
+                        .font(AMENFont.regular(13))
                         .foregroundStyle(.secondary)
                 }
             )
@@ -168,7 +174,7 @@ struct GlassVideoPlayerView: View {
         }
         .overlay(
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .strokeBorder(Color.glassStroke, lineWidth: 0.5)
+                .strokeBorder(.glassStroke, lineWidth: 0.5)
         )
         .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         .onTapGesture {
@@ -208,7 +214,7 @@ struct GlassVideoPlayerView: View {
                         .fill(.ultraThinMaterial)
                         .overlay(
                             Circle()
-                                .fill(Color.glassOverlay)
+                                .fill(.glassOverlay)
                         )
                         .frame(width: 56, height: 56)
                     
@@ -244,7 +250,7 @@ struct GlassVideoPlayerView: View {
                     .fill(.ultraThinMaterial)
                     .overlay(
                         Circle()
-                            .fill(Color.controlBackground)
+                            .fill(.controlBackground)
                     )
                     .frame(width: 36, height: 36)
                 
@@ -261,7 +267,7 @@ struct GlassVideoPlayerView: View {
             HStack {
                 Spacer()
                 Text(text)
-                    .font(.custom("OpenSans-SemiBold", size: 11))
+                    .font(AMENFont.semiBold(11))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
@@ -270,7 +276,7 @@ struct GlassVideoPlayerView: View {
                             .fill(.ultraThinMaterial)
                             .overlay(
                                 Capsule()
-                                    .fill(Color.controlBackground)
+                                    .fill(.controlBackground)
                             )
                     )
                     .padding(12)
@@ -371,6 +377,6 @@ struct LiquidGlassShimmerEffect: ViewModifier {
 
 extension View {
     func shimmerEffect() -> some View {
-        modifier(LiquidGlassShimmerEffect())
+        modifier(ShimmerEffect())
     }
 }

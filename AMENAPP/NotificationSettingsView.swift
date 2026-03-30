@@ -12,6 +12,7 @@ import FirebaseAuth
 struct NotificationSettingsView: View {
     @Environment(\.dismiss) var dismiss
     @ObservedObject private var pushManager = PushNotificationManager.shared
+    @ObservedObject private var notifSettingsService = NotificationSettingsService.shared
     
     // Notification Preferences
     @State private var allowNotifications = true
@@ -76,6 +77,7 @@ struct NotificationSettingsView: View {
         .task {
             await checkPermissions()
             await loadNotificationSettings()
+            await notifSettingsService.fetchSettings()
         }
         .onDisappear {
             saveTask?.cancel()
@@ -105,6 +107,10 @@ struct NotificationSettingsView: View {
                 if pushManager.notificationPermissionGranted {
                     testingSection
                 }
+
+                prayerNotificationsSection
+                testimonyNotificationsSection
+                digestNotificationsSection
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 20)
@@ -114,7 +120,7 @@ struct NotificationSettingsView: View {
     private var systemSettingsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("SYSTEM SETTINGS")
-                .font(.custom("OpenSans-Bold", size: 12))
+                .font(AMENFont.bold(12))
                 .foregroundStyle(.white.opacity(0.6))
                 .padding(.horizontal, 16)
             
@@ -128,11 +134,11 @@ struct NotificationSettingsView: View {
                     
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Push Notifications")
-                            .font(.custom("OpenSans-SemiBold", size: 16))
+                            .font(AMENFont.semiBold(16))
                             .foregroundStyle(.white)
                         
                         Text(isGranted ? "Enabled" : "Disabled")
-                            .font(.custom("OpenSans-Regular", size: 14))
+                            .font(AMENFont.regular(14))
                             .foregroundStyle(.white.opacity(0.6))
                     }
                     
@@ -143,7 +149,7 @@ struct NotificationSettingsView: View {
                             HapticManager.impact(style: .light)
                             showPermissionAlert = true
                         }
-                        .font(.custom("OpenSans-SemiBold", size: 15))
+                        .font(AMENFont.semiBold(15))
                         .foregroundStyle(.blue)
                     }
                 }
@@ -153,7 +159,7 @@ struct NotificationSettingsView: View {
             .clipShape(RoundedRectangle(cornerRadius: 16))
             
             Text("Enable push notifications to receive alerts when the app is closed")
-                .font(.custom("OpenSans-Regular", size: 13))
+                .font(AMENFont.regular(13))
                 .foregroundStyle(.white.opacity(0.5))
                 .padding(.horizontal, 16)
         }
@@ -162,7 +168,7 @@ struct NotificationSettingsView: View {
     private var notificationPreferencesSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("NOTIFICATION PREFERENCES")
-                .font(.custom("OpenSans-Bold", size: 12))
+                .font(AMENFont.bold(12))
                 .foregroundStyle(.white.opacity(0.6))
                 .padding(.horizontal, 16)
             
@@ -170,10 +176,10 @@ struct NotificationSettingsView: View {
                 Toggle(isOn: $allowNotifications.animation(.standardUI)) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Allow Notifications")
-                            .font(.custom("OpenSans-SemiBold", size: 16))
+                            .font(AMENFont.semiBold(16))
                             .foregroundStyle(.white)
                         Text("Receive all app notifications")
-                            .font(.custom("OpenSans-Regular", size: 14))
+                            .font(AMENFont.regular(14))
                             .foregroundStyle(.white.opacity(0.6))
                     }
                 }
@@ -192,7 +198,7 @@ struct NotificationSettingsView: View {
     private var notificationTypesSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("NOTIFICATION TYPES")
-                .font(.custom("OpenSans-Bold", size: 12))
+                .font(AMENFont.bold(12))
                 .foregroundStyle(.white.opacity(0.6))
                 .padding(.horizontal, 16)
             
@@ -259,7 +265,7 @@ struct NotificationSettingsView: View {
     private var displaySection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("DISPLAY")
-                .font(.custom("OpenSans-Bold", size: 12))
+                .font(AMENFont.bold(12))
                 .foregroundStyle(.white.opacity(0.6))
                 .padding(.horizontal, 16)
             
@@ -272,7 +278,7 @@ struct NotificationSettingsView: View {
                             .frame(width: 28)
                         
                         Text("Sound")
-                            .font(.custom("OpenSans-SemiBold", size: 16))
+                            .font(AMENFont.semiBold(16))
                             .foregroundStyle(.white)
                     }
                 }
@@ -295,7 +301,7 @@ struct NotificationSettingsView: View {
                             .frame(width: 28)
                         
                         Text("Badge Count")
-                            .font(.custom("OpenSans-SemiBold", size: 16))
+                            .font(AMENFont.semiBold(16))
                             .foregroundStyle(.white)
                     }
                 }
@@ -319,7 +325,7 @@ struct NotificationSettingsView: View {
     private var testingSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("TESTING")
-                .font(.custom("OpenSans-Bold", size: 12))
+                .font(AMENFont.bold(12))
                 .foregroundStyle(.white.opacity(0.6))
                 .padding(.horizontal, 16)
             
@@ -334,7 +340,7 @@ struct NotificationSettingsView: View {
                         .frame(width: 28)
                     
                     Text("Send Test Notification")
-                        .font(.custom("OpenSans-SemiBold", size: 16))
+                        .font(AMENFont.semiBold(16))
                         .foregroundStyle(.white)
                     
                     Spacer()
@@ -349,7 +355,7 @@ struct NotificationSettingsView: View {
             .clipShape(RoundedRectangle(cornerRadius: 16))
             
             Text("Test notification will appear in 5 seconds")
-                .font(.custom("OpenSans-Regular", size: 13))
+                .font(AMENFont.regular(13))
                 .foregroundStyle(.white.opacity(0.5))
                 .padding(.horizontal, 16)
         }
@@ -374,10 +380,10 @@ struct NotificationSettingsView: View {
                     
                     VStack(alignment: .leading, spacing: 4) {
                         Text(title)
-                            .font(.custom("OpenSans-SemiBold", size: 16))
+                            .font(AMENFont.semiBold(16))
                             .foregroundStyle(.white)
                         Text(subtitle)
-                            .font(.custom("OpenSans-Regular", size: 14))
+                            .font(AMENFont.regular(14))
                             .foregroundStyle(.white.opacity(0.6))
                     }
                 }
@@ -397,8 +403,156 @@ struct NotificationSettingsView: View {
         }
     }
     
+    // MARK: - Prayer & Testimony Notification Sections
+
+    private func notificationRow(title: String, subtitle: String, key: String, tint: Color) -> some View {
+        Toggle(isOn: Binding(
+            get: { notifSettingsService.settings.asDict[key] ?? true },
+            set: { val in Task { await notifSettingsService.updateSetting(key, value: val) } }
+        )) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.system(size: 14))
+                    .foregroundStyle(Color.primary)
+                Text(subtitle)
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color.secondary)
+            }
+        }
+        .tint(tint)
+    }
+
+    private var prayerNotificationsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("PRAYER")
+                .font(AMENFont.bold(12))
+                .foregroundStyle(.white.opacity(0.6))
+                .padding(.horizontal, 16)
+
+            VStack(spacing: 1) {
+                notificationRow(
+                    title: "Intercession milestones",
+                    subtitle: "When your prayer reaches 5, 10, 25 intercessors",
+                    key: "prayerIntercessors",
+                    tint: Color(red: 0.110, green: 0.110, blue: 0.102)
+                )
+                .padding(16)
+                .background(Color.white.opacity(0.05))
+
+                Divider().background(Color.white.opacity(0.1))
+
+                notificationRow(
+                    title: "Prayer answered alerts",
+                    subtitle: "When someone you prayed with marks theirs answered",
+                    key: "prayerAnswered",
+                    tint: Color(red: 0.110, green: 0.110, blue: 0.102)
+                )
+                .padding(16)
+                .background(Color.white.opacity(0.05))
+
+                Divider().background(Color.white.opacity(0.1))
+
+                notificationRow(
+                    title: "Fulfillment insights",
+                    subtitle: "Community statistics shown on prayer posts",
+                    key: "prayerInsights",
+                    tint: Color(red: 0.110, green: 0.110, blue: 0.102)
+                )
+                .padding(16)
+                .background(Color.white.opacity(0.05))
+
+                Divider().background(Color.white.opacity(0.1))
+
+                notificationRow(
+                    title: "Status updates",
+                    subtitle: "When a prayer you stood with advances to Believing or Answered",
+                    key: "prayerMilestone",
+                    tint: Color(red: 0.110, green: 0.110, blue: 0.102)
+                )
+                .padding(16)
+                .background(Color.white.opacity(0.05))
+            }
+            .glassEffect(GlassEffectStyle.regular, in: RoundedRectangle(cornerRadius: 16))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+        }
+    }
+
+    private var testimonyNotificationsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("TESTIMONY")
+                .font(AMENFont.bold(12))
+                .foregroundStyle(.white.opacity(0.6))
+                .padding(.horizontal, 16)
+
+            VStack(spacing: 1) {
+                notificationRow(
+                    title: "Testimony strength",
+                    subtitle: "When your testimony reaches community milestones",
+                    key: "testimonyStrength",
+                    tint: Color(red: 0.784, green: 0.447, blue: 0.165)
+                )
+                .padding(16)
+                .background(Color.white.opacity(0.05))
+
+                Divider().background(Color.white.opacity(0.1))
+
+                notificationRow(
+                    title: "Ripple notifications",
+                    subtitle: "When your testimony sparks new prayers in others",
+                    key: "testimonyRipple",
+                    tint: Color(red: 0.784, green: 0.447, blue: 0.165)
+                )
+                .padding(16)
+                .background(Color.white.opacity(0.05))
+
+                Divider().background(Color.white.opacity(0.1))
+
+                notificationRow(
+                    title: "Needed This saves",
+                    subtitle: "When people save your testimony to their wall",
+                    key: "testimonyNeededThis",
+                    tint: Color(red: 0.784, green: 0.447, blue: 0.165)
+                )
+                .padding(16)
+                .background(Color.white.opacity(0.05))
+
+                Divider().background(Color.white.opacity(0.1))
+
+                notificationRow(
+                    title: "Scripture confirmed",
+                    subtitle: "When a verse you pinned is confirmed by a testimony",
+                    key: "scriptureConfirmed",
+                    tint: Color(red: 0.784, green: 0.447, blue: 0.165)
+                )
+                .padding(16)
+                .background(Color.white.opacity(0.05))
+            }
+            .glassEffect(GlassEffectStyle.regular, in: RoundedRectangle(cornerRadius: 16))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+        }
+    }
+
+    private var digestNotificationsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("DIGEST")
+                .font(AMENFont.bold(12))
+                .foregroundStyle(.white.opacity(0.6))
+                .padding(.horizontal, 16)
+
+            notificationRow(
+                title: "Weekly digest",
+                subtitle: "A weekly summary of answered prayers and active testimonies",
+                key: "weeklyDigest",
+                tint: Color(red: 0.784, green: 0.447, blue: 0.165)
+            )
+            .padding(16)
+            .glassEffect(GlassEffectStyle.regular, in: RoundedRectangle(cornerRadius: 16))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+        }
+    }
+
     // MARK: - Functions
-    
+
     private func checkPermissions() async {
         _ = await pushManager.checkNotificationPermissions()
     }

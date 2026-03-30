@@ -82,6 +82,22 @@ struct ChurchNote: Identifiable, Codable, Hashable {
     var visitPlanId: String? // Link back to visit plan (bidirectional)
     var claudeTags: [String] // AI-detected spiritual theme tags
 
+    // Feature 1: Rich Text
+    var richContentJSON: String?  // JSON-encoded RichTextDocument
+
+    // Feature 3: Checklists
+    var checklists: [ChecklistItem] // Checklist items for this note
+
+    // Feature 4: Audio
+    var audioRecordingURL: String?  // Remote URL of WAV recording
+    var hasTranscript: Bool         // true once transcription is available
+
+    // Feature 6: Inter-Note Linking
+    var linkedNoteIds: [String]     // IDs of notes this note is linked to
+
+    // Feature 7: Attachments
+    var attachmentCount: Int        // Cached count of attachments
+
     // Coding keys for Firestore
     enum CodingKeys: String, CodingKey {
         case id
@@ -108,6 +124,12 @@ struct ChurchNote: Identifiable, Codable, Hashable {
         case worshipSongs
         case visitPlanId
         case claudeTags
+        case richContentJSON
+        case checklists
+        case audioRecordingURL
+        case hasTranscript
+        case linkedNoteIds
+        case attachmentCount
     }
     
     // Initializer with defaults
@@ -135,7 +157,13 @@ struct ChurchNote: Identifiable, Codable, Hashable {
         shareLinkId: String? = nil,
         worshipSongs: [WorshipSongReference] = [],
         visitPlanId: String? = nil,
-        claudeTags: [String] = []
+        claudeTags: [String] = [],
+        richContentJSON: String? = nil,
+        checklists: [ChecklistItem] = [],
+        audioRecordingURL: String? = nil,
+        hasTranscript: Bool = false,
+        linkedNoteIds: [String] = [],
+        attachmentCount: Int = 0
     ) {
         self.id = id
         self.userId = userId
@@ -162,6 +190,12 @@ struct ChurchNote: Identifiable, Codable, Hashable {
         self.worshipSongs = worshipSongs
         self.visitPlanId = visitPlanId
         self.claudeTags = claudeTags
+        self.richContentJSON = richContentJSON
+        self.checklists = checklists
+        self.audioRecordingURL = audioRecordingURL
+        self.hasTranscript = hasTranscript
+        self.linkedNoteIds = linkedNoteIds
+        self.attachmentCount = attachmentCount
     }
     
     // Custom Decodable init to handle older Firestore documents that were created
@@ -193,6 +227,12 @@ struct ChurchNote: Identifiable, Codable, Hashable {
         worshipSongs       = try c.decodeIfPresent([WorshipSongReference].self, forKey: .worshipSongs) ?? []
         visitPlanId        = try c.decodeIfPresent(String.self, forKey: .visitPlanId)
         claudeTags         = try c.decodeIfPresent([String].self, forKey: .claudeTags) ?? []
+        richContentJSON    = try c.decodeIfPresent(String.self, forKey: .richContentJSON)
+        checklists         = try c.decodeIfPresent([ChecklistItem].self, forKey: .checklists) ?? []
+        audioRecordingURL  = try c.decodeIfPresent(String.self, forKey: .audioRecordingURL)
+        hasTranscript      = try c.decodeIfPresent(Bool.self, forKey: .hasTranscript) ?? false
+        linkedNoteIds      = try c.decodeIfPresent([String].self, forKey: .linkedNoteIds) ?? []
+        attachmentCount    = try c.decodeIfPresent(Int.self, forKey: .attachmentCount) ?? 0
     }
 
     // Hashable conformance

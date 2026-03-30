@@ -34,8 +34,7 @@ struct SocialFollowersListView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                // Use white background to match ProfileView
-                Color.white
+                Color(.systemGroupedBackground)
                     .ignoresSafeArea()
                 
                 if isLoading {
@@ -43,9 +42,9 @@ struct SocialFollowersListView: View {
                         ProgressView()
                             .progressViewStyle(CircularProgressViewStyle(tint: .black))
                             .scaleEffect(1.2)
-                        
+
                         Text("Loading...")
-                            .font(.custom("OpenSans-SemiBold", size: 14))
+                            .font(AMENFont.semiBold(14))
                             .foregroundStyle(.secondary)
                     }
                 } else if users.isEmpty {
@@ -57,15 +56,21 @@ struct SocialFollowersListView: View {
                                 SocialUserRowView(user: user)
                                     .padding(.horizontal, 16)
                                     .padding(.vertical, 12)
-                                
+
                                 if user.id != users.last?.id {
                                     Divider()
-                                        .background(Color.black.opacity(0.1))
-                                        .padding(.horizontal, 16)
+                                        .padding(.leading, 60)
                                 }
                             }
                         }
-                        .padding(.vertical, 8)
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16)
+                                .strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5)
+                        )
+                        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
                     }
                 }
             }
@@ -95,13 +100,13 @@ struct SocialFollowersListView: View {
                 .foregroundStyle(.black.opacity(0.3))
             
             Text(listType == .followers ? "No Followers Yet" : "Not Following Anyone")
-                .font(.custom("OpenSans-Bold", size: 20))
+                .font(AMENFont.bold(20))
                 .foregroundStyle(.black)
             
             Text(listType == .followers ? 
                  "When people follow you, they'll appear here" :
                  "Start following people to see them here")
-                .font(.custom("OpenSans-Regular", size: 14))
+                .font(AMENFont.regular(14))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
@@ -135,54 +140,59 @@ struct SocialFollowersListView: View {
 /// Row view for displaying a user in the list
 private struct SocialUserRowView: View {
     let user: UserModel
-    
+
     @ObservedObject private var followService = FollowService.shared
     @State private var isFollowing = false
     @State private var isLoading = false
-    
-    var currentUserId: String? {
-        Auth.auth().currentUser?.uid
-    }
-    
+    @State private var showProfile = false
+
+    var currentUserId: String? { Auth.auth().currentUser?.uid }
+
     var isCurrentUser: Bool {
-        guard let userId = user.id, let currentUserId = currentUserId else {
-            return false
-        }
+        guard let userId = user.id, let currentUserId = currentUserId else { return false }
         return userId == currentUserId
     }
-    
+
     var body: some View {
-        HStack(spacing: 16) {
-            // Profile Picture
-            avatarView
-            
-            // User Info
-            VStack(alignment: .leading, spacing: 4) {
-                Text(user.displayName)
-                    .font(.custom("OpenSans-Bold", size: 16))
-                    .foregroundStyle(.black)
-                
-                Text("@\(user.username)")
-                    .font(.custom("OpenSans-Regular", size: 14))
-                    .foregroundStyle(.black.opacity(0.5))
-                
-                if let bio = user.bio, !bio.isEmpty {
-                    Text(bio)
-                        .font(.custom("OpenSans-Regular", size: 13))
-                        .foregroundStyle(.black.opacity(0.6))
-                        .lineLimit(2)
+        Button {
+            guard let uid = user.id, !uid.isEmpty, !isCurrentUser else { return }
+            showProfile = true
+        } label: {
+            HStack(spacing: 16) {
+                avatarView
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(user.displayName)
+                        .font(AMENFont.bold(16))
+                        .foregroundStyle(.black)
+
+                    Text("@\(user.username)")
+                        .font(AMENFont.regular(14))
+                        .foregroundStyle(.black.opacity(0.5))
+
+                    if let bio = user.bio, !bio.isEmpty {
+                        Text(bio)
+                            .font(AMENFont.regular(13))
+                            .foregroundStyle(.black.opacity(0.6))
+                            .lineLimit(2)
+                    }
+                }
+
+                Spacer()
+
+                if !isCurrentUser {
+                    followButton
                 }
             }
-            
-            Spacer()
-            
-            // Follow Button (hide if viewing your own profile)
-            if !isCurrentUser {
-                followButton
-            }
         }
+        .buttonStyle(.plain)
         .task {
             await checkFollowStatus()
+        }
+        .sheet(isPresented: $showProfile) {
+            if let uid = user.id {
+                UserProfileView(userId: uid, showsDismissButton: true)
+            }
         }
     }
     
@@ -191,19 +201,14 @@ private struct SocialUserRowView: View {
         if let imageURL = user.profileImageURL,
            !imageURL.isEmpty,
            let url = URL(string: imageURL) {
-            AsyncImage(url: url) { phase in
-                switch phase {
-                case .success(let image):
-                    image
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: 56, height: 56)
-                        .clipShape(Circle())
-                case .failure, .empty:
-                    avatarPlaceholder
-                @unknown default:
-                    avatarPlaceholder
-                }
+            CachedAsyncImage(url: url) { image in
+                image
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 56, height: 56)
+                    .clipShape(Circle())
+            } placeholder: {
+                avatarPlaceholder
             }
         } else {
             avatarPlaceholder
@@ -216,7 +221,7 @@ private struct SocialUserRowView: View {
             .frame(width: 56, height: 56)
             .overlay(
                 Text(user.initials)
-                    .font(.custom("OpenSans-Bold", size: 20))
+                    .font(AMENFont.bold(20))
                     .foregroundStyle(.white)
             )
     }
@@ -232,7 +237,7 @@ private struct SocialUserRowView: View {
                         .scaleEffect(0.8)
                 } else {
                     Text(isFollowing ? "Following" : "Follow")
-                        .font(.custom("OpenSans-Bold", size: 14))
+                        .font(AMENFont.bold(14))
                 }
             }
             .foregroundStyle(isFollowing ? .black : .white)

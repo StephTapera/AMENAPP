@@ -482,6 +482,52 @@ class RealtimeDatabaseManager {
             }
     }
     
+    /// Join a fasting chain for a prayer request
+    func joinFast(postId: String, completion: ((Bool) -> Void)? = nil) {
+        guard let userId = currentUserId else {
+            completion?(false)
+            return
+        }
+        
+        // Add user to fasting users list
+        database.child("fastingActivity/\(postId)/fastingUsers/\(userId)")
+            .setValue([
+                "userId": userId,
+                "userName": currentUserName ?? "Anonymous",
+                "joinedAt": ServerValue.timestamp()
+            ]) { [weak self] error, _ in
+                if error == nil {
+                    // Increment fasting count
+                    self?.database.child("fastingActivity/\(postId)/fastingCount")
+                        .setValue(ServerValue.increment(1))
+                    
+                    dlog("🔥 Joined fast for post: \(postId)")
+                }
+                completion?(error == nil)
+            }
+    }
+    
+    /// Leave a fasting chain
+    func leaveFast(postId: String, completion: ((Bool) -> Void)? = nil) {
+        guard let userId = currentUserId else {
+            completion?(false)
+            return
+        }
+        
+        // Remove from fasting users
+        database.child("fastingActivity/\(postId)/fastingUsers/\(userId)")
+            .removeValue { [weak self] error, _ in
+                if error == nil {
+                    // Decrement fasting count
+                    self?.database.child("fastingActivity/\(postId)/fastingCount")
+                        .setValue(ServerValue.increment(-1))
+                    
+                    dlog("✅ Left fast for post: \(postId)")
+                }
+                completion?(error == nil)
+            }
+    }
+    
     /// Check if user is currently praying
     func isCurrentlyPraying(postId: String, completion: @escaping (Bool) -> Void) {
         guard let userId = currentUserId else {

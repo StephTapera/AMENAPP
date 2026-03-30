@@ -411,7 +411,6 @@ private struct WLFeaturedCarousel: View {
                 title: "Featured",
                 subtitle: "Curated for your walk"
             )
-            .padding(.horizontal, WLToken.hPad)
 
             // Horizontal scroll
             ScrollView(.horizontal, showsIndicators: false) {
@@ -566,7 +565,11 @@ private struct WLCategoryBar: View {
                 }
             }
             .padding(.horizontal, WLToken.hPad)
-            .padding(.vertical, 2)
+            .padding(.vertical, 8)
+        }
+        .background(.regularMaterial)
+        .overlay(alignment: .bottom) {
+            Color.black.opacity(0.06).frame(height: 0.5)
         }
     }
 }
@@ -864,6 +867,10 @@ private struct WLSectionRow: View {
                     .font(WLToken.sectionSub)
                     .foregroundStyle(WLToken.textTertiary)
             }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.black.opacity(0.05), lineWidth: 0.5))
             .padding(.horizontal, WLToken.hPad)
 
             // Horizontal strip
@@ -967,7 +974,6 @@ private struct WLSavedSection: View {
         if !savedBooks.isEmpty {
             VStack(alignment: .leading, spacing: 14) {
                 WLSectionHeader(title: "Saved for Later", subtitle: "\(savedBooks.count) books")
-                    .padding(.horizontal, WLToken.hPad)
 
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
@@ -995,14 +1001,22 @@ private struct WLSectionHeader: View {
     let subtitle: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-                .font(WLToken.sectionTitle)
-                .foregroundStyle(WLToken.textPrimary)
-            Text(subtitle)
-                .font(WLToken.sectionSub)
-                .foregroundStyle(WLToken.textSecondary)
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(WLToken.sectionTitle)
+                    .foregroundStyle(WLToken.textPrimary)
+                Text(subtitle)
+                    .font(WLToken.sectionSub)
+                    .foregroundStyle(WLToken.textSecondary)
+            }
+            Spacer()
         }
+        .padding(.horizontal, WLToken.hPad)
+        .padding(.vertical, 10)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.black.opacity(0.05), lineWidth: 0.5))
+        .padding(.horizontal, WLToken.hPad)
     }
 }
 

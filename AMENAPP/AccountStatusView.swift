@@ -70,74 +70,122 @@ struct AccountStatusView: View {
     private let db = Firestore.firestore()
 
     var body: some View {
-        List {
-            // Standing summary
-            Section {
-                HStack(spacing: 16) {
-                    Image(systemName: standing.icon)
-                        .font(.system(size: 32))
-                        .foregroundStyle(standing.color)
+        ScrollView {
+            VStack(spacing: 0) {
 
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(standing.label)
-                            .font(.custom("OpenSans-Bold", size: 17))
-                            .foregroundStyle(standing.color)
-                        Text(standingDescription)
-                            .font(.custom("OpenSans-Regular", size: 13))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .padding(.vertical, 6)
-            } header: {
+                // MARK: Account Standing Card
                 Text("ACCOUNT STANDING")
-                    .font(.custom("OpenSans-Bold", size: 12))
-            }
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 16)
+                    .padding(.bottom, 8)
 
-            // Enforcement actions
-            if !actions.isEmpty {
-                Section {
-                    ForEach(actions) { action in
-                        actionRow(action)
+                VStack(spacing: 0) {
+                    HStack(spacing: 16) {
+                        Image(systemName: standing.icon)
+                            .font(.system(size: 32))
+                            .foregroundStyle(standing.color)
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(standing.label)
+                                .font(AMENFont.bold(17))
+                                .foregroundStyle(standing.color)
+                            Text(standingDescription)
+                                .font(AMENFont.regular(13))
+                                .foregroundStyle(.secondary)
+                        }
                     }
-                } header: {
-                    Text("ENFORCEMENT HISTORY")
-                        .font(.custom("OpenSans-Bold", size: 12))
-                } footer: {
-                    Text("Actions expire automatically. You may request a review for any active action.")
-                        .font(.custom("OpenSans-Regular", size: 12))
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
                 }
-            } else if !isLoading {
-                Section {
-                    HStack {
-                        Spacer()
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
+                // MARK: Enforcement History
+                if !actions.isEmpty {
+                    Text("ENFORCEMENT HISTORY")
+                        .font(AMENFont.bold(11))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 24)
+                        .padding(.bottom, 8)
+
+                    VStack(spacing: 0) {
+                        ForEach(Array(actions.enumerated()), id: \.element.id) { index, action in
+                            actionRow(action)
+                            if index < actions.count - 1 {
+                                Divider().padding(.leading, 16)
+                            }
+                        }
+                    }
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                    .padding(.horizontal, 16)
+
+                    Text("Actions expire automatically. You may request a review for any active action.")
+                        .font(AMENFont.regular(12))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 8)
+
+                } else if !isLoading {
+                    Text("ENFORCEMENT HISTORY")
+                        .font(AMENFont.bold(11))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 24)
+                        .padding(.bottom, 8)
+
+                    VStack(spacing: 0) {
                         VStack(spacing: 8) {
                             Image(systemName: "checkmark.circle.fill")
                                 .font(.system(size: 36))
                                 .foregroundStyle(.green)
                             Text("No enforcement actions")
-                                .font(.custom("OpenSans-SemiBold", size: 15))
+                                .font(AMENFont.semiBold(15))
                             Text("Your account has a clean history")
-                                .font(.custom("OpenSans-Regular", size: 13))
+                                .font(AMENFont.regular(13))
                                 .foregroundStyle(.secondary)
                         }
-                        .padding(.vertical, 16)
-                        Spacer()
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 32)
                     }
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                    .padding(.horizontal, 16)
                 }
-            }
 
-            // Info section
-            Section {
-                HStack(alignment: .top, spacing: 10) {
-                    Image(systemName: "info.circle")
-                        .foregroundStyle(.secondary)
-                        .padding(.top, 2)
-                    Text("AMEN reviews all appeals within 48 hours. Our Community Guidelines exist to keep this space safe and uplifting for everyone.")
-                        .font(.custom("OpenSans-Regular", size: 13))
-                        .foregroundStyle(.secondary)
+                // MARK: Info Card
+                VStack(spacing: 0) {
+                    HStack(alignment: .top, spacing: 10) {
+                        Image(systemName: "info.circle")
+                            .foregroundStyle(.secondary)
+                            .padding(.top, 2)
+                        Text("AMEN reviews all appeals within 48 hours. Our Community Guidelines exist to keep this space safe and uplifting for everyone.")
+                            .font(AMENFont.regular(13))
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
                 }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+                .padding(.top, 24)
+
+                Spacer(minLength: 32)
             }
         }
+        .background(Color(.systemGroupedBackground).ignoresSafeArea())
         .navigationTitle("Account Status")
         .navigationBarTitleDisplayMode(.inline)
         .overlay {
@@ -166,22 +214,22 @@ struct AccountStatusView: View {
                     .font(.system(size: 14))
 
                 Text(labelForAction(action.type))
-                    .font(.custom("OpenSans-SemiBold", size: 14))
+                    .font(AMENFont.semiBold(14))
 
                 Spacer()
 
                 Text(action.createdAt.formatted(date: .abbreviated, time: .omitted))
-                    .font(.custom("OpenSans-Regular", size: 12))
+                    .font(AMENFont.regular(12))
                     .foregroundStyle(.secondary)
             }
 
             Text(action.reason)
-                .font(.custom("OpenSans-Regular", size: 13))
+                .font(AMENFont.regular(13))
                 .foregroundStyle(.secondary)
 
             if let preview = action.contentPreview, !preview.isEmpty {
                 Text("\"\(preview)\"")
-                    .font(.custom("OpenSans-Regular", size: 12))
+                    .font(AMENFont.regular(12))
                     .foregroundStyle(.secondary)
                     .italic()
                     .lineLimit(2)
@@ -203,7 +251,7 @@ struct AccountStatusView: View {
                         showAppealSheet = true
                     } label: {
                         Text("Request Review")
-                            .font(.custom("OpenSans-SemiBold", size: 12))
+                            .font(AMENFont.semiBold(12))
                             .padding(.horizontal, 12)
                             .padding(.vertical, 6)
                             .background(Color.blue.opacity(0.12), in: Capsule())
@@ -213,7 +261,8 @@ struct AccountStatusView: View {
                 }
             }
         }
-        .padding(.vertical, 4)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
     }
 
     @ViewBuilder
@@ -226,7 +275,7 @@ struct AccountStatusView: View {
             default:         ("Unknown", Color(.systemGray))
             }
             Text(label)
-                .font(.custom("OpenSans-SemiBold", size: 11))
+                .font(AMENFont.semiBold(11))
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
                 .background(color.opacity(0.12), in: Capsule())
@@ -359,91 +408,114 @@ struct AppealSubmissionSheet: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 24) {
-                VStack(spacing: 10) {
-                    Image(systemName: "person.badge.shield.checkmark.fill")
-                        .font(.system(size: 48))
-                        .foregroundStyle(.blue)
-                        .padding(.top, 24)
+            ScrollView {
+                VStack(spacing: 0) {
 
-                    Text("Request a Review")
-                        .font(.custom("OpenSans-Bold", size: 22))
+                    // MARK: Header
+                    VStack(spacing: 10) {
+                        Image(systemName: "person.badge.shield.checkmark.fill")
+                            .font(.system(size: 48))
+                            .foregroundStyle(.blue)
+                            .padding(.top, 24)
 
-                    Text("Explain why you believe this action was made in error. Our moderation team will review your appeal within 48 hours.")
-                        .font(.custom("OpenSans-Regular", size: 14))
+                        Text("Request a Review")
+                            .font(AMENFont.bold(22))
+
+                        Text("Explain why you believe this action was made in error. Our moderation team will review your appeal within 48 hours.")
+                            .font(AMENFont.regular(14))
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 24)
+                    }
+                    .padding(.bottom, 24)
+
+                    // MARK: Action Summary Card
+                    Text("ACTION BEING REVIEWED")
+                        .font(AMENFont.bold(11))
                         .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal)
-                }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 8)
 
-                // Action summary
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Action being reviewed:")
-                        .font(.custom("OpenSans-SemiBold", size: 13))
-                        .foregroundStyle(.secondary)
-                    Text(labelForAction(action.type) + " — " + action.reason)
-                        .font(.custom("OpenSans-Regular", size: 14))
-                        .padding(10)
-                        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 10))
-                }
-                .padding(.horizontal)
+                    VStack(spacing: 0) {
+                        Text(labelForAction(action.type) + " — " + action.reason)
+                            .font(AMENFont.regular(14))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                    }
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                    .padding(.horizontal, 16)
 
-                // Appeal text
-                VStack(alignment: .leading, spacing: 8) {
+                    // MARK: Appeal Text Card
                     HStack {
-                        Text("Your explanation")
-                            .font(.custom("OpenSans-SemiBold", size: 13))
+                        Text("YOUR EXPLANATION")
+                            .font(AMENFont.bold(11))
                             .foregroundStyle(.secondary)
                         Spacer()
                         Text("\(appealText.count)/500")
-                            .font(.custom("OpenSans-Regular", size: 12))
+                            .font(AMENFont.regular(11))
                             .foregroundStyle(appealText.count > 450 ? .orange : .secondary)
                     }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
 
-                    TextEditor(text: $appealText)
-                        .font(.custom("OpenSans-Regular", size: 15))
-                        .scrollContentBackground(.hidden)
-                        .frame(minHeight: 120)
-                        .padding(10)
-                        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
-                        .onChange(of: appealText) { _, new in
-                            if new.count > 500 { appealText = String(new.prefix(500)) }
-                        }
-                }
-                .padding(.horizontal)
-
-                if let err = errorMessage {
-                    Text(err)
-                        .font(.custom("OpenSans-Regular", size: 13))
-                        .foregroundStyle(.red)
-                        .padding(.horizontal)
-                }
-
-                Button {
-                    Task { await submitAppeal() }
-                } label: {
-                    Group {
-                        if isSubmitting {
-                            ProgressView().tint(.white)
-                        } else {
-                            Text("Submit Appeal")
-                                .font(.custom("OpenSans-Bold", size: 16))
-                        }
+                    VStack(spacing: 0) {
+                        TextEditor(text: $appealText)
+                            .font(AMENFont.regular(15))
+                            .scrollContentBackground(.hidden)
+                            .frame(minHeight: 120)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 10)
+                            .onChange(of: appealText) { _, new in
+                                if new.count > 500 { appealText = String(new.prefix(500)) }
+                            }
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .foregroundStyle(.white)
-                    .background(
-                        appealText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                            ? Color.gray : Color.blue,
-                        in: RoundedRectangle(cornerRadius: 14)
-                    )
-                }
-                .disabled(appealText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSubmitting)
-                .padding(.horizontal)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                    .padding(.horizontal, 16)
 
-                Spacer()
+                    if let err = errorMessage {
+                        Text(err)
+                            .font(AMENFont.regular(13))
+                            .foregroundStyle(.red)
+                            .padding(.horizontal, 20)
+                            .padding(.top, 12)
+                    }
+
+                    // MARK: Submit Button
+                    Button {
+                        Task { await submitAppeal() }
+                    } label: {
+                        Group {
+                            if isSubmitting {
+                                ProgressView().tint(.white)
+                            } else {
+                                Text("Submit Appeal")
+                                    .font(AMENFont.bold(16))
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .foregroundStyle(.white)
+                        .background(
+                            appealText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                ? Color.gray : Color.blue,
+                            in: RoundedRectangle(cornerRadius: 14)
+                        )
+                    }
+                    .disabled(appealText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSubmitting)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 24)
+
+                    Spacer(minLength: 32)
+                }
             }
+            .background(Color(.systemGroupedBackground).ignoresSafeArea())
             .navigationTitle("Appeal")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

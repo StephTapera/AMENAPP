@@ -38,6 +38,15 @@ class DailyVerseGenkitService: ObservableObject {
     nonisolated private let cacheDate = "cachedVerseDate"
     
     init() {
+        // Pre-load today's cached verse synchronously so todayVerse is never nil
+        // when views first render — eliminates the loading/empty flash on app open or re-open.
+        if let data = UserDefaults.standard.data(forKey: "cachedDailyVerse"),
+           let date = UserDefaults.standard.object(forKey: "cachedVerseDate") as? Date,
+           Calendar.current.isDate(date, inSameDayAs: Date()),
+           let verse = try? JSONDecoder().decode(PersonalizedDailyVerse.self, from: data) {
+            todayVerse = verse
+            dlog("📖 DailyVerseGenkitService: pre-loaded cached verse — \(verse.reference)")
+        }
         dlog("✅ DailyVerseGenkitService initialized with Firebase Cloud Functions")
     }
     

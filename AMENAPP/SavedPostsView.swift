@@ -9,16 +9,54 @@
 
 import SwiftUI
 
+// MARK: - Saved Folder
+
+enum SavedFolder: String, CaseIterable, Identifiable {
+    case all        = "All"
+    case prayLater  = "Pray Later"
+    case forSunday  = "For Sunday"
+    case berean     = "Berean Research"
+
+    var id: String { rawValue }
+    var icon: String {
+        switch self {
+        case .all:       return "bookmark.fill"
+        case .prayLater: return "hands.sparkles.fill"
+        case .forSunday: return "sun.horizon.fill"
+        case .berean:    return "book.fill"
+        }
+    }
+    /// Topic tags associated with this folder (client-side filter).
+    /// Posts whose topicTag (lowercased) contains any of these keywords land in the folder.
+    var keywords: [String] {
+        switch self {
+        case .all:       return []
+        case .prayLater: return ["prayer", "pray", "petition"]
+        case .forSunday: return ["sermon", "church", "sunday", "worship"]
+        case .berean:    return ["bible", "scripture", "verse", "berean", "study"]
+        }
+    }
+}
+
 struct SavedPostsView: View {
     @ObservedObject private var savedPostsService = RealtimeSavedPostsService.shared
     @ObservedObject private var postsService = RealtimePostService.shared
-    
+
     @State private var savedPosts: [Post] = []
     @State private var isLoading = false
     @State private var showError = false
     @State private var errorMessage = ""
     @State private var refreshTrigger = false
+    @State private var selectedFolder: SavedFolder = .all
     
+    private var displayedPosts: [Post] {
+        guard selectedFolder != .all else { return savedPosts }
+        return savedPosts.filter { post in
+            let haystack = ((post.topicTag ?? "") + " " + post.content).lowercased()
+            return selectedFolder.keywords.contains { haystack.contains($0) }
+        }
+    }
+
     var body: some View {
         NavigationStack {
             ZStack {
@@ -28,7 +66,7 @@ struct SavedPostsView: View {
                         ProgressView()
                             .scaleEffect(1.2)
                         Text("Loading your saved posts...")
-                            .font(.custom("OpenSans-Regular", size: 14))
+                            .font(AMENFont.regular(14))
                             .foregroundStyle(.secondary)
                     }
                 } else if savedPosts.isEmpty {
@@ -80,6 +118,15 @@ struct SavedPostsView: View {
             .refreshable {
                 await refreshSavedPosts()
             }
+            // Handle "Save to Folder" from PostCard options sheet
+            .onReceive(NotificationCenter.default.publisher(for: Notification.Name("openSavedFolder"))) { notification in
+                if let folderRaw = notification.userInfo?["folder"] as? String,
+                   let folder = SavedFolder(rawValue: folderRaw) {
+                    withAnimation(.easeOut(duration: 0.15)) {
+                        selectedFolder = folder
+                    }
+                }
+            }
             .alert("Error", isPresented: $showError) {
                 Button("OK", role: .cancel) {}
             } message: {
@@ -98,11 +145,11 @@ struct SavedPostsView: View {
             
             VStack(spacing: 8) {
                 Text("No Saved Posts")
-                    .font(.custom("OpenSans-Bold", size: 24))
+                    .font(AMENFont.bold(24))
                     .foregroundStyle(.primary)
                 
                 Text("Posts you bookmark will appear here.\nTap the bookmark icon on any post to save it.")
-                    .font(.custom("OpenSans-Regular", size: 16))
+                    .font(AMENFont.regular(16))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
@@ -116,7 +163,7 @@ struct SavedPostsView: View {
                 HStack {
                     Image(systemName: "arrow.right.circle.fill")
                     Text("Explore Posts")
-                        .font(.custom("OpenSans-SemiBold", size: 16))
+                        .font(AMENFont.semiBold(16))
                 }
                 .foregroundStyle(.white)
                 .padding(.horizontal, 24)
@@ -134,35 +181,87 @@ struct SavedPostsView: View {
     private var postsListView: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
-                // Header with count
-                HStack {
-                    Image(systemName: "bookmark.fill")
-                        .foregroundStyle(.blue)
-                    Text("\(savedPosts.count) saved post\(savedPosts.count == 1 ? "" : "s")")
-                        .font(.custom("OpenSans-SemiBold", size: 14))
-                        .foregroundStyle(.secondary)
-                    
-                    Spacer()
-                    
-                    if isLoading {
-                        ProgressView()
-                            .scaleEffect(0.8)
+                // Folder chip row — Liquid Glass filter bar
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(SavedFolder.allCases) { folder in
+                            let isSelected = selectedFolder == folder
+                            Button {
+                                withAnimation(.easeOut(duration: 0.15)) {
+                                    selectedFolder = folder
+                                }
+                                HapticManager.impact(style: .light)
+                            } label: {
+                                HStack(spacing: 5) {
+                                    Image(systemName: folder.icon)
+                                        .font(.system(size: 11, weight: .semibold))
+                                    Text(folder.rawValue)
+                                        .font(AMENFont.semiBold(13))
+                                }
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 7)
+                                .background {
+                                    if isSelected {
+                                        Capsule()
+                                            .fill(.regularMaterial)
+                                            .overlay(
+                                                Capsule().strokeBorder(
+                                                    Color.black.opacity(0.08),
+                                                    lineWidth: 0.5
+                                                )
+                                            )
+                                            .shadow(color: .black.opacity(0.07), radius: 4, x: 0, y: 2)
+                                    } else {
+                                        Capsule()
+                                            .fill(Color(.systemGray6))
+                                    }
+                                }
+                                .foregroundStyle(isSelected ? Color.primary : Color.primary)
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
+                    .padding(12)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20)
+                            .strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5)
+                    )
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
                 }
-                .padding(.horizontal)
-                .padding(.vertical, 12)
-                .background(Color(.systemBackground))
-                
+
                 Divider()
-                
+
                 // Posts
-                ForEach(savedPosts) { post in
-                    PostCard(post: post)
-                        .padding(.vertical, 8)
-                    
-                    if post.id != savedPosts.last?.id {
-                        Divider()
-                            .padding(.leading, 16)
+                let posts = displayedPosts
+                if posts.isEmpty {
+                    VStack(spacing: 12) {
+                        Image(systemName: "bookmark.slash")
+                            .font(.system(size: 36))
+                            .foregroundStyle(.secondary.opacity(0.4))
+                        Text("No posts in \"\(selectedFolder.rawValue)\" yet")
+                            .font(AMENFont.regular(14))
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(40)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20)
+                            .strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5)
+                    )
+                    .padding(.horizontal, 16)
+                    .padding(.top, 24)
+                } else {
+                    ForEach(posts) { post in
+                        PostCard(post: post)
+                            .padding(.vertical, 8)
+
+                        if post.id != posts.last?.id {
+                            Divider()
+                                .padding(.leading, 16)
+                        }
                     }
                 }
             }
@@ -332,16 +431,16 @@ struct SavedPostsListCompact: View {
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Saved Posts")
-                        .font(.custom("OpenSans-SemiBold", size: 16))
+                        .font(AMENFont.semiBold(16))
                         .foregroundStyle(.primary)
                     
                     if savedCount > 0 {
                         Text("\(savedCount) saved")
-                            .font(.custom("OpenSans-Regular", size: 13))
+                            .font(AMENFont.regular(13))
                             .foregroundStyle(.secondary)
                     } else {
                         Text("No saved posts")
-                            .font(.custom("OpenSans-Regular", size: 13))
+                            .font(AMENFont.regular(13))
                             .foregroundStyle(.secondary)
                     }
                 }

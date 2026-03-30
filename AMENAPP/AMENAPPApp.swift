@@ -11,6 +11,7 @@ import FirebaseAuth
 import FirebaseFirestore
 import FirebaseDatabase  // ✅ Added for Realtime Database
 import FirebaseRemoteConfig  // ✅ Added for AI API keys
+import FirebaseCrashlytics   // P0 FIX: Crash reporting for production diagnostics
 import GoogleSignIn
 import StoreKit  // ✅ Added for In-App Purchases
 import BackgroundTasks  // ✅ BGAppRefreshTask for background feed refresh
@@ -22,7 +23,7 @@ struct AMENAPPApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     
     @State private var currentUser: UserModel? = nil  // Store user for personalized welcome
-    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
+    @State private var hasCompletedOnboarding = true  // ✅ FIX: Default to true to prevent showing onboarding on every launch
     @State private var showNotifOnboarding = false
 
     // PERFORMANCE: Store auth listener handle for cleanup
@@ -181,15 +182,8 @@ struct AMENAPPApp: App {
                     .handleChurchDeepLinks()  // ✅ Handle church deep links
                     .notificationOnboarding(isPresented: $showNotifOnboarding)
 
-                // ✅ P0-1: Under-13 hard block — full-screen gate when ageTier is "blocked".
-                // Overlays all app content and prevents any interaction. The only available
-                // action is signing out. The gate disappears automatically when the user
-                // signs out (ageTier resets to tierB, isLoaded = false).
-                if AgeAssuranceService.shared.isLoaded && AgeAssuranceService.shared.tier == .blocked {
-                    AccountLockedView()
-                        .transition(.opacity)
-                        .zIndex(99)
-                }
+                // Age verification is collected but no longer blocks any users
+                // All ages have full access to the app
             }
             .onAppear {
                     // Attach passive touch observer for session-timeout activity tracking.
@@ -206,9 +200,11 @@ struct AMENAPPApp: App {
                     ScrollBudgetManager.shared.trackAppReopen()
 
                     // Show notification permission onboarding once after first login.
-                    // Guard: only show when user is signed in and hasn't seen it yet.
+                    // Guard: only show when user is signed in, hasn't seen it yet,
+                    // AND has completed the main onboarding flow (prevents sheet conflict).
                     if Auth.auth().currentUser != nil,
-                       !UserDefaults.standard.bool(forKey: "notifOnboardingShown") {
+                       !UserDefaults.standard.bool(forKey: "notifOnboardingShown"),
+                       hasCompletedOnboarding {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                             showNotifOnboarding = true
                         }
@@ -253,8 +249,6 @@ struct AMENAPPApp: App {
 
                     // Low priority background tasks
                     let utilityTask = Task(priority: .utility) {
-                        await cacheCurrentUserProfile()
-                        await Self.runAutomaticMigration()
                         // Warm up safety and notification services so first-use has no cold-start latency
                         await Self.warmUpServices()
                     }
@@ -304,14 +298,24 @@ struct AMENAPPApp: App {
                 }
             }
             .task {
+                // ✅ P0 FIX: Load onboarding status FIRST before showing any UI
+                // This prevents OnboardingFlowView from showing on every app open for authenticated users
+                if let userId = Auth.auth().currentUser?.uid {
+                    await loadOnboardingStatusSync(userId: userId)
+                }
+                
                 // Restore any Live Activities that survived an app relaunch
                 LiveActivityManager.shared.restoreActiveActivities()
             }
             // Show supplementary interest/follow onboarding once after account creation.
             // This is separate from the username/profile OnboardingView in ContentView.
-            // Gated by a simple @AppStorage bool so it only shows once per device install.
+            // ✅ FIX: Only show if user is authenticated AND has NOT completed onboarding
             .fullScreenCover(isPresented: Binding(
-                get: { Auth.auth().currentUser != nil && !hasCompletedOnboarding },
+                get: { 
+                    let shouldShow = Auth.auth().currentUser != nil && !hasCompletedOnboarding
+                    dlog("🎬 OnboardingFlowView fullScreenCover check: currentUser=\(Auth.auth().currentUser?.uid ?? "nil"), hasCompletedOnboarding=\(hasCompletedOnboarding), shouldShow=\(shouldShow)")
+                    return shouldShow
+                },
                 set: { _ in }
             )) {
                 OnboardingFlowView()
@@ -322,6 +326,7 @@ struct AMENAPPApp: App {
                 switch newPhase {
                 case .active:
                     BehavioralAwarenessEngine.shared.beginSession()
+                    Task { await PostsManager.shared.resumeListeningForProfileUpdatesIfNeeded() }
                     // Refresh dynamic shortcuts whenever the app comes to the foreground
                     // so the menu reflects current state (drafts, unread count, etc.)
                     refreshQuickActions()
@@ -332,7 +337,7 @@ struct AMENAPPApp: App {
                 case .background:
                     BehavioralAwarenessEngine.shared.endSession()
                     Self.scheduleBackgroundFeedRefresh()
-                    Task { await PostsManager.shared.stopListeningForProfileUpdates() }
+                    PostsManager.shared.stopListeningForProfileUpdates()
                 default:
                     break
                 }
@@ -380,6 +385,42 @@ struct AMENAPPApp: App {
         )
     }
     
+    // MARK: - Load Onboarding Status (Synchronous)
+    
+    /// ✅ P0 FIX: Load onboarding status synchronously before UI renders
+    /// This prevents OnboardingFlowView from showing on every app open
+    private func loadOnboardingStatusSync(userId: String) async {
+        do {
+            let db = Firestore.firestore()
+            let document = try await db.collection("users").document(userId).getDocument()
+            
+            if let data = document.data() {
+                let completed = data["hasCompletedOnboarding"] as? Bool 
+                    ?? data["onboardingCompleted"] as? Bool 
+                    ?? true  // Default to true if field doesn't exist (existing users)
+                await MainActor.run {
+                    hasCompletedOnboarding = completed
+                    dlog("✅ [ONBOARDING] Loaded status synchronously: hasCompletedOnboarding = \(completed)")
+                }
+            } else {
+                // No user document exists yet — brand new user.
+                // ContentView/AuthViewModel owns new-user onboarding (OnboardingView).
+                // Setting this to false here would show the legacy OnboardingFlowView on top of
+                // OnboardingView, causing a simultaneous fullScreenCover conflict (P0 crash).
+                await MainActor.run {
+                    hasCompletedOnboarding = true
+                    dlog("⚠️ [ONBOARDING] No user document found - deferring to ContentView onboarding")
+                }
+            }
+        } catch {
+            dlog("❌ [ONBOARDING] Failed to load onboarding status: \(error.localizedDescription)")
+            // Default to true on error to avoid showing onboarding unnecessarily
+            await MainActor.run {
+                hasCompletedOnboarding = true
+            }
+        }
+    }
+    
     // MARK: - Fetch User for Welcome Screen
     
     private func fetchCurrentUserForWelcome() async {
@@ -394,6 +435,24 @@ struct AMENAPPApp: App {
             if let user = try? document.data(as: UserModel.self) {
                 await MainActor.run {
                     currentUser = user
+                }
+            }
+            
+            // ✅ FIX: Sync onboarding status from Firestore
+            // Check BOTH possible field names for backwards compatibility
+            if let data = document.data() {
+                let completed = data["hasCompletedOnboarding"] as? Bool 
+                    ?? data["onboardingCompleted"] as? Bool 
+                    ?? true  // Default to true (completed) if field doesn't exist
+                await MainActor.run {
+                    hasCompletedOnboarding = completed
+                    dlog("✅ Onboarding status synced: hasCompletedOnboarding = \(completed)")
+                }
+            } else {
+                // No user data yet — new user handled by ContentView/OnboardingView.
+                await MainActor.run {
+                    hasCompletedOnboarding = true
+                    dlog("⚠️ No user data found - deferring to ContentView onboarding")
                 }
             }
         } catch {
@@ -524,26 +583,11 @@ struct AMENAPPApp: App {
                     FollowService.shared.stopListening()
                     // Stop integration prefs listener on sign-out
                     AMENUserPreferencesService.shared.stopListening()
+                    // Stop HeyFeed listeners on sign-out
+                    HeyFeedService.shared.stopListening()
                 }
             }
         }
-    }
-    
-    // MARK: - Cache Current User Profile
-    
-    private func cacheCurrentUserProfile() async {
-        // Only cache if user is logged in
-        guard Auth.auth().currentUser != nil else {
-            dlog("⚠️ No user logged in, skipping profile cache")
-            return
-        }
-        
-        dlog("👤 Caching current user profile data...")
-        
-        // Cache current user's profile data for fast post creation
-        await UserProfileImageCache.shared.cacheCurrentUserProfile()
-        
-        dlog("✅ User profile cached!")
     }
     
     // MARK: - Email Authentication Link Handler

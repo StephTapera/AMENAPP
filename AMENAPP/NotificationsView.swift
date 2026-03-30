@@ -50,17 +50,23 @@ struct NotificationsView: View {
     @State private var suppressNextDebounce = false
 
     enum NotificationFilter: String, CaseIterable {
-        case all = "All"
-        case follows = "Follows"
-        case conversations = "Conversations"
-        case mentions = "Mentions"
-        
+        case all           = "All"
+        case unread        = "Unread"
+        case mentions      = "Mentions"
+        case follows       = "Follows"
+        case prayer        = "Prayer"
+        case churchNotes   = "Church Notes"
+        case conversations = "Replies"
+
         var icon: String {
             switch self {
-            case .all: return "bell.fill"
-            case .follows: return "person.2.fill"
+            case .all:           return "bell.fill"
+            case .unread:        return "circle.fill"
+            case .mentions:      return "at"
+            case .follows:       return "person.2.fill"
+            case .prayer:        return "hands.sparkles.fill"
+            case .churchNotes:   return "book.fill"
             case .conversations: return "bubble.left.and.bubble.right.fill"
-            case .mentions: return "at"
             }
         }
     }
@@ -86,23 +92,40 @@ struct NotificationsView: View {
         switch selectedFilter {
         case .all:
             break
+        case .unread:
+            notifications = notifications.filter { !$0.read }
+        case .mentions:
+            notifications = notifications.filter { $0.type == .mention }
         case .follows:
             notifications = notifications.filter {
                 $0.type == .follow || $0.type == .followRequestAccepted
+            }
+        case .prayer:
+            notifications = notifications.filter {
+                $0.type == .prayerReminder || $0.type == .prayerAnswered ||
+                $0.type == .prayerSupported
+            }
+        case .churchNotes:
+            notifications = notifications.filter {
+                $0.type == .churchNoteShared || $0.type == .churchNoteReplied
             }
         case .conversations:
             notifications = notifications.filter {
                 $0.type == .comment || $0.type == .reply || $0.type == .repost
             }
-        case .mentions:
-            notifications = notifications.filter { $0.type == .mention }
         }
 
-        // P0 FIX: Sort by updatedAt (for grouped) or createdAt (newest first)
+        // Trust-aware ranking: within each recency window, order by type priority so
+        // high-signal events (safety, mentions, replies) surface above low-signal ones
+        // (amens, reposts). Recency still dominates at the section level via time buckets.
         let sorted = notifications.sorted { lhs, rhs in
             let lhsDate = lhs.updatedAt?.dateValue() ?? lhs.createdAt.dateValue()
             let rhsDate = rhs.updatedAt?.dateValue() ?? rhs.createdAt.dateValue()
-            return lhsDate > rhsDate
+            // Bucket into 2-hour windows so nearby events sort by trust rank, not raw timestamp.
+            let lhsBucket = Int(lhsDate.timeIntervalSince1970 / 7200)
+            let rhsBucket = Int(rhsDate.timeIntervalSince1970 / 7200)
+            if lhsBucket != rhsBucket { return lhsDate > rhsDate }
+            return lhs.type.trustRank > rhs.type.trustRank
         }
 
         let rebuilt = deduplicator.groupNotifications(sorted)
@@ -162,33 +185,45 @@ struct NotificationsView: View {
     }
     
     // MARK: - Body Sub-Views
-    
+
     @ViewBuilder
     private var contentView: some View {
-        VStack(spacing: 0) {
-            headerContainerView
-            
-            // Notifications list with smart grouping
-            notificationListView
-        }
-    }
-    
-    @ViewBuilder
-    private var headerContainerView: some View {
-        VStack(spacing: 16) {
-            headerSection
-                .padding(.horizontal)
-            
-            // Follow Requests Button
-            if !followRequestsViewModel.requests.isEmpty {
-                followRequestsButton
+        ScrollView {
+            LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
+
+                // ── Header ──────────────────────────────────────────────────
+                headerSection
+                    .padding(.horizontal)
+                    .padding(.top)
+                    .padding(.bottom, 4)
+
+                // ── Follow Requests ─────────────────────────────────────────
+                if !followRequestsViewModel.requests.isEmpty {
+                    followRequestsButton
+                        .padding(.bottom, 4)
+                }
+
+                // ── Filter Pills ─────────────────────────────────────────────
+                modernFilterSection
+                    .padding(.bottom, 8)
+
+                // ── Content ──────────────────────────────────────────────────
+                if notificationService.isLoading {
+                    skeletonRows
+                } else if groupedNotifications.isEmpty && !notificationService.notifications.isEmpty {
+                    skeletonRows
+                } else if groupedNotifications.isEmpty {
+                    emptyStateView
+                        .frame(maxWidth: .infinity)
+                } else {
+                    notificationSections
+                }
             }
-            
-            // Enhanced Filter Pills with Icons
-            modernFilterSection
+            .padding(.bottom, 32)
         }
-        .padding(.top)
-        .background(Color(.systemBackground))
+        .refreshable {
+            await refreshNotifications()
+        }
     }
     
     @ViewBuilder
@@ -247,11 +282,11 @@ struct NotificationsView: View {
     private var followRequestsText: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text("Follow Requests")
-                .font(.custom("OpenSans-Bold", size: 16))
+                .font(AMENFont.bold(16))
                 .foregroundStyle(.primary)
             
             Text("\(followRequestsViewModel.requests.count) pending request\(followRequestsViewModel.requests.count == 1 ? "" : "s")")
-                .font(.custom("OpenSans-Regular", size: 13))
+                .font(AMENFont.regular(13))
                 .foregroundStyle(.secondary)
         }
     }
@@ -260,7 +295,7 @@ struct NotificationsView: View {
     private var followRequestsBadge: some View {
         HStack(spacing: 8) {
             Text("\(followRequestsViewModel.requests.count)")
-                .font(.custom("OpenSans-Bold", size: 13))
+                .font(AMENFont.bold(13))
                 .foregroundStyle(.white)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 4)
@@ -278,31 +313,30 @@ struct NotificationsView: View {
     
     @ViewBuilder
     private var followRequestsBackground: some View {
-        RoundedRectangle(cornerRadius: 16)
-            .fill(Color.purple.opacity(0.05))
+        RoundedRectangle(cornerRadius: 16, style: .continuous)
+            .fill(.ultraThinMaterial)
             .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(Color.purple.opacity(0.2), lineWidth: 1)
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [.white.opacity(0.55), .white.opacity(0.12)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 0.5
+                    )
             )
-            .shadow(color: .purple.opacity(0.1), radius: 8, y: 2)
+            .shadow(color: .black.opacity(0.07), radius: 10, x: 0, y: 4)
+            .shadow(color: .black.opacity(0.04), radius: 2,  x: 0, y: 1)
     }
     
+    // Inline skeleton rows used inside the unified ScrollView
     @ViewBuilder
-    private var notificationListView: some View {
-        // 🔔 [NOTIF] Branch: isLoading=\(notificationService.isLoading) groups=\(groupedNotifications.count)
-        let _ = dlog("🔔 [NOTIF] listView branch — isLoading=\(notificationService.isLoading) groups=\(groupedNotifications.count) unread=\(notificationService.unreadCount)")
-        if notificationService.isLoading {
-            // P0 FIX: Show loading skeleton instead of spinner for better UX
-            NotificationsLoadingView()
-        } else if groupedNotifications.isEmpty && !notificationService.notifications.isEmpty {
-            // Cache hasn't been populated yet (first render after tab switch before onAppear
-            // rebuilds cachedGroupedNotifications). Show skeleton instead of empty state to
-            // avoid a 1-frame flash of "No notifications yet" when data already exists.
-            NotificationsLoadingView()
-        } else if groupedNotifications.isEmpty {
-            emptyStateView
-        } else {
-            notificationsScrollView
+    private var skeletonRows: some View {
+        let _ = dlog("🔔 [NOTIF] showing skeleton rows")
+        ForEach(0..<8, id: \.self) { _ in
+            NotificationSkeletonRow()
+            Divider().padding(.leading, 82)
         }
     }
     
@@ -351,46 +385,42 @@ struct NotificationsView: View {
         }
     }
 
+    // Notification sections rendered directly inside the unified ScrollView's LazyVStack
     @ViewBuilder
-    private var notificationsScrollView: some View {
-        ScrollView {
-            LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
-                ForEach(timeSectionedNotifications, id: \.label) { section in
-                    SwiftUI.Section {
-                        ForEach(section.groups) { group in
-                            GroupedNotificationRow(
-                                group: group,
-                                onDismiss: {
-                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                                        removeGroup(group)
-                                    }
-                                },
-                                onMarkAsRead: {
-                                    markGroupAsRead(group)
-                                },
-                                onTap: {
-                                    handleGroupTap(group)
-                                },
-                                onLongPress: {
-                                    showQuickActions(for: group)
-                                },
-                                onAvatarTap: { actorId in
-                                    navigationPath.append(NotificationNavigationDestinations.NotificationDestination.profile(userId: actorId))
-                                }
+    private var notificationSections: some View {
+        let _ = dlog("🔔 [NOTIF] rendering \(timeSectionedNotifications.count) sections")
+        ForEach(timeSectionedNotifications, id: \.label) { section in
+            SwiftUI.Section {
+                ForEach(section.groups) { group in
+                    GroupedNotificationRow(
+                        group: group,
+                        onDismiss: {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                removeGroup(group)
+                            }
+                        },
+                        onMarkAsRead: {
+                            markGroupAsRead(group)
+                        },
+                        onTap: {
+                            handleGroupTap(group)
+                        },
+                        onLongPress: {
+                            showQuickActions(for: group)
+                        },
+                        onAvatarTap: { actorId in
+                            NotificationTapHandler.shared.execute(
+                                .profile(userID: actorId),
+                                navigationPath: $navigationPath
                             )
-                            .id(group.id)
-                            .transition(.opacity.animation(.easeOut(duration: 0.15)))
                         }
-                    } header: {
-                        NotificationSectionHeader(label: section.label)
-                    }
+                    )
+                    .id(group.id)
+                    .transition(.opacity.animation(.easeOut(duration: 0.15)))
                 }
+            } header: {
+                NotificationSectionHeader(label: section.label)
             }
-            .padding(.top, 4)
-            .padding(.bottom, 32)
-        }
-        .refreshable {
-            await refreshNotifications()
         }
     }
     
@@ -449,25 +479,21 @@ struct NotificationsView: View {
             case .profile(let userId):
                 NotificationUserProfileView(userId: userId)
             case .post(let postId):
-                NotificationPostDetailView(postId: postId)
+                NotificationPostDetailView(postId: postId, focusCommentId: nil)
+            case .postWithComment(let postId, let commentId):
+                NotificationPostDetailView(postId: postId, focusCommentId: commentId)
             case .prayer(let prayerId):
-                // Delegate to global router which handles tab switch to Prayer
-                Color.clear
-                    .onAppear {
-                        NotificationDeepLinkRouter.shared.navigate(to: .prayer(prayerId: prayerId))
-                    }
+                Color.clear.onAppear {
+                    NotificationDeepLinkRouter.shared.navigate(to: .prayer(prayerId: prayerId))
+                }
             case .churchNote(let noteId):
-                // Delegate to global router which handles tab switch to Church Notes
-                Color.clear
-                    .onAppear {
-                        NotificationDeepLinkRouter.shared.navigate(to: .churchNote(noteId: noteId))
-                    }
+                Color.clear.onAppear {
+                    NotificationDeepLinkRouter.shared.navigate(to: .churchNote(noteId: noteId))
+                }
             case .conversation(let conversationId):
-                // Delegate to global router which handles tab switch to Messages
-                Color.clear
-                    .onAppear {
-                        NotificationDeepLinkRouter.shared.navigate(to: .conversation(conversationId: conversationId))
-                    }
+                Color.clear.onAppear {
+                    NotificationDeepLinkRouter.shared.navigate(to: .conversation(conversationId: conversationId))
+                }
             }
         }
     }
@@ -503,10 +529,10 @@ struct NotificationsView: View {
             let path = deepLink.navigationPath
             if path.hasPrefix("profile_") {
                 let userId = String(path.dropFirst("profile_".count))
-                navigationPath.append(NotificationNavigationDestinations.NotificationDestination.profile(userId: userId))
+                NotificationTapHandler.shared.execute(.profile(userID: userId), navigationPath: $navigationPath)
             } else if path.hasPrefix("post_") {
                 let postId = String(path.dropFirst("post_".count))
-                navigationPath.append(NotificationNavigationDestinations.NotificationDestination.post(postId: postId))
+                NotificationTapHandler.shared.execute(.post(postID: postId), navigationPath: $navigationPath)
             }
             LegacyNotificationDeepLinkHandler.shared.clearDeepLink()
         }
@@ -530,45 +556,11 @@ struct NotificationsView: View {
     // MARK: - Group Actions
     
     private func handleGroupTap(_ group: NotificationGroup) {
-        // Mark all in group as read
-        for notification in group.notifications where !notification.read {
-            markAsRead(notification)
-        }
-        
         HapticManager.impact(style: .light)
+        guard let firstNotification = group.notifications.first else { return }
 
-        // Navigate to relevant content (Threads-style: tap row → content, tap avatar → profile)
-        if let firstNotification = group.notifications.first {
-            switch firstNotification.type {
-            case .follow, .followRequestAccepted:
-                // Follow notifications → open actor's profile
-                if let actorId = firstNotification.actorId, !actorId.isEmpty {
-                    navigationPath.append(NotificationNavigationDestinations.NotificationDestination.profile(userId: actorId))
-                }
-            case .amen, .comment, .mention, .reply, .repost:
-                // Engagement notifications → open the post
-                if let postId = firstNotification.postId, !postId.isEmpty {
-                    navigationPath.append(NotificationNavigationDestinations.NotificationDestination.post(postId: postId))
-                }
-            case .messageRequestAccepted:
-                if let conversationId = firstNotification.conversationId, !conversationId.isEmpty {
-                    navigationPath.append(NotificationNavigationDestinations.NotificationDestination.conversation(conversationId: conversationId))
-                }
-            case .prayerReminder, .prayerAnswered:
-                if let prayerId = firstNotification.prayerId, !prayerId.isEmpty {
-                    navigationPath.append(NotificationNavigationDestinations.NotificationDestination.prayer(prayerId: prayerId))
-                }
-            case .churchNoteShared:
-                if let noteId = firstNotification.noteId, !noteId.isEmpty {
-                    navigationPath.append(NotificationNavigationDestinations.NotificationDestination.churchNote(noteId: noteId))
-                }
-            default:
-                // For any unhandled type, navigate to actor's profile (like Threads)
-                if let actorId = firstNotification.actorId, !actorId.isEmpty {
-                    navigationPath.append(NotificationNavigationDestinations.NotificationDestination.profile(userId: actorId))
-                }
-            }
-        }
+        // Unified handler: resolves route, marks read, decides in-stack vs cross-tab
+        NotificationTapHandler.shared.handle(firstNotification, navigationPath: $navigationPath)
     }
     
     private func showQuickActions(for group: NotificationGroup) {
@@ -672,7 +664,7 @@ struct NotificationsView: View {
             exitButton
             
             Text("Notifications")
-                .font(.custom("OpenSans-Bold", size: 24))
+                .font(AMENFont.bold(24))
             
             Spacer()
             
@@ -689,15 +681,13 @@ struct NotificationsView: View {
                 mainTabSelection.wrappedValue = 0
             }
         } label: {
-            Image(systemName: "xmark")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Color(uiColor: .secondaryLabel))
+            Image(systemName: "chevron.left")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(.primary)
                 .frame(width: 34, height: 34)
-                .background(.regularMaterial, in: Circle())
-                .overlay(Circle().strokeBorder(Color(uiColor: .separator).opacity(0.3), lineWidth: 0.5))
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Close notifications")
+        .buttonStyle(ScaleButtonStyle())
+        .accessibilityLabel("Back")
     }
     
     private var trailingHeaderButtons: some View {
@@ -751,13 +741,20 @@ struct NotificationsView: View {
             }
         } label: {
             Image(systemName: "ellipsis")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Color(uiColor: .secondaryLabel))
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(.primary)
                 .frame(width: 34, height: 34)
-                .background(.regularMaterial, in: Circle())
-                .overlay(Circle().strokeBorder(Color(uiColor: .separator).opacity(0.3), lineWidth: 0.5))
+                .background(
+                    Circle()
+                        .fill(.ultraThinMaterial)
+                        .overlay(Circle().strokeBorder(
+                            LinearGradient(colors: [.white.opacity(0.55), .white.opacity(0.12)],
+                                           startPoint: .topLeading, endPoint: .bottomTrailing),
+                            lineWidth: 0.5))
+                        .shadow(color: .black.opacity(0.10), radius: 6, x: 0, y: 3)
+                )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(ScaleButtonStyle())
         .accessibilityLabel("Notification options")
     }
     
@@ -769,6 +766,12 @@ struct NotificationsView: View {
                     filterPill(for: filter)
                 }
             }
+            .padding(12)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
+            .overlay(
+                RoundedRectangle(cornerRadius: 20)
+                    .strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5)
+            )
             .padding(.horizontal, 16)
             .padding(.vertical, 4)
         }
@@ -813,18 +816,16 @@ struct NotificationsView: View {
             .background {
                 if isSelected {
                     Capsule()
-                        .fill(.regularMaterial)
-                        .shadow(color: .black.opacity(0.08), radius: 6, y: 2)
+                        .fill(.ultraThinMaterial)
+                        .overlay(Capsule().strokeBorder(
+                            LinearGradient(colors: [.white.opacity(0.55), .white.opacity(0.12)],
+                                           startPoint: .topLeading, endPoint: .bottomTrailing),
+                            lineWidth: 0.5))
+                        .shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 2)
                         .matchedGeometryEffect(id: "selectedFilter", in: filterAnimation)
                 } else {
                     Capsule()
-                        .fill(Color(uiColor: .systemFill).opacity(0.0))
-                }
-            }
-            .overlay {
-                if isSelected {
-                    Capsule()
-                        .strokeBorder(Color(uiColor: .separator).opacity(0.25), lineWidth: 0.5)
+                        .fill(Color.primary.opacity(0.05))
                 }
             }
         }
@@ -857,11 +858,11 @@ struct NotificationsView: View {
             
             VStack(spacing: 8) {
                 Text("No notifications")
-                    .font(.custom("OpenSans-Bold", size: 22))
+                    .font(AMENFont.bold(22))
                     .foregroundStyle(.primary)
                 
                 Text("You're all caught up!")
-                    .font(.custom("OpenSans-Regular", size: 15))
+                    .font(AMENFont.regular(15))
                     .foregroundStyle(.secondary)
             }
             
@@ -876,22 +877,31 @@ struct NotificationsView: View {
     
     private func notificationCount(for filter: NotificationFilter) -> Int {
         guard filter != .all else { return unreadCount }
-        
         let unread = notificationService.notifications.filter { !$0.read }
-        
         switch filter {
         case .all:
             return unreadCount
+        case .unread:
+            return unreadCount
+        case .mentions:
+            return unread.filter { $0.type == .mention }.count
         case .follows:
             return unread.filter {
                 $0.type == .follow || $0.type == .followRequestAccepted
+            }.count
+        case .prayer:
+            return unread.filter {
+                $0.type == .prayerReminder || $0.type == .prayerAnswered ||
+                $0.type == .prayerSupported
+            }.count
+        case .churchNotes:
+            return unread.filter {
+                $0.type == .churchNoteShared || $0.type == .churchNoteReplied
             }.count
         case .conversations:
             return unread.filter {
                 $0.type == .comment || $0.type == .reply || $0.type == .repost
             }.count
-        case .mentions:
-            return unread.filter { $0.type == .mention }.count
         }
     }
     
@@ -1051,14 +1061,16 @@ private struct NotificationSectionHeader: View {
     var body: some View {
         HStack {
             Text(label)
-                .font(.system(size: label == "New" ? 16 : 14, weight: label == "New" ? .bold : .semibold))
-                .foregroundStyle(label == "New" ? Color.primary : Color(uiColor: .secondaryLabel))
+                .font(.system(size: label == "New" ? 16 : 13, weight: label == "New" ? .bold : .semibold))
+                .foregroundStyle(label == "New" ? Color.primary : Color.primary.opacity(0.45))
+                .textCase(label == "New" ? nil : .uppercase)
+                .tracking(label == "New" ? 0 : 0.5)
             Spacer()
         }
         .padding(.horizontal, 16)
-        .padding(.top, label == "New" ? 12 : 8)
+        .padding(.top, label == "New" ? 14 : 10)
         .padding(.bottom, 6)
-        .background(Color(uiColor: .systemBackground))
+        .background(.ultraThinMaterial.opacity(0.7))
     }
 }
 
@@ -1141,7 +1153,7 @@ struct GroupedNotificationRow: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
-                .background(group.hasUnread ? Color(uiColor: .secondarySystemBackground).opacity(0.5) : Color.clear)
+                .background(group.hasUnread ? Color.primary.opacity(0.04) : Color.clear)
                 .contentShape(Rectangle())
             }
             .buttonStyle(NotificationRowButtonStyle())
@@ -1467,13 +1479,6 @@ private extension Array {
     }
 }
 
-// MARK: - Notification Names for Navigation
-
-extension Notification.Name {
-    static let navigateToPost = Notification.Name("navigateToPost")
-    static let navigateToProfile = Notification.Name("navigateToProfile")
-}
-
 // MARK: - Quick Actions Sheet
 
 struct QuickActionsSheet: View {
@@ -1491,10 +1496,10 @@ struct QuickActionsSheet: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Quick Actions")
-                            .font(.custom("OpenSans-Bold", size: 20))
+                            .font(AMENFont.bold(20))
                         
                         Text(notification.actorName ?? "Unknown")
-                            .font(.custom("OpenSans-Regular", size: 14))
+                            .font(AMENFont.regular(14))
                             .foregroundStyle(.secondary)
                     }
                     
@@ -1515,7 +1520,7 @@ struct QuickActionsSheet: View {
                 if notification.type == .comment || notification.type == .mention {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Quick Reply")
-                            .font(.custom("OpenSans-Bold", size: 14))
+                            .font(AMENFont.bold(14))
                             .foregroundStyle(.secondary)
                         
                         HStack {
@@ -1552,7 +1557,7 @@ struct QuickActionsSheet: View {
                             Text("Mark as Read")
                             Spacer()
                         }
-                        .font(.custom("OpenSans-SemiBold", size: 16))
+                        .font(AMENFont.semiBold(16))
                         .foregroundStyle(.primary)
                         .padding()
                         .background(
@@ -2040,27 +2045,34 @@ struct NotificationSkeletonRow: View {
         HStack(spacing: 14) {
             // Unread dot placeholder
             Circle()
-                .fill(Color(uiColor: .tertiarySystemFill))
+                .fill(Color.primary.opacity(0.06))
                 .frame(width: 8, height: 8)
 
             // Avatar skeleton
             Circle()
-                .fill(Color(uiColor: .secondarySystemFill))
+                .fill(Color.primary.opacity(0.08))
                 .frame(width: 44, height: 44)
                 .nxShimmer(phase: shimmerPhase)
 
             VStack(alignment: .leading, spacing: 8) {
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(Color(uiColor: .secondarySystemFill))
+                RoundedRectangle(cornerRadius: 5)
+                    .fill(Color.primary.opacity(0.08))
                     .frame(width: 180, height: 13)
                     .nxShimmer(phase: shimmerPhase)
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(Color(uiColor: .secondarySystemFill))
-                    .frame(width: 80, height: 11)
+                RoundedRectangle(cornerRadius: 5)
+                    .fill(Color.primary.opacity(0.06))
+                    .frame(width: 100, height: 11)
                     .nxShimmer(phase: shimmerPhase)
             }
 
             Spacer()
+
+            // Thumbnail placeholder (every other row)
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color.primary.opacity(0.06))
+                .frame(width: 44, height: 44)
+                .nxShimmer(phase: shimmerPhase)
+                .opacity(Int.random(in: 0...1) == 1 ? 1 : 0)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 13)
@@ -2073,14 +2085,20 @@ struct NotificationSkeletonRow: View {
 }
 
 struct NotificationsLoadingView: View {
+    var onRefresh: (() async -> Void)? = nil
+
     var body: some View {
         ScrollView {
-            LazyVStack(spacing: 12) {
+            LazyVStack(spacing: 0) {
                 ForEach(0..<8, id: \.self) { _ in
                     NotificationSkeletonRow()
+                    Divider().padding(.leading, 82)
                 }
             }
-            .padding(.vertical, 16)
+            .padding(.top, 8)
+        }
+        .refreshable {
+            await onRefresh?()
         }
     }
 }

@@ -173,6 +173,58 @@ struct ReplyActivityAttributes: Codable, Hashable {
     }
 }
 
+// MARK: - 5. Berean AI Assistant
+
+enum BereanLiveMode: String, Codable, Hashable {
+    case listening
+    case thinking
+    case speaking
+    case verse
+    case idle
+}
+
+struct BereanDynamicIslandAttributes: Codable, Hashable {
+    let sessionID: String
+    let sessionName: String
+
+    struct ContentState: Codable, Hashable {
+        var mode: BereanLiveMode
+        var title: String
+        var subtitle: String
+        var progress: Double
+        var scriptureReference: String?
+        var isSpeaking: Bool
+        var lastUpdatedLabel: String?
+    }
+}
+
+extension BereanDynamicIslandAttributes.ContentState {
+    static func listening() -> Self {
+        .init(mode: .listening, title: "Berean is listening",
+              subtitle: "Ask about scripture, prayer, or guidance",
+              progress: 0.12, scriptureReference: nil, isSpeaking: false, lastUpdatedLabel: "Live")
+    }
+    static func thinking(progress: Double = 0.45) -> Self {
+        .init(mode: .thinking, title: "Preparing a response",
+              subtitle: "Grounding answer with context and scripture",
+              progress: progress, scriptureReference: nil, isSpeaking: false, lastUpdatedLabel: "Analyzing")
+    }
+    static func speaking(reference: String? = nil) -> Self {
+        .init(mode: .speaking, title: "Berean is speaking",
+              subtitle: "Voice response in progress",
+              progress: 0.92, scriptureReference: reference, isSpeaking: true, lastUpdatedLabel: "Now speaking")
+    }
+    static func verse(_ reference: String) -> Self {
+        .init(mode: .verse, title: "Scripture surfaced",
+              subtitle: "Reference ready to open in assistant",
+              progress: 1.0, scriptureReference: reference, isSpeaking: false, lastUpdatedLabel: "Reference ready")
+    }
+    static func idle() -> Self {
+        .init(mode: .idle, title: "Berean ready", subtitle: "Assistant available",
+              progress: 0.0, scriptureReference: nil, isSpeaking: false, lastUpdatedLabel: nil)
+    }
+}
+
 // MARK: - ActivityAttributes conformances
 
 #if canImport(ActivityKit)
@@ -180,6 +232,7 @@ extension ChurchServiceActivityAttributes: ActivityAttributes {}
 extension PrayerReminderActivityAttributes: ActivityAttributes {}
 extension WorshipMusicActivityAttributes: ActivityAttributes {}
 extension ReplyActivityAttributes: ActivityAttributes {}
+extension BereanDynamicIslandAttributes: ActivityAttributes {}
 #endif
 
 extension ReplyActivityAttributes {

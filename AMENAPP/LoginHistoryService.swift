@@ -33,6 +33,7 @@ struct LoginSession: Identifiable, Codable {
     }
 }
 
+@MainActor
 class LoginHistoryService: ObservableObject {
     static let shared = LoginHistoryService()
     

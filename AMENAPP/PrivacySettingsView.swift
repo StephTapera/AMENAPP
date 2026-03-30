@@ -61,7 +61,7 @@ struct PrivacySettingsView: View {
 
     // Content preferences
     @State private var personalizedRecommendations = true
-    @State private var sensitiveContentLevel: String = "standard" // "standard" | "strict"
+    @State private var sensitiveContentLevel: String = "standard"
 
     // Followers / Following visibility
     @State private var showFollowerCount = true
@@ -83,7 +83,7 @@ struct PrivacySettingsView: View {
     private let db = Firestore.firestore()
 
     var body: some View {
-        privacyList
+        privacyScrollView
             .navigationTitle("Privacy")
             .navigationBarTitleDisplayMode(.inline)
             .disabled(isSaving)
@@ -127,327 +127,459 @@ struct PrivacySettingsView: View {
                                               showFollowingList: showFollowingList))
     }
 
-    // MARK: - List
+    // MARK: - Scroll View
 
     @ViewBuilder
-    private var privacyList: some View {
-        List {
-            // ACCOUNT PRIVACY
-            Section {
-                Toggle(isOn: $isProfilePrivate) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Private Account")
-                            .font(.custom("OpenSans-SemiBold", size: 15))
-                        Text("Only approved followers can see your posts")
-                            .font(.custom("OpenSans-Regular", size: 13))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .tint(.blue)
-            } header: {
+    private var privacyScrollView: some View {
+        ScrollView {
+            VStack(spacing: 0) {
+
+                // MARK: ACCOUNT PRIVACY
                 Text("ACCOUNT PRIVACY")
-                    .font(.custom("OpenSans-Bold", size: 12))
-            }
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
 
-            interactionsSection
-            followersVisibilitySection
-            activitySection
-            hiddenWordsSection
-            contentSection
-            discoverySection
-            recommendationsSection
-
-            // BLOCKED ACCOUNTS
-            Section {
-                NavigationLink(destination: BlockedUsersView()) {
-                    HStack {
-                        Image(systemName: "hand.raised.fill")
-                            .foregroundStyle(.red)
-                        Text("Blocked Users")
-                            .font(.custom("OpenSans-SemiBold", size: 15))
+                VStack(spacing: 0) {
+                    Toggle(isOn: $isProfilePrivate) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Private Account")
+                                .font(AMENFont.semiBold(15))
+                            Text("Only approved followers can see your posts")
+                                .font(AMENFont.regular(13))
+                                .foregroundStyle(.secondary)
+                        }
                     }
+                    .tint(.blue)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
                 }
-            } header: {
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
+                // MARK: INTERACTIONS
+                Text("INTERACTIONS")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+
+                VStack(spacing: 0) {
+                    audiencePicker(
+                        label: "Who Can Comment",
+                        subtitle: "Control who can comment on your posts",
+                        selection: $whoCanComment
+                    )
+                    Divider().padding(.leading, 16)
+                    audiencePicker(
+                        label: "Who Can Mention You",
+                        subtitle: "Control who can tag or mention you",
+                        selection: $whoCanMention
+                    )
+                    Divider().padding(.leading, 16)
+                    audiencePicker(
+                        label: "Who Can Message You",
+                        subtitle: "Control who can send you direct messages",
+                        selection: $whoCanDM
+                    )
+                    Divider().padding(.leading, 16)
+                    Toggle(isOn: $autoFilterSpamDMs) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Auto-Filter Spam Requests")
+                                .font(AMENFont.semiBold(15))
+                            Text("Move likely spam message requests to a separate folder")
+                                .font(AMENFont.regular(13))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .tint(.blue)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
+                Text("Changing these settings takes effect immediately for new interactions")
+                    .font(AMENFont.regular(12))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+
+                // MARK: FOLLOWERS & FOLLOWING
+                Text("FOLLOWERS & FOLLOWING")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+
+                VStack(spacing: 0) {
+                    Toggle(isOn: $showFollowerCount) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Show Follower Count")
+                                .font(AMENFont.semiBold(15))
+                            Text("Others can see how many followers you have")
+                                .font(AMENFont.regular(13))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .tint(.blue)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+
+                    Divider().padding(.leading, 16)
+
+                    Toggle(isOn: $showFollowingCount) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Show Following Count")
+                                .font(AMENFont.semiBold(15))
+                            Text("Others can see how many people you follow")
+                                .font(AMENFont.regular(13))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .tint(.blue)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+
+                    Divider().padding(.leading, 16)
+
+                    Toggle(isOn: $showFollowersList) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Show Followers List")
+                                .font(AMENFont.semiBold(15))
+                            Text("Others can see who follows you")
+                                .font(AMENFont.regular(13))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .tint(.blue)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+
+                    Divider().padding(.leading, 16)
+
+                    Toggle(isOn: $showFollowingList) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Show Following List")
+                                .font(AMENFont.semiBold(15))
+                            Text("Others can see who you follow")
+                                .font(AMENFont.regular(13))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .tint(.blue)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
+                Text("These settings control what others see on your profile. You can always see your own followers and following.")
+                    .font(AMENFont.regular(12))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+
+                // MARK: ACTIVITY
+                Text("ACTIVITY")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+
+                VStack(spacing: 0) {
+                    Toggle(isOn: $showOnlineStatus) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Show Online Status")
+                                .font(AMENFont.semiBold(15))
+                            Text("Let others see when you're active")
+                                .font(AMENFont.regular(13))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .tint(.blue)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+
+                    Divider().padding(.leading, 16)
+
+                    Toggle(isOn: $showActivityStatus) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Show Activity Status")
+                                .font(AMENFont.semiBold(15))
+                            Text("Share what you're currently doing")
+                                .font(AMENFont.regular(13))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .tint(.blue)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+
+                    Divider().padding(.leading, 16)
+
+                    Toggle(isOn: $showReadReceipts) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Read Receipts")
+                                .font(AMENFont.semiBold(15))
+                            Text("Let others know when you've read messages")
+                                .font(AMENFont.regular(13))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .tint(.blue)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
+                Text("Changes to activity settings may take a few moments to apply")
+                    .font(AMENFont.regular(12))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+
+                // MARK: HIDDEN WORDS
+                Text("HIDDEN WORDS")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+
+                VStack(spacing: 0) {
+                    ForEach(hiddenWords, id: \.self) { word in
+                        HStack {
+                            Text(word)
+                                .font(AMENFont.regular(15))
+                            Spacer()
+                            Button(action: { removeWord(word) }) {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundStyle(.red)
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+
+                        Divider().padding(.leading, 16)
+                    }
+
+                    Button(action: { showAddWordSheet = true }) {
+                        Label("Add Word", systemImage: "plus.circle.fill")
+                            .font(AMENFont.semiBold(15))
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+
+                    Divider().padding(.leading, 16)
+
+                    Toggle(isOn: $hideFromUnfollowedOnly) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Only hide from people I don't follow")
+                                .font(AMENFont.semiBold(15))
+                            Text("Show content from people you follow even if it contains hidden words")
+                                .font(AMENFont.regular(12))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .tint(.blue)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
+                Text("Posts and comments containing these words will be filtered from your feed")
+                    .font(AMENFont.regular(12))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+
+                // MARK: CONTENT FILTERS
+                Text("CONTENT FILTERS")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+
+                VStack(spacing: 0) {
+                    Picker(selection: $sensitiveContentLevel) {
+                        Text("Standard").tag("standard")
+                        Text("Strict").tag("strict")
+                    } label: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Sensitive Content Filter")
+                                .font(AMENFont.semiBold(15))
+                            Text(sensitiveContentLevel == "strict"
+                                 ? "Stricter filtering of sensitive or mature content"
+                                 : "Default filtering of sensitive content")
+                                .font(AMENFont.regular(13))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .pickerStyle(.navigationLink)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
+                Text("Affects what content appears in your feed and search results")
+                    .font(AMENFont.regular(12))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+
+                // MARK: DISCOVERY & FINDABILITY
+                Text("DISCOVERY & FINDABILITY")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+
+                VStack(spacing: 0) {
+                    Toggle(isOn: $showInDiscovery) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Show in People Discovery")
+                                .font(AMENFont.semiBold(15))
+                            Text("Allow others to find your profile in People Discovery")
+                                .font(AMENFont.regular(13))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .tint(.blue)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+
+                    Divider().padding(.leading, 16)
+
+                    Toggle(isOn: $findByPhoneOrEmail) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Find by Phone or Email")
+                                .font(AMENFont.semiBold(15))
+                            Text("Allow others to find you using your phone number or email address")
+                                .font(AMENFont.regular(13))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .tint(.blue)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
+                Text("Turn these off to make your account harder to find by new users")
+                    .font(AMENFont.regular(12))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+
+                // MARK: CONTENT RECOMMENDATIONS
+                Text("CONTENT RECOMMENDATIONS")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+
+                VStack(spacing: 0) {
+                    Toggle(isOn: $personalizedRecommendations) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Personalized Recommendations")
+                                .font(AMENFont.semiBold(15))
+                            Text("Show posts and people based on your interests and activity")
+                                .font(AMENFont.regular(13))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .tint(.blue)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
+                Text("When off, your feed shows posts in chronological order without personalization")
+                    .font(AMENFont.regular(12))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+
+                // MARK: BLOCKED ACCOUNTS
                 Text("BLOCKED ACCOUNTS")
-                    .font(.custom("OpenSans-Bold", size: 12))
-            }
-        }
-    }
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
 
-    // MARK: - Interactions Section
-
-    @ViewBuilder
-    private var interactionsSection: some View {
-        Section {
-            // Who can comment
-            audiencePicker(
-                label: "Who Can Comment",
-                subtitle: "Control who can comment on your posts",
-                selection: $whoCanComment
-            )
-
-            // Who can mention/tag
-            audiencePicker(
-                label: "Who Can Mention You",
-                subtitle: "Control who can tag or mention you",
-                selection: $whoCanMention
-            )
-
-            // Who can DM
-            audiencePicker(
-                label: "Who Can Message You",
-                subtitle: "Control who can send you direct messages",
-                selection: $whoCanDM
-            )
-
-            // Auto-filter spam DM requests
-            Toggle(isOn: $autoFilterSpamDMs) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Auto-Filter Spam Requests")
-                        .font(.custom("OpenSans-SemiBold", size: 15))
-                    Text("Move likely spam message requests to a separate folder")
-                        .font(.custom("OpenSans-Regular", size: 13))
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .tint(.blue)
-
-        } header: {
-            Text("INTERACTIONS")
-                .font(.custom("OpenSans-Bold", size: 12))
-        } footer: {
-            Text("Changing these settings takes effect immediately for new interactions")
-                .font(.custom("OpenSans-Regular", size: 12))
-        }
-    }
-
-    // MARK: - Followers / Following Visibility Section
-
-    @ViewBuilder
-    private var followersVisibilitySection: some View {
-        Section {
-            Toggle(isOn: $showFollowerCount) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Show Follower Count")
-                        .font(.custom("OpenSans-SemiBold", size: 15))
-                    Text("Others can see how many followers you have")
-                        .font(.custom("OpenSans-Regular", size: 13))
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .tint(.blue)
-
-            Toggle(isOn: $showFollowingCount) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Show Following Count")
-                        .font(.custom("OpenSans-SemiBold", size: 15))
-                    Text("Others can see how many people you follow")
-                        .font(.custom("OpenSans-Regular", size: 13))
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .tint(.blue)
-
-            Toggle(isOn: $showFollowersList) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Show Followers List")
-                        .font(.custom("OpenSans-SemiBold", size: 15))
-                    Text("Others can see who follows you")
-                        .font(.custom("OpenSans-Regular", size: 13))
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .tint(.blue)
-
-            Toggle(isOn: $showFollowingList) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Show Following List")
-                        .font(.custom("OpenSans-SemiBold", size: 15))
-                    Text("Others can see who you follow")
-                        .font(.custom("OpenSans-Regular", size: 13))
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .tint(.blue)
-        } header: {
-            Text("FOLLOWERS & FOLLOWING")
-                .font(.custom("OpenSans-Bold", size: 12))
-        } footer: {
-            Text("These settings control what others see on your profile. You can always see your own followers and following.")
-                .font(.custom("OpenSans-Regular", size: 12))
-        }
-    }
-
-    // MARK: - Activity Section
-
-    @ViewBuilder
-    private var activitySection: some View {
-        Section {
-            Toggle(isOn: $showOnlineStatus) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Show Online Status")
-                        .font(.custom("OpenSans-SemiBold", size: 15))
-                    Text("Let others see when you're active")
-                        .font(.custom("OpenSans-Regular", size: 13))
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .tint(.blue)
-
-            Toggle(isOn: $showActivityStatus) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Show Activity Status")
-                        .font(.custom("OpenSans-SemiBold", size: 15))
-                    Text("Share what you're currently doing")
-                        .font(.custom("OpenSans-Regular", size: 13))
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .tint(.blue)
-
-            Toggle(isOn: $showReadReceipts) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Read Receipts")
-                        .font(.custom("OpenSans-SemiBold", size: 15))
-                    Text("Let others know when you've read messages")
-                        .font(.custom("OpenSans-Regular", size: 13))
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .tint(.blue)
-        } header: {
-            Text("ACTIVITY")
-                .font(.custom("OpenSans-Bold", size: 12))
-        } footer: {
-            Text("Changes to activity settings may take a few moments to apply")
-                .font(.custom("OpenSans-Regular", size: 12))
-        }
-    }
-
-    // MARK: - Hidden Words Section
-
-    @ViewBuilder
-    private var hiddenWordsSection: some View {
-        Section {
-            ForEach(hiddenWords, id: \.self) { word in
-                HStack {
-                    Text(word)
-                        .font(.custom("OpenSans-Regular", size: 15))
-                    Spacer()
-                    Button(action: { removeWord(word) }) {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.red)
+                VStack(spacing: 0) {
+                    NavigationLink(destination: BlockedUsersView()) {
+                        HStack {
+                            Image(systemName: "hand.raised.fill")
+                                .foregroundStyle(.red)
+                            Text("Blocked Users")
+                                .font(AMENFont.semiBold(15))
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.tertiary)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
                     }
+                    .buttonStyle(PlainButtonStyle())
                 }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
+                Spacer(minLength: 32)
             }
-            Button(action: { showAddWordSheet = true }) {
-                Label("Add Word", systemImage: "plus.circle.fill")
-                    .font(.custom("OpenSans-SemiBold", size: 15))
-            }
-            Toggle(isOn: $hideFromUnfollowedOnly) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Only hide from people I don't follow")
-                        .font(.custom("OpenSans-SemiBold", size: 15))
-                    Text("Show content from people you follow even if it contains hidden words")
-                        .font(.custom("OpenSans-Regular", size: 12))
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .tint(.blue)
-        } header: {
-            Text("HIDDEN WORDS")
-                .font(.custom("OpenSans-Bold", size: 12))
-        } footer: {
-            Text("Posts and comments containing these words will be filtered from your feed")
-                .font(.custom("OpenSans-Regular", size: 12))
         }
-    }
-
-    // MARK: - Sensitive Content Section
-
-    @ViewBuilder
-    private var contentSection: some View {
-        Section {
-            Picker(selection: $sensitiveContentLevel) {
-                Text("Standard").tag("standard")
-                Text("Strict").tag("strict")
-            } label: {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Sensitive Content Filter")
-                        .font(.custom("OpenSans-SemiBold", size: 15))
-                    Text(sensitiveContentLevel == "strict"
-                         ? "Stricter filtering of sensitive or mature content"
-                         : "Default filtering of sensitive content")
-                        .font(.custom("OpenSans-Regular", size: 13))
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .pickerStyle(.navigationLink)
-        } header: {
-            Text("CONTENT FILTERS")
-                .font(.custom("OpenSans-Bold", size: 12))
-        } footer: {
-            Text("Affects what content appears in your feed and search results")
-                .font(.custom("OpenSans-Regular", size: 12))
-        }
-    }
-
-    // MARK: - Discovery Section
-
-    @ViewBuilder
-    private var discoverySection: some View {
-        Section {
-            Toggle(isOn: $showInDiscovery) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Show in People Discovery")
-                        .font(.custom("OpenSans-SemiBold", size: 15))
-                    Text("Allow others to find your profile in People Discovery")
-                        .font(.custom("OpenSans-Regular", size: 13))
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .tint(.blue)
-            Toggle(isOn: $findByPhoneOrEmail) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Find by Phone or Email")
-                        .font(.custom("OpenSans-SemiBold", size: 15))
-                    Text("Allow others to find you using your phone number or email address")
-                        .font(.custom("OpenSans-Regular", size: 13))
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .tint(.blue)
-        } header: {
-            Text("DISCOVERY & FINDABILITY")
-                .font(.custom("OpenSans-Bold", size: 12))
-        } footer: {
-            Text("Turn these off to make your account harder to find by new users")
-                .font(.custom("OpenSans-Regular", size: 12))
-        }
-    }
-
-    // MARK: - Recommendations Section
-
-    @ViewBuilder
-    private var recommendationsSection: some View {
-        Section {
-            Toggle(isOn: $personalizedRecommendations) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Personalized Recommendations")
-                        .font(.custom("OpenSans-SemiBold", size: 15))
-                    Text("Show posts and people based on your interests and activity")
-                        .font(.custom("OpenSans-Regular", size: 13))
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .tint(.blue)
-        } header: {
-            Text("CONTENT RECOMMENDATIONS")
-                .font(.custom("OpenSans-Bold", size: 12))
-        } footer: {
-            Text("When off, your feed shows posts in chronological order without personalization")
-                .font(.custom("OpenSans-Regular", size: 12))
-        }
+        .background(Color(.systemGroupedBackground).ignoresSafeArea())
     }
 
     // MARK: - Reusable Audience Picker Row
@@ -466,13 +598,15 @@ struct PrivacySettingsView: View {
         } label: {
             VStack(alignment: .leading, spacing: 4) {
                 Text(label)
-                    .font(.custom("OpenSans-SemiBold", size: 15))
+                    .font(AMENFont.semiBold(15))
                 Text(subtitle)
-                    .font(.custom("OpenSans-Regular", size: 13))
+                    .font(AMENFont.regular(13))
                     .foregroundStyle(.secondary)
             }
         }
         .pickerStyle(.navigationLink)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
     }
 
     // MARK: - Helpers
@@ -599,10 +733,10 @@ struct AddHiddenWordSheet: View {
                         .padding(.top, 20)
 
                     Text("Add Hidden Word")
-                        .font(.custom("OpenSans-Bold", size: 24))
+                        .font(AMENFont.bold(24))
 
                     Text("Posts and comments containing this word will be filtered")
-                        .font(.custom("OpenSans-Regular", size: 14))
+                        .font(AMENFont.regular(14))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal)
@@ -610,11 +744,11 @@ struct AddHiddenWordSheet: View {
 
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Word or Phrase")
-                        .font(.custom("OpenSans-SemiBold", size: 14))
+                        .font(AMENFont.semiBold(14))
                         .foregroundStyle(.secondary)
 
                     TextField("Enter word or phrase", text: $newWord)
-                        .font(.custom("OpenSans-Regular", size: 15))
+                        .font(AMENFont.regular(15))
                         .textInputAutocapitalization(.never)
                         .padding()
                         .background(
@@ -626,7 +760,7 @@ struct AddHiddenWordSheet: View {
 
                 Button(action: { addWord() }) {
                     Text("Add Word")
-                        .font(.custom("OpenSans-Bold", size: 16))
+                        .font(AMENFont.bold(16))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
                         .foregroundStyle(.white)

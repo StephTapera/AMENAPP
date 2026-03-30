@@ -41,7 +41,7 @@ struct PrivacySettingsOnboardingPage: View {
         case everyone = "Everyone"
         case followersOnly = "People I Follow"
         case nobody = "Nobody"
-        
+
         var icon: String {
             switch self {
             case .everyone: return "person.3.fill"
@@ -49,7 +49,7 @@ struct PrivacySettingsOnboardingPage: View {
             case .nobody: return "hand.raised.fill"
             }
         }
-        
+
         var description: String {
             switch self {
             case .everyone: return "Anyone can send you direct messages"
@@ -58,110 +58,111 @@ struct PrivacySettingsOnboardingPage: View {
             }
         }
     }
-    
+
     var body: some View {
         ZStack {
-            // Black background
-            Color.black
+            ONB.canvas
                 .ignoresSafeArea()
-            
+
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 32) {
                     // Header
                     VStack(spacing: 16) {
-                        Image(systemName: "lock.shield.fill")
-                            .font(.system(size: 70))
-                            .foregroundStyle(.blue.opacity(0.9))
-                            .symbolEffect(.pulse)
-                        
+                        AmenOnboardingHeroIcon(
+                            systemName: "lock.shield.fill",
+                            size: 88,
+                            accent: ONB.accent
+                        )
+
                         VStack(spacing: 8) {
                             Text("Your Privacy Matters")
-                                .font(.custom("OpenSans-Bold", size: 28))
-                                .foregroundStyle(.white)
-                            
+                                .font(AMENFont.bold(28))
+                                .foregroundStyle(ONB.inkPrimary)
+
                             Text("Control who can see your content and contact you")
-                                .font(.custom("OpenSans-Regular", size: 15))
-                                .foregroundStyle(.white.opacity(0.7))
+                                .font(AMENFont.regular(15))
+                                .foregroundStyle(ONB.inkSecondary)
                                 .multilineTextAlignment(.center)
                                 .padding(.horizontal, 24)
                         }
                     }
                     .padding(.top, 60)
-                    
+
                     VStack(spacing: 24) {
                         // Private Account Section
-                        VStack(alignment: .leading, spacing: 16) {
+                        VStack(alignment: .leading, spacing: 12) {
                             HStack(spacing: 12) {
                                 Image(systemName: isAccountPrivate ? "lock.fill" : "lock.open.fill")
-                                    .foregroundStyle(isAccountPrivate ? .blue : .white.opacity(0.6))
+                                    .foregroundStyle(isAccountPrivate ? ONB.accent : ONB.inkTertiary)
                                     .frame(width: 24)
-                                
+
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text("Private Account")
-                                        .font(.custom("OpenSans-SemiBold", size: 17))
-                                        .foregroundStyle(.white)
-                                    
+                                        .font(AMENFont.semiBold(17))
+                                        .foregroundStyle(ONB.inkPrimary)
+
                                     Text(isAccountPrivate ? "Only approved followers see your posts" : "Anyone can see your public posts")
-                                        .font(.custom("OpenSans-Regular", size: 13))
-                                        .foregroundStyle(.white.opacity(0.7))
+                                        .font(AMENFont.regular(13))
+                                        .foregroundStyle(ONB.inkSecondary)
                                         .fixedSize(horizontal: false, vertical: true)
                                 }
-                                
+
                                 Spacer()
-                                
+
                                 Toggle("", isOn: $isAccountPrivate)
                                     .labelsHidden()
-                                    .tint(.blue)
+                                    .tint(ONB.accent)
                             }
                             .padding(20)
                             .background(
-                                RoundedRectangle(cornerRadius: 16)
-                                    .fill(Color.white.opacity(0.05))
+                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    .fill(.thinMaterial)
+                                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.white.opacity(0.72)))
+                                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(ONB.glassBorder, lineWidth: 1))
                             )
-                            
+                            .shadow(color: ONB.glassShadow, radius: 8, y: 2)
+
                             // Private account explainer
                             if isAccountPrivate {
-                                HStack(alignment: .top, spacing: 12) {
-                                    Image(systemName: "info.circle.fill")
-                                        .foregroundStyle(.blue)
-                                        .font(.system(size: 16))
-                                    
-                                    VStack(alignment: .leading, spacing: 8) {
-                                        Text("With a private account:")
-                                            .font(.custom("OpenSans-SemiBold", size: 13))
-                                            .foregroundStyle(.white)
-                                        
-                                        BulletPoint(text: "New followers must request to follow you")
-                                        BulletPoint(text: "Only approved followers see your posts")
-                                        BulletPoint(text: "Your posts won't appear in search results")
-                                        BulletPoint(text: "You can still follow and interact with public accounts")
+                                ONBGlassCard(
+                                    padding: .init(top: 14, leading: 16, bottom: 14, trailing: 16),
+                                    cornerRadius: 14
+                                ) {
+                                    HStack(alignment: .top, spacing: 12) {
+                                        Image(systemName: "info.circle.fill")
+                                            .foregroundStyle(ONB.accent)
+                                            .font(.system(size: 16))
+
+                                        VStack(alignment: .leading, spacing: 8) {
+                                            Text("With a private account:")
+                                                .font(AMENFont.semiBold(13))
+                                                .foregroundStyle(ONB.inkPrimary)
+
+                                            BulletPoint(text: "New followers must request to follow you")
+                                            BulletPoint(text: "Only approved followers see your posts")
+                                            BulletPoint(text: "Your posts won't appear in search results")
+                                            BulletPoint(text: "You can still follow and interact with public accounts")
+                                        }
                                     }
                                 }
-                                .padding(16)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .fill(.blue.opacity(0.1))
-                                )
                                 .transition(.opacity.combined(with: .scale(scale: 0.95)).combined(with: .move(edge: .top)))
                             }
                         }
-                        
+
                         // Messaging Privacy Section
-                        VStack(alignment: .leading, spacing: 16) {
+                        VStack(alignment: .leading, spacing: 12) {
                             Text("Who Can Message You")
-                                .font(.custom("OpenSans-SemiBold", size: 15))
-                                .foregroundStyle(.white.opacity(0.7))
-                            
-                            VStack(spacing: 12) {
+                                .font(AMENFont.semiBold(15))
+                                .foregroundStyle(ONB.inkSecondary)
+
+                            VStack(spacing: 10) {
                                 ForEach(MessagingPrivacy.allCases, id: \.self) { option in
                                     MessagingPrivacyOption(
                                         option: option,
                                         isSelected: whoCanMessage == option,
                                         action: {
-                                            // Haptic feedback
                                             let haptic = UIImpactFeedbackGenerator(style: .light)
                                             haptic.impactOccurred()
-                                            
                                             withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                                                 whoCanMessage = option
                                             }
@@ -170,14 +171,14 @@ struct PrivacySettingsOnboardingPage: View {
                                 }
                             }
                         }
-                        
-                        // Comment Moderation Section
-                        VStack(alignment: .leading, spacing: 16) {
-                            Text("Comment Moderation")
-                                .font(.custom("OpenSans-SemiBold", size: 15))
-                                .foregroundStyle(.white.opacity(0.7))
 
-                            VStack(spacing: 12) {
+                        // Comment Moderation Section
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Comment Moderation")
+                                .font(AMENFont.semiBold(15))
+                                .foregroundStyle(ONB.inkSecondary)
+
+                            VStack(spacing: 10) {
                                 ForEach(CommentModerationLevel.allCases, id: \.self) { level in
                                     Button(action: {
                                         let haptic = UIImpactFeedbackGenerator(style: .light)
@@ -186,30 +187,30 @@ struct PrivacySettingsOnboardingPage: View {
                                             commentModeration = level
                                         }
                                     }) {
+                                        let selected = commentModeration == level
                                         HStack(spacing: 16) {
                                             ZStack {
                                                 Circle()
-                                                    .stroke(commentModeration == level ? Color.blue : Color.secondary.opacity(0.3), lineWidth: 2)
+                                                    .stroke(selected ? ONB.accent : ONB.inkTertiary.opacity(0.4), lineWidth: 2)
                                                     .frame(width: 24, height: 24)
-                                                if commentModeration == level {
+                                                if selected {
                                                     Circle()
-                                                        .fill(Color.blue)
+                                                        .fill(ONB.accent)
                                                         .frame(width: 12, height: 12)
                                                 }
                                             }
 
-                                            let iconColor: Color = commentModeration == level ? .blue : .white.opacity(0.6)
                                             Image(systemName: level.icon)
-                                                .foregroundStyle(iconColor)
+                                                .foregroundStyle(selected ? ONB.accent : ONB.inkTertiary)
                                                 .frame(width: 24)
 
                                             VStack(alignment: .leading, spacing: 4) {
                                                 Text(level.rawValue)
-                                                    .font(.custom("OpenSans-SemiBold", size: 15))
-                                                    .foregroundStyle(.white)
+                                                    .font(AMENFont.semiBold(15))
+                                                    .foregroundStyle(ONB.inkPrimary)
                                                 Text(level.description)
-                                                    .font(.custom("OpenSans-Regular", size: 12))
-                                                    .foregroundStyle(.white.opacity(0.7))
+                                                    .font(AMENFont.regular(12))
+                                                    .foregroundStyle(ONB.inkSecondary)
                                                     .fixedSize(horizontal: false, vertical: true)
                                             }
 
@@ -217,13 +218,18 @@ struct PrivacySettingsOnboardingPage: View {
                                         }
                                         .padding(16)
                                         .background(
-                                            RoundedRectangle(cornerRadius: 12)
-                                                .fill(commentModeration == level ? Color.blue.opacity(0.2) : Color.white.opacity(0.05))
+                                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                                .fill(.thinMaterial)
+                                                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.white.opacity(0.72)))
                                                 .overlay(
-                                                    RoundedRectangle(cornerRadius: 12)
-                                                        .stroke(commentModeration == level ? Color.blue : Color.white.opacity(0.2), lineWidth: 2)
+                                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                                        .strokeBorder(
+                                                            selected ? ONB.accent.opacity(0.50) : ONB.glassBorder,
+                                                            lineWidth: selected ? 1.5 : 1
+                                                        )
                                                 )
                                         )
+                                        .shadow(color: ONB.glassShadow, radius: selected ? 8 : 4, y: selected ? 3 : 1)
                                     }
                                     .buttonStyle(PlainButtonStyle())
                                 }
@@ -231,58 +237,52 @@ struct PrivacySettingsOnboardingPage: View {
                         }
 
                         // AI Moderation Disclosure
-                        HStack(alignment: .top, spacing: 12) {
-                            Image(systemName: "cpu.fill")
-                                .foregroundStyle(.blue)
-                                .font(.system(size: 16))
+                        ONBGlassCard(
+                            padding: .init(top: 14, leading: 16, bottom: 14, trailing: 16),
+                            cornerRadius: 14
+                        ) {
+                            HStack(alignment: .top, spacing: 12) {
+                                Image(systemName: "cpu.fill")
+                                    .foregroundStyle(ONB.accent)
+                                    .font(.system(size: 16))
 
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("AI-Assisted Safety")
-                                    .font(.custom("OpenSans-SemiBold", size: 14))
-                                    .foregroundStyle(.white)
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("AI-Assisted Safety")
+                                        .font(AMENFont.semiBold(14))
+                                        .foregroundStyle(ONB.inkPrimary)
 
-                                Text("Messages are reviewed by AI to detect harmful content and protect our community. No human reads your messages except in confirmed safety escalations.")
-                                    .font(.custom("OpenSans-Regular", size: 12))
-                                    .foregroundStyle(.white.opacity(0.7))
-                                    .fixedSize(horizontal: false, vertical: true)
+                                    Text("Messages are reviewed by AI to detect harmful content and protect our community. No human reads your messages except in confirmed safety escalations.")
+                                        .font(AMENFont.regular(12))
+                                        .foregroundStyle(ONB.inkSecondary)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
                             }
                         }
-                        .padding(16)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(.blue.opacity(0.08))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .stroke(Color.blue.opacity(0.25), lineWidth: 1)
-                                )
-                        )
 
-                        // Additional Info
-                        VStack(alignment: .leading, spacing: 12) {
+                        // You're Always in Control
+                        ONBGlassCard(
+                            padding: .init(top: 14, leading: 16, bottom: 14, trailing: 16),
+                            cornerRadius: 14
+                        ) {
                             HStack(alignment: .top, spacing: 12) {
                                 Image(systemName: "hand.raised.fill")
-                                    .foregroundStyle(.orange)
+                                    .foregroundStyle(ONB.accentGold)
                                     .font(.system(size: 16))
 
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text("You're Always in Control")
-                                        .font(.custom("OpenSans-SemiBold", size: 14))
-                                        .foregroundStyle(.white)
+                                        .font(AMENFont.semiBold(14))
+                                        .foregroundStyle(ONB.inkPrimary)
 
                                     Text("Change these settings anytime in your account settings")
-                                        .font(.custom("OpenSans-Regular", size: 12))
-                                        .foregroundStyle(.white.opacity(0.7))
+                                        .font(AMENFont.regular(12))
+                                        .foregroundStyle(ONB.inkSecondary)
                                 }
                             }
                         }
-                        .padding(16)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(.orange.opacity(0.1))
-                        )
                     }
                     .padding(.horizontal, 24)
-                    
+
                     // Navigation Buttons
                     OnboardingNavigationButtons(
                         currentPage: currentPage,
@@ -297,9 +297,7 @@ struct PrivacySettingsOnboardingPage: View {
                 }
             }
         }
-        .background(Color.black.ignoresSafeArea())
         .onChange(of: isAccountPrivate) { _, _ in
-            // Haptic feedback
             let haptic = UIImpactFeedbackGenerator(style: .medium)
             haptic.impactOccurred()
         }
@@ -312,48 +310,53 @@ struct MessagingPrivacyOption: View {
     let option: PrivacySettingsOnboardingPage.MessagingPrivacy
     let isSelected: Bool
     let action: () -> Void
-    
+
     var body: some View {
         Button(action: action) {
             HStack(spacing: 16) {
                 ZStack {
                     Circle()
-                        .stroke(isSelected ? Color.blue : Color.secondary.opacity(0.3), lineWidth: 2)
+                        .stroke(isSelected ? ONB.accent : ONB.inkTertiary.opacity(0.4), lineWidth: 2)
                         .frame(width: 24, height: 24)
-                    
+
                     if isSelected {
                         Circle()
-                            .fill(Color.blue)
+                            .fill(ONB.accent)
                             .frame(width: 12, height: 12)
                     }
                 }
-                
+
                 Image(systemName: option.icon)
-                    .foregroundStyle(isSelected ? .blue : .white.opacity(0.6))
+                    .foregroundStyle(isSelected ? ONB.accent : ONB.inkTertiary)
                     .frame(width: 24)
-                
+
                 VStack(alignment: .leading, spacing: 4) {
                     Text(option.rawValue)
-                        .font(.custom("OpenSans-SemiBold", size: 15))
-                        .foregroundStyle(.white)
-                    
+                        .font(AMENFont.semiBold(15))
+                        .foregroundStyle(ONB.inkPrimary)
+
                     Text(option.description)
-                        .font(.custom("OpenSans-Regular", size: 12))
-                        .foregroundStyle(.white.opacity(0.7))
+                        .font(AMENFont.regular(12))
+                        .foregroundStyle(ONB.inkSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                
+
                 Spacer()
             }
             .padding(16)
             .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(isSelected ? Color.blue.opacity(0.2) : Color.white.opacity(0.05))
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(.thinMaterial)
+                    .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.white.opacity(0.72)))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(isSelected ? Color.blue : Color.white.opacity(0.2), lineWidth: 2)
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .strokeBorder(
+                                isSelected ? ONB.accent.opacity(0.50) : ONB.glassBorder,
+                                lineWidth: isSelected ? 1.5 : 1
+                            )
                     )
             )
+            .shadow(color: ONB.glassShadow, radius: isSelected ? 8 : 4, y: isSelected ? 3 : 1)
         }
         .buttonStyle(PlainButtonStyle())
     }
@@ -379,7 +382,7 @@ private struct OnboardingNavigationButtons: View {
                         Text("Back")
                             .font(.system(size: 15, weight: .medium))
                     }
-                    .foregroundStyle(.white.opacity(0.7))
+                    .foregroundStyle(ONB.inkSecondary)
                     .frame(height: 52)
                 }
                 .buttonStyle(.plain)
@@ -390,7 +393,7 @@ private struct OnboardingNavigationButtons: View {
             Button(action: onSkip) {
                 Text("Skip")
                     .font(.system(size: 14, weight: .regular))
-                    .foregroundStyle(.white.opacity(0.5))
+                    .foregroundStyle(ONB.inkTertiary)
             }
             .buttonStyle(.plain)
 
@@ -405,7 +408,7 @@ private struct OnboardingNavigationButtons: View {
                 .frame(height: 52)
                 .padding(.horizontal, 20)
                 .background(
-                    Capsule().fill(canContinue ? Color.blue : Color.blue.opacity(0.4))
+                    Capsule().fill(canContinue ? ONB.inkPrimary : ONB.inkTertiary.opacity(0.35))
                 )
             }
             .buttonStyle(.plain)
@@ -418,16 +421,16 @@ private struct OnboardingNavigationButtons: View {
 
 struct BulletPoint: View {
     let text: String
-    
+
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
             Text("•")
-                .font(.custom("OpenSans-Regular", size: 13))
-                .foregroundStyle(.white.opacity(0.7))
-            
+                .font(AMENFont.regular(13))
+                .foregroundStyle(ONB.inkTertiary)
+
             Text(text)
-                .font(.custom("OpenSans-Regular", size: 13))
-                .foregroundStyle(.white.opacity(0.7))
+                .font(AMENFont.regular(13))
+                .foregroundStyle(ONB.inkSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }

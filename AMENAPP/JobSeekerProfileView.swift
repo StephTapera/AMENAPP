@@ -132,7 +132,8 @@ struct JobSeekerProfileView: View {
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
-                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                 }
             }
             .padding(.horizontal, 24)
@@ -145,80 +146,129 @@ struct JobSeekerProfileView: View {
     // MARK: - Profile Scroll View
 
     private var profileScrollView: some View {
-        ScrollView {
-            LazyVStack(spacing: 0) {
-                // Open to Work Card
-                openToWorkCard
-                    .padding(.horizontal)
-                    .padding(.top, 16)
+        ZStack {
+            Color(.systemGroupedBackground).ignoresSafeArea()
+            ScrollView {
+                VStack(spacing: 0) {
+                    // Open to Work Card
+                    Text("STATUS")
+                        .font(AMENFont.bold(11))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 24)
+                        .padding(.bottom, 8)
+                        .frame(maxWidth: .infinity, alignment: .leading)
 
-                Divider().padding(.vertical, 8)
+                    openToWorkCard
+                        .padding(.horizontal, 16)
 
-                // Visibility
-                if openToWorkEnabled || service.mySeekerProfile?.isActive == true {
-                    visibilitySection
-                        .padding(.horizontal)
+                    // Visibility
+                    if openToWorkEnabled || service.mySeekerProfile?.isActive == true {
+                        Text("VISIBILITY")
+                            .font(AMENFont.bold(11))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 20)
+                            .padding(.top, 24)
+                            .padding(.bottom, 8)
+                            .frame(maxWidth: .infinity, alignment: .leading)
 
-                    Divider().padding(.vertical, 8)
-                }
+                        VStack(spacing: 0) {
+                            visibilitySection
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 14)
+                        }
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                        .padding(.horizontal, 16)
+                    }
 
-                // Headline
-                headlineSection
-                    .padding(.horizontal)
+                    // Profile sections in glass card
+                    Text("PROFILE")
+                        .font(AMENFont.bold(11))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 24)
+                        .padding(.bottom, 8)
+                        .frame(maxWidth: .infinity, alignment: .leading)
 
-                Divider().padding(.vertical, 8)
+                    VStack(spacing: 0) {
+                        headlineSection
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
 
-                // Skills
-                skillsSection
-                    .padding(.horizontal)
+                        Divider().padding(.leading, 16)
 
-                Divider().padding(.vertical, 8)
+                        skillsSection
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
 
-                // Experience
-                experienceSection
-                    .padding(.horizontal)
+                        Divider().padding(.leading, 16)
 
-                Divider().padding(.vertical, 8)
+                        experienceSection
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                    }
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                    .padding(.horizontal, 16)
 
-                // Desired Job Types
-                desiredJobTypesSection
-                    .padding(.horizontal)
+                    // Preferences sections in glass card
+                    Text("PREFERENCES")
+                        .font(AMENFont.bold(11))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 24)
+                        .padding(.bottom, 8)
+                        .frame(maxWidth: .infinity, alignment: .leading)
 
-                Divider().padding(.vertical, 8)
+                    VStack(spacing: 0) {
+                        desiredJobTypesSection
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
 
-                // Work Arrangement
-                arrangementSection
-                    .padding(.horizontal)
+                        Divider().padding(.leading, 16)
 
-                Divider().padding(.vertical, 8)
+                        arrangementSection
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
 
-                // Location
-                locationSection
-                    .padding(.horizontal)
+                        Divider().padding(.leading, 16)
 
-                Divider().padding(.vertical, 8)
+                        locationSection
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
 
-                // Compensation
-                compensationSection
-                    .padding(.horizontal)
+                        Divider().padding(.leading, 16)
 
-                Divider().padding(.vertical, 8)
+                        compensationSection
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
 
-                // Portfolio
-                portfolioSection
-                    .padding(.horizontal)
+                        Divider().padding(.leading, 16)
 
-                Divider().padding(.vertical, 8)
+                        portfolioSection
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                    }
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                    .padding(.horizontal, 16)
 
-                // Save/error actions
-                if isEditMode {
-                    actionSection
-                        .padding(.horizontal)
-                        .padding(.bottom, 32)
-                } else if service.mySeekerProfile != nil {
-                    deleteSection
-                        .padding(.horizontal)
-                        .padding(.bottom, 32)
+                    // Save/error actions
+                    if isEditMode {
+                        actionSection
+                            .padding(.horizontal, 16)
+                            .padding(.top, 24)
+                            .padding(.bottom, 32)
+                    } else if service.mySeekerProfile != nil {
+                        deleteSection
+                            .padding(.horizontal, 16)
+                            .padding(.top, 24)
+                            .padding(.bottom, 32)
+                    }
                 }
             }
         }
@@ -263,7 +313,9 @@ struct JobSeekerProfileView: View {
             }
         }
         .padding(16)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
     }
 
     // MARK: - Visibility Section
@@ -1080,6 +1132,7 @@ private struct JobTypeToggleCell: View {
             }
             .padding(10)
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(isSelected ? Color.accentColor.opacity(0.3) : Color.black.opacity(0.06), lineWidth: 0.5))
         }
     }
 }

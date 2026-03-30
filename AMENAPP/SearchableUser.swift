@@ -96,7 +96,10 @@ struct SearchableUser: Identifiable {
         self.followingCount = 0
     }
     
-    // Sample data for testing
+}
+
+#if DEBUG
+extension SearchableUser {
     static let sampleUsers: [SearchableUser] = [
         SearchableUser(
             id: "1",
@@ -160,3 +163,4 @@ struct SearchableUser: Identifiable {
         )
     ]
 }
+#endif

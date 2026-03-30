@@ -703,19 +703,44 @@ struct NoteWorshipSection: View {
 
     var body: some View {
         if let song = matchingSong {
-            VStack(alignment: .leading, spacing: 16) {
-                Label("Now Playing", systemImage: "music.note")
-                    .font(.custom("OpenSans-Bold", size: 18))
-                    .foregroundStyle(.white.opacity(0.9))
+            HStack(spacing: 10) {
+                // Waveform pulse
+                Image(systemName: "waveform")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(Color.purple.opacity(0.8))
+                    .symbolEffect(.variableColor.iterative, isActive: vm.isPlaying)
 
-                WorshipSongCardExpanding(
-                    title: song.title,
-                    artist: song.artist,
-                    churchNoteId: noteId
-                )
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(song.title)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                    Text(song.artist)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.white.opacity(0.5))
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 0)
+
+                Button {
+                    WorshipMusicService.shared.pauseResume()
+                } label: {
+                    Image(systemName: vm.isPlaying ? "pause.fill" : "play.fill")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Color.purple)
+                        .frame(width: 28, height: 28)
+                        .background(Circle().fill(Color.purple.opacity(0.18)))
+                }
+                .buttonStyle(.plain)
             }
-            .padding(24)
-            .glassEffect(GlassEffectStyle.regular.tint(.purple), in: RoundedRectangle(cornerRadius: 24))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .strokeBorder(Color.purple.opacity(0.35), lineWidth: 0.5)
+            )
             .transition(.scale(scale: 0.95).combined(with: .opacity))
         }
     }

@@ -61,11 +61,18 @@ struct SignInView: View {
     
     // Sign-up method selection
     @State private var signUpMethod: SignUpMethod = .email
+    // Login method selection
+    @State private var loginMethod: LoginMethod = .email
 
     // Remember Me
     @State private var rememberMe = SessionTimeoutManager.shared.isRememberMeEnabled()
 
     enum SignUpMethod {
+        case email
+        case phone
+    }
+
+    enum LoginMethod {
         case email
         case phone
     }
@@ -102,7 +109,8 @@ struct SignInView: View {
                 amenTitleOpacity: $amenTitleOpacity,
                 scenePhase: scenePhase,
                 nonceGeneratedAt: nonceGeneratedAt,
-                generateAppleNonce: generateAppleNonce
+                generateAppleNonce: generateAppleNonce,
+                resetLoadingState: { if viewModel.isLoading { viewModel.isLoading = false } }
             ))
     }
     
@@ -131,7 +139,7 @@ struct SignInView: View {
         Group {
             if showAmenTitle {
                 Text("AMEN")
-                    .font(.custom("OpenSans-Bold", size: 32))
+                    .font(AMENFont.bold(32))
                     .foregroundStyle(.white)
                     .opacity(amenTitleOpacity)
                     .padding(.top, 80)
@@ -164,12 +172,14 @@ struct SignInView: View {
     private var titleSection: some View {
         VStack(spacing: 8) {
             Text(isLogin ? "Sign In" : "Sign Up")
-                .font(.custom("OpenSans-Bold", size: 24))
+                .font(AMENFont.bold(24))
                 .foregroundStyle(.white)
                 .multilineTextAlignment(.center)
 
-            Text(isLogin ? "Please enter your details to sign in" : "Create your AMEN account")
-                .font(.custom("OpenSans-Regular", size: 13))
+            Text(isLogin
+                 ? (loginMethod == .phone ? "Enter your phone number to receive a code" : "Sign in with your email or username")
+                 : "Create your AMEN account")
+                .font(AMENFont.regular(13))
                 .foregroundStyle(.white.opacity(0.6))
                 .multilineTextAlignment(.center)
         }
@@ -179,53 +189,54 @@ struct SignInView: View {
     
     @ViewBuilder
     private var signUpMethodToggle: some View {
-        if !isLogin {
-            HStack(spacing: 0) {
-                Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                        signUpMethod = .email
-                    }
-                } label: {
-                    Text("Email")
-                        .font(.custom("OpenSans-SemiBold", size: 13))
-                        .foregroundStyle(signUpMethod == .email ? .black : .white.opacity(0.7))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(signUpMethod == .email ? .white : .clear)
-                        )
+        // Method picker shown for both sign-up and sign-in
+        HStack(spacing: 0) {
+            Button {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                    if isLogin { loginMethod = .email } else { signUpMethod = .email }
                 }
-                
-                Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                        signUpMethod = .phone
-                    }
-                } label: {
-                    Text("Phone")
-                        .font(.custom("OpenSans-SemiBold", size: 13))
-                        .foregroundStyle(signUpMethod == .phone ? .black : .white.opacity(0.7))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(signUpMethod == .phone ? .white : .clear)
-                        )
-                }
-            }
-            .padding(4)
-            .background(
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(.white.opacity(0.1))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10)
-                            .stroke(.white.opacity(0.15), lineWidth: 1)
+            } label: {
+                let isActive = isLogin ? loginMethod == .email : signUpMethod == .email
+                Text("Email")
+                    .font(AMENFont.semiBold(13))
+                    .foregroundStyle(isActive ? .black : .white.opacity(0.7))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(isActive ? .white : .clear)
                     )
-            )
-            .padding(.horizontal, 32)
-            .padding(.bottom, 8)
-            .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+
+            Button {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                    if isLogin { loginMethod = .phone } else { signUpMethod = .phone }
+                }
+            } label: {
+                let isActive = isLogin ? loginMethod == .phone : signUpMethod == .phone
+                Text("Phone")
+                    .font(AMENFont.semiBold(13))
+                    .foregroundStyle(isActive ? .black : .white.opacity(0.7))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(isActive ? .white : .clear)
+                    )
+            }
         }
+        .padding(4)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(.white.opacity(0.1))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(.white.opacity(0.15), lineWidth: 1)
+                )
+        )
+        .padding(.horizontal, 32)
+        .padding(.bottom, 8)
+        .transition(.opacity.combined(with: .move(edge: .top)))
     }
     
     private var inputFieldsSection: some View {
@@ -253,13 +264,15 @@ struct SignInView: View {
                 }
             }
             
-            // Phone Number (login OR phone signup)
-            if isLogin || signUpMethod == .phone {
+            // Phone Number — login (phone method) OR phone sign-up
+            let showPhoneField = (isLogin && loginMethod == .phone) || (!isLogin && signUpMethod == .phone)
+            if showPhoneField {
                 DarkGlassmorphicTextField(
                     icon: "phone",
                     placeholder: "Phone Number",
                     text: $phoneNumber,
-                    keyboardType: .phonePad
+                    keyboardType: .phonePad,
+                    contentType: .telephoneNumber
                 )
                 .onChange(of: phoneNumber) { _, newValue in
                     let formatted = formatPhoneNumberInput(newValue)
@@ -268,25 +281,35 @@ struct SignInView: View {
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
 
-            // Email or Username (login) / Email (email signup)
-            if isLogin || signUpMethod == .email {
-                DarkGlassmorphicTextField(
-                    icon: isLogin ? "person.text.rectangle" : "envelope",
-                    placeholder: isLogin ? "Email or username" : "Email",
-                    text: $email,
-                    keyboardType: isLogin ? .default : .emailAddress
-                )
-                .onChange(of: email) { _, _ in
-                    if viewModel.showError {
-                        viewModel.showError = false
-                        viewModel.errorMessage = nil
+            // Email or Username — login (email method) OR email sign-up
+            let showEmailField = (isLogin && loginMethod == .email) || (!isLogin && signUpMethod == .email)
+            if showEmailField {
+                VStack(alignment: .leading, spacing: 6) {
+                    DarkGlassmorphicTextField(
+                        icon: isLogin ? "person.text.rectangle" : "envelope",
+                        placeholder: isLogin ? "Email or username" : "Email",
+                        text: $email,
+                        keyboardType: isLogin ? .default : .emailAddress
+                    )
+                    .onChange(of: email) { _, _ in
+                        if viewModel.showError {
+                            viewModel.showError = false
+                            viewModel.errorMessage = nil
+                        }
+                    }
+                    
+                    if isLogin {
+                        Text("You can sign in with your username or email address")
+                            .font(AMENFont.regular(11))
+                            .foregroundStyle(.white.opacity(0.5))
+                            .padding(.leading, 4)
                     }
                 }
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
 
-            // Password (login OR email signup)
-            if isLogin || signUpMethod == .email {
+            // Password — login (email method) OR email sign-up
+            if showEmailField {
                 DarkGlassmorphicPasswordField(
                     placeholder: "Password",
                     text: $password,
@@ -302,28 +325,26 @@ struct SignInView: View {
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
 
-            // Forgot Password link and Remember Me
-            if isLogin {
+            // Remember Me + Forgot Password (email login only)
+            if isLogin && loginMethod == .email {
                 HStack {
-                    // Remember Me toggle
                     HStack(spacing: 8) {
                         Toggle("", isOn: $rememberMe)
                             .labelsHidden()
                             .toggleStyle(SwitchToggleStyle(tint: .blue))
 
                         Text("Remember Me")
-                            .font(.custom("OpenSans-Regular", size: 12))
+                            .font(AMENFont.regular(12))
                             .foregroundStyle(.white.opacity(0.7))
                     }
 
                     Spacer()
 
-                    // Forgot Password
                     Button {
                         showPasswordReset = true
                     } label: {
                         Text("Forgot Password?")
-                            .font(.custom("OpenSans-Regular", size: 12))
+                            .font(AMENFont.regular(12))
                             .foregroundStyle(.white.opacity(0.5))
                     }
                 }
@@ -347,7 +368,7 @@ struct SignInView: View {
                         .font(.system(size: 12))
                         .padding(.top, 1)
                     Text(errorMessage)
-                        .font(.custom("OpenSans-Regular", size: 12))
+                        .font(AMENFont.regular(12))
                         .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 0)
                 }
@@ -358,7 +379,7 @@ struct SignInView: View {
                         handleAuth()
                     } label: {
                         Text("Try Again")
-                            .font(.custom("OpenSans-SemiBold", size: 12))
+                            .font(AMENFont.semiBold(12))
                             .foregroundStyle(.white.opacity(0.9))
                             .padding(.horizontal, 12)
                             .padding(.vertical, 6)
@@ -418,11 +439,11 @@ struct SignInView: View {
                 if viewModel.isLoading {
                     ProgressView()
                         .progressViewStyle(CircularProgressViewStyle(tint: .black))
-                    Text("Signing in...")
-                        .font(.custom("OpenSans-SemiBold", size: 15))
+                    Text(isLogin && loginMethod == .phone ? "Sending code..." : "Signing in...")
+                        .font(AMENFont.semiBold(15))
                 } else {
-                    Text(isLogin ? "Sign In" : "Sign Up")
-                        .font(.custom("OpenSans-SemiBold", size: 15))
+                    Text(isLogin ? (loginMethod == .phone ? "Send Code" : "Sign In") : "Sign Up")
+                        .font(AMENFont.semiBold(15))
                 }
             }
             .foregroundStyle(.black)
@@ -449,7 +470,7 @@ struct SignInView: View {
                 Image(systemName: "g.circle.fill")
                     .font(.system(size: 18))
                 Text("Continue with Google")
-                    .font(.custom("OpenSans-SemiBold", size: 14))
+                    .font(AMENFont.semiBold(14))
             }
             .foregroundStyle(.white.opacity(0.9))
             .frame(maxWidth: .infinity)
@@ -475,7 +496,7 @@ struct SignInView: View {
                 Image(systemName: "apple.logo")
                     .font(.system(size: 18, weight: .semibold))
                 Text("Continue with Apple")
-                    .font(.custom("OpenSans-SemiBold", size: 14))
+                    .font(AMENFont.semiBold(14))
             }
             .foregroundStyle(.white.opacity(0.9))
             .frame(maxWidth: .infinity)
@@ -511,7 +532,7 @@ struct SignInView: View {
                         Image(systemName: BiometricAuthService.shared.biometricType.icon)
                             .font(.system(size: 18))
                         Text("Sign in with \(BiometricAuthService.shared.biometricType.displayName)")
-                            .font(.custom("OpenSans-SemiBold", size: 14))
+                            .font(AMENFont.semiBold(14))
                     }
                     .foregroundStyle(.white.opacity(0.9))
                     .frame(maxWidth: .infinity)
@@ -542,7 +563,7 @@ struct SignInView: View {
                     Image(systemName: "envelope.arrow.triangle.branch")
                         .font(.system(size: 16))
                     Text("Sign in with Email Link")
-                        .font(.custom("OpenSans-SemiBold", size: 14))
+                        .font(AMENFont.semiBold(14))
                 }
                 .foregroundStyle(.white.opacity(0.9))
                 .frame(maxWidth: .infinity)
@@ -565,7 +586,7 @@ struct SignInView: View {
     private var toggleSignInSignUp: some View {
         HStack(spacing: 6) {
             Text(isLogin ? "Don't have an account?" : "Already have an account?")
-                .font(.custom("OpenSans-Regular", size: 13))
+                .font(AMENFont.regular(13))
                 .foregroundStyle(.white.opacity(0.5))
 
             Button {
@@ -574,7 +595,7 @@ struct SignInView: View {
                 }
             } label: {
                 Text(isLogin ? "Sign up" : "Sign in")
-                    .font(.custom("OpenSans-SemiBold", size: 13))
+                    .font(AMENFont.semiBold(13))
                     .foregroundStyle(.white)
             }
         }
@@ -618,10 +639,11 @@ struct SignInView: View {
     
     private var isFormValid: Bool {
         if isLogin {
-            // Login: requires phone number OR (email + password)
-            let hasValidPhone = !phoneNumber.isEmpty && phoneNumber.count >= 10
-            let hasEmailPassword = !email.isEmpty && !password.isEmpty
-            return hasValidPhone || hasEmailPassword
+            if loginMethod == .phone {
+                return !phoneNumber.isEmpty && phoneNumber.count >= 10
+            } else {
+                return !email.isEmpty && !password.isEmpty
+            }
         } else {
             // Sign-up: requires display name and username for both methods
             let basicFieldsValid = !displayName.isEmpty && !username.isEmpty
@@ -694,12 +716,11 @@ struct SignInView: View {
             defer { timeoutTask.cancel() }
             
             if isLogin {
-                // Login flow: phone OR email+password
-                if !phoneNumber.isEmpty && phoneNumber.count >= 10 {
+                if loginMethod == .phone {
                     // Phone login with OTP
                     dlog("📱 Phone login - Sending OTP")
                     await viewModel.sendPhoneVerificationCode(phoneNumber: phoneNumber)
-                    
+
                     await MainActor.run {
                         otpSentAt = Date()
                         otpAttempts = 0
@@ -707,22 +728,20 @@ struct SignInView: View {
                         startOTPTimer()
                     }
                 } else {
-                    // Email+password login
+                    // Email / username login
                     let loginIdentifier = email.trimmingCharacters(in: .whitespaces).lowercased()
-                    dlog("📧 Email login with: \(loginIdentifier)")
+                    dlog("📧 Email/username login with: \(loginIdentifier)")
 
                     if loginIdentifier.hasPrefix("@") {
-                        // Username login
                         await signInWithUsername(loginIdentifier)
                     } else if loginIdentifier.contains("@") {
-                        // Email login
                         await viewModel.signIn(email: loginIdentifier, password: password)
                     } else {
-                        // Assume username without @
+                        // No @ symbol — treat as username
                         await signInWithUsername("@\(loginIdentifier)")
                     }
 
-                    // Apply Remember Me setting after successful login
+                    // Apply Remember Me after successful login
                     if viewModel.isAuthenticated {
                         SessionTimeoutManager.shared.setRememberMe(rememberMe)
                         if !rememberMe {
@@ -1623,7 +1642,9 @@ struct SignInLifecycleModifier: ViewModifier {
     let scenePhase: ScenePhase
     let nonceGeneratedAt: Date?
     let generateAppleNonce: () -> Void
-    
+    // Fix F: closure to clear any stuck loading state when app returns to foreground
+    let resetLoadingState: () -> Void
+
     func body(content: Content) -> some View {
         content
             .onAppear {
@@ -1636,13 +1657,16 @@ struct SignInLifecycleModifier: ViewModifier {
                 generateAppleNonce()
             }
             .onChange(of: scenePhase) { _, newPhase in
-                if newPhase == .active,
-                   let timestamp = nonceGeneratedAt {
-                    let elapsed = Date().timeIntervalSince(timestamp)
-                    if elapsed > 300 {
+                if newPhase == .active {
+                    // Refresh Apple nonce if expired
+                    if let timestamp = nonceGeneratedAt,
+                       Date().timeIntervalSince(timestamp) > 300 {
                         dlog("🔄 Regenerating expired Apple nonce")
                         generateAppleNonce()
                     }
+                    // Fix F: clear stuck loading state — user may have returned from
+                    // email/SMS app after the auth request completed or timed out
+                    resetLoadingState()
                 }
             }
     }
@@ -1735,11 +1759,11 @@ struct PasswordResetSheet: View {
                 // Title & Description
                 VStack(spacing: 8) {
                     Text("Reset Password")
-                        .font(.custom("OpenSans-Bold", size: 24))
+                        .font(AMENFont.bold(24))
                         .foregroundStyle(.black)
 
                     Text("Enter your email address and we'll send you instructions to reset your password")
-                        .font(.custom("OpenSans-Regular", size: 14))
+                        .font(AMENFont.regular(14))
                         .foregroundStyle(.black.opacity(0.6))
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 20)
@@ -1775,11 +1799,11 @@ struct PasswordResetSheet: View {
                                 .tint(.white)
                         } else if cooldownRemaining > 0 {
                             Text("Resend in \(cooldownRemaining)s")
-                                .font(.custom("OpenSans-SemiBold", size: 16))
+                                .font(AMENFont.semiBold(16))
                                 .foregroundStyle(.white.opacity(0.7))
                         } else {
                             Text("Send Reset Link")
-                                .font(.custom("OpenSans-SemiBold", size: 16))
+                                .font(AMENFont.semiBold(16))
                                 .foregroundStyle(.white)
                         }
                     }
@@ -1877,11 +1901,11 @@ struct PasswordlessSignInSheet: View {
                 // Title & Description
                 VStack(spacing: 8) {
                     Text("Sign in with Magic Link ✨")
-                        .font(.custom("OpenSans-Bold", size: 24))
+                        .font(AMENFont.bold(24))
                         .foregroundStyle(.black)
                     
                     Text("Enter your email and we'll send you a magic link to sign in instantly - no password needed!")
-                        .font(.custom("OpenSans-Regular", size: 14))
+                        .font(AMENFont.regular(14))
                         .foregroundStyle(.black.opacity(0.6))
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 20)
@@ -1904,7 +1928,7 @@ struct PasswordlessSignInSheet: View {
                     onSend()
                 } label: {
                     Text("Send Magic Link")
-                        .font(.custom("OpenSans-SemiBold", size: 16))
+                        .font(AMENFont.semiBold(16))
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .frame(height: 52)
@@ -1943,17 +1967,21 @@ private struct DarkGlassmorphicTextField: View {
     let placeholder: String
     @Binding var text: String
     var keyboardType: UIKeyboardType = .default
+    var contentType: UITextContentType? = nil   // P2 FIX: expose content type for autofill
 
     @FocusState private var isFocused: Bool
 
     var body: some View {
         HStack(spacing: 14) {
             TextField("", text: $text, prompt: Text(placeholder).foregroundColor(.white.opacity(0.4)))
-                .font(.custom("OpenSans-Regular", size: 14))
+                .font(AMENFont.regular(14))
                 .foregroundStyle(.white.opacity(0.9))
                 .autocorrectionDisabled()
-                .textInputAutocapitalization(keyboardType == .emailAddress ? .never : .words)
+                .textInputAutocapitalization(
+                    (keyboardType == .emailAddress || keyboardType == .phonePad) ? .never : .words
+                )
                 .keyboardType(keyboardType)
+                .textContentType(contentType)
                 .focused($isFocused)
                 .tint(.white)
         }
@@ -1984,7 +2012,7 @@ private struct DarkGlassmorphicPasswordField: View {
         HStack(spacing: 14) {
             if showPassword {
                 TextField(placeholder, text: $text)
-                    .font(.custom("OpenSans-Regular", size: 14))
+                    .font(AMENFont.regular(14))
                     .foregroundStyle(.white.opacity(0.9))
                     .autocorrectionDisabled()
                     .textInputAutocapitalization(.never)
@@ -1994,7 +2022,7 @@ private struct DarkGlassmorphicPasswordField: View {
                     .onSubmit { onSubmit?() }
             } else {
                 SecureField(placeholder, text: $text)
-                    .font(.custom("OpenSans-Regular", size: 14))
+                    .font(AMENFont.regular(14))
                     .foregroundStyle(.white.opacity(0.9))
                     .autocorrectionDisabled()
                     .textInputAutocapitalization(.never)
@@ -2040,7 +2068,7 @@ private struct DarkGlassmorphicUsernameField: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 14) {
                 TextField("@username", text: $text)
-                    .font(.custom("OpenSans-Regular", size: 14))
+                    .font(AMENFont.regular(14))
                     .foregroundStyle(.white.opacity(0.9))
                     .autocorrectionDisabled()
                     .textInputAutocapitalization(.never)
@@ -2071,7 +2099,7 @@ private struct DarkGlassmorphicUsernameField: View {
 
             if !text.isEmpty, let available = isAvailable {
                 Text(available ? "✓ @\(text) is available" : "✗ @\(text) is taken")
-                    .font(.custom("OpenSans-Regular", size: 11))
+                    .font(AMENFont.regular(11))
                     .foregroundStyle(available ? .green.opacity(0.9) : .red.opacity(0.9))
                     .padding(.leading, 4)
             }
@@ -2098,11 +2126,11 @@ private struct DarkPasswordStrengthIndicator: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
                 Text("Password strength:")
-                    .font(.custom("OpenSans-Regular", size: 11))
+                    .font(AMENFont.regular(11))
                     .foregroundStyle(.white.opacity(0.5))
 
                 Text(strength.text)
-                    .font(.custom("OpenSans-SemiBold", size: 11))
+                    .font(AMENFont.semiBold(11))
                     .foregroundStyle(strength.color)
             }
 
@@ -2201,15 +2229,15 @@ struct OTPVerificationView: View {
                         .foregroundStyle(.white.opacity(0.9))
                     
                     Text("Verify Your Phone")
-                        .font(.custom("OpenSans-Bold", size: 24))
+                        .font(AMENFont.bold(24))
                         .foregroundStyle(.white)
                     
                     Text("Enter the 6-digit code sent to")
-                        .font(.custom("OpenSans-Regular", size: 14))
+                        .font(AMENFont.regular(14))
                         .foregroundStyle(.white.opacity(0.6))
                     
                     Text(phoneNumber)
-                        .font(.custom("OpenSans-SemiBold", size: 16))
+                        .font(AMENFont.semiBold(16))
                         .foregroundStyle(.white)
                 }
                 
@@ -2260,7 +2288,7 @@ struct OTPVerificationView: View {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .font(.system(size: 12))
                         Text(errorMessage)
-                            .font(.custom("OpenSans-Regular", size: 12))
+                            .font(AMENFont.regular(12))
                     }
                     .foregroundStyle(.red.opacity(0.9))
                     .padding(12)
@@ -2289,7 +2317,7 @@ struct OTPVerificationView: View {
                                 .progressViewStyle(CircularProgressViewStyle(tint: .black))
                         } else {
                             Text("Verify Code")
-                                .font(.custom("OpenSans-SemiBold", size: 16))
+                                .font(AMENFont.semiBold(16))
                         }
                     }
                     .foregroundStyle(.black)
@@ -2311,7 +2339,7 @@ struct OTPVerificationView: View {
                 VStack(spacing: 8) {
                     if !canResend {
                         Text("Resend code in \(timer)s")
-                            .font(.custom("OpenSans-Regular", size: 13))
+                            .font(AMENFont.regular(13))
                             .foregroundStyle(.white.opacity(0.5))
                     } else {
                         Button {
@@ -2326,7 +2354,7 @@ struct OTPVerificationView: View {
                                     Image(systemName: "arrow.clockwise")
                                         .font(.system(size: 13))
                                     Text("Resend Code")
-                                        .font(.custom("OpenSans-SemiBold", size: 14))
+                                        .font(AMENFont.semiBold(14))
                                 }
                             }
                             .foregroundStyle(.white)
@@ -2344,7 +2372,7 @@ struct OTPVerificationView: View {
                         Image(systemName: "phone.badge.waveform.fill")
                             .font(.system(size: 13))
                         Text("Change Phone Number")
-                            .font(.custom("OpenSans-Regular", size: 13))
+                            .font(AMENFont.regular(13))
                     }
                     .foregroundStyle(.white.opacity(0.6))
                 }
@@ -2378,7 +2406,7 @@ struct OTPDigitBox: View {
                 .frame(width: 50, height: 60)
             
             Text(digit)
-                .font(.custom("OpenSans-Bold", size: 28))
+                .font(AMENFont.bold(28))
                 .foregroundStyle(.white)
                 .scaleEffect(digit.isEmpty ? 0.5 : 1.0)
                 .opacity(digit.isEmpty ? 0 : 1)

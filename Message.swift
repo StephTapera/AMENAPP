@@ -1,0 +1,414 @@
+//
+//  Message.swift
+//  AMENAPP
+//
+//  Model for messages
+//
+
+import Foundation
+import SwiftUI
+import UIKit
+
+// MARK: - Message Delivery Status
+
+public enum MessageDeliveryStatus {
+    case sending      // Gray clock icon
+    case sent         // Single gray checkmark
+    case delivered    // Double gray checkmarks
+    case read         // Double blue checkmarks
+    case failed       // Red exclamation
+    
+    public var icon: String {
+        switch self {
+        case .sending: return "clock"
+        case .sent: return "checkmark"
+        case .delivered: return "checkmark.circle"
+        case .read: return "checkmark.circle.fill"
+        case .failed: return "exclamationmark.circle.fill"
+        }
+    }
+    
+    public var color: SwiftUI.Color {
+        switch self {
+        case .sending: return .secondary
+        case .sent: return .secondary
+        case .delivered: return .secondary
+        case .read: return .blue
+        case .failed: return .red
+        }
+    }
+}
+
+// MARK: - Message Type
+
+public enum MessageType: String, Codable {
+    case text    = "text"
+    case image   = "image"
+    case video   = "video"
+    case file    = "file"
+    case link    = "link"
+}
+
+// MARK: - Message Model
+
+public class AppMessage: Identifiable, Equatable, Hashable {
+    public var id: String
+    let text: String
+    let isFromCurrentUser: Bool
+    let timestamp: Date
+    var senderId: String
+    var senderName: String?
+    var senderProfileImageURL: String? // ✅ Sender's profile image URL
+    var attachments: [MessageAttachment] = []
+    var replyTo: AppMessage?
+    var reactions: [MessageReaction] = []
+    var isRead: Bool = false
+    var isPinned: Bool = false
+    var pinnedBy: String?
+    var pinnedAt: Date?
+    var isStarred: Bool = false
+    var isDeleted: Bool = false
+    var deletedBy: String?
+    var editedAt: Date?
+
+    // New properties for delivery status and features
+    var isSent: Bool = false
+    var isDelivered: Bool = false
+    var isSendFailed: Bool = false
+    var disappearAfter: TimeInterval? = nil // Disappearing message duration
+    var linkPreviews: [MessageLinkPreview] = []
+    var mentionedUserIds: [String] = []
+
+    // MARK: - Attachment type & rich media fields
+    var messageType: MessageType = .text
+
+    // Video / image shared media
+    var mediaURL: String? = nil
+    var mediaDuration: Double? = nil
+
+    // File attachments
+    var mediaFileName: String? = nil
+    var mediaFileSize: Int? = nil
+    var mediaFileExtension: String? = nil
+
+    // Link attachment
+    var linkURL: String? = nil
+    var linkTitle: String? = nil
+    var linkDescription: String? = nil
+    var linkThumbnailURL: String? = nil
+    var linkDomain: String? = nil
+
+    // Upload progress (0.0 – 1.0), nil when upload is complete
+    var uploadProgress: Double? = nil
+
+    // MARK: - Feature: AMEN Reaction Capsules
+    // Key = reaction label (e.g. "🙏 Pray"), value = array of userIds who reacted
+    var amenReactions: [String: [String]] = [:]
+
+    // MARK: - Feature: Inline Reply Threads
+    var replyToMessageId: String? = nil
+    var replyToText: String? = nil
+    var replyToAuthorName: String? = nil
+    var replyCount: Int = 0
+
+    // MARK: - Feature: Poll
+    // Non-nil when this message IS a poll card
+    var poll: PollMessage? = nil
+
+    init(
+        id: String = UUID().uuidString,
+        text: String,
+        isFromCurrentUser: Bool,
+        timestamp: Date,
+        senderId: String = "",
+        senderName: String? = nil,
+        senderProfileImageURL: String? = nil,
+        attachments: [MessageAttachment] = [],
+        replyTo: AppMessage? = nil,
+        reactions: [MessageReaction] = [],
+        isRead: Bool = false,
+        isPinned: Bool = false,
+        pinnedBy: String? = nil,
+        pinnedAt: Date? = nil,
+        isStarred: Bool = false,
+        isDeleted: Bool = false,
+        deletedBy: String? = nil,
+        editedAt: Date? = nil,
+        isSent: Bool = false,
+        isDelivered: Bool = false,
+        isSendFailed: Bool = false,
+        disappearAfter: TimeInterval? = nil,
+        linkPreviews: [MessageLinkPreview] = [],
+        mentionedUserIds: [String] = [],
+        messageType: MessageType = .text,
+        mediaURL: String? = nil,
+        mediaDuration: Double? = nil,
+        mediaFileName: String? = nil,
+        mediaFileSize: Int? = nil,
+        mediaFileExtension: String? = nil,
+        linkURL: String? = nil,
+        linkTitle: String? = nil,
+        linkDescription: String? = nil,
+        linkThumbnailURL: String? = nil,
+        linkDomain: String? = nil,
+        uploadProgress: Double? = nil,
+        amenReactions: [String: [String]] = [:],
+        replyToMessageId: String? = nil,
+        replyToText: String? = nil,
+        replyToAuthorName: String? = nil,
+        replyCount: Int = 0,
+        poll: PollMessage? = nil
+    ) {
+        self.id = id
+        self.text = text
+        self.isFromCurrentUser = isFromCurrentUser
+        self.timestamp = timestamp
+        self.senderId = senderId
+        self.senderName = senderName
+        self.senderProfileImageURL = senderProfileImageURL
+        self.attachments = attachments
+        self.replyTo = replyTo
+        self.reactions = reactions
+        self.isRead = isRead
+        self.isPinned = isPinned
+        self.pinnedBy = pinnedBy
+        self.pinnedAt = pinnedAt
+        self.isStarred = isStarred
+        self.isDeleted = isDeleted
+        self.deletedBy = deletedBy
+        self.editedAt = editedAt
+        self.isSent = isSent
+        self.isDelivered = isDelivered
+        self.isSendFailed = isSendFailed
+        self.disappearAfter = disappearAfter
+        self.linkPreviews = linkPreviews
+        self.mentionedUserIds = mentionedUserIds
+        self.messageType = messageType
+        self.mediaURL = mediaURL
+        self.mediaDuration = mediaDuration
+        self.mediaFileName = mediaFileName
+        self.mediaFileSize = mediaFileSize
+        self.mediaFileExtension = mediaFileExtension
+        self.linkURL = linkURL
+        self.linkTitle = linkTitle
+        self.linkDescription = linkDescription
+        self.linkThumbnailURL = linkThumbnailURL
+        self.linkDomain = linkDomain
+        self.uploadProgress = uploadProgress
+        self.amenReactions = amenReactions
+        self.replyToMessageId = replyToMessageId
+        self.replyToText = replyToText
+        self.replyToAuthorName = replyToAuthorName
+        self.replyCount = replyCount
+        self.poll = poll
+    }
+
+    var senderInitials: String {
+        let name = senderName ?? "U"
+        let components = name.split(separator: " ")
+        if components.count >= 2 {
+            return "\(components[0].prefix(1))\(components[1].prefix(1))".uppercased()
+        }
+        return String(name.prefix(1)).uppercased()
+    }
+    
+    var deliveryStatus: MessageDeliveryStatus {
+        if isSendFailed {
+            return .failed
+        } else if !isFromCurrentUser {
+            return .delivered // Received messages are always delivered
+        } else if isRead {
+            return .read
+        } else if isDelivered {
+            return .delivered
+        } else if isSent {
+            return .sent
+        } else {
+            return .sending
+        }
+    }
+    
+    var formattedTimestamp: String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        return formatter.string(from: timestamp)
+    }
+    
+    public static func == (lhs: AppMessage, rhs: AppMessage) -> Bool {
+        lhs.id == rhs.id
+    }
+    
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+}
+
+// MARK: - Poll Message Model (Feature 3)
+
+public struct PollMessage: Codable, Identifiable, Equatable, Hashable {
+    public var id: String
+    public var question: String
+    public var options: [PollOption]
+    public var allowMultiple: Bool
+    public var createdBy: String
+    public var expiresAt: Date?
+
+    public init(
+        id: String = UUID().uuidString,
+        question: String,
+        options: [PollOption],
+        allowMultiple: Bool = false,
+        createdBy: String,
+        expiresAt: Date? = nil
+    ) {
+        self.id = id
+        self.question = question
+        self.options = options
+        self.allowMultiple = allowMultiple
+        self.createdBy = createdBy
+        self.expiresAt = expiresAt
+    }
+
+    public struct PollOption: Codable, Identifiable, Equatable, Hashable {
+        public var id: String
+        public var text: String
+        public var votes: [String]
+
+        public init(id: String = UUID().uuidString, text: String, votes: [String] = []) {
+            self.id = id
+            self.text = text
+            self.votes = votes
+        }
+
+        public static func == (lhs: PollOption, rhs: PollOption) -> Bool { lhs.id == rhs.id }
+        public func hash(into hasher: inout Hasher) { hasher.combine(id) }
+    }
+
+    public static func == (lhs: PollMessage, rhs: PollMessage) -> Bool { lhs.id == rhs.id }
+    public func hash(into hasher: inout Hasher) { hasher.combine(id) }
+
+    /// Decode from a raw Firestore [String: Any] dict (used where Codable can't be applied directly).
+    public static func fromFirestore(_ data: [String: Any]) -> PollMessage? {
+        guard let id = data["id"] as? String,
+              let question = data["question"] as? String,
+              let optionsRaw = data["options"] as? [[String: Any]],
+              let createdBy = data["createdBy"] as? String else { return nil }
+
+        let options: [PollOption] = optionsRaw.compactMap { opt in
+            guard let oid = opt["id"] as? String, let text = opt["text"] as? String else { return nil }
+            let votes = opt["votes"] as? [String] ?? []
+            return PollOption(id: oid, text: text, votes: votes)
+        }
+
+        var poll = PollMessage(
+            id: id,
+            question: question,
+            options: options,
+            allowMultiple: data["allowMultiple"] as? Bool ?? false,
+            createdBy: createdBy
+        )
+        if let expTimestamp = data["expiresAt"] as? [String: Any],
+           let seconds = expTimestamp["_seconds"] as? TimeInterval {
+            poll.expiresAt = Date(timeIntervalSince1970: seconds)
+        }
+        return poll
+    }
+}
+
+// MARK: - Attachment
+
+public struct MessageAttachment: Identifiable, Equatable, Hashable {
+    public let id: UUID
+    public let type: AttachmentType
+    public let data: Data?
+    public let thumbnail: UIImage?
+    public let url: URL?
+    
+    public enum AttachmentType: Hashable {
+        case photo
+        case video
+        case audio
+        case document
+        case location
+    }
+    
+    public init(
+        id: UUID = UUID(),
+        type: AttachmentType,
+        data: Data? = nil,
+        thumbnail: UIImage? = nil,
+        url: URL? = nil
+    ) {
+        self.id = id
+        self.type = type
+        self.data = data
+        self.thumbnail = thumbnail
+        self.url = url
+    }
+    
+    public static func == (lhs: MessageAttachment, rhs: MessageAttachment) -> Bool {
+        lhs.id == rhs.id
+    }
+    
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+}
+
+public struct MessageReaction: Identifiable, Equatable, Hashable {
+    public let id: UUID
+    public let emoji: String
+    public let userId: String
+    public let username: String
+    
+    public init(emoji: String, userId: String, username: String) {
+        self.id = UUID()
+        self.emoji = emoji
+        self.userId = userId
+        self.username = username
+    }
+    
+    public static func == (lhs: MessageReaction, rhs: MessageReaction) -> Bool {
+        lhs.id == rhs.id
+    }
+    
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+}
+
+// MARK: - Link Preview
+
+public struct MessageLinkPreview: Identifiable, Equatable, Hashable {
+    public let id: UUID
+    public let url: URL
+    public let title: String?
+    public let description: String?
+    public let imageUrl: String?
+    public let favicon: String?
+    
+    public init(
+        url: URL,
+        title: String? = nil,
+        description: String? = nil,
+        imageUrl: String? = nil,
+        favicon: String? = nil
+    ) {
+        self.id = UUID()
+        self.url = url
+        self.title = title
+        self.description = description
+        self.imageUrl = imageUrl
+        self.favicon = favicon
+    }
+    
+    public static func == (lhs: MessageLinkPreview, rhs: MessageLinkPreview) -> Bool {
+        lhs.id == rhs.id
+    }
+    
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+}
+
+

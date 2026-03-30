@@ -23,6 +23,8 @@ class FirebaseManager {
     let auth: Auth
     let firestore: Firestore
     let storage: Storage
+    private let bootstrapLock = NSLock()
+    private var bootstrapTasks: [String: Task<[String: Any], Error>] = [:]
     
     private init() {
         self.auth = Auth.auth()
@@ -761,6 +763,112 @@ enum FirebaseError: LocalizedError {
 // MARK: - FirebaseManager Extensions
 
 extension FirebaseManager {
+    private func bootstrapUsername(for user: FirebaseAuth.User) -> String {
+        "amen-\(user.uid.lowercased().prefix(8))"
+    }
+
+    private func isReturningUser(_ user: FirebaseAuth.User) -> Bool {
+        guard let createdAt = user.metadata.creationDate,
+              let lastSignInAt = user.metadata.lastSignInDate else {
+            return false
+        }
+
+        return lastSignInAt.timeIntervalSince(createdAt) > 10
+    }
+
+    private func bootstrapMissingCurrentUserDocument(for user: FirebaseAuth.User) async throws -> [String: Any] {
+        let trimmedDisplayName = user.displayName?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let emailName = user.email?
+            .components(separatedBy: "@")
+            .first?
+            .replacingOccurrences(of: ".", with: " ")
+            .capitalized ?? ""
+        let displayName = !trimmedDisplayName.isEmpty ? trimmedDisplayName : (!emailName.isEmpty ? emailName : "AMEN User")
+        let hasCompletedOnboarding = isReturningUser(user)
+
+        let names = displayName.components(separatedBy: " ").filter { !$0.isEmpty }
+        let firstName = names.first ?? displayName
+        let lastName = names.count > 1 ? (names.last ?? "") : ""
+        let initials = "\(firstName.prefix(1))\(lastName.prefix(1))".uppercased()
+        let username = bootstrapUsername(for: user)
+        let now = Timestamp(date: Date())
+
+        let userData: [String: Any] = [
+            "uid": user.uid,
+            "email": user.email ?? "",
+            "displayName": displayName,
+            "displayNameLowercase": displayName.lowercased(),
+            "username": username,
+            "usernameLowercase": username,
+            "initials": initials.isEmpty ? "A" : initials,
+            "bio": "",
+            "profileImageURL": user.photoURL?.absoluteString ?? NSNull(),
+            "nameKeywords": createNameKeywords(from: displayName),
+            "createdAt": now,
+            "updatedAt": now,
+            "followersCount": 0,
+            "followingCount": 0,
+            "postsCount": 0,
+            "isPrivate": false,
+            "notificationsEnabled": true,
+            "pushNotificationsEnabled": true,
+            "emailNotificationsEnabled": true,
+            "notifyOnLikes": true,
+            "notifyOnComments": true,
+            "notifyOnFollows": true,
+            "notifyOnMentions": true,
+            "notifyOnPrayerRequests": true,
+            "allowMessagesFromEveryone": true,
+            "showActivityStatus": true,
+            "allowTagging": true,
+            "hasCompletedOnboarding": hasCompletedOnboarding,
+            "profileBootstrapVersion": 1,
+            "profileBootstrapSource": "auth_self_heal"
+        ]
+
+        try await firestore.collection(CollectionPath.users)
+            .document(user.uid)
+            .setData(userData, merge: true)
+
+        do {
+            try await firestore.collection("usernameLookup")
+                .document(username)
+                .setData(["uid": user.uid], merge: true)
+        } catch {
+            dlog("⚠️ FirebaseManager: Username lookup bootstrap failed (non-critical): \(error)")
+        }
+
+        dlog("⚠️ FirebaseManager: Missing user document repaired for authenticated user \(user.uid) (returning=\(hasCompletedOnboarding))")
+        return userData
+    }
+
+    private func bootstrapTask(for user: FirebaseAuth.User) -> Task<[String: Any], Error> {
+        bootstrapLock.lock()
+        defer { bootstrapLock.unlock() }
+
+        if let existingTask = bootstrapTasks[user.uid] {
+            return existingTask
+        }
+
+        let newTask = Task { try await self.bootstrapMissingCurrentUserDocument(for: user) }
+        bootstrapTasks[user.uid] = newTask
+        return newTask
+    }
+
+    private func clearBootstrapTask(for userId: String) {
+        bootstrapLock.lock()
+        defer { bootstrapLock.unlock() }
+        bootstrapTasks.removeValue(forKey: userId)
+    }
+
+    private func bootstrapMissingCurrentUserDocumentIfNeeded(for user: FirebaseAuth.User) async throws -> [String: Any] {
+        let task = bootstrapTask(for: user)
+        defer { clearBootstrapTask(for: user.uid) }
+
+        return try await task.value
+    }
+
     /// Fetch user document as dictionary (for checking onboarding status)
     func fetchUserDocument(userId: String) async throws -> [String: Any] {
         let snapshot = try await firestore
@@ -768,11 +876,41 @@ extension FirebaseManager {
             .document(userId)
             .getDocument()
         
-        guard snapshot.exists, let data = snapshot.data() else {
-            throw FirebaseError.documentNotFound
+        if snapshot.exists, var data = snapshot.data() {
+            if let currentUser = auth.currentUser,
+               currentUser.uid == userId,
+               isReturningUser(currentUser),
+               (data["hasCompletedOnboarding"] as? Bool ?? false) == false {
+                let username = data["username"] as? String
+                let bootstrapUsername = bootstrapUsername(for: currentUser)
+                let bootstrapVersion = data["profileBootstrapVersion"] as? Int
+                let shouldPromoteRecoveredUser = bootstrapVersion == 1 || username == bootstrapUsername
+
+                if shouldPromoteRecoveredUser {
+                    try await firestore.collection(CollectionPath.users)
+                        .document(userId)
+                        .setData([
+                            "hasCompletedOnboarding": true,
+                            "profileBootstrapVersion": 1,
+                            "profileBootstrapSource": "auth_self_heal",
+                            "onboardingRecoveredAt": Timestamp(date: Date()),
+                            "updatedAt": Timestamp(date: Date())
+                        ], merge: true)
+                    data["hasCompletedOnboarding"] = true
+                    data["profileBootstrapVersion"] = 1
+                    data["profileBootstrapSource"] = "auth_self_heal"
+                    dlog("⚠️ FirebaseManager: Promoted repaired returning user \(userId) out of onboarding")
+                }
+            }
+
+            return data
         }
-        
-        return data
+
+        if let currentUser = auth.currentUser, currentUser.uid == userId {
+            return try await bootstrapMissingCurrentUserDocumentIfNeeded(for: currentUser)
+        }
+
+        throw FirebaseError.documentNotFound
     }
     
     // MARK: - Account Linking
@@ -881,5 +1019,3 @@ extension FirebaseManager {
         dlog("✅ FirebaseManager: Provider \(providerID) unlinked successfully")
     }
 }
-
-

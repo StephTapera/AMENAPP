@@ -53,6 +53,8 @@ struct BereanLandingView: View {
     var hasPreviousConversation: Bool = false
     var onContinuePrevious: (() -> Void)?
     var onHistoryTap: (() -> Void)?
+    /// Recent saved conversations for the continuity section (pass the last 2–3 from dataManager).
+    var recentConversations: [BereanContinuityEntry] = []
 
     // Animation orchestration
     @State private var heroComplete = false
@@ -61,6 +63,7 @@ struct BereanLandingView: View {
     // Input state
     @State private var inputText = ""
     @FocusState private var inputFocused: Bool
+    @State private var suggestionsVisible = false
 
     @State private var greeting: BereanGreeting = BereanGreetingManager.greeting()
     @State private var hasAnimatedThisSession = false
@@ -77,9 +80,7 @@ struct BereanLandingView: View {
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 0) {
                         // Push hero to true vertical center of the visible area.
-                        // With no cards below, ~38% from top sits it at the
-                        // optical midpoint above the floating input bar.
-                        Spacer().frame(height: max(24, geo.size.height * 0.38))
+                        Spacer().frame(height: max(24, geo.size.height * (suggestionsVisible ? 0.18 : 0.38)))
 
                         // Hero greeting
                         BereanHeroGreetingView(
@@ -90,33 +91,82 @@ struct BereanLandingView: View {
                             }
                         )
 
-                        // Status / context card (only if has previous session)
-                        if hasPreviousConversation {
+                        // Continuity cards — recent studies/prayers to resume
+                        if !recentConversations.isEmpty && !suggestionsVisible {
+                            BereanContinuitySection(
+                                entries: recentConversations,
+                                onTap: { entry in onInputSubmit(entry.resumePrompt) }
+                            )
+                            .padding(.horizontal, 20)
+                            .padding(.top, 28)
+                            .opacity(statusCardVisible ? 1 : 0)
+                            .offset(y: statusCardVisible ? 0 : 10)
+                            .animation(.spring(response: 0.52, dampingFraction: 0.82), value: statusCardVisible)
+                        } else if hasPreviousConversation && !suggestionsVisible {
+                            // Fallback: generic "continue last conversation" card
                             BereanContinueCard(onTap: onContinuePrevious ?? {})
                                 .padding(.horizontal, 20)
-                                .padding(.top, 32)
+                                .padding(.top, 28)
                                 .opacity(statusCardVisible ? 1 : 0)
                                 .offset(y: statusCardVisible ? 0 : 12)
                         }
 
-                        // Bottom padding for input bar clearance
-                        Spacer().frame(height: 110)
+                        // Bottom padding for input bar + suggestions clearance
+                        Spacer().frame(height: suggestionsVisible ? 340 : 110)
+                    }
+                }
+            }
+            // Dismiss suggestions when tapping the background
+            .onTapGesture {
+                if inputFocused {
+                    withAnimation(.spring(response: 0.38, dampingFraction: 0.78)) {
+                        inputFocused = false
+                        inputText = ""
                     }
                 }
             }
 
-            // ── Floating input bar ──────────────────────────────────────
-            BereanInputBar(
-                text: $inputText,
-                isFocused: $inputFocused,
-                onSubmit: {
-                    guard !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-                    onInputSubmit(inputText)
-                    inputText = ""
-                },
-                onVoiceTap: onVoiceTap
-            )
-            .padding(.horizontal, 16)
+            // ── Suggestion panel — reveals on focus ─────────────────────
+            VStack(spacing: 12) {
+                if suggestionsVisible {
+                    BereanSuggestionPanel(
+                        onChipTap: { prompt in
+                            inputText = prompt
+                            inputFocused = false
+                            onInputSubmit(prompt)
+                            inputText = ""
+                        },
+                        onPromptTap: { prompt in
+                            inputText = prompt
+                            inputFocused = false
+                            onInputSubmit(prompt)
+                            inputText = ""
+                        }
+                    )
+                    .transition(.asymmetric(
+                        insertion: .opacity.combined(with: .move(edge: .bottom)),
+                        removal: .opacity.combined(with: .move(edge: .bottom))
+                    ))
+                }
+
+                // ── Floating input bar ──────────────────────────────────
+                BereanInputBar(
+                    text: $inputText,
+                    isFocused: $inputFocused,
+                    onSubmit: {
+                        guard !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+                        onInputSubmit(inputText)
+                        inputText = ""
+                    },
+                    onVoiceTap: onVoiceTap,
+                    onFocusChange: { focused in
+                        withAnimation(.spring(response: 0.48, dampingFraction: 0.82)) {
+                            suggestionsVisible = focused
+                        }
+                    }
+                )
+                .padding(.horizontal, 16)
+            }
             .padding(.bottom, 16)
         }
         .onAppear {
@@ -124,6 +174,8 @@ struct BereanLandingView: View {
             if reduceMotion {
                 hasAnimatedThisSession = true
                 statusCardVisible = true
+            } else {
+                revealCards()
             }
         }
     }
@@ -133,6 +185,133 @@ struct BereanLandingView: View {
         withAnimation(.spring(response: 0.55, dampingFraction: 0.82).delay(0.05)) {
             statusCardVisible = true
         }
+    }
+}
+
+// MARK: - BereanContinuityEntry
+
+/// Lightweight model for a recent study or prayer thread the user can resume.
+struct BereanContinuityEntry: Identifiable {
+    let id: String
+    let icon: String        // SF Symbol
+    let title: String       // e.g. "Continue your study in Romans"
+    let subtitle: String    // e.g. "Yesterday · 4 messages"
+    let resumePrompt: String // sent to Berean when tapped
+
+    /// Build entries from the last N saved conversations.
+    static func from(_ conversations: [SavedConversation], limit: Int = 2) -> [BereanContinuityEntry] {
+        conversations.prefix(limit).compactMap { conv in
+            guard let first = conv.messages.first(where: { !$0.isFromUser }) else { return nil }
+            let preview = String(first.content.prefix(60))
+            let ago = relativeDate(conv.date)
+            return BereanContinuityEntry(
+                id: conv.id.uuidString,
+                icon: topicIcon(for: conv.title),
+                title: "Continue: \(conv.title)",
+                subtitle: "\(ago) · \(conv.messages.count) messages",
+                resumePrompt: "Let's continue where we left off. My last question was: \(preview)"
+            )
+        }
+    }
+
+    private static func topicIcon(for title: String) -> String {
+        let lower = title.lowercased()
+        if lower.contains("prayer") || lower.contains("pray") { return "hands.sparkles" }
+        if lower.contains("psalm") || lower.contains("verse") || lower.contains("scripture") { return "book.pages" }
+        if lower.contains("note") || lower.contains("sermon") { return "doc.plaintext" }
+        if lower.contains("wisdom") || lower.contains("faith") { return "lightbulb" }
+        return "bubble.left.and.bubble.right"
+    }
+
+    private static func relativeDate(_ date: Date) -> String {
+        let days = Calendar.current.dateComponents([.day], from: date, to: Date()).day ?? 0
+        switch days {
+        case 0: return "Today"
+        case 1: return "Yesterday"
+        default: return "\(days) days ago"
+        }
+    }
+}
+
+// MARK: - BereanContinuitySection
+
+/// Compact row of cards showing recent studies/prayers the user can resume with one tap.
+struct BereanContinuitySection: View {
+    let entries: [BereanContinuityEntry]
+    var onTap: (BereanContinuityEntry) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("PICK UP WHERE YOU LEFT OFF")
+                .font(.system(size: 10, weight: .semibold))
+                .kerning(1.2)
+                .foregroundColor(.bereanTertiary)
+                .padding(.horizontal, 4)
+
+            VStack(spacing: 8) {
+                ForEach(entries) { entry in
+                    BereanContinuityCard(entry: entry, onTap: { onTap(entry) })
+                }
+            }
+        }
+    }
+}
+
+// MARK: - BereanContinuityCard
+
+private struct BereanContinuityCard: View {
+    let entry: BereanContinuityEntry
+    var onTap: () -> Void
+    @State private var isPressed = false
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 14) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(Color.bereanPrimary.opacity(0.06))
+                        .frame(width: 38, height: 38)
+                    Image(systemName: entry.icon)
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundColor(.bereanPrimary)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(entry.title)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.bereanPrimary)
+                        .lineLimit(1)
+                    Text(entry.subtitle)
+                        .font(.system(size: 12, weight: .regular))
+                        .foregroundColor(.bereanSecondary)
+                }
+
+                Spacer()
+
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.bereanTertiary)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Color.bereanCard)
+                    .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .strokeBorder(Color.bereanCardStroke, lineWidth: 0.5)
+                    )
+            )
+            .scaleEffect(isPressed ? 0.97 : 1.0)
+            .animation(.spring(response: 0.28, dampingFraction: 0.75), value: isPressed)
+        }
+        .buttonStyle(.plain)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in isPressed = true }
+                .onEnded { _ in isPressed = false }
+        )
     }
 }
 
@@ -295,12 +474,22 @@ struct BereanInputBar: View {
     var isFocused: FocusState<Bool>.Binding
     var onSubmit: () -> Void
     var onVoiceTap: (() -> Void)?
-    var placeholder: String = "Ask Berean anything…"
-
-    @State private var barHeight: CGFloat = 50
+    var onFocusChange: ((Bool) -> Void)? = nil
+    var placeholder: String = "Ask Berean about Scripture, prayer, wisdom…"
 
     var body: some View {
+        let focused = isFocused.wrappedValue
+        let hasText = !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+
         HStack(spacing: 10) {
+            // Search icon
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 15, weight: .medium))
+                .foregroundColor(focused ? Color(.label) : Color(.tertiaryLabel))
+                .scaleEffect(focused ? 1.06 : 1.0)
+                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: focused)
+                .padding(.leading, 14)
+
             // Text field
             TextField(placeholder, text: $text, axis: .vertical)
                 .font(.system(size: 15))
@@ -309,12 +498,11 @@ struct BereanInputBar: View {
                 .focused(isFocused)
                 .submitLabel(.send)
                 .onSubmit(onSubmit)
-                .padding(.leading, 16)
                 .padding(.vertical, 13)
 
             HStack(spacing: 6) {
-                // Voice button (if provided)
-                if let voiceTap = onVoiceTap {
+                // Voice button (if provided and not typing)
+                if let voiceTap = onVoiceTap, !hasText {
                     Button(action: voiceTap) {
                         Image(systemName: "mic")
                             .font(.system(size: 15, weight: .medium))
@@ -322,11 +510,11 @@ struct BereanInputBar: View {
                             .frame(width: 34, height: 34)
                     }
                     .buttonStyle(.plain)
+                    .transition(.opacity.combined(with: .scale(scale: 0.8)))
                 }
 
                 // Send button
                 Button(action: onSubmit) {
-                    let hasText = !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                     ZStack {
                         Circle()
                             .fill(hasText ? Color.bereanPrimary : Color(.tertiarySystemFill))
@@ -337,21 +525,157 @@ struct BereanInputBar: View {
                     }
                 }
                 .buttonStyle(.plain)
-                .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                .animation(.spring(response: 0.3, dampingFraction: 0.8),
-                           value: text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .disabled(!hasText)
+                .animation(.spring(response: 0.3, dampingFraction: 0.8), value: hasText)
             }
             .padding(.trailing, 10)
+
+            // Cancel — slides in from trailing edge when focused
+            if focused {
+                Button {
+                    withAnimation(.spring(response: 0.38, dampingFraction: 0.78)) {
+                        text = ""
+                        isFocused.wrappedValue = false
+                    }
+                } label: {
+                    Text("Cancel")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(Color(.secondaryLabel))
+                        .padding(.trailing, 4)
+                }
+                .buttonStyle(.plain)
+                .transition(.asymmetric(
+                    insertion: .move(edge: .trailing).combined(with: .opacity),
+                    removal: .move(edge: .trailing).combined(with: .opacity)
+                ))
+            }
         }
         .background(
             RoundedRectangle(cornerRadius: 26, style: .continuous)
                 .fill(Color(.systemBackground))
-                .shadow(color: Color.black.opacity(0.07), radius: 16, x: 0, y: 4)
+                .shadow(
+                    color: Color.black.opacity(focused ? 0.10 : 0.06),
+                    radius: focused ? 20 : 14, x: 0, y: focused ? 6 : 3
+                )
                 .overlay(
                     RoundedRectangle(cornerRadius: 26, style: .continuous)
-                        .strokeBorder(Color.bereanCardStroke, lineWidth: 0.5)
+                        .strokeBorder(
+                            focused ? Color.black.opacity(0.14) : Color.bereanCardStroke,
+                            lineWidth: focused ? 1.0 : 0.5
+                        )
                 )
         )
+        .offset(y: focused ? -4 : 0)
+        .animation(.spring(response: 0.42, dampingFraction: 0.80), value: focused)
+        .onChange(of: focused) { _, newValue in
+            onFocusChange?(newValue)
+        }
+    }
+}
+
+// MARK: - BereanSuggestedPrompt
+
+private struct BereanSuggestedPrompt: Identifiable {
+    let id = UUID()
+    let icon: String
+    let text: String
+}
+
+private let bereanSuggestedPrompts: [BereanSuggestedPrompt] = [
+    BereanSuggestedPrompt(icon: "book.pages",        text: "Explain Romans 8 in plain language"),
+    BereanSuggestedPrompt(icon: "hands.and.sparkles", text: "Give me a prayer for anxiety"),
+    BereanSuggestedPrompt(icon: "heart",              text: "Help me understand forgiveness"),
+    BereanSuggestedPrompt(icon: "doc.text",           text: "Summarize this Church Note"),
+    BereanSuggestedPrompt(icon: "lightbulb",          text: "What does the Bible say about wisdom?"),
+]
+
+private let bereanCategoryChips: [(icon: String, label: String, prompt: String)] = [
+    ("book.closed",     "Bible",   "Help me study the Bible"),
+    ("hands.and.sparkles", "Prayer", "Help me pray"),
+    ("lightbulb",       "Wisdom",  "Give me biblical wisdom"),
+    ("doc.plaintext",   "Notes",   "Help with my church notes"),
+    ("heart.text.square", "Hope",  "Share a verse of hope"),
+]
+
+// MARK: - BereanSuggestionPanel
+
+private struct BereanSuggestionPanel: View {
+    var onChipTap: (String) -> Void
+    var onPromptTap: (String) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // Category chips
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(bereanCategoryChips, id: \.label) { chip in
+                        Button {
+                            onChipTap(chip.prompt)
+                        } label: {
+                            HStack(spacing: 5) {
+                                Image(systemName: chip.icon)
+                                    .font(.system(size: 12, weight: .medium))
+                                Text(chip.label)
+                                    .font(.system(size: 13, weight: .medium))
+                            }
+                            .foregroundColor(Color(.label))
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 7)
+                            .background(
+                                Capsule()
+                                    .fill(Color(.secondarySystemBackground))
+                                    .overlay(Capsule().strokeBorder(Color.bereanCardStroke, lineWidth: 0.5))
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+
+            // Suggested prompt rows
+            VStack(spacing: 0) {
+                ForEach(Array(bereanSuggestedPrompts.enumerated()), id: \.element.id) { index, prompt in
+                    Button {
+                        onPromptTap(prompt.text)
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: prompt.icon)
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(Color(white: 0.55))
+                                .frame(width: 24)
+                            Text(prompt.text)
+                                .font(.system(size: 14, weight: .regular))
+                                .foregroundColor(Color(.label))
+                                .lineLimit(1)
+                            Spacer()
+                            Image(systemName: "arrow.up.forward")
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundColor(Color(white: 0.72))
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 11)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+
+                    if index < bereanSuggestedPrompts.count - 1 {
+                        Divider()
+                            .padding(.leading, 52)
+                    }
+                }
+            }
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Color(.systemBackground))
+                    .shadow(color: Color.black.opacity(0.05), radius: 12, x: 0, y: 3)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .strokeBorder(Color.bereanCardStroke, lineWidth: 0.5)
+                    )
+            )
+            .padding(.horizontal, 16)
+        }
     }
 }
 

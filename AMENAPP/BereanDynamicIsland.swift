@@ -45,6 +45,8 @@ final class BereanIslandViewModel: ObservableObject {
         withAnimation(.spring(response: 0.5, dampingFraction: 0.75)) {
             state = .thinking
         }
+        startLiveActivityIfNeeded()
+        updateLiveActivityForThinking()
         startThinkingClock()
         fetchResponse(query: query)
     }
@@ -78,6 +80,7 @@ final class BereanIslandViewModel: ObservableObject {
         withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
             state = .idle
         }
+        endLiveActivity()
         Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: 200_000_000)
             self?.responseText = ""
@@ -110,6 +113,12 @@ final class BereanIslandViewModel: ObservableObject {
                 thinkingTask?.cancel()
                 let snippet = Self.snippet(from: answer.response)
                 responseText = snippet
+                // Surface the first scripture reference (if any) to the Dynamic Island
+                if let firstRef = answer.scripture.first?.reference {
+                    updateLiveActivityForVerse(firstRef)
+                } else {
+                    updateLiveActivityForSpeaking()
+                }
                 withAnimation(.spring(response: 0.45, dampingFraction: 0.78)) {
                     state = .responded
                 }
@@ -359,20 +368,20 @@ struct BereanDynamicIsland: View {
 
             VStack(alignment: .leading, spacing: 1) {
                 Text("Berean")
-                    .font(.custom("OpenSans-Bold", size: 13))
+                    .font(AMENFont.bold(13))
                     .foregroundStyle(.white)
 
                 if vm.state == .thinking {
                     HStack(spacing: 4) {
                         Text("thinking")
-                            .font(.custom("OpenSans-Regular", size: 11))
+                            .font(AMENFont.regular(11))
                             .foregroundStyle(BereanColor.auraCyan.opacity(0.75))
                         thinkingDots
                     }
                     .transition(.opacity)
                 } else {
                     Text("thought for \(vm.thinkingSeconds)s")
-                        .font(.custom("OpenSans-Regular", size: 11))
+                        .font(AMENFont.regular(11))
                         .foregroundStyle(BereanColor.auraCyan.opacity(0.65))
                         .transition(.opacity)
                 }
@@ -467,7 +476,7 @@ struct BereanDynamicIsland: View {
 
             // Typing text
             Text(vm.displayedText)
-                .font(.custom("OpenSans-Regular", size: 14))
+                .font(AMENFont.regular(14))
                 .foregroundStyle(.white.opacity(0.92))
                 .lineSpacing(4)
                 .lineLimit(8)
@@ -480,7 +489,7 @@ struct BereanDynamicIsland: View {
                     onOpenFull()
                 } label: {
                     Text("Open Full")
-                        .font(.custom("OpenSans-SemiBold", size: 13))
+                        .font(AMENFont.semiBold(13))
                         .foregroundStyle(.white.opacity(0.85))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
@@ -501,7 +510,7 @@ struct BereanDynamicIsland: View {
                     vm.dismiss()
                 } label: {
                     Text("Copy")
-                        .font(.custom("OpenSans-SemiBold", size: 13))
+                        .font(AMENFont.semiBold(13))
                         .foregroundStyle(BereanColor.islandBg)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)

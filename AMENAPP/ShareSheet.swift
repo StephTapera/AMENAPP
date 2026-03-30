@@ -15,7 +15,7 @@ import UIKit
 struct ShareSheet: UIViewControllerRepresentable {
     let items: [Any]
     var excludedActivityTypes: [UIActivity.ActivityType]? = nil
-    
+
     func makeUIViewController(context: Context) -> UIActivityViewController {
         let controller = UIActivityViewController(
             activityItems: items,
@@ -44,7 +44,7 @@ struct ShareSheet: UIViewControllerRepresentable {
 
         return controller
     }
-    
+
     func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {
         // No update needed
     }
@@ -68,72 +68,112 @@ struct AmenShareSheet: View {
     @State private var shareSuccessMessage = ""
     @State private var showShareError = false
     @State private var shareErrorMessage = ""
-    
+
     var body: some View {
         NavigationView {
-            List {
-                Section {
+            ScrollView {
+                VStack(spacing: 0) {
+
+                    // Subtitle
                     Text("Share your note with the AMEN community or externally")
                         .font(.system(size: 15))
                         .foregroundStyle(.secondary)
-                        .listRowBackground(Color.clear)
-                }
-                
-                Section("Share Within AMEN") {
-                    // Share to OpenTable
-                    Button {
-                        shareToOpenTable()
-                    } label: {
-                        ShareOptionRow(
-                            icon: "table.furniture",
-                            title: "Share to OpenTable",
-                            description: "Start a discussion about this sermon",
-                            color: .blue
-                        )
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 20)
+                        .padding(.bottom, 24)
+
+                    // MARK: Share Within AMEN
+                    Text("SHARE WITHIN AMEN")
+                        .font(AMENFont.bold(11))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 8)
+
+                    VStack(spacing: 0) {
+                        Button {
+                            shareToOpenTable()
+                        } label: {
+                            ShareOptionRow(
+                                icon: "table.furniture",
+                                title: "Share to OpenTable",
+                                description: "Start a discussion about this sermon",
+                                color: .blue
+                            )
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 4)
+                        }
+                        .buttonStyle(.plain)
+
+                        Divider().padding(.leading, 16)
+
+                        Button {
+                            shareToTestimonies()
+                        } label: {
+                            ShareOptionRow(
+                                icon: "heart.text.square",
+                                title: "Share as Testimony",
+                                description: "Share how this message impacted you",
+                                color: .purple
+                            )
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 4)
+                        }
+                        .buttonStyle(.plain)
+
+                        Divider().padding(.leading, 16)
+
+                        Button {
+                            shareToPrayer()
+                        } label: {
+                            ShareOptionRow(
+                                icon: "hands.sparkles",
+                                title: "Share as Prayer Request",
+                                description: "Ask the community to pray about insights",
+                                color: .orange
+                            )
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 4)
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
-                    
-                    // Share to Testimonies
-                    Button {
-                        shareToTestimonies()
-                    } label: {
-                        ShareOptionRow(
-                            icon: "heart.text.square",
-                            title: "Share as Testimony",
-                            description: "Share how this message impacted you",
-                            color: .purple
-                        )
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                    .padding(.horizontal, 16)
+
+                    // MARK: Share Externally
+                    Text("SHARE EXTERNALLY")
+                        .font(AMENFont.bold(11))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 24)
+                        .padding(.bottom, 8)
+
+                    VStack(spacing: 0) {
+                        Button {
+                            showExternalShare = true
+                        } label: {
+                            ShareOptionRow(
+                                icon: "square.and.arrow.up",
+                                title: "Share via...",
+                                description: "Messages, social media, and more",
+                                color: .green
+                            )
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 4)
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
-                    
-                    // Share to Prayer
-                    Button {
-                        shareToPrayer()
-                    } label: {
-                        ShareOptionRow(
-                            icon: "hands.sparkles",
-                            title: "Share as Prayer Request",
-                            description: "Ask the community to pray about insights",
-                            color: .orange
-                        )
-                    }
-                    .buttonStyle(.plain)
-                }
-                
-                Section("Share Externally") {
-                    Button {
-                        showExternalShare = true
-                    } label: {
-                        ShareOptionRow(
-                            icon: "square.and.arrow.up",
-                            title: "Share via...",
-                            description: "Messages, social media, and more",
-                            color: .green
-                        )
-                    }
-                    .buttonStyle(.plain)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                    .padding(.horizontal, 16)
+
+                    Spacer(minLength: 32)
                 }
             }
+            .background(Color(.systemGroupedBackground).ignoresSafeArea())
             .navigationTitle("Share Note")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -159,9 +199,9 @@ struct AmenShareSheet: View {
         }
         .disabled(isSharing)
     }
-    
+
     // MARK: - Share Actions
-    
+
     private func shareToOpenTable() {
         isSharing = true
         Task { @MainActor in
@@ -245,34 +285,34 @@ struct AmenShareSheet: View {
             dismiss()
         }
     }
-    
+
     private func generateShareText() -> String {
         var text = "📝 \(note.title)\n\n"
-        
+
         if let sermon = note.sermonTitle {
             text += "🎤 Sermon: \(sermon)\n"
         }
-        
+
         if let church = note.churchName {
             text += "⛪ Church: \(church)\n"
         }
-        
+
         if let pastor = note.pastor {
             text += "👤 Pastor: \(pastor)\n"
         }
-        
+
         if let scripture = note.scripture {
             text += "📖 Scripture: \(scripture)\n"
         }
-        
+
         text += "\n\(note.content)\n"
-        
+
         if !note.tags.isEmpty {
             text += "\n🏷️ " + note.tags.map { "#\($0)" }.joined(separator: " ")
         }
-        
+
         text += "\n\nShared from AMEN App 🙏"
-        
+
         return text
     }
 }
@@ -284,7 +324,7 @@ struct ShareOptionRow: View {
     let title: String
     let description: String
     let color: Color
-    
+
     var body: some View {
         HStack(spacing: 16) {
             // Icon
@@ -292,26 +332,26 @@ struct ShareOptionRow: View {
                 Circle()
                     .fill(color.opacity(0.15))
                     .frame(width: 48, height: 48)
-                
+
                 Image(systemName: icon)
                     .font(.system(size: 20, weight: .semibold))
                     .foregroundStyle(color)
             }
-            
+
             // Text
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(.primary)
-                
+
                 Text(description)
                     .font(.system(size: 14))
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
             }
-            
+
             Spacer()
-            
+
             Image(systemName: "chevron.right")
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(.secondary)
@@ -325,7 +365,7 @@ struct ShareOptionRow: View {
 struct SimpleShareButton: View {
     let note: ChurchNote
     @State private var showShareSheet = false
-    
+
     var body: some View {
         Button {
             showShareSheet = true
@@ -345,26 +385,40 @@ struct SimpleShareButton: View {
 }
 
 #Preview("Share Option Row") {
-    List {
-        ShareOptionRow(
-            icon: "table.furniture",
-            title: "Share to OpenTable",
-            description: "Start a discussion about this sermon",
-            color: .blue
-        )
-        
-        ShareOptionRow(
-            icon: "heart.text.square",
-            title: "Share as Testimony",
-            description: "Share how this message impacted you",
-            color: .purple
-        )
-        
-        ShareOptionRow(
-            icon: "hands.sparkles",
-            title: "Share as Prayer Request",
-            description: "Ask the community to pray about insights",
-            color: .orange
-        )
+    ScrollView {
+        VStack(spacing: 0) {
+            ShareOptionRow(
+                icon: "table.furniture",
+                title: "Share to OpenTable",
+                description: "Start a discussion about this sermon",
+                color: .blue
+            )
+            .padding(.horizontal, 16)
+
+            Divider().padding(.leading, 16)
+
+            ShareOptionRow(
+                icon: "heart.text.square",
+                title: "Share as Testimony",
+                description: "Share how this message impacted you",
+                color: .purple
+            )
+            .padding(.horizontal, 16)
+
+            Divider().padding(.leading, 16)
+
+            ShareOptionRow(
+                icon: "hands.sparkles",
+                title: "Share as Prayer Request",
+                description: "Ask the community to pray about insights",
+                color: .orange
+            )
+            .padding(.horizontal, 16)
+        }
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+        .padding(16)
     }
+    .background(Color(.systemGroupedBackground).ignoresSafeArea())
 }

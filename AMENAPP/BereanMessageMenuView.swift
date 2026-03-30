@@ -9,14 +9,19 @@ struct BereanMessageMenuView: View {
     let message: String
     let onDismiss: () -> Void
     let onPostToAMEN: (String) -> Void
+    /// Called when user taps "Dig In" — triggers a follow-up ask in the parent chat
+    var onDigIn: (() -> Void)? = nil
+    /// Called when user taps "Pray" — saves to prayer
+    var onSaveToPrayer: (() -> Void)? = nil
+    /// Called when user taps "Save" — saves to Church Notes
+    var onSaveToNotes: (() -> Void)? = nil
 
     private let actions: [(emoji: String, label: String, id: String)] = [
         ("📋", "Copy",   "copy"),
-        ("🔖", "Save",   "save"),
+        ("📖", "Notes",  "notes"),
         ("📤", "Post",   "post"),
         ("🙏", "Pray",   "pray"),
         ("🔍", "Dig In", "digin"),
-        ("🗑️", "Delete", "delete"),
     ]
 
     var body: some View {
@@ -50,17 +55,18 @@ struct BereanMessageMenuView: View {
         case "copy":
             UIPasteboard.general.string = message
             UINotificationFeedbackGenerator().notificationOccurred(.success)
-        case "save":
+        case "notes":
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            onSaveToNotes?()
         case "post":
             onPostToAMEN(message)
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         case "pray":
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            onSaveToPrayer?()
         case "digin":
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        case "delete":
-            UINotificationFeedbackGenerator().notificationOccurred(.warning)
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            onDigIn?()
         default: break
         }
         onDismiss()

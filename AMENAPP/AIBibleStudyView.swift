@@ -34,6 +34,11 @@ struct AIBibleStudyView: View {
     @State private var orb2Animation = false
     @FocusState private var isInputFocused: Bool
     @State private var keyboardHeight: CGFloat = 0
+    // P0 FIX: Store tokens — closure-based observers MUST be removed via the
+    // returned NSObjectProtocol token. removeObserver(self, ...) is a no-op for them
+    // and caused duplicate observers + memory leaks on every view appearance.
+    @State private var kbShowToken: NSObjectProtocol?
+    @State private var kbHideToken: NSObjectProtocol?
     @State private var savedMessages: [AIStudyMessage] = []
     @State var conversationHistory: [[AIStudyMessage]] = []
     @State var showHistory = false
@@ -259,7 +264,7 @@ struct AIBibleStudyView: View {
                             Image(systemName: "chevron.left")
                                 .font(.system(size: 15, weight: .semibold))
                             Text("Back")
-                                .font(.custom("OpenSans-SemiBold", size: 15))
+                                .font(AMENFont.semiBold(15))
                         }
                         .foregroundStyle(Color(white: 0.2))
                     }
@@ -389,7 +394,7 @@ struct AIBibleStudyView: View {
                                 .font(.system(size: 12, weight: .semibold))
 
                             Text(tab.rawValue)
-                                .font(.custom("OpenSans-SemiBold", size: 13))
+                                .font(AMENFont.semiBold(13))
 
                             if tab.requiresPro && !hasProAccess {
                                 Image(systemName: "lock.fill")
@@ -432,7 +437,10 @@ struct AIBibleStudyView: View {
     // MARK: - Keyboard Handling
 
     private func setupKeyboardObservers() {
-        NotificationCenter.default.addObserver(
+        // Guard against duplicate registration on repeated onAppear calls
+        guard kbShowToken == nil else { return }
+
+        kbShowToken = NotificationCenter.default.addObserver(
             forName: UIResponder.keyboardWillShowNotification,
             object: nil,
             queue: .main
@@ -443,7 +451,7 @@ struct AIBibleStudyView: View {
             }
         }
 
-        NotificationCenter.default.addObserver(
+        kbHideToken = NotificationCenter.default.addObserver(
             forName: UIResponder.keyboardWillHideNotification,
             object: nil,
             queue: .main
@@ -455,8 +463,14 @@ struct AIBibleStudyView: View {
     }
 
     private func removeKeyboardObservers() {
-        NotificationCenter.default.removeObserver(self, name: UIResponder.keyboardWillShowNotification, object: nil)
-        NotificationCenter.default.removeObserver(self, name: UIResponder.keyboardWillHideNotification, object: nil)
+        if let token = kbShowToken {
+            NotificationCenter.default.removeObserver(token)
+            kbShowToken = nil
+        }
+        if let token = kbHideToken {
+            NotificationCenter.default.removeObserver(token)
+            kbHideToken = nil
+        }
     }
 
     // MARK: - Voice Input
@@ -665,7 +679,7 @@ struct BereanEmptyState: View {
                         .multilineTextAlignment(.center)
 
                     Text("Scripture-grounded answers\nto your deepest questions.")
-                        .font(.custom("OpenSans-Regular", size: 16))
+                        .font(AMENFont.regular(16))
                         .foregroundStyle(Color(white: 0.50))
                         .multilineTextAlignment(.center)
                         .lineSpacing(4)
@@ -678,7 +692,7 @@ struct BereanEmptyState: View {
             // Suggestion chips
             VStack(alignment: .leading, spacing: 12) {
                 Text("Try asking")
-                    .font(.custom("OpenSans-SemiBold", size: 12))
+                    .font(AMENFont.semiBold(12))
                     .foregroundStyle(Color(white: 0.55))
                     .textCase(.uppercase)
                     .kerning(0.8)
@@ -693,7 +707,7 @@ struct BereanEmptyState: View {
                                 onSuggestionTap(suggestion)
                             } label: {
                                 Text(suggestion)
-                                    .font(.custom("OpenSans-Regular", size: 14))
+                                    .font(AMENFont.regular(14))
                                     .foregroundStyle(Color(white: 0.25))
                                     .padding(.horizontal, 16)
                                     .padding(.vertical, 10)
@@ -822,7 +836,7 @@ struct LightMessageBubble: View {
 
             VStack(alignment: message.isUser ? .trailing : .leading, spacing: 0) {
                 Text(message.text)
-                    .font(.custom("OpenSans-Regular", size: 15))
+                    .font(AMENFont.regular(15))
                     .foregroundStyle(
                         message.isUser
                             ? Color.white
@@ -951,13 +965,13 @@ struct LightGlassmorphicChatInput: View {
                     ZStack(alignment: .leading) {
                         if userInput.isEmpty {
                             Text("Ask about Scripture...")
-                                .font(.custom("OpenSans-Regular", size: 15))
+                                .font(AMENFont.regular(15))
                                 .foregroundStyle(Color(white: 0.55))
                                 .padding(.leading, 2)
                                 .allowsHitTesting(false)
                         }
                         TextField("", text: $userInput, axis: .vertical)
-                            .font(.custom("OpenSans-Regular", size: 15))
+                            .font(AMENFont.regular(15))
                             .foregroundStyle(Color(white: 0.10))
                             .padding(.leading, 2)
                             .lineLimit(1...4)
@@ -1077,14 +1091,14 @@ struct LightUsageLimitBanner: View {
                 .foregroundStyle(Color(red: 1.0, green: 0.45, blue: 0.25))
 
             Text("\(messagesRemaining) of \(totalMessages) free messages remaining today")
-                .font(.custom("OpenSans-Regular", size: 13))
+                .font(AMENFont.regular(13))
                 .foregroundStyle(Color(white: 0.35))
 
             Spacer()
 
             Button(action: onUpgrade) {
                 Text("Upgrade")
-                    .font(.custom("OpenSans-SemiBold", size: 12))
+                    .font(AMENFont.semiBold(12))
                     .foregroundStyle(Color(red: 1.0, green: 0.45, blue: 0.25))
                     .padding(.horizontal, 12)
                     .padding(.vertical, 5)
@@ -1144,11 +1158,11 @@ struct AIInsightCard: View {
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text(insight.title)
-                            .font(.custom("OpenSans-Bold", size: 16))
+                            .font(AMENFont.bold(16))
                             .foregroundStyle(Color(white: 0.12))
 
                         Text(insight.verse)
-                            .font(.custom("OpenSans-SemiBold", size: 12))
+                            .font(AMENFont.semiBold(12))
                             .foregroundStyle(.blue)
                     }
 
@@ -1163,7 +1177,7 @@ struct AIInsightCard: View {
                     Divider()
 
                     Text(insight.content)
-                        .font(.custom("OpenSans-Regular", size: 14))
+                        .font(AMENFont.regular(14))
                         .foregroundStyle(Color(white: 0.20))
                         .lineSpacing(4)
                         .transition(.opacity.combined(with: .move(edge: .top)))
@@ -1187,7 +1201,7 @@ struct QuestionsContent: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Suggested Questions")
-                .font(.custom("OpenSans-Bold", size: 20))
+                .font(AMENFont.bold(20))
                 .foregroundStyle(Color(white: 0.12))
                 .padding(.horizontal)
 
@@ -1214,7 +1228,7 @@ struct QuestionCard: View {
                     .foregroundStyle(Color(red: 0.30, green: 0.60, blue: 0.95))
 
                 Text(question)
-                    .font(.custom("OpenSans-Regular", size: 15))
+                    .font(AMENFont.regular(15))
                     .foregroundStyle(Color(white: 0.15))
                     .multilineTextAlignment(.leading)
 
@@ -1286,10 +1300,10 @@ struct DevotionalContent: View {
     var body: some View {
         VStack(spacing: 20) {
             Text("Daily Devotional")
-                .font(.custom("OpenSans-Bold", size: 24))
+                .font(AMENFont.bold(24))
                 .foregroundStyle(Color(white: 0.12))
             Text("Pro feature — upgrade to unlock personalized devotionals")
-                .font(.custom("OpenSans-Regular", size: 15))
+                .font(AMENFont.regular(15))
                 .foregroundStyle(Color(white: 0.50))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)
@@ -1302,10 +1316,10 @@ struct StudyPlansContent: View {
     var body: some View {
         VStack(spacing: 20) {
             Text("Study Plans")
-                .font(.custom("OpenSans-Bold", size: 24))
+                .font(AMENFont.bold(24))
                 .foregroundStyle(Color(white: 0.12))
             Text("Pro feature — upgrade to unlock custom study plans")
-                .font(.custom("OpenSans-Regular", size: 15))
+                .font(AMENFont.regular(15))
                 .foregroundStyle(Color(white: 0.50))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)
@@ -1318,10 +1332,10 @@ struct AnalysisContent: View {
     var body: some View {
         VStack(spacing: 20) {
             Text("Biblical Analysis")
-                .font(.custom("OpenSans-Bold", size: 24))
+                .font(AMENFont.bold(24))
                 .foregroundStyle(Color(white: 0.12))
             Text("Pro feature — upgrade to unlock deep analysis tools")
-                .font(.custom("OpenSans-Regular", size: 15))
+                .font(AMENFont.regular(15))
                 .foregroundStyle(Color(white: 0.50))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)
@@ -1334,10 +1348,10 @@ struct MemorizeContent: View {
     var body: some View {
         VStack(spacing: 20) {
             Text("Memory Verse")
-                .font(.custom("OpenSans-Bold", size: 24))
+                .font(AMENFont.bold(24))
                 .foregroundStyle(Color(white: 0.12))
             Text("Pro feature — upgrade to unlock memory verse tools")
-                .font(.custom("OpenSans-Regular", size: 15))
+                .font(AMENFont.regular(15))
                 .foregroundStyle(Color(white: 0.50))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)

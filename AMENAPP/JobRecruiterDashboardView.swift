@@ -31,25 +31,28 @@ struct JobRecruiterDashboardView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                // Custom tab bar
-                tabBar
-                    .padding(.horizontal)
-                    .padding(.top, 8)
-                    .padding(.bottom, 4)
+            ZStack {
+                Color(.systemGroupedBackground).ignoresSafeArea()
+                VStack(spacing: 0) {
+                    // Custom tab bar
+                    tabBar
+                        .padding(.horizontal)
+                        .padding(.top, 8)
+                        .padding(.bottom, 4)
+                        .background(.regularMaterial)
+                        .overlay(Divider(), alignment: .bottom)
 
-                Divider()
-
-                // Content
-                Group {
-                    switch selectedTab {
-                    case .applications: applicationsTab
-                    case .myJobs:       myJobsTab
-                    case .analytics:    analyticsTab
-                    case .profile:      profileTab
+                    // Content
+                    Group {
+                        switch selectedTab {
+                        case .applications: applicationsTab
+                        case .myJobs:       myJobsTab
+                        case .analytics:    analyticsTab
+                        case .profile:      profileTab
+                        }
                     }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             .navigationTitle("Recruiter Dashboard")
             .navigationBarTitleDisplayMode(.inline)
@@ -149,24 +152,21 @@ struct JobRecruiterDashboardView: View {
             } else {
                 // Group by job
                 let grouped = Dictionary(grouping: service.candidateInbox, by: \.jobId)
-                List {
-                    ForEach(Array(grouped.keys.sorted()), id: \.self) { jobId in
-                        let apps = grouped[jobId] ?? []
-                        let jobTitle = apps.first?.jobTitle ?? "Unknown Job"
-                        let unread = apps.filter { !$0.isRead }.count
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(spacing: 0) {
+                        ForEach(Array(grouped.keys.sorted()), id: \.self) { jobId in
+                            let apps = grouped[jobId] ?? []
+                            let jobTitle = apps.first?.jobTitle ?? "Unknown Job"
+                            let unread = apps.filter { !$0.isRead }.count
 
-                        Section {
-                            ForEach(apps) { application in
-                                RecruiterInboxCard(application: application)
-                            }
-                        } header: {
+                            // Section header
                             HStack {
-                                Text(jobTitle)
-                                    .font(.subheadline.bold())
-                                    .foregroundStyle(.primary)
+                                Text(jobTitle.uppercased())
+                                    .font(AMENFont.bold(11))
+                                    .foregroundStyle(.secondary)
                                 if unread > 0 {
                                     Text("\(unread) new")
-                                        .font(.caption2.bold())
+                                        .font(AMENFont.bold(10))
                                         .padding(.horizontal, 6)
                                         .padding(.vertical, 2)
                                         .background(Color.accentColor, in: Capsule())
@@ -174,13 +174,31 @@ struct JobRecruiterDashboardView: View {
                                 }
                                 Spacer()
                                 Text("\(apps.count) applicants")
-                                    .font(.caption)
+                                    .font(AMENFont.regular(11))
                                     .foregroundStyle(.secondary)
                             }
+                            .padding(.horizontal, 20)
+                            .padding(.top, 24)
+                            .padding(.bottom, 8)
+
+                            VStack(spacing: 0) {
+                                ForEach(Array(apps.enumerated()), id: \.element.id) { idx, application in
+                                    RecruiterInboxCard(application: application)
+                                        .padding(.horizontal, 16)
+                                        .padding(.vertical, 14)
+                                    if idx < apps.count - 1 {
+                                        Divider().padding(.leading, 16)
+                                    }
+                                }
+                            }
+                            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                            .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                            .padding(.horizontal, 16)
                         }
+                        Color.clear.frame(height: 32)
                     }
                 }
-                .listStyle(.grouped)
             }
         }
     }
@@ -209,36 +227,72 @@ struct JobRecruiterDashboardView: View {
                     }
                 }
             } else {
-                List {
-                    let activeJobs = service.myPostedJobs.filter { $0.isActive }
-                    let inactiveJobs = service.myPostedJobs.filter { !$0.isActive }
+                let activeJobs = service.myPostedJobs.filter { $0.isActive }
+                let inactiveJobs = service.myPostedJobs.filter { !$0.isActive }
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(spacing: 0) {
+                        if !activeJobs.isEmpty {
+                            Text("ACTIVE (\(activeJobs.count))")
+                                .font(AMENFont.bold(11))
+                                .foregroundStyle(.secondary)
+                                .padding(.horizontal, 20)
+                                .padding(.top, 24)
+                                .padding(.bottom, 8)
+                                .frame(maxWidth: .infinity, alignment: .leading)
 
-                    if !activeJobs.isEmpty {
-                        Section("Active (\(activeJobs.count))") {
-                            ForEach(activeJobs) { job in
-                                RecruiterJobCard(job: job)
-                                    .swipeActions(edge: .trailing) {
-                                        Button(role: .destructive) {
-                                            Task { try? await service.deactivateJob(job.id ?? "") }
-                                        } label: {
-                                            Label("Deactivate", systemImage: "pause.circle.fill")
+                            VStack(spacing: 0) {
+                                ForEach(Array(activeJobs.enumerated()), id: \.element.id) { idx, job in
+                                    RecruiterJobCard(job: job)
+                                        .padding(.horizontal, 16)
+                                        .padding(.vertical, 14)
+                                        .swipeActions(edge: .trailing) {
+                                            Button(role: .destructive) {
+                                                Task { try? await service.deactivateJob(job.id ?? "") }
+                                            } label: {
+                                                Label("Deactivate", systemImage: "pause.circle.fill")
+                                            }
+                                            .tint(.orange)
                                         }
-                                        .tint(.orange)
+                                    if idx < activeJobs.count - 1 {
+                                        Divider().padding(.leading, 16)
                                     }
+                                }
                             }
+                            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                            .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                            .padding(.horizontal, 16)
                         }
-                    }
 
-                    if !inactiveJobs.isEmpty {
-                        Section("Inactive / Expired") {
-                            ForEach(inactiveJobs) { job in
-                                RecruiterJobCard(job: job)
-                                    .opacity(0.6)
+                        if !inactiveJobs.isEmpty {
+                            Text("INACTIVE / EXPIRED")
+                                .font(AMENFont.bold(11))
+                                .foregroundStyle(.secondary)
+                                .padding(.horizontal, 20)
+                                .padding(.top, 24)
+                                .padding(.bottom, 8)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+
+                            VStack(spacing: 0) {
+                                ForEach(Array(inactiveJobs.enumerated()), id: \.element.id) { idx, job in
+                                    RecruiterJobCard(job: job)
+                                        .padding(.horizontal, 16)
+                                        .padding(.vertical, 14)
+                                        .opacity(0.6)
+                                    if idx < inactiveJobs.count - 1 {
+                                        Divider().padding(.leading, 16)
+                                    }
+                                }
                             }
+                            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                            .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                            .padding(.horizontal, 16)
                         }
+
+                        Color.clear.frame(height: 32)
                     }
                 }
-                .listStyle(.grouped)
             }
         }
     }
@@ -246,23 +300,31 @@ struct JobRecruiterDashboardView: View {
     // MARK: - Analytics Tab
 
     private var analyticsTab: some View {
-        ScrollView {
-            LazyVStack(spacing: 16) {
-                // Aggregate stats
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(spacing: 0) {
+                Text("OVERVIEW")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
                 aggregateStatsGrid
 
-                Divider().padding(.horizontal)
-
-                // Per-job breakdown
                 if !service.myPostedJobs.isEmpty {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Per Job Breakdown")
-                            .font(.headline)
-                            .padding(.horizontal)
+                    Text("PER JOB BREAKDOWN")
+                        .font(AMENFont.bold(11))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 24)
+                        .padding(.bottom, 8)
+                        .frame(maxWidth: .infinity, alignment: .leading)
 
+                    VStack(spacing: 12) {
                         ForEach(service.myPostedJobs) { job in
                             RecruiterJobAnalyticsRow(job: job)
-                                .padding(.horizontal)
+                                .padding(.horizontal, 16)
                         }
                     }
                 } else {
@@ -272,9 +334,9 @@ struct JobRecruiterDashboardView: View {
                         message: "Post jobs to see performance analytics."
                     )
                 }
+
+                Color.clear.frame(height: 32)
             }
-            .padding(.top, 16)
-            .padding(.bottom, 32)
         }
     }
 
@@ -290,14 +352,14 @@ struct JobRecruiterDashboardView: View {
             RecruiterStatCell(label: "Saves", value: "\(totalSaves)", icon: "bookmark.fill", color: .orange)
             RecruiterStatCell(label: "Conversion", value: String(format: "%.1f%%", conversionRate), icon: "arrow.up.right.circle.fill", color: .purple)
         }
-        .padding(.horizontal)
+        .padding(.horizontal, 16)
     }
 
     // MARK: - Profile Tab
 
     private var profileTab: some View {
-        ScrollView {
-            VStack(spacing: 20) {
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(spacing: 0) {
                 if let employer = service.myEmployerProfile {
                     employerProfileDisplay(employer)
                 } else {
@@ -313,10 +375,10 @@ struct JobRecruiterDashboardView: View {
                         .buttonStyle(.borderedProminent)
                     }
                 }
+                Color.clear.frame(height: 40)
             }
-            .padding(.horizontal)
+            .padding(.horizontal, 16)
             .padding(.top, 16)
-            .padding(.bottom, 40)
         }
     }
 
@@ -356,7 +418,9 @@ struct JobRecruiterDashboardView: View {
             }
             .frame(maxWidth: .infinity)
             .padding(20)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+            .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
 
             // Subscription tier
             HStack(spacing: 12) {
@@ -376,6 +440,8 @@ struct JobRecruiterDashboardView: View {
             }
             .padding(16)
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+            .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
 
             // Performance stats
             VStack(alignment: .leading, spacing: 12) {
@@ -411,6 +477,8 @@ struct JobRecruiterDashboardView: View {
             }
             .padding(16)
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+            .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
 
             // Description
             if !employer.description.isEmpty {
@@ -424,6 +492,8 @@ struct JobRecruiterDashboardView: View {
                 .padding(16)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
             }
         }
     }
@@ -614,7 +684,9 @@ private struct RecruiterJobAnalyticsRow: View {
             .frame(height: 6)
         }
         .padding(14)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
     }
 
     private func analyticsChip(value: String, label: String, color: Color) -> some View {
@@ -656,7 +728,9 @@ private struct RecruiterStatCell: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
     }
 }
 
