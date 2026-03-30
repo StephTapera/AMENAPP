@@ -190,6 +190,42 @@ exports.onMessageSafetyEvent       = onMessageSafetyEvent;
 exports.scheduledTrustScoreRefresh = scheduledTrustScoreRefresh;
 
 // ============================================================================
+// PHASE 2: SAFE MESSAGING — Pre-send safety gateway, trust scores, notification grouping
+// ============================================================================
+
+// Safe Messaging Gateway: Pre-send content moderation
+const { safeMessageGateway } = require("./safeMessagingGateway");
+exports.safeMessageGateway = safeMessageGateway;
+
+// Trust Score System: User reputation tracking
+const {
+  onUserReported,
+  onUserBlocked,
+  onMessageRequestAccepted: onTrustRequestAccepted,
+  onMessageRequestDeclined,
+  recalculateTrustScores,
+  initializeTrustScore,
+} = require("./trustScoreSystem");
+exports.onUserReported = onUserReported;
+exports.onUserBlocked = onUserBlocked;
+exports.onTrustRequestAccepted = onTrustRequestAccepted;
+exports.onMessageRequestDeclined = onMessageRequestDeclined;
+exports.recalculateTrustScores = recalculateTrustScores;
+exports.initializeTrustScore = initializeTrustScore;
+
+// Notification Grouping: Intelligent notification management
+const {
+  onMessageCreated,
+  updateBadgeCount,
+  getGroupedNotifications,
+  markNotificationsRead,
+} = require("./notificationGrouping");
+exports.onMessageCreated = onMessageCreated;
+exports.updateBadgeCount = updateBadgeCount;
+exports.getGroupedNotifications = getGroupedNotifications;
+exports.markNotificationsRead = markNotificationsRead;
+
+// ============================================================================
 // REALTIME DATABASE: COMMENT NOTIFICATIONS
 // ============================================================================
 

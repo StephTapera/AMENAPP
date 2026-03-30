@@ -342,7 +342,7 @@ final class BereanSafetyEscalationService: ObservableObject {
         currentLevel = level
 
         if level != .none,
-           let (_, highestCategory) = categoryScores.max(by: { $0.value < $1.value }),
+           let (highestCategory, _) = categoryScores.max(by: { $0.value < $1.value }),
            let representativeSignal = signals.last(where: { $0.pattern.category == highestCategory }) {
             currentEscalation = buildResponse(for: representativeSignal.pattern, level: level)
         } else {

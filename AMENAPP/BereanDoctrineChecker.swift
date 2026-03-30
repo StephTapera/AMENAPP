@@ -90,9 +90,9 @@ final class BereanDoctrineChecker: ObservableObject {
         let cleaned = raw
             .replacingOccurrences(of: "```json", with: "")
             .replacingOccurrences(of: "```", with: "")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
 
-        guard let data = cleaned.data(using: .utf8),
+        guard let data = cleaned.data(using: String.Encoding.utf8),
               let json = try? JSONDecoder().decode(DoctrineCheckJSON.self, from: data) else {
             return nil
         }

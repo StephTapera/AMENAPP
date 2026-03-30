@@ -61,6 +61,9 @@ struct UnifiedChatView: View {
     // Link attachment
     @State private var showLinkSheet = false
 
+    // Feature 3: Poll creation sheet
+    @State private var showCreatePollSheet = false
+
     // Quick reply chips (shown when messages.isEmpty)
     @State private var isChipsExpanded = true
     @State private var dismissedChipIds: Set<String> = []
@@ -278,6 +281,24 @@ struct UnifiedChatView: View {
                                 .transition(.move(edge: .bottom).combined(with: .opacity))
                         }
 
+                        // Feature 2: Reply preview strip — shown when replying to a message
+                        if let replying = replyingTo {
+                            ReplyPreviewStrip(
+                                replyToText: replying.text.isEmpty ? "(attachment)" : replying.text,
+                                replyToAuthor: replying.senderName ?? "Message"
+                            ) {
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                                    replyingTo = nil
+                                }
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.bottom, 4)
+                            .transition(.asymmetric(
+                                insertion: .move(edge: .bottom).combined(with: .opacity),
+                                removal: .move(edge: .bottom).combined(with: .opacity)
+                            ))
+                        }
+
                         // Compact input bar
                         compactInputBar
                             .padding(.horizontal, 12)
@@ -372,6 +393,12 @@ struct UnifiedChatView: View {
                 senderName: messagingService.currentUserName
             ) { msg in
                 appendAttachmentMessage(msg)
+            }
+        }
+        // Feature 3: Poll creation sheet
+        .sheet(isPresented: $showCreatePollSheet) {
+            CreatePollSheet(isPresented: $showCreatePollSheet) { poll in
+                sendPoll(poll)
             }
         }
         .alert("Message Failed", isPresented: $showErrorAlert) {
@@ -787,51 +814,109 @@ struct UnifiedChatView: View {
                                         .padding(.vertical, 4)
                                 } else {
                                     VStack(spacing: 4) {
-                                        LiquidGlassMessageBubble(
-                                            message: message,
-                                            isFromCurrentUser: isFromCurrentUser,
-                                            isLastInGroup: isLastInGroup,
-                                            showReadReceipt: isLastOutgoing,
-                                            // FIX 1: Reflect auto-retry state in bubble UI
-                                            isRetrying: messagingService.retryingMessageIds.contains(message.id),
-                                            onReply: {
-                                                replyingTo = message
-                                                isInputFocused = true
-                                            },
-                                            onReact: { emoji in
-                                                addReaction(to: message, emoji: emoji)
-                                            },
-                                            onLongPress: {
-                                                selectedMessageForReaction = message
-                                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                                    showReactionPicker = true
+                                        // Feature 3: Poll card — rendered instead of the regular bubble
+                                        if let poll = message.poll {
+                                            GlassPollCard(
+                                                poll: poll,
+                                                currentUserId: Auth.auth().currentUser?.uid ?? ""
+                                            ) { optionId in
+                                                togglePollVote(messageId: message.id, optionId: optionId, allowMultiple: poll.allowMultiple)
+                                            }
+                                            .frame(maxWidth: 300)
+                                            .frame(maxWidth: .infinity, alignment: isFromCurrentUser ? .trailing : .leading)
+                                        } else {
+                                            // Feature 2: Inline reply quote shown inside bubble area
+                                            if let replyText = message.replyToText,
+                                               let replyAuthor = message.replyToAuthorName {
+                                                InlineReplyQuote(text: replyText, authorName: replyAuthor)
+                                                    .frame(maxWidth: 280)
+                                                    .frame(maxWidth: .infinity, alignment: isFromCurrentUser ? .trailing : .leading)
+                                                    .padding(.bottom, 2)
+                                            }
+
+                                            LiquidGlassMessageBubble(
+                                                message: message,
+                                                isFromCurrentUser: isFromCurrentUser,
+                                                isLastInGroup: isLastInGroup,
+                                                showReadReceipt: isLastOutgoing,
+                                                // FIX 1: Reflect auto-retry state in bubble UI
+                                                isRetrying: messagingService.retryingMessageIds.contains(message.id),
+                                                onReply: {
+                                                    replyingTo = message
+                                                    isInputFocused = true
+                                                },
+                                                onReact: { emoji in
+                                                    addReaction(to: message, emoji: emoji)
+                                                },
+                                                onLongPress: {
+                                                    selectedMessageForReaction = message
+                                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                                        showReactionPicker = true
+                                                    }
+                                                },
+                                                onDelete: {
+                                                    deleteMessage(message: message)
+                                                },
+                                                onRetry: message.isSendFailed ? {
+                                                    retryFailedMessage(messageId: message.id, text: message.text)
+                                                } : nil,
+                                                onReport: !isFromCurrentUser ? {
+                                                    messageToReport = message
+                                                    showReportConfirmation = true
+                                                } : nil,
+                                                onBlock: !isFromCurrentUser ? {
+                                                    userIdToBlock = message.senderId
+                                                    showBlockConfirmation = true
+                                                } : nil,
+                                                onMute: !isFromCurrentUser ? {
+                                                    muteSender(userId: message.senderId)
+                                                } : nil
+                                            )
+                                            // Feature 2: Swipe-right-to-reply gesture on bubble
+                                            // Uses simultaneousGesture so the ScrollView scroll gesture
+                                            // is not consumed. The axis-lock guard (width > height * 1.5)
+                                            // ensures only horizontal swipes trigger a reply.
+                                            .simultaneousGesture(
+                                                DragGesture(minimumDistance: 20)
+                                                    .onEnded { value in
+                                                        guard abs(value.translation.width) > abs(value.translation.height) * 1.5 else { return }
+                                                        if value.translation.width > 50 {
+                                                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                                            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                                                                replyingTo = message
+                                                                isInputFocused = true
+                                                            }
+                                                        }
+                                                    }
+                                            )
+                                            // Feature 1: AMEN Reaction Capsules row — shown below bubble when reactions exist
+                                            if !message.amenReactions.isEmpty {
+                                                ReactionCapsulesRow(
+                                                    reactions: message.amenReactions,
+                                                    currentUserId: Auth.auth().currentUser?.uid ?? ""
+                                                ) { reaction in
+                                                    toggleAmenReaction(messageId: message.id, reaction: reaction)
                                                 }
-                                            },
-                                            onDelete: {
-                                                deleteMessage(message: message)
-                                            },
-                                            onRetry: message.isSendFailed ? {
-                                                retryFailedMessage(messageId: message.id, text: message.text)
-                                            } : nil,
-                                            onReport: !isFromCurrentUser ? {
-                                                messageToReport = message
-                                                showReportConfirmation = true
-                                            } : nil,
-                                            onBlock: !isFromCurrentUser ? {
-                                                userIdToBlock = message.senderId
-                                                showBlockConfirmation = true
-                                            } : nil,
-                                            onMute: !isFromCurrentUser ? {
-                                                muteSender(userId: message.senderId)
-                                            } : nil
-                                        )
-                                        // Link preview cards below the bubble
-                                        if let firstPreview = message.linkPreviews.first {
-                                            let previewMeta: LinkPreviewMetadata = LinkPreviewService.shared.getCached(for: firstPreview.url)
-                                                ?? LinkPreviewMetadata(url: firstPreview.url, title: firstPreview.title, siteName: firstPreview.url.host)
-                                            FeedLinkPreviewCard(url: firstPreview.url, metadata: previewMeta)
-                                                .frame(maxWidth: 280)
-                                                .padding(.horizontal, 8)
+                                                .frame(maxWidth: .infinity, alignment: isFromCurrentUser ? .trailing : .leading)
+                                            }
+
+                                            // Feature 2: Reply count badge
+                                            if message.replyCount > 0 {
+                                                Text("↩ \(message.replyCount) \(message.replyCount == 1 ? "reply" : "replies")")
+                                                    .font(.system(size: 12, weight: .medium))
+                                                    .foregroundStyle(.secondary)
+                                                    .frame(maxWidth: .infinity, alignment: isFromCurrentUser ? .trailing : .leading)
+                                                    .padding(.horizontal, 4)
+                                            }
+
+                                            // Link preview cards below the bubble
+                                            if let firstPreview = message.linkPreviews.first {
+                                                let previewMeta: LinkPreviewMetadata = LinkPreviewService.shared.getCached(for: firstPreview.url)
+                                                    ?? LinkPreviewMetadata(url: firstPreview.url, title: firstPreview.title, siteName: firstPreview.url.host)
+                                                FeedLinkPreviewCard(url: firstPreview.url, metadata: previewMeta)
+                                                    .frame(maxWidth: 280)
+                                                    .padding(.horizontal, 8)
+                                            }
                                         }
                                     }
                                     .padding(.bottom, isLastInGroup ? 6 : 2)
@@ -1028,10 +1113,11 @@ struct UnifiedChatView: View {
 
     private var collapsibleMediaSection: some View {
         HStack(spacing: 0) {
-            attachTrayCell(icon: "photo.fill",  label: "Photos", iconColor: .blue,   bgColor: Color(red: 0.91, green: 0.96,  blue: 0.996), index: 0) { showingPhotoPicker = true }
-            attachTrayCell(icon: "video.fill",  label: "Video",  iconColor: .purple, bgColor: Color(red: 0.94, green: 0.93,  blue: 0.973), index: 1) { showVideoPicker = true }
-            attachTrayCell(icon: "doc.fill",    label: "Files",  iconColor: .green,  bgColor: Color(red: 0.94, green: 0.968, blue: 0.929), index: 2) { showDocumentPicker = true }
-            attachTrayCell(icon: "link",        label: "Link",   iconColor: .orange, bgColor: Color(red: 1.0,  green: 0.957, blue: 0.925), index: 3) { showLinkSheet = true }
+            attachTrayCell(icon: "photo.fill",       label: "Photos", iconColor: .blue,   bgColor: Color(red: 0.91, green: 0.96,  blue: 0.996), index: 0) { showingPhotoPicker = true }
+            attachTrayCell(icon: "video.fill",       label: "Video",  iconColor: .purple, bgColor: Color(red: 0.94, green: 0.93,  blue: 0.973), index: 1) { showVideoPicker = true }
+            attachTrayCell(icon: "doc.fill",         label: "Files",  iconColor: .green,  bgColor: Color(red: 0.94, green: 0.968, blue: 0.929), index: 2) { showDocumentPicker = true }
+            attachTrayCell(icon: "link",             label: "Link",   iconColor: .orange, bgColor: Color(red: 1.0,  green: 0.957, blue: 0.925), index: 3) { showLinkSheet = true }
+            attachTrayCell(icon: "chart.bar.fill",   label: "Poll",   iconColor: .indigo, bgColor: Color(red: 0.93, green: 0.92,  blue: 0.97),  index: 4) { showCreatePollSheet = true }
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 16)
@@ -1516,6 +1602,12 @@ struct UnifiedChatView: View {
         let textToSend = messageText
         let conversationId = conversation.id
 
+        // Feature 2: Capture reply context before clearing state
+        let capturedReplyingTo = replyingTo
+        let replyMessageId = capturedReplyingTo?.id
+        let replyText = capturedReplyingTo?.text
+        let replyAuthorName = capturedReplyingTo?.senderName
+
         // Detect URLs in message
         let detectedURLs = linkPreviewService.detectURLs(in: textToSend)
 
@@ -1528,7 +1620,10 @@ struct UnifiedChatView: View {
             senderName: messagingService.currentUserName,
             isSent: false,
             isDelivered: false,
-            isSendFailed: false
+            isSendFailed: false,
+            replyToMessageId: replyMessageId,
+            replyToText: replyText,
+            replyToAuthorName: replyAuthorName
         )
         pendingMessages[messageId] = optimisticMessage
         // Append only if not already present (belt-and-suspenders)
@@ -1539,6 +1634,8 @@ struct UnifiedChatView: View {
         // Clear input immediately for snappy UX
         messageText = ""
         chatLinkController.reset()
+        // Feature 2: Clear reply state after composing
+        replyingTo = nil
         isInputFocused = false
 
         // Stop typing indicator immediately when message is sent
@@ -1793,11 +1890,23 @@ struct UnifiedChatView: View {
 
                 dlog("📤 Sending message to: \(conversationId)")
 
+                // Feature 2: Write reply metadata directly to the message document after base send
                 try await messagingService.sendMessage(
                     conversationId: conversationId,
                     text: textToSend,
+                    replyToMessageId: replyMessageId,
                     clientMessageId: messageId
                 )
+
+                // Feature 2: Increment replyCount on the parent message (fire-and-forget)
+                if let parentId = replyMessageId {
+                    Task.detached(priority: .background) {
+                        try? await Firestore.firestore()
+                            .collection("conversations").document(conversationId)
+                            .collection("messages").document(parentId)
+                            .updateData(["replyCount": FieldValue.increment(Int64(1))])
+                    }
+                }
 
                 dlog("✅ Message sent successfully!")
                 
@@ -2044,6 +2153,55 @@ struct UnifiedChatView: View {
                 await MainActor.run {
                     toastManager.showError("Failed to add reaction")
                 }
+            }
+        }
+    }
+
+    // MARK: - Feature 1: AMEN Reaction Toggle
+
+    private func toggleAmenReaction(messageId: String, reaction: String) {
+        Task {
+            do {
+                try await messagingService.toggleAmenReaction(
+                    conversationId: conversation.id,
+                    messageId: messageId,
+                    reaction: reaction
+                )
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            } catch {
+                dlog("❌ Error toggling AMEN reaction: \(error)")
+                await MainActor.run { toastManager.showError("Could not update reaction") }
+            }
+        }
+    }
+
+    // MARK: - Feature 3: Poll
+
+    private func sendPoll(_ poll: PollMessage) {
+        Task {
+            do {
+                try await messagingService.sendPollMessage(conversationId: conversation.id, poll: poll)
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            } catch {
+                dlog("❌ Error sending poll: \(error)")
+                await MainActor.run { toastManager.showError("Failed to send poll") }
+            }
+        }
+    }
+
+    private func togglePollVote(messageId: String, optionId: String, allowMultiple: Bool) {
+        Task {
+            do {
+                try await messagingService.voteOnPoll(
+                    conversationId: conversation.id,
+                    messageId: messageId,
+                    optionId: optionId,
+                    allowMultiple: allowMultiple
+                )
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            } catch {
+                dlog("❌ Error voting on poll: \(error)")
+                await MainActor.run { toastManager.showError("Could not record vote") }
             }
         }
     }
@@ -3155,6 +3313,9 @@ struct LiquidGlassMessageBubble: View {
     )
     private let sentColor = Color(red: 0.0, green: 0.48, blue: 1.0)
 
+    // Spring entrance animation
+    @State private var isVisible = false
+
     // Swipe-to-reply state
     @State private var swipeOffset: CGFloat = 0
     @State private var didTriggerReplyHaptic = false
@@ -3368,6 +3529,15 @@ struct LiquidGlassMessageBubble: View {
                     }
             )
             } // ZStack
+        }
+        .opacity(isVisible ? 1 : 0)
+        .scaleEffect(isVisible ? 1 : 0.88, anchor: .bottom)
+        .offset(y: isVisible ? 0 : 4)
+        .onAppear {
+            let delay: Double = isFromCurrentUser ? 0 : 0.05
+            withAnimation(.interpolatingSpring(stiffness: 180, damping: 16).delay(delay)) {
+                isVisible = true
+            }
         }
         .animation(.spring(response: 0.28, dampingFraction: 0.7), value: showInlineReactions)
     }
@@ -3930,6 +4100,439 @@ enum BereanStreamingService {
             print("❌ BereanStreamingService: \(error)")
             return "__error__: \(error.localizedDescription)"
         }
+    }
+}
+
+// MARK: - Feature 1: AMEN Reaction Tray
+
+private struct AmenReactionTray: View {
+    let reactions = ["🙏 Pray", "🙌 Amen", "💙 Encouraged", "👁 Seen", "🤔 Thinking"]
+    let onSelect: (String) -> Void
+    @State private var isVisible = false
+
+    var body: some View {
+        HStack(spacing: 8) {
+            ForEach(Array(reactions.enumerated()), id: \.element) { index, reaction in
+                Button {
+                    let haptic = UIImpactFeedbackGenerator(style: .light)
+                    haptic.impactOccurred()
+                    onSelect(reaction)
+                } label: {
+                    Text(reaction)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.black.opacity(0.8))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 7)
+                        .background(.ultraThinMaterial)
+                        .background(Color.white.opacity(0.7))
+                        .clipShape(Capsule())
+                        .overlay(Capsule().stroke(Color.black.opacity(0.07), lineWidth: 0.5))
+                        .shadow(color: .black.opacity(0.06), radius: 6, y: 2)
+                }
+                .buttonStyle(.plain)
+                .opacity(isVisible ? 1 : 0)
+                .scaleEffect(isVisible ? 1 : 0.7)
+                .offset(y: isVisible ? 0 : 6)
+                .animation(.interpolatingSpring(stiffness: 220, damping: 18).delay(Double(index) * 0.04), value: isVisible)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(.ultraThinMaterial)
+        .background(Color.white.opacity(0.65))
+        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous).stroke(Color.white.opacity(0.6), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.1), radius: 16, y: 6)
+        .onAppear { isVisible = true }
+    }
+}
+
+// MARK: - Feature 1: Reaction Capsules Row
+
+private struct ReactionCapsulesRow: View {
+    let reactions: [String: [String]]
+    let currentUserId: String
+    let onToggle: (String) -> Void
+
+    var body: some View {
+        if reactions.isEmpty {
+            EmptyView()
+        } else {
+            HStack(spacing: 5) {
+                ForEach(reactions.sorted(by: { $0.value.count > $1.value.count }), id: \.key) { key, uids in
+                    let isSelected = uids.contains(currentUserId)
+                    Button { onToggle(key) } label: {
+                        HStack(spacing: 4) {
+                            Text(key)
+                                .font(.system(size: 11, weight: .medium))
+                            if uids.count > 1 {
+                                Text("\(uids.count)")
+                                    .font(.system(size: 11, weight: .semibold))
+                            }
+                        }
+                        .foregroundStyle(isSelected ? Color.white : Color.black.opacity(0.75))
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 5)
+                        .background(isSelected ? Color.black.opacity(0.75) : Color.white.opacity(0.65))
+                        .background(.ultraThinMaterial)
+                        .clipShape(Capsule())
+                        .overlay(Capsule().stroke(Color.black.opacity(0.08), lineWidth: 0.5))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Feature 2: Reply Preview Strip (shown in composer when replying)
+
+struct ReplyPreviewStrip: View {
+    let replyToText: String
+    let replyToAuthor: String
+    let onCancel: () -> Void
+
+    var body: some View {
+        HStack(spacing: 10) {
+            RoundedRectangle(cornerRadius: 2)
+                .fill(Color.black.opacity(0.25))
+                .frame(width: 3)
+                .frame(maxHeight: 40)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(replyToAuthor)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.black.opacity(0.65))
+                Text(replyToText)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.black.opacity(0.45))
+                    .lineLimit(1)
+            }
+
+            Spacer()
+
+            Button(action: onCancel) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.black.opacity(0.5))
+                    .frame(width: 24, height: 24)
+                    .background(Color.black.opacity(0.06))
+                    .clipShape(Circle())
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(.ultraThinMaterial)
+        .background(Color.white.opacity(0.7))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.black.opacity(0.06), lineWidth: 0.5))
+        .transition(.asymmetric(
+            insertion: .move(edge: .bottom).combined(with: .opacity),
+            removal: .move(edge: .bottom).combined(with: .opacity)
+        ))
+    }
+}
+
+// MARK: - Feature 2: Inline Reply Quote (shown inside bubble area above the bubble)
+
+struct InlineReplyQuote: View {
+    let text: String
+    let authorName: String
+
+    var body: some View {
+        HStack(spacing: 8) {
+            RoundedRectangle(cornerRadius: 2)
+                .fill(Color.black.opacity(0.3))
+                .frame(width: 3)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(authorName)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.black.opacity(0.55))
+                Text(text)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.black.opacity(0.4))
+                    .lineLimit(2)
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(Color.black.opacity(0.04))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+}
+
+// MARK: - Feature 3: Glass Poll Card
+
+struct GlassPollCard: View {
+    let poll: PollMessage
+    let currentUserId: String
+    let onVote: (String) -> Void
+
+    private var totalVotes: Int {
+        poll.options.reduce(0) { $0 + $1.votes.count }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Image(systemName: "chart.bar.fill")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.black.opacity(0.5))
+                Text(poll.question)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.black.opacity(0.88))
+            }
+
+            VStack(spacing: 8) {
+                ForEach(poll.options) { option in
+                    PollOptionRow(
+                        option: option,
+                        totalVotes: totalVotes,
+                        isSelected: option.votes.contains(currentUserId),
+                        onTap: { onVote(option.id) }
+                    )
+                }
+            }
+
+            if totalVotes > 0 {
+                Text("\(totalVotes) vote\(totalVotes == 1 ? "" : "s")")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.black.opacity(0.35))
+            }
+        }
+        .padding(14)
+        .background(.ultraThinMaterial)
+        .background(Color.white.opacity(0.6))
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.black.opacity(0.07), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.05), radius: 10, y: 4)
+    }
+}
+
+private struct PollOptionRow: View {
+    let option: PollMessage.PollOption
+    let totalVotes: Int
+    let isSelected: Bool
+    let onTap: () -> Void
+    @State private var animatedProgress: CGFloat = 0
+
+    private var voteRatio: CGFloat {
+        guard totalVotes > 0 else { return 0 }
+        return CGFloat(option.votes.count) / CGFloat(totalVotes)
+    }
+
+    var body: some View {
+        Button(action: {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            onTap()
+        }) {
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color.black.opacity(0.04))
+                    .frame(height: 44)
+
+                GeometryReader { geo in
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(isSelected ? Color.black.opacity(0.08) : Color.black.opacity(0.04))
+                        .frame(width: geo.size.width * animatedProgress, height: 44)
+                        .animation(.spring(response: 0.45, dampingFraction: 0.75), value: animatedProgress)
+                }
+                .frame(height: 44)
+
+                HStack {
+                    HStack(spacing: 6) {
+                        if isSelected {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundStyle(.black.opacity(0.6))
+                        }
+                        Text(option.text)
+                            .font(.system(size: 14, weight: isSelected ? .semibold : .regular))
+                            .foregroundStyle(.black.opacity(0.8))
+                    }
+                    .padding(.leading, 12)
+
+                    Spacer()
+
+                    if totalVotes > 0 {
+                        Text("\(Int(voteRatio * 100))%")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(.black.opacity(0.4))
+                            .padding(.trailing, 12)
+                    }
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(
+                isSelected ? Color.black.opacity(0.12) : Color.black.opacity(0.05),
+                lineWidth: isSelected ? 1 : 0.5
+            ))
+        }
+        .buttonStyle(.plain)
+        .onAppear {
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.75).delay(0.1)) {
+                animatedProgress = voteRatio
+            }
+        }
+        .onChange(of: option.votes.count) { _, _ in
+            withAnimation(.spring(response: 0.45, dampingFraction: 0.75)) {
+                animatedProgress = voteRatio
+            }
+        }
+    }
+}
+
+// MARK: - Feature 3: Create Poll Sheet
+
+struct CreatePollSheet: View {
+    @Binding var isPresented: Bool
+    let onCreate: (PollMessage) -> Void
+
+    @State private var question = ""
+    @State private var options: [String] = ["", ""]
+    @State private var allowMultiple = false
+
+    private var canCreate: Bool {
+        !question.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        options.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }.count >= 2
+    }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color(red: 0.97, green: 0.97, blue: 0.97).ignoresSafeArea()
+
+                ScrollView {
+                    VStack(spacing: 20) {
+                        questionSection
+                        optionsSection
+                        allowMultipleSection
+                    }
+                    .padding(20)
+                }
+            }
+            .navigationTitle("Create Poll")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { isPresented = false }
+                        .foregroundStyle(.black.opacity(0.6))
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Send") {
+                        let uid = FirebaseMessagingService.shared.currentUserId
+                        let pollOptions = options
+                            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                            .filter { !$0.isEmpty }
+                            .map { PollMessage.PollOption(text: $0) }
+                        let poll = PollMessage(
+                            question: question.trimmingCharacters(in: .whitespacesAndNewlines),
+                            options: pollOptions,
+                            allowMultiple: allowMultiple,
+                            createdBy: uid
+                        )
+                        onCreate(poll)
+                        isPresented = false
+                    }
+                    .disabled(!canCreate)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(canCreate ? .black : .black.opacity(0.25))
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+    }
+
+    private var questionSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Question")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.black.opacity(0.5))
+                .padding(.horizontal, 4)
+            TextField("Ask something...", text: $question, axis: .vertical)
+                .font(.system(size: 16))
+                .lineLimit(1...3)
+                .padding(14)
+                .background(.ultraThinMaterial)
+                .background(Color.white.opacity(0.7))
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.black.opacity(0.06), lineWidth: 0.5))
+        }
+    }
+
+    private var optionsSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Options")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.black.opacity(0.5))
+                .padding(.horizontal, 4)
+
+            ForEach(Array(options.indices), id: \.self) { idx in
+                HStack(spacing: 10) {
+                    TextField("Option \(idx + 1)", text: $options[idx])
+                        .font(.system(size: 15))
+                        .padding(12)
+                        .background(.ultraThinMaterial)
+                        .background(Color.white.opacity(0.7))
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.black.opacity(0.06), lineWidth: 0.5))
+
+                    if options.count > 2 {
+                        Button {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                                let removeIndex: Int = idx
+                                options.remove(at: removeIndex)
+                            }
+                        } label: {
+                            Image(systemName: "minus.circle.fill")
+                                .font(.system(size: 20))
+                                .foregroundStyle(.black.opacity(0.3))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+
+            if options.count < 6 {
+                Button {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                        options.append("")
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "plus.circle")
+                            .font(.system(size: 15, weight: .medium))
+                        Text("Add option")
+                            .font(.system(size: 14, weight: .medium))
+                    }
+                    .foregroundStyle(.black.opacity(0.45))
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .background(Color.black.opacity(0.04))
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private var allowMultipleSection: some View {
+        Toggle(isOn: $allowMultiple) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Allow multiple choices")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(.black.opacity(0.75))
+                Text("People can vote on more than one option")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.black.opacity(0.4))
+            }
+        }
+        .tint(.black)
+        .padding(14)
+        .background(.ultraThinMaterial)
+        .background(Color.white.opacity(0.7))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }
 

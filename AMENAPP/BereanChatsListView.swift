@@ -54,7 +54,7 @@ extension View {
 
 // MARK: - Models
 
-struct BereanConversation: Identifiable {
+struct BereanChatListItem: Identifiable {
     let id: String
     let title: String
     let translation: String
@@ -68,11 +68,11 @@ struct BereanChatsListView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var bereanVM = BereanViewModel()
     @State private var searchText = ""
-    @State private var conversations: [BereanConversation] = []
+    @State private var conversations: [BereanChatListItem] = []
     @State private var showNewConversation = false
     @State private var animateIn = false
 
-    var filtered: [BereanConversation] {
+    var filtered: [BereanChatListItem] {
         guard !searchText.isEmpty else { return conversations }
         return conversations.filter { $0.title.localizedCaseInsensitiveContains(searchText) }
     }
@@ -300,7 +300,7 @@ struct BereanChatsListView: View {
         .neuCard()
     }
 
-    private func conversationRow(_ convo: BereanConversation, isLast: Bool) -> some View {
+    private func conversationRow(_ convo: BereanChatListItem, isLast: Bool) -> some View {
         HStack(spacing: 14) {
             ZStack {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
@@ -471,7 +471,7 @@ struct BereanChatsListView: View {
     private func loadConversations() {
         // Load from existing BereanViewModel saved conversations
         conversations = bereanVM.savedConversations.map { saved in
-            BereanConversation(
+            BereanChatListItem(
                 id: saved.id.uuidString,
                 title: saved.title,
                 translation: "ESV",

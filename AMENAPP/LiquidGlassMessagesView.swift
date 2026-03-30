@@ -382,7 +382,7 @@ struct MessageBubbleView: View {
 
     private var bubbleBorder: some View {
         BubbleShape(isOutgoing: message.isFromCurrentUser)
-            .strokeBorder(
+            .stroke(
                 LinearGradient(
                     colors: [.white.opacity(0.4), .clear],
                     startPoint: .topLeading,
@@ -410,13 +410,13 @@ struct MessageBubbleView: View {
             }
             .overlay {
                 BubbleShape(isOutgoing: message.isFromCurrentUser)
-                    .strokeBorder(
+                    .stroke(
                         Color.orange.opacity(0.4),
                         lineWidth: 1
                     )
                     .scaleEffect(appeared ? 1.0 : 0.95)
                     .opacity(appeared ? 1.0 : 0.5)
-                    .animation(.easeInOut(duration: 3).repeatForever(autoreverses: true), value: appeared)
+                    .animation(Animation.easeInOut(duration: 3).repeatForever(autoreverses: true), value: appeared)
             }
             .onLongPressGesture(minimumDuration: 0.3) {
                 onLongPress()
@@ -439,7 +439,7 @@ struct MessageBubbleView: View {
             }
             .overlay {
                 BubbleShape(isOutgoing: message.isFromCurrentUser)
-                    .strokeBorder(
+                    .stroke(
                         LinearGradient(
                             colors: [.yellow.opacity(0.6), .orange.opacity(0.4)],
                             startPoint: .topLeading,

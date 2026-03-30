@@ -382,6 +382,19 @@
 		EFAE0A7E2F4E6E7E009D7209 /* SafetyUIComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafetyUIComponents.swift; sourceTree = "<group>"; };
 		EFAE0A802F4E87B0009D7209 /* NetworkTimeoutHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkTimeoutHandler.swift; sourceTree = "<group>"; };
 		EFBA28C02F6F429600B54517 /* NotificationScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationScheduler.swift; sourceTree = "<group>"; };
+		EFCC00012F7000000099AA01 /* ScriptureIntelligenceEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScriptureIntelligenceEngine.swift; sourceTree = "<group>"; };
+		EFCC00022F7000000099AA02 /* PersonalSpiritualGraphService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonalSpiritualGraphService.swift; sourceTree = "<group>"; };
+		EFCC00032F7000000099AA03 /* SpiritualStateModeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpiritualStateModeService.swift; sourceTree = "<group>"; };
+		EFCC00042F7000000099AA04 /* PredictiveInterventionEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PredictiveInterventionEngine.swift; sourceTree = "<group>"; };
+		EFCC00052F7000000099AA05 /* FollowUpEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FollowUpEngine.swift; sourceTree = "<group>"; };
+		EFCC00062F7000000099AA06 /* SermonWeekTransformationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SermonWeekTransformationService.swift; sourceTree = "<group>"; };
+		EFCC00072F7000000099AA07 /* BereanSafetyEscalationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BereanSafetyEscalationService.swift; sourceTree = "<group>"; };
+		EFCC00082F7000000099AA08 /* LiturgicalCalendarEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiturgicalCalendarEngine.swift; sourceTree = "<group>"; };
+		EFCC00092F7000000099AA09 /* HolidayIntelligenceRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HolidayIntelligenceRouter.swift; sourceTree = "<group>"; };
+		EFCC000A2F7000000099AA0A /* SeasonalPromptService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SeasonalPromptService.swift; sourceTree = "<group>"; };
+		EFCC000B2F7000000099AA0B /* ChurchSeasonalEventService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChurchSeasonalEventService.swift; sourceTree = "<group>"; };
+		EFCC000C2F7000000099AA0C /* HolidayReflectionJourneyService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HolidayReflectionJourneyService.swift; sourceTree = "<group>"; };
+		EFCC000D2F7000000099AA0D /* UserObservanceProfileService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserObservanceProfileService.swift; sourceTree = "<group>"; };
 		EFD4FEA12F5E278500672160 /* ScrollReactiveGlass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrollReactiveGlass.swift; sourceTree = "<group>"; };
 		EFD4FEA32F5E28A200672160 /* AmenRefreshIndicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmenRefreshIndicator.swift; sourceTree = "<group>"; };
 		EFD4FEA92F5E702200672160 /* AMENConnectView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AMENConnectView.swift; sourceTree = "<group>"; };
@@ -789,6 +802,19 @@
 				EF8C4C712F664FDF0003AE65 /* BereanLandingView.swift */,
 				EF8C4C732F6657E50003AE65 /* AMENSuggestionsSection.swift */,
 				EFBA28C02F6F429600B54517 /* NotificationScheduler.swift */,
+				EFCC00012F7000000099AA01 /* ScriptureIntelligenceEngine.swift */,
+				EFCC00022F7000000099AA02 /* PersonalSpiritualGraphService.swift */,
+				EFCC00032F7000000099AA03 /* SpiritualStateModeService.swift */,
+				EFCC00042F7000000099AA04 /* PredictiveInterventionEngine.swift */,
+				EFCC00052F7000000099AA05 /* FollowUpEngine.swift */,
+				EFCC00062F7000000099AA06 /* SermonWeekTransformationService.swift */,
+				EFCC00072F7000000099AA07 /* BereanSafetyEscalationService.swift */,
+				EFCC00082F7000000099AA08 /* LiturgicalCalendarEngine.swift */,
+				EFCC00092F7000000099AA09 /* HolidayIntelligenceRouter.swift */,
+				EFCC000A2F7000000099AA0A /* SeasonalPromptService.swift */,
+				EFCC000B2F7000000099AA0B /* ChurchSeasonalEventService.swift */,
+				EFCC000C2F7000000099AA0C /* HolidayReflectionJourneyService.swift */,
+				EFCC000D2F7000000099AA0D /* UserObservanceProfileService.swift */,
 			);
 			sourceTree = "<group>";
 		};

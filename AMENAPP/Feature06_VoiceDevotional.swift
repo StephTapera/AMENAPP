@@ -94,7 +94,7 @@ final class VoiceDevotionalManager: NSObject, ObservableObject {
 
         Task {
             do {
-                let transcript = try await transcribe(url: url)
+                let transcript = try await transcribe(url)
                 guard !transcript.isEmpty else {
                     await MainActor.run {
                         self.isProcessing = false
@@ -104,7 +104,7 @@ final class VoiceDevotionalManager: NSObject, ObservableObject {
                 }
 
                 let devotional = try await generateDevotional(from: transcript)
-                let audioStorageURL = try await uploadAudio(url: url)
+                let audioStorageURL = try await uploadAudio(url)
 
                 try await saveToMessage(
                     conversationId: conversationId,

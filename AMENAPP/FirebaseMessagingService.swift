@@ -956,7 +956,16 @@ public class FirebaseMessagingService: ObservableObject {
                     guard let firebaseMessage = try? doc.data(as: FirebaseMessage.self) else {
                         return nil
                     }
-                    return firebaseMessage.toMessage(currentUserId: self.currentUserId)
+                    var msg = firebaseMessage.toMessage(currentUserId: self.currentUserId)
+                    // Feature 1: Decode amenReactions (dynamic string-keyed dict, not Codable-friendly)
+                    if let amenRaw = doc.data()["amenReactions"] as? [String: [String]] {
+                        msg.amenReactions = amenRaw
+                    }
+                    // Feature 3: Decode poll
+                    if let pollRaw = doc.data()["poll"] as? [String: Any] {
+                        msg.poll = PollMessage.fromFirestore(pollRaw)
+                    }
+                    return msg
                 }.reversed() // Reverse to show oldest first
                 
                 onUpdate(Array(messages))
@@ -1020,9 +1029,16 @@ public class FirebaseMessagingService: ObservableObject {
                 guard let firebaseMessage = try? doc.data(as: FirebaseMessage.self) else {
                     return nil
                 }
-                return firebaseMessage.toMessage(currentUserId: self.currentUserId)
+                var msg = firebaseMessage.toMessage(currentUserId: self.currentUserId)
+                if let amenRaw = doc.data()["amenReactions"] as? [String: [String]] {
+                    msg.amenReactions = amenRaw
+                }
+                if let pollRaw = doc.data()["poll"] as? [String: Any] {
+                    msg.poll = PollMessage.fromFirestore(pollRaw)
+                }
+                return msg
             }.reversed()
-            
+
             onUpdate(Array(messages))
             dlog("✅ Loaded \(messages.count) more messages")
             
@@ -1195,7 +1211,7 @@ public class FirebaseMessagingService: ObservableObject {
             // ✅ Get sender's profile image URL from UserDefaults cache
             let senderProfileImageURL = UserDefaults.standard.string(forKey: "currentUserProfileImageURL")
             
-            let message = FirebaseMessage(
+            var message = FirebaseMessage(
                 id: messageId,
                 conversationId: conversationId,
                 senderId: currentUserId,
@@ -1209,6 +1225,12 @@ public class FirebaseMessagingService: ObservableObject {
                 readBy: [currentUserId],
                 idempotencyKey: messageId // FIX 3: Equals doc ID — retries are no-ops
             )
+            // Feature 2: Flat reply fields for easy Codable round-trip
+            if let replyInfo = replyToMessage {
+                message.replyToMessageId = replyInfo.messageId
+                message.replyToText = replyInfo.text
+                message.replyToAuthorName = replyInfo.senderName
+            }
             
             let participantIds = conversation.participantIds
             let status = conversation.conversationStatus ?? "accepted"
@@ -1526,16 +1548,185 @@ public class FirebaseMessagingService: ObservableObject {
             .document(conversationId)
             .collection("messages")
             .document(messageId)
-        
+
         // Fetch the message to find and remove the specific reaction
         let document = try await messageRef.getDocument()
         guard var message = try? document.data(as: FirebaseMessage.self) else {
             return
         }
-        
+
         message.reactions.removeAll { $0.id == reactionId }
-        
+
         try messageRef.setData(from: message)
+    }
+
+    // MARK: - Feature 1: AMEN Reaction Capsule Toggle
+
+    /// Toggle an AMEN-style named reaction (e.g. "🙏 Pray") on a message.
+    /// Uses Firestore arrayUnion / arrayRemove so it is safe for concurrent writers.
+    func toggleAmenReaction(
+        conversationId: String,
+        messageId: String,
+        reaction: String
+    ) async throws {
+        guard isAuthenticated else { throw FirebaseMessagingError.notAuthenticated }
+
+        let messageRef = db.collection("conversations")
+            .document(conversationId)
+            .collection("messages")
+            .document(messageId)
+
+        // Read current state to decide union vs. remove
+        let doc = try await messageRef.getDocument()
+        let field = "amenReactions.\(reaction)"
+
+        if let existing = doc.data()?["amenReactions"] as? [String: [String]],
+           let voters = existing[reaction], voters.contains(currentUserId) {
+            // Already reacted — remove
+            try await messageRef.updateData([field: FieldValue.arrayRemove([currentUserId])])
+        } else {
+            // Not yet reacted — add
+            try await messageRef.updateData([field: FieldValue.arrayUnion([currentUserId])])
+        }
+        dlog("✅ AMEN reaction toggled: \(reaction) on \(messageId)")
+    }
+
+    // MARK: - Feature 3: Poll Send & Vote
+
+    /// Write a poll message document to Firestore with messageType = "poll".
+    func sendPollMessage(
+        conversationId: String,
+        poll: PollMessage
+    ) async throws {
+        guard isAuthenticated else { throw FirebaseMessagingError.notAuthenticated }
+
+        let messageId = poll.id
+        let messageRef = db.collection("conversations")
+            .document(conversationId)
+            .collection("messages")
+            .document(messageId)
+
+        var optionsData: [[String: Any]] = poll.options.map { opt in
+            ["id": opt.id, "text": opt.text, "votes": opt.votes]
+        }
+
+        var pollData: [String: Any] = [
+            "id": poll.id,
+            "question": poll.question,
+            "options": optionsData,
+            "allowMultiple": poll.allowMultiple,
+            "createdBy": currentUserId
+        ]
+        if let exp = poll.expiresAt {
+            pollData["expiresAt"] = Timestamp(date: exp)
+        }
+
+        let messageData: [String: Any] = [
+            "id": messageId,
+            "conversationId": conversationId,
+            "senderId": currentUserId,
+            "senderName": currentUserName,
+            "text": poll.question,
+            "messageType": "poll",
+            "poll": pollData,
+            "timestamp": Timestamp(date: Date()),
+            "reactions": [],
+            "readBy": [currentUserId],
+            "isSent": true,
+            "isDelivered": true,
+            "attachments": []
+        ]
+
+        let conversationRef = db.collection("conversations").document(conversationId)
+        let batch = db.batch()
+        batch.setData(messageData, forDocument: messageRef)
+        batch.updateData([
+            "lastMessageText": "📊 \(poll.question)",
+            "lastMessageTimestamp": Timestamp(date: Date()),
+            "updatedAt": Timestamp(date: Date())
+        ], forDocument: conversationRef)
+        try await batch.commit()
+        dlog("✅ Poll sent: \(messageId)")
+    }
+
+    /// Toggle a vote on a specific poll option. Handles single/multiple choice.
+    /// Uses a Firestore transaction to eliminate the read-modify-write race condition
+    /// that could cause concurrent votes to overwrite each other.
+    func voteOnPoll(
+        conversationId: String,
+        messageId: String,
+        optionId: String,
+        allowMultiple: Bool
+    ) async throws {
+        guard isAuthenticated else { throw FirebaseMessagingError.notAuthenticated }
+
+        let messageRef = db.collection("conversations")
+            .document(conversationId)
+            .collection("messages")
+            .document(messageId)
+
+        // Capture as a local constant before entering the transaction closure.
+        // Do NOT capture `self` inside the transaction — the closure runs on
+        // Firestore's internal queue and must not access @MainActor-isolated state.
+        let userId = currentUserId
+
+        try await db.runTransaction { transaction, errorPointer in
+            let doc: DocumentSnapshot
+            do {
+                doc = try transaction.getDocument(messageRef)
+            } catch let fetchError as NSError {
+                errorPointer?.pointee = fetchError
+                return nil
+            }
+
+            guard var pollData = doc.data()?["poll"] as? [String: Any],
+                  var options = pollData["options"] as? [[String: Any]] else {
+                errorPointer?.pointee = NSError(
+                    domain: "voteOnPoll", code: -1,
+                    userInfo: [NSLocalizedDescriptionKey: "Poll data not found"]
+                )
+                return nil
+            }
+
+            // Determine if the user already voted on the tapped option
+            let alreadyVotedOnTapped = options.first(where: { ($0["id"] as? String) == optionId })
+                .flatMap { $0["votes"] as? [String] }?
+                .contains(userId) ?? false
+
+            if !allowMultiple {
+                // Single-choice: remove user from ALL options first
+                for i in options.indices {
+                    if var votes = options[i]["votes"] as? [String] {
+                        votes.removeAll { $0 == userId }
+                        options[i]["votes"] = votes
+                    }
+                }
+            }
+
+            if alreadyVotedOnTapped && !allowMultiple {
+                // Tapped same option again in single-choice → un-vote (already cleared above)
+            } else if alreadyVotedOnTapped && allowMultiple {
+                // Multi-choice: tapping a selected option deselects it
+                if let idx = options.firstIndex(where: { ($0["id"] as? String) == optionId }) {
+                    if var votes = options[idx]["votes"] as? [String] {
+                        votes.removeAll { $0 == userId }
+                        options[idx]["votes"] = votes
+                    }
+                }
+            } else {
+                // Add vote to the tapped option
+                if let idx = options.firstIndex(where: { ($0["id"] as? String) == optionId }) {
+                    var votes = options[idx]["votes"] as? [String] ?? []
+                    if !votes.contains(userId) { votes.append(userId) }
+                    options[idx]["votes"] = votes
+                }
+            }
+
+            pollData["options"] = options
+            transaction.updateData(["poll.options": options], forDocument: messageRef)
+            return nil
+        }
+        dlog("✅ Poll vote recorded on option \(optionId) (atomic transaction)")
     }
     
     /// Mark messages as read
@@ -3313,6 +3504,19 @@ struct FirebaseMessage: Codable {
     // Retrying with the same key (and same doc ID) is a no-op on Firestore setData.
     var idempotencyKey: String?
 
+    // Feature 1: AMEN Reaction Capsules — stored as amenReactions.{label}: [uid]
+    // Decoded as-needed in toMessage() via raw doc data since dict-of-arrays is not
+    // directly Codable without custom coding keys.
+
+    // Feature 2: Inline Reply Thread metadata
+    var replyToMessageId: String?
+    var replyToText: String?
+    var replyToAuthorName: String?
+    var replyCount: Int?
+
+    // Feature 3: message type tag (e.g. "poll") — already stored as messageType
+    var messageType: String?
+
     init(
         id: String? = nil,
         conversationId: String,
@@ -3450,7 +3654,7 @@ struct FirebaseMessage: Codable {
             )
         }
         
-        return AppMessage(
+        let msg = AppMessage(
             id: id ?? UUID().uuidString,
             text: text,
             isFromCurrentUser: senderId == currentUserId,
@@ -3480,8 +3684,13 @@ struct FirebaseMessage: Codable {
             isSendFailed: isSendFailed ?? false,
             disappearAfter: disappearAfter,
             linkPreviews: [], // Will be loaded separately from URLs
-            mentionedUserIds: mentionedUserIds ?? []
+            mentionedUserIds: mentionedUserIds ?? [],
+            replyToMessageId: replyToMessageId,
+            replyToText: replyToText,
+            replyToAuthorName: replyToAuthorName,
+            replyCount: replyCount ?? 0
         )
+        return msg
     }
 }
 

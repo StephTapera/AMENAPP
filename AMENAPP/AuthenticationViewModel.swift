@@ -26,6 +26,7 @@ class AuthenticationViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var showError = false
     @Published var showWelcomeToAMEN = false  // NEW: Exciting welcome screen
+    @Published var isDeactivated = false
     // @Published var showAppTutorial = false  // DISABLED - App tutorial removed
     
     // P0 FIX: Phone auth state
@@ -552,6 +553,12 @@ class AuthenticationViewModel: ObservableObject {
             errorMessage = "Failed to sign out: \(error.localizedDescription)"
             showError = true
         }
+    }
+
+    // MARK: - Deactivation
+
+    func clearDeactivationState() async {
+        isDeactivated = false
     }
     
     // MARK: - Password Reset
