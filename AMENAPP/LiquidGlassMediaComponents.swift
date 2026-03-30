@@ -8,6 +8,7 @@
 
 import SwiftUI
 import AVKit
+import Combine
 
 // MARK: - Liquid Glass Design Tokens
 
@@ -53,27 +54,17 @@ struct GlassImageView: View {
     @Namespace private var imageNamespace
     
     var body: some View {
-        CachedAsyncImage(url: URL(string: url)) { phase in
-            switch phase {
-            case .success(let image):
-                imageContent(image)
-                    .opacity(imageAppeared ? 1.0 : 0.0)
-                    .scaleEffect(imageAppeared ? 1.0 : 0.96)
-                    .onAppear {
-                        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
-                            imageAppeared = true
-                        }
+        CachedAsyncImage(url: URL(string: url)) { image in
+            imageContent(image)
+                .opacity(imageAppeared ? 1.0 : 0.0)
+                .scaleEffect(imageAppeared ? 1.0 : 0.96)
+                .onAppear {
+                    withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                        imageAppeared = true
                     }
-                
-            case .failure:
-                failureContent
-                
-            case .empty:
-                loadingContent
-                
-            @unknown default:
-                loadingContent
-            }
+                }
+        } placeholder: {
+            loadingContent
         }
     }
     
@@ -94,7 +85,7 @@ struct GlassImageView: View {
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .strokeBorder(.glassStroke, lineWidth: 0.5)
+                .strokeBorder(Color.glassStroke, lineWidth: 0.5)
         )
         .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         .onTapGesture {
@@ -177,7 +168,7 @@ struct GlassVideoPlayerView: View {
         }
         .overlay(
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .strokeBorder(.glassStroke, lineWidth: 0.5)
+                .strokeBorder(Color.glassStroke, lineWidth: 0.5)
         )
         .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         .onTapGesture {
@@ -217,7 +208,7 @@ struct GlassVideoPlayerView: View {
                         .fill(.ultraThinMaterial)
                         .overlay(
                             Circle()
-                                .fill(.glassOverlay)
+                                .fill(Color.glassOverlay)
                         )
                         .frame(width: 56, height: 56)
                     
@@ -253,7 +244,7 @@ struct GlassVideoPlayerView: View {
                     .fill(.ultraThinMaterial)
                     .overlay(
                         Circle()
-                            .fill(.controlBackground)
+                            .fill(Color.controlBackground)
                     )
                     .frame(width: 36, height: 36)
                 
@@ -279,7 +270,7 @@ struct GlassVideoPlayerView: View {
                             .fill(.ultraThinMaterial)
                             .overlay(
                                 Capsule()
-                                    .fill(.controlBackground)
+                                    .fill(Color.controlBackground)
                             )
                     )
                     .padding(12)
@@ -352,7 +343,7 @@ class VideoPlayerViewModel: ObservableObject {
 
 // MARK: - Shimmer Effect Modifier
 
-struct ShimmerEffect: ViewModifier {
+struct LiquidGlassShimmerEffect: ViewModifier {
     @State private var isAnimating = false
     
     func body(content: Content) -> some View {
@@ -380,6 +371,6 @@ struct ShimmerEffect: ViewModifier {
 
 extension View {
     func shimmerEffect() -> some View {
-        modifier(ShimmerEffect())
+        modifier(LiquidGlassShimmerEffect())
     }
 }

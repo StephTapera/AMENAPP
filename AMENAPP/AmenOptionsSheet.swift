@@ -81,73 +81,69 @@ struct AmenOptionsSheet: View {
     let quickActions: [AmenQuickAction]
     let sections: [AmenOptionsSectionModel]
 
-    @State private var dragOffset: CGFloat = 0
     @State private var isVisible = false
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            if isPresented {
-                Color.black.opacity(0.18)
-                    .ignoresSafeArea()
-                    .transition(.opacity)
-                    .onTapGesture { dismiss() }
-
-                sheetContent
-                    .offset(y: isVisible ? max(dragOffset, 0) : 400)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .gesture(dragGesture)
+        sheetContent
+            .onChange(of: isPresented) { _, newValue in
+                isVisible = newValue
             }
-        }
-        .animation(.spring(response: 0.46, dampingFraction: 0.82), value: isPresented)
-        .animation(.spring(response: 0.38, dampingFraction: 0.86), value: dragOffset)
-        .onChange(of: isPresented) { _, newValue in
-            if newValue {
-                isVisible = true
-            } else {
-                isVisible = false
-                dragOffset = 0
-            }
-        }
-        .accessibilityAddTraits(.isModal)
+            .accessibilityAddTraits(.isModal)
     }
 
     private var sheetContent: some View {
-        VStack(spacing: 14) {
-            grabber
+        GeometryReader { proxy in
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 14) {
+                    grabber
+                        .onAppear {
+                            dlog("📜 [SHEET DEBUG] Options sheet content appeared")
+                        }
 
-            if title != nil || subtitle != nil {
-                VStack(spacing: 4) {
-                    if let title {
-                        Text(title)
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundStyle(.black)
+                    if title != nil || subtitle != nil {
+                        VStack(spacing: 4) {
+                            if let title {
+                                Text(title)
+                                    .font(.system(size: 18, weight: .semibold))
+                                    .foregroundStyle(.black)
+                            }
+                            if let subtitle {
+                                Text(subtitle)
+                                    .font(.system(size: 13, weight: .regular))
+                                    .foregroundStyle(.black.opacity(0.55))
+                            }
+                        }
                     }
-                    if let subtitle {
-                        Text(subtitle)
-                            .font(.system(size: 13, weight: .regular))
-                            .foregroundStyle(.black.opacity(0.55))
+
+                    if !quickActions.isEmpty {
+                        AmenQuickActionsRow(actions: quickActions)
+                    }
+
+                    VStack(spacing: 12) {
+                        ForEach(sections) { section in
+                            AmenOptionsSection(model: section)
+                        }
                     }
                 }
+                .padding(.horizontal, 16)
+                .padding(.top, 10)
+                .padding(.bottom, proxy.safeAreaInsets.bottom + 16)
+                .frame(maxWidth: .infinity)
             }
-
-            if !quickActions.isEmpty {
-                AmenQuickActionsRow(actions: quickActions)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .onAppear {
+                dlog("📜 [SHEET DEBUG] Options sheet ScrollView appeared")
             }
-
-            VStack(spacing: 12) {
-                ForEach(sections) { section in
-                    AmenOptionsSection(model: section)
-                }
-            }
+            .background(sheetBackground)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 10)
-        .padding(.bottom, 16)
-        .background(sheetBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 36, style: .continuous))
-        .shadow(color: Color.black.opacity(0.16), radius: 36, x: 0, y: 18)
-        .padding(.horizontal, 10)
-        .padding(.bottom, 8)
+        .ignoresSafeArea()
+        .onAppear {
+            dlog("🎭 [SHEET DEBUG] Options sheet appeared (isPresented: \(isPresented))")
+        }
+        .onDisappear {
+            dlog("🎭 [SHEET DEBUG] Options sheet disappeared")
+        }
     }
 
     private var grabber: some View {
@@ -155,60 +151,11 @@ struct AmenOptionsSheet: View {
             .fill(Color.black.opacity(0.12))
             .frame(width: 42, height: 5)
             .padding(.top, 2)
+            .accessibilityLabel("Options sheet")
     }
 
     private var sheetBackground: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 36, style: .continuous)
-                .fill(.ultraThinMaterial)
-
-            RoundedRectangle(cornerRadius: 36, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        stops: [
-                            .init(color: Color.white.opacity(0.88), location: 0.0),
-                            .init(color: Color.white.opacity(0.72), location: 1.0)
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-
-            RoundedRectangle(cornerRadius: 36, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        stops: [
-                            .init(color: Color.white.opacity(0.40), location: 0.0),
-                            .init(color: Color.white.opacity(0.00), location: 0.6)
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-                .blendMode(.screen)
-
-            RoundedRectangle(cornerRadius: 36, style: .continuous)
-                .strokeBorder(Color.black.opacity(0.08), lineWidth: 0.8)
-        }
-    }
-
-    private var dragGesture: some Gesture {
-        DragGesture(minimumDistance: 8, coordinateSpace: .global)
-            .onChanged { value in
-                if value.translation.height > 0 {
-                    dragOffset = value.translation.height
-                }
-            }
-            .onEnded { value in
-                let predicted = value.predictedEndTranslation.height
-                if value.translation.height > 140 || predicted > 180 {
-                    dismiss()
-                } else {
-                    withAnimation(.spring(response: 0.42, dampingFraction: 0.86)) {
-                        dragOffset = 0
-                    }
-                }
-            }
+        Color(.systemBackground)
     }
 
     private func dismiss() {
@@ -237,12 +184,14 @@ private struct AmenQuickActionsRow: View {
 struct AmenQuickActionTile: View {
     let action: AmenQuickAction
 
-    @State private var pressScale: CGFloat = 1.0
-    @State private var pressTask: Task<Void, Never>? = nil
 
     var body: some View {
         Button {
-            guard action.isEnabled else { return }
+            guard action.isEnabled else {
+                dlog("⚠️ [SHEET DEBUG] Quick action '\(action.title)' tapped but disabled")
+                return
+            }
+            dlog("✅ [SHEET DEBUG] Quick action '\(action.title)' tapped")
             action.action()
         } label: {
             VStack(spacing: 6) {
@@ -260,30 +209,7 @@ struct AmenQuickActionTile: View {
             .background(tileBackground)
         }
         .buttonStyle(.plain)
-        .scaleEffect(pressScale)
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in
-                    guard action.isEnabled else { return }
-                    pressTask?.cancel()
-                    withAnimation(.spring(response: 0.22, dampingFraction: 0.78)) {
-                        pressScale = 0.98
-                    }
-                }
-                .onEnded { _ in
-                    guard action.isEnabled else { return }
-                    pressTask?.cancel()
-                    pressTask = Task { @MainActor in
-                        withAnimation(.spring(response: 0.22, dampingFraction: 0.70)) {
-                            pressScale = 1.02
-                        }
-                        try? await Task.sleep(nanoseconds: 80_000_000)
-                        withAnimation(.spring(response: 0.22, dampingFraction: 0.86)) {
-                            pressScale = 1.0
-                        }
-                    }
-                }
-        )
+        .pressableButton()
     }
 
     private var tileBackground: some View {
@@ -340,12 +266,14 @@ struct AmenOptionsSection: View {
 struct AmenOptionRow: View {
     let action: AmenOptionAction
 
-    @State private var pressScale: CGFloat = 1.0
-    @State private var pressTask: Task<Void, Never>? = nil
 
     var body: some View {
         Button {
-            guard action.isEnabled else { return }
+            guard action.isEnabled else {
+                dlog("⚠️ [SHEET DEBUG] Option '\(action.title)' tapped but disabled")
+                return
+            }
+            dlog("✅ [SHEET DEBUG] Option '\(action.title)' tapped")
             action.action()
         } label: {
             HStack(spacing: 12) {
@@ -377,31 +305,8 @@ struct AmenOptionRow: View {
             .background(rowBackground)
         }
         .buttonStyle(.plain)
-        .scaleEffect(pressScale)
+        .pressableButton()
         .opacity(action.isEnabled ? 1.0 : 0.55)
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in
-                    guard action.isEnabled else { return }
-                    pressTask?.cancel()
-                    withAnimation(.spring(response: 0.22, dampingFraction: 0.78)) {
-                        pressScale = 0.98
-                    }
-                }
-                .onEnded { _ in
-                    guard action.isEnabled else { return }
-                    pressTask?.cancel()
-                    pressTask = Task { @MainActor in
-                        withAnimation(.spring(response: 0.22, dampingFraction: 0.70)) {
-                            pressScale = 1.02
-                        }
-                        try? await Task.sleep(nanoseconds: 80_000_000)
-                        withAnimation(.spring(response: 0.22, dampingFraction: 0.86)) {
-                            pressScale = 1.0
-                        }
-                    }
-                }
-        )
     }
 
     private var titleColor: Color {
@@ -440,20 +345,20 @@ struct AmenOptionRow: View {
 
 #Preview {
     let quickActions = [
-        AmenQuickAction(title: "Save", systemImage: "bookmark"),
-        AmenQuickAction(title: "Remix", systemImage: "arrow.triangle.2.circlepath"),
-        AmenQuickAction(title: "Sequence", systemImage: "sparkles")
+        AmenQuickAction(title: "Save", systemImage: "bookmark") { },
+        AmenQuickAction(title: "Remix", systemImage: "arrow.triangle.2.circlepath") { },
+        AmenQuickAction(title: "Sequence", systemImage: "sparkles") { }
     ]
 
     let sections = [
         AmenOptionsSectionModel(title: "Primary", actions: [
-            AmenOptionAction(title: "Share", subtitle: "Send to friends or outside AMEN", systemImage: "square.and.arrow.up"),
-            AmenOptionAction(title: "Discuss", subtitle: "Open the reasoning thread", systemImage: "bubble.left.and.text.bubble.right"),
-            AmenOptionAction(title: "Copy Link", systemImage: "link")
+            AmenOptionAction(title: "Share", subtitle: "Send to friends or outside AMEN", systemImage: "square.and.arrow.up") { },
+            AmenOptionAction(title: "Reasoning Thread", subtitle: "Open the discussion", systemImage: "bubble.left.and.text.bubble.right") { },
+            AmenOptionAction(title: "Copy Link", systemImage: "link") { }
         ]),
-        AmenOptionsSectionModel(title: "Feed & Safety", actions: [
-            AmenOptionAction(title: "Not Interested", subtitle: "See fewer posts like this", systemImage: "eye.slash"),
-            AmenOptionAction(title: "Report", subtitle: "Let us know what's wrong", systemImage: "exclamationmark.triangle", isDestructive: true)
+        AmenOptionsSectionModel(title: "Transparency & Safety", actions: [
+            AmenOptionAction(title: "Not Interested", subtitle: "Help shape your feed", systemImage: "eye.slash") { },
+            AmenOptionAction(title: "Report", subtitle: "Help keep AMEN safe", systemImage: "exclamationmark.triangle", isDestructive: true) { }
         ])
     ]
 
@@ -464,7 +369,7 @@ struct AmenOptionRow: View {
         AmenOptionsSheet(
             isPresented: .constant(true),
             title: "Post Options",
-            subtitle: "Calm, clear, and in your control",
+            subtitle: "Steward your feed with clarity",
             quickActions: quickActions,
             sections: sections
         )

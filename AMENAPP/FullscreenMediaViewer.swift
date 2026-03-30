@@ -106,27 +106,17 @@ struct FullscreenMediaViewer: View {
     }
     
     private func zoomableImageView(_ item: PostMediaItem, isActive: Bool) -> some View {
-        CachedAsyncImage(url: URL(string: item.url)) { phase in
-            switch phase {
-            case .success(let image):
-                image
-                    .resizable()
-                    .scaledToFit()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .scaleEffect(isActive ? scale : 1.0)
-                    .offset(isActive ? offset : .zero)
-                    .gesture(isActive ? magnificationGesture : nil)
-                    .gesture(isActive ? panGesture : nil)
-                
-            case .failure:
-                errorPlaceholder
-                
-            case .empty:
-                loadingPlaceholder
-                
-            @unknown default:
-                loadingPlaceholder
-            }
+        CachedAsyncImage(url: URL(string: item.url)) { image in
+            image
+                .resizable()
+                .scaledToFit()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .scaleEffect(isActive ? scale : 1.0)
+                .offset(isActive ? offset : .zero)
+                .gesture(isActive ? magnificationGesture : nil)
+                .gesture(isActive ? panGesture : nil)
+        } placeholder: {
+            loadingPlaceholder
         }
     }
     

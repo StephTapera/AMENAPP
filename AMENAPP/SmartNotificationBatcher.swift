@@ -7,7 +7,9 @@
 
 import Foundation
 import FirebaseFirestore
+import FirebaseAuth
 import UserNotifications
+import Combine
 
 /// Batches low-priority notifications and delivers smart summaries
 @MainActor
@@ -116,7 +118,7 @@ class SmartNotificationBatcher: ObservableObject {
         }
     }
 
-    private func generateSummary(from notifications: [BatchedNotification]) -> NotificationSummary {
+    private func generateSummary(from notifications: [BatchedNotification]) -> BatchNotificationSummary {
         // Group by category
         let grouped = Dictionary(grouping: notifications, by: { $0.category })
 
@@ -144,7 +146,7 @@ class SmartNotificationBatcher: ObservableObject {
 
         let body = summaryParts.prefix(3).joined(separator: ", ")
 
-        return NotificationSummary(
+        return BatchNotificationSummary(
             title: title,
             body: body,
             count: totalCount,
@@ -153,7 +155,7 @@ class SmartNotificationBatcher: ObservableObject {
         )
     }
 
-    private func deliverSummaryNotification(summary: NotificationSummary, userId: String) async {
+    private func deliverSummaryNotification(summary: BatchNotificationSummary, userId: String) async {
         let content = UNMutableNotificationContent()
         content.title = summary.title
         content.body = summary.body
@@ -303,7 +305,7 @@ class SmartNotificationBatcher: ObservableObject {
 
         case .weekly:
             // Deliver Sunday at 9 AM
-            let components = DateComponents(weekday: 1, hour: 9, minute: 0)
+            let components = DateComponents(hour: 9, minute: 0, weekday: 1)
             trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: true)
         }
 
@@ -331,7 +333,7 @@ class SmartNotificationBatcher: ObservableObject {
 
 // MARK: - Models
 
-struct NotificationSummary {
+struct BatchNotificationSummary {
     let title: String
     let body: String
     let count: Int

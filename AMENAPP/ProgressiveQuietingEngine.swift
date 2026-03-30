@@ -7,6 +7,7 @@
 
 import Foundation
 import FirebaseFirestore
+import Combine
 
 /// Gradually reduces notification volume as quiet hours approach
 @MainActor
@@ -312,11 +313,11 @@ class ProgressiveQuietingEngine: ObservableObject {
 
 struct NotificationRouting {
     let category: NotificationCategory
-    let priority: NotificationPriority
+    let priority: NotificationPriorityScore
     let timestamp: Date
 }
 
-struct NotificationPriority {
+struct NotificationPriorityScore {
     let score: Double
 }
 

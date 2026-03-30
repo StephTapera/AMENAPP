@@ -8,8 +8,10 @@
 
 import Foundation
 import SwiftUI
+import Combine
 import FirebaseFirestore
 import FirebaseAuth
+import FirebaseDatabase
 
 // MARK: - ReplyThread Model
 
@@ -45,6 +47,8 @@ class RepliesViewModel: ObservableObject {
     private let db = Firestore.firestore()
     
     /// Fetch replies for a specific user
+    /// Since comments are in Realtime Database, we'll fetch posts the user has interacted with
+    /// and then check RTDB for their comments on those posts
     func fetchReplies(for userId: String, isInitialLoad: Bool = false) async {
         guard !isLoading else { return }
         
@@ -60,13 +64,13 @@ class RepliesViewModel: ObservableObject {
         error = nil
         
         do {
-            // Query comments where authorId == userId
-            var query = db.collectionGroup("comments")
-                .whereField("authorId", isEqualTo: userId)
+            // Fetch recent posts (we'll check each for user's comments)
+            // In production, you'd want a separate Firestore collection tracking user comments
+            // For now, we'll fetch posts and check Realtime DB for comments
+            var query = db.collection("posts")
                 .order(by: "createdAt", descending: true)
-                .limit(to: pageSize)
+                .limit(to: 50)  // Check recent posts
             
-            // Pagination support
             if let lastDoc = lastDocument {
                 query = query.start(afterDocument: lastDoc)
             }
@@ -75,46 +79,93 @@ class RepliesViewModel: ObservableObject {
             
             // Update pagination state
             lastDocument = snapshot.documents.last
-            hasMoreData = snapshot.documents.count == pageSize
             
-            // Fetch parent posts for each comment
             var newThreads: [ReplyThread] = []
             
-            for commentDoc in snapshot.documents {
+            // Import Firebase Database
+            let database = Database.database()
+            let ref = database.reference()
+            
+            // Check each post for user's comments
+            for postDoc in snapshot.documents {
+                guard let post = try? postDoc.data(as: Post.self) else { continue }
+                
+                let postId = postDoc.documentID
+                
+                // Check RTDB for this user's comments on this post
+                let commentsRef = ref.child("postInteractions").child(postId).child("comments")
+                
                 do {
-                    let comment = try commentDoc.data(as: Comment.self)
+                    let commentsSnapshot = try await commentsRef.getData()
                     
-                    // Get the postId from the comment
-                    guard let postId = comment.postId as String? else {
-                        continue
+                    guard commentsSnapshot.exists() else { continue }
+                    
+                    // Parse all comments and find ones by this user
+                    for child in commentsSnapshot.children.allObjects as? [DataSnapshot] ?? [] {
+                        guard let commentData = child.value as? [String: Any],
+                              let commentAuthorId = commentData["authorId"] as? String,
+                              commentAuthorId == userId else {
+                            continue
+                        }
+                        
+                        // Parse the comment
+                        guard let authorName = commentData["authorName"] as? String,
+                              let authorUsername = commentData["authorUsername"] as? String,
+                              let authorInitials = commentData["authorInitials"] as? String,
+                              let content = commentData["content"] as? String,
+                              let timestamp = commentData["timestamp"] as? Int64 else {
+                            continue
+                        }
+                        
+                        let createdAt = Date(timeIntervalSince1970: TimeInterval(timestamp) / 1000.0)
+                        let authorProfileImageURL = commentData["authorProfileImageURL"] as? String
+                        let amenCount = commentData["amenCount"] as? Int ?? 0
+                        let lightbulbCount = commentData["lightbulbCount"] as? Int ?? 0
+                        let replyCount = commentData["replyCount"] as? Int ?? 0
+                        let amenUserIds = (commentData["amenUserIds"] as? [String: Bool])?.keys.map { $0 } ?? []
+                        
+                        let comment = Comment(
+                            id: child.key,
+                            postId: postId,
+                            authorId: commentAuthorId,
+                            authorName: authorName,
+                            authorUsername: authorUsername,
+                            authorInitials: authorInitials,
+                            authorProfileImageURL: authorProfileImageURL,
+                            content: content,
+                            createdAt: createdAt,
+                            updatedAt: createdAt,
+                            amenCount: amenCount,
+                            lightbulbCount: lightbulbCount,
+                            replyCount: replyCount,
+                            amenUserIds: amenUserIds
+                        )
+                        
+                        let thread = ReplyThread(originalPost: post, userReply: comment)
+                        newThreads.append(thread)
                     }
-                    
-                    // Fetch the parent post
-                    let postDoc = try await db.collection("posts").document(postId).getDocument()
-                    
-                    guard postDoc.exists,
-                          let post = try? postDoc.data(as: Post.self) else {
-                        continue
-                    }
-                    
-                    // Create reply thread
-                    let thread = ReplyThread(originalPost: post, userReply: comment)
-                    newThreads.append(thread)
-                    
                 } catch {
-                    print("⚠️ Failed to parse comment or fetch post: \(error)")
+                    print("⚠️ Failed to fetch comments from RTDB for post \(postId): \(error)")
                     continue
                 }
             }
             
+            // Sort by reply creation time (most recent first)
+            newThreads.sort { $0.createdAt > $1.createdAt }
+            
+            // Take only the pageSize most recent
+            let limitedThreads = Array(newThreads.prefix(pageSize))
+            
             // Append new threads
             if isInitialLoad {
-                replyThreads = newThreads
+                replyThreads = limitedThreads
             } else {
-                replyThreads.append(contentsOf: newThreads)
+                replyThreads.append(contentsOf: limitedThreads)
             }
             
-            print("✅ Loaded \(newThreads.count) reply threads for user \(userId)")
+            hasMoreData = snapshot.documents.count == 50
+            
+            print("✅ Loaded \(limitedThreads.count) reply threads for user \(userId)")
             
         } catch {
             self.error = "Failed to load replies: \(error.localizedDescription)"

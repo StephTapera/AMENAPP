@@ -1,3 +1,5 @@
+
+
 //
 //  ClaudeService.swift
 //  AMENAPP
@@ -21,6 +23,9 @@ import Combine
 import FirebaseFunctions
 
 // MARK: - Service
+// Note: BereanMode, BereanSource, BereanSelectionAction, OpenAIChatMessage,
+// OpenAIServiceError, and CachedResponse are defined in OpenAIService.swift
+// and are accessible here since they're in the same module.
 
 /// Drop-in Berean AI client that routes all LLM calls through bereanChatProxy.
 @MainActor

@@ -1225,11 +1225,10 @@ struct PrayerGroupsView: View {
 }
 */
 
-// MARK: - Prayer Group Model (OLD - Now in PrayerGroupsView.swift)
+// MARK: - Prayer Group Model
 
-/*
 struct PrayerGroup: Identifiable {
-    let id = UUID()
+    let id: UUID
     let name: String
     let icon: String
     let memberCount: Int
@@ -1237,8 +1236,31 @@ struct PrayerGroup: Identifiable {
     let description: String
     let color: Color
     let category: String
+
+    var members: Int {
+        memberCount
+    }
+
+    init(
+        id: UUID = UUID(),
+        name: String,
+        icon: String,
+        memberCount: Int,
+        activeNow: Int,
+        description: String,
+        color: Color,
+        category: String
+    ) {
+        self.id = id
+        self.name = name
+        self.icon = icon
+        self.memberCount = memberCount
+        self.activeNow = activeNow
+        self.description = description
+        self.color = color
+        self.category = category
+    }
 }
-*/
 
 // MARK: - Prayer Group Card (OLD - Now in PrayerGroupsView.swift)
 

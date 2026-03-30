@@ -23,17 +23,37 @@ struct ReplyThreadRowView: View {
             userReplySection
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .padding(.vertical, 16)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color.white.opacity(0.05))
+                .fill(.clear)
+                .background(.ultraThinMaterial)
+                .background(
+                    LinearGradient(
+                        colors: [
+                            Color(.systemBackground).opacity(0.05),
+                            Color(.systemBackground).opacity(0.02)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [
+                                    Color.primary.opacity(0.1),
+                                    Color.primary.opacity(0.05)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 0.5
+                        )
                 )
+                .shadow(color: .black.opacity(0.03), radius: 8, x: 0, y: 2)
         )
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
     }
     
     // MARK: - Original Post Section (Dimmed)
@@ -42,38 +62,47 @@ struct ReplyThreadRowView: View {
         HStack(alignment: .top, spacing: 12) {
             // Author avatar
             Circle()
-                .fill(Color.gray.opacity(0.3))
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color.secondary.opacity(0.2),
+                            Color.secondary.opacity(0.1)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
                 .frame(width: 40, height: 40)
                 .overlay(
                     Text(thread.originalPost.authorInitials)
-                        .font(.custom("OpenSans-SemiBold", size: 14))
-                        .foregroundColor(.white.opacity(0.5))
+                        .font(AMENFont.semiBold(14))
+                        .foregroundStyle(.secondary.opacity(0.6))
                 )
             
             VStack(alignment: .leading, spacing: 6) {
                 // Author name and username
                 HStack(spacing: 6) {
                     Text(thread.originalPost.authorName)
-                        .font(.custom("OpenSans-SemiBold", size: 15))
-                        .foregroundColor(.white.opacity(0.5))
+                        .font(AMENFont.semiBold(15))
+                        .foregroundStyle(.secondary.opacity(0.7))
                     
                     if let username = thread.originalPost.authorUsername {
                         Text("@\(username)")
-                            .font(.custom("OpenSans-Regular", size: 14))
-                            .foregroundColor(.white.opacity(0.4))
+                            .font(AMENFont.regular(14))
+                            .foregroundStyle(.secondary.opacity(0.5))
                     }
                     
                     Spacer()
                     
                     Text(thread.originalPost.timeAgo)
-                        .font(.custom("OpenSans-Regular", size: 13))
-                        .foregroundColor(.white.opacity(0.4))
+                        .font(AMENFont.regular(13))
+                        .foregroundStyle(.secondary.opacity(0.5))
                 }
                 
                 // Post content (truncated if long)
                 Text(thread.originalPost.content)
-                    .font(.custom("OpenSans-Regular", size: 15))
-                    .foregroundColor(.white.opacity(0.5))
+                    .font(AMENFont.regular(15))
+                    .foregroundStyle(.secondary.opacity(0.7))
                     .lineLimit(3)
                     .multilineTextAlignment(.leading)
                 
@@ -93,8 +122,17 @@ struct ReplyThreadRowView: View {
             
             // Vertical line
             Rectangle()
-                .fill(Color.white.opacity(0.2))
-                .frame(width: 2, height: 16)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color.primary.opacity(0.15),
+                            Color.primary.opacity(0.08)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .frame(width: 2, height: 20)
             
             Spacer()
         }
@@ -106,36 +144,49 @@ struct ReplyThreadRowView: View {
         HStack(alignment: .top, spacing: 12) {
             // User avatar
             Circle()
-                .fill(Color.blue.opacity(0.3))
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color.blue.opacity(0.25),
+                            Color.blue.opacity(0.15)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
                 .frame(width: 40, height: 40)
                 .overlay(
+                    Circle()
+                        .strokeBorder(Color.blue.opacity(0.3), lineWidth: 1)
+                )
+                .overlay(
                     Text(thread.userReply.authorInitials)
-                        .font(.custom("OpenSans-SemiBold", size: 14))
-                        .foregroundColor(.white)
+                        .font(AMENFont.semiBold(14))
+                        .foregroundStyle(.primary)
                 )
             
             VStack(alignment: .leading, spacing: 6) {
                 // User name and username
                 HStack(spacing: 6) {
                     Text(thread.userReply.authorName)
-                        .font(.custom("OpenSans-SemiBold", size: 15))
-                        .foregroundColor(.white)
+                        .font(AMENFont.semiBold(15))
+                        .foregroundStyle(.primary)
                     
                     Text("@\(thread.userReply.authorUsername)")
-                        .font(.custom("OpenSans-Regular", size: 14))
-                        .foregroundColor(.white.opacity(0.6))
+                        .font(AMENFont.regular(14))
+                        .foregroundStyle(.secondary)
                     
                     Spacer()
                     
                     Text(thread.userReply.timeAgo)
-                        .font(.custom("OpenSans-Regular", size: 13))
-                        .foregroundColor(.white.opacity(0.6))
+                        .font(AMENFont.regular(13))
+                        .foregroundStyle(.secondary)
                 }
                 
                 // Reply content
                 Text(thread.userReply.content)
-                    .font(.custom("OpenSans-Regular", size: 15))
-                    .foregroundColor(.white)
+                    .font(AMENFont.regular(15))
+                    .foregroundStyle(.primary)
                     .multilineTextAlignment(.leading)
                 
                 // Reply stats
@@ -150,13 +201,17 @@ struct ReplyThreadRowView: View {
         Group {
             if thread.originalPost.category.showCategoryBadge {
                 Text(thread.originalPost.category.displayName)
-                    .font(.custom("OpenSans-Bold", size: 11))
-                    .foregroundColor(categoryColor.opacity(0.5))
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(categoryColor.opacity(0.7))
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .background(
                         Capsule()
-                            .fill(categoryColor.opacity(0.15))
+                            .fill(categoryColor.opacity(0.12))
+                            .overlay(
+                                Capsule()
+                                    .strokeBorder(categoryColor.opacity(0.2), lineWidth: 0.5)
+                            )
                     )
             }
         }
@@ -171,11 +226,11 @@ struct ReplyThreadRowView: View {
                 HStack(spacing: 4) {
                     Image(systemName: "hands.sparkles.fill")
                         .font(.system(size: 13))
-                        .foregroundColor(.white.opacity(0.5))
+                        .foregroundStyle(.secondary.opacity(0.7))
                     
                     Text("\(thread.userReply.amenCount)")
-                        .font(.custom("OpenSans-Regular", size: 13))
-                        .foregroundColor(.white.opacity(0.6))
+                        .font(AMENFont.regular(13))
+                        .foregroundStyle(.secondary)
                 }
             }
             
@@ -184,11 +239,11 @@ struct ReplyThreadRowView: View {
                 HStack(spacing: 4) {
                     Image(systemName: "bubble.left.fill")
                         .font(.system(size: 13))
-                        .foregroundColor(.white.opacity(0.5))
+                        .foregroundStyle(.secondary.opacity(0.7))
                     
                     Text("\(thread.userReply.replyCount)")
-                        .font(.custom("OpenSans-Regular", size: 13))
-                        .foregroundColor(.white.opacity(0.6))
+                        .font(AMENFont.regular(13))
+                        .foregroundStyle(.secondary)
                 }
             }
         }

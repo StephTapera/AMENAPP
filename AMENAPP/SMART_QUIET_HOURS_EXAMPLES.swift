@@ -7,6 +7,9 @@
 
 import Foundation
 import SwiftUI
+import FirebaseAuth
+import FirebaseFirestore
+import CoreLocation
 
 // MARK: - Example 1: Basic Setup
 
@@ -40,7 +43,7 @@ struct ExampleActivityTracking: View {
                 Task {
                     // Track post creation
                     await AdaptiveQuietHoursEngine.shared.recordActivity(
-                        type: .postCreated
+                        type: UserActivityType.postCreated
                     )
 
                     // Create post logic...
@@ -51,7 +54,7 @@ struct ExampleActivityTracking: View {
                 Task {
                     // Track messaging
                     await AdaptiveQuietHoursEngine.shared.recordActivity(
-                        type: .messagesSent
+                        type: UserActivityType.messagesSent
                     )
 
                     // Send message logic...
@@ -62,7 +65,7 @@ struct ExampleActivityTracking: View {
             // Track app open
             Task {
                 await AdaptiveQuietHoursEngine.shared.recordActivity(
-                    type: .appOpened
+                    type: UserActivityType.appOpened
                 )
             }
         }
@@ -209,7 +212,7 @@ func exampleSmartBatching() async {
     )
 
     await batcher.addToBatch(
-        category: .comments,
+        category: .replies,
         fromUserId: "user4",
         fromUsername: "Emily",
         content: "Amen! Great post",
@@ -284,7 +287,7 @@ func exampleCatchUpSummary() async {
 
 @MainActor
 struct ExampleAdaptiveSuggestionsView: View {
-    @StateObject private var engine = AdaptiveQuietHoursEngine.shared
+    @ObservedObject private var engine = AdaptiveQuietHoursEngine.shared
 
     var body: some View {
         VStack(spacing: 16) {
@@ -402,7 +405,7 @@ func exampleFullNotificationRouting() async {
     // 6. Make delivery decision
     let routing = NotificationRouting(
         category: notification.category,
-        priority: NotificationPriority(score: priority),
+        priority: NotificationPriorityScore(score: priority),
         timestamp: Date()
     )
 

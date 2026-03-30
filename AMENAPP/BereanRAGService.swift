@@ -103,7 +103,7 @@ struct BereanRAGResponse: Equatable {
 
 // MARK: - Conversation Memory Models
 
-struct BereanConversationSession: Identifiable, Codable {
+struct BereanRAGSession: Identifiable, Codable {
     let id: String
     var title: String               // Auto-generated from first query
     let startedAt: Date
@@ -114,7 +114,7 @@ struct BereanConversationSession: Identifiable, Codable {
     var folderName: String?
 }
 
-struct BereanConversationMessage: Identifiable, Codable {
+struct BereanRAGMessage: Identifiable, Codable {
     let id: String
     let sessionId: String
     let role: Role
@@ -145,7 +145,7 @@ final class BereanConversationMemoryService: ObservableObject {
 
     static let shared = BereanConversationMemoryService()
 
-    @Published private(set) var sessions: [BereanConversationSession] = []
+    @Published private(set) var sessions: [BereanRAGSession] = []
     @Published private(set) var isLoading = false
 
     private let db = Firestore.firestore()
@@ -156,13 +156,13 @@ final class BereanConversationMemoryService: ObservableObject {
 
     // MARK: - Session Management
 
-    func createSession(firstQuery: String) async throws -> BereanConversationSession {
+    func createSession(firstQuery: String) async throws -> BereanRAGSession {
         guard let uid = Auth.auth().currentUser?.uid else {
             throw NSError(domain: "BereanMemory", code: 401, userInfo: [NSLocalizedDescriptionKey: "Not authenticated"])
         }
         let sessionId = UUID().uuidString
         let title = generateTitle(from: firstQuery)
-        let session = BereanConversationSession(
+        let session = BereanRAGSession(
             id: sessionId,
             title: title,
             startedAt: Date(),
@@ -195,7 +195,7 @@ final class BereanConversationMemoryService: ObservableObject {
         isLoading = false
     }
 
-    func loadMessages(for sessionId: String) async -> [BereanConversationMessage] {
+    func loadMessages(for sessionId: String) async -> [BereanRAGMessage] {
         guard let uid = Auth.auth().currentUser?.uid else { return [] }
         do {
             let snapshot = try await db
@@ -213,7 +213,7 @@ final class BereanConversationMemoryService: ObservableObject {
     }
 
     func appendMessage(
-        _ message: BereanConversationMessage,
+        _ message: BereanRAGMessage,
         to sessionId: String
     ) async {
         guard flags.bereanConversationMemoryEnabled else { return }
@@ -268,7 +268,7 @@ final class BereanConversationMemoryService: ObservableObject {
 
     /// Returns the last N messages formatted as [role: content] pairs for prompt context.
     func buildContextWindow(
-        from messages: [BereanConversationMessage],
+        from messages: [BereanRAGMessage],
         maxTokenEstimate: Int = 2000
     ) -> [(role: String, content: String)] {
         var result: [(role: String, content: String)] = []
@@ -292,7 +292,7 @@ final class BereanConversationMemoryService: ObservableObject {
         return base.isEmpty ? "New Conversation" : String(base.prefix(50))
     }
 
-    private func encodedSession(_ s: BereanConversationSession) -> [String: Any] {
+    private func encodedSession(_ s: BereanRAGSession) -> [String: Any] {
         [
             "title": s.title,
             "startedAt": Timestamp(date: s.startedAt),
@@ -304,11 +304,11 @@ final class BereanConversationMemoryService: ObservableObject {
         ]
     }
 
-    private func decodeSession(_ data: [String: Any], id: String) -> BereanConversationSession? {
+    private func decodeSession(_ data: [String: Any], id: String) -> BereanRAGSession? {
         guard let title = data["title"] as? String,
               let startedTS = data["startedAt"] as? Timestamp,
               let lastTS = data["lastActivityAt"] as? Timestamp else { return nil }
-        return BereanConversationSession(
+        return BereanRAGSession(
             id: id,
             title: title,
             startedAt: startedTS.dateValue(),
@@ -320,7 +320,7 @@ final class BereanConversationMemoryService: ObservableObject {
         )
     }
 
-    private func encodedMessage(_ m: BereanConversationMessage) -> [String: Any] {
+    private func encodedMessage(_ m: BereanRAGMessage) -> [String: Any] {
         let sources = m.sources.map { s -> [String: Any] in
             ["id": s.id, "type": s.type, "title": s.title, "reference": s.reference ?? ""]
         }
@@ -334,18 +334,18 @@ final class BereanConversationMemoryService: ObservableObject {
         ]
     }
 
-    private func decodeMessage(_ data: [String: Any], id: String, sessionId: String) -> BereanConversationMessage? {
+    private func decodeMessage(_ data: [String: Any], id: String, sessionId: String) -> BereanRAGMessage? {
         guard let roleStr = data["role"] as? String,
-              let role = BereanConversationMessage.Role(rawValue: roleStr),
+              let role = BereanRAGMessage.Role(rawValue: roleStr),
               let content = data["content"] as? String,
               let ts = data["timestamp"] as? Timestamp else { return nil }
         let rawSources = data["sources"] as? [[String: Any]] ?? []
-        let sources = rawSources.compactMap { s -> BereanConversationMessage.CodableSource? in
+        let sources = rawSources.compactMap { s -> BereanRAGMessage.CodableSource? in
             guard let id = s["id"] as? String, let type = s["type"] as? String,
                   let title = s["title"] as? String else { return nil }
-            return BereanConversationMessage.CodableSource(id: id, type: type, title: title, reference: s["reference"] as? String)
+            return BereanRAGMessage.CodableSource(id: id, type: type, title: title, reference: s["reference"] as? String)
         }
-        return BereanConversationMessage(
+        return BereanRAGMessage(
             id: id,
             sessionId: sessionId,
             role: role,
@@ -694,7 +694,7 @@ final class BereanRAGService: ObservableObject {
     func generateResponse(
         query: String,
         sessionId: String,
-        priorMessages: [BereanConversationMessage]
+        priorMessages: [BereanRAGMessage]
     ) async throws -> BereanRAGResponse {
         isProcessing = true
         defer { isProcessing = false }

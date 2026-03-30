@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Combine
 import FirebaseFirestore
 import FirebaseAuth
 import UserNotifications
@@ -77,7 +78,7 @@ class AdaptiveQuietHoursEngine: ObservableObject {
     // MARK: - Core Learning Functions
 
     /// Record user activity timestamp to build behavior pattern
-    func recordActivity(type: ActivityType, timestamp: Date = Date()) async {
+    func recordActivity(type: UserActivityType, timestamp: Date = Date()) async {
         guard let userId = Auth.auth().currentUser?.uid else { return }
 
         let hour = calendar.component(.hour, from: timestamp)
@@ -454,7 +455,7 @@ class AdaptiveQuietHoursEngine: ObservableObject {
 
 // MARK: - Activity Types
 
-enum ActivityType: String, Codable {
+enum UserActivityType: String, Codable {
     case appOpened
     case postCreated
     case messagesSent

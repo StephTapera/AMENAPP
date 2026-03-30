@@ -9,6 +9,7 @@ import Foundation
 import NaturalLanguage
 import CoreML
 import FirebaseFirestore
+import Combine
 
 /// ML-powered notification content classifier
 @MainActor

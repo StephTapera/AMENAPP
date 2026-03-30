@@ -9,8 +9,8 @@ import SwiftUI
 import FirebaseAuth
 
 struct EnhancedQuietHoursView: View {
-    @StateObject private var adaptiveEngine = AdaptiveQuietHoursEngine.shared
-    @StateObject private var progressiveEngine = ProgressiveQuietingEngine.shared
+    @ObservedObject private var adaptiveEngine = AdaptiveQuietHoursEngine.shared
+    @ObservedObject private var progressiveEngine = ProgressiveQuietingEngine.shared
     @Environment(\.dismiss) var dismiss
 
     @State private var quietHoursEnabled = false
@@ -22,7 +22,7 @@ struct EnhancedQuietHoursView: View {
 
     @State private var showStartPicker = false
     @State private var showEndPicker = false
-    @State private var showSuggestionDetail: QuietHoursSuggestion?
+    @State private var showSuggestionDetail: AdaptiveQuietHoursEngine.QuietHoursSuggestion?
 
     var body: some View {
         NavigationView {
@@ -122,7 +122,7 @@ struct EnhancedQuietHoursView: View {
             .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
             .padding(.horizontal, 16)
 
-            if quietHoursEnabled, let currentLevel = progressiveEngine.currentQuietLevel {
+            if quietHoursEnabled {
                 let feedback = progressiveEngine.generateQuietFeedback()
                 QuietStatusBanner(feedback: feedback)
                     .padding(.horizontal, 20)
@@ -520,7 +520,7 @@ struct LearnedPatternPreview: View {
                     .foregroundStyle(.secondary)
                 Spacer()
                 Text("\(pattern.weekdayStart) - \(pattern.weekdayEnd)")
-                    .font(AMENFont.semibold(12))
+                    .font(AMENFont.semiBold(12))
             }
 
             HStack {
@@ -529,7 +529,7 @@ struct LearnedPatternPreview: View {
                     .foregroundStyle(.secondary)
                 Spacer()
                 Text("\(pattern.weekendStart) - \(pattern.weekendEnd)")
-                    .font(AMENFont.semibold(12))
+                    .font(AMENFont.semiBold(12))
             }
         }
         .padding(12)
@@ -562,7 +562,7 @@ struct SuggestionRow: View {
 
                 VStack(alignment: .trailing, spacing: 2) {
                     Text("\(Int(suggestion.confidence * 100))%")
-                        .font(AMENFont.semibold(12))
+                        .font(AMENFont.semiBold(12))
                         .foregroundStyle(.orange)
                     Text("\(suggestion.dataPoints) samples")
                         .font(AMENFont.regular(10))

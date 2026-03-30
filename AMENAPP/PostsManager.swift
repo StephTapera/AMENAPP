@@ -67,6 +67,9 @@ struct Post: Identifiable, Codable, Equatable {
 
     // Prayer Arc — testimony ↔ prayer link
     var linkedPrayerRequestId: String? = nil  // Set on testimony posts
+    var linkedPrayerText: String? = nil       // Optional excerpt of the answered prayer
+    var linkedTestimonyId: String? = nil      // Set on prayer posts when answered
+    var prayerStatus: String? = nil           // "praying" | "believing" | "answered"
     var journeyDays: Int? = nil               // Days from prayer to testimony
     var stoneCount: Int? = nil                // Total stones laid
     var intercessorUids: [String]? = nil      // UIDs of stone layers
@@ -186,7 +189,7 @@ struct Post: Identifiable, Codable, Equatable {
         case taggedUserIds, tagStatusByUid
         case originalContent, detectedLanguage, isTranslated
         case contentSource
-        case linkedPrayerRequestId, journeyDays, stoneCount, intercessorUids, bereanArcInsight
+        case linkedPrayerRequestId, linkedPrayerText, linkedTestimonyId, prayerStatus, journeyDays, stoneCount, intercessorUids, bereanArcInsight
     }
     
     init(from decoder: Decoder) throws {
@@ -238,6 +241,9 @@ struct Post: Identifiable, Codable, Equatable {
         isTranslated = try container.decodeIfPresent(Bool.self, forKey: .isTranslated) ?? false
         contentSource = try container.decodeIfPresent(String.self, forKey: .contentSource)
         linkedPrayerRequestId = try container.decodeIfPresent(String.self, forKey: .linkedPrayerRequestId)
+        linkedPrayerText = try container.decodeIfPresent(String.self, forKey: .linkedPrayerText)
+        linkedTestimonyId = try container.decodeIfPresent(String.self, forKey: .linkedTestimonyId)
+        prayerStatus = try container.decodeIfPresent(String.self, forKey: .prayerStatus)
         journeyDays = try container.decodeIfPresent(Int.self, forKey: .journeyDays)
         stoneCount = try container.decodeIfPresent(Int.self, forKey: .stoneCount)
         intercessorUids = try container.decodeIfPresent([String].self, forKey: .intercessorUids)
@@ -286,6 +292,14 @@ struct Post: Identifiable, Codable, Equatable {
         try container.encodeIfPresent(detectedLanguage, forKey: .detectedLanguage)
         try container.encode(isTranslated, forKey: .isTranslated)
         try container.encodeIfPresent(contentSource, forKey: .contentSource)
+        try container.encodeIfPresent(linkedPrayerRequestId, forKey: .linkedPrayerRequestId)
+        try container.encodeIfPresent(linkedPrayerText, forKey: .linkedPrayerText)
+        try container.encodeIfPresent(linkedTestimonyId, forKey: .linkedTestimonyId)
+        try container.encodeIfPresent(prayerStatus, forKey: .prayerStatus)
+        try container.encodeIfPresent(journeyDays, forKey: .journeyDays)
+        try container.encodeIfPresent(stoneCount, forKey: .stoneCount)
+        try container.encodeIfPresent(intercessorUids, forKey: .intercessorUids)
+        try container.encodeIfPresent(bereanArcInsight, forKey: .bereanArcInsight)
     }
     
     init(
@@ -321,7 +335,15 @@ struct Post: Identifiable, Codable, Equatable {
         originalAuthorName: String? = nil,
         originalAuthorId: String? = nil,
         churchNoteId: String? = nil,
-        contentSource: String? = nil
+        contentSource: String? = nil,
+        linkedPrayerRequestId: String? = nil,
+        linkedPrayerText: String? = nil,
+        linkedTestimonyId: String? = nil,
+        prayerStatus: String? = nil,
+        journeyDays: Int? = nil,
+        stoneCount: Int? = nil,
+        intercessorUids: [String]? = nil,
+        bereanArcInsight: String? = nil
     ) {
         self.id = id
         self.firebaseId = firebaseId
@@ -356,6 +378,14 @@ struct Post: Identifiable, Codable, Equatable {
         self.originalAuthorId = originalAuthorId
         self.churchNoteId = churchNoteId
         self.contentSource = contentSource
+        self.linkedPrayerRequestId = linkedPrayerRequestId
+        self.linkedPrayerText = linkedPrayerText
+        self.linkedTestimonyId = linkedTestimonyId
+        self.prayerStatus = prayerStatus
+        self.journeyDays = journeyDays
+        self.stoneCount = stoneCount
+        self.intercessorUids = intercessorUids
+        self.bereanArcInsight = bereanArcInsight
     }
 
     var backendId: String {
@@ -1099,5 +1129,3 @@ class PostsManager: ObservableObject {
         }
     }
 }
-
-

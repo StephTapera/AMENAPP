@@ -919,13 +919,13 @@ final class ComposeAnalysisService {
         )
 
         // Parse JSON
-        let cleaned = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleaned = raw.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
         guard let jsonStart = cleaned.firstIndex(of: "["),
               let jsonEnd = cleaned.lastIndex(of: "]") else {
             return []
         }
         let jsonSlice = String(cleaned[jsonStart...jsonEnd])
-        guard let data = jsonSlice.data(using: .utf8) else { return [] }
+        guard let data = jsonSlice.data(using: String.Encoding.utf8) else { return [] }
 
         struct RawSuggestion: Decodable {
             let category: String
