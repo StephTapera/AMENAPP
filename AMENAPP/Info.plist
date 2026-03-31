@@ -96,8 +96,6 @@
 	<false/>
 	<key>UILaunchScreen</key>
 	<dict>
-		<key>UIImageName</key>
-		<string>amen-logo</string>
 		<key>UIColorName</key>
 		<string>AccentColor</string>
 	</dict>

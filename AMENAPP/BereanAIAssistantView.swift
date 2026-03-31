@@ -483,7 +483,7 @@ struct BereanAIAssistantView: View {
                         .frame(width: geo.size.width, height: geo.size.height)
                 }
                 .frame(maxWidth: .infinity)
-                .frame(minHeight: UIScreen.main.bounds.height * 0.65)
+                .frame(minHeight: screenBounds().height * 0.65)
             } else {
                 ForEach(viewModel.messages) { message in
                     messageBubbleRow(message: message)
@@ -1162,17 +1162,21 @@ struct BereanAIAssistantView: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
-            // Header backdrop appears only when scrolled — matches Dia's transparent-to-glass transition
+            // Header backdrop: glass material appears on scroll
             .background(
-                Rectangle()
-                    .fill(.ultraThinMaterial)
-                    .opacity(shouldCollapseBibleIcon ? 0.88 : 0.0)
-                    .animation(.easeInOut(duration: 0.28), value: shouldCollapseBibleIcon)
-                    .ignoresSafeArea(edges: .top)
+                ZStack {
+                    Rectangle()
+                        .fill(.ultraThinMaterial)
+                    Rectangle()
+                        .fill(Color.white.opacity(0.55))
+                }
+                .opacity(shouldCollapseBibleIcon ? 1.0 : 0.0)
+                .animation(.easeInOut(duration: 0.28), value: shouldCollapseBibleIcon)
+                .ignoresSafeArea(edges: .top)
             )
             .overlay(alignment: .bottom) {
                 Rectangle()
-                    .fill(Color.black.opacity(shouldCollapseBibleIcon ? 0.05 : 0.0))
+                    .fill(Color(white: 0.82).opacity(shouldCollapseBibleIcon ? 0.4 : 0.0))
                     .frame(height: 0.5)
                     .animation(.easeInOut(duration: 0.28), value: shouldCollapseBibleIcon)
             }
@@ -1187,12 +1191,14 @@ struct BereanAIAssistantView: View {
         } label: {
             Image(systemName: "xmark")
                 .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(.black.opacity(0.6))
+                .foregroundStyle(Color(white: 0.20))
                 .frame(width: 36, height: 36)
                 .background(
                     Circle()
-                        .fill(.white)
-                        .shadow(color: .black.opacity(0.08), radius: 4, y: 2)
+                        .fill(.ultraThinMaterial)
+                        .overlay(Circle().fill(Color.white.opacity(0.55)))
+                        .overlay(Circle().strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5))
+                        .shadow(color: .black.opacity(0.07), radius: 8, y: 3)
                 )
         }
     }
@@ -1326,8 +1332,10 @@ struct BereanAIAssistantView: View {
             .padding(.vertical, 6)
             .background(
                 Capsule()
-                    .fill(Color.white.opacity(premiumManager.hasProAccess ? 0.7 : 0.6))
-                    .shadow(color: premiumManager.hasProAccess ? Color(red: 1.0, green: 0.6, blue: 0.3).opacity(0.2) : Color.black.opacity(0.05), radius: 8, y: 2)
+                    .fill(.ultraThinMaterial)
+                    .overlay(Capsule().fill(Color.white.opacity(0.55)))
+                    .overlay(Capsule().strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5))
+                    .shadow(color: premiumManager.hasProAccess ? Color(red: 1.0, green: 0.6, blue: 0.3).opacity(0.15) : Color.black.opacity(0.06), radius: 10, y: 3)
             )
         }
     }
@@ -1343,9 +1351,15 @@ struct BereanAIAssistantView: View {
             } label: {
                 Image(systemName: "folder.badge.plus")
                     .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(Color(white: 0.26))
+                    .foregroundStyle(Color(white: 0.22))
                     .frame(width: 36, height: 36)
-                    .background(Circle().fill(Color.white).shadow(color: .black.opacity(0.07), radius: 5, y: 2))
+                    .background(
+                        Circle()
+                            .fill(.ultraThinMaterial)
+                            .overlay(Circle().fill(Color.white.opacity(0.55)))
+                            .overlay(Circle().strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5))
+                            .shadow(color: .black.opacity(0.06), radius: 8, y: 3)
+                    )
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Open projects")
@@ -1357,9 +1371,15 @@ struct BereanAIAssistantView: View {
             } label: {
                 Image(systemName: "clock")
                     .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(Color(white: 0.26))
+                    .foregroundStyle(Color(white: 0.22))
                     .frame(width: 36, height: 36)
-                    .background(Circle().fill(Color.white).shadow(color: .black.opacity(0.07), radius: 5, y: 2))
+                    .background(
+                        Circle()
+                            .fill(.ultraThinMaterial)
+                            .overlay(Circle().fill(Color.white.opacity(0.55)))
+                            .overlay(Circle().strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5))
+                            .shadow(color: .black.opacity(0.06), radius: 8, y: 3)
+                    )
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Open chat history")
@@ -1380,12 +1400,14 @@ struct BereanAIAssistantView: View {
             ZStack(alignment: .topTrailing) {
                 Image(systemName: "folder")
                     .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(Color(white: 0.26))
+                    .foregroundStyle(Color(white: 0.22))
                     .frame(width: 36, height: 36)
                     .background(
                         Circle()
-                            .fill(Color.white)
-                            .shadow(color: .black.opacity(0.07), radius: 5, y: 2)
+                            .fill(.ultraThinMaterial)
+                            .overlay(Circle().fill(Color.white.opacity(0.55)))
+                            .overlay(Circle().strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5))
+                            .shadow(color: .black.opacity(0.06), radius: 8, y: 3)
                     )
 
                 // Unread badge — shows when there are saved conversations
@@ -1404,14 +1426,14 @@ struct BereanAIAssistantView: View {
     
     private var headerBackground: some View {
         ZStack {
-            Color.white.opacity(0.4)
-                .background(.ultraThinMaterial)
-            
+            Rectangle().fill(.ultraThinMaterial)
+            Rectangle().fill(Color.white.opacity(0.55))
+
             // Subtle bottom border
             VStack {
                 Spacer()
                 Rectangle()
-                    .fill(Color.black.opacity(0.05))
+                    .fill(Color(white: 0.82).opacity(0.4))
                     .frame(height: 0.5)
             }
         }
@@ -1478,9 +1500,11 @@ struct BereanAIAssistantView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
         .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(Color.white.opacity(0.85))
-                .shadow(color: .black.opacity(0.06), radius: 4, y: 2)
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.white.opacity(0.55)))
+                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.06), radius: 12, x: 0, y: 4)
         )
         .padding(.horizontal, 12)
         .padding(.bottom, 4)
@@ -1526,32 +1550,22 @@ struct BereanAIAssistantView: View {
                             Text(mode.rawValue)
                                 .font(.system(size: 11, weight: .semibold))
                         }
-                        .foregroundStyle(personalityMode == mode ? .white : Color(white: 0.38))
+                        .foregroundStyle(personalityMode == mode ? .white : Color(white: 0.20))
                         .padding(.horizontal, 11)
                         .padding(.vertical, 7)
                         .background(
-                            Capsule()
-                                .fill(personalityMode == mode
-                                    ? LinearGradient(
-                                        colors: [
-                                            Color(red: 0.88, green: 0.38, blue: 0.28),
-                                            Color(red: 0.72, green: 0.28, blue: 0.45)
-                                        ],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                      )
-                                    : LinearGradient(
-                                        colors: [Color.white.opacity(0.75)],
-                                        startPoint: .top,
-                                        endPoint: .bottom
-                                      )
-                                )
-                                .shadow(
-                                    color: personalityMode == mode
-                                        ? Color(red: 0.88, green: 0.38, blue: 0.28).opacity(0.25)
-                                        : .clear,
-                                    radius: 6, y: 2
-                                )
+                            Group {
+                                if personalityMode == mode {
+                                    Capsule()
+                                        .fill(Color.black)
+                                        .shadow(color: Color.black.opacity(0.18), radius: 6, y: 2)
+                                } else {
+                                    Capsule()
+                                        .fill(.ultraThinMaterial)
+                                        .overlay(Capsule().fill(Color.white.opacity(0.55)))
+                                        .overlay(Capsule().strokeBorder(Color(white: 0.85).opacity(0.4), lineWidth: 0.5))
+                                }
+                            }
                         )
                     }
                     .accessibilityLabel("\(mode.rawValue) mode: \(mode.description)")
@@ -1642,12 +1656,12 @@ struct BereanAIAssistantView: View {
         .background(composerBackground)
         // Breathing pulse border when idle, sharp border when focused
         .overlay(
-            RoundedRectangle(cornerRadius: 16)
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .stroke(
                     isInputFocused
-                        ? Color.black.opacity(0.22)
-                        : Color.black.opacity(inputPulseOn ? 0.14 : 0.0),
-                    lineWidth: 1.5
+                        ? Color.black.opacity(0.18)
+                        : Color.black.opacity(inputPulseOn ? 0.10 : 0.0),
+                    lineWidth: 1.0
                 )
                 .animation(
                     isInputFocused
@@ -1659,7 +1673,7 @@ struct BereanAIAssistantView: View {
         // Subtle glow on focus
         .shadow(
             color: Color.black.opacity(isInputFocused ? 0.06 : 0),
-            radius: isInputFocused ? 8 : 0, x: 0, y: 0
+            radius: isInputFocused ? 12 : 0, x: 0, y: 0
         )
         .animation(.easeOut(duration: 0.35), value: isInputFocused)
         .onChange(of: isInputFocused) { _, focused in
@@ -1729,7 +1743,7 @@ struct BereanAIAssistantView: View {
 
             // Tools hub — grid of AI capabilities
             BereanToolsButton { tool in
-                modeStore.selectedMode = BereanMode.catalog.first { $0.id == tool.modeID } ?? .standard
+                modeStore.selectedMode = BereanModeOption.catalog.first { $0.id == tool.modeID } ?? .standard
                 messageText = tool.seedPrompt
                 isInputFocused = true
             }
@@ -1747,14 +1761,18 @@ struct BereanAIAssistantView: View {
     }
 
     private var composerBackground: some View {
-        // Clean white card matching reference images — subtle border + soft shadow
+        // Liquid Glass composer card — ultraThinMaterial + white overlay
         RoundedRectangle(cornerRadius: 22, style: .continuous)
-            .fill(Color.white)
+            .fill(.ultraThinMaterial)
             .overlay(
                 RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .stroke(Color.black.opacity(0.07), lineWidth: 0.5)
+                    .fill(Color.white.opacity(0.55))
             )
-            .shadow(color: Color.black.opacity(0.09), radius: 18, y: 5)
+            .overlay(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5)
+            )
+            .shadow(color: Color.black.opacity(0.08), radius: 18, x: 0, y: 5)
             .shadow(color: Color.black.opacity(0.03), radius: 3, y: 1)
     }
 
@@ -1766,6 +1784,12 @@ struct BereanAIAssistantView: View {
             return 0
         }
         return window.safeAreaInsets.bottom
+    }
+
+    private func screenBounds() -> CGRect {
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first?.screen.bounds ?? .zero
     }
     
     // ✅ Response Mode Picker View
@@ -1789,16 +1813,18 @@ struct BereanAIAssistantView: View {
                     .padding(.horizontal, 11)
                     .padding(.vertical, 7)
                     .background(
-                        Capsule()
-                            .fill(
-                                responseMode == mode
-                                    ? AnyShapeStyle(mode.color)
-                                    : AnyShapeStyle(Color.white.opacity(0.6))
-                            )
-                            .shadow(
-                                color: responseMode == mode ? mode.color.opacity(0.3) : .clear,
-                                radius: 5, y: 2
-                            )
+                        Group {
+                            if responseMode == mode {
+                                Capsule()
+                                    .fill(mode.color)
+                                    .shadow(color: mode.color.opacity(0.3), radius: 5, y: 2)
+                            } else {
+                                Capsule()
+                                    .fill(Material.ultraThin)
+                                    .overlay(Capsule().fill(Color.white.opacity(0.55)))
+                                    .overlay(Capsule().strokeBorder(Color(white: 0.85).opacity(0.4), lineWidth: 0.5))
+                            }
+                        }
                     )
                 }
             }
@@ -1876,25 +1902,27 @@ struct BereanAIAssistantView: View {
                     HStack(spacing: 8) {
                         Image(systemName: "sparkles")
                             .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(.black.opacity(0.5))
-                        
+                            .foregroundStyle(Color(white: 0.35))
+
                         Text(suggestion)
                             .font(.system(size: 13, weight: .regular))
-                            .foregroundStyle(.black.opacity(0.8))
+                            .foregroundStyle(Color(white: 0.12))
                             .multilineTextAlignment(.leading)
-                        
+
                         Spacer()
-                        
+
                         Image(systemName: "arrow.up.forward")
                             .font(.system(size: 10, weight: .medium))
-                            .foregroundStyle(.black.opacity(0.3))
+                            .foregroundStyle(Color(white: 0.45))
                     }
                     .padding(.horizontal, 14)
                     .padding(.vertical, 12)
                     .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(.white)
-                            .shadow(color: .black.opacity(0.06), radius: 4, y: 2)
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(.ultraThinMaterial)
+                            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.white.opacity(0.55)))
+                            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color(white: 0.85).opacity(0.4), lineWidth: 0.5))
+                            .shadow(color: .black.opacity(0.06), radius: 12, x: 0, y: 4)
                     )
                 }
             }
@@ -2007,11 +2035,12 @@ struct BereanAIAssistantView: View {
             stopGeneration()
         } label: {
             ZStack {
-                // Outlined circle — white fill, thin border, matches the card's clean style
+                // Outlined circle — glass fill, thin border, matches the card's clean style
                 Circle()
-                    .fill(Color.white)
-                    .overlay(Circle().stroke(Color.black.opacity(0.20), lineWidth: 1.5))
-                    .shadow(color: .black.opacity(0.08), radius: 4, y: 2)
+                    .fill(.ultraThinMaterial)
+                    .overlay(Circle().fill(Color.white.opacity(0.55)))
+                    .overlay(Circle().strokeBorder(Color.black.opacity(0.18), lineWidth: 1.5))
+                    .shadow(color: .black.opacity(0.08), radius: 4, x: 0, y: 2)
                     .frame(width: 36, height: 36)
 
                 // Square stop icon
@@ -2797,21 +2826,19 @@ struct BereanQuickChip: View {
             HStack(spacing: 6) {
                 Image(systemName: icon)
                     .font(.system(size: 13, weight: .regular))
-                    .foregroundStyle(Color(white: 0.30))
+                    .foregroundStyle(Color(white: 0.22))
                 Text(label)
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(Color(white: 0.22))
+                    .foregroundStyle(Color(white: 0.12))
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 9)
             .background(
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .fill(Color.white.opacity(0.80))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 22, style: .continuous)
-                            .stroke(Color.black.opacity(0.07), lineWidth: 0.75)
-                    )
-                    .shadow(color: Color.black.opacity(0.05), radius: 6, y: 2)
+                Capsule()
+                    .fill(.ultraThinMaterial)
+                    .overlay(Capsule().fill(Color.white.opacity(0.55)))
+                    .overlay(Capsule().strokeBorder(Color(white: 0.85).opacity(0.4), lineWidth: 0.5))
+                    .shadow(color: Color.black.opacity(0.06), radius: 10, y: 3)
             )
             .scaleEffect(isPressed ? 0.96 : 1.0)
         }
@@ -2856,12 +2883,10 @@ struct BereanLightActionCard: View {
             .padding(.vertical, 14)
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.white.opacity(0.82))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .stroke(Color.black.opacity(0.055), lineWidth: 0.75)
-                    )
-                    .shadow(color: Color.black.opacity(0.04), radius: 8, y: 3)
+                    .fill(.ultraThinMaterial)
+                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.white.opacity(0.55)))
+                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color(white: 0.85).opacity(0.4), lineWidth: 0.5))
+                    .shadow(color: Color.black.opacity(0.06), radius: 12, x: 0, y: 4)
             )
             .scaleEffect(isPressed ? 0.97 : 1.0)
         }
@@ -2913,13 +2938,11 @@ struct BereanQuickActionCard: View {
                         .frame(width: 56, height: 56)
                     
                     Circle()
-                        .fill(Color.white.opacity(0.7))
+                        .fill(.ultraThinMaterial)
+                        .overlay(Circle().fill(Color.white.opacity(0.55)))
+                        .overlay(Circle().strokeBorder(color.opacity(0.18), lineWidth: 0.75))
                         .frame(width: 48, height: 48)
-                        .overlay(
-                            Circle()
-                                .stroke(color.opacity(0.2), lineWidth: 1)
-                        )
-                    
+
                     Image(systemName: icon)
                         .font(.system(size: 20, weight: .light))
                         .foregroundStyle(color)
@@ -2936,13 +2959,11 @@ struct BereanQuickActionCard: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 20)
             .background(
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(Color.white.opacity(0.5))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 20)
-                            .stroke(Color.black.opacity(0.04), lineWidth: 0.5)
-                    )
-                    .shadow(color: color.opacity(0.1), radius: 15, y: 5)
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color.white.opacity(0.55)))
+                    .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(Color(white: 0.85).opacity(0.4), lineWidth: 0.5))
+                    .shadow(color: Color.black.opacity(0.06), radius: 14, x: 0, y: 4)
             )
             .scaleEffect(isPressed ? 0.97 : 1.0)
             .opacity(isPressed ? 0.9 : 1.0)
@@ -3055,14 +3076,16 @@ struct SuggestedPromptCard: View {
             .padding(.vertical, 13)
             .background(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(Color.white.opacity(0.78))
+                    .fill(.ultraThinMaterial)
+                    .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.white.opacity(0.55)))
                     .overlay(
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
                             .strokeBorder(
                                 style: StrokeStyle(lineWidth: 0.75, dash: [4, 3])
                             )
-                            .foregroundStyle(Color.black.opacity(0.10))
+                            .foregroundStyle(Color(white: 0.82).opacity(0.4))
                     )
+                    .shadow(color: Color.black.opacity(0.05), radius: 10, y: 3)
             )
             .scaleEffect(isPressed ? 0.98 : 1.0)
             .opacity(isPressed ? 0.82 : 1.0)
@@ -3149,21 +3172,17 @@ struct BereanMessageBubbleView: View {
                     .tracking(1.2)
                     .padding(.trailing, 2)
 
-                // Bubble
+                // Bubble — black fill + white text per Liquid Glass spec
                 Text(message.content)
                     .font(.system(size: 15, weight: .regular))
-                    .foregroundStyle(Color(white: 0.14))
+                    .foregroundStyle(Color.white)
                     .lineSpacing(6)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
                     .background(
                         RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .fill(Color.white.opacity(0.78))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                    .stroke(Color.black.opacity(0.045), lineWidth: 0.6)
-                            )
-                            .shadow(color: Color.black.opacity(0.055), radius: 10, y: 3)
+                            .fill(Color.black)
+                            .shadow(color: Color.black.opacity(0.12), radius: 10, y: 3)
                     )
 
                 // Timestamp
@@ -3593,13 +3612,19 @@ struct SmartReactionButton: View {
                 .foregroundStyle(isActive ? activeColor : Color(white: 0.5))
                 .frame(width: 32, height: 32)
                 .background(
-                    Circle()
-                        .fill(isActive ? activeColor.opacity(0.12) : Color.white.opacity(0.6))
-                        .overlay(
+                    Group {
+                        if isActive {
                             Circle()
-                                .stroke(isActive ? activeColor.opacity(0.3) : Color.black.opacity(0.04), lineWidth: 0.5)
-                        )
-                        .shadow(color: isActive ? activeColor.opacity(0.15) : Color.clear, radius: 8)
+                                .fill(activeColor.opacity(0.12))
+                                .overlay(Circle().strokeBorder(activeColor.opacity(0.30), lineWidth: 0.5))
+                                .shadow(color: activeColor.opacity(0.15), radius: 8)
+                        } else {
+                            Circle()
+                                .fill(.ultraThinMaterial)
+                                .overlay(Circle().fill(Color.white.opacity(0.55)))
+                                .overlay(Circle().strokeBorder(Color(white: 0.85).opacity(0.4), lineWidth: 0.5))
+                        }
+                    }
                 )
                 .scaleEffect(isActive ? 1.1 : 1.0)
                 .symbolEffect(.bounce, value: isActive)
@@ -3739,7 +3764,10 @@ struct ThinkingIndicatorView: View {
             .padding(.vertical, 12)
             .background(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(Color(UIColor.secondarySystemBackground))
+                    .fill(.ultraThinMaterial)
+                    .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color.white.opacity(0.55)))
+                    .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.06), radius: 8, x: 0, y: 2)
             )
             Spacer()
         }
@@ -4105,21 +4133,16 @@ struct SmartFeaturesPanel: View {
                 .frame(maxWidth: .infinity)
                 .background(
                     RoundedRectangle(cornerRadius: 24, style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    Color(red: 0.98, green: 0.97, blue: 0.96),
-                                    Color(red: 0.96, green: 0.95, blue: 0.97)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
+                        .fill(.ultraThinMaterial)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                                .fill(Color.white.opacity(0.55))
                         )
                         .overlay(
                             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                                .stroke(Color.black.opacity(0.05), lineWidth: 0.5)
+                                .strokeBorder(Color(white: 0.85).opacity(0.4), lineWidth: 0.5)
                         )
-                        .shadow(color: Color.black.opacity(0.15), radius: 30, y: -10)
+                        .shadow(color: Color.black.opacity(0.12), radius: 30, y: -10)
                 )
                 .ignoresSafeArea(edges: .bottom)
             }
@@ -4163,13 +4186,11 @@ struct SmartFeatureButton: View {
                         .frame(width: 54, height: 54)
                     
                     Circle()
-                        .fill(Color.white.opacity(0.7))
+                        .fill(.ultraThinMaterial)
+                        .overlay(Circle().fill(Color.white.opacity(0.55)))
+                        .overlay(Circle().strokeBorder(feature.color.opacity(0.25), lineWidth: 0.5))
                         .frame(width: 48, height: 48)
-                        .overlay(
-                            Circle()
-                                .stroke(feature.color.opacity(0.3), lineWidth: 0.5)
-                        )
-                    
+
                     Image(systemName: feature.icon)
                         .font(.system(size: 20, weight: .light))
                         .foregroundStyle(feature.color)
@@ -4457,20 +4478,32 @@ class BereanViewModel: ObservableObject {
         // Snapshot on MainActor before handing off to detached task —
         // avoids "MainActor-isolated conformance used in nonisolated context" warnings.
         let toSync = Array(savedConversations.prefix(maxSavedConversations))
+        let payloads: [(id: String, title: String, translation: String, date: Date, isPinned: Bool, isStarred: Bool, messageCount: Int, payload: String)] = toSync.compactMap { conversation in
+            guard let encoded = try? JSONEncoder().encode(conversation),
+                  let json = String(data: encoded, encoding: .utf8) else { return nil }
+            return (
+                id: conversation.id.uuidString,
+                title: conversation.title,
+                translation: conversation.translation,
+                date: conversation.date,
+                isPinned: conversation.isPinned,
+                isStarred: conversation.isStarred,
+                messageCount: conversation.messages.count,
+                payload: json
+            )
+        }
         Task.detached(priority: .background) {
-            for conversation in toSync {
-                guard let encoded = try? JSONEncoder().encode(conversation),
-                      let json = String(data: encoded, encoding: .utf8) else { continue }
-                let docRef = col.document(conversation.id.uuidString)
+            for conversation in payloads {
+                let docRef = col.document(conversation.id)
                 try? await docRef.setData([
-                    "id":          conversation.id.uuidString,
+                    "id":          conversation.id,
                     "title":       conversation.title,
                     "translation": conversation.translation,
                     "date":        Timestamp(date: conversation.date),
                     "isPinned":    conversation.isPinned,
                     "isStarred":   conversation.isStarred,
-                    "messageCount": conversation.messages.count,
-                    "payload":     json   // full JSON blob for restoration
+                    "messageCount": conversation.messageCount,
+                    "payload":     conversation.payload   // full JSON blob for restoration
                 ], merge: true)
             }
             dlog("☁️ Synced \(toSync.count) conversations to Firestore")
@@ -4487,13 +4520,14 @@ class BereanViewModel: ObservableObject {
                 .limit(to: 50)
                 .getDocuments() else { return }
 
-            var cloudConversations: [SavedConversation] = []
-            for doc in snapshot.documents {
-                guard let payload = doc.data()["payload"] as? String,
-                      let data = payload.data(using: .utf8),
-                      let conv = try? JSONDecoder().decode(SavedConversation.self, from: data)
-                else { continue }
-                cloudConversations.append(conv)
+            let payloads: [String] = snapshot.documents.compactMap { doc in
+                doc.data()["payload"] as? String
+            }
+            let cloudConversations = await MainActor.run { () -> [SavedConversation] in
+                payloads.compactMap { payload in
+                    guard let data = payload.data(using: .utf8) else { return nil }
+                    return try? JSONDecoder().decode(SavedConversation.self, from: data)
+                }
             }
 
             // Snapshot into a `let` before crossing into MainActor to avoid
@@ -6154,13 +6188,11 @@ struct BereanQuickActionsMenu: View {
                 }
             }
             .background(
-                RoundedRectangle(cornerRadius: 16)
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .fill(.ultraThinMaterial)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(Color.white.opacity(0.15), lineWidth: 1)
-                    )
-                    .shadow(color: .black.opacity(0.15), radius: 20, y: 8)
+                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.white.opacity(0.55)))
+                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.08), radius: 18, x: 0, y: 6)
             )
             .padding(.horizontal, 12)
         }
@@ -6403,12 +6435,16 @@ struct BereanWorkspacePanel<Content: View>: View {
             .padding(padding)
             .background(
                 RoundedRectangle(cornerRadius: BereanDesign.outerRadius, style: .continuous)
-                    .fill(BereanDesign.cardWhite)
+                    .fill(.ultraThinMaterial)
                     .overlay(
                         RoundedRectangle(cornerRadius: BereanDesign.outerRadius, style: .continuous)
-                            .stroke(BereanDesign.cardStroke, lineWidth: 0.75)
+                            .fill(Color.white.opacity(0.55))
                     )
-                    .shadow(color: .black.opacity(0.04), radius: 14, y: 4)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: BereanDesign.outerRadius, style: .continuous)
+                            .strokeBorder(Color(white: 0.85).opacity(0.4), lineWidth: 0.5)
+                    )
+                    .shadow(color: .black.opacity(0.06), radius: 14, x: 0, y: 4)
             )
     }
 }
@@ -6563,19 +6599,16 @@ struct BereanPillButton: View {
         var foreground: Color {
             switch self {
             case .primary:   return .white
-            case .secondary: return BereanDesign.textPrimary
-            case .ghost:     return BereanDesign.textSecond
+            case .secondary: return Color(white: 0.10)
+            case .ghost:     return Color(white: 0.45)
             }
         }
         var fill: AnyShapeStyle {
             switch self {
             case .primary:
-                return AnyShapeStyle(LinearGradient(
-                    colors: [BereanDesign.coral, Color(red: 0.78, green: 0.30, blue: 0.44)],
-                    startPoint: .topLeading, endPoint: .bottomTrailing
-                ))
+                return AnyShapeStyle(Color.black)
             case .secondary:
-                return AnyShapeStyle(Color.white.opacity(0.90))
+                return AnyShapeStyle(Material.ultraThin)
             case .ghost:
                 return AnyShapeStyle(Color.clear)
             }
@@ -6583,8 +6616,8 @@ struct BereanPillButton: View {
         var strokeColor: Color {
             switch self {
             case .primary:   return .clear
-            case .secondary: return Color.black.opacity(0.08)
-            case .ghost:     return Color.black.opacity(0.10)
+            case .secondary: return Color(white: 0.85).opacity(0.4)
+            case .ghost:     return Color(white: 0.82).opacity(0.4)
             }
         }
     }
@@ -6814,8 +6847,16 @@ struct BereanConversationDrawer: View {
         }
         .background(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(Color(red: 0.98, green: 0.97, blue: 0.96))
-                .shadow(color: Color.black.opacity(0.14), radius: 32, x: -8, y: 0)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .fill(Color.white.opacity(0.55))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5)
+                )
+                .shadow(color: Color.black.opacity(0.10), radius: 32, x: -8, y: 0)
                 .ignoresSafeArea(edges: .vertical)
         )
         .alert("Delete Conversation?", isPresented: Binding(
@@ -6935,11 +6976,10 @@ struct BereanConversationDrawer: View {
         .padding(.vertical, 10)
         .background(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color.white.opacity(0.7))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(Color.black.opacity(0.07), lineWidth: 0.75)
-                )
+                .fill(.ultraThinMaterial)
+                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.white.opacity(0.55)))
+                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color(white: 0.85).opacity(0.4), lineWidth: 0.5))
+                .shadow(color: Color.black.opacity(0.04), radius: 8, y: 2)
         )
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
@@ -6979,8 +7019,10 @@ struct BereanConversationDrawer: View {
             .padding(.vertical, 13)
             .background(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(Color.white)
-                    .shadow(color: BereanDesign.coral.opacity(0.12), radius: 8, y: 2)
+                    .fill(.ultraThinMaterial)
+                    .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.white.opacity(0.55)))
+                    .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color(white: 0.85).opacity(0.4), lineWidth: 0.5))
+                    .shadow(color: BereanDesign.coral.opacity(0.10), radius: 10, y: 3)
             )
         }
         .buttonStyle(.plain)
@@ -7200,7 +7242,9 @@ struct BereanConversationDrawer: View {
             .padding(.vertical, 10)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color.white.opacity(0.6))
+                    .fill(.ultraThinMaterial)
+                    .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.white.opacity(0.50)))
+                    .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color(white: 0.85).opacity(0.3), lineWidth: 0.5))
             )
         }
         .buttonStyle(.plain)
@@ -7341,7 +7385,9 @@ struct BereanConversationDrawer: View {
             .padding(.vertical, 10)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color.white.opacity(0.55))
+                    .fill(.ultraThinMaterial)
+                    .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.white.opacity(0.50)))
+                    .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color(white: 0.85).opacity(0.3), lineWidth: 0.5))
             )
         }
         .buttonStyle(.plain)
@@ -8011,18 +8057,16 @@ struct BereanLandingActionCard: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(Color.white.opacity(pressed ? 0.76 : 0.96))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .stroke(Color.black.opacity(0.065), lineWidth: 0.75)
-                    )
-                    .shadow(color: Color.black.opacity(0.055), radius: 8, x: 0, y: 3)
+                    .fill(.ultraThinMaterial)
+                    .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color.white.opacity(pressed ? 0.42 : 0.55)))
+                    .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5))
+                    .shadow(color: Color.black.opacity(0.06), radius: 12, x: 0, y: 4)
             )
             .scaleEffect(pressed ? 0.96 : 1.0)
         }
         .buttonStyle(.plain)
         ._onButtonGesture { pressing in
-            withAnimation(.spring(response: 0.24, dampingFraction: 0.68)) {
+            withAnimation(.spring(response: 0.22, dampingFraction: 0.72)) {
                 pressed = pressing
             }
         } perform: {}
@@ -8068,12 +8112,10 @@ struct BereanLandingSuggestedPrompts: View {
             }
             .background(
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(Color.white.opacity(0.96))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 20, style: .continuous)
-                            .stroke(Color.black.opacity(0.05), lineWidth: 0.75)
-                    )
-                    .shadow(color: Color.black.opacity(0.05), radius: 14, y: 4)
+                    .fill(.ultraThinMaterial)
+                    .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color.white.opacity(0.55)))
+                    .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5))
+                    .shadow(color: Color.black.opacity(0.06), radius: 14, x: 0, y: 4)
             )
             .padding(.horizontal, BereanDesign.pagePad)
         }
@@ -8217,15 +8259,12 @@ struct BereanHeroWelcomeSection: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(
-                    // Reference: pure white surface, very large corner radius
+                    // Reference: glass surface, very large corner radius
                     RoundedRectangle(cornerRadius: 28, style: .continuous)
-                        .fill(Color.white.opacity(0.97))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                                .stroke(Color.black.opacity(0.05), lineWidth: 0.75)
-                        )
-                        .shadow(color: Color.black.opacity(0.07), radius: 22, y: 6)
-                        .shadow(color: BereanDesign.coral.opacity(0.04), radius: 28, y: 10)
+                        .fill(.ultraThinMaterial)
+                        .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous).fill(Color.white.opacity(0.55)))
+                        .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous).strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5))
+                        .shadow(color: Color.black.opacity(0.07), radius: 22, x: 0, y: 6)
                 )
                 .transition(.opacity.combined(with: .offset(y: -6)))
 
@@ -8249,8 +8288,10 @@ struct BereanHeroWelcomeSection: View {
                 .padding(.vertical, 8)
                 .background(
                     Capsule()
-                        .fill(Color.white.opacity(0.85))
-                        .shadow(color: .black.opacity(0.06), radius: 8, y: 2)
+                        .fill(.ultraThinMaterial)
+                        .overlay(Capsule().fill(Color.white.opacity(0.55)))
+                        .overlay(Capsule().strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5))
+                        .shadow(color: .black.opacity(0.06), radius: 8, x: 0, y: 2)
                 )
             }
         }
@@ -8434,12 +8475,10 @@ struct BereanHeroScriptureChip: View {
         .padding(.vertical, 7)
         .background(
             Capsule()
-                .fill(Color.white.opacity(0.80))
-                .overlay(
-                    Capsule()
-                        .stroke(Color.black.opacity(0.07), lineWidth: 0.75)
-                )
-                .shadow(color: Color.black.opacity(0.05), radius: 6, y: 2)
+                .fill(.ultraThinMaterial)
+                .overlay(Capsule().fill(Color.white.opacity(0.55)))
+                .overlay(Capsule().strokeBorder(Color(white: 0.85).opacity(0.4), lineWidth: 0.5))
+                .shadow(color: Color.black.opacity(0.05), radius: 6, x: 0, y: 2)
         )
     }
 }
@@ -8517,18 +8556,16 @@ struct BereanQuickPill: View {
             .frame(maxWidth: .infinity)
             .background(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(Color.white.opacity(pressed ? 0.78 : 0.97))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .stroke(Color.black.opacity(0.07), lineWidth: 0.75)
-                    )
-                    .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 3)
+                    .fill(.ultraThinMaterial)
+                    .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color.white.opacity(pressed ? 0.40 : 0.55)))
+                    .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5))
+                    .shadow(color: Color.black.opacity(0.06), radius: 12, x: 0, y: 4)
             )
             .scaleEffect(pressed ? 0.96 : 1.0)
         }
         .buttonStyle(.plain)
         ._onButtonGesture { pressing in
-            withAnimation(.spring(response: 0.26, dampingFraction: 0.68)) {
+            withAnimation(.spring(response: 0.22, dampingFraction: 0.72)) {
                 pressed = pressing
             }
         } perform: {}
@@ -8582,12 +8619,10 @@ struct BereanGroundedPromptsSection: View {
             }
             .background(
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(Color.white.opacity(0.96))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 20, style: .continuous)
-                            .stroke(Color.black.opacity(0.05), lineWidth: 0.75)
-                    )
-                    .shadow(color: Color.black.opacity(0.05), radius: 14, y: 4)
+                    .fill(.ultraThinMaterial)
+                    .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color.white.opacity(0.55)))
+                    .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5))
+                    .shadow(color: Color.black.opacity(0.06), radius: 14, x: 0, y: 4)
             )
             .padding(.horizontal, BereanDesign.pagePad)
         }
@@ -8648,7 +8683,3 @@ struct BereanGroundedPromptRow: View {
         }
     }
 }
-
-
-
-

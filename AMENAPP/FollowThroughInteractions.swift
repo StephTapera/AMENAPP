@@ -169,7 +169,7 @@ struct PrayerFollowThroughBar: View {
 
 // MARK: - EncouragementSheet
 
-private struct EncouragementSheet: View {
+struct EncouragementSheet: View {
     let post: Post
     let onSent: () -> Void
     

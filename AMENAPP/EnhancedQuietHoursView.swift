@@ -7,6 +7,7 @@
 
 import SwiftUI
 import FirebaseAuth
+import FirebaseFirestore
 
 struct EnhancedQuietHoursView: View {
     @ObservedObject private var adaptiveEngine = AdaptiveQuietHoursEngine.shared
@@ -23,6 +24,10 @@ struct EnhancedQuietHoursView: View {
     @State private var showStartPicker = false
     @State private var showEndPicker = false
     @State private var showSuggestionDetail: AdaptiveQuietHoursEngine.QuietHoursSuggestion?
+    @State private var isSaving = false
+    @State private var hasLoadedSettings = false
+    @State private var saveTask: Task<Void, Never>?
+    @State private var quietHoursSource: String = "manual"
 
     var body: some View {
         NavigationView {
@@ -56,6 +61,26 @@ struct EnhancedQuietHoursView: View {
             .task {
                 await loadSettings()
                 await adaptiveEngine.loadLearnedPattern()
+                adaptiveEngine.isLearning = adaptiveLearning
+            }
+            .onChange(of: quietHoursEnabled) { _, _ in
+                scheduleSave()
+            }
+            .onChange(of: startTime) { _, _ in
+                scheduleSave()
+            }
+            .onChange(of: endTime) { _, _ in
+                scheduleSave()
+            }
+            .onChange(of: allowDMs) { _, _ in
+                scheduleSave()
+            }
+            .onChange(of: progressiveQuieting) { _, _ in
+                scheduleSave()
+            }
+            .onChange(of: adaptiveLearning) { _, _ in
+                adaptiveEngine.isLearning = adaptiveLearning
+                scheduleSave()
             }
             .sheet(isPresented: $showStartPicker) {
                 TimePickerSheet(title: "Start Time", selectedTime: $startTime)
@@ -65,7 +90,7 @@ struct EnhancedQuietHoursView: View {
             }
             .sheet(item: $showSuggestionDetail) { suggestion in
                 SuggestionDetailView(suggestion: suggestion) {
-                    await adaptiveEngine.applySuggestion(suggestion)
+                    await applySuggestionToSettings(suggestion)
                     showSuggestionDetail = nil
                 }
             }
@@ -111,11 +136,15 @@ struct EnhancedQuietHoursView: View {
                 .padding(.bottom, 8)
 
             VStack(spacing: 0) {
-                Toggle("Enable Quiet Hours", isOn: $quietHoursEnabled)
-                    .font(AMENFont.semiBold(15))
-                    .tint(.indigo)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 14)
+                Toggle(isOn: $quietHoursEnabled) {
+                    Text("Enable Quiet Hours")
+                        .font(AMENFont.semiBold(15))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
+                }
+                .tint(.indigo)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
             }
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
             .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
@@ -216,11 +245,15 @@ struct EnhancedQuietHoursView: View {
                 .padding(.bottom, 8)
 
             VStack(spacing: 0) {
-                Toggle("Gradual Volume Reduction", isOn: $progressiveQuieting)
-                    .font(AMENFont.semiBold(15))
-                    .tint(.purple)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 14)
+                Toggle(isOn: $progressiveQuieting) {
+                    Text("Gradual Volume Reduction")
+                        .font(AMENFont.semiBold(15))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
+                }
+                .tint(.purple)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
 
                 if progressiveQuieting {
                     Divider().padding(.leading, 16)
@@ -256,11 +289,15 @@ struct EnhancedQuietHoursView: View {
                 .padding(.bottom, 8)
 
             VStack(spacing: 0) {
-                Toggle("Learn My Sleep Pattern", isOn: $adaptiveLearning)
-                    .font(AMENFont.semiBold(15))
-                    .tint(.teal)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 14)
+                Toggle(isOn: $adaptiveLearning) {
+                    Text("Learn My Sleep Pattern")
+                        .font(AMENFont.semiBold(15))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
+                }
+                .tint(.teal)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
 
                 if adaptiveLearning, let pattern = adaptiveEngine.learnedPattern {
                     Divider().padding(.leading, 16)
@@ -380,11 +417,15 @@ struct EnhancedQuietHoursView: View {
                 .padding(.bottom, 8)
 
             VStack(spacing: 0) {
-                Toggle("Allow DMs During Quiet Hours", isOn: $allowDMs)
-                    .font(AMENFont.regular(15))
-                    .tint(.blue)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 14)
+                Toggle(isOn: $allowDMs) {
+                    Text("Allow DMs During Quiet Hours")
+                        .font(AMENFont.regular(15))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
+                }
+                .tint(.blue)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
 
                 Divider().padding(.leading, 16)
 
@@ -438,8 +479,123 @@ struct EnhancedQuietHoursView: View {
     // MARK: - Load Settings
 
     private func loadSettings() async {
-        // Load from Firestore
-        // Placeholder - implement actual loading
+        let defaults = UserDefaults.standard
+        if let storedEnabled = defaults.object(forKey: "notifQuietHoursEnabled") as? Bool {
+            quietHoursEnabled = storedEnabled
+        }
+        if let storedStart = defaults.object(forKey: "notifQuietHoursStartMinutes") as? Int {
+            startTime = timeString(from: storedStart)
+        }
+        if let storedEnd = defaults.object(forKey: "notifQuietHoursEndMinutes") as? Int {
+            endTime = timeString(from: storedEnd)
+        }
+        if let storedSource = defaults.string(forKey: "notifQuietHoursSource") {
+            quietHoursSource = storedSource
+        }
+        if let storedAdaptive = defaults.object(forKey: "notifQuietHoursAdaptiveLearning") as? Bool {
+            adaptiveLearning = storedAdaptive
+        }
+        if let storedProgressive = defaults.object(forKey: "notifQuietHoursProgressiveQuieting") as? Bool {
+            progressiveQuieting = storedProgressive
+        }
+        if let storedAllowDMs = defaults.object(forKey: "notifQuietHoursAllowDMs") as? Bool {
+            allowDMs = storedAllowDMs
+        }
+
+        if let uid = Auth.auth().currentUser?.uid {
+            let doc = try? await Firestore.firestore().document("users/\(uid)").getDocument()
+            if let data = doc?.data(),
+               let settings = data["notificationSettings"] as? [String: Any] {
+                if let enabled = settings["quietHoursEnabled"] as? Bool {
+                    quietHoursEnabled = enabled
+                }
+                if let startMinutes = settings["quietHoursStartMinutes"] as? Int {
+                    startTime = timeString(from: startMinutes)
+                }
+                if let endMinutes = settings["quietHoursEndMinutes"] as? Int {
+                    endTime = timeString(from: endMinutes)
+                }
+                if let source = settings["quietHoursSource"] as? String {
+                    quietHoursSource = source
+                }
+                if let adaptive = settings["quietHoursAdaptiveLearning"] as? Bool {
+                    adaptiveLearning = adaptive
+                }
+                if let progressive = settings["quietHoursProgressiveQuieting"] as? Bool {
+                    progressiveQuieting = progressive
+                }
+                if let allow = settings["quietHoursAllowDMs"] as? Bool {
+                    allowDMs = allow
+                }
+            }
+        }
+
+        hasLoadedSettings = true
+    }
+
+    private func scheduleSave() {
+        guard hasLoadedSettings else { return }
+        saveTask?.cancel()
+        saveTask = Task {
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            await saveSettings()
+        }
+    }
+
+    private func saveSettings() async {
+        guard hasLoadedSettings else { return }
+        isSaving = true
+        defer { isSaving = false }
+
+        let startMinutes = minutes(from: startTime)
+        let endMinutes = minutes(from: endTime)
+
+        let defaults = UserDefaults.standard
+        defaults.set(quietHoursEnabled, forKey: "notifQuietHoursEnabled")
+        defaults.set(startMinutes, forKey: "notifQuietHoursStartMinutes")
+        defaults.set(endMinutes, forKey: "notifQuietHoursEndMinutes")
+        defaults.set(quietHoursSource, forKey: "notifQuietHoursSource")
+        defaults.set(adaptiveLearning, forKey: "notifQuietHoursAdaptiveLearning")
+        defaults.set(progressiveQuieting, forKey: "notifQuietHoursProgressiveQuieting")
+        defaults.set(allowDMs, forKey: "notifQuietHoursAllowDMs")
+
+        if let uid = Auth.auth().currentUser?.uid {
+            try? await Firestore.firestore().document("users/\(uid)").updateData([
+                "notificationSettings.quietHoursEnabled": quietHoursEnabled,
+                "notificationSettings.quietHoursStartMinutes": startMinutes,
+                "notificationSettings.quietHoursEndMinutes": endMinutes,
+                "notificationSettings.quietHoursSource": quietHoursSource,
+                "notificationSettings.quietHoursAdaptiveLearning": adaptiveLearning,
+                "notificationSettings.quietHoursProgressiveQuieting": progressiveQuieting,
+                "notificationSettings.quietHoursAllowDMs": allowDMs,
+                "notificationSettings.quietHoursUpdatedAt": FieldValue.serverTimestamp()
+            ])
+        }
+    }
+
+    private func applySuggestionToSettings(_ suggestion: AdaptiveQuietHoursEngine.QuietHoursSuggestion) async {
+        quietHoursEnabled = true
+        startTime = suggestion.startTime
+        endTime = suggestion.endTime
+        quietHoursSource = "adaptive_\(suggestion.reason)"
+        await adaptiveEngine.applySuggestion(suggestion)
+        await saveSettings()
+    }
+
+    private func minutes(from timeString: String) -> Int {
+        let parts = timeString.split(separator: ":")
+        guard parts.count == 2,
+              let hour = Int(parts[0]),
+              let minute = Int(parts[1]) else {
+            return 0
+        }
+        return hour * 60 + minute
+    }
+
+    private func timeString(from minutes: Int) -> String {
+        let hour = (minutes / 60) % 24
+        let minute = minutes % 60
+        return String(format: "%02d:%02d", hour, minute)
     }
 }
 

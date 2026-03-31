@@ -62,7 +62,7 @@ struct GlassPillButtonStyle: ButtonStyle {
             .padding(.vertical, 10)
             .background(
                 Capsule()
-                    .fill(.thinMaterial)
+                    .fill(.ultraThinMaterial)
                     .overlay(
                         Capsule()
                             .fill(isSelected
@@ -97,7 +97,7 @@ struct GlassCardModifier: ViewModifier {
         content
             .background(
                 RoundedRectangle(cornerRadius: 20)
-                    .fill(.thinMaterial)
+                    .fill(.ultraThinMaterial)
                     .overlay(
                         RoundedRectangle(cornerRadius: 20)
                             .fill(Color.white.opacity(0.68))
@@ -120,7 +120,7 @@ struct NoteRowCardModifier: ViewModifier {
         content
             .background(
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(.thinMaterial)
+                    .fill(.ultraThinMaterial)
                     .overlay(
                         RoundedRectangle(cornerRadius: 16)
                             .fill(Color.white.opacity(0.72))

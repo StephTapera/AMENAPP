@@ -9,6 +9,7 @@
 
 import Foundation
 import FirebaseAuth
+import Combine
 
 // MARK: - Smart Folder Enum
 
@@ -57,6 +58,7 @@ enum SmartFolder: String, CaseIterable, Identifiable {
 final class SmartFolderService: ObservableObject {
     static let shared = SmartFolderService()
     private init() {}
+    let objectWillChange = ObservableObjectPublisher()
 
     // MARK: - Primary Filter Method
 

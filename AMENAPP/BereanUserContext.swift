@@ -20,9 +20,9 @@ import FirebaseAuth
 import FirebaseFirestore
 
 @MainActor
-final class BereanUserContext: ObservableObject {
+final class BereanUserContextProvider: ObservableObject {
 
-    static let shared = BereanUserContext()
+    static let shared = BereanUserContextProvider()
 
     // MARK: - Cached Context
 

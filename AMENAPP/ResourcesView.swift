@@ -528,6 +528,17 @@ struct ResourcesView: View {
                                 )
                             }
                             .buttonStyle(ResourceCardPressStyle())
+
+                            NavigationLink(destination: LivingSermonView()) {
+                                ResourceHubCard(
+                                    icon: "waveform.and.mic",
+                                    title: "Live Sermon",
+                                    subtitle: "Capture & transcribe",
+                                    accentColor: Color(red: 0.29, green: 0.56, blue: 1.0),
+                                    bgColor: Color(red: 0.90, green: 0.94, blue: 1.0)
+                                )
+                            }
+                            .buttonStyle(ResourceCardPressStyle())
                         }
                     }
                     .padding(.horizontal, 20)

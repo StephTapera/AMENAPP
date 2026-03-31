@@ -23,6 +23,7 @@ struct ContentView: View {
     @State private var showSundayPrompt: Bool = false
     @State private var showTimeoutWarning: Bool = false
     @State private var showFTUE: Bool = false
+    @AppStorage("amenAccountTypeOnboardingComplete") private var amenAccountTypeOnboardingComplete: Bool = false
     
     // ⚡️ P1-3 FIX: Extracted specific state from singletons to avoid ContentView
     // redrawing on every @Published change in SessionTimeoutManager, AppReadyStateManager,
@@ -33,6 +34,11 @@ struct ContentView: View {
     // the main screen to briefly appear between signalSignIn() and the @State update.
     @ObservedObject private var appReadyState = AppReadyStateManager.shared
     private var isShowingLoadingScreen: Bool { appReadyState.isShowingLoadingScreen }
+    private var shouldShowAccountTypeOnboarding: Bool {
+        // ✅ DISABLED: All users get Personal account by default (like Instagram/Threads)
+        // Church/Business accounts can be added in settings if needed later
+        false
+    }
     @State private var showLimitReachedDialog = false
     @State private var showCreatePost: Bool
     @State private var showCreateQuickActions = false
@@ -431,6 +437,10 @@ struct ContentView: View {
         .onChange(of: showTimeoutWarning) { oldValue, newValue in
             dlog("🔄 [SCROLL DEBUG] showTimeoutWarning changed: \(oldValue) → \(newValue)")
         }
+        .overlay(alignment: .top) {
+            WellnessRiskOverlay()
+                .padding(.top, 6)
+        }
         // Single launch overlay — covers auth resolution AND post-sign-in data loading.
         // AppLoadingScreen shows the logo + tagline + loading dots all in one view
         // so there is no separate welcome screen stacking that causes background flashes.
@@ -442,6 +452,14 @@ struct ContentView: View {
                     .zIndex(10)
                     .allowsHitTesting(false)
             }
+        }
+        .fullScreenCover(
+            isPresented: Binding(
+                get: { shouldShowAccountTypeOnboarding },
+                set: { _ in }
+            )
+        ) {
+            AMENAccountTypeOnboardingView()
         }
     }
     
@@ -495,7 +513,7 @@ struct ContentView: View {
                                     NotificationAggregationService.shared.updateCurrentScreen(.none)
                                 }
                         case 4:
-                            NotificationsView()
+                            AMENNotificationsView()
                                 .id("notifications")
                                 .task {
                                     NotificationAggregationService.shared.updateCurrentScreen(.notifications)
@@ -2352,10 +2370,7 @@ struct HomeView: View {
         }
         .sheet(item: $notificationPostSheetRoute) { route in
             NavigationStack {
-                NotificationPostDetailView(
-                    postId: route.postId,
-                    focusCommentId: route.scrollToCommentId
-                )
+                NotificationPostDetailView(postId: route.postId)
                 .navigationBarTitleDisplayMode(.inline)
             }
         }

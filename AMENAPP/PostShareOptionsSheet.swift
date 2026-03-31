@@ -59,9 +59,8 @@ private struct GlassDialogButton: View {
 struct PostShareOptionsSheet: View {
     let post: Post
     @Environment(\.dismiss) var dismiss
-    @State private var showingExternalShare = false
+    @State private var showShareCardSheet = false
     @State private var showMessageCompose = false
-    @State private var showInstagramStory = false
 
     var body: some View {
         ZStack {
@@ -100,14 +99,11 @@ struct PostShareOptionsSheet: View {
                     }
 
                     GlassDialogButton(title: "Instagram Story", subtitle: "Share as a Story card", systemImage: "camera.fill") {
-                        dismiss()
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                            showInstagramStory = true
-                        }
+                        showShareCardSheet = true
                     }
 
                     GlassDialogButton(title: "Share Externally", subtitle: "Share outside the app", systemImage: "square.and.arrow.up") {
-                        showingExternalShare = true
+                        showShareCardSheet = true
                     }
                 }
 
@@ -141,27 +137,49 @@ struct PostShareOptionsSheet: View {
             .shadow(color: Color.black.opacity(0.15), radius: 20, y: 12)
             .padding(.horizontal, 24)
         }
-        .sheet(isPresented: $showingExternalShare) {
-            if let url = URL(string: "https://amenapp.com/post/\(post.firestoreId)") {
-                ShareSheet(items: [shareText(for: post), url])
-            }
-        }
         .sheet(isPresented: $showMessageCompose) {
             MessageComposeView(post: post)
         }
-        .fullScreenCover(isPresented: $showInstagramStory) {
-            AmenStoryShareView(content: .from(post: post))
+        .fullScreenCover(isPresented: $showShareCardSheet) {
+            AMENShareSheet(payload: makeSharePayload(), isPresented: $showShareCardSheet)
         }
     }
     
-    private func shareText(for post: Post) -> String {
-        """
-        Check out this post on AMEN APP:
-        
-        \(post.content)
-        
-        Join the conversation!
-        """
+    private func makeSharePayload() -> AMENSharePayload {
+        let isCarousel = (post.imageURLs?.count ?? 0) > 1
+        let hasPhoto = (post.imageURLs?.first?.isEmpty == false)
+        let postType: AMENSharePostType
+        switch post.category {
+        case .testimonies:
+            postType = .testimony
+        case .prayer:
+            postType = .prayer
+        case .openTable, .tip, .funFact:
+            if let verseRef = post.verseReference, !verseRef.isEmpty {
+                postType = .verse
+            } else if isCarousel {
+                postType = .carousel
+            } else if hasPhoto {
+                postType = .photo
+            } else {
+                postType = .text
+            }
+        }
+        return AMENSharePayload(
+            postType: postType,
+            authorName: post.authorName,
+            authorInitials: post.authorInitials,
+            captionText: post.content,
+            verseReference: post.verseReference,
+            categoryLabel: post.category.displayName,
+            imageData: nil,
+            thumbnailData: nil,
+            churchName: post.taggedChurchName ?? post.sharedChurchName,
+            timestamp: post.createdAt,
+            deepLinkURL: "amenapp://post/\(post.firestoreId)",
+            carouselCount: max(post.imageURLs?.count ?? 1, 1),
+            videoDuration: nil
+        )
     }
 }
 

@@ -161,7 +161,7 @@ final class BereanIslandViewModel: ObservableObject {
 
 // MARK: - App colour palette (Berean theme)
 
-private enum BereanColor {
+private enum BereanIslandColor {
     /// Deep indigo — island pill / card background base
     static let islandBg     = Color(red: 0.07, green: 0.07, blue: 0.18)
     /// Vivid blue — primary glow / aura centre
@@ -230,9 +230,9 @@ struct BereanDynamicIsland: View {
                     .fill(
                         RadialGradient(
                             colors: [
-                                BereanColor.auraBlue.opacity(0.70),
-                                BereanColor.auraPurple.opacity(0.45),
-                                BereanColor.auraBlue.opacity(0.12),
+                                BereanIslandColor.auraBlue.opacity(0.70),
+                                BereanIslandColor.auraPurple.opacity(0.45),
+                                BereanIslandColor.auraBlue.opacity(0.12),
                                 Color.clear
                             ],
                             center: .init(x: 0.5, y: 0.25),
@@ -252,8 +252,8 @@ struct BereanDynamicIsland: View {
                     .fill(
                         RadialGradient(
                             colors: [
-                                BereanColor.auraCyan.opacity(0.80),
-                                BereanColor.auraBlue.opacity(0.30),
+                                BereanIslandColor.auraCyan.opacity(0.80),
+                                BereanIslandColor.auraBlue.opacity(0.30),
                                 Color.clear
                             ],
                             center: .center,
@@ -311,23 +311,23 @@ struct BereanDynamicIsland: View {
         ZStack(alignment: .topLeading) {
             // Background
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .fill(BereanColor.islandBg)
+                .fill(BereanIslandColor.islandBg)
                 .overlay(
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .strokeBorder(BereanColor.cardBorder, lineWidth: 1)
+                        .strokeBorder(BereanIslandColor.cardBorder, lineWidth: 1)
                 )
                 // Subtle top glow matching the aura
                 .overlay(alignment: .top) {
                     if vm.state == .thinking {
                         LinearGradient(
-                            colors: [BereanColor.auraBlue.opacity(0.25), Color.clear],
+                            colors: [BereanIslandColor.auraBlue.opacity(0.25), Color.clear],
                             startPoint: .top,
                             endPoint: UnitPoint(x: 0.5, y: 0.4)
                         )
                         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
                     }
                 }
-                .shadow(color: BereanColor.auraBlue.opacity(vm.state == .thinking ? 0.45 : 0.20),
+                .shadow(color: BereanIslandColor.auraBlue.opacity(vm.state == .thinking ? 0.45 : 0.20),
                         radius: vm.state == .thinking ? 28 : 16,
                         y: 6)
 
@@ -375,14 +375,14 @@ struct BereanDynamicIsland: View {
                     HStack(spacing: 4) {
                         Text("thinking")
                             .font(AMENFont.regular(11))
-                            .foregroundStyle(BereanColor.auraCyan.opacity(0.75))
+                            .foregroundStyle(BereanIslandColor.auraCyan.opacity(0.75))
                         thinkingDots
                     }
                     .transition(.opacity)
                 } else {
                     Text("thought for \(vm.thinkingSeconds)s")
                         .font(AMENFont.regular(11))
-                        .foregroundStyle(BereanColor.auraCyan.opacity(0.65))
+                        .foregroundStyle(BereanIslandColor.auraCyan.opacity(0.65))
                         .transition(.opacity)
                 }
             }
@@ -423,9 +423,9 @@ struct BereanDynamicIsland: View {
 
     private func dotColor(for index: Int) -> Color {
         switch index {
-        case 0:  return BereanColor.auraCyan
-        case 1:  return BereanColor.auraBlue
-        default: return BereanColor.auraPurple
+        case 0:  return BereanIslandColor.auraCyan
+        case 1:  return BereanIslandColor.auraBlue
+        default: return BereanIslandColor.auraPurple
         }
     }
 
@@ -438,7 +438,7 @@ struct BereanDynamicIsland: View {
                 RoundedRectangle(cornerRadius: 3, style: .continuous)
                     .fill(
                         LinearGradient(
-                            colors: [BereanColor.auraCyan.opacity(0.9), BereanColor.auraPurple.opacity(0.6)],
+                            colors: [BereanIslandColor.auraCyan.opacity(0.9), BereanIslandColor.auraPurple.opacity(0.6)],
                             startPoint: .leading,
                             endPoint: .trailing
                         )
@@ -466,7 +466,7 @@ struct BereanDynamicIsland: View {
             Rectangle()
                 .fill(
                     LinearGradient(
-                        colors: [BereanColor.auraCyan, BereanColor.auraPurple],
+                        colors: [BereanIslandColor.auraCyan, BereanIslandColor.auraPurple],
                         startPoint: .leading,
                         endPoint: .trailing
                     )
@@ -498,7 +498,7 @@ struct BereanDynamicIsland: View {
                                 .fill(Color.white.opacity(0.10))
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                        .strokeBorder(BereanColor.cardBorder, lineWidth: 1)
+                                        .strokeBorder(BereanIslandColor.cardBorder, lineWidth: 1)
                                 )
                         )
                 }
@@ -511,12 +511,12 @@ struct BereanDynamicIsland: View {
                 } label: {
                     Text("Copy")
                         .font(AMENFont.semiBold(13))
-                        .foregroundStyle(BereanColor.islandBg)
+                        .foregroundStyle(BereanIslandColor.islandBg)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
                         .background(
                             LinearGradient(
-                                colors: [BereanColor.auraCyan, BereanColor.auraBlue],
+                                colors: [BereanIslandColor.auraCyan, BereanIslandColor.auraBlue],
                                 startPoint: .leading,
                                 endPoint: .trailing
                             ),
@@ -597,20 +597,20 @@ struct BereanDynamicIsland: View {
 
             if vm.state == .thinking {
                 // Faint guide paths
-                ctx.stroke(outer, with: .color(BereanColor.auraBlue.opacity(0.15)), style: strokeStyle)
-                ctx.stroke(inner, with: .color(BereanColor.auraPurple.opacity(0.15)), style: strokeStyle)
+                ctx.stroke(outer, with: .color(BereanIslandColor.auraBlue.opacity(0.15)), style: strokeStyle)
+                ctx.stroke(inner, with: .color(BereanIslandColor.auraPurple.opacity(0.15)), style: strokeStyle)
 
                 // Animated cyan snake on outer arc
                 let s1 = outer.trimmedPath(from: max(0, snakeHead - 0.28), to: snakeHead)
-                ctx.stroke(s1, with: .color(BereanColor.auraCyan), style: strokeStyle)
+                ctx.stroke(s1, with: .color(BereanIslandColor.auraCyan), style: strokeStyle)
 
                 // Animated blue snake on inner crossbar
                 let s2 = inner.trimmedPath(from: max(0, snakeHead2 - 0.28), to: snakeHead2)
-                ctx.stroke(s2, with: .color(BereanColor.auraBlue.opacity(0.85)), style: strokeStyle)
+                ctx.stroke(s2, with: .color(BereanIslandColor.auraBlue.opacity(0.85)), style: strokeStyle)
             } else {
                 // Static full paths — cyan + blue
-                ctx.stroke(outer, with: .color(BereanColor.auraCyan), style: strokeStyle)
-                ctx.stroke(inner, with: .color(BereanColor.auraBlue.opacity(0.75)), style: strokeStyle)
+                ctx.stroke(outer, with: .color(BereanIslandColor.auraCyan), style: strokeStyle)
+                ctx.stroke(inner, with: .color(BereanIslandColor.auraBlue.opacity(0.75)), style: strokeStyle)
             }
         }
         .onAppear { startSnakeLoop() }

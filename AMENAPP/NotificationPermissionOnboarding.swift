@@ -41,6 +41,10 @@ struct NotificationPermissionOnboardingSheet: View {
     @State private var quietEnabled = true
     @State private var permissionStatus: UNAuthorizationStatus = .notDetermined
     @State private var isSaving = false
+    @State private var quietHoursSource: String = "manual"
+    @State private var appliedSuggestion: AdaptiveQuietHoursEngine.QuietHoursSuggestion?
+    @State private var isApplyingSuggestion = false
+    @ObservedObject private var adaptiveEngine = AdaptiveQuietHoursEngine.shared
 
     private let steps = 3
 
@@ -86,7 +90,10 @@ struct NotificationPermissionOnboardingSheet: View {
                     .padding(.bottom, 36)
             }
         }
-        .task { await fetchPermissionStatus() }
+        .task {
+            await fetchPermissionStatus()
+            await adaptiveEngine.loadLearnedPattern()
+        }
     }
 
     // MARK: - Step 1: Value Prop
@@ -110,7 +117,7 @@ struct NotificationPermissionOnboardingSheet: View {
 
             VStack(spacing: 0) {
                 ForEach(valuePropRows, id: \.icon) { row in
-                    HStack(spacing: 14) {
+                    HStack(alignment: .top, spacing: 14) {
                         ZStack {
                             RoundedRectangle(cornerRadius: 10)
                                 .fill(row.color.opacity(0.12))
@@ -122,7 +129,10 @@ struct NotificationPermissionOnboardingSheet: View {
                         Text(row.label)
                             .font(.system(size: 15))
                             .foregroundStyle(Color(.label))
-                        Spacer()
+                            .fixedSize(horizontal: false, vertical: true)
+                            .lineLimit(nil)
+                            .multilineTextAlignment(.leading)
+                        Spacer(minLength: 0)
                     }
                     .padding(.horizontal, 24)
                     .padding(.vertical, 12)
@@ -203,10 +213,54 @@ struct NotificationPermissionOnboardingSheet: View {
                     .padding(.horizontal, 24)
             }
 
+            if let recommendation = smartRecommendation {
+                VStack(spacing: 12) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "sparkles")
+                            .foregroundStyle(.orange)
+                        Text("Smart Recommendation")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(Color(.label))
+                        Spacer()
+                        Text("\(Int(recommendation.confidence * 100))%")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(.orange)
+                    }
+
+                    HStack {
+                        Text("\(recommendation.startTime) – \(recommendation.endTime)")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(Color(.label))
+                        Spacer()
+                        Button("Use Recommended") {
+                            applySmartRecommendation(recommendation)
+                        }
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Color(.label))
+                    }
+
+                    Text(recommendation.sourceLabel)
+                        .font(.system(size: 12))
+                        .foregroundStyle(Color(.secondaryLabel))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .padding(.horizontal, 20)
+            }
+
             VStack(spacing: 0) {
                 Toggle(isOn: $quietEnabled) {
-                    Label("Enable Quiet Hours", systemImage: "moon.fill")
-                        .font(.system(size: 15))
+                    HStack(spacing: 8) {
+                        Image(systemName: "moon.fill")
+                            .font(.system(size: 15))
+                        Text("Enable Quiet Hours")
+                            .font(.system(size: 15))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
+                            .layoutPriority(1)
+                    }
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 14)
@@ -215,9 +269,17 @@ struct NotificationPermissionOnboardingSheet: View {
                 if quietEnabled {
                     Divider().padding(.leading, 20)
                     HStack {
-                        Label("Start", systemImage: "bed.double.fill")
-                            .font(.system(size: 15))
-                            .foregroundStyle(Color(.label))
+                        HStack(spacing: 8) {
+                            Image(systemName: "bed.double.fill")
+                                .font(.system(size: 15))
+                            Text("Start")
+                                .font(.system(size: 15))
+                                .foregroundStyle(Color(.label))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.9)
+                                .layoutPriority(1)
+                        }
+                        .foregroundStyle(Color(.label))
                         Spacer()
                         DatePicker("", selection: $quietStart, displayedComponents: .hourAndMinute)
                             .labelsHidden()
@@ -227,9 +289,17 @@ struct NotificationPermissionOnboardingSheet: View {
 
                     Divider().padding(.leading, 20)
                     HStack {
-                        Label("End", systemImage: "sunrise.fill")
-                            .font(.system(size: 15))
-                            .foregroundStyle(Color(.label))
+                        HStack(spacing: 8) {
+                            Image(systemName: "sunrise.fill")
+                                .font(.system(size: 15))
+                            Text("End")
+                                .font(.system(size: 15))
+                                .foregroundStyle(Color(.label))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.9)
+                                .layoutPriority(1)
+                        }
+                        .foregroundStyle(Color(.label))
                         Spacer()
                         DatePicker("", selection: $quietEnd, displayedComponents: .hourAndMinute)
                             .labelsHidden()
@@ -241,6 +311,12 @@ struct NotificationPermissionOnboardingSheet: View {
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
             .padding(.horizontal, 20)
             .animation(.spring(response: 0.3, dampingFraction: 0.8), value: quietEnabled)
+        }
+        .onChange(of: quietStart) { _, _ in
+            markManualQuietHoursChange()
+        }
+        .onChange(of: quietEnd) { _, _ in
+            markManualQuietHoursChange()
         }
     }
 
@@ -297,19 +373,15 @@ struct NotificationPermissionOnboardingSheet: View {
     }
 
     private func requestPermission() async {
-        do {
-            let granted = try await UNUserNotificationCenter.current()
-                .requestAuthorization(options: [.alert, .badge, .sound])
+        let granted = await PushNotificationManager.shared.requestNotificationPermissions()
+        await MainActor.run {
+            permissionStatus = granted ? .authorized : .denied
+        }
+        if granted {
             await MainActor.run {
-                permissionStatus = granted ? .authorized : .denied
+                PushNotificationManager.shared.setupFCMToken()
+                UserDefaults.standard.set(true, forKey: "hasCompletedNotificationPermission")
             }
-            if granted {
-                await MainActor.run {
-                    UIApplication.shared.registerForRemoteNotifications()
-                }
-            }
-        } catch {
-            print("Notification permission error: \(error)")
         }
     }
 
@@ -332,6 +404,7 @@ struct NotificationPermissionOnboardingSheet: View {
         UserDefaults.standard.set(quietEnabled, forKey: "notifQuietHoursEnabled")
         UserDefaults.standard.set(start,        forKey: "notifQuietHoursStartMinutes")
         UserDefaults.standard.set(end,          forKey: "notifQuietHoursEndMinutes")
+        UserDefaults.standard.set(quietHoursSource, forKey: "notifQuietHoursSource")
         UserDefaults.standard.set(true,         forKey: "notifOnboardingShown")
 
         // Persist to Firestore for cross-device sync
@@ -340,9 +413,89 @@ struct NotificationPermissionOnboardingSheet: View {
                 "notificationSettings.quietHoursEnabled":      quietEnabled,
                 "notificationSettings.quietHoursStartMinutes": start,
                 "notificationSettings.quietHoursEndMinutes":   end,
+                "notificationSettings.quietHoursSource":       quietHoursSource
             ])
         }
 
+        if let suggestion = appliedSuggestion {
+            await adaptiveEngine.applySuggestion(suggestion)
+        }
+
         await MainActor.run { isPresented = false }
+    }
+}
+
+private extension NotificationPermissionOnboardingSheet {
+    struct SmartQuietHoursRecommendation {
+        let startTime: String
+        let endTime: String
+        let confidence: Double
+        let sourceLabel: String
+        let suggestion: AdaptiveQuietHoursEngine.QuietHoursSuggestion?
+    }
+
+    var smartRecommendation: SmartQuietHoursRecommendation? {
+        if let suggestion = adaptiveEngine.suggestions.first {
+            return SmartQuietHoursRecommendation(
+                startTime: suggestion.startTime,
+                endTime: suggestion.endTime,
+                confidence: suggestion.confidence,
+                sourceLabel: recommendationSourceLabel(for: suggestion.reason),
+                suggestion: suggestion
+            )
+        }
+
+        if let pattern = adaptiveEngine.learnedPattern {
+            return SmartQuietHoursRecommendation(
+                startTime: pattern.weekdayStart,
+                endTime: pattern.weekdayEnd,
+                confidence: pattern.confidence,
+                sourceLabel: "Learned from your activity patterns",
+                suggestion: nil
+            )
+        }
+
+        return nil
+    }
+
+    func applySmartRecommendation(_ recommendation: SmartQuietHoursRecommendation) {
+        isApplyingSuggestion = true
+        quietEnabled = true
+        quietStart = dateForTimeString(recommendation.startTime, fallback: quietStart)
+        quietEnd = dateForTimeString(recommendation.endTime, fallback: quietEnd)
+        quietHoursSource = recommendation.suggestion == nil ? "learned_pattern" : "adaptive_suggestion"
+        appliedSuggestion = recommendation.suggestion
+        isApplyingSuggestion = false
+    }
+
+    func dateForTimeString(_ timeString: String, fallback: Date) -> Date {
+        let parts = timeString.split(separator: ":")
+        guard parts.count == 2,
+              let hour = Int(parts[0]),
+              let minute = Int(parts[1]) else {
+            return fallback
+        }
+        return Calendar.current.date(bySettingHour: hour, minute: minute, second: 0, of: Date()) ?? fallback
+    }
+
+    func markManualQuietHoursChange() {
+        guard !isApplyingSuggestion else { return }
+        appliedSuggestion = nil
+        quietHoursSource = "manual"
+    }
+
+    func recommendationSourceLabel(for reason: AdaptiveQuietHoursEngine.QuietHoursSuggestion.SuggestionReason) -> String {
+        switch reason {
+        case .sleepPattern:
+            return "Based on your sleep pattern"
+        case .inactivityPattern:
+            return "Based on inactivity"
+        case .focusModeSync:
+            return "Based on Focus Mode schedule"
+        case .calendarEvents:
+            return "Based on calendar events"
+        case .locationPattern:
+            return "Based on location patterns"
+        }
     }
 }

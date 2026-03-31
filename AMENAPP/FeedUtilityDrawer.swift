@@ -59,7 +59,7 @@ struct DrawerCommunity: Identifiable {
 
 // MARK: - Sample Data (replace with Firestore-backed viewmodel later)
 
-private extension DrawerCommunity {
+extension DrawerCommunity {
     static let sampleOwned: [DrawerCommunity] = [
         DrawerCommunity(id: "pc-1", name: "Morning Prayer Circle", subtitle: "Daily intercession at 6 AM",
                         icon: "hands.sparkles.fill", memberCount: 24, recentActivity: 3, role: .leader, isSuggested: false),

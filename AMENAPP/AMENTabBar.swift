@@ -116,57 +116,32 @@ struct AMENTabBar: View {
         .animation(.easeOut(duration: 0.18), value: isMinimized)
     }
 
-    // MARK: - Glass background (Enhanced Liquid Glass)
+    // MARK: - Glass background (Liquid Glass — visible on white)
 
     private var glassBackground: some View {
         ZStack {
-            // ✨ Base frosted blur material (iOS 15+ ultraThin for premium translucency)
+            // Layer 1 — base material
             Capsule()
                 .fill(.ultraThinMaterial)
-            
-            // ✨ Soft white overlay for subtle light-colored glass effect
+
+            // Layer 2 — white luminosity overlay (keeps it light without going opaque)
             Capsule()
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color.white.opacity(0.65),
-                            Color.white.opacity(0.35),
-                            Color.white.opacity(0.15)
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-                .blendMode(.overlay)
-            
-            // ✨ Inner glow for depth
+                .fill(Color.white.opacity(0.55))
+
+            // Layer 3 — top specular highlight strip (inner edge light)
             Capsule()
                 .inset(by: 1)
                 .fill(
                     LinearGradient(
-                        colors: [
-                            Color.white.opacity(0.3),
-                            Color.clear
-                        ],
+                        colors: [Color.white.opacity(0.55), Color.clear],
                         startPoint: .top,
-                        endPoint: .center
+                        endPoint: .init(x: 0.5, y: 0.38)
                     )
                 )
 
-            // ✨ Refined border with subtle highlight
+            // Layer 4 — hairline border: visible on white, not on dark
             Capsule()
-                .strokeBorder(
-                    LinearGradient(
-                        colors: [
-                            Color.white.opacity(0.9),
-                            Color.white.opacity(0.5),
-                            Color.white.opacity(0.2)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 0.8
-                )
+                .strokeBorder(Color(white: 0.72).opacity(0.55), lineWidth: 0.5)
         }
     }
 
@@ -181,6 +156,18 @@ struct AMENTabBar: View {
             clearBadge(for: tab)
         } label: {
             ZStack {
+                // Selected state glass capsule highlight
+                if isSelected {
+                    Capsule()
+                        .fill(.thinMaterial)
+                        .overlay(Capsule().fill(Color.white.opacity(0.70)))
+                        .overlay(Capsule().strokeBorder(Color(white: 0.82).opacity(0.4), lineWidth: 0.5))
+                        .shadow(color: Color.black.opacity(0.06), radius: 6, x: 0, y: 2)
+                        .frame(width: 42, height: 34)
+                        .transition(.scale(scale: 0.7).combined(with: .opacity))
+                        .animation(.spring(response: 0.22, dampingFraction: 0.7), value: isSelected)
+                }
+
                 // Icon with badge pinned to its top-right corner
                 ZStack(alignment: .topTrailing) {
                     if tab == .profile, let url = profilePhotoURL, !url.isEmpty {
@@ -188,7 +175,7 @@ struct AMENTabBar: View {
                     } else {
                         Image(systemName: isSelected ? tab.activeIcon : tab.inactiveIcon)
                             .font(.system(size: 21, weight: isSelected ? .semibold : .regular))
-                            .foregroundStyle(isSelected ? Color.primary : Color.primary.opacity(0.38))
+                            .foregroundStyle(isSelected ? Color.primary : Color.primary.opacity(0.45))
                             .scaleEffect(isSelected ? 1.06 : 1.0)
                             .animation(.spring(response: 0.22, dampingFraction: 0.7), value: isSelected)
                     }
@@ -238,11 +225,18 @@ struct AMENTabBar: View {
     private var composeButton: some View {
         Button(action: onCompose) {
             ZStack {
+                // Glass ring outer layer
+                Circle()
+                    .fill(.ultraThinMaterial)
+                    .overlay(Circle().fill(Color.white.opacity(0.30)))
+                    .overlay(Circle().strokeBorder(Color(white: 0.72).opacity(0.55), lineWidth: 0.5))
+                    .frame(width: 38, height: 38)
+                // Solid inner circle — keeps the button identifiable as primary action
                 Circle()
                     .fill(Color.primary)
-                    .frame(width: 34, height: 34)
+                    .frame(width: 30, height: 30)
                 Image(systemName: "square.and.pencil")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Color(.systemBackground))
             }
         }

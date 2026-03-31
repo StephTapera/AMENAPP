@@ -6,6 +6,7 @@
 import SwiftUI
 import Foundation
 import FirebaseAuth
+import Combine
 
 // MARK: - BereanMode (display-friendly wrapper for BereanPersonalityMode)
 
@@ -108,19 +109,13 @@ final class BereanHomeViewModel: ObservableObject {
     var verseOfDay: (reference: String, text: String) {
         // Static rotation — in production wire to a verse service.
         let verses: [(reference: String, text: String)] = [
-            ("Proverbs 3:5–6", "Trust in the LORD with all your heart and lean not on your own understanding."),
+            ("Proverbs 3:5–6",   "Trust in the LORD with all your heart and lean not on your own understanding."),
             ("Philippians 4:13", "I can do all things through Christ who strengthens me."),
-            ("Psalm 119:105",  "Your word is a lamp to my feet and a light to my path."),
-            ("Isaiah 40:31",   "Those who hope in the LORD will renew their strength."),
+            ("Psalm 119:105",    "Your word is a lamp to my feet and a light to my path."),
+            ("Isaiah 40:31",     "Those who hope in the LORD will renew their strength."),
         ]
-        let day = Calendar.current.component(.dayOfYear, from: Date())
-        return verses[day % verses.count]
-    }
-}
-
-private extension Calendar {
-    func component(_ component: Calendar.Component, from date: Date) -> Int {
-        self.component(component, from: date)
+        let dayOfYear = Calendar.current.ordinality(of: .day, in: .year, for: Date()) ?? 1
+        return verses[dayOfYear % verses.count]
     }
 }
 
@@ -204,7 +199,7 @@ struct BereanHomeView: View {
             Text(viewModel.greetingText)
                 .font(AMENFont.semiBold(15))
                 .foregroundColor(BereanColor.textSecondary)
-            Text(""\(verse.text)"")
+            Text("\u{201C}\(verse.text)\u{201D}")
                 .font(AMENFont.regular(13))
                 .foregroundColor(BereanColor.textTertiary)
                 .lineLimit(2)
@@ -262,16 +257,17 @@ struct BereanHomeView: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 9)
             .background(
-                Capsule()
-                    .fill(isSelected ? Color.white : Color.white.opacity(0.001))
-                    .background(
-                        Capsule()
-                            .fill(isSelected ? Color.white : .ultraThinMaterial.opacity(0.6))
-                    )
-                    .shadow(
-                        color: isSelected ? Color.black.opacity(0.10) : Color.clear,
-                        radius: isSelected ? 6 : 0, x: 0, y: isSelected ? 3 : 0
-                    )
+                Group {
+                    if isSelected {
+                        Capsule().fill(Color.white)
+                    } else {
+                        Capsule().fill(.ultraThinMaterial).opacity(0.6)
+                    }
+                }
+                .shadow(
+                    color: isSelected ? Color.black.opacity(0.10) : Color.clear,
+                    radius: isSelected ? 6 : 0, x: 0, y: isSelected ? 3 : 0
+                )
             )
             .overlay(
                 Capsule()

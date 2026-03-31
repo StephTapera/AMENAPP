@@ -86,11 +86,11 @@ enum NotificationRouteResolver {
             guard let convId = notification.conversationId, !convId.isEmpty else { return .fallback }
             return .conversation(conversationID: convId)
 
-        case .prayerReminder, .prayerAnswered: // .prayerSupported removed - not in enum
+        case .prayerReminder, .prayerAnswered, .prayerSupported:
             guard let prayerId = notification.prayerId, !prayerId.isEmpty else { return .fallback }
             return .prayer(prayerID: prayerId)
 
-        case .churchNoteShared: // .churchNoteReplied removed - not in enum
+        case .churchNoteShared, .churchNoteReplied:
             guard let noteId = notification.noteId, !noteId.isEmpty else { return .fallback }
             return .churchNote(noteID: noteId)
 

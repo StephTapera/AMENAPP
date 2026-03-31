@@ -2060,8 +2060,11 @@ private struct PostCommentRow: View {
                             .foregroundStyle(.black)
 
                         // ✅ Verified badge
-                        if VerifiedBadgeHelper.isVerified(userId: comment.authorId) {
-                            VerifiedBadge(size: isReply ? 12 : 13)
+                        if VerifiedBadgeHelper.shared.isVerified(userId: comment.authorId) {
+                            VerifiedBadge(
+                                type: VerifiedBadgeHelper.shared.getVerificationType(userId: comment.authorId),
+                                size: isReply ? 12 : 13
+                            )
                         }
                     }
 

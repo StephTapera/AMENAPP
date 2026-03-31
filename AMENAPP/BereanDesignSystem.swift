@@ -16,7 +16,7 @@ enum BereanColor {
     static let separator       = Color(white: 0.88)
     static let glassFill       = Color.white.opacity(0.72)
     static let glassBorder     = Color.white.opacity(0.55)
-    static let glassStroke     = Color(white: 0.82)
+    static let glassStroke     = Color(white: 0.88).opacity(0.5)
     static let userBubbleBg    = Color(white: 0.94)
     static let aiBubbleBg      = Color.white
     static let shadowColor     = Color.black.opacity(0.07)
@@ -94,7 +94,7 @@ struct LiquidGlassCard: ViewModifier {
 }
 
 /// Input bar glass modifier — tighter shadow, used for bottom composers.
-struct LiquidGlassInputBar: ViewModifier {
+struct LiquidGlassInputBarModifier: ViewModifier {
     var cornerRadius: CGFloat = 24
 
     func body(content: Content) -> some View {
@@ -120,15 +120,15 @@ extension View {
         modifier(LiquidGlassCard(cornerRadius: cornerRadius, shadowRadius: shadowRadius, shadowY: shadowY))
     }
     func bereanGlassInputBar(cornerRadius: CGFloat = 24) -> some View {
-        modifier(LiquidGlassInputBar(cornerRadius: cornerRadius))
+        modifier(LiquidGlassInputBarModifier(cornerRadius: cornerRadius))
     }
 }
 
-// MARK: - BereanModePill
+// MARK: - BereanPersonalityPill
 
 /// Inline pill showing the currently active personality mode.
-/// Used in navigation bars and mode selectors.
-struct BereanModePill: View {
+/// Used in Berean navigation bars and mode selectors.
+struct BereanPersonalityPill: View {
     let mode: BereanPersonalityMode
     var compact: Bool = false
 
@@ -175,14 +175,14 @@ struct BereanSuggestionChip: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
             .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .fill(.ultraThinMaterial)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
                             .fill(Color.white.opacity(0.65))
                     )
                     .overlay(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
                             .strokeBorder(BereanColor.glassStroke, lineWidth: 0.5)
                     )
             )
@@ -399,7 +399,7 @@ struct BereanInputComposer: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 6)
-        .modifier(LiquidGlassInputBar())
+        .bereanGlassInputBar()
     }
 }
 

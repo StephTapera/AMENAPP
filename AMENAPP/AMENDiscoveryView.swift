@@ -85,34 +85,47 @@ struct AMENDiscoveryView: View {
                 VStack(spacing: 0) {
                     // Header: pill UI on landing, real search bar while searching/on subpages
                     if case .landing = service.searchState, !isSearchFocused, searchText.isEmpty {
-                        // New pill-style header — search pill + Ask Berean + topic pills
-                        AmenDiscoverPillsRow(
-                            searchPlaceholder: searchPlaceholder,
-                            onSearchTap: {
-                                HapticManager.impact(style: .light)
-                                isSearchFocused = true
-                            },
-                            onAskBereanTap: {
-                                HapticManager.impact(style: .light)
-                                showBereanAI = true
-                            },
-                            topics: DiscoverMode.allCases.map { mode in
-                                DiscoverPillItem(
-                                    title: mode.rawValue,
-                                    systemImage: mode.icon,
-                                    isActive: selectedMode == mode,
-                                    action: {
-                                        HapticManager.impact(style: .light)
-                                        withAnimation(.spring(response: 0.38, dampingFraction: 0.72)) {
-                                            selectedMode = mode
-                                        }
-                                        if mode == .media { showMediaViewer = true }
-                                    }
-                                )
+                        // Premium header: eyebrow + search pill + Ask Berean + topic pills
+                        VStack(spacing: 0) {
+                            HStack {
+                                Text("AMEN DISCOVER")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundColor(Color(white: 0.45))
+                                    .tracking(1.4)
+                                Spacer()
                             }
-                        )
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
+                            .padding(.horizontal, 16)
+                            .padding(.top, 10)
+                            .padding(.bottom, 4)
+
+                            AmenDiscoverPillsRow(
+                                searchPlaceholder: searchPlaceholder,
+                                onSearchTap: {
+                                    HapticManager.impact(style: .light)
+                                    isSearchFocused = true
+                                },
+                                onAskBereanTap: {
+                                    HapticManager.impact(style: .light)
+                                    showBereanAI = true
+                                },
+                                topics: DiscoverMode.allCases.map { mode in
+                                    DiscoverPillItem(
+                                        title: mode.rawValue,
+                                        systemImage: mode.icon,
+                                        isActive: selectedMode == mode,
+                                        action: {
+                                            HapticManager.impact(style: .light)
+                                            withAnimation(.spring(response: 0.38, dampingFraction: 0.72)) {
+                                                selectedMode = mode
+                                            }
+                                            if mode == .media { showMediaViewer = true }
+                                        }
+                                    )
+                                }
+                            )
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+                        }
                         .background(.ultraThinMaterial)
                         .zIndex(10)
                         .transition(.opacity.animation(.easeInOut(duration: 0.2)))
@@ -278,13 +291,17 @@ struct AMENDiscoveryView: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
             .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .fill(.ultraThinMaterial)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .strokeBorder(Color.black.opacity(0.08), lineWidth: 1)
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(Color.white.opacity(0.55))
                     )
-                    .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5)
+                    )
+                    .shadow(color: .black.opacity(0.06), radius: 12, x: 0, y: 4)
             )
 
             // Berean AI button — labeled capsule so users know what it does
@@ -452,6 +469,12 @@ struct AMENDiscoveryView: View {
                 )
                 .padding(.top, 4)
 
+                // ── Premium Hero Discovery Cards row ──
+                amenHeroCardsSection
+
+                // ── Explore by type pills ──
+                exploreByTypeSection
+
                 // 1. Topic chips + Trending topics row
                 topicChipsSection
 
@@ -570,6 +593,9 @@ struct AMENDiscoveryView: View {
 
                 // 11. Popular topics grid
                 popularTopicsSection
+
+                // 12. AMEN Intelligence footer banner
+                amenIntelligenceFooter
 
                 Spacer().frame(height: 100)
             }
@@ -845,6 +871,175 @@ struct AMENDiscoveryView: View {
         .buttonStyle(.plain)
     }
 
+    // MARK: - Premium Hero Cards Row (NEW)
+
+    private var amenHeroCardsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 7) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(Color(white: 0.45))
+                Text("Featured")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.black)
+                Spacer()
+            }
+            .padding(.horizontal, 16)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 14) {
+                    AmenHeroDiscoveryCard(
+                        title: "Palm Sunday reflections",
+                        tagLabel: "Seasonal",
+                        tagIcon: "leaf.fill",
+                        accentColor: Color(red: 0.36, green: 0.55, blue: 0.36)
+                    )
+                    AmenHeroDiscoveryCard(
+                        title: "Worship moments near you",
+                        tagLabel: "Local",
+                        tagIcon: "location.fill",
+                        accentColor: Color(red: 0.25, green: 0.45, blue: 0.65)
+                    )
+                    AmenHeroDiscoveryCard(
+                        title: "Verses for anxiety",
+                        tagLabel: "Care",
+                        tagIcon: "heart.fill",
+                        accentColor: Color(red: 0.55, green: 0.35, blue: 0.65)
+                    )
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 4)
+            }
+        }
+    }
+
+    // MARK: - Explore by Type Pills (NEW)
+
+    private var exploreByTypeSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Explore by type")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(.black)
+                .padding(.horizontal, 16)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(exploreTypes, id: \.label) { item in
+                        Button {
+                            HapticManager.impact(style: .light)
+                            searchText = item.searchTerm
+                            Task { await service.submitSearch(item.searchTerm) }
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: item.icon)
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundColor(Color(white: 0.45))
+                                Text(item.label)
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundColor(.black)
+                            }
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 9)
+                            .background(
+                                Capsule()
+                                    .fill(.ultraThinMaterial)
+                                    .overlay(
+                                        Capsule()
+                                            .fill(Color.white.opacity(0.55))
+                                    )
+                                    .overlay(
+                                        Capsule()
+                                            .strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5)
+                                    )
+                            )
+                            .shadow(color: .black.opacity(0.05), radius: 6, x: 0, y: 2)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 4)
+            }
+        }
+    }
+
+    private var exploreTypes: [(label: String, icon: String, searchTerm: String)] {
+        [
+            (label: "Text posts",     icon: "text.alignleft",          searchTerm: "posts"),
+            (label: "Photos",         icon: "photo",                   searchTerm: "photos"),
+            (label: "Videos",         icon: "play.circle",             searchTerm: "videos"),
+            (label: "Comments",       icon: "bubble.left",             searchTerm: "comments"),
+            (label: "Hashtags",       icon: "number",                  searchTerm: "hashtags"),
+            (label: "Bible verses",   icon: "book.closed",             searchTerm: "bible verses"),
+            (label: "Communities",    icon: "person.3",                searchTerm: "communities"),
+        ]
+    }
+
+    // MARK: - AMEN Intelligence Footer (NEW)
+
+    private var amenIntelligenceFooter: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top, spacing: 14) {
+                ZStack {
+                    Circle()
+                        .fill(.ultraThinMaterial)
+                        .overlay(Circle().fill(Color.white.opacity(0.55)))
+                        .overlay(Circle().strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5))
+                        .frame(width: 48, height: 48)
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(.black)
+                }
+
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("Ranked for meaning, not noise")
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundColor(.black)
+
+                    Text("Scripture trails, prayer circles, and faith-forward discovery")
+                        .font(.system(size: 13, weight: .regular))
+                        .foregroundColor(Color(white: 0.45))
+                        .lineLimit(3)
+                }
+
+                Spacer(minLength: 0)
+            }
+
+            Button {
+                HapticManager.impact(style: .medium)
+                showBereanAI = true
+            } label: {
+                Text("Explore")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(Color.black)
+                    )
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 28, style: .continuous)
+                        .fill(Color.white.opacity(0.55))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 28, style: .continuous)
+                        .strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5)
+                )
+        )
+        .shadow(color: .black.opacity(0.06), radius: 20, x: 0, y: 8)
+        .padding(.horizontal, 16)
+    }
+
+    // MARK: - Popular Topics Section (upgraded grid card wrappers)
+
     private var popularTopicsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Popular topics")
@@ -856,8 +1051,11 @@ struct AMENDiscoveryView: View {
                 GridItem(.flexible(), spacing: 10),
                 GridItem(.flexible(), spacing: 10)
             ], spacing: 10) {
-                ForEach(service.popularTopics) { topic in
-                    DiscoveryTopicGridCard(topic: topic) {
+                ForEach(Array(service.popularTopics.enumerated()), id: \.element.id) { idx, topic in
+                    AmenPremiumTopicGridCard(
+                        topic: topic,
+                        isTall: idx % 4 == 0 || idx % 4 == 3
+                    ) {
                         selectedTopic = topic
                         service.selectTopic(topic)
                     }
@@ -989,7 +1187,7 @@ private struct DiscoverTopicsGrid: View {
         ScrollView {
             LazyVGrid(columns: columns, spacing: 12) {
                 ForEach(DiscoveryTopic.catalog) { topic in
-                    Button {
+                    DiscoveryTopicGridCard(topic: topic) {
                         let tile = DiscoverTopicTile(
                             id: topic.id,
                             title: topic.title,
@@ -998,10 +1196,7 @@ private struct DiscoverTopicsGrid: View {
                             color: topic.iconColor
                         )
                         onSelect(tile)
-                    } label: {
-                        DiscoveryTopicGridCard(topic: topic)
                     }
-                    .buttonStyle(.plain)
                 }
             }
             .padding(.horizontal, 16)
@@ -1037,7 +1232,16 @@ private struct DiscoverNearYouView: View {
                 .background(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
                         .fill(.ultraThinMaterial)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .fill(Color.white.opacity(0.55))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5)
+                        )
                 )
+                .shadow(color: .black.opacity(0.06), radius: 12, x: 0, y: 4)
             }
             .padding(.horizontal, 16)
             .padding(.top, 12)
@@ -1394,11 +1598,18 @@ struct DiscoveryTrendCard: View {
             }
             .padding(14)
             .background(
-                RoundedRectangle(cornerRadius: 14)
-                    .fill(Color.primary.opacity(0.04))
-                    .overlay(RoundedRectangle(cornerRadius: 14)
-                        .stroke(Color.primary.opacity(0.07), lineWidth: 0.5))
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(Color.white.opacity(0.55))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5)
+                    )
             )
+            .shadow(color: .black.opacity(0.06), radius: 12, x: 0, y: 4)
         }
         .buttonStyle(.plain)
     }
@@ -1522,11 +1733,18 @@ struct DiscoveryFollowCard: View {
         .frame(width: 140)
         .padding(14)
         .background(
-            RoundedRectangle(cornerRadius: 16)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(.ultraThinMaterial)
-                .overlay(RoundedRectangle(cornerRadius: 16)
-                    .stroke(Color.primary.opacity(0.07), lineWidth: 0.5))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(Color.white.opacity(0.55))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5)
+                )
         )
+        .shadow(color: .black.opacity(0.06), radius: 12, x: 0, y: 4)
     }
 }
 
@@ -1562,11 +1780,18 @@ struct DiscoveryTopicGridCard: View {
             }
             .padding(10)
             .background(
-                RoundedRectangle(cornerRadius: 13)
-                    .fill(Color.primary.opacity(0.04))
-                    .overlay(RoundedRectangle(cornerRadius: 13)
-                        .stroke(Color.primary.opacity(0.07), lineWidth: 0.5))
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(Color.white.opacity(0.55))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5)
+                    )
             )
+            .shadow(color: .black.opacity(0.06), radius: 12, x: 0, y: 4)
         }
         .buttonStyle(.plain)
     }
@@ -2330,6 +2555,246 @@ class DiscoverFeedService: ObservableObject {
                   let name = user["name"] as? String else { return nil }
             return UnsplashPhoto(id: id, thumbURL: thumb, regularURL: regular, photographerName: name)
         }
+    }
+}
+
+// MARK: - Premium Hero Discovery Card (NEW)
+
+struct AmenHeroDiscoveryCard: View {
+    let title: String
+    let tagLabel: String
+    let tagIcon: String
+    let accentColor: Color
+    @State private var isPressed = false
+
+    var body: some View {
+        ZStack(alignment: .bottomLeading) {
+            // Background: light tinted base + gradient overlay
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .fill(Color(white: 0.92))
+                .frame(width: 280, height: 200)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 28, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [.black.opacity(0.05), .black.opacity(0.45)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                )
+                .overlay(
+                    // Subtle dot-grid texture
+                    Canvas { ctx, size in
+                        let spacing: CGFloat = 18
+                        for row in stride(from: 0, to: size.height, by: spacing) {
+                            for col in stride(from: 0, to: size.width, by: spacing) {
+                                ctx.fill(Path(ellipseIn: CGRect(x: col, y: row, width: 1.5, height: 1.5)),
+                                         with: .color(.white.opacity(0.12)))
+                            }
+                        }
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+                )
+
+            // Glass bottom tray
+            VStack(alignment: .leading, spacing: 6) {
+                // Tag badge pill
+                HStack(spacing: 5) {
+                    Image(systemName: tagIcon)
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(.white)
+                    Text(tagLabel.uppercased())
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.white)
+                        .tracking(0.8)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(
+                    Capsule()
+                        .fill(accentColor.opacity(0.85))
+                        .background(.ultraThinMaterial)
+                        .clipShape(Capsule())
+                )
+
+                Text(title)
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundColor(.white)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 28, style: .continuous)
+                            .fill(Color.black.opacity(0.25))
+                    )
+            )
+            .clipShape(
+                RoundedCornerShape(radius: 28, corners: [.bottomLeft, .bottomRight])
+            )
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5)
+        )
+        .shadow(color: .black.opacity(0.06), radius: 20, x: 0, y: 8)
+        .scaleEffect(isPressed ? 0.97 : 1.0)
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isPressed)
+        .onLongPressGesture(minimumDuration: 0, pressing: { pressing in isPressed = pressing }, perform: {})
+    }
+}
+
+// Rounded corner helper for bottom-only rounding on the tray
+private struct RoundedCornerShape: Shape {
+    var radius: CGFloat
+    var corners: UIRectCorner
+
+    func path(in rect: CGRect) -> Path {
+        let path = UIBezierPath(
+            roundedRect: rect,
+            byRoundingCorners: corners,
+            cornerRadii: CGSize(width: radius, height: radius)
+        )
+        return Path(path.cgPath)
+    }
+}
+
+// MARK: - Premium Topic Grid Card (upgraded, alternating tall/normal)
+
+struct AmenPremiumTopicGridCard: View {
+    let topic: DiscoveryTopic
+    let isTall: Bool
+    let action: () -> Void
+    @State private var isBookmarked = false
+    @State private var isLiked = false
+    @State private var isPressed = false
+
+    var body: some View {
+        Button(action: action) {
+            ZStack(alignment: .topLeading) {
+                // Glass card background
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 28, style: .continuous)
+                            .fill(Color.white.opacity(0.55))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 28, style: .continuous)
+                            .strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5)
+                    )
+
+                VStack(spacing: 0) {
+                    // Icon area — large centered SF symbol
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .fill(topic.backgroundColor.opacity(0.5))
+
+                        Image(systemName: topic.icon)
+                            .font(.system(size: isTall ? 42 : 32, weight: .medium))
+                            .foregroundColor(Color(white: 0.55))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: isTall ? 130 : 100)
+
+                    // Glass info tray at bottom
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(topic.title)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(.black)
+                            .lineLimit(1)
+                        if topic.postCount > 0 {
+                            Text("\(topic.postCount) posts")
+                                .font(.system(size: 11, weight: .regular))
+                                .foregroundColor(Color(white: 0.45))
+                        } else if let scripture = topic.relatedScripture {
+                            Text(scripture)
+                                .font(.system(size: 10, weight: .regular))
+                                .foregroundColor(Color(white: 0.45))
+                                .lineLimit(1)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .background(
+                        Rectangle()
+                            .fill(.ultraThinMaterial)
+                            .overlay(Rectangle().fill(Color.white.opacity(0.5)))
+                    )
+                    .clipShape(
+                        RoundedCornerShape(radius: 20, corners: [.bottomLeft, .bottomRight])
+                    )
+                }
+
+                // Trending badge top-left
+                if topic.isTrending {
+                    Text("Trending")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundColor(.white)
+                        .tracking(0.5)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(
+                            Capsule()
+                                .fill(Color.orange.opacity(0.9))
+                        )
+                        .padding(10)
+                }
+
+                // Bookmark + heart buttons top-right
+                VStack(alignment: .trailing, spacing: 6) {
+                    Button {
+                        isBookmarked.toggle()
+                        HapticManager.impact(style: .light)
+                    } label: {
+                        Image(systemName: isBookmarked ? "bookmark.fill" : "bookmark")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.black)
+                            .frame(width: 30, height: 30)
+                            .background(
+                                Circle()
+                                    .fill(.ultraThinMaterial)
+                                    .overlay(Circle().fill(Color.white.opacity(0.7)))
+                                    .overlay(Circle().strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5))
+                            )
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        isLiked.toggle()
+                        HapticManager.impact(style: .light)
+                    } label: {
+                        Image(systemName: isLiked ? "heart.fill" : "heart")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(isLiked ? .red : .black)
+                            .frame(width: 30, height: 30)
+                            .background(
+                                Circle()
+                                    .fill(.ultraThinMaterial)
+                                    .overlay(Circle().fill(Color.white.opacity(0.7)))
+                                    .overlay(Circle().strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5))
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                .padding(10)
+            }
+            .frame(height: isTall ? 210 : 175)
+            .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+            .shadow(color: .black.opacity(0.06), radius: 20, x: 0, y: 8)
+        }
+        .buttonStyle(.plain)
+        .scaleEffect(isPressed ? 0.97 : 1.0)
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isPressed)
+        .onLongPressGesture(minimumDuration: 0, pressing: { pressing in isPressed = pressing }, perform: {})
     }
 }
 

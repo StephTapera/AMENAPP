@@ -332,6 +332,9 @@ struct MessagesView: View {
                         greetingName: firstName,
                         onCompose: { activeSheet = .newMessage },
                         onBack: { mainTabSelection.wrappedValue = 0 },
+                        onSettings: { activeSheet = .settings },
+                        onRequests: { selectedTab = .requests },
+                        requestCount: unreadRequestsCount,
                         searchText: $searchText
                     )
 
@@ -5273,4 +5276,3 @@ struct ModernConversationDetailView: View {
         }
     }
 }
-

@@ -71,6 +71,9 @@ enum AMENAnalyticsEvent {
     case studioInquirySent
     case studioJobApplied
 
+    // Account
+    case accountTypeSelected(type: String)
+
     var name: String {
         switch self {
         case .feedSessionStarted: return "feed_session_started"
@@ -104,6 +107,7 @@ enum AMENAnalyticsEvent {
         case .studioProfileViewed: return "studio_profile_viewed"
         case .studioInquirySent: return "studio_inquiry_sent"
         case .studioJobApplied: return "studio_job_applied"
+        case .accountTypeSelected: return "account_type_selected"
         }
     }
 
@@ -127,6 +131,8 @@ enum AMENAnalyticsEvent {
             return ["node_type": type]
         case .topicFollowed(let slug):
             return ["topic_slug": slug]
+        case .accountTypeSelected(let type):
+            return ["account_type": type]
         default:
             return [:]
         }

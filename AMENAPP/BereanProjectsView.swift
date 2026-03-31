@@ -1,7 +1,6 @@
 // BereanProjectsView.swift
 // AMEN Berean — Projects + Folders workspace.
-// Premium clean card list. Each project groups chats, notes, and saved outputs
-// into a persistent structured workspace.
+// White Liquid Glass design. Card grid, collections scroll, memory indicator.
 
 import SwiftUI
 
@@ -83,20 +82,40 @@ private extension Color {
     static let bpTertiary  = Color(white: 0.66)
 }
 
+// MARK: - Collections Data
+
+private struct BereanCollection: Identifiable {
+    let id = UUID()
+    let name: String
+    let icon: String
+    let colorKey: String
+}
+
+private let bereanCollections: [BereanCollection] = [
+    BereanCollection(name: "Bible Study",          icon: "book.pages",         colorKey: "indigo"),
+    BereanCollection(name: "Sermon Prep",          icon: "mic",                colorKey: "teal"),
+    BereanCollection(name: "Prayer Journal",       icon: "hands.sparkles",     colorKey: "purple"),
+    BereanCollection(name: "Personal Reflection",  icon: "sparkles",           colorKey: "amber"),
+    BereanCollection(name: "Life Planning",        icon: "list.bullet.clipboard", colorKey: "sage"),
+    BereanCollection(name: "AMEN Build",           icon: "hammer",             colorKey: "coral"),
+]
+
 // MARK: - BereanProjectsView
 
 struct BereanProjectsView: View {
     @Environment(\.dismiss) private var dismiss
-    /// Optional: instead of drilling into detail, call back to host with selected project.
     var onProjectSelected: ((BereanProject) -> Void)? = nil
 
     @State private var projects: [BereanProject] = BereanProjectStore.load()
     @State private var searchQuery = ""
     @State private var showNewProject = false
     @State private var selectedProject: BereanProject? = nil
+    @State private var showMemorySettings = false
 
     private var filtered: [BereanProject] {
-        searchQuery.isEmpty ? projects : projects.filter { $0.title.localizedCaseInsensitiveContains(searchQuery) }
+        searchQuery.isEmpty ? projects : projects.filter {
+            $0.title.localizedCaseInsensitiveContains(searchQuery)
+        }
     }
     private var pinned: [BereanProject]   { filtered.filter { $0.isPinned } }
     private var unpinned: [BereanProject] { filtered.filter { !$0.isPinned } }
@@ -106,21 +125,40 @@ struct BereanProjectsView: View {
             ZStack {
                 Color.bpBG.ignoresSafeArea()
 
-                ScrollView {
+                ScrollView(showsIndicators: false) {
                     LazyVStack(alignment: .leading, spacing: 0) {
+                        // Memory banner
+                        memoryBanner
+                            .padding(.horizontal, 16)
+                            .padding(.top, 12)
+                            .padding(.bottom, 4)
+
+                        // My Conversations — always visible pinned section
+                        sectionHeader("MY CONVERSATIONS")
+                        myConversationsRow
+
+                        // Pinned projects
                         if !pinned.isEmpty {
                             sectionHeader("PINNED")
-                            ForEach(pinned) { projectRow($0) }
+                            projectGrid(pinned)
                         }
+
+                        // All projects
                         sectionHeader(pinned.isEmpty ? "PROJECTS" : "ALL PROJECTS")
                         if filtered.isEmpty {
                             emptyState
                         } else {
-                            ForEach(unpinned) { projectRow($0) }
+                            projectGrid(unpinned)
                         }
+
+                        // Collections
+                        sectionHeader("COLLECTIONS")
+                        collectionsRow
+                            .padding(.bottom, 4)
+
                         Spacer().frame(height: 100)
                     }
-                    .padding(.top, 8)
+                    .padding(.top, 4)
                 }
                 .searchable(text: $searchQuery, prompt: "Search projects")
             }
@@ -129,12 +167,19 @@ struct BereanProjectsView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button { dismiss() } label: {
-                        Image(systemName: "xmark").font(.system(size: 14, weight: .medium)).foregroundStyle(Color.bpSecondary)
+                        Image(systemName: "xmark")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(Color.bpSecondary)
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { showNewProject = true } label: {
-                        Image(systemName: "plus").font(.system(size: 16, weight: .semibold))
+                        HStack(spacing: 4) {
+                            Image(systemName: "plus")
+                                .font(.system(size: 14, weight: .semibold))
+                            Text("New Project")
+                                .font(.system(size: 14, weight: .semibold))
+                        }
                     }
                 }
             }
@@ -150,7 +195,187 @@ struct BereanProjectsView: View {
         }
     }
 
-    @ViewBuilder
+    // MARK: - Memory Banner
+
+    private var memoryBanner: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "brain")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(Color.bpSecondary)
+
+            Text("Berean remembers your preferences")
+                .font(.system(size: 13))
+                .foregroundStyle(Color.bpSecondary)
+
+            Spacer()
+
+            Button { showMemorySettings = true } label: {
+                Image(systemName: "gearshape")
+                    .font(.system(size: 14))
+                    .foregroundStyle(Color.bpTertiary)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.bpCard)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .strokeBorder(Color.bpStroke, lineWidth: 0.5)
+                )
+        )
+    }
+
+    // MARK: - My Conversations Row
+
+    private var myConversationsRow: some View {
+        VStack(spacing: 0) {
+            Button {
+                // Navigate to all conversations
+            } label: {
+                HStack(spacing: 14) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(Color(white: 0.92)).frame(width: 44, height: 44)
+                        Image(systemName: "bubble.left.and.bubble.right")
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundStyle(Color.bpPrimary)
+                    }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("My Conversations")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(Color.bpPrimary)
+                        Text("All recent Berean chats")
+                            .font(.system(size: 12))
+                            .foregroundStyle(Color.bpSecondary)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(Color.bpTertiary)
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+            }
+            .buttonStyle(.plain)
+
+            Divider().padding(.leading, 78)
+        }
+    }
+
+    // MARK: - Project Grid (2 column)
+
+    private func projectGrid(_ items: [BereanProject]) -> some View {
+        LazyVGrid(
+            columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)],
+            spacing: 12
+        ) {
+            ForEach(items) { project in
+                projectCard(project)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 6)
+        .padding(.bottom, 12)
+    }
+
+    private func projectCard(_ project: BereanProject) -> some View {
+        let accent = Color.bereanProjectAccent(project.colorKey)
+
+        return Button {
+            if let handler = onProjectSelected {
+                handler(project)
+                dismiss()
+            } else {
+                selectedProject = project
+            }
+        } label: {
+            VStack(alignment: .leading, spacing: 10) {
+                // Icon
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(accent.opacity(0.12))
+                        .frame(width: 44, height: 44)
+                    Image(systemName: project.iconSymbol)
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundStyle(accent)
+                }
+
+                // Name
+                Text(project.title)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Color.bpPrimary)
+                    .lineLimit(1)
+
+                // Stats
+                HStack(spacing: 4) {
+                    Text("\(project.chatCount) chats")
+                        .font(.system(size: 12))
+                        .foregroundStyle(Color.bpSecondary)
+                    Spacer()
+                    Text(relativeDate(project.lastUpdated))
+                        .font(.system(size: 11))
+                        .foregroundStyle(Color.bpTertiary)
+                }
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(Color.bpCard)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .strokeBorder(Color.bpStroke, lineWidth: 0.5)
+                    )
+                    .shadow(color: .black.opacity(0.04), radius: 8, y: 3)
+            )
+        }
+        .buttonStyle(.plain)
+        .contextMenu { projectContextMenu(project) }
+    }
+
+    // MARK: - Collections Row
+
+    private var collectionsRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+                ForEach(bereanCollections) { collection in
+                    collectionChip(collection)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 6)
+        }
+    }
+
+    private func collectionChip(_ collection: BereanCollection) -> some View {
+        let accent = Color.bereanProjectAccent(collection.colorKey)
+        return Button {
+            // Navigate to collection
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: collection.icon)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(accent)
+                Text(collection.name)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(Color.bpPrimary)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 9)
+            .background(
+                Capsule()
+                    .fill(Color.bpCard)
+                    .overlay(Capsule().strokeBorder(Color.bpStroke, lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 6, y: 2)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Section Header
+
     private func sectionHeader(_ label: String) -> some View {
         Text(label)
             .font(.system(size: 11, weight: .semibold)).kerning(0.8)
@@ -158,78 +383,47 @@ struct BereanProjectsView: View {
             .padding(.horizontal, 20).padding(.top, 20).padding(.bottom, 6)
     }
 
-    @ViewBuilder
-    private func projectRow(_ project: BereanProject) -> some View {
-        let accent = Color.bereanProjectAccent(project.colorKey)
-
-        Button {
-            if let handler = onProjectSelected {
-                handler(project); dismiss()
-            } else {
-                selectedProject = project
-            }
-        } label: {
-            HStack(spacing: 14) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(accent.opacity(0.12)).frame(width: 44, height: 44)
-                    Image(systemName: project.iconSymbol)
-                        .font(.system(size: 18, weight: .medium)).foregroundStyle(accent)
-                }
-
-                VStack(alignment: .leading, spacing: 3) {
-                    HStack(spacing: 5) {
-                        Text(project.title)
-                            .font(.system(size: 15, weight: .semibold)).foregroundStyle(Color.bpPrimary)
-                        if project.isPinned {
-                            Image(systemName: "pin.fill").font(.system(size: 9)).foregroundStyle(Color.bpTertiary)
-                        }
-                    }
-                    HStack(spacing: 6) {
-                        Text("\(project.chatCount) chats").font(.system(size: 12)).foregroundStyle(Color.bpSecondary)
-                        Text("·").foregroundStyle(Color.bpTertiary)
-                        Text(relativeDate(project.lastUpdated)).font(.system(size: 12)).foregroundStyle(Color.bpTertiary)
-                    }
-                }
-
-                Spacer()
-
-                if project.memoryEnabled {
-                    Image(systemName: "brain").font(.system(size: 11)).foregroundStyle(accent.opacity(0.55))
-                }
-                Image(systemName: "chevron.right").font(.system(size: 11, weight: .medium)).foregroundStyle(Color.bpTertiary)
-            }
-            .padding(.horizontal, 20).padding(.vertical, 12)
-        }
-        .buttonStyle(.plain)
-        .contextMenu { projectContextMenu(project) }
-
-        Divider().padding(.leading, 78)
-    }
+    // MARK: - Context Menu
 
     @ViewBuilder
     private func projectContextMenu(_ project: BereanProject) -> some View {
-        Button { selectedProject = project } label: { Label("Open", systemImage: "arrow.right.square") }
+        Button { selectedProject = project } label: {
+            Label("Open", systemImage: "arrow.right.square")
+        }
         Button {
             if let idx = projects.firstIndex(where: { $0.id == project.id }) {
                 projects[idx].isPinned.toggle()
                 BereanProjectStore.save(projects)
             }
         } label: {
-            Label(project.isPinned ? "Unpin" : "Pin", systemImage: project.isPinned ? "pin.slash" : "pin")
+            Label(project.isPinned ? "Unpin" : "Pin",
+                  systemImage: project.isPinned ? "pin.slash" : "pin")
         }
         Divider()
         Button(role: .destructive) {
-            withAnimation { projects.removeAll { $0.id == project.id }; BereanProjectStore.save(projects) }
-        } label: { Label("Delete", systemImage: "trash") }
+            withAnimation {
+                projects.removeAll { $0.id == project.id }
+                BereanProjectStore.save(projects)
+            }
+        } label: {
+            Label("Delete", systemImage: "trash")
+        }
     }
+
+    // MARK: - Empty State
 
     private var emptyState: some View {
         VStack(spacing: 16) {
-            Image(systemName: "folder.badge.plus").font(.system(size: 38)).foregroundStyle(Color.bpTertiary)
-            Text("No projects yet").font(.system(size: 17, weight: .semibold)).foregroundStyle(Color.bpPrimary)
+            Image(systemName: "folder.badge.plus")
+                .font(.system(size: 38))
+                .foregroundStyle(Color.bpTertiary)
+            Text("No projects yet")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(Color.bpPrimary)
             Text("Organize Bible studies, prayers, church notes,\nand more into projects.")
-                .font(.system(size: 14)).foregroundStyle(Color.bpSecondary).multilineTextAlignment(.center)
+                .font(.system(size: 14))
+                .foregroundStyle(Color.bpSecondary)
+                .multilineTextAlignment(.center)
             Button { showNewProject = true } label: {
                 Text("Create your first project")
                     .font(.system(size: 14, weight: .semibold))
@@ -281,13 +475,19 @@ struct BereanProjectDetailView: View {
                         HStack(spacing: 4) {
                             ForEach(ProjTab.allCases, id: \.self) { tab in
                                 Button {
-                                    withAnimation(.spring(response: 0.30, dampingFraction: 0.78)) { selectedTab = tab }
+                                    withAnimation(.spring(response: 0.30, dampingFraction: 0.78)) {
+                                        selectedTab = tab
+                                    }
                                 } label: {
                                     Text(tab.rawValue)
                                         .font(.system(size: 13, weight: selectedTab == tab ? .semibold : .regular))
                                         .foregroundStyle(selectedTab == tab ? accent : Color.bpSecondary)
                                         .padding(.horizontal, 14).padding(.vertical, 8)
-                                        .background { if selectedTab == tab { Capsule().fill(accent.opacity(0.10)) } }
+                                        .background {
+                                            if selectedTab == tab {
+                                                Capsule().fill(accent.opacity(0.10))
+                                            }
+                                        }
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -300,8 +500,16 @@ struct BereanProjectDetailView: View {
                             switch selectedTab {
                             case .overview: overviewTab
                             case .chats:    chatsTab
-                            case .saved:    emptyPlaceholder(icon: "bookmark", text: "No saved outputs yet.\nSave responses from any chat to see them here.")
-                            case .notes:    emptyPlaceholder(icon: "note.text", text: "No notes yet.\nAdd notes from a chat or create one directly.")
+                            case .saved:
+                                emptyPlaceholder(
+                                    icon: "bookmark",
+                                    text: "No saved outputs yet.\nSave responses from any chat to see them here."
+                                )
+                            case .notes:
+                                emptyPlaceholder(
+                                    icon: "note.text",
+                                    text: "No notes yet.\nAdd notes from a chat or create one directly."
+                                )
                             }
                         }
                         .padding(.top, 16)
@@ -313,7 +521,9 @@ struct BereanProjectDetailView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { dismiss() } label: {
-                        Image(systemName: "xmark").font(.system(size: 14, weight: .medium)).foregroundStyle(Color.bpSecondary)
+                        Image(systemName: "xmark")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(Color.bpSecondary)
                     }
                 }
             }
@@ -324,7 +534,6 @@ struct BereanProjectDetailView: View {
 
     private var overviewTab: some View {
         VStack(alignment: .leading, spacing: 20) {
-            // Header card
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 12) {
                     ZStack {
@@ -334,9 +543,11 @@ struct BereanProjectDetailView: View {
                             .font(.system(size: 22, weight: .medium)).foregroundStyle(accent)
                     }
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(project.title).font(.system(size: 18, weight: .bold)).foregroundStyle(Color.bpPrimary)
+                        Text(project.title)
+                            .font(.system(size: 18, weight: .bold)).foregroundStyle(Color.bpPrimary)
                         if !project.description.isEmpty {
-                            Text(project.description).font(.system(size: 13)).foregroundStyle(Color.bpSecondary)
+                            Text(project.description)
+                                .font(.system(size: 13)).foregroundStyle(Color.bpSecondary)
                         }
                     }
                 }
@@ -347,21 +558,29 @@ struct BereanProjectDetailView: View {
                 }
             }
             .padding(18)
-            .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color.bpCard)
-                .shadow(color: .black.opacity(0.04), radius: 10, y: 3)
-                .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(Color.bpStroke, lineWidth: 0.5)))
+            .background(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(Color.bpCard)
+                    .shadow(color: .black.opacity(0.04), radius: 10, y: 3)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .strokeBorder(Color.bpStroke, lineWidth: 0.5)
+                    )
+            )
             .padding(.horizontal, 16)
 
-            // Quick actions
             Text("QUICK ACTIONS")
                 .font(.system(size: 11, weight: .semibold)).kerning(0.8)
                 .foregroundStyle(Color.bpTertiary).padding(.horizontal, 20)
 
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
-                quickActionTile("New Chat",       icon: "plus.bubble")
-                quickActionTile("Add Note",       icon: "note.text.badge.plus")
-                quickActionTile("Study Scripture",icon: "book.pages")
-                quickActionTile("Create Prayer",  icon: "hands.sparkles")
+            LazyVGrid(
+                columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)],
+                spacing: 10
+            ) {
+                quickActionTile("New Chat",        icon: "plus.bubble")
+                quickActionTile("Add Note",        icon: "note.text.badge.plus")
+                quickActionTile("Study Scripture", icon: "book.pages")
+                quickActionTile("Create Prayer",   icon: "hands.sparkles")
             }
             .padding(.horizontal, 16)
 
@@ -380,13 +599,21 @@ struct BereanProjectDetailView: View {
     @ViewBuilder
     private func quickActionTile(_ title: String, icon: String) -> some View {
         HStack(spacing: 8) {
-            Image(systemName: icon).font(.system(size: 14, weight: .medium)).foregroundStyle(accent)
-            Text(title).font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.bpPrimary)
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .medium)).foregroundStyle(accent)
+            Text(title)
+                .font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.bpPrimary)
             Spacer()
         }
         .padding(.horizontal, 14).padding(.vertical, 12)
-        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.bpCard)
-            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.bpStroke, lineWidth: 0.5)))
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color.bpCard)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .strokeBorder(Color.bpStroke, lineWidth: 0.5)
+                )
+        )
     }
 
     // MARK: Chats
@@ -450,7 +677,8 @@ struct BereanProjectDetailView: View {
     private func emptyPlaceholder(icon: String, text: String) -> some View {
         VStack(spacing: 12) {
             Image(systemName: icon).font(.system(size: 32)).foregroundStyle(Color.bpTertiary)
-            Text(text).font(.system(size: 14)).foregroundStyle(Color.bpSecondary).multilineTextAlignment(.center)
+            Text(text)
+                .font(.system(size: 14)).foregroundStyle(Color.bpSecondary).multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity).padding(.top, 60).padding(.horizontal, 40)
     }
@@ -499,7 +727,14 @@ struct BereanNewProjectSheet: View {
                                 Circle()
                                     .fill(Color.bereanProjectAccent(key))
                                     .frame(width: isSelected ? 30 : 26, height: isSelected ? 30 : 26)
-                                    .overlay(Circle().strokeBorder(isSelected ? Color.bereanProjectAccent(key) : .clear, lineWidth: 3).scaleEffect(1.38))
+                                    .overlay(
+                                        Circle()
+                                            .strokeBorder(
+                                                isSelected ? Color.bereanProjectAccent(key) : .clear,
+                                                lineWidth: 3
+                                            )
+                                            .scaleEffect(1.38)
+                                    )
                                     .animation(.spring(response: 0.28, dampingFraction: 0.78), value: isSelected)
                                     .onTapGesture { withAnimation { selectedColorKey = key } }
                             }
@@ -511,10 +746,16 @@ struct BereanNewProjectSheet: View {
                                 let isSelected = selectedIconIndex == i
                                 ZStack {
                                     RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                        .fill(isSelected ? Color.bereanProjectAccent(selectedColorKey).opacity(0.14) : Color.bpCard)
+                                        .fill(isSelected
+                                              ? Color.bereanProjectAccent(selectedColorKey).opacity(0.14)
+                                              : Color.bpCard)
                                     Image(systemName: icons[i])
                                         .font(.system(size: 18, weight: .medium))
-                                        .foregroundStyle(isSelected ? Color.bereanProjectAccent(selectedColorKey) : Color.bpSecondary)
+                                        .foregroundStyle(
+                                            isSelected
+                                            ? Color.bereanProjectAccent(selectedColorKey)
+                                            : Color.bpSecondary
+                                        )
                                 }
                                 .frame(height: 44)
                                 .animation(.spring(response: 0.26, dampingFraction: 0.78), value: isSelected)
@@ -552,13 +793,17 @@ struct BereanNewProjectSheet: View {
                             id: UUID(), title: t, iconSymbol: icons[selectedIconIndex],
                             colorKey: selectedColorKey,
                             description: description.trimmingCharacters(in: .whitespacesAndNewlines),
-                            chatCount: 0, isPinned: false, memoryEnabled: true, lastUpdated: .now, folder: nil)
+                            chatCount: 0, isPinned: false, memoryEnabled: true, lastUpdated: .now, folder: nil
+                        )
                         onCreate(project)
                         dismiss()
                     }
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                                     ? Color.bpTertiary : Color.bereanProjectAccent(selectedColorKey))
+                    .foregroundStyle(
+                        title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        ? Color.bpTertiary
+                        : Color.bereanProjectAccent(selectedColorKey)
+                    )
                     .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
@@ -567,13 +812,34 @@ struct BereanNewProjectSheet: View {
     }
 
     @ViewBuilder
-    private func fieldBlock<F: View>(label: String, placeholder: String, @ViewBuilder field: @escaping () -> F) -> some View {
+    private func fieldBlock<F: View>(
+        label: String,
+        placeholder: String,
+        @ViewBuilder field: @escaping () -> F
+    ) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(label).font(.system(size: 11, weight: .semibold)).kerning(0.8).foregroundStyle(Color.bpTertiary)
+            Text(label)
+                .font(.system(size: 11, weight: .semibold))
+                .kerning(0.8)
+                .foregroundStyle(Color.bpTertiary)
             field()
                 .padding(.horizontal, 14).padding(.vertical, 13)
-                .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.bpCard)
-                    .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.bpStroke, lineWidth: 0.5)))
+                .background(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(Color.bpCard)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .strokeBorder(Color.bpStroke, lineWidth: 0.5)
+                        )
+                )
         }
+    }
+}
+
+// MARK: - Preview
+
+struct BereanProjectsView_Previews: PreviewProvider {
+    static var previews: some View {
+        BereanProjectsView()
     }
 }

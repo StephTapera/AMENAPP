@@ -14,6 +14,7 @@ import AVFoundation
 import Speech
 import FirebaseFirestore
 import FirebaseAuth
+import Combine
 
 // MARK: - Transcript Segment
 
@@ -80,6 +81,19 @@ struct SermonTranscript: Identifiable, Codable {
         createdAt                = try c.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
         durationSeconds          = try c.decodeIfPresent(Double.self, forKey: .durationSeconds) ?? 0
     }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(noteId, forKey: .noteId)
+        try c.encode(fullText, forKey: .fullText)
+        try c.encode(segments, forKey: .segments)
+        try c.encode(extractedKeyPoints, forKey: .extractedKeyPoints)
+        try c.encode(extractedActionSteps, forKey: .extractedActionSteps)
+        try c.encode(extractedScriptureRefs, forKey: .extractedScriptureRefs)
+        try c.encode(createdAt, forKey: .createdAt)
+        try c.encode(durationSeconds, forKey: .durationSeconds)
+    }
 }
 
 // MARK: - Audio Recording Session
@@ -96,7 +110,7 @@ final class AudioRecordingSession: NSObject {
 
     func startRecording() throws {
         let session = AVAudioSession.sharedInstance()
-        try session.setCategory(.record, mode: .default, options: [.allowBluetooth])
+        try session.setCategory(.record, mode: .default, options: [.allowBluetoothHFP])
         try session.setActive(true)
 
         let dir      = FileManager.default.temporaryDirectory
@@ -272,15 +286,15 @@ final class ChurchNotesAudioEngine: NSObject, ObservableObject {
         }
 
         // Extract structured insights via Claude
-        let keyPoints, actionSteps, scriptureRefs: [String]
+        var keyPoints: [String] = []
+        var actionSteps: [String] = []
+        var scriptureRefs: [String] = []
         do {
             keyPoints     = try await extractKeyPointsFromTranscript(fullText)
             actionSteps   = try await extractActionStepsFromTranscript(fullText)
             scriptureRefs = ChurchNotesScriptureDetector.shared.detectReferenceStrings(in: fullText)
         } catch {
             // If Claude fails, fall back to empty arrays — transcript still saved
-            keyPoints     = []
-            actionSteps   = []
             scriptureRefs = ChurchNotesScriptureDetector.shared.detectReferenceStrings(in: fullText)
         }
 

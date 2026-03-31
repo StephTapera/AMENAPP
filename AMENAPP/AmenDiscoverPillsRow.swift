@@ -159,3 +159,111 @@ struct AmenPillPressStyle: ButtonStyle {
             .animation(.spring(response: 0.24, dampingFraction: 0.82), value: configuration.isPressed)
     }
 }
+
+// MARK: - Reusable String-Binding Category Pill Row (Liquid Glass edition)
+//
+// AmenDiscoverCategoryPillsRow — Liquid Glass horizontal pill filter strip
+// driven by a @Binding<String> for the selected category.
+// Active pill: white fill + shadow. Inactive: .ultraThinMaterial + hairline border.
+
+struct AmenDiscoverCategoryPillsRow: View {
+    let categories: [String]
+    @Binding var selected: String
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(categories, id: \.self) { cat in
+                    Button(action: { selected = cat }) {
+                        Text(cat)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(selected == cat ? .black : Color(white: 0.45))
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 10)
+                            .background(
+                                Group {
+                                    if selected == cat {
+                                        Capsule().fill(.white)
+                                            .shadow(color: .black.opacity(0.10), radius: 8, x: 0, y: 3)
+                                    } else {
+                                        Capsule().fill(.ultraThinMaterial).opacity(0.8)
+                                    }
+                                }
+                            )
+                            .overlay(Capsule().strokeBorder(Color(white: 0.88).opacity(0.6), lineWidth: 0.5))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 16)
+        }
+    }
+}
+
+// MARK: - Reusable String-Binding Filter Pill Row (legacy)
+//
+// AmenDiscoverFilterPillsRow — lightweight horizontal pill filter strip
+// driven by a @Binding<String> for the selected category.
+// Used in AmenDiscoverView and any other view that needs a simple text-only pill row.
+
+struct AmenDiscoverFilterPillsRow: View {
+    let categories: [String]
+    @Binding var selected: String
+    var onSelect: ((String) -> Void)? = nil
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(categories, id: \.self) { cat in
+                    FilterPillButton(title: cat, isSelected: selected == cat) {
+                        withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                            selected = cat
+                        }
+                        onSelect?(cat)
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+        }
+    }
+
+    // MARK: - Internal Pill Button
+
+    private struct FilterPillButton: View {
+        let title: String
+        let isSelected: Bool
+        let action: () -> Void
+
+        var body: some View {
+            Button(action: action) {
+                Text(title)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(isSelected ? Color.white : Color.black.opacity(0.80))
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background {
+                        if isSelected {
+                            Capsule()
+                                .fill(Color.black)
+                                .shadow(color: .black.opacity(0.12), radius: 10, y: 4)
+                        } else {
+                            Capsule()
+                                .fill(
+                                    LinearGradient(
+                                        colors: [Color.white.opacity(0.88), Color.white.opacity(0.62)],
+                                        startPoint: .top,
+                                        endPoint: .bottom
+                                    )
+                                )
+                                .overlay(
+                                    Capsule()
+                                        .stroke(Color.white.opacity(0.95), lineWidth: 1)
+                                )
+                                .shadow(color: .black.opacity(0.05), radius: 10, y: 4)
+                        }
+                    }
+            }
+            .buttonStyle(AmenPillPressStyle())
+        }
+    }
+}

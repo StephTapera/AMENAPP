@@ -50,6 +50,7 @@ struct CreatePostView: View {
     @State private var showingScheduleSheet = false
     @State private var isPublishing = false
     @State private var postBtnState: PostButtonMorphState = .idle
+    @State private var uploadState: UploadVisualState = .idle
     @State private var showDraftsSheet = false
     @State private var showFirstPostGuidelinesPrompt = false
     @State private var scheduledDate: Date?
@@ -615,14 +616,16 @@ struct CreatePostView: View {
                     }
                 }
 
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    ThreadsPostButton(postText: $postText) {
-                        await publishPostAsync()
-                    }
-                }
+                // ThreadsPostButton replaced by LiquidGlassPostButton (safeAreaInset below)
             }
             .safeAreaInset(edge: .bottom) {
                 threadsBottomBar
+            }
+            .safeAreaInset(edge: .bottom) {
+                LiquidGlassPostButton(state: uploadState, action: triggerLiquidPost)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 8)
+                    .background(Color.white)
             }
             // Photo picker — uses the system modifier (not a sheet wrapper) so
             // onChange fires in the main view scope and selectedImageData is updated.
@@ -669,7 +672,15 @@ struct CreatePostView: View {
                 TopicTagSheet(selectedTag: $selectedTopicTag, isPresented: $showingTopicTagSheet, selectedCategory: $selectedCategory)
             }
             .sheet(isPresented: $showingScheduleSheet) {
-                SchedulePostSheet(isPresented: $showingScheduleSheet, scheduledDate: $scheduledDate)
+                SmartScheduleSheet(
+                    isPresented: $showingScheduleSheet,
+                    scheduledDate: $scheduledDate,
+                    postText: postText,
+                    hasImages: !selectedImageData.isEmpty,
+                    hasVideo: false
+                )
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
             }
             .sheet(isPresented: $showDraftsSheet) {
                 DraftsView()
@@ -1151,8 +1162,11 @@ struct CreatePostView: View {
                         .foregroundStyle(.primary)
 
                     if let uid = Auth.auth().currentUser?.uid,
-                       VerifiedBadgeHelper.isVerified(userId: uid) {
-                        VerifiedBadge(size: 14)
+                       VerifiedBadgeHelper.shared.isVerified(userId: uid) {
+                        VerifiedBadge(
+                            type: VerifiedBadgeHelper.shared.getVerificationType(userId: uid),
+                            size: 14
+                        )
                     }
                 }
 
@@ -1394,14 +1408,17 @@ struct CreatePostView: View {
                             .accessibilityLabel("Add link")
                             .transition(.scale.combined(with: .opacity))
 
-                            // Schedule
-                            CompactGlassButton(
-                                icon: "calendar",
-                                isActive: scheduledDate != nil
-                            ) {
-                                showingScheduleSheet = true
-                            }
-                            .accessibilityLabel("Schedule post")
+                            // Schedule — smart glass pill (shows state inline)
+                            ComposerSchedulePill(
+                                scheduledDate: scheduledDate,
+                                onTap: { showingScheduleSheet = true },
+                                onClear: {
+                                    withAnimation(.spring(response: 0.30, dampingFraction: 0.78)) {
+                                        scheduledDate = nil
+                                    }
+                                    HapticManager.impact(style: .light)
+                                }
+                            )
                             .transition(.scale.combined(with: .opacity))
 
                             // Community (comment controls)
@@ -1470,9 +1487,11 @@ struct CreatePostView: View {
                 }) {
                     ZStack {
                         Circle()
-                            .fill(Color(red: 0.91, green: 0.91, blue: 0.93).opacity(canPost ? 1.0 : 0.55))
+                            .fill(.ultraThinMaterial)
+                            .overlay(Circle().fill(Color.white.opacity(canPost ? 0.80 : 0.40)))
+                            .overlay(Circle().strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5))
                             .frame(width: 38, height: 38)
-                            .shadow(color: Color.black.opacity(0.10), radius: 4, x: 0, y: 2)
+                            .shadow(color: Color.black.opacity(canPost ? 0.10 : 0.04), radius: 6, x: 0, y: 2)
 
                         if isPublishing {
                             ProgressView()
@@ -3435,6 +3454,32 @@ struct CreatePostView: View {
     private func publishPostAsync() async {
         await MainActor.run {
             publishPost()
+        }
+    }
+
+    /// Drives LiquidGlassPostButton visual states while calling the real publish pipeline.
+    private func triggerLiquidPost() {
+        guard uploadState == .idle else { return }
+        Task {
+            withAnimation(.spring(response: 0.22, dampingFraction: 0.72)) {
+                uploadState = .pressed
+            }
+            try? await Task.sleep(for: .milliseconds(120))
+            withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
+                uploadState = .uploading(progress: 0.05)
+            }
+            // Kick off real publish pipeline
+            await MainActor.run { publishPost() }
+            // Visual progress animation — runs in parallel with actual upload
+            let steps: [CGFloat] = [0.12, 0.24, 0.37, 0.51, 0.68, 0.84, 1.0]
+            for v in steps {
+                try? await Task.sleep(for: .milliseconds(140))
+                withAnimation(.linear(duration: 0.12)) { uploadState = .uploading(progress: v) }
+            }
+            try? await Task.sleep(for: .milliseconds(180))
+            withAnimation(.spring(response: 0.34, dampingFraction: 0.84)) { uploadState = .success }
+            try? await Task.sleep(for: .milliseconds(900))
+            withAnimation(.spring(response: 0.34, dampingFraction: 0.88)) { uploadState = .idle }
         }
     }
     
@@ -6273,6 +6318,76 @@ struct CompactGlassButton: View {
     }
 }
 
+// MARK: - ComposerSchedulePill
+// Liquid Glass schedule pill — shows "Schedule" when idle, "Scheduled · Day Time ×" when set.
+
+struct ComposerSchedulePill: View {
+    var scheduledDate: Date?
+    var onTap: () -> Void
+    var onClear: () -> Void
+
+    @State private var appeared = false
+
+    private var isScheduled: Bool { scheduledDate != nil }
+
+    private var formattedDate: String {
+        guard let date = scheduledDate else { return "" }
+        let df = DateFormatter()
+        df.dateFormat = "EEE h:mm a"
+        return df.string(from: date)
+    }
+
+    var body: some View {
+        HStack(spacing: 0) {
+            Button(action: onTap) {
+                HStack(spacing: 5) {
+                    Image(systemName: isScheduled ? "calendar.badge.clock" : "calendar")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(isScheduled ? Color.black : Color(white: 0.45))
+
+                    Text(isScheduled ? "Scheduled · \(formattedDate)" : "Schedule")
+                        .font(AMENFont.semiBold(12))
+                        .foregroundStyle(isScheduled ? Color.black : Color(white: 0.45))
+                        .lineLimit(1)
+                }
+                .padding(.leading, isScheduled ? 10 : 8)
+                .padding(.trailing, isScheduled ? 6 : 8)
+                .padding(.vertical, 6)
+            }
+            .buttonStyle(.plain)
+
+            // X clear button — only when scheduled
+            if isScheduled {
+                Button(action: onClear) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(Color(white: 0.50))
+                        .padding(.trailing, 8)
+                        .padding(.vertical, 6)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .background(
+            Capsule()
+                .fill(.ultraThinMaterial)
+                .overlay(Capsule().fill(isScheduled ? Color.white.opacity(0.80) : Color.white.opacity(0.55)))
+                .overlay(Capsule().strokeBorder(
+                    isScheduled ? Color.black.opacity(0.18) : Color(white: 0.88).opacity(0.5),
+                    lineWidth: isScheduled ? 1.0 : 0.5
+                ))
+        )
+        .shadow(color: isScheduled ? Color.black.opacity(0.08) : Color.black.opacity(0.04), radius: isScheduled ? 8 : 4, x: 0, y: 2)
+        .scaleEffect(appeared ? 1.0 : 0.88)
+        .opacity(appeared ? 1.0 : 0)
+        .onAppear {
+            withAnimation(.spring(response: 0.30, dampingFraction: 0.78)) { appeared = true }
+        }
+        .animation(.spring(response: 0.30, dampingFraction: 0.78), value: isScheduled)
+        .animation(.spring(response: 0.30, dampingFraction: 0.78), value: scheduledDate)
+    }
+}
+
 // MARK: - Minimal Toolbar Button (Inspired by design)
 
 struct MinimalToolbarButton: View {
@@ -8114,4 +8229,267 @@ struct PostChurchTagSheet: View {
 private extension String {
     /// Returns nil if the string is empty, otherwise returns self.
     var nilIfEmpty: String? { isEmpty ? nil : self }
+}
+
+// MARK: - Upload Visual State
+
+enum UploadVisualState: Equatable {
+    case idle
+    case pressed
+    case uploading(progress: CGFloat)
+    case success
+}
+
+// MARK: - Liquid Glass Post Button
+
+struct LiquidGlassPostButton: View {
+    let state: UploadVisualState
+    let action: () -> Void
+
+    var body: some View {
+        GeometryReader { geo in
+            let width = min(max(geo.size.width * 0.46, 148), 178)
+            let height = min(max(width * 0.355, 54), 62)
+            let cornerRadius = height / 2
+
+            ZStack {
+                ambientAura(size: max(width * 1.7, 220))
+
+                switch state {
+                case .idle, .pressed:
+                    postCapsule(width: width, height: height, cornerRadius: cornerRadius)
+                        .scaleEffect(state == .pressed ? 0.95 : 1.0)
+
+                case .uploading(let progress):
+                    progressGlass(progress: progress, size: max(height + 8, 62))
+                        .transition(.scale(scale: 0.88).combined(with: .opacity))
+
+                case .success:
+                    successCapsule(width: width + 4, height: height, cornerRadius: cornerRadius)
+                        .transition(.scale(scale: 0.92).combined(with: .opacity))
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                action()
+            }
+        }
+        .frame(height: 210)
+    }
+
+    // MARK: - Idle / Pressed Capsule
+
+    private func postCapsule(width: CGFloat, height: CGFloat, cornerRadius: CGFloat) -> some View {
+        ZStack {
+            Capsule()
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    Capsule()
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.white.opacity(0.78), Color.white.opacity(0.44)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                )
+                .overlay(Capsule().stroke(Color.white.opacity(0.9), lineWidth: 1))
+                .shadow(color: .black.opacity(0.10), radius: 18, x: 0, y: 10)
+                .shadow(color: .black.opacity(0.06), radius: 6, x: 0, y: 3)
+
+            Capsule()
+                .fill(
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.92), Color.white.opacity(0.0)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .frame(width: width - 24, height: height * 0.28)
+                .offset(y: -height * 0.22)
+                .blur(radius: 0.4)
+
+            HStack(spacing: 10) {
+                ZStack {
+                    Circle()
+                        .fill(Color.black.opacity(0.08))
+                        .frame(width: 22, height: 22)
+                    Image(systemName: "arrow.up")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(.black)
+                }
+                Text("Post")
+                    .font(.system(size: min(max(height * 0.30, 17), 19), weight: .bold))
+                    .foregroundStyle(.black)
+            }
+        }
+        .frame(width: width, height: height)
+        .overlay(movingHighlight(cornerRadius: cornerRadius).clipShape(Capsule()))
+    }
+
+    // MARK: - Uploading
+
+    private func progressGlass(progress: CGFloat, size: CGFloat) -> some View {
+        ZStack {
+            Circle()
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.white.opacity(0.84), Color.white.opacity(0.50)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                )
+                .overlay(Circle().stroke(Color.white.opacity(0.95), lineWidth: 1))
+                .shadow(color: .black.opacity(0.10), radius: 18, x: 0, y: 10)
+
+            Circle()
+                .stroke(Color.black.opacity(0.10), lineWidth: 6)
+
+            Circle()
+                .trim(from: 0, to: progress)
+                .stroke(Color.black, style: StrokeStyle(lineWidth: 6, lineCap: .round, lineJoin: .round))
+                .rotationEffect(.degrees(-90))
+
+            Text("\(Int(progress * 100))%")
+                .font(.system(size: 13, weight: .bold))
+                .foregroundStyle(.black)
+        }
+        .frame(width: size, height: size)
+    }
+
+    // MARK: - Success
+
+    private func successCapsule(width: CGFloat, height: CGFloat, cornerRadius: CGFloat) -> some View {
+        ZStack {
+            Capsule()
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    Capsule()
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.white.opacity(0.80), Color.white.opacity(0.56)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                )
+                .overlay(Capsule().stroke(Color.white.opacity(0.95), lineWidth: 1))
+                .shadow(color: .black.opacity(0.10), radius: 18, x: 0, y: 10)
+
+            Capsule()
+                .fill(
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.94), Color.white.opacity(0.02)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .frame(width: width - 26, height: height * 0.28)
+                .offset(y: -height * 0.22)
+
+            HStack(spacing: 10) {
+                ZStack {
+                    Circle()
+                        .fill(Color.black)
+                        .frame(width: 22, height: 22)
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.white)
+                }
+                Text("Posted")
+                    .font(.system(size: min(max(height * 0.29, 16), 18), weight: .bold))
+                    .foregroundStyle(.black)
+            }
+        }
+        .frame(width: width, height: height)
+        .overlay(movingHighlight(cornerRadius: cornerRadius).clipShape(Capsule()))
+    }
+
+    // MARK: - Shared Visual Layers
+
+    private func ambientAura(size: CGFloat) -> some View {
+        Circle()
+            .fill(
+                RadialGradient(
+                    colors: [Color.white.opacity(0.75), Color.white.opacity(0.16), Color.clear],
+                    center: .center,
+                    startRadius: 0,
+                    endRadius: size * 0.45
+                )
+            )
+            .frame(width: size, height: size)
+            .blur(radius: 10)
+    }
+
+    private func movingHighlight(cornerRadius: CGFloat) -> some View {
+        TimelineView(.animation(minimumInterval: 1 / 40)) { timeline in
+            let t = timeline.date.timeIntervalSinceReferenceDate
+            let phase = CGFloat((sin(t * 1.2) + 1) / 2)
+            LinearGradient(
+                colors: [.clear, Color.white.opacity(0.48), .clear],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .frame(width: 66, height: 180)
+            .rotationEffect(.degrees(18))
+            .offset(x: -54 + (phase * 108))
+            .blur(radius: 3.6)
+            .allowsHitTesting(false)
+        }
+    }
+}
+
+// MARK: - Demo Preview Screen
+
+struct LiquidGlassPostButtonDemoView: View {
+    @State private var uploadState: UploadVisualState = .idle
+
+    var body: some View {
+        ZStack {
+            Color.white.ignoresSafeArea()
+            VStack(spacing: 28) {
+                Spacer()
+                VStack(spacing: 8) {
+                    Text("Liquid Glass Post Button")
+                        .font(.system(size: 28, weight: .bold))
+                        .foregroundStyle(.black)
+                    Text("White background, black text, native-feeling glass, responsive across phones.")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(.black.opacity(0.45))
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 30)
+                }
+                LiquidGlassPostButton(state: uploadState, action: runDemoSequence)
+                    .padding(.horizontal, 24)
+                Spacer()
+            }
+        }
+    }
+
+    private func runDemoSequence() {
+        guard uploadState == .idle else { return }
+        Task {
+            withAnimation(.spring(response: 0.24, dampingFraction: 0.72)) { uploadState = .pressed }
+            try? await Task.sleep(for: .milliseconds(120))
+            withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) { uploadState = .uploading(progress: 0.08) }
+            let values: [CGFloat] = [0.16, 0.26, 0.38, 0.52, 0.66, 0.79, 0.91, 1.0]
+            for value in values {
+                try? await Task.sleep(for: .milliseconds(130))
+                withAnimation(.linear(duration: 0.12)) { uploadState = .uploading(progress: value) }
+            }
+            try? await Task.sleep(for: .milliseconds(180))
+            withAnimation(.spring(response: 0.34, dampingFraction: 0.84)) { uploadState = .success }
+            try? await Task.sleep(for: .milliseconds(1100))
+            withAnimation(.spring(response: 0.36, dampingFraction: 0.9)) { uploadState = .idle }
+        }
+    }
+}
+
+#Preview("Liquid Glass Button Demo") {
+    LiquidGlassPostButtonDemoView()
 }

@@ -473,27 +473,26 @@ struct NotificationsView: View {
         }
     }
     
+    @ViewBuilder
     private func navigationDestinationView(_ destination: NotificationNavigationDestinations.NotificationDestination) -> some View {
-        Group {
-            switch destination {
-            case .profile(let userId):
-                NotificationUserProfileView(userId: userId)
-            case .post(let postId):
-                NotificationPostDetailView(postId: postId, focusCommentId: nil)
-            case .postWithComment(let postId, let commentId):
-                NotificationPostDetailView(postId: postId, focusCommentId: commentId)
-            case .prayer(let prayerId):
-                Color.clear.onAppear {
-                    NotificationDeepLinkRouter.shared.navigate(to: .prayer(prayerId: prayerId))
-                }
-            case .churchNote(let noteId):
-                Color.clear.onAppear {
-                    NotificationDeepLinkRouter.shared.navigate(to: .churchNote(noteId: noteId))
-                }
-            case .conversation(let conversationId):
-                Color.clear.onAppear {
-                    NotificationDeepLinkRouter.shared.navigate(to: .conversation(conversationId: conversationId))
-                }
+        switch destination {
+        case .profile(let userId):
+            NotificationUserProfileView(userId: userId)
+        case .post(let postId):
+            NotificationPostDetailView(postId: postId)
+        case .postWithComment(let postId, _):
+            NotificationPostDetailView(postId: postId)
+        case .prayer(let prayerId):
+            Color.clear.onAppear {
+                NotificationDeepLinkRouter.shared.navigate(to: .prayer(prayerId: prayerId))
+            }
+        case .churchNote(let noteId):
+            Color.clear.onAppear {
+                NotificationDeepLinkRouter.shared.navigate(to: .churchNote(noteId: noteId))
+            }
+        case .conversation(let conversationId):
+            Color.clear.onAppear {
+                NotificationDeepLinkRouter.shared.navigate(to: .conversation(conversationId: conversationId))
             }
         }
     }

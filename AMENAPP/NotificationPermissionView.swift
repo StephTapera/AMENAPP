@@ -140,6 +140,8 @@ struct NotificationPermissionView: View {
                                 } else {
                                     Text("Enable Notifications")
                                         .font(.custom("OpenSans-Bold", size: 16))
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.85)
                                 }
                             }
                             .foregroundStyle(.white)
@@ -216,6 +218,7 @@ struct NotificationPermissionView: View {
                     
                     // Mark as completed
                     UserDefaults.standard.set(true, forKey: "hasCompletedNotificationPermission")
+                    PushNotificationManager.shared.setupFCMToken()
                     
                     // Dismiss
                     dismiss()

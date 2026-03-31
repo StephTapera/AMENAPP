@@ -192,7 +192,7 @@ struct BereanChatView: View {
         }
         .navigationBarHidden(true)
         .sheet(isPresented: $showModeSheet) {
-            BereanModesSheet(selectedMode: $vm.currentMode)
+            BereanModesSheet()
         }
         .onAppear {
             if let query = initialQuery, !query.isEmpty {
@@ -233,7 +233,7 @@ struct BereanChatView: View {
 
             // Mode pill
             Button { showModeSheet = true } label: {
-                BereanModePill(mode: vm.currentMode)
+                BereanPersonalityPill(mode: vm.currentMode)
             }
             .buttonStyle(.plain)
         }
@@ -394,7 +394,7 @@ struct BereanChatView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 6)
-        .modifier(LiquidGlassInputBar())
+        .bereanGlassInputBar()
     }
 
     // MARK: - Paywall Banner
@@ -502,7 +502,7 @@ struct BereanChatBubble: View {
     private var bubbleBackground: some View {
         if isUser {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color(white: 0.92))
+                .fill(Color.black)
         } else {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(Color.white.opacity(0.88))

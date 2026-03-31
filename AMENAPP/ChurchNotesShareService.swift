@@ -8,6 +8,7 @@
 import Foundation
 import Combine
 import FirebaseFunctions
+import UIKit
 
 @MainActor
 class ChurchNotesShareService: ObservableObject {

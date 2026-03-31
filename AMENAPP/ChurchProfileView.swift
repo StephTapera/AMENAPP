@@ -29,6 +29,12 @@ struct ChurchProfileView: View {
     // Feature 05: Plan My Visit
     @State private var showPlanVisit = false
 
+    // Smart Features
+    @State private var showExperienceComposer = false
+    @State private var showSpiritualNeeds = false
+    @State private var showVisitTogether = false
+    @State private var spiritualNeedsSelection: Set<SpiritualNeed> = []
+
     // Feature 03: Calendar cross-ref
     @StateObject private var calendarCrossRef = ServiceCalendarManager()
     
@@ -98,6 +104,38 @@ struct ChurchProfileView: View {
             .sheet(isPresented: $showPlanVisit) {
                 if let church = viewModel.profileData?.church {
                     PlanMyVisitView(churchId: church.id, churchName: church.name, churchAddress: church.address)
+                }
+            }
+            .sheet(isPresented: $showExperienceComposer) {
+                if let church = viewModel.profileData?.church {
+                    let uid = Auth.auth().currentUser?.uid ?? ""
+                    let name = Auth.auth().currentUser?.displayName ?? "Anonymous"
+                    ChurchExperienceComposer(churchId: church.id, churchName: church.name, authorId: uid, authorName: name)
+                        .presentationDetents([.large])
+                        .presentationDragIndicator(.visible)
+                }
+            }
+            .sheet(isPresented: $showSpiritualNeeds) {
+                NavigationStack {
+                    SpiritualNeedsRouterView(
+                        selectedNeeds: $spiritualNeedsSelection,
+                        onFind: { _ in showSpiritualNeeds = false }
+                    )
+                }
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+            }
+            .sheet(isPresented: $showVisitTogether) {
+                if let church = viewModel.profileData?.church {
+                    VisitTogetherView(church: .init(
+                        id: church.id,
+                        name: church.name,
+                        serviceTime: "Sunday Service",
+                        distanceMiles: nil,
+                        address: church.address ?? ""
+                    ))
+                    .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
                 }
             }
         }
@@ -246,7 +284,67 @@ struct ChurchProfileView: View {
             // First visit guide button
             FirstVisitGuideButton(church: profileData.church)
                 .padding(.top, 8)
-                .padding(.bottom, 16)
+
+            // Live Church Intelligence — service countdown, parking, events
+            LiveChurchIntelligenceView(signals: LiveChurchSignalFactory.signals(
+                nextServiceIn: nil,
+                parkingTip: nil,
+                eventTonight: nil,
+                hasChildcareAt: nil,
+                hasLivestream: false,
+                specialEvent: nil,
+                sermonSeries: nil,
+                spanishServiceTime: nil,
+                hasASL: false
+            ))
+            .padding(.top, 12)
+            .padding(.horizontal, 20)
+
+            // Community reputation from verified visitors
+            ChurchReputationCard(entries: [], onShareExperience: { showExperienceComposer = true })
+                .padding(.top, 12)
+                .padding(.horizontal, 20)
+
+            // Smart feature quick-access row
+            HStack(spacing: 10) {
+                Button { showSpiritualNeeds = true } label: {
+                    Label("Find Your Fit", systemImage: "sparkles")
+                        .font(AMENFont.semiBold(13))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 11)
+                        .background(Capsule().fill(.ultraThinMaterial).overlay(Capsule().fill(Color.white.opacity(0.55))))
+                        .overlay(Capsule().strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5))
+                        .foregroundStyle(Color.primary)
+                }
+                .buttonStyle(.plain)
+
+                Button { showVisitTogether = true } label: {
+                    Label("Visit Together", systemImage: "person.2.fill")
+                        .font(AMENFont.semiBold(13))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 11)
+                        .background(Capsule().fill(.ultraThinMaterial).overlay(Capsule().fill(Color.white.opacity(0.55))))
+                        .overlay(Capsule().strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5))
+                        .foregroundStyle(Color.primary)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 12)
+
+            Button { showExperienceComposer = true } label: {
+                Label("Share Your Experience", systemImage: "star.bubble")
+                    .font(AMENFont.semiBold(15))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 13)
+                    .background(Color.black)
+                    .foregroundStyle(.white)
+                    .clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+            .padding(.bottom, 20)
         }
     }
     

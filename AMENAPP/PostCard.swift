@@ -602,7 +602,9 @@ struct PostCard: View {
             var userActions: [AmenOptionAction] = []
 
             if let post = post {
-                let isPinned = pinnedPostService.isPostPinned(post.firestoreId)
+                // ✅ Defensive: Ensure we have a valid firestoreId before accessing it
+                let postId = post.firestoreId
+                let isPinned = pinnedPostService.isPostPinned(postId)
                 userActions.append(
                     AmenOptionAction(
                         title: isPinned ? "Unpin from profile" : "Pin to profile",
@@ -612,7 +614,7 @@ struct PostCard: View {
                         performOption {
                             Task {
                                 do {
-                                    try await pinnedPostService.togglePin(postId: post.firestoreId)
+                                    try await pinnedPostService.togglePin(postId: postId)
                                     HapticManager.notification(type: .success)
                                 } catch {
                                     dlog("❌ Pin error: \(error)")
@@ -864,11 +866,13 @@ struct PostCard: View {
     private var userPostMenuOptions: some View {
         // Pin/Unpin post (like Threads)
         if let post = post {
-            let isPinned = pinnedPostService.isPostPinned(post.firestoreId)
+            // ✅ Defensive: Capture postId to avoid potential issues with closure capture
+            let postId = post.firestoreId
+            let isPinned = pinnedPostService.isPostPinned(postId)
             Button {
                 Task {
                     do {
-                        try await pinnedPostService.togglePin(postId: post.firestoreId)
+                        try await pinnedPostService.togglePin(postId: postId)
                         HapticManager.notification(type: .success)
                     } catch {
                         dlog("❌ Pin error: \(error)")
@@ -1196,8 +1200,11 @@ struct PostCard: View {
                         .foregroundStyle(.primary)
 
                     // ✅ Verified badge
-                    if let post = post, VerifiedBadgeHelper.isVerified(userId: post.authorId) {
-                        VerifiedBadge(size: 14)
+                    if let post = post, VerifiedBadgeHelper.shared.isVerified(userId: post.authorId) {
+                        VerifiedBadge(
+                            type: VerifiedBadgeHelper.shared.getVerificationType(userId: post.authorId),
+                            size: 14
+                        )
                     }
                 }
             }

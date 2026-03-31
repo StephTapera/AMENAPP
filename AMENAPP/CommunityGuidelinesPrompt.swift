@@ -159,6 +159,8 @@ struct CommunityGuidelinesPrompt: View {
             HStack(spacing: 8) {
                 Text("I Understand — Continue")
                     .font(.custom("OpenSans-Bold", size: 16))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
                 Image(systemName: "arrow.right")
                     .font(.system(size: 14, weight: .bold))
             }

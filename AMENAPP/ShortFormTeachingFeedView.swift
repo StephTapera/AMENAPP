@@ -1,0 +1,450 @@
+// ShortFormTeachingFeedView.swift
+// AMENAPP
+//
+// Short-form teaching/sermon clip feed for church and business accounts.
+// Vertical paging format — calmer and more reflective than social reels.
+
+import SwiftUI
+
+// MARK: - Models
+
+enum ClipType: String, CaseIterable {
+    case sermonClip     = "Sermon Clip"
+    case teachingClip   = "Teaching"
+    case ministryUpdate = "Ministry Update"
+    case invitation     = "Invitation"
+    case missionUpdate  = "Mission Update"
+    case opportunity    = "Opportunity"
+    case resource       = "Resource"
+
+    var chipColor: Color {
+        switch self {
+        case .sermonClip:     return Color(red: 0.93, green: 0.70, blue: 0.20) // amber
+        case .teachingClip:   return Color(red: 0.93, green: 0.70, blue: 0.20) // amber
+        case .ministryUpdate: return Color(red: 0.30, green: 0.55, blue: 0.90) // blue
+        case .invitation:     return Color(red: 0.45, green: 0.78, blue: 0.62) // green
+        case .missionUpdate:  return Color(red: 0.30, green: 0.55, blue: 0.90) // blue
+        case .opportunity:    return Color(red: 0.60, green: 0.45, blue: 0.90) // purple
+        case .resource:       return Color(red: 0.45, green: 0.78, blue: 0.62) // green
+        }
+    }
+}
+
+struct TeachingClip: Identifiable {
+    let id: String
+    let churchOrBusinessId: String
+    let authorName: String
+    let title: String
+    let type: ClipType
+    let thumbnailURL: String?
+    let videoURL: String?
+    let scriptureRef: String?
+    let duration: TimeInterval
+    let smartSignals: [String]
+}
+
+// MARK: - ViewModel
+
+@MainActor
+class ShortFormTeachingViewModel: ObservableObject {
+    @Published var clips: [TeachingClip] = []
+    @Published var currentIndex: Int = 0
+
+    func loadClips() async {
+        // TODO: Firestore fetch — query clips collection filtered by followed church/business IDs,
+        // ordered by createdAt descending, limit 30.
+        // Map documents to TeachingClip models.
+    }
+
+    func recordEncouragement(clipId: String) async {
+        // TODO: Route to SmartEngagementSignalService.recordSignal(
+        //   type: .encouraged, targetId: clipId, targetType: .teachingClip
+        // )
+        // This is a non-vanity signal — no public count exposed.
+    }
+
+    func saveToNotes(clipId: String) async {
+        // TODO: Call NoteService.saveClipReference(clipId: clipId)
+        // Creates a note entry linking to this clip in the user's personal notes.
+    }
+}
+
+// MARK: - Main Feed View
+
+struct ShortFormTeachingFeedView: View {
+    @StateObject private var vm = ShortFormTeachingViewModel()
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        ZStack(alignment: .top) {
+            Color.black.ignoresSafeArea()
+
+            TabView(selection: $vm.currentIndex) {
+                ForEach(Array(vm.clips.enumerated()), id: \.element.id) { index, clip in
+                    TeachingClipCard(clip: clip, vm: vm)
+                        .tag(index)
+                        .ignoresSafeArea()
+                }
+            }
+            .tabViewStyle(.page(indexDisplayMode: .never))
+            .ignoresSafeArea()
+
+            // Top bar
+            HStack {
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(.white)
+                        .padding(10)
+                        .background(
+                            ZStack {
+                                Color.white.opacity(0.55)
+                                Color(white: 0.88).opacity(0.5)
+                            }
+                            .background(.ultraThinMaterial)
+                            .clipShape(Circle())
+                            .shadow(color: .black.opacity(0.06), radius: 12)
+                        )
+                }
+
+                Spacer()
+
+                Text("Teachings")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundColor(.white)
+
+                Spacer()
+
+                // Balance spacer
+                Color.clear
+                    .frame(width: 44, height: 44)
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 56)
+        }
+        .task {
+            await vm.loadClips()
+        }
+    }
+}
+
+// MARK: - Clip Card
+
+struct TeachingClipCard: View {
+    let clip: TeachingClip
+    @ObservedObject var vm: ShortFormTeachingViewModel
+    @State private var isPlaying: Bool = false
+    @State private var hasEncouraged: Bool = false
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .bottom) {
+                // Background
+                clipBackground(size: geo.size)
+
+                // Play button overlay
+                if !isPlaying {
+                    playButtonOverlay
+                }
+
+                // Bottom gradient + content
+                bottomOverlay
+
+                // Right action column
+                rightActionColumn
+                    .padding(.trailing, 16)
+                    .padding(.bottom, 120)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+            }
+            .frame(width: geo.size.width, height: geo.size.height)
+            .clipped()
+        }
+    }
+
+    // MARK: Background
+
+    @ViewBuilder
+    private func clipBackground(size: CGSize) -> some View {
+        ZStack {
+            Color.black.opacity(0.85)
+
+            if let urlString = clip.thumbnailURL, let url = URL(string: urlString) {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: size.width, height: size.height)
+                            .clipped()
+                    case .failure:
+                        placeholderBackground
+                    case .empty:
+                        placeholderBackground
+                    @unknown default:
+                        placeholderBackground
+                    }
+                }
+            } else {
+                placeholderBackground
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var placeholderBackground: some View {
+        ZStack {
+            Color.black.opacity(0.85)
+            Image(systemName: "play.rectangle.fill")
+                .font(.system(size: 48))
+                .foregroundColor(.white.opacity(0.2))
+        }
+    }
+
+    // MARK: Play Button
+
+    private var playButtonOverlay: some View {
+        Button {
+            withAnimation(.easeIn(duration: 0.2)) {
+                isPlaying = true
+            }
+            // TODO: Trigger actual video playback via AVPlayer or video player service
+        } label: {
+            Image(systemName: "play.circle.fill")
+                .font(.system(size: 60))
+                .foregroundColor(.white.opacity(0.9))
+                .shadow(color: .black.opacity(0.4), radius: 8)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    // MARK: Bottom Gradient + Content
+
+    private var bottomOverlay: some View {
+        VStack(spacing: 0) {
+            Spacer()
+
+            // Gradient fade from transparent to black
+            LinearGradient(
+                gradient: Gradient(stops: [
+                    .init(color: .clear, location: 0),
+                    .init(color: .black.opacity(0.85), location: 1)
+                ]),
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(height: UIScreen.main.bounds.height * 0.55)
+
+            Color.black.opacity(0.85)
+                .frame(height: 10)
+        }
+        .overlay(alignment: .bottom) {
+            bottomContentArea
+                .padding(.horizontal, 16)
+                .padding(.bottom, 48)
+                .padding(.trailing, 72) // leave room for action column
+        }
+    }
+
+    private var bottomContentArea: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            // Author badge pill
+            authorBadge
+
+            // Clip type chip
+            clipTypeChip
+
+            // Title
+            Text(clip.title)
+                .font(.system(size: 18, weight: .bold))
+                .foregroundColor(.white)
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
+
+            // Scripture reference
+            if let ref = clip.scriptureRef {
+                Text(ref)
+                    .font(.system(size: 13))
+                    .italic()
+                    .foregroundColor(.white.opacity(0.85))
+            }
+
+            // Smart signal pills (non-vanity)
+            if !clip.smartSignals.isEmpty {
+                smartSignalPills
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var authorBadge: some View {
+        Text(clip.authorName)
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundColor(.white)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 5)
+            .background(
+                ZStack {
+                    Color.white.opacity(0.55)
+                    Color(white: 0.88).opacity(0.5)
+                }
+                .background(.ultraThinMaterial)
+                .clipShape(Capsule())
+                .shadow(color: .black.opacity(0.06), radius: 12)
+            )
+    }
+
+    private var clipTypeChip: some View {
+        Text(clip.type.rawValue)
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundColor(.white)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .background(
+                clip.type.chipColor.opacity(0.75)
+                    .clipShape(Capsule())
+            )
+    }
+
+    private var smartSignalPills: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(clip.smartSignals, id: \.self) { signal in
+                    Text(signal)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.white.opacity(0.9))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(
+                            ZStack {
+                                Color.white.opacity(0.55)
+                                Color(white: 0.88).opacity(0.5)
+                            }
+                            .background(.ultraThinMaterial)
+                            .clipShape(Capsule())
+                            .shadow(color: .black.opacity(0.06), radius: 12)
+                        )
+                }
+            }
+        }
+    }
+
+    // MARK: Right Action Column
+
+    private var rightActionColumn: some View {
+        VStack(spacing: 20) {
+            // Encourage (heart) — no count shown
+            actionButton(
+                icon: hasEncouraged ? "heart.fill" : "heart",
+                label: "Encourage",
+                tint: hasEncouraged ? Color(red: 0.93, green: 0.30, blue: 0.30) : .white
+            ) {
+                withAnimation(.spring(response: 0.3)) {
+                    hasEncouraged.toggle()
+                }
+                if hasEncouraged {
+                    Task { await vm.recordEncouragement(clipId: clip.id) }
+                }
+            }
+
+            // Save to Notes
+            actionButton(icon: "bookmark.fill", label: "Save") {
+                Task { await vm.saveToNotes(clipId: clip.id) }
+            }
+
+            // Ask Berean (AI)
+            actionButton(icon: "sparkles", label: "Ask Berean") {
+                // TODO: Open Berean AI sheet contextualised with this clip
+            }
+
+            // Share
+            actionButton(icon: "square.and.arrow.up", label: "Share") {
+                // TODO: Present ShareSheet for clip.videoURL or deep link
+            }
+        }
+    }
+
+    private func actionButton(
+        icon: String,
+        label: String,
+        tint: Color = .white,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            VStack(spacing: 4) {
+                Image(systemName: icon)
+                    .font(.system(size: 24, weight: .medium))
+                    .foregroundColor(tint)
+                Text(label)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.white)
+            }
+        }
+    }
+}
+
+// MARK: - Preview
+
+#if DEBUG
+private let sampleClips: [TeachingClip] = [
+    TeachingClip(
+        id: "clip-001",
+        churchOrBusinessId: "church-grace-fellowship",
+        authorName: "Grace Fellowship Church",
+        title: "Walking in the Spirit: Everyday Faith in Hard Seasons",
+        type: .sermonClip,
+        thumbnailURL: nil,
+        videoURL: nil,
+        scriptureRef: "Galatians 5:16–25",
+        duration: 180,
+        smartSignals: ["Many were encouraged", "Widely saved to notes"]
+    ),
+    TeachingClip(
+        id: "clip-002",
+        churchOrBusinessId: "church-cornerstone",
+        authorName: "Cornerstone Ministries",
+        title: "This Week's Mission Update — Guatemala Village Schools",
+        type: .missionUpdate,
+        thumbnailURL: nil,
+        videoURL: nil,
+        scriptureRef: nil,
+        duration: 90,
+        smartSignals: ["Resonated with many"]
+    ),
+    TeachingClip(
+        id: "clip-003",
+        churchOrBusinessId: "org-light-house",
+        authorName: "The Light House",
+        title: "Resource: Free Bible Reading Plan — The Psalms in 30 Days",
+        type: .resource,
+        thumbnailURL: nil,
+        videoURL: nil,
+        scriptureRef: "Psalm 1:1–3",
+        duration: 45,
+        smartSignals: ["Highly downloaded", "Saved by many believers"]
+    )
+]
+
+struct ShortFormTeachingFeedView_Previews: PreviewProvider {
+    static var previews: some View {
+        Group {
+            TeachingClipCard(clip: sampleClips[0], vm: ShortFormTeachingViewModel())
+                .previewDisplayName("Sermon Clip Card")
+                .ignoresSafeArea()
+                .preferredColorScheme(.dark)
+
+            TeachingClipCard(clip: sampleClips[1], vm: ShortFormTeachingViewModel())
+                .previewDisplayName("Mission Update Card")
+                .ignoresSafeArea()
+                .preferredColorScheme(.dark)
+
+            TeachingClipCard(clip: sampleClips[2], vm: ShortFormTeachingViewModel())
+                .previewDisplayName("Resource Card")
+                .ignoresSafeArea()
+                .preferredColorScheme(.dark)
+        }
+    }
+}
+#endif

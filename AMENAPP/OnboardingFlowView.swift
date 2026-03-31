@@ -1070,9 +1070,11 @@ private struct OnboardingSlide4: View {
                 VStack(spacing: 12) {
                     OnboardingNextButton(title: "Enable Notifications", onLight: true) {
                         Task {
-                            let granted = (try? await UNUserNotificationCenter.current()
-                                .requestAuthorization(options: [.alert, .badge, .sound])) ?? false
+                            let granted = await PushNotificationManager.shared.requestNotificationPermissions()
                             await MainActor.run { notificationsOptedIn = granted }
+                            if granted {
+                                await MainActor.run { PushNotificationManager.shared.setupFCMToken() }
+                            }
                             onNext()
                         }
                     }

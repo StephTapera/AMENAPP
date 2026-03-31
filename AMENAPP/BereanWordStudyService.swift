@@ -10,8 +10,9 @@ import Combine
 
 // MARK: - Shared Scripture Reference Model
 
-/// A single scripture reference with theme annotation. Defined here; used across Berean engines.
-struct ScriptureRef: Identifiable, Codable {
+/// A scripture reference with theme annotation used across Berean engines.
+/// Named BereanScriptureRef to avoid collision with SemanticTopicService.ScriptureRef.
+struct BereanScriptureRef: Identifiable, Codable {
     var id: String = UUID().uuidString
     let reference: String   // e.g. "John 3:16"
     let text: String        // verse text
@@ -28,7 +29,7 @@ struct WordStudyResult: Identifiable {
     let originalLanguage: OriginalLanguage?
     let firstBiblicalUsage: String?
     let usageAcrossScripture: [String]
-    let crossReferences: [ScriptureRef]
+    let crossReferences: [BereanScriptureRef]
     let applicationPrompt: String
 
     struct OriginalLanguage {
@@ -166,12 +167,12 @@ final class BereanWordStudyService: ObservableObject {
         }
 
         // Cross-references
-        var crossRefs: [ScriptureRef] = []
+        var crossRefs: [BereanScriptureRef] = []
         for i in 1...3 {
             let raw = extract("CROSS_REF_\(i)")
             let parts = raw.components(separatedBy: " | ")
             if parts.count >= 3 {
-                crossRefs.append(ScriptureRef(
+                crossRefs.append(BereanScriptureRef(
                     reference: parts[0].trimmingCharacters(in: .whitespaces),
                     text: parts[1].trimmingCharacters(in: .whitespaces),
                     theme: parts[2].trimmingCharacters(in: .whitespaces)

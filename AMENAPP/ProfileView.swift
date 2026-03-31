@@ -192,7 +192,7 @@ struct ProfileView: View {
         .sheet(item: $activeSheet) { sheet in
             switch sheet {
             case .settings:
-                SettingsView()
+                AMENSettingsView()
             case .editProfile:
                 EditProfileView(profileData: $profileData)
             case .qrCode:
@@ -1758,8 +1758,11 @@ struct ProfileView: View {
 
                         // ✅ Verified badge for specific user
                         if let userId = Auth.auth().currentUser?.uid,
-                           VerifiedBadgeHelper.isVerified(userId: userId) {
-                            VerifiedBadge(size: 20)
+                           VerifiedBadgeHelper.shared.isVerified(userId: userId) {
+                            VerifiedBadge(
+                                type: VerifiedBadgeHelper.shared.getVerificationType(userId: userId),
+                                size: 20
+                            )
                         }
                     }
                 }

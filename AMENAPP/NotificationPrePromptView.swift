@@ -71,6 +71,8 @@ struct NotificationPrePromptView: View {
                 Text("Enable Notifications")
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
                     .background(Color.black, in: Capsule())
@@ -108,8 +110,12 @@ struct NotificationPrePromptView: View {
 
     private func requestPermission() {
         hasSeen = true
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, _ in
-            DispatchQueue.main.async {
+        Task {
+            let granted = await PushNotificationManager.shared.requestNotificationPermissions()
+            await MainActor.run {
+                if granted {
+                    PushNotificationManager.shared.setupFCMToken()
+                }
                 isPresented = false
             }
         }
