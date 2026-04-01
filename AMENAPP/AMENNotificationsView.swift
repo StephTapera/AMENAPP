@@ -3,11 +3,13 @@
 //  AMENAPP
 //
 //  Premium Liquid Glass notifications screen.
-//  Pure UI + local state — Firebase wiring can be added later.
+//  Wired to Firestore — loads real notifications for the authenticated user.
 //
 
 import SwiftUI
 import Combine
+import FirebaseAuth
+import FirebaseFirestore
 
 // MARK: - Notification Type
 
@@ -65,6 +67,46 @@ struct AMENNotification: Identifiable {
     let timestamp: Date
     var isRead: Bool
     var isGrouped: Bool = false
+    // Deep-link routing fields — populated by Firebase backend.
+    var postId: String? = nil
+    var actorId: String? = nil
+    var commentId: String? = nil
+    var conversationId: String? = nil
+
+    /// Decode from a Firestore document. Returns nil if required fields are missing.
+    init?(from doc: DocumentSnapshot) {
+        guard let data = doc.data(),
+              let typeRaw = data["type"] as? String,
+              let notifType = NotificationType(rawValue: typeRaw),
+              let actorName = data["actorName"] as? String,
+              let body = data["body"] as? String
+        else { return nil }
+
+        self.id = doc.documentID
+        self.type = notifType
+        self.actorName = actorName
+        self.body = body
+        self.isRead = data["isRead"] as? Bool ?? false
+        self.postId = data["postId"] as? String
+        self.actorId = data["actorId"] as? String
+        self.commentId = data["commentId"] as? String
+        self.conversationId = data["conversationId"] as? String
+
+        // Compute initials from actorName
+        self.actorInitials = actorName
+            .split(separator: " ")
+            .prefix(2)
+            .compactMap { $0.first.map { String($0) } }
+            .joined()
+            .uppercased()
+
+        // Firestore timestamp → Date
+        if let ts = data["timestamp"] as? Timestamp {
+            self.timestamp = ts.dateValue()
+        } else {
+            self.timestamp = Date()
+        }
+    }
 }
 
 // MARK: - ViewModel
@@ -121,111 +163,61 @@ final class AMENNotificationsViewModel: ObservableObject {
         notifications.removeAll { $0.id == id }
     }
 
-    // MARK: Init with sample data
+    // MARK: - Init
 
     init() {
-        let now = Date()
-        notifications = [
-            AMENNotification(
-                id: "1",
-                type: .bereanInsight,
-                actorName: "Berean AI",
-                actorInitials: "BA",
-                body: "Berean has an insight for you about Romans 8:28",
-                timestamp: now.addingTimeInterval(-120),
-                isRead: false
-            ),
-            AMENNotification(
-                id: "2",
-                type: .bereanInsight,
-                actorName: "Berean AI",
-                actorInitials: "BA",
-                body: "Berean has an insight for you about your recent post on forgiveness",
-                timestamp: now.addingTimeInterval(-3600),
-                isRead: true
-            ),
-            AMENNotification(
-                id: "3",
-                type: .mention,
-                actorName: "Marcus Johnson",
-                actorInitials: "MJ",
-                body: "Marcus Johnson mentioned you in a post",
-                timestamp: now.addingTimeInterval(-600),
-                isRead: false
-            ),
-            AMENNotification(
-                id: "4",
-                type: .mention,
-                actorName: "Priya Osei",
-                actorInitials: "PO",
-                body: "Priya Osei mentioned you in a post",
-                timestamp: now.addingTimeInterval(-7200),
-                isRead: true
-            ),
-            AMENNotification(
-                id: "5",
-                type: .reaction,
-                actorName: "David Kim",
-                actorInitials: "DK",
-                body: "David Kim reacted to your post",
-                timestamp: now.addingTimeInterval(-900),
-                isRead: false
-            ),
-            AMENNotification(
-                id: "6",
-                type: .reaction,
-                actorName: "Sarah Mwangi",
-                actorInitials: "SM",
-                body: "Sarah Mwangi reacted to your post",
-                timestamp: now.addingTimeInterval(-1800),
-                isRead: false
-            ),
-            AMENNotification(
-                id: "7",
-                type: .reaction,
-                actorName: "James Okafor",
-                actorInitials: "JO",
-                body: "James Okafor reacted to your post",
-                timestamp: now.addingTimeInterval(-10800),
-                isRead: true
-            ),
-            AMENNotification(
-                id: "8",
-                type: .comment,
-                actorName: "Rachel Torres",
-                actorInitials: "RT",
-                body: "Rachel Torres commented: 'This really blessed me today, thank you!'",
-                timestamp: now.addingTimeInterval(-1200),
-                isRead: false
-            ),
-            AMENNotification(
-                id: "9",
-                type: .comment,
-                actorName: "Emmanuel Adeyemi",
-                actorInitials: "EA",
-                body: "Emmanuel Adeyemi commented: 'Amen! Sharing this with my small group'",
-                timestamp: now.addingTimeInterval(-5400),
-                isRead: true
-            ),
-            AMENNotification(
-                id: "10",
-                type: .communityInvite,
-                actorName: "Grace Fellowship",
-                actorInitials: "GF",
-                body: "Grace Fellowship invited you to Sunday Morning Prayers",
-                timestamp: now.addingTimeInterval(-14400),
-                isRead: false
-            ),
-            AMENNotification(
-                id: "11",
-                type: .system,
-                actorName: "AMEN",
-                actorInitials: "AM",
-                body: "Your profile is 80% complete. Add a bio to connect better.",
-                timestamp: now.addingTimeInterval(-86400),
-                isRead: true
-            ),
-        ]
+        notifications = []
+    }
+
+    // MARK: - Firestore Loading
+
+    private var listener: ListenerRegistration?
+
+    /// Start a real-time listener for the current user's notifications collection.
+    func startListening() {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        listener?.remove()
+        listener = Firestore.firestore()
+            .collection("users")
+            .document(uid)
+            .collection("notifications")
+            .order(by: "timestamp", descending: true)
+            .limit(to: 60)
+            .addSnapshotListener { [weak self] snap, error in
+                guard let self, let snap, error == nil else { return }
+                Task { @MainActor in
+                    self.notifications = snap.documents.compactMap { doc in
+                        AMENNotification(from: doc)
+                    }
+                }
+            }
+    }
+
+    func stopListening() {
+        listener?.remove()
+        listener = nil
+    }
+
+    /// Mark all notifications read in Firestore + locally.
+    func markAllReadRemote() {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        let batch = Firestore.firestore().batch()
+        let ref = Firestore.firestore().collection("users").document(uid).collection("notifications")
+        for n in notifications where !n.isRead {
+            batch.updateData(["isRead": true], forDocument: ref.document(n.id))
+        }
+        Task { try? await batch.commit() }
+        markAllRead()
+    }
+
+    /// Delete a notification from Firestore + locally.
+    func dismissRemote(_ id: String) {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        Firestore.firestore()
+            .collection("users").document(uid)
+            .collection("notifications").document(id)
+            .delete()
+        dismiss(id)
     }
 }
 
@@ -312,6 +304,7 @@ private struct NotificationCard: View {
     let index: Int
     let onMarkRead: () -> Void
     let onDismiss: () -> Void
+    let onTap: () -> Void
 
     @State private var appeared = false
     @State private var showContextMenu = false
@@ -356,6 +349,7 @@ private struct NotificationCard: View {
         .padding(.vertical, 10)
         .glassCard(cornerRadius: 16)
         .contentShape(RoundedRectangle(cornerRadius: 16))
+        .onTapGesture { onTap() }
         .opacity(appeared ? 1 : 0)
         .offset(x: appeared ? 0 : -12)
         .onAppear {
@@ -535,7 +529,7 @@ struct AMENNotificationsView: View {
                     if viewModel.unreadCount > 0 {
                         Button {
                             withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
-                                viewModel.markAllRead()
+                                viewModel.markAllReadRemote()
                             }
                         } label: {
                             Text("Mark all read")
@@ -544,6 +538,12 @@ struct AMENNotificationsView: View {
                         }
                     }
                 }
+            }
+            .task {
+                viewModel.startListening()
+            }
+            .onDisappear {
+                viewModel.stopListening()
             }
         }
     }
@@ -619,7 +619,10 @@ struct AMENNotificationsView: View {
                         ) {
                             viewModel.markRead(notification.id)
                         } onDismiss: {
-                            viewModel.dismiss(notification.id)
+                            viewModel.dismissRemote(notification.id)
+                        } onTap: {
+                            viewModel.markRead(notification.id)
+                            routeNotification(notification)
                         }
                     }
                 }
@@ -629,6 +632,36 @@ struct AMENNotificationsView: View {
         }
         .glassCard(cornerRadius: 20)
         .padding(.vertical, 1)
+    }
+
+    // MARK: - Routing
+
+    /// Route an in-app notification tap to its canonical destination.
+    /// Uses routing fields if present; falls back gracefully for sample/legacy data.
+    private func routeNotification(_ notification: AMENNotification) {
+        switch notification.type {
+
+        case .mention, .comment, .reaction:
+            if let postId = notification.postId, !postId.isEmpty {
+                if let commentId = notification.commentId, !commentId.isEmpty {
+                    CommentFocusCoordinator.shared.set(scrollTarget: commentId, highlight: commentId)
+                }
+                NotificationDeepLinkRouter.shared.navigate(
+                    to: .post(postId: postId, scrollToCommentId: notification.commentId)
+                )
+            }
+            // No postId → stay on notifications (graceful no-op for sample data)
+
+        case .bereanInsight:
+            break // Berean insight — stays in notifications; no external destination
+
+        case .communityInvite:
+            // Route to Resources/Communities tab
+            NotificationDeepLinkRouter.shared.navigate(to: .notifications)
+
+        case .system:
+            break // System notifications — no deep destination
+        }
     }
 }
 

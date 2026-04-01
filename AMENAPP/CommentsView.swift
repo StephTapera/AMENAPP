@@ -40,6 +40,7 @@ struct CommentsView: View {
     
     // P0-1 FIX: Prevent duplicate submissions
     @State private var isSubmittingComment = false
+    @StateObject private var commentSeal = SuccessSealController()
     @State private var currentUserProfileImageURL: String?
     @State private var currentUserInitials: String = "U"
     @State private var selectedUserId: String?
@@ -1060,6 +1061,11 @@ struct CommentsView: View {
                                 },
                                 isDisabled: commentText.isEmpty || isSubmittingComment || rateLimitMessage != nil
                             )
+                            .successSeal(
+                                isActive: commentSeal.isVisible,
+                                label: "Sent",
+                                yOffset: -46
+                            )
                         }
                     }
                 }
@@ -1546,10 +1552,11 @@ struct CommentsView: View {
                     }
                 }
                 
-                // Haptic feedback
+                // Haptic feedback + success seal
                 await MainActor.run {
                     // haptic
                     HapticManager.notification(type: .success)
+                    commentSeal.trigger()
                     isSubmittingComment = false  // Re-enable after write completes
                 }
             } catch {

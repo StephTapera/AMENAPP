@@ -100,6 +100,18 @@ struct UnifiedChatView: View {
     // hashValue is session-unstable and collision-prone for short strings.
     @State private var isSendingMessage = false
     @State private var inFlightMessageIDs: Set<String> = []
+    @StateObject private var messageSeal = SuccessSealController()
+
+    // MARK: — Edit Message state
+    @State private var editingMessage: AppMessage? = nil
+    @State private var editingOriginalText: String = ""
+
+    // MARK: — Schedule Reply state
+    @ObservedObject private var scheduledMessagesService = ScheduledMessagesService.shared
+    @ObservedObject private var prefsService = AMENUserPreferencesService.shared
+    @State private var showSchedulePicker = false
+    @State private var scheduledDate: Date = Calendar.current.date(byAdding: .hour, value: 1, to: Date()) ?? Date()
+    @State private var editingScheduledMessage: ScheduledMessage? = nil
 
     // Smart reply chips
     @State private var smartReplySuggestions: [String] = []
@@ -299,6 +311,10 @@ struct UnifiedChatView: View {
                             ))
                         }
 
+                        // Scheduled messages + edit mode banners (above input bar)
+                        scheduledMessagesBanner
+                        editModeBanner
+
                         // Compact input bar
                         compactInputBar
                             .padding(.horizontal, 12)
@@ -401,6 +417,15 @@ struct UnifiedChatView: View {
                 sendPoll(poll)
             }
         }
+        // Schedule Reply picker sheet
+        .sheet(isPresented: $showSchedulePicker) {
+            ScheduleReplyPickerSheet(
+                text: messageText,
+                selectedDate: $scheduledDate
+            ) { confirmedDate in
+                scheduleReply(at: confirmedDate)
+            }
+        }
         .alert("Message Failed", isPresented: $showErrorAlert) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -437,10 +462,12 @@ struct UnifiedChatView: View {
             // Only do lightweight, synchronous work here
             generateRandomPlaceholder()
             NotificationAggregationService.shared.trackConversationViewing(conversation.id)
+            scheduledMessagesService.startListening()
         }
         .onDisappear {
             isViewActive = false
             cleanupChatView()
+            scheduledMessagesService.stopListening()
 
             // ✅ Reset screen tracking
             NotificationAggregationService.shared.updateCurrentScreen(.messages)
@@ -857,6 +884,9 @@ struct UnifiedChatView: View {
                                                 onDelete: {
                                                     deleteMessage(message: message)
                                                 },
+                                                onEdit: isFromCurrentUser && prefsService.preferences.editMessageEnabled ? {
+                                                    beginEditMode(message: message)
+                                                } : nil,
                                                 onRetry: message.isSendFailed ? {
                                                     retryFailedMessage(messageId: message.id, text: message.text)
                                                 } : nil,
@@ -1167,8 +1197,92 @@ struct UnifiedChatView: View {
         )
     }
     
+    // MARK: - Edit Mode Banner
+    // Shown above compactInputBar when user is editing an existing message.
+
+    @ViewBuilder
+    private var editModeBanner: some View {
+        if editingMessage != nil {
+            HStack(spacing: 8) {
+                Image(systemName: "pencil")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.secondary)
+                Text("Editing message")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button {
+                    cancelEditMode()
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 18))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 8)
+            .background(.ultraThinMaterial)
+            .transition(.asymmetric(
+                insertion: .move(edge: .bottom).combined(with: .opacity),
+                removal: .move(edge: .bottom).combined(with: .opacity)
+            ))
+        }
+    }
+
+    // MARK: - Scheduled Messages Banner
+    // Shown above input bar: lists pending scheduled messages for this conversation.
+
+    @ViewBuilder
+    private var scheduledMessagesBanner: some View {
+        let pending = scheduledMessagesService.scheduledMessages(for: conversation.id)
+        if !pending.isEmpty {
+            VStack(spacing: 0) {
+                ForEach(pending) { scheduled in
+                    HStack(spacing: 8) {
+                        Image(systemName: "clock.arrow.2.circlepath")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(.secondary)
+                        Text(scheduled.scheduledAtFormatted)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(.secondary)
+                        Text("·")
+                            .foregroundStyle(.secondary.opacity(0.5))
+                        Text(scheduled.text)
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                        Spacer(minLength: 4)
+                        // Cancel
+                        Button {
+                            Task { try? await scheduledMessagesService.cancelScheduledMessage(scheduled) }
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(.secondary)
+                                .padding(4)
+                                .background(Circle().fill(Color(.systemGray5)))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 7)
+                    if scheduled.id != pending.last?.id {
+                        Divider().padding(.leading, 20)
+                    }
+                }
+            }
+            .background(.ultraThinMaterial)
+            .transition(.asymmetric(
+                insertion: .move(edge: .bottom).combined(with: .opacity),
+                removal: .move(edge: .bottom).combined(with: .opacity)
+            ))
+        }
+    }
+
     // MARK: - Compact Input Bar
-    
+
     private var compactInputBar: some View {
         HStack(spacing: 12) {
             // Plus button — rotates 45° when tray is open
@@ -1230,6 +1344,7 @@ struct UnifiedChatView: View {
                 }
 
                 // Voice/Send/Stop button — morphs between states with spring animation
+                // Long-press (when text present) shows "Send Later" schedule picker.
                 Button {
                     if isRecording {
                         // Stop recording
@@ -1237,7 +1352,11 @@ struct UnifiedChatView: View {
                             isRecording = false
                         }
                     } else if !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        sendMessage()
+                        if editingMessage != nil {
+                            saveEdit()
+                        } else {
+                            sendMessage()
+                        }
                     } else {
                         // Mic tap — placeholder for voice recording
                         let haptic = UIImpactFeedbackGenerator(style: .medium)
@@ -1298,6 +1417,25 @@ struct UnifiedChatView: View {
                 }
                 .buttonStyle(SpringButtonStyle())
                 .disabled(isSendingMessage || isBereanStreaming)
+                .successSeal(
+                    isActive: messageSeal.isVisible,
+                    label: "Sent",
+                    yOffset: -46
+                )
+                // Long-press → Send Later (schedule reply) when message text is non-empty
+                .simultaneousGesture(
+                    LongPressGesture(minimumDuration: 0.5)
+                        .onEnded { _ in
+                            guard prefsService.preferences.scheduleReplyEnabled,
+                                  editingMessage == nil,
+                                  !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                            scheduledDate = Calendar.current.date(byAdding: .hour, value: 1, to: Date()) ?? Date()
+                            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                                showSchedulePicker = true
+                            }
+                        }
+                )
             }
             .padding(.leading, 16)
             .padding(.trailing, 6)
@@ -1565,6 +1703,88 @@ struct UnifiedChatView: View {
         }
     }
     
+    // MARK: - Edit Message
+
+    private func beginEditMode(message: AppMessage) {
+        editingMessage = message
+        editingOriginalText = message.text
+        messageText = message.text
+        isInputFocused = true
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
+    private func cancelEditMode() {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+            editingMessage = nil
+            editingOriginalText = ""
+            messageText = ""
+            isInputFocused = false
+        }
+    }
+
+    private func saveEdit() {
+        guard let msg = editingMessage,
+              !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              messageText != editingOriginalText else {
+            cancelEditMode()
+            return
+        }
+        let newText = messageText
+        // Optimistic local update
+        if let idx = messages.firstIndex(where: { $0.id == msg.id }) {
+            messages[idx].editedAt = Date()
+        }
+        cancelEditMode()
+        Task {
+            do {
+                try await messagingService.editMessage(
+                    conversationId: conversation.id,
+                    messageId: msg.id,
+                    newText: newText
+                )
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+            } catch {
+                dlog("❌ Edit message failed: \(error)")
+                toastManager.showError("Could not save edit")
+                // Roll back optimistic update
+                if let idx = messages.firstIndex(where: { $0.id == msg.id }) {
+                    messages[idx].editedAt = nil
+                }
+            }
+        }
+    }
+
+    // MARK: - Schedule Reply
+
+    private func scheduleReply(at date: Date) {
+        let text = messageText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        let replyId = replyingTo?.id
+        let replyText = replyingTo?.text
+        let replyAuthor = replyingTo?.senderName
+        messageText = ""
+        replyingTo = nil
+        Task {
+            do {
+                try await scheduledMessagesService.scheduleMessage(
+                    conversationId: conversation.id,
+                    text: text,
+                    scheduledAt: date,
+                    replyToMessageId: replyId,
+                    replyToText: replyText,
+                    replyToAuthorName: replyAuthor
+                )
+                await MainActor.run {
+                    toastManager.showSuccess("Scheduled")
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                }
+            } catch {
+                dlog("❌ Schedule reply failed: \(error)")
+                toastManager.showError("Could not schedule message")
+            }
+        }
+    }
+
     private func sendMessage() {
         guard !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return
@@ -1648,9 +1868,10 @@ struct UnifiedChatView: View {
             )
         }
 
-        // Haptic feedback
+        // Haptic feedback + success seal (optimistic — matches the optimistic message append)
         let haptic = UIImpactFeedbackGenerator(style: .light)
         haptic.impactOccurred()
+        messageSeal.trigger()
 
         Task {
             defer {
@@ -3291,6 +3512,7 @@ struct LiquidGlassMessageBubble: View {
     var onReact: (String) -> Void
     var onLongPress: () -> Void
     var onDelete: () -> Void
+    var onEdit: (() -> Void)? = nil          // Edit Message
     var onRetry: (() -> Void)? = nil
     var onReport: (() -> Void)? = nil
     var onBlock: (() -> Void)? = nil
@@ -3425,14 +3647,23 @@ struct LiquidGlassMessageBubble: View {
                                 LinkMessageBubble(message: message, isFromCurrentUser: isFromCurrentUser)
                             case .text, .image:
                                 // Default text / photo bubble (existing behavior untouched)
-                                Text(message.text)
-                                    .font(.system(size: 16))
-                                    .foregroundStyle(isFromCurrentUser ? .white : Color(.label))
-                                    .fixedSize(horizontal: false, vertical: true)
-                                    .padding(.horizontal, 14)
-                                    .padding(.vertical, 9)
-                                    .background(bubbleBackground)
-                                    .frame(maxWidth: 280, alignment: isFromCurrentUser ? .trailing : .leading)
+                                VStack(alignment: isFromCurrentUser ? .trailing : .leading, spacing: 2) {
+                                    Text(message.text)
+                                        .font(.system(size: 16))
+                                        .foregroundStyle(isFromCurrentUser ? .white : Color(.label))
+                                        .fixedSize(horizontal: false, vertical: true)
+                                        .padding(.horizontal, 14)
+                                        .padding(.vertical, 9)
+                                        .background(bubbleBackground)
+                                        .frame(maxWidth: 280, alignment: isFromCurrentUser ? .trailing : .leading)
+                                    // "Edited" indicator — subtle, below bubble
+                                    if message.editedAt != nil {
+                                        Text("Edited")
+                                            .font(.system(size: 10, weight: .regular))
+                                            .foregroundStyle(.secondary)
+                                            .padding(.horizontal, 4)
+                                    }
+                                }
                             }
                         }
                         .reactionPicker(
@@ -3461,6 +3692,16 @@ struct LiquidGlassMessageBubble: View {
                                     UIPasteboard.general.string = message.text
                                 } label: {
                                     Label("Copy", systemImage: "doc.on.doc")
+                                }
+                            }
+                            // Edit Message — outgoing text only, within 15-minute window
+                            if isFromCurrentUser,
+                               message.messageType == .text,
+                               !message.isDeleted,
+                               let onEdit,
+                               message.timestamp.timeIntervalSinceNow > -900 {
+                                Button { onEdit() } label: {
+                                    Label("Edit", systemImage: "pencil")
                                 }
                             }
                             if isFromCurrentUser {
@@ -4551,5 +4792,151 @@ struct CreatePollSheet: View {
                 avatarColor: .blue
             )
         )
+    }
+}
+
+// MARK: - Schedule Reply Picker Sheet
+
+struct ScheduleReplyPickerSheet: View {
+    let text: String
+    @Binding var selectedDate: Date
+    let onConfirm: (Date) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+
+    // Quick-select presets
+    private var presets: [(label: String, date: Date)] {
+        let now = Date()
+        let cal = Calendar.current
+        return [
+            ("In 1 hour",    cal.date(byAdding: .hour, value: 1, to: now)!),
+            ("In 3 hours",   cal.date(byAdding: .hour, value: 3, to: now)!),
+            ("Tomorrow 9 AM", {
+                var c = cal.dateComponents([.year, .month, .day], from: now)
+                c.day = (c.day ?? 1) + 1
+                c.hour = 9; c.minute = 0
+                return cal.date(from: c) ?? now.addingTimeInterval(86400)
+            }()),
+        ]
+    }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color(.systemGroupedBackground).ignoresSafeArea()
+                ScrollView {
+                    VStack(spacing: 20) {
+                        // Message preview
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Message")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(.secondary)
+                                .textCase(.uppercase)
+                            Text(text)
+                                .font(.system(size: 15))
+                                .foregroundStyle(.primary)
+                                .padding(12)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .fill(.ultraThinMaterial)
+                                )
+                        }
+                        .padding(.horizontal, 20)
+
+                        // Quick presets
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Quick Schedule")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(.secondary)
+                                .textCase(.uppercase)
+                                .padding(.horizontal, 20)
+                            VStack(spacing: 0) {
+                                ForEach(presets, id: \.label) { preset in
+                                    Button {
+                                        selectedDate = preset.date
+                                    } label: {
+                                        HStack {
+                                            Text(preset.label)
+                                                .font(.system(size: 15))
+                                                .foregroundStyle(.primary)
+                                            Spacer()
+                                            if Calendar.current.isDate(selectedDate, equalTo: preset.date, toGranularity: .minute) {
+                                                Image(systemName: "checkmark")
+                                                    .font(.system(size: 12, weight: .semibold))
+                                                    .foregroundStyle(.blue)
+                                            }
+                                        }
+                                        .padding(.horizontal, 16)
+                                        .padding(.vertical, 12)
+                                        .contentShape(Rectangle())
+                                    }
+                                    .buttonStyle(.plain)
+                                    if preset.label != presets.last?.label {
+                                        Divider().padding(.leading, 16)
+                                    }
+                                }
+                            }
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color(.secondarySystemGroupedBackground))
+                            )
+                            .padding(.horizontal, 20)
+                        }
+
+                        // Custom date picker
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Custom Time")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(.secondary)
+                                .textCase(.uppercase)
+                                .padding(.horizontal, 20)
+                            DatePicker(
+                                "",
+                                selection: $selectedDate,
+                                in: Date().addingTimeInterval(60)...,
+                                displayedComponents: [.date, .hourAndMinute]
+                            )
+                            .datePickerStyle(.graphical)
+                            .padding(.horizontal, 12)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color(.secondarySystemGroupedBackground))
+                            )
+                            .padding(.horizontal, 20)
+                        }
+
+                        // Confirm button
+                        Button {
+                            dismiss()
+                            onConfirm(selectedDate)
+                        } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: "clock.arrow.2.circlepath")
+                                    .font(.system(size: 14, weight: .semibold))
+                                Text("Schedule for \(selectedDate.formatted(date: .abbreviated, time: .shortened))")
+                                    .font(.system(size: 15, weight: .semibold))
+                            }
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 15)
+                            .background(Color.black)
+                            .clipShape(RoundedRectangle(cornerRadius: 14))
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 20)
+                    }
+                    .padding(.top, 20)
+                }
+            }
+            .navigationTitle("Send Later")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Cancel") { dismiss() }
+                        .foregroundStyle(.primary)
+                }
+            }
+        }
     }
 }

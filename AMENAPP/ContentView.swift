@@ -2236,6 +2236,9 @@ struct HomeView: View {
                                 showCommunitiesSheet = true
                             } label: {
                                 Label("Browse Communities", systemImage: "person.3.fill")
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.85)
+                                    .allowsTightening(true)
                             }
                         }
                     } label: {
@@ -4903,9 +4906,9 @@ struct OpenTableView: View {
                     .transition(.move(edge: .top).combined(with: .opacity))
                 }
                 
-                // Daily Verse Banner (hidden if user disabled it in Settings)
-                // Guard on isLoaded so the banner never flashes during the async Firestore fetch
-                if prefsService.isLoaded && prefsService.preferences.widgetsEnabled && prefsService.preferences.dailyVerseWidgetEnabled {
+                // Daily Verse Banner — show optimistically while prefs load (both default to true).
+                // Only hide after load if the user has explicitly turned it off.
+                if !prefsService.isLoaded || (prefsService.preferences.widgetsEnabled && prefsService.preferences.dailyVerseWidgetEnabled) {
                     DailyVerseBanner()
                         .padding(.horizontal)
                         .transition(.opacity.animation(.easeIn(duration: 0.2)))
@@ -4971,6 +4974,12 @@ struct OpenTableView: View {
                         // Seen-post tracking: fires once after 1.5s of continuous visibility
                         .trackPostVisibility(postId: post.firestoreId) { seenId in
                             caughtUpService.markSeen(postId: seenId)
+                        }
+
+                        // "Suggested for you" rail — injected after the 3rd post, non-intrusive
+                        if index == 2 {
+                            SuggestedForYouModule()
+                                .padding(.top, 4)
                         }
                     }
 
@@ -5707,177 +5716,29 @@ struct BannerColorPickerSheet: View {
 
 struct DailyVerseBanner: View {
     @ObservedObject private var verseService = DailyVerseGenkitService.shared
-    @ObservedObject private var userService = UserService.shared
-    @State private var showColorPicker = false
-    @State private var showVerseDetail = false
-    @State private var localColorId: String = UserDefaults.standard.string(forKey: "bannerColorId") ?? "red"
-
-    // Verse transition phase
-    enum VersePhase { case entering, visible, exiting }
-    @State private var versePhase: VersePhase = .visible
-    @State private var verseRefRotation: Double = 0
-
-    private var activeColor: BannerColorOption {
-        BannerColorOption.find(localColorId)
-    }
-
-    private var dayString: String {
-        "\(Calendar.current.component(.day, from: Date()))"
-    }
-
-    private var monthString: String {
-        let f = DateFormatter()
-        f.dateFormat = "MMMM"
-        return f.string(from: Date())
-    }
 
     var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [activeColor.top, activeColor.bottom],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .animation(.spring(response: 0.35, dampingFraction: 0.8), value: localColorId)
+        DailyVerseBannerView(
+            verse: verseService.todayVerse,
+            isLoading: verseService.isGenerating,
+            onLoad: { Task { await verseService.generatePersonalizedDailyVerse() } }
+        )
+        .task {
+            await loadCachedVerseIfNeeded()
+        }
+    }
 
-            HStack(alignment: .top, spacing: 0) {
-                // Left: large day number
-                VStack(alignment: .leading, spacing: 0) {
-                    Text(dayString)
-                        .font(.system(size: 44, weight: .black))
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.5)
-
-                    Text(monthString)
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.80))
-                        .textCase(.uppercase)
-                        .tracking(1.5)
-                }
-                .frame(width: 68)
-                .padding(.leading, 14)
-                .padding(.vertical, 12)
-
-                Rectangle()
-                    .fill(Color.white.opacity(0.25))
-                    .frame(width: 1)
-                    .padding(.vertical, 12)
-                    .padding(.horizontal, 10)
-
-                VStack(alignment: .leading, spacing: 4) {
-                    if let verse = verseService.todayVerse {
-                        Text(verse.text)
-                            .font(AMENFont.regular(12))
-                            .foregroundStyle(.white)
-                            .lineSpacing(3)
-                            .lineLimit(3)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .offset(x: versePhase == .exiting ? -30 : versePhase == .entering ? 30 : 0)
-                            .blur(radius: versePhase == .visible ? 0 : 3)
-                            .opacity(versePhase == .visible ? 1 : 0)
-                            .animation(.easeInOut(duration: 0.35), value: versePhase)
-                        Text("— \(verse.reference)")
-                            .font(AMENFont.semiBold(11))
-                            .foregroundStyle(.white.opacity(0.80))
-                            .rotation3DEffect(.degrees(verseRefRotation), axis: (x: 1, y: 0, z: 0))
-                            .animation(.spring(response: 0.35, dampingFraction: 0.8), value: verseRefRotation)
-                    } else if verseService.isGenerating {
-                        HStack(spacing: 8) {
-                            AMENLoadingIndicator(color: .white, dotSize: 7, spacing: 6, bounceHeight: 8)
-                            Text("Loading verse...")
-                                .font(AMENFont.regular(12))
-                                .foregroundStyle(.white.opacity(0.80))
-                        }
-                    } else {
-                        Text("\"For I know the plans I have for you,\" declares the LORD, \"plans to prosper you and not to harm you.\"")
-                            .font(AMENFont.regular(12))
-                            .foregroundStyle(.white)
-                            .lineSpacing(3)
-                            .lineLimit(3)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .offset(x: versePhase == .exiting ? -30 : versePhase == .entering ? 30 : 0)
-                            .blur(radius: versePhase == .visible ? 0 : 3)
-                            .opacity(versePhase == .visible ? 1 : 0)
-                            .animation(.easeInOut(duration: 0.35), value: versePhase)
-                        Text("— Jeremiah 29:11")
-                            .font(AMENFont.semiBold(11))
-                            .foregroundStyle(.white.opacity(0.80))
-                            .rotation3DEffect(.degrees(verseRefRotation), axis: (x: 1, y: 0, z: 0))
-                            .animation(.spring(response: 0.35, dampingFraction: 0.8), value: verseRefRotation)
-                    }
-                }
-                .padding(.vertical, 12)
-                .padding(.trailing, 14)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .clipped()
-
-                // Edit hint — top-right palette icon
-                VStack {
-                    Image(systemName: "paintpalette.fill")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.white.opacity(0.55))
-                        .padding(10)
-                    Spacer()
-                }
-            }
-        }
-        .shadow(color: activeColor.shadow.opacity(0.35), radius: 12, x: 0, y: 6)
-        .contentShape(Rectangle())
-        // Tap opens verse detail with share + reflect options
-        .onTapGesture {
-            HapticManager.impact(style: .light)
-            showVerseDetail = true
-        }
-        // Long-press opens color picker (only for current user's own feed)
-        .onLongPressGesture(minimumDuration: 0.4) {
-            HapticManager.impact(style: .light)
-            showColorPicker = true
-        }
-        .sheet(isPresented: $showVerseDetail) {
-            DailyVerseDetailSheet(
-                verse: verseService.todayVerse,
-                color: activeColor
-            )
-        }
-        .sheet(isPresented: $showColorPicker) {
-            BannerColorPickerSheet(selectedColorId: $localColorId) { newColorId in
-                // Persist locally immediately
-                UserDefaults.standard.set(newColorId, forKey: "bannerColorId")
-                // Save to Firestore in background
-                Task {
-                    try? await UserService.shared.updateBannerColor(newColorId)
-                }
-            }
-        }
-        .onAppear {
-            // Sync from user profile if available
-            if let serverColorId = userService.currentUser?.bannerColorId {
-                localColorId = serverColorId
-                UserDefaults.standard.set(serverColorId, forKey: "bannerColorId")
-            }
-        }
-        .onChange(of: userService.currentUser?.bannerColorId) { _, newId in
-            if let newId {
-                localColorId = newId
-            }
-        }
-        .onAppear {
-            guard verseService.todayVerse == nil else { return }
-            if let data = UserDefaults.standard.data(forKey: "cachedDailyVerse"),
-               let date = UserDefaults.standard.object(forKey: "cachedVerseDate") as? Date,
-               Calendar.current.isDate(date, inSameDayAs: Date()),
-               let verse = try? JSONDecoder().decode(PersonalizedDailyVerse.self, from: data) {
+    private func loadCachedVerseIfNeeded() async {
+        guard verseService.todayVerse == nil else { return }
+        if let data = UserDefaults.standard.data(forKey: "cachedDailyVerse"),
+           let date = UserDefaults.standard.object(forKey: "cachedVerseDate") as? Date,
+           Calendar.current.isDate(date, inSameDayAs: Date()),
+           let verse = try? JSONDecoder().decode(PersonalizedDailyVerse.self, from: data) {
+            await MainActor.run {
                 verseService.todayVerse = verse
-            } else {
-                // Use Task.detached so this is never cancelled by SwiftUI view lifecycle
-                Task.detached {
-                    _ = await DailyVerseGenkitService.shared.generatePersonalizedDailyVerse()
-                }
             }
+        } else {
+            _ = await verseService.generatePersonalizedDailyVerse()
         }
     }
 }
@@ -7390,47 +7251,116 @@ struct FeedCommunitiesSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Binding var selectedMode: LegacyFeedMode
     @StateObject private var drawerState = FeedDrawerState()
+    @StateObject private var vm = ArkCommunityViewModel()
+    @State private var joiningCommunity: ArkCommunity? = nil
+    @State private var showBrowseAll = false
     let onDismiss: () -> Void
-    
+
     var body: some View {
         NavigationStack {
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 0) {
-                    
+
                     // Feed Modes Section
                     feedModesSection
                         .padding(.top, 8)
                         .padding(.bottom, 4)
-                    
+
                     Divider()
                         .padding(.horizontal, 20)
                         .padding(.vertical, 12)
                         .opacity(0.3)
-                    
-                    // Communities Sections
-                    if !DrawerCommunity.sampleOwned.isEmpty {
-                        communitySection(
-                            title: "Led by You",
-                            icon: "crown.fill",
-                            communities: DrawerCommunity.sampleOwned
-                        )
-                        .padding(.bottom, 4)
+
+                    // Browse All button
+                    Button {
+                        showBrowseAll = true
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: "square.grid.2x2.fill")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(Color.accentColor)
+                                .frame(width: 36, height: 36)
+                                .background(Color.accentColor.opacity(0.12), in: Circle())
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text("Browse All Communities")
+                                    .font(AMENFont.semiBold(14))
+                                    .foregroundStyle(.primary)
+                                Text("Discover, join & create")
+                                    .font(AMENFont.regular(11))
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(.tertiary)
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
+                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .padding(.horizontal, 16)
                     }
-                    
-                    if !DrawerCommunity.sampleJoined.isEmpty {
-                        communitySection(
-                            title: "Your Communities",
-                            icon: "person.3.fill",
-                            communities: DrawerCommunity.sampleJoined
-                        )
-                        .padding(.bottom, 4)
-                    }
-                    
-                    if !DrawerCommunity.sampleSuggested.isEmpty {
-                        suggestedSection
+                    .buttonStyle(.plain)
+                    .padding(.bottom, 12)
+
+                    // Loading indicator
+                    if vm.isLoading {
+                        HStack { Spacer(); ProgressView(); Spacer() }
+                            .padding(.vertical, 20)
+                    } else {
+                        // Led by You
+                        if !vm.myLedCommunities.isEmpty {
+                            arkCommunitySection(
+                                title: "Led by You",
+                                icon: "crown.fill",
+                                communities: vm.myLedCommunities,
+                                accentColor: .purple
+                            )
                             .padding(.bottom, 4)
+                        }
+
+                        // Your Communities
+                        if !vm.myJoinedCommunities.isEmpty {
+                            arkCommunitySection(
+                                title: "Your Communities",
+                                icon: "person.3.fill",
+                                communities: vm.myJoinedCommunities,
+                                accentColor: .accentColor
+                            )
+                            .padding(.bottom, 4)
+                        }
+
+                        // Suggested
+                        if !vm.suggestedCommunities.isEmpty {
+                            arkSuggestedSection
+                                .padding(.bottom, 4)
+                        }
+
+                        // Empty state
+                        if vm.communities.isEmpty {
+                            VStack(spacing: 12) {
+                                Image(systemName: "person.3")
+                                    .font(.system(size: 36))
+                                    .foregroundStyle(.tertiary)
+                                Text("No communities yet")
+                                    .font(AMENFont.semiBold(15))
+                                    .foregroundStyle(.secondary)
+                                Button {
+                                    showBrowseAll = true
+                                } label: {
+                                    Text("Browse & Create")
+                                        .font(AMENFont.semiBold(13))
+                                        .foregroundStyle(.white)
+                                        .padding(.horizontal, 20)
+                                        .padding(.vertical, 8)
+                                        .background(Color.accentColor, in: Capsule())
+                                }
+                                .buttonStyle(.plain)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 24)
+                        }
                     }
-                    
+
                     Spacer(minLength: 40)
                 }
             }
@@ -7448,17 +7378,35 @@ struct FeedCommunitiesSheet: View {
                     }
                 }
             }
+            .task {
+                await vm.loadCommunities()
+                await vm.loadUserMemberships()
+            }
+            .navigationDestination(isPresented: $showBrowseAll) {
+                BrowseCommunitiesView()
+            }
+            .sheet(item: $joiningCommunity) { community in
+                CommunityCovenantView {
+                    Task {
+                        await vm.joinCommunity(community)
+                        if let cid = community.id {
+                            vm.userMembershipIds.insert(cid)
+                        }
+                    }
+                    joiningCommunity = nil
+                }
+            }
         }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
     }
-    
+
     // MARK: - Feed Modes Section
-    
+
     private var feedModesSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             sectionLabel("Feed Mode", icon: "slider.horizontal.3")
-            
+
             VStack(spacing: 0) {
                 ForEach(DrawerFeedMode.allCases) { mode in
                     feedModeRow(mode)
@@ -7473,7 +7421,7 @@ struct FeedCommunitiesSheet: View {
             .padding(.horizontal, 16)
         }
     }
-    
+
     private func feedModeRow(_ mode: DrawerFeedMode) -> some View {
         let isActive = drawerState.activeFeedMode == mode
         return Button {
@@ -7488,7 +7436,7 @@ struct FeedCommunitiesSheet: View {
                     .foregroundStyle(isActive ? Color.white : Color.primary)
                     .frame(width: 32, height: 32)
                     .background(isActive ? Color.accentColor : Color.clear, in: Circle())
-                
+
                 VStack(alignment: .leading, spacing: 2) {
                     Text(mode.rawValue)
                         .font(AMENFont.semiBold(14))
@@ -7497,9 +7445,9 @@ struct FeedCommunitiesSheet: View {
                         .font(AMENFont.regular(11))
                         .foregroundStyle(.secondary)
                 }
-                
+
                 Spacer()
-                
+
                 if isActive {
                     Image(systemName: "checkmark")
                         .font(.system(size: 11, weight: .bold))
@@ -7512,16 +7460,25 @@ struct FeedCommunitiesSheet: View {
         }
         .buttonStyle(.plain)
     }
-    
-    // MARK: - Community Section
-    
-    private func communitySection(title: String, icon: String, communities: [DrawerCommunity]) -> some View {
+
+    // MARK: - Ark Community Sections (real data)
+
+    private func arkCommunitySection(
+        title: String,
+        icon: String,
+        communities: [ArkCommunity],
+        accentColor: Color
+    ) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             sectionLabel(title, icon: icon)
-            
+
             VStack(spacing: 0) {
                 ForEach(communities) { community in
-                    communityRow(community)
+                    NavigationLink(destination: ArkCommunityDetailView(community: community)) {
+                        arkCommunityRow(community, accent: accentColor)
+                    }
+                    .buttonStyle(.plain)
+
                     if community.id != communities.last?.id {
                         Divider()
                             .padding(.leading, 56)
@@ -7533,68 +7490,54 @@ struct FeedCommunitiesSheet: View {
             .padding(.horizontal, 16)
         }
     }
-    
-    private func communityRow(_ community: DrawerCommunity) -> some View {
-        Button {
-            HapticManager.impact(style: .light)
-            // TODO: Navigate to community feed
-        } label: {
-            HStack(spacing: 12) {
-                // Community icon circle
-                ZStack {
-                    Circle()
-                        .fill(Color.accentColor.opacity(0.15))
-                        .frame(width: 40, height: 40)
-                    Image(systemName: community.icon)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(Color.accentColor)
-                }
-                
-                VStack(alignment: .leading, spacing: 2) {
+
+    private func arkCommunityRow(_ community: ArkCommunity, accent: Color) -> some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(accent.opacity(0.15))
+                    .frame(width: 40, height: 40)
+                Text(community.name.prefix(2).uppercased())
+                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .foregroundStyle(accent)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 4) {
                     Text(community.name)
                         .font(AMENFont.semiBold(14))
                         .foregroundStyle(.primary)
-                    Text(community.subtitle)
-                        .font(AMENFont.regular(11))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-                
-                Spacer()
-                
-                // Activity indicator
-                if community.recentActivity > 0 {
-                    ZStack {
-                        Circle()
-                            .fill(Color.blue)
-                            .frame(width: 20, height: 20)
-                        Text("\(community.recentActivity)")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundStyle(.white)
+                    if community.isVerified {
+                        Image(systemName: "checkmark.seal.fill")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.blue)
                     }
                 }
-                
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.tertiary)
+                Text("\(community.memberCount) members · \(communityCategory(community))")
+                    .font(AMENFont.regular(11))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .contentShape(Rectangle())
+
+            Spacer()
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.tertiary)
         }
-        .buttonStyle(.plain)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .contentShape(Rectangle())
     }
-    
-    // MARK: - Suggested Section
-    
-    private var suggestedSection: some View {
+
+    private var arkSuggestedSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             sectionLabel("Suggested", icon: "sparkles")
-            
+
             VStack(spacing: 0) {
-                ForEach(DrawerCommunity.sampleSuggested) { community in
-                    suggestedCommunityRow(community)
-                    if community.id != DrawerCommunity.sampleSuggested.last?.id {
+                ForEach(vm.suggestedCommunities.prefix(3)) { community in
+                    arkSuggestedRow(community)
+                    if community.id != vm.suggestedCommunities.prefix(3).last?.id {
                         Divider()
                             .padding(.leading, 56)
                             .opacity(0.25)
@@ -7605,34 +7548,33 @@ struct FeedCommunitiesSheet: View {
             .padding(.horizontal, 16)
         }
     }
-    
-    private func suggestedCommunityRow(_ community: DrawerCommunity) -> some View {
+
+    private func arkSuggestedRow(_ community: ArkCommunity) -> some View {
         HStack(spacing: 12) {
-            // Community icon
             ZStack {
                 Circle()
                     .fill(Color.orange.opacity(0.15))
                     .frame(width: 40, height: 40)
-                Image(systemName: community.icon)
-                    .font(.system(size: 16, weight: .semibold))
+                Text(community.name.prefix(2).uppercased())
+                    .font(.system(size: 14, weight: .bold, design: .rounded))
                     .foregroundStyle(Color.orange)
             }
-            
+
             VStack(alignment: .leading, spacing: 2) {
                 Text(community.name)
                     .font(AMENFont.semiBold(14))
                     .foregroundStyle(.primary)
-                Text(community.subtitle)
+                Text("\(community.memberCount) members · \(communityCategory(community))")
                     .font(AMENFont.regular(11))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
-            
+
             Spacer()
-            
+
             Button {
-                HapticManager.impact(style: .light)
-                // TODO: Join community
+                HapticManager.impact(style: .medium)
+                joiningCommunity = community
             } label: {
                 Text("Join")
                     .font(AMENFont.semiBold(12))
@@ -7646,9 +7588,20 @@ struct FeedCommunitiesSheet: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
     }
-    
-    // MARK: - Helper Views
-    
+
+    // MARK: - Helpers
+
+    private func communityCategory(_ community: ArkCommunity) -> String {
+        switch community.category {
+        case "small_group": return "Small Group"
+        case "ministry":    return "Ministry"
+        case "recovery":    return "Recovery"
+        case "study":       return "Study"
+        case "prayer":      return "Prayer"
+        default:            return community.category.capitalized
+        }
+    }
+
     private func sectionLabel(_ title: String, icon: String) -> some View {
         HStack(spacing: 6) {
             Image(systemName: icon)

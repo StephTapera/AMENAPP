@@ -62,6 +62,34 @@ final class ArkService {
             .setData(from: member)
     }
 
+    /// Fetches all members of a community.
+    func fetchMembers(communityId: String, limit: Int = 50) async throws -> [ArkMember] {
+        let snap = try await db.collection("arkCommunities")
+            .document(communityId)
+            .collection("members")
+            .order(by: "joinedAt", descending: false)
+            .limit(to: limit)
+            .getDocuments()
+        return snap.documents.compactMap { try? $0.data(as: ArkMember.self) }
+    }
+
+    /// Returns community IDs the user belongs to via a Firestore collection group query.
+    func fetchUserMemberships(userId: String) async throws -> [String] {
+        let snap = try await db.collectionGroup("members")
+            .whereField("userId", isEqualTo: userId)
+            .getDocuments()
+        return snap.documents.compactMap { $0.reference.parent.parent?.documentID }
+    }
+
+    /// Removes a user's membership record from a community.
+    func leaveCommunity(userId: String, communityId: String) async throws {
+        try await db.collection("arkCommunities")
+            .document(communityId)
+            .collection("members")
+            .document(userId)
+            .delete()
+    }
+
     // MARK: - Posts
 
     /// Fetches posts in a community, newest first, pending AI moderation check.

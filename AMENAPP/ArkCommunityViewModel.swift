@@ -22,11 +22,39 @@ final class ArkCommunityViewModel: ObservableObject {
     @Published var moderationAlert: ModerationAlertInfo?
     @Published var errorMessage: String?
 
+    /// Community IDs the current user belongs to (from collection group query).
+    @Published var userMembershipIds: Set<String> = []
+
+    // MARK: - Computed Helpers
+
+    private var currentUserId: String? { Auth.auth().currentUser?.uid }
+
+    /// Communities the user leads.
+    var myLedCommunities: [ArkCommunity] {
+        guard let uid = currentUserId else { return [] }
+        return communities.filter { $0.leaderId == uid }
+    }
+
+    /// Communities the user has joined (but does not lead).
+    var myJoinedCommunities: [ArkCommunity] {
+        guard let uid = currentUserId else { return [] }
+        return communities.filter {
+            userMembershipIds.contains($0.id ?? "") && $0.leaderId != uid
+        }
+    }
+
+    /// Communities the user has not yet joined.
+    var suggestedCommunities: [ArkCommunity] {
+        guard let uid = currentUserId else { return communities }
+        return communities.filter {
+            !userMembershipIds.contains($0.id ?? "") && $0.leaderId != uid
+        }
+    }
+
     // MARK: - Private
 
     private let service = ArkService.shared
     private var postsListener: ListenerRegistration?
-    private var currentUserId: String? { Auth.auth().currentUser?.uid }
 
     deinit {
         postsListener?.remove()
@@ -41,6 +69,30 @@ final class ArkCommunityViewModel: ObservableObject {
             communities = try await service.fetchCommunities()
         } catch {
             errorMessage = "Couldn't load communities."
+        }
+    }
+
+    /// Fetches the set of community IDs the current user belongs to.
+    func loadUserMemberships() async {
+        guard let uid = currentUserId else { return }
+        do {
+            let ids = try await service.fetchUserMemberships(userId: uid)
+            userMembershipIds = Set(ids)
+        } catch {
+            dlog("⚠️ ArkCommunityViewModel: membership fetch failed: \(error)")
+        }
+    }
+
+    /// Leave a community and update local membership state.
+    func leaveCommunity(_ community: ArkCommunity) async {
+        guard let uid = currentUserId, let communityId = community.id else { return }
+        do {
+            try await service.leaveCommunity(userId: uid, communityId: communityId)
+            userMembershipIds.remove(communityId)
+            if selectedCommunity?.id == communityId { currentMember = nil }
+            dlog("✅ Left community \(communityId)")
+        } catch {
+            errorMessage = "Couldn't leave community. Please try again."
         }
     }
 
@@ -132,6 +184,8 @@ final class ArkCommunityViewModel: ObservableObject {
         do {
             try await service.joinCommunity(member: member, communityId: communityId)
             currentMember = member
+            userMembershipIds.insert(communityId)
+            dlog("✅ Joined community \(communityId)")
         } catch {
             errorMessage = "Couldn't join community. Please try again."
         }

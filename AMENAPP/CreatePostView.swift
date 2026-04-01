@@ -305,121 +305,140 @@ struct CreatePostView: View {
         mainView
     }
     
+    private var topicTagButtonText: String {
+        if selectedTopicTag.isEmpty {
+            return selectedCategory == .testimonies ? "Add category" : "Add topic tag"
+        }
+        return selectedTopicTag
+    }
+    
+    @ViewBuilder
+    private var composeContentArea: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // TRUST & SAFETY: Show personalize nudge banner
+            if showModerationNudge {
+                PersonalizeNudgeBanner(
+                    message: moderationNudgeMessage,
+                    isVisible: $showModerationNudge
+                )
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
+
+            textEditorView
+            
+            versePreviewBadge
+            
+            taggedUsersChips
+
+            // Topic tag selector (required for OpenTable/Prayer)
+            if selectedCategory == .openTable || selectedCategory == .prayer || selectedCategory == .testimonies {
+                Button {
+                    showingTopicTagSheet = true
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "tag")
+                            .font(.system(size: 12, weight: .medium))
+                        Text(topicTagButtonText)
+                            .font(.system(size: 13, weight: .medium))
+                        if selectedTopicTag.isEmpty && selectedCategory != .testimonies {
+                            Text("Required")
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundStyle(.secondary.opacity(0.7))
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 2)
+                                .background(Capsule().fill(Color.primary.opacity(0.06)))
+                        }
+                    }
+                    .foregroundStyle(selectedTopicTag.isEmpty ? Color.secondary : Color.primary)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background {
+                        let fillColor: Color = selectedTopicTag.isEmpty ? Color(.systemGray6) : Color.primary.opacity(0.08)
+                        Capsule().fill(fillColor)
+                    }
+                }
+                .buttonStyle(.plain)
+                .modifier(ShakeEffect(shakes: shakeTopicTag ? 3 : 0))
+            }
+
+            // Camera photo preview
+            if let capturedImage = cameraImage {
+                CameraAttachmentPreview(image: capturedImage) {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                        cameraImage = nil
+                    }
+                }
+                .transition(.scale(scale: 0.92).combined(with: .opacity))
+            }
+
+            // Library photo grid
+            if !selectedImageData.isEmpty {
+                ImagePreviewGrid(images: $selectedImageData, onAddMore: { showingImagePicker = true })
+            }
+
+            // Poll composer
+            if showingPoll {
+                PollComposerCard(
+                    options: $pollOptions,
+                    duration: $pollDuration,
+                    onRemove: {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                            showingPoll = false
+                            pollOptions = ["", ""]
+                            pollDuration = .oneDay
+                        }
+                    }
+                )
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+
+            ComposerLinkPreview(controller: linkController)
+                .animation(.spring(response: 0.35, dampingFraction: 0.8), value: linkController.activeURL)
+
+            // Inline toolbar — simple gray icons
+            threadsAttachmentBar
+                .padding(.top, 8)
+        }
+    }
+    
+    // MARK: - Compose Input Row (extracted to reduce type-checker complexity)
+    private var composeInputRow: some View {
+        HStack(alignment: .top, spacing: 12) {
+            // Thread connector line
+            VStack(spacing: 0) {
+                Rectangle()
+                    .fill(Color.primary.opacity(0.1))
+                    .frame(width: 1)
+            }
+            .frame(width: 44) // aligned under avatar
+            .padding(.top, 4)
+
+            // Text input — clean, no borders
+            composeContentArea
+        }
+        .padding(.horizontal, 16)
+    }
+
     private var mainView: some View {
-        NavigationStack {
-            ZStack {
-                Color(.systemBackground).ignoresSafeArea()
+        navigationStackView
+    }
+    
+    // MARK: - Main Content ZStack
+    private var mainContentZStack: some View {
+        ZStack {
+            Color(.systemBackground).ignoresSafeArea()
 
-                VStack(spacing: 0) {
-                    // ── Threads-style compose layout ────────────────────────
-                    ScrollView(showsIndicators: false) {
-                        VStack(alignment: .leading, spacing: 0) {
-                            // User row with avatar + category selector
-                            threadsUserRow
-                                .padding(.horizontal, 16)
-                                .padding(.top, 12)
-
-                            // Compose area with thread connector
-                            HStack(alignment: .top, spacing: 12) {
-                                // Thread connector line
-                                VStack(spacing: 0) {
-                                    Rectangle()
-                                        .fill(Color.primary.opacity(0.1))
-                                        .frame(width: 1)
-                                }
-                                .frame(width: 44) // aligned under avatar
-                                .padding(.top, 4)
-
-                                // Text input — clean, no borders
-                                VStack(alignment: .leading, spacing: 12) {
-                                    // TRUST & SAFETY: Show personalize nudge banner
-                                    if showModerationNudge {
-                                        PersonalizeNudgeBanner(
-                                            message: moderationNudgeMessage,
-                                            isVisible: $showModerationNudge
-                                        )
-                                        .transition(.move(edge: .top).combined(with: .opacity))
-                                    }
-
-                                    textEditorView
-                                    
-                                    versePreviewBadge
-                                    
-                                    taggedUsersChips
-
-                                    // Topic tag selector (required for OpenTable/Prayer)
-                                    if selectedCategory == .openTable || selectedCategory == .prayer || selectedCategory == .testimonies {
-                                        Button {
-                                            showingTopicTagSheet = true
-                                        } label: {
-                                            HStack(spacing: 6) {
-                                                Image(systemName: "tag")
-                                                    .font(.system(size: 12, weight: .medium))
-                                                Text(selectedTopicTag.isEmpty
-                                                     ? (selectedCategory == .testimonies ? "Add category" : "Add topic tag")
-                                                     : selectedTopicTag)
-                                                    .font(.system(size: 13, weight: .medium))
-                                                if selectedTopicTag.isEmpty && selectedCategory != .testimonies {
-                                                    Text("Required")
-                                                        .font(.system(size: 10, weight: .medium))
-                                                        .foregroundStyle(.secondary.opacity(0.7))
-                                                        .padding(.horizontal, 5)
-                                                        .padding(.vertical, 2)
-                                                        .background(Capsule().fill(Color.primary.opacity(0.06)))
-                                                }
-                                            }
-                                            .foregroundStyle(selectedTopicTag.isEmpty ? .secondary : .primary)
-                                            .padding(.horizontal, 12)
-                                            .padding(.vertical, 8)
-                                            .background(
-                                                Capsule()
-                                                    .fill(selectedTopicTag.isEmpty ? Color(.systemGray6) : Color.primary.opacity(0.08))
-                                            )
-                                        }
-                                        .buttonStyle(.plain)
-                                        .modifier(ShakeEffect(shakes: shakeTopicTag ? 3 : 0))
-                                    }
-
-                                    // Camera photo preview
-                                    if let capturedImage = cameraImage {
-                                        CameraAttachmentPreview(image: capturedImage) {
-                                            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                                                cameraImage = nil
-                                            }
-                                        }
-                                        .transition(.scale(scale: 0.92).combined(with: .opacity))
-                                    }
-
-                                    // Library photo grid
-                                    if !selectedImageData.isEmpty {
-                                        ImagePreviewGrid(images: $selectedImageData, onAddMore: { showingImagePicker = true })
-                                    }
-
-                                    // Poll composer
-                                    if showingPoll {
-                                        PollComposerCard(
-                                            options: $pollOptions,
-                                            duration: $pollDuration,
-                                            onRemove: {
-                                                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                                                    showingPoll = false
-                                                    pollOptions = ["", ""]
-                                                    pollDuration = .oneDay
-                                                }
-                                            }
-                                        )
-                                        .transition(.move(edge: .bottom).combined(with: .opacity))
-                                    }
-
-                                    ComposerLinkPreview(controller: linkController)
-                                        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: linkController.activeURL)
-
-                                    // Inline toolbar — simple gray icons
-                                    threadsAttachmentBar
-                                        .padding(.top, 8)
-                                }
-                            }
+            VStack(spacing: 0) {
+                // ── Threads-style compose layout ────────────────────────
+                ScrollView(showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        // User row with avatar + category selector
+                        threadsUserRow
                             .padding(.horizontal, 16)
+                            .padding(.top, 12)
+
+                        // Compose area with thread connector
+                        composeInputRow
 
                         // ── Add to thread row (Threads-style) ───────────────
                         if !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isThreadMode {
@@ -527,9 +546,12 @@ struct CreatePostView: View {
                                 .transition(.opacity.combined(with: .move(edge: .bottom)))
                             }
                         }
-                        }
                     }
                 }
+                
+                // ── Bottom toolbar with schedule, tone check, etc. ────────────
+                threadsBottomBar
+                    .padding(.bottom, 8)
 
                 // Upload progress overlay
                 if isUploadingImages {
@@ -569,66 +591,121 @@ struct CreatePostView: View {
                     .animation(.spring(response: 0.45, dampingFraction: 0.72), value: showingSuccessNotice)
                 }
             }
+        }
+    }
+    
+    // MARK: - Navigation Stack Content with Toolbar
+    @ViewBuilder
+    private var navigationStackContent: some View {
+        mainContentZStack
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
-                        isTextFieldFocused = false
-                        let hasContent = !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                            || !selectedImageData.isEmpty
-                            || cameraImage != nil
-                            || showingPoll
-                        if hasContent {
-                            showCancelConfirmation = true
-                        } else {
-                            dismiss()
-                        }
-                    }
+                toolbarContent
+            }
+    }
+    
+    // MARK: - Toolbar Content
+    @ToolbarContentBuilder
+    private var toolbarContent: some ToolbarContent {
+        ToolbarItem(placement: .navigationBarLeading) {
+            Button("Cancel") {
+                isTextFieldFocused = false
+                let hasContent = !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    || !selectedImageData.isEmpty
+                    || cameraImage != nil
+                    || showingPoll
+                if hasContent {
+                    showCancelConfirmation = true
+                } else {
+                    dismiss()
+                }
+            }
+            .font(.system(size: 16, weight: .regular))
+            .foregroundStyle(.primary)
+            .confirmationDialog("", isPresented: $showCancelConfirmation, titleVisibility: .hidden) {
+                Button("Save Draft") {
+                    shouldPersistDraftOnExit = false
+                    saveDraft()
+                    dismiss()
+                }
+                Button("Discard Post", role: .destructive) {
+                    shouldPersistDraftOnExit = false
+                    dismiss()
+                }
+                Button("Cancel", role: .cancel) { }
+            }
+        }
+
+        ToolbarItem(placement: .principal) {
+            Text("New post")
+                .font(.system(size: 16, weight: .semibold))
+        }
+
+        // Draft button
+        ToolbarItem(placement: .navigationBarTrailing) {
+            Button {
+                showDraftsSheet = true
+            } label: {
+                Image(systemName: "doc.text")
                     .font(.system(size: 16, weight: .regular))
                     .foregroundStyle(.primary)
-                    .confirmationDialog("", isPresented: $showCancelConfirmation, titleVisibility: .hidden) {
-                        Button("Save Draft") {
-                            shouldPersistDraftOnExit = false
-                            saveDraft()
-                            dismiss()
-                        }
-                        Button("Discard Post", role: .destructive) {
-                            shouldPersistDraftOnExit = false
-                            dismiss()
-                        }
-                        Button("Cancel", role: .cancel) { }
-                    }
-                }
+            }
+        }
 
-                ToolbarItem(placement: .principal) {
-                    Text("New post")
-                        .font(.system(size: 16, weight: .semibold))
+        // Liquid Glass Post Button
+        ToolbarItem(placement: .navigationBarTrailing) {
+            Button {
+                if canPost {
+                    triggerLiquidPost()
                 }
-                
-                // Draft button - positioned before Post button
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        showDraftsSheet = true
-                    } label: {
-                        Image(systemName: "doc.text")
-                            .font(.system(size: 16, weight: .regular))
-                            .foregroundStyle(.primary)
-                    }
-                }
+            } label: {
+                HStack(spacing: 6) {
+                    ZStack {
+                        Circle()
+                            .fill(canPost ? Color.black.opacity(0.08) : Color.black.opacity(0.04))
+                            .frame(width: 20, height: 20)
 
-                // ThreadsPostButton replaced by LiquidGlassPostButton (safeAreaInset below)
+                        Image(systemName: scheduledDate != nil ? "calendar" : "arrow.up")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(canPost ? Color.black : Color.black.opacity(0.35))
+                    }
+
+                    Text(scheduledDate != nil ? "Schedule" : "Post")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(canPost ? Color.black : Color.black.opacity(0.35))
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 7)
+                .background(
+                    Capsule()
+                        .fill(.ultraThinMaterial)
+                        .overlay(
+                            Capsule()
+                                .fill(
+                                    LinearGradient(
+                                        colors: [
+                                            Color.white.opacity(canPost ? 0.78 : 0.60),
+                                            Color.white.opacity(canPost ? 0.44 : 0.30)
+                                        ],
+                                        startPoint: .top,
+                                        endPoint: .bottom
+                                    )
+                                )
+                        )
+                        .overlay(
+                            Capsule()
+                                .stroke(Color.white.opacity(canPost ? 0.90 : 0.70), lineWidth: 1)
+                        )
+                        .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 4)
+                )
             }
-            .safeAreaInset(edge: .bottom) {
-                threadsBottomBar
-            }
-            .safeAreaInset(edge: .bottom) {
-                LiquidGlassPostButton(state: uploadState, action: triggerLiquidPost)
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 8)
-                    .background(Color.white)
-            }
-            // Photo picker — uses the system modifier (not a sheet wrapper) so
-            // onChange fires in the main view scope and selectedImageData is updated.
+            .disabled(!canPost)
+        }
+    }
+    
+    // MARK: - Photo Picker Modifiers
+    private func applyPhotoPickerModifiers<Content: View>(_ content: Content) -> some View {
+        content
             .photosPicker(
                 isPresented: $showingImagePicker,
                 selection: $selectedImages,
@@ -662,6 +739,11 @@ struct CreatePostView: View {
                     }
                 }
             }
+    }
+    
+    // MARK: - Sheet Modifiers Group 1
+    private func applySheetModifiers1<Content: View>(_ content: Content) -> some View {
+        content
             .sheet(isPresented: $showingLinkSheet) {
                 LinkInputSheet(url: $linkURL, isPresented: $showingLinkSheet) { url in
                     // Delegate to controller so manual URL also gets rich preview
@@ -697,12 +779,13 @@ struct CreatePostView: View {
                     .presentationDetents([.medium])
             }
             .sheet(isPresented: $showingVersePickerSheet) {
-                PostVersePickerSheet(
-                    verseReference: $attachedVerseReference,
-                    verseText: $attachedVerseText,
-                    isPresented: $showingVersePickerSheet
-                )
+                AttachVerseSheet { verse in
+                    attachedVerseReference = verse.reference
+                    attachedVerseText = verse.text
+                    showingVersePickerSheet = false
+                }
                 .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.hidden)
             }
             .sheet(isPresented: $showingChurchTagSheet) {
                 PostChurchTagSheet(
@@ -768,11 +851,19 @@ struct CreatePostView: View {
                 .presentationCornerRadius(28)
                 .presentationBackground(.clear)
             }
+    }
+    
+    // MARK: - Sheet Modifiers Group 2
+    private func applySheetModifiers2<Content: View>(_ content: Content) -> some View {
+        content
             .sheet(isPresented: $showThinkFirstPrompt) {
                 thinkFirstPromptSheetContent
             }
             .sheet(isPresented: $showBereanToneSheet) {
                 bereanToneSheetContent
+            }
+            .sheet(isPresented: $showAltTextSheet) {
+                altTextSheetContent
             }
             .onReceive(NotificationCenter.default.publisher(for: Notification.Name("aiContentDetected"))) { notification in
                 if let userInfo = notification.userInfo,
@@ -783,7 +874,11 @@ struct CreatePostView: View {
                     showAIContentAlert = true
                 }
             }
-        }
+    }
+    
+    // MARK: - Final Modifiers (Camera, Alerts, Lifecycle)
+    private func applyFinalModifiers<Content: View>(_ content: Content) -> some View {
+        content
         .interactiveDismissDisabled(!postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !selectedImageData.isEmpty || !linkURL.isEmpty || cameraImage != nil || showingPoll)
         // Camera sheet — native UIImagePickerController for instant capture
         .sheet(isPresented: $showingCamera) {
@@ -874,6 +969,15 @@ struct CreatePostView: View {
         }
     }
     
+    // MARK: - Navigation Stack View
+    private var navigationStackView: some View {
+        let baseStack = NavigationStack {
+            applySheetModifiers2(applySheetModifiers1(applyPhotoPickerModifiers(navigationStackContent)))
+        }
+        
+        return applyFinalModifiers(baseStack)
+    }
+    
     // MARK: - Computed Properties
     private var hasDraftableContent: Bool {
         let trimmedText = postText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -961,6 +1065,111 @@ struct CreatePostView: View {
         }
     }
     
+    // MARK: - Contextual verse suggestion
+
+    private var shouldShowVerseSuggestion: Bool {
+        let lower = postText.lowercased()
+        let keywords = ["pray", "scripture", "verse", "bible", "psalm", "jesus", "god ", "faith", "grace", "forgiv", "worship", "holy", "spirit", "lord", "amen"]
+        let hasKeyword = keywords.contains { lower.contains($0) }
+        return hasKeyword && postText.count > 20 && attachedVerseReference.isEmpty
+    }
+
+    // MARK: - Sensitive content expansion (liquid glass)
+
+    private var sensitiveContentExpansion: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            // Reason field
+            HStack(spacing: 8) {
+                Image(systemName: "text.bubble")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Color.primary.opacity(0.4))
+                TextField("Reason (optional — grief, trauma, etc.)", text: $sensitiveContentReason)
+                    .font(AMENFont.regular(13))
+                    .foregroundStyle(Color.primary)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 9)
+            .background(Color.primary.opacity(0.05))
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.5))
+
+            // Hide engagement counts toggle
+            Button {
+                withAnimation(.easeOut(duration: 0.15)) {
+                    hideEngagementCounts.toggle()
+                }
+                HapticManager.impact(style: .light)
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: hideEngagementCounts ? "eye.slash.fill" : "eye")
+                        .font(.system(size: 12))
+                        .foregroundStyle(hideEngagementCounts ? Color(hex: "6B48FF") : Color.primary.opacity(0.4))
+                    Text("Hide likes & comments count")
+                        .font(AMENFont.regular(13))
+                        .foregroundStyle(Color.primary.opacity(0.75))
+                    Spacer()
+                    Image(systemName: hideEngagementCounts ? "checkmark.circle.fill" : "circle")
+                        .font(.system(size: 16))
+                        .foregroundStyle(hideEngagementCounts ? Color(hex: "6B48FF") : Color.primary.opacity(0.25))
+                }
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.top, 8)
+    }
+
+    // MARK: - Alt text sheet
+
+    @ViewBuilder
+    private var altTextSheetContent: some View {
+        NavigationStack {
+            ZStack {
+                Color(.systemGroupedBackground).ignoresSafeArea()
+                ScrollView {
+                    VStack(spacing: 16) {
+                        ForEach(Array(selectedImageData.enumerated()), id: \.offset) { index, data in
+                            VStack(alignment: .leading, spacing: 8) {
+                                if let uiImage = UIImage(data: data) {
+                                    Image(uiImage: uiImage)
+                                        .resizable()
+                                        .scaledToFill()
+                                        .frame(height: 140)
+                                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                                }
+                                Text("Image \(index + 1) description")
+                                    .font(AMENFont.semiBold(12))
+                                    .foregroundStyle(.secondary)
+                                TextField("Describe this image for screen readers…", text: Binding(
+                                    get: { index < imageAltTexts.count ? imageAltTexts[index] : "" },
+                                    set: { val in
+                                        while imageAltTexts.count <= index { imageAltTexts.append("") }
+                                        imageAltTexts[index] = val
+                                    }
+                                ), axis: .vertical)
+                                .font(AMENFont.regular(14))
+                                .padding(12)
+                                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+                                .lineLimit(3...6)
+                            }
+                            .padding(.horizontal, 20)
+                        }
+                    }
+                    .padding(.vertical, 16)
+                }
+            }
+            .navigationTitle("Alt Text")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { showAltTextSheet = false }
+                        .font(AMENFont.semiBold(15))
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+    }
+
     // Berean AI tone assist — fun interactive popup
     @ViewBuilder
     private var bereanToneSheetContent: some View {
@@ -1237,39 +1446,156 @@ struct CreatePostView: View {
             }
             .buttonStyle(.plain)
 
-            Spacer()
-        }
-    }
-
-    /// Bottom bar: reply options + character count
-    private var threadsBottomBar: some View {
-        HStack {
-            // Reply options
-            Button {
-                showCommentControls = true
-            } label: {
-                Text(commentPermission == .everyone ? "Anyone can reply" : commentPermission.rawValue)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(Color.primary.opacity(0.75))
+            Button { showingScheduleSheet = true } label: {
+                Image(systemName: "calendar")
+                    .font(.system(size: 18, weight: .light))
+                    .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
 
             Spacer()
+        }
+    }
 
-            // Character count — shows early but stays calm until near limit
-            if postText.count > 250 {
-                Text("\(postText.count)/500")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(
-                        postText.count > 500 ? .red :
-                        postText.count > 480 ? .orange :
-                        .secondary.opacity(0.6)
-                    )
-                    .transition(.opacity.animation(.easeIn(duration: 0.3)))
+    /// Bottom bar: reply options + action icons + character count + context panels
+    private var threadsBottomBar: some View {
+        VStack(spacing: 6) {
+
+            // ── Verse suggestion pill (contextual, no button needed) ──────
+            if shouldShowVerseSuggestion {
+                Button { showingVersePickerSheet = true } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "book.fill")
+                            .font(.system(size: 11))
+                        Text("Attach a verse?")
+                            .font(AMENFont.semiBold(12))
+                        Image(systemName: "plus")
+                            .font(.system(size: 11, weight: .semibold))
+                    }
+                    .foregroundColor(Color(hex: "6B48FF"))
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(.ultraThinMaterial)
+                    .overlay(Capsule().strokeBorder(Color(hex: "6B48FF").opacity(0.3), lineWidth: 0.5))
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 14)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+
+            // ── Alt text prompt when images attached ─────────────────────
+            if !selectedImageData.isEmpty {
+                let allAlt = imageAltTexts.count == selectedImageData.count && imageAltTexts.allSatisfy { !$0.isEmpty }
+                Button {
+                    if imageAltTexts.count != selectedImageData.count {
+                        imageAltTexts = Array(repeating: "", count: selectedImageData.count)
+                    }
+                    editingAltTextIndex = 0
+                    showAltTextSheet = true
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: allAlt ? "checkmark.circle.fill" : "text.bubble")
+                            .font(.system(size: 11))
+                            .foregroundColor(allAlt ? .green : Color.primary.opacity(0.45))
+                        Text(allAlt ? "Alt text added" : "Add alt text for accessibility")
+                            .font(AMENFont.regular(12))
+                            .foregroundColor(Color.primary.opacity(0.55))
+                    }
+                }
+                .buttonStyle(.plain)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 14)
+                .transition(.opacity)
+            }
+
+            // ── Main icon row ─────────────────────────────────────────────
+            HStack(spacing: 10) {
+                // Reply options
+                Button {
+                    showCommentControls = true
+                } label: {
+                    Text(commentPermission == .everyone ? "Anyone can reply" : commentPermission.rawValue)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(Color.primary.opacity(0.75))
+                }
+                .buttonStyle(.plain)
+                
+                // Audience/Visibility selector
+                Button {
+                    showingAudienceSheet = true
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: postVisibility.icon)
+                            .font(.system(size: 11, weight: .medium))
+                        Text(postVisibility.displayName)
+                            .font(.system(size: 12, weight: .medium))
+                    }
+                    .foregroundStyle(Color.primary.opacity(0.75))
+                }
+                .buttonStyle(.plain)
+
+                Spacer()
+
+                // Sensitive content toggle
+                Button {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        hasSensitiveContent.toggle()
+                        if !hasSensitiveContent {
+                            sensitiveContentReason = ""
+                            hideEngagementCounts = false
+                        }
+                    }
+                    HapticManager.impact(style: .light)
+                } label: {
+                    Image(systemName: hasSensitiveContent ? "exclamationmark.triangle.fill" : "exclamationmark.triangle")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(hasSensitiveContent ? .orange : Color.primary.opacity(0.55))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(hasSensitiveContent ? "Remove content warning" : "Mark as sensitive")
+
+                // Schedule button
+                Button {
+                    showingScheduleSheet = true
+                } label: {
+                    Image(systemName: scheduledDate != nil ? "calendar.badge.clock" : "calendar")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(scheduledDate != nil ? Color(hex: "6B48FF") : Color.primary.opacity(0.55))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(scheduledDate != nil ? "Change scheduled time" : "Schedule post")
+
+                // Berean AI tone checker — only when text exists
+                if !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    BereanToneButton(isLoading: isLoadingBereanTone) {
+                        requestBereanToneAssist()
+                    }
+                    .transition(.scale.combined(with: .opacity))
+                }
+
+                // Character count — shows early but stays calm until near limit
+                if postText.count > 250 {
+                    Text("\(postText.count)/500")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(
+                            postText.count > 500 ? .red :
+                            postText.count > 480 ? .orange :
+                            .secondary.opacity(0.6)
+                        )
+                        .transition(.opacity.animation(.easeIn(duration: 0.3)))
+                }
+            }
+
+            // ── Sensitive content expansion panel ─────────────────────────
+            if hasSensitiveContent {
+                sensitiveContentExpansion
+                    .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 6)
+        .padding(.vertical, 8)
         .frame(maxWidth: .infinity)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -1282,6 +1608,9 @@ struct CreatePostView: View {
         )
         .padding(.horizontal, 12)
         .padding(.bottom, 6)
+        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: hasSensitiveContent)
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: shouldShowVerseSuggestion)
+        .animation(.easeOut(duration: 0.2), value: selectedImageData.count)
     }
 
     private var bottomToolbar: some View {
@@ -1468,6 +1797,15 @@ struct CreatePostView: View {
                                     }
                                 }
                                 .accessibilityLabel("Save draft")
+                                .transition(.scale.combined(with: .opacity))
+                            }
+
+                            // Berean AI tone checker — only when text exists
+                            if !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                BereanToneButton(isLoading: isLoadingBereanTone) {
+                                    requestBereanToneAssist()
+                                }
+                                .accessibilityLabel("Check tone with Berean AI")
                                 .transition(.scale.combined(with: .opacity))
                             }
                         }
@@ -3225,6 +3563,17 @@ struct CreatePostView: View {
                     if !sensitiveContentReason.isEmpty {
                         postData["sensitiveContentReason"] = sensitiveContentReason
                     }
+                }
+
+                // ✅ Privacy: hide engagement counts (likes/comments) from public view
+                if hideEngagementCounts {
+                    postData["hideEngagementCounts"] = true
+                }
+
+                // ✅ Alt text for image accessibility
+                let filteredAlt = imageAltTexts.filter { !$0.isEmpty }
+                if !filteredAlt.isEmpty {
+                    postData["imageAltTexts"] = filteredAlt
                 }
 
                 // SECURITY: Stamp every post with moderationStatus="pending" so the
@@ -8240,9 +8589,9 @@ enum UploadVisualState: Equatable {
     case success
 }
 
-// MARK: - Liquid Glass Post Button
+// MARK: - Liquid Glass Post Button (Demo Version)
 
-struct LiquidGlassPostButton: View {
+struct LiquidGlassPostButtonAnimated: View {
     let state: UploadVisualState
     let action: () -> Void
 
@@ -8464,7 +8813,7 @@ struct LiquidGlassPostButtonDemoView: View {
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 30)
                 }
-                LiquidGlassPostButton(state: uploadState, action: runDemoSequence)
+                LiquidGlassPostButtonAnimated(state: uploadState, action: runDemoSequence)
                     .padding(.horizontal, 24)
                 Spacer()
             }

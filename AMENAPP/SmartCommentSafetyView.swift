@@ -16,9 +16,9 @@ enum SafetyRiskLevel {
     case high        // offer alternatives before submit
 }
 
-// MARK: - Safety Assessment
+// MARK: - Comment Safety Assessment
 
-struct SafetyAssessment {
+struct CommentSafetyAssessment {
     let riskLevel: SafetyRiskLevel
     let detectedPatterns: [SafetyPattern]
     let rewordSuggestion: String?
@@ -40,7 +40,7 @@ struct SafetyAssessment {
         let action: String   // identifier for caller to handle
     }
 
-    static let clear = SafetyAssessment(
+    static let clear = CommentSafetyAssessment(
         riskLevel: .clear,
         detectedPatterns: [],
         rewordSuggestion: nil,
@@ -54,13 +54,13 @@ final class CommentSafetyAnalyzer {
     static let shared = CommentSafetyAnalyzer()
     private init() {}
 
-    func analyze(text: String, postType: String, priorCommentCount: Int) -> SafetyAssessment {
+    func analyze(text: String, postType: String, priorCommentCount: Int) -> CommentSafetyAssessment {
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return .clear
         }
 
         let lowered = text.lowercased()
-        var patterns: [SafetyAssessment.SafetyPattern] = []
+        var patterns: [CommentSafetyAssessment.SafetyPattern] = []
 
         // Accusatory language
         let accusatoryPhrases = ["you always", "you never", "you're the reason", "you should be ashamed"]
@@ -120,7 +120,7 @@ final class CommentSafetyAnalyzer {
         // Build alternative actions
         let alternatives = buildAlternativeActions(patterns: patterns, riskLevel: riskLevel)
 
-        return SafetyAssessment(
+        return CommentSafetyAssessment(
             riskLevel: riskLevel,
             detectedPatterns: patterns,
             rewordSuggestion: rewordSuggestion,
@@ -128,15 +128,15 @@ final class CommentSafetyAnalyzer {
         )
     }
 
-    private func determineRiskLevel(patterns: [SafetyAssessment.SafetyPattern]) -> SafetyRiskLevel {
+    private func determineRiskLevel(patterns: [CommentSafetyAssessment.SafetyPattern]) -> SafetyRiskLevel {
         // High-priority patterns always escalate to high
-        let highPatterns: [SafetyAssessment.SafetyPattern] = [.selfHarmPattern, .harassmentSignal, .slander]
+        let highPatterns: [CommentSafetyAssessment.SafetyPattern] = [.selfHarmPattern, .harassmentSignal, .slander]
         if patterns.contains(where: { highPatterns.contains($0) }) {
             return .high
         }
 
         // Moderate: 2+ signals or 1 strong signal
-        let strongPatterns: [SafetyAssessment.SafetyPattern] = [.ragePattern, .accusatoryLanguage]
+        let strongPatterns: [CommentSafetyAssessment.SafetyPattern] = [.ragePattern, .accusatoryLanguage]
         let strongCount = patterns.filter({ strongPatterns.contains($0) }).count
         if strongCount >= 1 || patterns.count >= 2 {
             return .moderate
@@ -150,7 +150,7 @@ final class CommentSafetyAnalyzer {
         return .clear
     }
 
-    private func buildRewordSuggestion(patterns: [SafetyAssessment.SafetyPattern], originalText: String) -> String? {
+    private func buildRewordSuggestion(patterns: [CommentSafetyAssessment.SafetyPattern], originalText: String) -> String? {
         guard !patterns.isEmpty else { return nil }
         if patterns.contains(.accusatoryLanguage) {
             return "Consider sharing how you feel rather than directing blame. For example, \"I felt hurt when...\" instead of placing fault."
@@ -168,10 +168,10 @@ final class CommentSafetyAnalyzer {
     }
 
     private func buildAlternativeActions(
-        patterns: [SafetyAssessment.SafetyPattern],
+        patterns: [CommentSafetyAssessment.SafetyPattern],
         riskLevel: SafetyRiskLevel
-    ) -> [SafetyAssessment.AlternativeAction] {
-        var actions: [SafetyAssessment.AlternativeAction] = []
+    ) -> [CommentSafetyAssessment.AlternativeAction] {
+        var actions: [CommentSafetyAssessment.AlternativeAction] = []
 
         if riskLevel == .high || riskLevel == .moderate {
             actions.append(.init(label: "Post privately instead", icon: "lock", action: "post_private"))
@@ -193,7 +193,7 @@ final class CommentSafetyAnalyzer {
 // MARK: - Smart Comment Safety View
 
 struct SmartCommentSafetyView: View {
-    let assessment: SafetyAssessment
+    let assessment: CommentSafetyAssessment
     @Binding var commentText: String
     let onProceed: () -> Void
     let onAlternative: (String) -> Void
@@ -446,7 +446,7 @@ struct CommentInputBarView: View {
     let onSubmit: (String) -> Void
 
     @State private var text: String = ""
-    @State private var assessment: SafetyAssessment? = nil
+    @State private var assessment: CommentSafetyAssessment? = nil
     @State private var priorCount: Int = 0
     @State private var debounceTask: Task<Void, Never>? = nil
 
@@ -623,7 +623,7 @@ struct CommentInputBarView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 12)
-                    let mildAssessment = SafetyAssessment(
+                    let mildAssessment = CommentSafetyAssessment(
                         riskLevel: .mild,
                         detectedPatterns: [.escalatingTone],
                         rewordSuggestion: nil,
@@ -644,10 +644,10 @@ struct CommentInputBarView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 12)
-                    let moderateAssessment = SafetyAssessment(
+                    let moderateAssessment = CommentSafetyAssessment(
                         riskLevel: .moderate,
-                        detectedPatterns: [.accusatoryLanguage],
-                        rewordSuggestion: "Consider sharing how you feel rather than directing blame. For example, \"I felt hurt when...\" instead of placing fault.",
+                        detectedPatterns: [.accusatoryLanguage, .ragePattern],
+                        rewordSuggestion: "Consider sharing how you feel rather than directing blame.",
                         alternativeActions: [
                             .init(label: "Post privately instead", icon: "lock", action: "post_private"),
                             .init(label: "Save as a draft", icon: "square.and.pencil", action: "save_draft")

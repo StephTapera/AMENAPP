@@ -36,6 +36,7 @@ struct SettingsView: View {
     @State private var showDeleteAccountConfirmation = false
     @State private var navigateToAccountSettings = false
     @State private var groupsVisible = false     // drives stagger entrance
+    @ObservedObject private var prefsService = AMENUserPreferencesService.shared
 
     var body: some View {
         NavigationStack {
@@ -59,6 +60,8 @@ struct SettingsView: View {
                             SDDivider()
                             SDNavRow(icon: "bell", label: "Notifications", subtitle: "Push, email, in-app", iconBg: .red) { NotificationSettingsView() }
                             SDDivider()
+                            SDNavRow(icon: "message", label: "Messaging", subtitle: "Schedule Reply, Edit Message", iconBg: Color(red: 0.2, green: 0.6, blue: 0.9)) { MessagingSettingsView() }
+                            SDDivider()
                             SDNavRow(icon: "square.grid.2x2", label: "Integrations", subtitle: "Widgets, Live Activities, Siri", iconBg: .indigo) { IntegrationSettingsView() }
                             SDDivider()
                             SDNavRow(icon: "lock", label: "Privacy & Safety", subtitle: "Who can see your content", iconBg: .green) { PrivacySettingsView() }
@@ -74,6 +77,16 @@ struct SettingsView: View {
                             SDNavRow(icon: "sparkles", label: "Berean AI", subtitle: "AI settings, Scripture sources", iconBg: .purple) { BereanAISettingsView() }
                             SDDivider()
                             SDNavRow(icon: "slider.horizontal.3", label: "Feed & Content", subtitle: "What you see and when", iconBg: .orange) { ContentFeedGroupView() }
+                            SDDivider()
+                            SDToggleRow(
+                                icon: "book.closed",
+                                label: "Daily Verse Banner",
+                                subtitle: "Show today's scripture in your feed",
+                                isOn: Binding(
+                                    get: { prefsService.preferences.dailyVerseWidgetEnabled },
+                                    set: { v in prefsService.update { $0.dailyVerseWidgetEnabled = v } }
+                                )
+                            )
                             SDDivider()
                             SDNavRow(icon: "heart.text.square", label: "Wellbeing", subtitle: "Screen time, daily limits", iconBg: .teal) { WellbeingGroupView() }
                             SDDivider()
@@ -153,16 +166,15 @@ struct SettingsView: View {
                         HapticManager.impact(style: .light)
                         dismiss()
                     } label: {
-                        Text("Done")
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(SD.label)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 5)
-                            .background(
-                                Capsule()
-                                    .fill(SD.panel)
-                                    .overlay(Capsule().stroke(SD.panelEdge, lineWidth: 1))
-                            )
+                        ZStack {
+                            Circle()
+                                .fill(.ultraThinMaterial)
+                                .overlay(Circle().stroke(Color.primary.opacity(0.08), lineWidth: 0.5))
+                                .frame(width: 30, height: 30)
+                            Image(systemName: "xmark")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundStyle(.secondary)
+                        }
                     }
                     .buttonStyle(.plain)
                 }
@@ -416,6 +428,44 @@ struct SDActionRow: View {
     }
 }
 
+// MARK: - Toggle Row
+
+struct SDToggleRow: View {
+    let icon: String
+    let label: String
+    var subtitle: String? = nil
+    @Binding var isOn: Bool
+
+    var body: some View {
+        HStack(spacing: 13) {
+            Image(systemName: icon)
+                .font(.system(size: 16, weight: .regular))
+                .foregroundStyle(SD.label)
+                .frame(width: 22, alignment: .center)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(label)
+                    .font(.system(size: 15, weight: .regular))
+                    .foregroundStyle(SD.label)
+                if let sub = subtitle {
+                    Text(sub)
+                        .font(.system(size: 12))
+                        .foregroundStyle(SD.label.opacity(0.45))
+                }
+            }
+
+            Spacer()
+
+            Toggle("", isOn: $isOn)
+                .labelsHidden()
+                .tint(.white)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, subtitle != nil ? 10 : 13)
+        .contentShape(Rectangle())
+    }
+}
+
 // MARK: - Disabled Row (Coming Soon / unimplemented destinations)
 
 struct SDDisabledRow: View {
@@ -506,8 +556,45 @@ struct SecurityGroupView: View {
     }
 }
 
+// Messaging features settings
+struct MessagingSettingsView: View {
+    @ObservedObject private var prefsService = AMENUserPreferencesService.shared
+
+    var body: some View {
+        SDDetailScaffold(title: "Messaging") {
+            // Schedule Reply
+            SDGroup {
+                SDToggleRow(
+                    icon: "clock.arrow.2.circlepath",
+                    label: "Schedule Reply",
+                    subtitle: "Long-press send to schedule a message",
+                    isOn: Binding(
+                        get: { prefsService.preferences.scheduleReplyEnabled },
+                        set: { v in prefsService.update { $0.scheduleReplyEnabled = v } }
+                    )
+                )
+            }
+
+            // Edit Message
+            SDGroup {
+                SDToggleRow(
+                    icon: "pencil",
+                    label: "Edit Messages",
+                    subtitle: "Edit sent messages within 15 minutes",
+                    isOn: Binding(
+                        get: { prefsService.preferences.editMessageEnabled },
+                        set: { v in prefsService.update { $0.editMessageEnabled = v } }
+                    )
+                )
+            }
+        }
+    }
+}
+
 // Content & Feed + Accessibility (merged under Preferences)
 struct ContentFeedGroupView: View {
+    @ObservedObject private var prefsService = AMENUserPreferencesService.shared
+
     var body: some View {
         SDDetailScaffold(title: "Feed & Content") {
             SDGroup {
@@ -516,6 +603,16 @@ struct ContentFeedGroupView: View {
                 SDNavRow(icon: "slider.horizontal.3",  label: "Feed Preferences")      { HeyFeedControlsSheet() }
                 SDDivider()
                 SDNavRow(icon: "gear.badge",            label: "Default Post Settings") { DefaultPostSettingsView() }
+                SDDivider()
+                SDToggleRow(
+                    icon: "book.closed",
+                    label: "Daily Verse Banner",
+                    subtitle: "Show today's scripture in your feed",
+                    isOn: Binding(
+                        get: { prefsService.preferences.dailyVerseWidgetEnabled },
+                        set: { v in prefsService.update { $0.dailyVerseWidgetEnabled = v } }
+                    )
+                )
             }
 
             SDGroup {

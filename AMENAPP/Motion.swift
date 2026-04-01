@@ -277,3 +277,57 @@ extension View {
         modifier(StaggeredReveal(index: index, baseDelay: baseDelay, maxDelay: maxDelay))
     }
 }
+
+// MARK: - Tab Capsule Glide
+// A frosted-glass capsule that slides fluidly under the selected tab icon.
+// Uses matchedGeometryEffect so the capsule morphs position instead of
+// fading out and back in — creating a continuous glide feel.
+//
+// Usage:
+//   @Namespace private var tabNamespace
+//   @State private var selectedTab: Tab = .home
+//
+//   HStack {
+//       ForEach(Tab.allCases) { tab in
+//           TabGlideItem(tab: tab, selected: selectedTab, namespace: tabNamespace) {
+//               selectedTab = tab
+//           }
+//       }
+//   }
+
+/// Wrap each tab item in this view to participate in the capsule glide.
+struct TabGlideItem<Tab: Hashable & Identifiable, Content: View>: View {
+    let tab: Tab
+    let selected: Tab
+    let namespace: Namespace.ID
+    let action: () -> Void
+    @ViewBuilder let content: () -> Content
+
+    var isSelected: Bool { tab == selected }
+
+    var body: some View {
+        Button(action: action) {
+            content()
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+                .background {
+                    if isSelected {
+                        Capsule()
+                            .fill(.ultraThinMaterial)
+                            .matchedGeometryEffect(id: "tabCapsule", in: namespace)
+                            .shadow(color: .black.opacity(0.06), radius: 6, y: 3)
+                    }
+                }
+        }
+        .buttonStyle(.plain)
+        .animation(
+            Motion.adaptive(.spring(response: 0.32, dampingFraction: 0.78)),
+            value: selected
+        )
+    }
+}
+
+/// Spring preset tuned for tab selection — fast lateral movement, light bounce.
+extension Motion {
+    static let tabGlide = Animation.spring(response: 0.32, dampingFraction: 0.78)
+}

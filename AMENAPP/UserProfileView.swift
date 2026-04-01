@@ -379,6 +379,10 @@ struct UserProfileView: View {
             .background(Color(.systemGroupedBackground))
             .navigationTitle(profileData?.username ?? "")
             .navigationBarTitleDisplayMode(.inline)
+            // Suppress the dark hairline separator that appears when the view
+            // is presented as a sheet or pushed inside another NavigationStack.
+            .toolbarBackground(Color(.systemGroupedBackground), for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     HStack(spacing: 12) {
@@ -407,6 +411,9 @@ struct UserProfileView: View {
                     toolbarButtonsView
                 }
             }
+            // Hide the system back button — we provide a custom one in the leading toolbar item.
+            // Without this, both appear simultaneously and cause a black separator artifact.
+            .navigationBarBackButtonHidden(true)
             .fullScreenCover(isPresented: $showFullScreenAvatar) {
                 if let profileData = profileData {
                     FullScreenAvatarView(name: profileData.name, initials: profileData.initials, profileImageURL: profileData.profileImageURL)

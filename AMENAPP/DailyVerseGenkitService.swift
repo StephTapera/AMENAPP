@@ -109,13 +109,33 @@ class DailyVerseGenkitService: ObservableObject {
         }
 
         do {
-            // Call Cloud Function with user context
+            // Build liturgical context for observance-aware verse selection
+            let liturgicalState = LiturgicalCalendarEngine.shared.currentState()
+            let activeObservanceNames = liturgicalState.activeObservances
+                .sorted { $0.priorityWeight > $1.priorityWeight }
+                .prefix(2)
+                .map { $0.name }
+            let upcomingObservanceName = liturgicalState.upcomingObservances.first?.name
+
+            // Call Cloud Function with user context + liturgical context
             let callable = functions.httpsCallable("generateDailyVerse")
-            let input: [String: Any] = [
+            var input: [String: Any] = [
                 "goals": context?.interests ?? [],
                 "recentTopics": context?.currentChallenges ?? [],
-                "prayerThemes": context?.recentPrayerTopics ?? []
+                "prayerThemes": context?.recentPrayerTopics ?? [],
+                // Liturgical / church-calendar context
+                "liturgicalSeason": liturgicalState.currentSeason.rawValue,
+                "liturgicalSeasonName": liturgicalState.currentSeason.displayName,
+                "liturgicalThemes": liturgicalState.themeTags,
             ]
+            if !activeObservanceNames.isEmpty {
+                input["activeObservances"] = Array(activeObservanceNames)
+            }
+            if let upcoming = upcomingObservanceName {
+                input["upcomingObservance"] = upcoming
+            }
+            dlog("🗓️ Liturgical context: \(liturgicalState.currentSeason.displayName)" +
+                 (activeObservanceNames.isEmpty ? "" : " | Active: \(activeObservanceNames.joined(separator: ", "))"))
             let result = try await callable.call(input)
             let data = result.data as? [String: Any] ?? [:]
             let verseData = data["verse"] as? [String: Any] ?? [:]
@@ -590,4 +610,3 @@ enum VerseError: LocalizedError {
         }
     }
 }
-

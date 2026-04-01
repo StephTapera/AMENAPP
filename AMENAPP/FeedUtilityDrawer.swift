@@ -136,6 +136,9 @@ struct FeedUtilityDrawerView: View {
     @ObservedObject var state: FeedDrawerState
     let onClose: () -> Void
 
+    @State private var showBrowseCommunities = false
+    @State private var showJoinCovenant = false
+
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 0) {
@@ -181,6 +184,16 @@ struct FeedUtilityDrawerView: View {
         .background(drawerBackground)
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         .shadow(color: Color.black.opacity(0.18), radius: 28, x: -4, y: 0)
+        .sheet(isPresented: $showBrowseCommunities) {
+            NavigationStack {
+                BrowseCommunitiesView()
+            }
+        }
+        .sheet(isPresented: $showJoinCovenant) {
+            CommunityCovenantView {
+                showJoinCovenant = false
+            }
+        }
     }
 
     // MARK: - Header
@@ -291,7 +304,8 @@ struct FeedUtilityDrawerView: View {
     private func communityRow(_ community: DrawerCommunity) -> some View {
         Button {
             HapticManager.impact(style: .light)
-            // TODO: Navigate to community feed
+            onClose()
+            showBrowseCommunities = true
         } label: {
             HStack(spacing: 12) {
                 // Community icon circle
@@ -384,7 +398,7 @@ struct FeedUtilityDrawerView: View {
 
             Button {
                 HapticManager.impact(style: .light)
-                // TODO: Join community
+                showJoinCovenant = true
             } label: {
                 Text("Join")
                     .font(.custom("OpenSans-SemiBold", size: 12))
