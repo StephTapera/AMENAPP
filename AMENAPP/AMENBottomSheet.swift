@@ -131,7 +131,7 @@ final class AMENSheetController: ObservableObject {
         self.topSafeArea = topSafeArea
         let target = configuration.initialSnap.resolvedOffset(in: totalHeight, topSafeArea: topSafeArea)
         currentOffset = totalHeight   // start off-screen
-        withAnimation(.spring(response: 0.42, dampingFraction: 0.82)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.42, dampingFraction: 0.82))) {
             isPresented = true
             currentOffset = target
         }
@@ -139,7 +139,7 @@ final class AMENSheetController: ObservableObject {
     }
 
     func dismiss() {
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.88)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.88))) {
             currentOffset = totalHeight
             isPresented = false
         }
@@ -218,7 +218,7 @@ final class AMENSheetController: ObservableObject {
 
     private func snap(to point: AMENSnapPoint, offset: CGFloat) {
         currentSnap = point
-        withAnimation(.spring(response: 0.38, dampingFraction: 0.80)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.80))) {
             currentOffset = offset
             dragOffset = 0
         }
@@ -336,7 +336,7 @@ struct AMENBottomSheetContainer<Content: View>: View {
                 if !newValue { controller.dismiss() }
             }
             .onReceive(keyboardPublisher) { height in
-                withAnimation(.spring(response: 0.32, dampingFraction: 0.80)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.32, dampingFraction: 0.80))) {
                     keyboardHeight = height
                 }
             }

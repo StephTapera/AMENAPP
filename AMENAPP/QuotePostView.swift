@@ -150,7 +150,7 @@ struct QuotePostView: View {
                 .animation(.spring(response: 0.3, dampingFraction: 0.6), value: cardScale)
                 .onLongPressGesture(minimumDuration: 0.4) {
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.65)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.65))) {
                         showReactionTray = true
                     }
                 }
@@ -260,16 +260,16 @@ struct QuotePostView: View {
         return HStack(spacing: 8) {
             ForEach(Array(emojis.enumerated()), id: \.offset) { index, emoji in
                 Button {
-                    withAnimation(.spring(response: 0.28, dampingFraction: 0.6)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.6))) {
                         selectedReaction = emoji
                         showReactionTray = false
                     }
                     // Card scale bounce
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.55)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.55))) {
                         cardScale = 1.05
                     }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                             cardScale = 1.0
                         }
                     }
@@ -316,14 +316,14 @@ struct QuotePostView: View {
                             injectSuggestion(chip)
                             // Bounce the relevant toolbar icon
                             if trayType == .mention {
-                                withAnimation(.spring(response: 0.25, dampingFraction: 0.5)) { atIconScale = 1.25 }
+                                withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.5))) { atIconScale = 1.25 }
                                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                                    withAnimation(.spring(response: 0.25)) { atIconScale = 1.0 }
+                                    withAnimation(Motion.adaptive(.spring(response: 0.25))) { atIconScale = 1.0 }
                                 }
                             } else {
-                                withAnimation(.spring(response: 0.25, dampingFraction: 0.5)) { hashIconScale = 1.25 }
+                                withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.5))) { hashIconScale = 1.25 }
                                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                                    withAnimation(.spring(response: 0.25)) { hashIconScale = 1.0 }
+                                    withAnimation(Motion.adaptive(.spring(response: 0.25))) { hashIconScale = 1.0 }
                                 }
                             }
                             UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -385,13 +385,13 @@ struct QuotePostView: View {
         } else if let hash = lastHash {
             triggerIdx = hash; type = .hashtag; triggerChar = "#"
         } else {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { trayVisible = false }
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) { trayVisible = false }
             trayChips = []
             return
         }
 
         guard let idx = triggerIdx else {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { trayVisible = false }
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) { trayVisible = false }
             return
         }
 
@@ -404,12 +404,12 @@ struct QuotePostView: View {
             let chips = Array(all.prefix(5))
             trayChips = chips
             trayType = type
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { trayVisible = !chips.isEmpty }
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) { trayVisible = !chips.isEmpty }
             return
         }
 
         if partial.contains(" ") {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { trayVisible = false }
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) { trayVisible = false }
             trayChips = []
             return
         }
@@ -422,7 +422,7 @@ struct QuotePostView: View {
         trayChips = chips
         trayType = type
 
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
             trayVisible = !chips.isEmpty
         }
     }
@@ -434,7 +434,7 @@ struct QuotePostView: View {
         } else {
             composerText += suggestion + " "
         }
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
             trayVisible = false
         }
         trayChips = []

@@ -362,7 +362,7 @@ private struct NotificationCard: View {
         }
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             Button(role: .destructive) {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.80)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.80))) {
                     onDismiss()
                 }
             } label: {
@@ -528,7 +528,7 @@ struct AMENNotificationsView: View {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     if viewModel.unreadCount > 0 {
                         Button {
-                            withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.85))) {
                                 viewModel.markAllReadRemote()
                             }
                         } label: {
@@ -600,7 +600,7 @@ struct AMENNotificationsView: View {
                 unreadCount: unread,
                 isCollapsed: isCollapsed
             ) {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.80)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.80))) {
                     if isCollapsed {
                         viewModel.collapsedGroups.remove(type)
                     } else {

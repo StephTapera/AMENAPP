@@ -1024,7 +1024,7 @@ struct TestimonyPostCard: View {
         let previousCount = amenCount
         
         // OPTIMISTIC UPDATE: Update UI immediately for instant feedback
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
             hasAmened.toggle()
             amenCount = hasAmened ? amenCount + 1 : amenCount - 1
         }
@@ -1043,7 +1043,7 @@ struct TestimonyPostCard: View {
             
             // On error, revert the optimistic update
             await MainActor.run {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                     hasAmened = previousAmened
                     amenCount = previousCount
                 }
@@ -1115,7 +1115,7 @@ struct TestimonyPostCard: View {
         let previousCount = repostCount
         
         // OPTIMISTIC UPDATE: Update UI immediately
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
             hasReposted.toggle()
             repostCount += hasReposted ? 1 : -1
         }
@@ -1137,7 +1137,7 @@ struct TestimonyPostCard: View {
             
             // On error, revert the optimistic update
             await MainActor.run {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                     hasReposted = previousReposted
                     repostCount = previousCount
                 }
@@ -1493,7 +1493,7 @@ struct TestimonyCommentSection: View {
                     content: commentText
                 )
                 await MainActor.run {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                         comments.insert(newComment.toTestimonyFeedComment(), at: 0)
                         commentCount += 1
                         commentText = ""
@@ -1554,7 +1554,7 @@ struct TestimonyCommentRow: View {
                 // Comment actions
                 HStack(spacing: 16) {
                     Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                             hasAmened.toggle()
                             amenCount += hasAmened ? 1 : -1
                         }

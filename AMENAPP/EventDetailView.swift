@@ -345,7 +345,7 @@ struct EventDetailView: View {
                     }
                     Spacer()
                     Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                             calendarAddState = .none
                         }
                     } label: {
@@ -594,7 +594,7 @@ struct EventDetailView: View {
                 )
                 let id = await calendarService.addEventToCalendar(event, options: options)
                 isAddingToCalendar = false
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.75))) {
                     calendarAddState = id != nil ? .added : .failed
                 }
             }

@@ -212,12 +212,12 @@ struct HelixGraphView: View {
                     y: tapPoint.y / currentScale - graphVM.offset.height - dragState.height
                 )
                 if let hitId = graphVM.nodeId(at: adjustedPoint, in: size) {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                         graphVM.selectedNodeId = hitId
                     }
                     selectedNode = graphVM.nodes.first { $0.id == hitId }
                 } else {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                         graphVM.selectedNodeId = nil
                     }
                 }
@@ -230,7 +230,7 @@ struct HelixGraphView: View {
                 Spacer()
                 VStack(spacing: 0) {
                     Button {
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                             graphVM.scale = min(graphVM.scale * 1.25, 4.0)
                         }
                     } label: {
@@ -239,7 +239,7 @@ struct HelixGraphView: View {
                     }
                     Divider().background(Color.white.opacity(0.1))
                     Button {
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                             graphVM.scale = max(graphVM.scale * 0.8, 0.3)
                         }
                     } label: {
@@ -272,7 +272,7 @@ struct HelixGraphView: View {
                         ForEach(HelixNodeType.allCases, id: \.self) { type in
                             let isActive = graphVM.activeTypeFilters.contains(type)
                             Button {
-                                withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.7))) {
                                     if isActive {
                                         graphVM.activeTypeFilters.remove(type)
                                     } else {

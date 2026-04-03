@@ -202,7 +202,7 @@ struct MentorProfileView: View {
                 ForEach(plans) { plan in
                     MentorProfilePlanCard(plan: plan, isSelected: selectedPlanId == plan.id)
                         .onTapGesture {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                                 selectedPlanId = plan.id
                             }
                         }

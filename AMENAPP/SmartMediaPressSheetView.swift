@@ -119,7 +119,7 @@ struct SmartMediaPressSheetView: View {
 
     private func actionRow(_ smartAction: MediaSmartAction) -> some View {
         Button {
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.82))) {
                 smartAction.action()
                 onAction(smartAction.label)
                 dismiss()
@@ -180,7 +180,7 @@ struct SmartMediaPressSheetView: View {
 
     private var dismissButton: some View {
         Button {
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.82))) {
                 dismiss()
             }
         } label: {

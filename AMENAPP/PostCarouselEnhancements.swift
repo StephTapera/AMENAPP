@@ -117,11 +117,11 @@ struct CarouselSaveToNotesButton: View {
             guard !isSaved else { return }
             dlog("CarouselSaveToNotesButton: saving slide to church notes — '\(postTitle)'")
             onSave?(slideContent)
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.65)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.65))) {
                 scale = 0.95
                 isSaved = true
             }
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.6).delay(0.12)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6)).delay(0.12)) {
                 scale = 1.0
             }
             // Reset after 2.5 seconds so user can save again if desired

@@ -55,13 +55,13 @@ final class ChurchBusinessOnboardingViewModel: ObservableObject {
     }
     
     func nextStep() {
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.85))) {
             currentStep = min(currentStep + 1, totalSteps - 1)
         }
     }
     
     func previousStep() {
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.85))) {
             currentStep = max(currentStep - 1, 0)
         }
     }

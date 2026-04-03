@@ -107,7 +107,7 @@ struct StudioPaywallView: View {
     }
 
     private func tierTab(_ tier: StudioEntitlement) -> some View {
-        Button { withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { selectedTier = tier } } label: {
+        Button { withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) { selectedTier = tier } } label: {
             VStack(spacing: 2) {
                 Text(tier.displayName)
                     .font(.systemScaled(13, weight: .semibold))

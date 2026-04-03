@@ -307,7 +307,7 @@ struct CoCreationSummaryView: View {
             Button {
                 guard !didPost else { return }
                 didPost = true
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                     showSuccessToast = true
                 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {

@@ -44,7 +44,7 @@ struct ReflectionPromptCard: View {
                 guard !isAnimating else { return }
                 isAnimating = true
                 if !reduceMotion {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.5)) { rotation += 360 }
+                    withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.5))) { rotation += 360 }
                 }
                 localCompleted.toggle()
                 Task {

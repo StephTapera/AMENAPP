@@ -175,7 +175,7 @@ struct DiscoverPeopleView: View {
                         filter: filter,
                         isSelected: selectedFilter == filter
                     ) {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                             selectedFilter = filter
                         }
                         Task {
@@ -617,7 +617,7 @@ struct ThreadsFollowButton: View {
                 }
                 
                 await MainActor.run {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                         isFollowing.toggle()
                     }
                     
@@ -895,7 +895,7 @@ struct CompactUserCard: View {
                 }
                 
                 await MainActor.run {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                         isFollowing.toggle()
                     }
                     

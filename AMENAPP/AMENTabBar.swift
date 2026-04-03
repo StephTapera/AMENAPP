@@ -327,7 +327,7 @@ final class AMENTabBarScrollBridge: ObservableObject {
 
     func expand() {
         guard isMinimized else { return }
-        withAnimation(.spring(response: 0.28, dampingFraction: 0.78)) { isMinimized = false }
+        withAnimation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.78))) { isMinimized = false }
     }
 }
 

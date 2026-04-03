@@ -240,7 +240,7 @@ struct ExamplePostCard: View {
             HStack(spacing: 24) {
                 Button {
                     HapticFeedback.light()
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                         isLiked.toggle()
                     }
                 } label: {
@@ -282,7 +282,7 @@ struct ExamplePostCard: View {
                 
                 Button {
                     HapticFeedback.selection()
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                         isBookmarked.toggle()
                     }
                 } label: {
@@ -393,7 +393,7 @@ struct EnhancedCategoryPill: View {
     var body: some View {
         Button(action: {
             HapticFeedback.selection()
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                 action()
             }
         }) {

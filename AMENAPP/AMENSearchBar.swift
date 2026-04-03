@@ -361,7 +361,7 @@ struct AMENCompactSearchField: View {
 
             if !query.isEmpty {
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { query = "" }
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) { query = "" }
                 } label: {
                     Image(systemName: "xmark.circle.fill")
                         .font(.systemScaled(14))

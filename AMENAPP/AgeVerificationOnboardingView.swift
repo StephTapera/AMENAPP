@@ -103,7 +103,7 @@ struct AgeVerificationOnboardingView: View {
         }
 
         if age < 13 {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
                 showUnderAgeMessage = true
             }
             return
@@ -125,7 +125,7 @@ struct AgeVerificationOnboardingView: View {
                 .setData(["ageTier": ageTier], merge: true)
         }
 
-        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.8))) {
             currentStep += 1
         }
     }

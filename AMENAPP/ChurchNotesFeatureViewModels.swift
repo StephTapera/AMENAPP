@@ -511,7 +511,7 @@ final class QuoteForgeViewModel: ObservableObject {
     }
 
     func checkVisibility(textLength: Int) {
-        withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.7))) {
             isVisible = textLength >= 80
         }
     }

@@ -26,7 +26,7 @@ struct BereanFactShieldView: View {
         VStack(alignment: .leading, spacing: 4) {
             // Header row — tap to expand/collapse
             Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.72)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.72))) {
                     expanded.toggle()
                 }
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()

@@ -24,7 +24,7 @@ struct PrayerBreakModalView: View {
             Color.black.opacity(0.4)
                 .ignoresSafeArea()
                 .onTapGesture {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.8))) {
                         onSkip()
                     }
                 }
@@ -61,7 +61,7 @@ struct PrayerBreakModalView: View {
                 VStack(spacing: 12) {
                     // Primary: Pray Now
                     Button {
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
                             onPrayNow()
                         }
                     } label: {
@@ -86,7 +86,7 @@ struct PrayerBreakModalView: View {
                     
                     // Secondary: Remind Later
                     Button {
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
                             onRemindLater()
                         }
                     } label: {
@@ -111,7 +111,7 @@ struct PrayerBreakModalView: View {
                     
                     // Tertiary: Skip
                     Button {
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
                             onSkip()
                         }
                     } label: {
@@ -139,7 +139,7 @@ struct PrayerBreakModalView: View {
             .opacity(animate ? 1.0 : 0)
         }
         .onAppear {
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.75)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.75))) {
                 animate = true
             }
             breatheAnimation = true

@@ -341,7 +341,7 @@ struct TeachingClipCard: View {
                 label: "Encourage",
                 tint: hasEncouraged ? Color(red: 0.93, green: 0.30, blue: 0.30) : .white
             ) {
-                withAnimation(.spring(response: 0.3)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3))) {
                     hasEncouraged.toggle()
                 }
                 if hasEncouraged {

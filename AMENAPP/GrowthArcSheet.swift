@@ -174,7 +174,7 @@ private struct ChartsLineChart: View {
             }
         }
         .onAppear {
-            withAnimation(.spring(response: 1.0, dampingFraction: 0.8).delay(0.2)) {
+            withAnimation(Motion.adaptive(.spring(response: 1.0, dampingFraction: 0.8)).delay(0.2)) {
                 appeared = true
             }
         }
@@ -207,7 +207,7 @@ private struct FallbackBarChart: View {
             }
         }
         .onAppear {
-            withAnimation(.spring(response: 1.0, dampingFraction: 0.8).delay(0.2)) {
+            withAnimation(Motion.adaptive(.spring(response: 1.0, dampingFraction: 0.8)).delay(0.2)) {
                 appeared = true
             }
         }

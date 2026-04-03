@@ -339,7 +339,7 @@ struct ChurchToolsView: View {
                 ForEach(ChurchTab.allCases, id: \.self) { tab in
                     Button {
                         UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) { selectedTab = tab }
+                        withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.75))) { selectedTab = tab }
                     } label: {
                         Text(tab.rawValue)
                             .font(.custom(selectedTab == tab ? "OpenSans-Bold" : "OpenSans-Regular", size: 13))
@@ -744,7 +744,7 @@ struct SmallGroupCard: View {
         .overlay(RoundedRectangle(cornerRadius: 16).stroke(accentColor.opacity(0.12), lineWidth: 1))
         .scaleEffect(appeared ? 1 : 0.95).opacity(appeared ? 1 : 0)
         .onAppear {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.75).delay(Double.random(in: 0...0.12))) {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75)).delay(Double.random(in: 0...0.12))) {
                 appeared = true
             }
         }

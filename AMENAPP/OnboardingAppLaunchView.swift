@@ -141,16 +141,16 @@ struct AppLaunchView: View {
     }
 
     private func runEntranceAnimation() {
-        withAnimation(.spring(response: 0.55, dampingFraction: 0.72).delay(0.08)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.55, dampingFraction: 0.72)).delay(0.08)) {
             logoAppeared = true
         }
-        withAnimation(.spring(response: 0.55, dampingFraction: 0.78).delay(0.28)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.55, dampingFraction: 0.78)).delay(0.28)) {
             heroAppeared = true
         }
         withAnimation(.easeOut(duration: 0.45).delay(0.52)) {
             pillsAppeared = true
         }
-        withAnimation(.spring(response: 0.48, dampingFraction: 0.80).delay(0.60)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.48, dampingFraction: 0.80)).delay(0.60)) {
             ctaAppeared = true
         }
     }

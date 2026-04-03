@@ -475,7 +475,7 @@ struct BereanHeroGreetingView: View {
         .offset(y: heroOffset)
         .onAppear {
             if shouldAnimate && !reduceMotion {
-                withAnimation(.spring(response: 0.60, dampingFraction: 0.82)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.60, dampingFraction: 0.82))) {
                     heroOpacity = 1
                     heroOffset = 0
                 }

@@ -395,7 +395,7 @@ struct NotificationsView: View {
                     GroupedNotificationRow(
                         group: group,
                         onDismiss: {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
                                 removeGroup(group)
                             }
                         },
@@ -676,7 +676,7 @@ struct NotificationsView: View {
         Button {
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
             // Navigate back to Home tab (0). Falls back to dismiss() if presented as a sheet.
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
                 mainTabSelection.wrappedValue = 0
             }
         } label: {
@@ -712,7 +712,7 @@ struct NotificationsView: View {
     private var settingsButton: some View {
         Menu {
             Button {
-                withAnimation(.spring(response: 0.28, dampingFraction: 0.78)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.78))) {
                     markAllAsRead()
                 }
                 HapticManager.notification(type: .success)
@@ -782,7 +782,7 @@ struct NotificationsView: View {
         let count = notificationCount(for: filter)
         
         Button {
-            withAnimation(.spring(response: 0.28, dampingFraction: 0.78)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.78))) {
                 selectedFilter = filter
             }
             let haptic = UIImpactFeedbackGenerator(style: .light)
@@ -1167,15 +1167,15 @@ struct GroupedNotificationRow: View {
                     }
                     .onEnded { value in
                         if value.translation.width > 50 {
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.65)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.65))) {
                                 dragOffset = 0
                             }
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                                 swipeMarkedRead = true
                             }
                             onMarkAsRead()
                         } else {
-                            withAnimation(.spring(response: 0.38, dampingFraction: 0.72)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.72))) {
                                 dragOffset = 0
                             }
                         }
@@ -1198,7 +1198,7 @@ struct GroupedNotificationRow: View {
                 }
             }
             Button(role: .destructive) {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { onDismiss() }
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) { onDismiss() }
             } label: {
                 Label("Delete", systemImage: "trash")
             }
@@ -1212,7 +1212,7 @@ struct GroupedNotificationRow: View {
         }
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             Button(role: .destructive) {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { onDismiss() }
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) { onDismiss() }
             } label: {
                 Label("Delete", systemImage: "trash")
             }
@@ -1310,7 +1310,7 @@ struct GroupedNotificationRow: View {
     private var trailingView: some View {
         if showFollowBack {
             FollowBackButton(actorId: group.primaryNotification.actorId ?? "") {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                     didFollowBack = true
                 }
             }

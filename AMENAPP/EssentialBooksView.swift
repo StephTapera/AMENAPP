@@ -113,7 +113,7 @@ struct EssentialBooksView: View {
                     HStack(spacing: 8) {
                         ForEach(BookCategory.allCases, id: \.self) { category in
                             Button {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                     selectedCategory = category
                                     let haptic = UIImpactFeedbackGenerator(style: .light)
                                     haptic.impactOccurred()
@@ -161,7 +161,7 @@ struct EssentialBooksView: View {
                 .padding(.trailing, 4)
                 
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                         viewMode = viewMode == .list ? .grid : .list
                         let haptic = UIImpactFeedbackGenerator(style: .light)
                         haptic.impactOccurred()
@@ -460,7 +460,7 @@ struct SmartBookCard: View {
                 Spacer()
                 
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                         isSaved.toggle()
                         let haptic = UIImpactFeedbackGenerator(style: .light)
                         haptic.impactOccurred()
@@ -513,7 +513,7 @@ struct GridBookCard: View {
                     }
                     
                     Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                             isSaved.toggle()
                             let haptic = UIImpactFeedbackGenerator(style: .light)
                             haptic.impactOccurred()
@@ -639,7 +639,7 @@ struct BookDetailView: View {
                         }
                         
                         Button {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                                 isSaved.toggle()
                                 let haptic = UIImpactFeedbackGenerator(style: .light)
                                 haptic.impactOccurred()

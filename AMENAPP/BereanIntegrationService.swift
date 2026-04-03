@@ -415,7 +415,7 @@ struct VerseContextCard: View {
                     .font(.subheadline.weight(.medium))
                 Spacer()
                 Button {
-                    withAnimation(.spring(response: 0.3)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3))) {
                         isExpanded.toggle()
                     }
                 } label: {

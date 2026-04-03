@@ -131,14 +131,14 @@ final class LivingSermonViewModel: ObservableObject {
             highlightType: nil,
             detectedVerse: detectVerse(in: text)
         )
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.82))) {
             notes.append(note)
         }
     }
 
     func addHighlight(_ type: HighlightType, to noteId: String) {
         guard let idx = notes.firstIndex(where: { $0.id == noteId }) else { return }
-        withAnimation(.spring(response: 0.28, dampingFraction: 0.75)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.75))) {
             notes[idx].highlightType = type
         }
     }
@@ -388,7 +388,7 @@ private struct SermonTabSelector: View {
             HStack(spacing: 6) {
                 ForEach(LivingSermonTab.allCases, id: \.self) { tab in
                     SermonTabPill(tab: tab, isActive: activeTab == tab) {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.82))) {
                             activeTab = tab
                         }
                     }
@@ -655,7 +655,7 @@ private struct NoteCardRow: View {
 
                 // Long-press to add highlight
                 Button {
-                    withAnimation(.spring(response: 0.28, dampingFraction: 0.75)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.75))) {
                         showHighlightPicker.toggle()
                     }
                 } label: {
@@ -695,7 +695,7 @@ private struct NoteCardRow: View {
                     ForEach(HighlightType.allCases, id: \.self) { type in
                         HighlightPickerChip(type: type) {
                             vm.addHighlight(type, to: note.id)
-                            withAnimation(.spring(response: 0.28, dampingFraction: 0.75)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.75))) {
                                 showHighlightPicker = false
                             }
                         }
@@ -726,11 +726,11 @@ private struct HighlightPickerChip: View {
 
     var body: some View {
         Button {
-            withAnimation(.spring(response: 0.28, dampingFraction: 0.75)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.75))) {
                 scale = 1.08
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
-                withAnimation(.spring(response: 0.28, dampingFraction: 0.75)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.75))) {
                     scale = 1.0
                 }
                 action()
@@ -792,9 +792,9 @@ private struct HighlightCircleButton: View {
 
     var body: some View {
         Button {
-            withAnimation(.spring(response: 0.28, dampingFraction: 0.75)) { scale = 1.08 }
+            withAnimation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.75))) { scale = 1.08 }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
-                withAnimation(.spring(response: 0.28, dampingFraction: 0.75)) { scale = 1.0 }
+                withAnimation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.75))) { scale = 1.0 }
                 action()
             }
         } label: {
@@ -867,7 +867,7 @@ private struct SermonTranscriptTab: View {
                                 vm: vm,
                                 isSelected: selectedSegmentId == segment.id
                             ) {
-                                withAnimation(.spring(response: 0.28, dampingFraction: 0.75)) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.75))) {
                                     selectedSegmentId = selectedSegmentId == segment.id ? nil : segment.id
                                 }
                             }
@@ -943,7 +943,7 @@ private struct LivingTranscriptSegmentRow: View {
                     Spacer()
                     Button {
                         vm.addNote(segment.text)
-                        withAnimation(.spring(response: 0.28, dampingFraction: 0.75)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.75))) {
                             // deselect handled by parent
                         }
                     } label: {

@@ -1478,7 +1478,7 @@ struct UserProfileView: View {
         let previousState = isFollowing
         
         // Only toggle the button state optimistically, not the count
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
             isFollowing.toggle()
         }
         
@@ -1542,7 +1542,7 @@ struct UserProfileView: View {
         do {
             if followRequestPending {
                 // Cancel pending request
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                     followRequestPending = false
                 }
                 
@@ -1551,7 +1551,7 @@ struct UserProfileView: View {
                 
             } else {
                 // Send new follow request
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                     followRequestPending = true
                 }
                 
@@ -2404,7 +2404,7 @@ struct UserProfileView: View {
                     let haptic = UIImpactFeedbackGenerator(style: .light)
                     haptic.impactOccurred()
                     
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                         selectedTab = tab
                     }
                 } label: {
@@ -2659,7 +2659,7 @@ struct UserPostsContentView: View {
     
     // ✅ NEW: Toggle post expansion
     private func toggleExpanded(postId: String) {
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
             if expandedPosts.contains(postId) {
                 expandedPosts.remove(postId)
             } else {
@@ -3336,7 +3336,7 @@ struct ReadOnlyProfilePostCard: View {
             triggerCommentSwipe()
         } else {
             // Reset swipe if threshold not met
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
                 swipeOffset = 0
                 swipeDirection = nil
             }
@@ -3352,7 +3352,7 @@ struct ReadOnlyProfilePostCard: View {
         onLike()
         
         // Reset swipe with animation AFTER triggering action
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
             swipeOffset = 0
             swipeDirection = nil
         }
@@ -3368,7 +3368,7 @@ struct ReadOnlyProfilePostCard: View {
         
         // Small delay before reset to allow sheet to present properly
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
                 swipeOffset = 0
                 swipeDirection = nil
             }
@@ -3717,7 +3717,7 @@ struct UserListRow: View {
         let previousState = isFollowing
         
         // Optimistic update
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
             isFollowing.toggle()
         }
         
@@ -3793,7 +3793,7 @@ struct ReportUserView: View {
                                 reason: reason,
                                 isSelected: selectedReason == reason
                             ) {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                     selectedReason = reason
                                 }
                             }
@@ -4533,13 +4533,13 @@ struct BackToTopButton: View {
     }
     
     func show() {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
             isVisible = true
         }
     }
     
     func hide() {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
             isVisible = false
         }
     }
@@ -4646,7 +4646,7 @@ struct PullToRefreshView<Content: View>: View {
         Task {
             await onRefresh()
             await MainActor.run {
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
                     isRefreshing = false
                     refreshProgress = 0
                 }

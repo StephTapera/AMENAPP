@@ -368,7 +368,7 @@ struct FaithReelCreatorView: View {
                 HStack(spacing: 12) {
                     if currentStep > 1 {
                         Button {
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.75))) {
                                 currentStep -= 1
                             }
                         } label: {
@@ -391,7 +391,7 @@ struct FaithReelCreatorView: View {
 
                     if currentStep < totalSteps {
                         Button {
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.75))) {
                                 currentStep += 1
                             }
                         } label: {

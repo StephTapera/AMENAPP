@@ -1196,7 +1196,7 @@ struct VibeMatchRow: View {
             .transition(.opacity)
         } else if let reason = reason {
             Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.72)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.72))) {
                     isExpanded.toggle()
                 }
             } label: {
@@ -1356,7 +1356,7 @@ struct DiscoveryPersonRow: View {
                 HapticManager.impact(style: .light)
                 // Toggle local state immediately so button reflects new state
                 // even before the parent ForEach re-renders via FollowService.
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.65)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.65))) {
                     if !localIsFollowing { showCheckmark = true }
                     localIsFollowing.toggle()
                 }
@@ -1414,7 +1414,7 @@ struct DiscoveryPersonRow: View {
             // P1: Cap stagger at 6 items (0.04 * 6 = 0.24s max) — beyond that no delay
             // Avoids long "waterfall" when a large list is scrolled into view.
             let delay = cardIndex < 8 ? Double(cardIndex) * 0.04 : 0
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.8).delay(delay)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.8)).delay(delay)) {
                 appeared = true
             }
         }
@@ -1422,7 +1422,7 @@ struct DiscoveryPersonRow: View {
         // after the optimistic toggle (e.g. server revert on error).
         .onChange(of: isFollowing) { _, newValue in
             if newValue != localIsFollowing {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                     localIsFollowing = newValue
                 }
             }

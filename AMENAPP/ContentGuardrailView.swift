@@ -253,7 +253,7 @@ struct ContentGuardrailView: View {
     
     private func applyRedactions() {
         let redacted = ThinkFirstGuardrailsService.shared.applyRedactions(text, redactions: result.redactions)
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
             text = redacted
         }
         let haptic = UINotificationFeedbackGenerator()

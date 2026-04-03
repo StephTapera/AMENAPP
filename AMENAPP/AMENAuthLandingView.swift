@@ -269,7 +269,7 @@ struct AMENAuthLandingView: View {
     private func runEntryAnimation() {
         let easeOut35 = Animation.easeOut(duration: 0.35)
 
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.8))) {
             logoScale   = 1.0
             logoOpacity = 1
         }
@@ -392,7 +392,7 @@ private struct EmailButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .onChange(of: configuration.isPressed) { _, pressed in
-                withAnimation(.spring(response: 0.2, dampingFraction: 0.7)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.7))) {
                     bg = pressed ? Color(white: 0.922) : Color(white: 0.957)
                 }
             }

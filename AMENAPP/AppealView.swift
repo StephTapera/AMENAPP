@@ -301,7 +301,7 @@ struct AppealView: View {
                 "contentId": contentId
             ], merge: true)
 
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                 didSubmit = true
             }
         } catch {

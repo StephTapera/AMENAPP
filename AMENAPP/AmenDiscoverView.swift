@@ -609,7 +609,7 @@ struct AmenDiscoverView: View {
             HStack(spacing: 8) {
                 ForEach(categories, id: \.self) { cat in
                     AmenDiscoverCategoryPill(title: cat, isActive: activeTab == cat) {
-                        withAnimation(.spring(response: 0.30, dampingFraction: 0.80)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.30, dampingFraction: 0.80))) {
                             activeTab = cat
                         }
                         dlog("AmenDiscoverView: category tapped — \(cat)")
@@ -680,7 +680,7 @@ struct AmenDiscoverView: View {
 
     private func exploreTypePill(_ item: ExploreType) -> some View {
         Button {
-            withAnimation(.spring(response: 0.30, dampingFraction: 0.80)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.30, dampingFraction: 0.80))) {
                 activeFilter = item.label
             }
             dlog("AmenDiscoverView: explore type selected — \(item.label)")

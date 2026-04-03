@@ -84,7 +84,7 @@ struct MutualFollowersView: View {
             .opacity(appeared ? 1 : 0)
             .offset(y: appeared ? 0 : 6)
             .onAppear {
-                withAnimation(.spring(response: 0.42, dampingFraction: 0.78).delay(0.1)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.42, dampingFraction: 0.78)).delay(0.1)) {
                     appeared = true
                 }
             }

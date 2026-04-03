@@ -218,7 +218,7 @@ struct BereanMessageBubble: View {
         .opacity(appeared ? 1 : 0)
         .offset(x: appeared ? 0 : (isUser ? 8 : -8))
         .onAppear {
-            withAnimation(.spring(response: 0.40, dampingFraction: 0.72)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.40, dampingFraction: 0.72))) {
                 appeared = true
             }
         }

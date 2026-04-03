@@ -81,7 +81,7 @@ struct AccountDeactivationView: View {
                 ForEach(Array(AccountDeactivationService.DeactivationReason.allCases.enumerated()),
                         id: \.element.id) { idx, reason in
                     Button {
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.75))) {
                             selectedReason = reason
                         }
                     } label: {

@@ -107,7 +107,7 @@ final class FeedDrawerState: ObservableObject {
 
     func open(animated: Bool = true) {
         if animated {
-            withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.82))) {
                 isOpen = true
                 dragOffset = 0
             }
@@ -119,7 +119,7 @@ final class FeedDrawerState: ObservableObject {
 
     func close(animated: Bool = true) {
         if animated {
-            withAnimation(.spring(response: 0.32, dampingFraction: 0.88)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.32, dampingFraction: 0.88))) {
                 isOpen = false
                 dragOffset = 0
             }
@@ -244,7 +244,7 @@ struct FeedUtilityDrawerView: View {
     private func feedModeRow(_ mode: DrawerFeedMode) -> some View {
         let isActive = state.activeFeedMode == mode
         return Button {
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
                 state.activeFeedMode = mode
             }
             HapticManager.impact(style: .light)

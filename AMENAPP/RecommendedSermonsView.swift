@@ -74,7 +74,7 @@ struct RecommendedSermonsView: View {
                 HStack(spacing: 8) {
                     ForEach(SermonTopic.allCases, id: \.self) { topic in
                         Button {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                 selectedTopic = topic
                                 let haptic = UIImpactFeedbackGenerator(style: .light)
                                 haptic.impactOccurred()
@@ -334,7 +334,7 @@ struct EnhancedSermonCard: View {
                 Spacer()
                 
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                         isSaved.toggle()
                         let haptic = UIImpactFeedbackGenerator(style: .light)
                         haptic.impactOccurred()

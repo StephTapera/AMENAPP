@@ -87,7 +87,7 @@ struct AMENSuggestionsSection: View {
                             isSelected: selectedCategory == cat,
                             namespace: categoryNamespace
                         ) {
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.78)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.78))) {
                                 selectedCategory = cat
                             }
                             HapticManager.selection()

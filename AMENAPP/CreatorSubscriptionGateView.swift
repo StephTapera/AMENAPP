@@ -40,7 +40,7 @@ struct CreatorSubscriptionGateView: View {
                 .scaleEffect(appear ? 1.0 : 0.88)
                 .opacity(appear ? 1.0 : 0.0)
                 .onAppear {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                         appear = true
                     }
                 }

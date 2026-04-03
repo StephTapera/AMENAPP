@@ -173,7 +173,7 @@ final class SuggestionsViewModel: ObservableObject {
     }
 
     func dismiss(id: String) {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.82)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.82))) {
             items.removeAll { $0.id == id }
         }
         var set = Self.loadDismissed()
@@ -183,7 +183,7 @@ final class SuggestionsViewModel: ObservableObject {
     }
 
     func hideModule() {
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.85))) {
             isModuleHidden = true
         }
         UserDefaults.standard.set(true, forKey: Self.hiddenKey)
@@ -192,7 +192,7 @@ final class SuggestionsViewModel: ObservableObject {
 
     func restoreModule() {
         UserDefaults.standard.set(false, forKey: Self.hiddenKey)
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.85))) {
             isModuleHidden = false
         }
         trackSuggestionEvent("suggestions_restore_module", id: "")
@@ -207,7 +207,7 @@ final class SuggestionsViewModel: ObservableObject {
             trackSuggestionEvent("suggestion_follow_success", id: id)
             // Remove from rail after short delay so user sees the state change
             try? await Task.sleep(nanoseconds: 900_000_000)
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.82)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.82))) {
                 items.removeAll { $0.id == id }
             }
         } catch {

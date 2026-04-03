@@ -506,7 +506,7 @@ struct CommentsView: View {
                                         comment: commentWithReplies.comment,
                                         isNew: newCommentIds.contains(commentWithReplies.comment.id ?? ""),
                                         onReply: {
-                                            withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                                            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
                                                 replyingTo = commentWithReplies.comment
                                                 isInputFocused = true
                                             }
@@ -516,14 +516,14 @@ struct CommentsView: View {
                                             HapticManager.impact(style: .light)
                                         },
                                         onReplyWithQuote: { quoteText in
-                                            withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                                            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
                                                 replyingTo = commentWithReplies.comment
                                                 commentText = quoteText
                                                 isInputFocused = true
                                             }
                                         },
                                         onDelete: {
-                                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
                                                 deleteComment(commentWithReplies.comment)
                                             }
                                         },
@@ -535,7 +535,7 @@ struct CommentsView: View {
                                             showUserProfile = true
                                         },
                                         onToggleThread: {
-                                            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                                            withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.75))) {
                                                 if expandedThreads.contains(commentWithReplies.comment.id ?? "") {
                                                     expandedThreads.remove(commentWithReplies.comment.id ?? "")
                                                 } else {
@@ -617,7 +617,7 @@ struct CommentsView: View {
                                                         isReply: true,
                                                         isNew: newCommentIds.contains(reply.id ?? ""),
                                                         onReply: {
-                                                            withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                                                            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
                                                                 replyingTo = commentWithReplies.comment
                                                                 isInputFocused = true
                                                             }
@@ -626,14 +626,14 @@ struct CommentsView: View {
                                                             HapticManager.impact(style: .light)
                                                         },
                                                         onReplyWithQuote: { quoteText in
-                                                            withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                                                            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
                                                                 replyingTo = commentWithReplies.comment
                                                                 commentText = quoteText
                                                                 isInputFocused = true
                                                             }
                                                         },
                                                         onDelete: {
-                                                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
                                                                 deleteComment(reply)
                                                             }
                                                         },
@@ -687,7 +687,7 @@ struct CommentsView: View {
                         Spacer()
                         
                         Button {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                 self.replyingTo = nil
                             }
                         } label: {
@@ -934,7 +934,7 @@ struct CommentsView: View {
                                             .strokeBorder(Color(uiColor: .separator), lineWidth: 0.5)
                                     )
                                 Button {
-                                    withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                                    withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
                                         commentPhotoData = nil
                                         selectedPhotoItem = nil
                                     }
@@ -1278,7 +1278,7 @@ struct CommentsView: View {
                 for s in [result.suggestion1, result.suggestion2, result.suggestion3] {
                     if !s.isEmpty, !chips.contains(s) { chips.append(s) }
                 }
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.8))) {
                     smartReplySuggestions = chips
                 }
                 isLoadingSmartReplies = false
@@ -1302,7 +1302,7 @@ struct CommentsView: View {
                     userId: userId
                 )
                 await MainActor.run {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.75))) {
                         bereanSuggestion = suggestion
                         isLoadingBereanSuggestion = false
                     }
@@ -1518,7 +1518,7 @@ struct CommentsView: View {
                     
                     // ✅ DON'T add reply to local UI - let the real-time listener handle it
                     await MainActor.run {
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
                             // Expand parent thread and clear reply state
                             expandedThreads.insert(parentCommentId)
                             self.replyingTo = nil
@@ -1555,7 +1555,7 @@ struct CommentsView: View {
                 // Track new comment for highlight animation
                 if let id = newCommentId {
                     await MainActor.run {
-                        _ = withAnimation(.spring(response: 0.5, dampingFraction: 0.6)) {
+                        _ = withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.6))) {
                             newCommentIds.insert(id)
                         }
                         
@@ -1674,7 +1674,7 @@ struct CommentsView: View {
                 
                 // Optimistic UI update
                 await MainActor.run {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                         if comment.isReply {
                             // Find and update reply
                             for i in 0..<commentsWithReplies.count {
@@ -1701,7 +1701,7 @@ struct CommentsView: View {
             } catch {
                 // Revert on error
                 await MainActor.run {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
                         if comment.isReply {
                             for i in 0..<commentsWithReplies.count {
                                 if let replyIndex = commentsWithReplies[i].replies.firstIndex(where: { $0.id == commentId }) {
@@ -1961,7 +1961,7 @@ struct CommentsView: View {
         // but we check a synthetic descriptor for future extensibility)
         // Image passes — attach it
         await MainActor.run {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
                 commentPhotoData = data
             }
             // haptic
@@ -2091,7 +2091,7 @@ private struct PostCommentRow: View {
                 onSelect: { emoji in
                     if emoji == "❤️" || emoji == "🙏" {
                         // Map heart/amen reactions to the existing amen toggle
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.5))) {
                             hasAmened.toggle()
                         }
                         onAmen()
@@ -2101,226 +2101,240 @@ private struct PostCommentRow: View {
             )
         }
     }
-    
-    var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            // Avatar - Tappable to view profile with cached image loading
-            Button {
-                onProfileTap()
-                
-                // Haptic feedback
-                // haptic
-                HapticManager.impact(style: .light)
-            } label: {
-                if let imageURL = comment.authorProfileImageURL,
-                   !imageURL.isEmpty,
-                   let url = URL(string: imageURL) {
-                    CachedAsyncImage(url: url) { image in
-                        image
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: isReply ? 28 : 36, height: isReply ? 28 : 36)
-                            .clipShape(Circle())
-                    } placeholder: {
-                        Circle()
-                            .fill(.black)
-                            .frame(width: isReply ? 28 : 36, height: isReply ? 28 : 36)
-                            .overlay(
-                                Text(comment.authorInitials)
-                                    .font(.custom("OpenSans-SemiBold", size: isReply ? 10 : 12))
-                                    .foregroundStyle(.white)
-                            )
-                    }
-                } else {
-                    Circle()
-                        .fill(.black)
+
+    private var avatarButton: some View {
+        Button {
+            onProfileTap()
+
+            // haptic
+            HapticManager.impact(style: .light)
+        } label: {
+            if let imageURL = comment.authorProfileImageURL,
+               !imageURL.isEmpty,
+               let url = URL(string: imageURL) {
+                CachedAsyncImage(url: url) { image in
+                    image
+                        .resizable()
+                        .scaledToFill()
                         .frame(width: isReply ? 28 : 36, height: isReply ? 28 : 36)
-                        .overlay(
-                            Text(comment.authorInitials)
-                                .font(.custom("OpenSans-SemiBold", size: isReply ? 10 : 12))
-                                .foregroundStyle(.white)
-                        )
+                        .clipShape(Circle())
+                } placeholder: {
+                    commentInitialsAvatar
+                }
+            } else {
+                commentInitialsAvatar
+            }
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+
+    private var commentInitialsAvatar: some View {
+        Circle()
+            .fill(.black)
+            .frame(width: isReply ? 28 : 36, height: isReply ? 28 : 36)
+            .overlay(
+                Text(comment.authorInitials)
+                    .font(.custom("OpenSans-SemiBold", size: isReply ? 10 : 12))
+                    .foregroundStyle(.white)
+            )
+    }
+
+    private var authorHeaderRow: some View {
+        HStack(spacing: 8) {
+            HStack(spacing: 4) {
+                Text(comment.authorName)
+                    .font(.custom("OpenSans-SemiBold", size: isReply ? 13 : 14))
+                    .foregroundStyle(.black)
+
+                // ✅ Verified badge
+                if VerifiedBadgeHelper.shared.isVerified(userId: comment.authorId) {
+                    VerifiedBadge(
+                        type: VerifiedBadgeHelper.shared.getVerificationType(userId: comment.authorId),
+                        size: isReply ? 12 : 13
+                    )
                 }
             }
-            .buttonStyle(PlainButtonStyle())
-            
-            VStack(alignment: .leading, spacing: 6) {
-                // Author and time
-                HStack(spacing: 8) {
-                    HStack(spacing: 4) {
-                        Text(comment.authorName)
-                            .font(.custom("OpenSans-SemiBold", size: isReply ? 13 : 14))
-                            .foregroundStyle(.black)
 
-                        // ✅ Verified badge
-                        if VerifiedBadgeHelper.shared.isVerified(userId: comment.authorId) {
-                            VerifiedBadge(
-                                type: VerifiedBadgeHelper.shared.getVerificationType(userId: comment.authorId),
-                                size: isReply ? 12 : 13
-                            )
-                        }
+            Text(comment.authorUsername.hasPrefix("@") ? comment.authorUsername : "@\(comment.authorUsername)")
+                .font(.custom("OpenSans-Regular", size: isReply ? 11 : 12))
+                .foregroundStyle(.black.opacity(0.5))
+
+            // Subtle follow chip — only shown when not yet following this commenter
+            if showFollowChip {
+                Button {
+                    didJustFollow = true
+                    // haptic
+                    HapticManager.impact(style: .light)
+                    Task {
+                        try? await FollowService.shared.followUser(userId: comment.authorId)
                     }
-
-                    Text(comment.authorUsername.hasPrefix("@") ? comment.authorUsername : "@\(comment.authorUsername)")
-                        .font(.custom("OpenSans-Regular", size: isReply ? 11 : 12))
-                        .foregroundStyle(.black.opacity(0.5))
-
-                    // Subtle follow chip — only shown when not yet following this commenter
-                    if showFollowChip {
-                        Button {
-                            didJustFollow = true
-                            // haptic
-                            HapticManager.impact(style: .light)
-                            Task {
-                                try? await FollowService.shared.followUser(userId: comment.authorId)
-                            }
-                        } label: {
-                            HStack(spacing: 2) {
-                                Image(systemName: "plus")
-                                    .font(.systemScaled(isReply ? 8 : 9, weight: .semibold))
-                                Text("Follow")
-                                    .font(.custom("OpenSans-SemiBold", size: isReply ? 10 : 11))
-                            }
-                            .foregroundStyle(.black.opacity(0.55))
-                            .padding(.horizontal, 7)
-                            .padding(.vertical, 2)
-                            .background(
-                                Capsule()
-                                    .strokeBorder(Color.black.opacity(0.2), lineWidth: 1)
-                            )
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                        .transition(.opacity.combined(with: .scale(scale: 0.85)))
-                        .animation(.spring(response: 0.25, dampingFraction: 0.7), value: didJustFollow)
+                } label: {
+                    HStack(spacing: 2) {
+                        Image(systemName: "plus")
+                            .font(.systemScaled(isReply ? 8 : 9, weight: .semibold))
+                        Text("Follow")
+                            .font(.custom("OpenSans-SemiBold", size: isReply ? 10 : 11))
                     }
-
-                    Text("•")
-                        .font(.custom("OpenSans-Regular", size: isReply ? 11 : 12))
-                        .foregroundStyle(.black.opacity(0.3))
-
-                    // ✅ Timestamp auto-refresh: Recomputes when currentTime changes
-                    Text(timeAgoString(for: comment.createdAt, currentTime: currentTime))
-                        .font(.custom("OpenSans-Regular", size: isReply ? 11 : 12))
-                        .foregroundStyle(.black.opacity(0.5))
+                    .foregroundStyle(.black.opacity(0.55))
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 2)
+                    .background(
+                        Capsule()
+                            .strokeBorder(Color.black.opacity(0.2), lineWidth: 1)
+                    )
                 }
-                
-                // Content with highlight-to-quote support
-                ZStack(alignment: .topLeading) {
-                    commentSelectableText
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                .buttonStyle(PlainButtonStyle())
+                .transition(.opacity.combined(with: .scale(scale: 0.85)))
+                .animation(.spring(response: 0.25, dampingFraction: 0.7), value: didJustFollow)
+            }
 
-                    if let selection = textSelection {
-                        GeometryReader { proxy in
-                            HighlightActionCapsule(
-                                onQuote: { handleQuoteSelection(selection) },
-                                onReply: { handleReplyWithQuote(selection) },
-                                onSave: { handleSaveSelection(selection) },
-                                onShare: { handleShareSelection(selection) },
-                                onBerean: { handleBereanSelection(selection) }
-                            )
-                            .position(actionCapsulePosition(for: selection.rect, in: proxy.size))
-                            .transition(.opacity.combined(with: .scale))
-                        }
-                    }
-                }
+            Text("•")
+                .font(.custom("OpenSans-Regular", size: isReply ? 11 : 12))
+                .foregroundStyle(.black.opacity(0.3))
+
+            // ✅ Timestamp auto-refresh: Recomputes when currentTime changes
+            Text(timeAgoString(for: comment.createdAt, currentTime: currentTime))
+                .font(.custom("OpenSans-Regular", size: isReply ? 11 : 12))
+                .foregroundStyle(.black.opacity(0.5))
+        }
+    }
+
+    private var contentBlock: some View {
+        ZStack(alignment: .topLeading) {
+            commentSelectableText
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-                // Translation affordance (lightweight, inline, non-blocking)
-                CommentTranslationRow(
-                    text: comment.content,
-                    commentId: comment.id ?? "unknown",
-                    isPublicContent: true
-                )
+            if let selection = textSelection {
+                GeometryReader { proxy in
+                    HighlightActionCapsule(
+                        onQuote: { handleQuoteSelection(selection) },
+                        onReply: { handleReplyWithQuote(selection) },
+                        onSave: { handleSaveSelection(selection) },
+                        onShare: { handleShareSelection(selection) },
+                        onBerean: { handleBereanSelection(selection) }
+                    )
+                    .position(actionCapsulePosition(for: selection.rect, in: proxy.size))
+                    .transition(.opacity.combined(with: .scale))
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
 
-                // Actions
-                HStack(spacing: 20) {
-                    // Amen with animation (heart icon like reference)
-                    Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
-                            hasAmened.toggle()
-                        }
-                        onAmen()
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: hasAmened ? "heart.fill" : "heart")
-                                .font(.systemScaled(14, weight: .medium))
-                                .foregroundStyle(hasAmened ? Color.red : Color.black.opacity(0.5))
-                                .scaleEffect(hasAmened ? 1.15 : 1.0)
-                                .animation(.spring(response: 0.3, dampingFraction: 0.5), value: hasAmened)
-                            
-                            if comment.amenCount > 0 {
-                                Text("\(comment.amenCount)")
-                                    .font(.custom("OpenSans-Medium", size: 13))
-                                    .foregroundStyle(hasAmened ? Color.red : Color.black.opacity(0.5))
-                                    .contentTransition(.numericText())
-                            }
-                        }
-                    }
-                    
-                    // Reply with count badge
-                    if !isReply {
-                        Button {
-                            onReply()
-                        } label: {
-                            HStack(spacing: 4) {
-                                Image(systemName: "arrowshape.turn.up.left")
-                                    .font(.systemScaled(12))
-                                
-                                if comment.replyCount > 0 {
-                                    Text("\(comment.replyCount)")
-                                        .font(.custom("OpenSans-Regular", size: 12))
-                                }
-                            }
-                            .foregroundStyle(.black.opacity(0.6))
-                        }
-                        
-                        // Thread expand/collapse button
-                        if replyCount > 0, let onToggleThread = onToggleThread {
-                            Button {
-                                onToggleThread()
-                                
-                                // haptic
-                                HapticManager.impact(style: .light)
-                            } label: {
-                                HStack(spacing: 4) {
-                                    Image(systemName: isThreadExpanded ? "chevron.up" : "chevron.down")
-                                        .font(.systemScaled(10, weight: .semibold))
-                                    
-                                    Text(isThreadExpanded ? "Hide" : "View")
-                                        .font(.custom("OpenSans-SemiBold", size: 11))
-                                }
-                                .foregroundStyle(.black.opacity(0.5))
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(
-                                    Capsule()
-                                        .fill(Color.black.opacity(0.05))
-                                )
-                            }
-                        }
-                    }
-                    
-                    Spacer()
-                    
-                    // Options (delete if own comment)
-                    if isOwnComment {
-                        Button {
-                            showOptions = true
-                        } label: {
-                            Image(systemName: "ellipsis")
-                                .font(.systemScaled(12))
-                                .foregroundStyle(.black.opacity(0.6))
-                        }
-                        .confirmationDialog("Comment Options", isPresented: $showOptions) {
-                            Button("Delete Comment", role: .destructive) {
-                                onDelete()
-                            }
-                        }
+    private var actionsRow: some View {
+        HStack(spacing: 20) {
+            // Amen with animation (heart icon like reference)
+            Button {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.5))) {
+                    hasAmened.toggle()
+                }
+                onAmen()
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: hasAmened ? "heart.fill" : "heart")
+                        .font(.systemScaled(14, weight: .medium))
+                        .foregroundStyle(hasAmened ? Color.red : Color.black.opacity(0.5))
+                        .scaleEffect(hasAmened ? 1.15 : 1.0)
+                        .animation(.spring(response: 0.3, dampingFraction: 0.5), value: hasAmened)
+
+                    if comment.amenCount > 0 {
+                        Text("\(comment.amenCount)")
+                            .font(.custom("OpenSans-Medium", size: 13))
+                            .foregroundStyle(hasAmened ? Color.red : Color.black.opacity(0.5))
+                            .contentTransition(.numericText())
                     }
                 }
-                .padding(.top, 4)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+
+            // Reply with count badge
+            if !isReply {
+                Button {
+                    onReply()
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "arrowshape.turn.up.left")
+                            .font(.systemScaled(12))
+
+                        if comment.replyCount > 0 {
+                            Text("\(comment.replyCount)")
+                                .font(.custom("OpenSans-Regular", size: 12))
+                        }
+                    }
+                    .foregroundStyle(.black.opacity(0.6))
+                }
+
+                // Thread expand/collapse button
+                if replyCount > 0, let onToggleThread = onToggleThread {
+                    Button {
+                        onToggleThread()
+
+                        // haptic
+                        HapticManager.impact(style: .light)
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: isThreadExpanded ? "chevron.up" : "chevron.down")
+                                .font(.systemScaled(10, weight: .semibold))
+
+                            Text(isThreadExpanded ? "Hide" : "View")
+                                .font(.custom("OpenSans-SemiBold", size: 11))
+                        }
+                        .foregroundStyle(.black.opacity(0.5))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(
+                            Capsule()
+                                .fill(Color.black.opacity(0.05))
+                        )
+                    }
+                }
+            }
+
+            Spacer()
+
+            // Options (delete if own comment)
+            if isOwnComment {
+                Button {
+                    showOptions = true
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.systemScaled(12))
+                        .foregroundStyle(.black.opacity(0.6))
+                }
+                .confirmationDialog("Comment Options", isPresented: $showOptions) {
+                    Button("Delete Comment", role: .destructive) {
+                        onDelete()
+                    }
+                }
+            }
+        }
+        .padding(.top, 4)
+    }
+
+    private var contentColumn: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            // Author and time
+            authorHeaderRow
+
+            // Content with highlight-to-quote support
+            contentBlock
+
+            // Translation affordance (lightweight, inline, non-blocking)
+            CommentTranslationRow(
+                text: comment.content,
+                commentId: comment.id ?? "unknown",
+                isPublicContent: true
+            )
+
+            // Actions
+            actionsRow
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            avatarButton
+            contentColumn
         }
         .padding(.horizontal, isReply ? 12 : 16)
         .contextMenu {
@@ -2405,7 +2419,7 @@ private struct PostCommentRow: View {
             case .quoteComposer(let context):
                 QuoteComposerView(context: context)
             case .share(let text):
-                ShareSheet(activityItems: [text])
+                ShareSheet(items: [text])
             case .berean(let query):
                 BereanAIAssistantView(initialQuery: query.isEmpty ? nil : query)
             }
@@ -2875,7 +2889,7 @@ struct CommentReportSheet: View {
                 )
                 await MainActor.run {
                     isSubmitting = false
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.75))) {
                         submitted = true
                     }
                 }
@@ -2948,7 +2962,7 @@ struct CommentReactionPicker: View {
             Color.clear
                 .contentShape(Rectangle())
                 .onTapGesture {
-                    withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
                         isPresented = false
                     }
                 }

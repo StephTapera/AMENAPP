@@ -161,9 +161,9 @@ private struct CommunityNoteCard: View {
 
                 // Stitch button
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { stitchScale = 0.97 }
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) { stitchScale = 0.97 }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { stitchScale = 1.0 }
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) { stitchScale = 1.0 }
                         onStitch()
                     }
                 } label: {

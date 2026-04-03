@@ -216,7 +216,7 @@ struct ChurchEditProfileView: View {
                 Divider().padding(.vertical, 4)
 
                 Button {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.82))) {
                         isAddingServiceTime = true
                     }
                 } label: {
@@ -490,7 +490,7 @@ struct ChurchEditProfileView: View {
                     newServiceDay = ""
                     newServiceTime = ""
                     newServiceLabel = ""
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.82))) {
                         isAddingServiceTime = false
                     }
                 }
@@ -510,7 +510,7 @@ struct ChurchEditProfileView: View {
                     newServiceDay = ""
                     newServiceTime = ""
                     newServiceLabel = ""
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.82))) {
                         isAddingServiceTime = false
                     }
                 }

@@ -241,7 +241,7 @@ struct PostThreadComposerView: View {
                             text: threadPosts[index],
                             isActive: index == currentIndex,
                             onTap: {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                     currentIndex = index
                                 }
                             },

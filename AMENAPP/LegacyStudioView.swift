@@ -269,7 +269,7 @@ struct LegacyStudioView: View {
         HStack(spacing: 8) {
             ForEach(LegacyTab.allCases, id: \.self) { tab in
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                         selectedTab = tab
                     }
                 } label: {

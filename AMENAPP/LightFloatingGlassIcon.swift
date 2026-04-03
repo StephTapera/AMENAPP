@@ -36,7 +36,7 @@ struct LightFloatingGlassIcon: View {
             .offset(y: floating ? -6 : 0)
         }
         .onAppear {
-            withAnimation(.spring(response: 0.65, dampingFraction: 0.70)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.65, dampingFraction: 0.70))) {
                 appeared = true
             }
             withAnimation(.easeInOut(duration: 3.4).repeatForever(autoreverses: true)) {
@@ -405,7 +405,7 @@ struct LightCreatorEmptyState: View {
         .opacity(appeared ? 1 : 0)
         .scaleEffect(appeared ? 1 : 0.95)
         .onAppear {
-            withAnimation(.spring(response: 0.6, dampingFraction: 0.76).delay(0.08)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.6, dampingFraction: 0.76)).delay(0.08)) {
                 appeared = true
             }
         }

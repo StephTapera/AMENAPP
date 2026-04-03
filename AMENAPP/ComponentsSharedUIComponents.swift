@@ -304,7 +304,7 @@ struct ToastView: View {
         .offset(y: offset)
         .opacity(opacity)
         .onAppear {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
                 offset = 0
                 opacity = 1
             }
@@ -331,7 +331,7 @@ struct ToastModifier: ViewModifier {
                 .onAppear {
                     // Auto-dismiss after specified duration
                     DispatchQueue.main.asyncAfter(deadline: .now() + toast.duration) {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                             self.toast = nil
                         }
                     }

@@ -127,7 +127,7 @@ struct BereanModesSheet: View {
         let isSelected = modeStore.selectedMode.id == mode.id
 
         Button {
-            withAnimation(.spring(response: 0.30, dampingFraction: 0.80)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.30, dampingFraction: 0.80))) {
                 modeStore.selectedMode = mode
             }
             Task { @MainActor in

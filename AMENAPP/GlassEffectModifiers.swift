@@ -244,11 +244,11 @@ struct GlassEffectModifier: ViewModifier {
         .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
         .onTapGesture {
             if style.isInteractive {
-                withAnimation(.spring(response: 0.2, dampingFraction: 0.5)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.5))) {
                     isPressed = true
                 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    withAnimation(.spring(response: 0.2, dampingFraction: 0.5)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.5))) {
                         isPressed = false
                     }
                 }

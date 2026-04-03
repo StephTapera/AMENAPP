@@ -101,11 +101,11 @@ struct SpaceCardView: View {
     private var joinButton: some View {
         Button {
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.65)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.65))) {
                 joinPressed = true
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.65)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.65))) {
                     joinPressed = false
                 }
             }

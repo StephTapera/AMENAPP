@@ -83,7 +83,7 @@ final class InAppNotificationBanner: ObservableObject {
         }
 
         dismissTask?.cancel()
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.85))) {
             isVisible = false
         }
         Task {
@@ -127,7 +127,7 @@ final class InAppNotificationBanner: ObservableObject {
         }
         current = notification
 
-        withAnimation(.spring(response: 0.45, dampingFraction: 0.82)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.45, dampingFraction: 0.82))) {
             isVisible = true
         }
 
@@ -332,7 +332,7 @@ struct InAppNotificationBannerView: View {
                     if value.translation.height < -40 {
                         onDismiss()
                     } else {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.7))) {
                             dragOffset = 0
                         }
                     }

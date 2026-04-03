@@ -27,7 +27,7 @@ struct ScriptureDNAView: View {
             VStack(alignment: .leading, spacing: 0) {
                 // Collapsed header — always visible
                 Button {
-                    withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.7))) {
                         viewModel.isExpanded.toggle()
                     }
                 } label: {
@@ -81,7 +81,7 @@ struct ScriptureDNAView: View {
                                 HStack(spacing: 8) {
                                     ForEach(result.crossReferences) { xref in
                                         Button {
-                                            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                                            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.8))) {
                                                 selectedCrossRef = selectedCrossRef?.id == xref.id ? nil : xref
                                             }
                                         } label: {
@@ -182,7 +182,7 @@ struct ScriptureDNAView: View {
                     .scaleEffect(appearScale)
                     .opacity(appearOpacity)
                     .onAppear {
-                        withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.7))) {
                             appearScale = 1.0
                             appearOpacity = 1.0
                         }

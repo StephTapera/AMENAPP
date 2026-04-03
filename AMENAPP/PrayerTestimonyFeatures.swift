@@ -168,7 +168,7 @@ struct EchoButton: View {
         Button {
             isEchoed.toggle()
             echoCount += isEchoed ? 1 : -1
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) { isAnimating = true }
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.5))) { isAnimating = true }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { isAnimating = false }
             Task { await PrayerEchoService.shared.toggleEcho(post: post) }
         } label: {

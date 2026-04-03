@@ -67,7 +67,7 @@ class MilestoneManager: ObservableObject {
             if !alreadySeen && !shownMilestoneIds.contains(milestone.id) {
                 shownMilestoneIds.insert(milestone.id)
                 activeMilestone = milestone
-                withAnimation(.spring(response: 0.44, dampingFraction: 0.78)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.44, dampingFraction: 0.78))) {
                     showSheet = true
                 }
                 await markMilestoneSeen(userId: userId, milestoneId: milestone.id)
@@ -84,7 +84,7 @@ class MilestoneManager: ObservableObject {
     }
 
     func dismiss() {
-        withAnimation(.spring(response: 0.36, dampingFraction: 0.8)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.36, dampingFraction: 0.8))) {
             showSheet = false
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {

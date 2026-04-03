@@ -67,7 +67,7 @@ private struct DepthBar: View {
             }
             .frame(height: 6)
             .onAppear {
-                withAnimation(.spring(response: 0.8, dampingFraction: 0.7).delay(0.1)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.8, dampingFraction: 0.7)).delay(0.1)) {
                     animatedWidth = CGFloat(score)
                 }
             }
@@ -105,7 +105,7 @@ struct AIInsightsPanelView: View {
                 Spacer()
 
                 Button {
-                    withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.7))) {
                         viewModel.isExpanded.toggle()
                     }
                 } label: {

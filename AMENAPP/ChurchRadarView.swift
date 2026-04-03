@@ -41,7 +41,7 @@ struct ChurchRadarView: View {
                 Spacer()
 
                 Button {
-                    withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.7))) {
                         isCollapsed.toggle()
                     }
                 } label: {
@@ -75,7 +75,7 @@ struct ChurchRadarView: View {
                                         church: church,
                                         isSelected: selectedId == church.id
                                     ) {
-                                        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                                        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
                                             selectedId = church.id
                                         }
                                         onChurchSelected(church)
@@ -208,11 +208,11 @@ private struct ChurchRadarPill: View {
 
     var body: some View {
         Button {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                 scale = 0.97
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                     scale = 1.0
                 }
             }

@@ -89,7 +89,7 @@ struct DiscoveryTopicPageView: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
                         isFollowingTopic.toggle()
                     }
                 } label: {
@@ -157,7 +157,7 @@ struct DiscoveryTopicPageView: View {
         HStack(spacing: 0) {
             ForEach(Segment.allCases, id: \.self) { seg in
                 Button {
-                    withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.85))) {
                         selectedSegment = seg
                     }
                 } label: {

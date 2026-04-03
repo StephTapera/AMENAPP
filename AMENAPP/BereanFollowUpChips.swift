@@ -263,7 +263,7 @@ struct BereanResponseActionBar: View {
         HStack(spacing: 0) {
             actionButton("doc.on.doc", label: copiedFeedback ? "Copied!" : "Copy") {
                 onCopy()
-                withAnimation(.spring(response: 0.28, dampingFraction: 0.78)) { copiedFeedback = true }
+                withAnimation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.78))) { copiedFeedback = true }
                 Task { @MainActor in
                     try? await Task.sleep(for: .seconds(1.8))
                     withAnimation { copiedFeedback = false }

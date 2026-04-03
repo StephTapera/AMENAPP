@@ -147,7 +147,7 @@ struct EngagementPrivacyRow: View {
     
     var body: some View {
         Button {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                 hideEngagementCounts.toggle()
             }
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -196,7 +196,7 @@ struct ContentWarningRow: View {
                 if hasSensitiveContent {
                     showReasonSheet = true
                 } else {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                         hasSensitiveContent = true
                         showReasonSheet = true
                     }

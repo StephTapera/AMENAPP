@@ -129,7 +129,7 @@ struct ProactiveFrictionView: View {
 
             if !acknowledged {
                 Button {
-                    withAnimation(.spring(response: 0.3)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3))) {
                         acknowledged = true
                         onAcknowledge?()
                     }

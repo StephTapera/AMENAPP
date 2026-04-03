@@ -359,7 +359,7 @@ struct CreatorView: View {
             .navigationBarHidden(true)
             .onAppear {
                 store.loadAll()
-                withAnimation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.1)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.6, dampingFraction: 0.8)).delay(0.1)) {
                     appeared = true
                 }
             }
@@ -432,7 +432,7 @@ struct CreatorView: View {
         HStack(spacing: 8) {
             ForEach(CreatorTab.allCases, id: \.self) { tab in
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                         selectedTab = tab
                     }
                 } label: {
@@ -572,7 +572,7 @@ struct CreatorView: View {
 
     private func categoryPill(_ cat: CreatorCategory?, label: String) -> some View {
         Button {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                 selectedCategory = cat
             }
         } label: {
@@ -1294,7 +1294,7 @@ struct TipJarSheet: View {
                     HStack(spacing: 10) {
                         ForEach(amounts, id: \.self) { amt in
                             Button {
-                                withAnimation(.spring(response: 0.2, dampingFraction: 0.7)) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.7))) {
                                     selectedAmount = amt
                                 }
                             } label: {
@@ -1437,7 +1437,7 @@ struct CreatorHubEntryCard: View {
         .scaleEffect(appeared ? 1 : 0.95)
         .opacity(appeared ? 1 : 0)
         .onAppear {
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.75).delay(0.15)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.75)).delay(0.15)) {
                 appeared = true
             }
         }

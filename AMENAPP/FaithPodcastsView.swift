@@ -133,7 +133,7 @@ struct FaithPodcastsView: View {
                                 title: genre.rawValue,
                                 isSelected: selectedGenre == genre
                             ) {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                     selectedGenre = genre
                                     let haptic = UIImpactFeedbackGenerator(style: .light)
                                     haptic.impactOccurred()
@@ -360,7 +360,7 @@ struct PodcastCard: View {
             Spacer()
             
             Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                     isSubscribed.toggle()
                 }
             } label: {
@@ -631,7 +631,7 @@ struct EnhancedPodcastCard: View {
                 Spacer()
                 
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                         isSubscribed.toggle()
                         let haptic = UIImpactFeedbackGenerator(style: .light)
                         haptic.impactOccurred()
@@ -704,7 +704,7 @@ struct MiniPlayer: View {
                 Spacer()
                 
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                         isPlaying.toggle()
                     }
                 } label: {

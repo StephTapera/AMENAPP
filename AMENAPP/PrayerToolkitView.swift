@@ -34,7 +34,7 @@ struct PrayerToolkitView: View {
                     HStack(spacing: 8) {
                         ForEach(PrayerCategory.allCases, id: \.self) { category in
                             Button {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                     selectedCategory = category
                                 }
                             } label: {
@@ -188,7 +188,7 @@ struct FeaturedPrayerCard: View {
     
     private func startAutoScroll() {
         autoScrollTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { _ in
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.8))) {
                 currentIndex = (currentIndex + 1) % prayerBanners.count
             }
         }
@@ -331,7 +331,7 @@ struct PrayerToolCard: View {
     
     var body: some View {
         Button {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                 isExpanded.toggle()
             }
         } label: {

@@ -243,7 +243,7 @@ struct BereanHomeView: View {
     private func modePill(_ mode: BereanHomeMode) -> some View {
         let isSelected = viewModel.selectedMode == mode
         return Button {
-            withAnimation(.spring(response: 0.32, dampingFraction: 0.72)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.32, dampingFraction: 0.72))) {
                 viewModel.selectedMode = mode
             }
         } label: {

@@ -22,7 +22,7 @@ struct SubtleCollaborationSuggestionsView: View {
             VStack(spacing: 0) {
                 // Collapsible header
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
                         isExpanded.toggle()
                     }
                 } label: {
@@ -146,7 +146,7 @@ struct SubtleCollaborationSuggestionsView: View {
                 
                 Button {
                     // Next match
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
                         currentMatchIndex = (currentMatchIndex + 1) % matchingService.suggestedCollaborators.count
                     }
                 } label: {

@@ -124,7 +124,7 @@ struct ChurchNotesView: View {
                     selectedFilter: $selectedFilter,
                     isScrolled: scrollOffset < -20,
                     onNewNote: {
-                        withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.7))) {
                             showingNewNote = true
                         }
                         let haptic = UIImpactFeedbackGenerator(style: .medium)
@@ -149,7 +149,7 @@ struct ChurchNotesView: View {
                             hasSearch: !searchText.isEmpty,
                             filterType: selectedFilter,
                             onCreateNote: {
-                                withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.7))) {
                                     showingNewNote = true
                                 }
                                 let haptic = UIImpactFeedbackGenerator(style: .medium)
@@ -163,7 +163,7 @@ struct ChurchNotesView: View {
                             notesService: notesService,
                             scrollOffset: $scrollOffset,
                             onNoteSelected: { note in
-                                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.8))) {
                                     selectedNote = note
                                 }
                                 let haptic = UIImpactFeedbackGenerator(style: .light)
@@ -383,11 +383,11 @@ struct LiquidGlassHeader: View {
                 
                 Button {
                     // Bounce animation on tap
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.5))) {
                         headerScale = 0.95
                     }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.5))) {
                             headerScale = 1.0
                         }
                     }
@@ -485,7 +485,7 @@ struct LiquidGlassHeader: View {
                         .foregroundStyle(.white)
                         .tint(Color(hex: "A67C52"))
                         .onTapGesture {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                 isSearchFocused = true
                             }
                         }
@@ -505,7 +505,7 @@ struct LiquidGlassHeader: View {
                     
                     if !searchText.isEmpty {
                         Button {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                 searchText = ""
                                 isSearchFocused = false
                             }
@@ -999,12 +999,12 @@ struct LiquidGlassNoteCard: View {
             haptic.impactOccurred()
             
             // Animated press effect
-            withAnimation(.spring(response: 0.2, dampingFraction: 0.6)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.6))) {
                 cardScale = 0.97
             }
             
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                     cardScale = 1.0
                 }
                 onTap()
@@ -1044,11 +1044,11 @@ struct LiquidGlassNoteCard: View {
                             try? await notesService.toggleFavorite(note)
                             
                             // Fun bounce animation
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.4)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.4))) {
                                 cardRotation = note.isFavorite ? -10 : 10
                             }
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                                     cardRotation = 0
                                 }
                             }
@@ -1503,7 +1503,7 @@ struct LiquidGlassNoteCard: View {
         UIPasteboard.general.string = shareURL
         
         // Show toast confirmation with animation
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
             showCopiedToast = true
         }
         
@@ -1961,7 +1961,7 @@ struct NewChurchNoteView: View {
         let trimmed = newTag.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty && !tags.contains(trimmed) else { return }
         
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
             tags.append(trimmed)
             newTag = ""
             
@@ -2003,7 +2003,7 @@ struct NewChurchNoteView: View {
                     isSaving = false
                     
                     // Show save confirmation
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
                         showSaveConfirmation = true
                         saveConfirmationScale = 1.0
                     }
@@ -2392,7 +2392,7 @@ struct ChurchNoteDetailView: View {
         UIPasteboard.general.string = shareURL
         
         // Show toast confirmation with animation
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
             showCopiedToast = true
         }
         
@@ -2548,7 +2548,7 @@ struct ThreadsStyleHeader: View {
                         .foregroundStyle(.black)
                         .tint(.blue)
                         .onTapGesture {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                 isSearchFocused = true
                             }
                         }
@@ -2556,7 +2556,7 @@ struct ThreadsStyleHeader: View {
                     if !searchText.isEmpty {
                         Button {
                             searchText = ""
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                 isSearchFocused = false
                             }
                         } label: {
@@ -2759,11 +2759,11 @@ struct ThreadsStyleNoteCard: View {
     
     var body: some View {
         Button(action: {
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.7))) {
                 isPressed = true
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.7))) {
                     isPressed = false
                 }
                 onTap()
@@ -4629,7 +4629,7 @@ struct ElegantChurchNoteReadView: View {
         let postId = post.firestoreId
         
         // Optimistic update
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
             hasAmenned.toggle()
         }
         
@@ -5072,13 +5072,13 @@ struct ShareWithFriendsSheet: View {
                     let haptic = UINotificationFeedbackGenerator()
                     haptic.notificationOccurred(.success)
                     
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                         showSuccessToast = true
                     }
                     
                     // Auto-hide toast and dismiss sheet
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                             showSuccessToast = false
                         }
                         
@@ -5218,7 +5218,7 @@ struct MinimalTypographyHeader: View {
 
                 // Text search toggle
                 Button {
-                    withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.32, dampingFraction: 0.78))) {
                         isSearching.toggle()
                         if !isSearching { searchText = "" }
                     }
@@ -5344,7 +5344,7 @@ struct MinimalTypographyHeader: View {
                     ForEach(ChurchNotesView.FilterOption.allCases, id: \.self) { filter in
                         let isActive = selectedFilter == filter
                         Button {
-                            withAnimation(.spring(response: 0.28, dampingFraction: 0.76)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.76))) {
                                 selectedFilter = filter
                             }
                             UISelectionFeedbackGenerator().selectionChanged()
@@ -5632,7 +5632,7 @@ struct MinimalEmptyState: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear {
-            withAnimation(.spring(response: 0.52, dampingFraction: 0.80).delay(0.1)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.52, dampingFraction: 0.80)).delay(0.1)) {
                 appeared = true
             }
         }
@@ -5809,7 +5809,7 @@ struct MinimalNewNoteSheet: View {
                                 
                                 // Formatting toolbar toggle
                                 Button {
-                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                         showingToolbar.toggle()
                                     }
                                     let haptic = UIImpactFeedbackGenerator(style: .light)
@@ -6263,7 +6263,7 @@ struct MinimalNoteDetailSheet: View {
                         VStack(alignment: .leading, spacing: 16) {
                             // AI Features Toggle Button
                             Button {
-                                withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
                                     showAISection.toggle()
                                 }
                                 
@@ -6511,7 +6511,7 @@ struct MinimalNoteDetailSheet: View {
         UIPasteboard.general.string = shareURL
         
         // Show toast confirmation with animation
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
             showCopiedToast = true
         }
         
@@ -6548,7 +6548,7 @@ struct MinimalNoteDetailSheet: View {
                 // Parse structured JSON into NoteSummary
                 let summary = parseBereanNoteSummary(jsonString)
                 await MainActor.run {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
                         noteSummary = summary
                         isGeneratingSummary = false
                     }
@@ -6560,7 +6560,7 @@ struct MinimalNoteDetailSheet: View {
                 // Graceful degradation: orchestrator failed (all providers down), hide spinner
                 dlog("⚠️ [Berean] Note summary unavailable: \(error)")
                 await MainActor.run {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
                         isGeneratingSummary = false
                     }
                 }
@@ -6613,7 +6613,7 @@ struct MinimalNoteDetailSheet: View {
                     let references = try await AIScriptureCrossRefService.shared.findRelatedVerses(for: firstVerse)
                     
                     await MainActor.run {
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
                             scriptureReferences = references
                             isLoadingScripture = false
                         }
@@ -6733,7 +6733,7 @@ struct TextFormattingToolbar: View {
     
     private func applyFormatting(_ option: FormattingOption) {
         // Flash animation
-        withAnimation(.spring(response: 0.2, dampingFraction: 0.6)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.6))) {
             selectedButton = option
         }
         
@@ -6743,7 +6743,7 @@ struct TextFormattingToolbar: View {
         
         // Reset after animation
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-            withAnimation(.spring(response: 0.2, dampingFraction: 0.6)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.6))) {
                 selectedButton = nil
             }
         }

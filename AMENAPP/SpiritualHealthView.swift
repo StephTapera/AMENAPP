@@ -288,7 +288,7 @@ struct SpiritualHealthView: View {
             .navigationBarHidden(true)
             .onAppear {
                 store.loadAll()
-                withAnimation(.spring(response: 0.6, dampingFraction: 0.75).delay(0.1)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.6, dampingFraction: 0.75)).delay(0.1)) {
                     appeared = true
                 }
             }
@@ -428,7 +428,7 @@ struct SpiritualHealthView: View {
             HStack(spacing: 8) {
                 ForEach(SHTab.allCases, id: \.self) { tab in
                     Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                             selectedTab = tab
                         }
                     } label: {
@@ -1286,7 +1286,7 @@ struct CheckInSheet: View {
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                 ForEach(SpiritualMood.allCases, id: \.self) { mood in
                     Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                             selectedMood = mood
                         }
                     } label: {
@@ -1360,7 +1360,7 @@ struct CheckInSheet: View {
             HStack(spacing: 8) {
                 ForEach(1...5, id: \.self) { val in
                     Button {
-                        withAnimation(.spring(response: 0.2, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.7))) {
                             score.wrappedValue = val
                         }
                         let hap = UIImpactFeedbackGenerator(style: .light)
@@ -1432,7 +1432,7 @@ struct CheckInSheet: View {
         HStack(spacing: 12) {
             if currentStep > 0 {
                 Button {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.8))) {
                         currentStep -= 1
                     }
                 } label: {
@@ -1450,7 +1450,7 @@ struct CheckInSheet: View {
 
             Button {
                 if currentStep < 2 {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.8))) {
                         currentStep += 1
                     }
                 } else {
@@ -1724,7 +1724,7 @@ struct SpiritualHealthEntryCard: View {
         .scaleEffect(appeared ? 1 : 0.95)
         .opacity(appeared ? 1 : 0)
         .onAppear {
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.75).delay(0.1)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.75)).delay(0.1)) {
                 appeared = true
             }
         }

@@ -266,7 +266,7 @@ struct MentalHealthDetailView: View {
             HStack(spacing: 0) {
                 ForEach(WellnessTab.allCases, id: \.self) { tab in
                     Button {
-                        withAnimation(.spring(response: 0.30, dampingFraction: 0.78)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.30, dampingFraction: 0.78))) {
                             selectedTab = tab
                         }
                         UIImpactFeedbackGenerator(style: .light).impactOccurred()

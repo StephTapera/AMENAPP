@@ -23,7 +23,7 @@ struct BereanMemoryStripView: View {
         VStack(spacing: 0) {
             // Expand/collapse header
             Button {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.72)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.72))) {
                     isExpanded.toggle()
                 }
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()

@@ -244,7 +244,7 @@ struct EnhancedChurchNoteEditor: View {
         }
         .onChange(of: isContentFocused) { _, focused in
             guard focused else { return }
-            withAnimation(.spring(response: 0.45, dampingFraction: 0.75)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.45, dampingFraction: 0.75))) {
                 // Auto-expand if any metadata is missing; collapse if all filled
                 metaExpanded = anyMetaEmpty
             }
@@ -397,7 +397,7 @@ struct EnhancedChurchNoteEditor: View {
             // ── Collapsed pill summary ──────────────────────────────────
             if !metaExpanded {
                 Button {
-                    withAnimation(.spring(response: 0.45, dampingFraction: 0.75)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.45, dampingFraction: 0.75))) {
                         metaExpanded = true
                     }
                 } label: {
@@ -442,7 +442,7 @@ struct EnhancedChurchNoteEditor: View {
                         // Only show collapse button when there is summary data
                         if !metaSummary.isEmpty {
                             Button {
-                                withAnimation(.spring(response: 0.45, dampingFraction: 0.75)) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.45, dampingFraction: 0.75))) {
                                     metaExpanded = false
                                 }
                             } label: {
@@ -532,7 +532,7 @@ struct EnhancedChurchNoteEditor: View {
                         trackUnsavedChanges()
                         // Clear old verse preview when the reference changes
                         if showVersePreview {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
                                 showVersePreview = false
                                 verseText = nil
                             }
@@ -652,7 +652,7 @@ struct EnhancedChurchNoteEditor: View {
 
                 // Formatting toolbar toggle
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                         showingToolbar.toggle()
                     }
                     let haptic = UIImpactFeedbackGenerator(style: .light)
@@ -836,7 +836,7 @@ struct EnhancedChurchNoteEditor: View {
 
                         // Remove button
                         Button {
-                            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
                                 worshipSongs.removeAll { $0.id == song.id }
                                 trackUnsavedChanges()
                             }
@@ -1059,7 +1059,7 @@ struct EnhancedChurchNoteEditor: View {
             visibleTagCount = 0
             for i in 0..<tags.count {
                 DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * 0.15) {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.6))) {
                         self.visibleTagCount = i + 1
                     }
                 }
@@ -1080,7 +1080,7 @@ struct EnhancedChurchNoteEditor: View {
                 let text = try await NoteTagService.lookupVerse(reference: ref)
                 await MainActor.run {
                     verseText = text.isEmpty ? nil : text
-                    withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.8))) {
                         showVersePreview = verseText != nil
                     }
                     isLookingUpVerse = false

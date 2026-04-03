@@ -152,7 +152,7 @@ struct FeedSessionStopScreen: View {
             }
         }
         .onAppear {
-            withAnimation(.spring(response: 0.45, dampingFraction: 0.75)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.45, dampingFraction: 0.75))) {
                 appeared = true
             }
         }
@@ -357,11 +357,11 @@ struct GuidedPrayerSheet: View {
             .offset(y: appeared ? 0 : 12)
             .id(currentStep) // Re-animate on step change
             .onAppear {
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) { appeared = true }
+                withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) { appeared = true }
             }
             .onChange(of: currentStep) { _, _ in
                 appeared = false
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.75).delay(0.05)) { appeared = true }
+                withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75)).delay(0.05)) { appeared = true }
             }
             
             Spacer()

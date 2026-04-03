@@ -141,7 +141,7 @@ struct KoraCircleDetailView: View {
         HStack(spacing: 0) {
             ForEach(KoraDetailTab.allCases, id: \.self) { tab in
                 Button {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                         selectedTab = tab
                     }
                 } label: {

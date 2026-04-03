@@ -135,7 +135,7 @@ struct GroundingExerciseView: View {
                     Button {
                         guard i == checkedCount else { return }
                         haptic.impactOccurred()
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                             checkedCount += 1
                         }
                         if checkedCount >= currentStep.4.count {

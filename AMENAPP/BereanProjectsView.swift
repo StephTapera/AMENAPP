@@ -475,7 +475,7 @@ struct BereanProjectDetailView: View {
                         HStack(spacing: 4) {
                             ForEach(ProjTab.allCases, id: \.self) { tab in
                                 Button {
-                                    withAnimation(.spring(response: 0.30, dampingFraction: 0.78)) {
+                                    withAnimation(Motion.adaptive(.spring(response: 0.30, dampingFraction: 0.78))) {
                                         selectedTab = tab
                                     }
                                 } label: {

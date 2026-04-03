@@ -72,7 +72,7 @@ struct SavedPostsQuickAccessButton: View {
             
             if newCount != savedCount {
                 // Animate badge when count changes
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                     savedCount = newCount
                     showBadgePulse = true
                 }

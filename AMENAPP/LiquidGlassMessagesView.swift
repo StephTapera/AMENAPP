@@ -78,7 +78,7 @@ struct LiquidGlassMessagesView: View {
                                         toggleReaction(messageId: message.id, emoji: emoji)
                                     },
                                     onLongPress: {
-                                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                             selectedMessageForReaction = message.id
                                         }
                                         UIImpactFeedbackGenerator(style: .medium).impactOccurred(intensity: 0.7)
@@ -100,7 +100,7 @@ struct LiquidGlassMessagesView: View {
                 }
                 .simultaneousGesture(
                     TapGesture().onEnded { _ in
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
                             selectedMessageForReaction = nil
                         }
                     }
@@ -190,7 +190,7 @@ struct LiquidGlassMessagesView: View {
             quotedMessageId: quotedMessage?.id
         )
 
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.72)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.72))) {
             messages.append(newMessage)
         }
 
@@ -223,7 +223,7 @@ struct LiquidGlassMessagesView: View {
             updatedMessage.reactions[emoji] = emojiReactions
         }
 
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
             messages[index] = updatedMessage
         }
 
@@ -332,7 +332,7 @@ struct MessageBubbleView: View {
             }
         }
         .onAppear {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.72).delay(0.05)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.72)).delay(0.05)) {
                 appeared = true
             }
         }

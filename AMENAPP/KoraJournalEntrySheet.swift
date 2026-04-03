@@ -130,7 +130,7 @@ struct KoraJournalEntrySheet: View {
     private func scopeSegment(_ scope: KoraShareScope, label: String, icon: String) -> some View {
         let isSelected = shareScope == scope
         return Button {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                 shareScope = scope
             }
         } label: {
@@ -201,7 +201,7 @@ struct KoraJournalEntrySheet: View {
     private func reflectionCard(_ text: String) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Button {
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                     isReflectionExpanded.toggle()
                 }
             } label: {

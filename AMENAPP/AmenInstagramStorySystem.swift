@@ -402,7 +402,7 @@ struct AmenStoryShareView: View {
 
             // Logo toggle
             Button {
-                withAnimation(.spring(response: 0.32, dampingFraction: 0.75)) { showLogo.toggle() }
+                withAnimation(Motion.adaptive(.spring(response: 0.32, dampingFraction: 0.75))) { showLogo.toggle() }
             } label: {
                 Image(systemName: showLogo ? "a.circle.fill" : "a.circle")
                     .font(.systemScaled(21))
@@ -464,7 +464,7 @@ struct AmenStoryShareView: View {
             HStack(spacing: 8) {
                 ForEach(AmenStoryStyle.allCases) { style in
                     Button {
-                        withAnimation(.spring(response: 0.32, dampingFraction: 0.76)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.32, dampingFraction: 0.76))) {
                             selectedStyle = style
                         }
                     } label: {

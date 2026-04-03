@@ -422,7 +422,7 @@ struct MentorshipView: View {
                 ForEach(MentorshipTab.allCases, id: \.self) { tab in
                     Button {
                         UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.75))) {
                             selectedTab = tab
                         }
                     } label: {
@@ -808,7 +808,7 @@ struct MentorCard: View {
         .scaleEffect(appeared ? 1 : 0.95)
         .opacity(appeared ? 1 : 0)
         .onAppear {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.75).delay(Double.random(in: 0...0.15))) {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75)).delay(Double.random(in: 0...0.15))) {
                 appeared = true
             }
         }
@@ -1324,7 +1324,7 @@ struct CircleCheckInSheet: View {
                         HStack(spacing: 10) {
                             ForEach(CircleCheckInMood.allCases, id: \.self) { m in
                                 Button {
-                                    withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) { mood = m }
+                                    withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.75))) { mood = m }
                                 } label: {
                                     VStack(spacing: 5) {
                                         Text(m.emoji).font(.systemScaled(24))
@@ -1471,7 +1471,7 @@ struct TrackDetailSheet: View {
                         HStack(spacing: 8) {
                             ForEach(1...track.weekCount, id: \.self) { week in
                                 Button {
-                                    withAnimation(.spring(response: 0.28, dampingFraction: 0.8)) {
+                                    withAnimation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.8))) {
                                         currentWeek = week
                                     }
                                 } label: {

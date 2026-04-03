@@ -207,7 +207,7 @@ struct KoraCheckInDetailView: View {
     private func moodPill(mood: KoraMood) -> some View {
         let isSelected = selectedMood == mood
         return Button {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                 selectedMood = mood
             }
         } label: {
@@ -350,7 +350,7 @@ struct KoraCheckInDetailView: View {
                 mood: selectedMood,
                 isPrivate: isPrivateResponse
             )
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                 hasSubmitted = true
             }
             await loadResponses()

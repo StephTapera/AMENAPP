@@ -136,7 +136,7 @@ struct ResourcesView: View {
         // Hide header and tab bar when scrolling down
         if offset < -100 {
             if showHeader {
-                withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.75))) {
                     showHeader = false
                 }
             }
@@ -144,7 +144,7 @@ struct ResourcesView: View {
         } else if offset >= -30 {
             // Show header and tab bar when near top
             if !showHeader {
-                withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.75))) {
                     showHeader = true
                 }
             }
@@ -974,7 +974,7 @@ struct ResourcesView: View {
 
             if !searchText.isEmpty || selectedCategory != .all {
                 Button {
-                    withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
                         searchText = ""
                         selectedCategory = .all
                     }
@@ -1384,7 +1384,7 @@ struct LiquidGlassConnectCard: View {
             .padding(.horizontal)
             .scaleEffect(isPressed ? 0.98 : 1.0)
             .onTapGesture {
-                withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.75))) {
                     isExpanded.toggle()
                 }
                 let haptic = UIImpactFeedbackGenerator(style: .medium)
@@ -2134,7 +2134,7 @@ struct LiquidGlassSegmentedControl: View {
     private func selectCategory(_ category: ResourcesView.ResourceCategory) {
         let haptic = UIImpactFeedbackGenerator(style: .light)
         haptic.impactOccurred()
-        withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.75))) {
             selection = category
         }
     }
@@ -2841,7 +2841,7 @@ struct SimplifiedFeatureBanner: View {
                 
                 // Expand/collapse button
                 Button {
-                    withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.75))) {
                         isExpanded.toggle()
                     }
                     

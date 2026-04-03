@@ -452,7 +452,7 @@ struct JobPostingView: View {
     private var navigationBar: some View {
         HStack(spacing: 12) {
             if step > 0 {
-                Button("Back") { withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { step -= 1 } }
+                Button("Back") { withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.85))) { step -= 1 } }
                     .font(AMENFont.semiBold(15))
                     .foregroundStyle(.primary)
                     .frame(width: 80, height: 48)
@@ -463,7 +463,7 @@ struct JobPostingView: View {
                     if step == 0 {
                         Task { await checkSafety() }
                     } else {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { step += 1 }
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.85))) { step += 1 }
                     }
                 } else {
                     Task { await submitJob() }
@@ -506,14 +506,14 @@ struct JobPostingView: View {
         switch decision {
         case .warn(let msg):
             safetyWarning = msg
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { step += 1 }
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.85))) { step += 1 }
         case .allow:
             safetyWarning = nil
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { step += 1 }
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.85))) { step += 1 }
         case .block(let reason):
             errorMessage = reason
         default:
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { step += 1 }
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.85))) { step += 1 }
         }
     }
 

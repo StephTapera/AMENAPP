@@ -309,7 +309,7 @@ struct MediaPlayerView: View {
                                     .lineLimit(descriptionExpanded ? nil : 8)
 
                                 Button(descriptionExpanded ? "Show less" : "Show more") {
-                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                                    withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.8))) {
                                         descriptionExpanded.toggle()
                                     }
                                 }

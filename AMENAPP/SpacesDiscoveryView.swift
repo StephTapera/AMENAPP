@@ -88,7 +88,7 @@ struct SpacesDiscoveryView: View {
 
             if !vm.searchText.isEmpty {
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                         vm.searchText = ""
                     }
                 } label: {
@@ -116,7 +116,7 @@ struct SpacesDiscoveryView: View {
         HStack(spacing: 8) {
             ForEach(SpacesViewModel.SpaceFilter.allCases, id: \.self) { filter in
                 Button {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.75))) {
                         vm.selectedFilter = filter
                     }
                 } label: {

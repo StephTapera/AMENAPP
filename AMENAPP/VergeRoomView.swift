@@ -224,7 +224,7 @@ struct VergeRoomView: View {
                 .lineLimit(2)
             Spacer()
             Button {
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                     aiInsightVisible = false
                 }
             } label: {
@@ -266,7 +266,7 @@ struct VergeRoomView: View {
             }
             .onChange(of: messagesVM.messages.count) { _ in
                 if let last = messagesVM.messages.last?.id {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                         proxy.scrollTo(last, anchor: .bottom)
                     }
                 }
@@ -301,7 +301,7 @@ struct VergeRoomView: View {
 
                 // Question toggle
                 Button {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                         messageType = (messageType == .question) ? .text : .question
                     }
                 } label: {
@@ -313,7 +313,7 @@ struct VergeRoomView: View {
 
                 // Reaction button
                 Button {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                         showEmojiPicker.toggle()
                     }
                 } label: {

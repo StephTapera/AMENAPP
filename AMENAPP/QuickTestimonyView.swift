@@ -129,7 +129,7 @@ struct QuickTestimonyView: View {
                         category: category,
                         isSelected: selectedCategory == category
                     ) {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                             selectedCategory = category
                             hapticLight.impactOccurred()
                         }
@@ -173,7 +173,7 @@ struct QuickTestimonyView: View {
                     if newValue.count > maxCharacters {
                         testimonyText = String(newValue.prefix(maxCharacters))
                         hapticMedium.impactOccurred()
-                        withAnimation(.spring(response: 0.2, dampingFraction: 0.3)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.3))) {
                             characterWarningShake = true
                         }
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
@@ -428,7 +428,7 @@ struct QuickTestimonyView: View {
                     .offset(y: showSuccessAnimation ? 0 : 20)
             }
             .onAppear {
-                withAnimation(.spring(response: 0.6, dampingFraction: 0.7)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.6, dampingFraction: 0.7))) {
                     showSuccessAnimation = true
                 }
             }

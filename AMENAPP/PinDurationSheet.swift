@@ -41,7 +41,7 @@ struct PinDurationSheet: View {
             VStack(spacing: 8) {
                 ForEach(PinDuration.allCases) { duration in
                     DurationRow(duration: duration, isSelected: selected == duration) {
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.75))) {
                             selected = duration
                         }
                     }

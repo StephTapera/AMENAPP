@@ -70,7 +70,7 @@ struct StartCoCreationSheet: View {
                                         type: type,
                                         isSelected: selectedType == type
                                     ) {
-                                        withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                                        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                                             selectedType = type
                                         }
                                     }

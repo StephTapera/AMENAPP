@@ -126,7 +126,7 @@ struct ImportReviewSheet: View {
                 LazyVStack(spacing: 8) {
                     ForEach($service.items) { $item in
                         ImportItemRow(item: $item, isExpanded: expandedItemId == item.id) {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                                 expandedItemId = expandedItemId == item.id ? nil : item.id
                             }
                         }

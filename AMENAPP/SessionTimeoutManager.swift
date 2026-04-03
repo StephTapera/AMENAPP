@@ -551,7 +551,7 @@ struct SessionTimeoutWarningView: View {
                     // Primary — Stay Signed In
                     Button {
                         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                             sessionManager.extendSession()
                         }
                     } label: {
@@ -574,7 +574,7 @@ struct SessionTimeoutWarningView: View {
                     // Secondary — Sign Out
                     Button {
                         UINotificationFeedbackGenerator().notificationOccurred(.warning)
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                             sessionManager.forceLogout()
                         }
                     } label: {
@@ -636,7 +636,7 @@ struct SessionTimeoutWarningView: View {
             .opacity(animate ? 1.0 : 0)
         }
         .onAppear {
-            withAnimation(.spring(response: 0.45, dampingFraction: 0.72)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.45, dampingFraction: 0.72))) {
                 animate = true
             }
             pulse = true

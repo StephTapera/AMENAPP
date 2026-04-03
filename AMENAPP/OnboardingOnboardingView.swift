@@ -199,7 +199,7 @@ struct OnboardingView: View {
         isAdvancing = true
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         direction = delta > 0 ? .forward : .backward
-        withAnimation(.spring(response: 0.42, dampingFraction: 0.82)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.42, dampingFraction: 0.82))) {
             step = max(0, min(totalSteps - 1, step + delta))
         }
         Task { @MainActor in
@@ -518,7 +518,7 @@ struct OnboardingView: View {
 
                         Button {
                             UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.75))) {
                                 showDOBPicker.toggle()
                             }
                         } label: {
@@ -843,7 +843,7 @@ struct OnboardingView: View {
                 ONBGlassCard(padding: .init(top: 14, leading: 16, bottom: 14, trailing: 16)) {
                     Button {
                         UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                        withAnimation(.spring(response: 0.28, dampingFraction: 0.72)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.72))) {
                             hasAgreedToTerms.toggle()
                         }
                     } label: {

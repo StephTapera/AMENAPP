@@ -123,7 +123,7 @@ struct VergeCreateRoomSheet: View {
 
     private func typeChip(_ type: VergeRoomType) -> some View {
         Button {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                 selectedType = type
             }
         } label: {

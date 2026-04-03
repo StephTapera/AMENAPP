@@ -155,7 +155,7 @@ struct CoachMarkOverlay: View {
         .allowsHitTesting(true)
         .onAppear {
             // Animate in header elements
-            withAnimation(.spring(response: 0.45, dampingFraction: 0.8)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.45, dampingFraction: 0.8))) {
                 slideIn = true
             }
             
@@ -163,7 +163,7 @@ struct CoachMarkOverlay: View {
             for i in 0..<animatedRules.count {
                 let delay = 0.3 + Double(i) * 0.08
                 DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                         animatedRules[i] = true
                     }
                 }

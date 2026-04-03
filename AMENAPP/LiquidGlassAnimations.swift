@@ -168,12 +168,12 @@ struct FloatingActionBubble: View {
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                         scale = 0.94
                     }
                 }
                 .onEnded { _ in
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
                         scale = 1.0
                     }
                 }
@@ -210,17 +210,17 @@ struct MetaballBadge: View {
             .scaleEffect(scale)
             .opacity(opacity)
             .onAppear {
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.6).delay(0.1)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.6)).delay(0.1)) {
                     scale = 1.0
                     opacity = 1.0
                 }
             }
             .onChange(of: count) { oldValue, newValue in
                 // Bounce animation when count changes
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.5))) {
                     scale = 1.2
                 }
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.6).delay(0.1)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.6)).delay(0.1)) {
                     scale = 1.0
                 }
             }
@@ -268,10 +268,10 @@ struct TabBarIconBounce: ViewModifier {
             .onChange(of: isSelected) { oldValue, newValue in
                 if newValue {
                     // Bounce when selected
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.5))) {
                         scale = 1.2
                     }
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.7).delay(0.15)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7)).delay(0.15)) {
                         scale = 1.0
                     }
                 }

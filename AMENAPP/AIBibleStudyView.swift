@@ -383,7 +383,7 @@ struct AIBibleStudyView: View {
                         if tab.requiresPro && !hasProAccess {
                             showProUpgrade = true
                         } else {
-                            withAnimation(.spring(response: 0.28, dampingFraction: 0.72)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.72))) {
                                 selectedTab = tab
                                 isInputFocused = false
                             }
@@ -488,7 +488,7 @@ struct AIBibleStudyView: View {
             if speechAuthorized {
                 do {
                     try speechService.startRecording()
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.6))) {
                         isListening = true
                     }
                     // Auto-stop after 30s
@@ -902,7 +902,7 @@ struct LightMessageBubble: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 3)
         .onAppear {
-            withAnimation(.spring(response: 0.42, dampingFraction: 0.72).delay(0.05)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.42, dampingFraction: 0.72)).delay(0.05)) {
                 appeared = true
             }
         }
@@ -1140,7 +1140,7 @@ struct AIInsightCard: View {
 
     var body: some View {
         Button {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                 isExpanded.toggle()
             }
         } label: {

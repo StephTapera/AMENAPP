@@ -125,7 +125,7 @@ struct PrayerFollowThroughBar: View {
         isInFlight = true
         let postId = post.id.uuidString
         
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
             hasPrayed.toggle()
             prayCount += hasPrayed ? 1 : -1
         }
@@ -422,7 +422,7 @@ struct ReflectSheet: View {
                 HStack(spacing: 8) {
                     ForEach(ResponseType.allCases, id: \.self) { type in
                         Button {
-                            withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.7))) {
                                 selectedType = type
                             }
                         } label: {

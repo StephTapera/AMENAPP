@@ -124,7 +124,7 @@ struct AMENDiscoveryView: View {
                                         isActive: selectedMode == mode,
                                         action: {
                                             HapticManager.impact(style: .light)
-                                            withAnimation(.spring(response: 0.38, dampingFraction: 0.72)) {
+                                            withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.72))) {
                                                 selectedMode = mode
                                             }
                                             if mode == .media { showMediaViewer = true }
@@ -168,7 +168,7 @@ struct AMENDiscoveryView: View {
                 BereanAIAssistantView()
             }
             .fullScreenCover(isPresented: $showMediaViewer, onDismiss: {
-                withAnimation(.spring(response: 0.38, dampingFraction: 0.72)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.72))) {
                     selectedMode = .forYou
                 }
             }) {
@@ -179,7 +179,7 @@ struct AMENDiscoveryView: View {
                 )
             }
             .onChange(of: isSearchFocused) { _, focused in
-                withAnimation(.spring(response: 0.38, dampingFraction: 0.72)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.72))) {
                     isSearchDimmed = focused
                 }
             }
@@ -194,7 +194,7 @@ struct AMENDiscoveryView: View {
                 ForEach(DiscoverMode.allCases, id: \.self) { mode in
                     Button {
                         HapticManager.impact(style: .light)
-                        withAnimation(.spring(response: 0.38, dampingFraction: 0.72)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.72))) {
                             selectedMode = mode
                         }
                         if mode == .media {
@@ -351,7 +351,7 @@ struct AMENDiscoveryView: View {
                 .onAppear {
                     guard !hasSeenAISearchHint else { return }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.8))) {
                             showAISearchHint = true
                         }
                         DispatchQueue.main.asyncAfter(deadline: .now() + 3.5) {
@@ -659,7 +659,7 @@ struct AMENDiscoveryView: View {
                             searchText = item.query
                             Task { await service.submitSearch(item.query) }
                         } onRemove: {
-                            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
                                 service.removeRecentSearch(id: item.id)
                             }
                         }
@@ -1411,7 +1411,7 @@ struct DiscoveryCardEntryModifier: ViewModifier {
             .opacity(appeared ? 1 : 0)
             .offset(y: appeared ? 0 : 20)
             .onAppear {
-                withAnimation(.spring(response: 0.38, dampingFraction: 0.72).delay(Double(index) * 0.06)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.72)).delay(Double(index) * 0.06)) {
                     appeared = true
                 }
             }

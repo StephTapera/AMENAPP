@@ -100,7 +100,7 @@ final class OnboardingViewModel: ObservableObject {
 
     func advance() {
         if currentStep < quizQuestions.count - 1 {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.85))) {
                 currentStep += 1
             }
         } else {
@@ -473,7 +473,7 @@ struct WelcomeResultView: View {
             }
         }
         .onAppear {
-            withAnimation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.1)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.6, dampingFraction: 0.8)).delay(0.1)) {
                 appeared = true
             }
         }

@@ -348,7 +348,7 @@ struct WorshipNowPlayingView: View {
 
     private func showToast(_ message: String) {
         toastMessage = message
-        withAnimation(.spring(response: 0.35)) { showingAddedToast = true }
+        withAnimation(Motion.adaptive(.spring(response: 0.35))) { showingAddedToast = true }
         Task {
             try? await Task.sleep(nanoseconds: 2_500_000_000)
             withAnimation(.easeOut) { showingAddedToast = false }

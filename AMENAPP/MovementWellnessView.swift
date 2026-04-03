@@ -231,7 +231,7 @@ struct MovementWellnessView: View {
             Button {
                 haptic.impactOccurred()
                 if stepIndex < steps.count - 1 {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) { stepIndex += 1 }
+                    withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.8))) { stepIndex += 1 }
                 } else {
                     UINotificationFeedbackGenerator().notificationOccurred(.success)
                     Task { await writeHealthKit() }

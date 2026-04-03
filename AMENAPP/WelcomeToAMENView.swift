@@ -431,7 +431,7 @@ struct WelcomePackageView: View {
         withAnimation(.easeOut(duration: 0.30)) {
             heroOpacity = 1.0
         }
-        withAnimation(.spring(response: 0.30, dampingFraction: 0.88)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.30, dampingFraction: 0.88))) {
             heroScale = 1.0
         }
 
@@ -446,25 +446,25 @@ struct WelcomePackageView: View {
         }
 
         // Header
-        withAnimation(.spring(response: 0.40, dampingFraction: 0.80).delay(0.15)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.40, dampingFraction: 0.80)).delay(0.15)) {
             headerOpacity = 1.0
             headerOffset = 0
         }
 
         // Side labels
-        withAnimation(.spring(response: 0.45, dampingFraction: 0.78).delay(0.28)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.45, dampingFraction: 0.78)).delay(0.28)) {
             labelsOpacity = 1.0
             labelsOffset = 0
         }
 
         // Cards
-        withAnimation(.spring(response: 0.50, dampingFraction: 0.80).delay(0.42)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.50, dampingFraction: 0.80)).delay(0.42)) {
             cardsOpacity = 1.0
             cardsOffset = 0
         }
 
         // CTA
-        withAnimation(.spring(response: 0.45, dampingFraction: 0.78).delay(0.60)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.45, dampingFraction: 0.78)).delay(0.60)) {
             ctaOpacity = 1.0
             ctaScale = 1.0
         }

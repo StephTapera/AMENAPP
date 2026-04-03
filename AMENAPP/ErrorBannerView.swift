@@ -58,7 +58,7 @@ class ErrorBannerManager: ObservableObject {
             Task {
                 try? await Task.sleep(nanoseconds: UInt64(duration * 1_000_000_000))
                 if currentError?.id == error.id {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
                         currentError = nil
                     }
                 }
@@ -67,7 +67,7 @@ class ErrorBannerManager: ObservableObject {
     }
     
     func dismissError() {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
             currentError = nil
         }
     }

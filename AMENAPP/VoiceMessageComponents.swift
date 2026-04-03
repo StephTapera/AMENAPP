@@ -262,10 +262,10 @@ struct VoiceMessageRecorderButton: View {
             .gesture(
                 LongPressGesture(minimumDuration: 0.3)
                     .onChanged { _ in
-                        withAnimation(.spring(response: 0.2)) { holdScale = 1.15 }
+                        withAnimation(Motion.adaptive(.spring(response: 0.2))) { holdScale = 1.15 }
                     }
                     .onEnded { _ in
-                        withAnimation(.spring(response: 0.2)) { holdScale = 1.0 }
+                        withAnimation(Motion.adaptive(.spring(response: 0.2))) { holdScale = 1.0 }
                         HapticManager.impact(style: .medium)
                         vm.startRecording()
                     }

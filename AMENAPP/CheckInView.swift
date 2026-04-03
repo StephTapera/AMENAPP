@@ -129,7 +129,7 @@ struct CheckInView: View {
         isSubmitting = true
         do {
             try await MentorshipService.shared.submitCheckInResponse(checkInId: checkIn.id, response: response)
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.75)) { submitted = true }
+            withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.75))) { submitted = true }
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
                 onComplete()
                 dismiss()

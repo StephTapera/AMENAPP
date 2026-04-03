@@ -208,7 +208,7 @@ struct GroupChatMemberCluster: View {
             .scaleEffect(appeared ? 1 : 0.9)
             .opacity(appeared ? 1 : 0)
             .onAppear {
-                withAnimation(.spring(response: 0.5, dampingFraction: 0.75)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.75))) {
                     appeared = true
                 }
             }

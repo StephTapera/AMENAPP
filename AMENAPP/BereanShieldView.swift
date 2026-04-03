@@ -321,12 +321,12 @@ struct BereanShieldView: View {
         Task {
             do {
                 let result = try await BereanShieldService.shared.analyze(claim: claimText)
-                withAnimation(.spring(response: 0.45, dampingFraction: 0.80)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.45, dampingFraction: 0.80))) {
                     analysis = result
                     showResults = true
                 }
             } catch {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.75))) {
                     errorMessage = error.localizedDescription
                 }
             }
@@ -359,7 +359,7 @@ private struct DimensionCard: View {
         VStack(alignment: .leading, spacing: 0) {
             // Header row
             Button(action: {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.75))) {
                     isExpanded.toggle()
                 }
             }) {

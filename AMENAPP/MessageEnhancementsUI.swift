@@ -245,7 +245,7 @@ struct EnhancedMessageBubble: View {
         }
         .contentShape(Rectangle())
         .onLongPressGesture(minimumDuration: 0.3) {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                 showReactionBar.toggle()
             }
             let haptic = UIImpactFeedbackGenerator(style: .medium)

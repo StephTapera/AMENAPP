@@ -431,7 +431,7 @@ struct HeroTextLine: View {
             .clipped()
             .offset(y: appeared ? 0 : lineHeight)
             .onAppear {
-                withAnimation(.spring(response: 0.55, dampingFraction: 0.72).delay(delay)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.55, dampingFraction: 0.72)).delay(delay)) {
                     appeared = true
                 }
             }

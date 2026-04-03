@@ -154,7 +154,7 @@ struct SmartMediaCarouselView: View {
                 }
                 .onEnded { value in
                     let threshold = width * 0.3
-                    withAnimation(.spring(response: 0.38, dampingFraction: 0.88)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.88))) {
                         if value.translation.width < -threshold && currentIndex < items.count - 1 {
                             currentIndex += 1
                         } else if value.translation.width > threshold && currentIndex > 0 {
@@ -174,7 +174,7 @@ struct SmartMediaCarouselView: View {
 
     private var glassPlayButton: some View {
         Button {
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.82))) {
                 isPlayingVideo.toggle()
             }
             if isPlayingVideo {
@@ -265,7 +265,7 @@ struct SmartMediaCarouselView: View {
         HStack(spacing: 10) {
             // Prev arrow
             arrowButton(systemName: "chevron.left", enabled: currentIndex > 0) {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.82))) {
                     if currentIndex > 0 {
                         currentIndex -= 1
                         isPlayingVideo = false
@@ -303,7 +303,7 @@ struct SmartMediaCarouselView: View {
 
             // Next arrow
             arrowButton(systemName: "chevron.right", enabled: currentIndex < items.count - 1) {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.82))) {
                     if currentIndex < items.count - 1 {
                         currentIndex += 1
                         isPlayingVideo = false

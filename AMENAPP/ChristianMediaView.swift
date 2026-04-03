@@ -165,7 +165,7 @@ struct ChristianMediaView: View {
             HStack(spacing: 0) {
                 ForEach(MediaTab.allCases) { tab in
                     Button {
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
                             vm.selectedTab = tab
                         }
                     } label: {
@@ -209,7 +209,7 @@ struct ChristianMediaView: View {
         let isActive = vm.selectedFilter == filter
 
         return Button {
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.7))) {
                 vm.selectedFilter = filter
             }
         } label: {

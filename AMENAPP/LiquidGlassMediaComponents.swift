@@ -65,7 +65,7 @@ struct GlassImageView: View {
                 .opacity(imageAppeared ? 1.0 : 0.0)
                 .scaleEffect(imageAppeared ? 1.0 : 0.96)
                 .onAppear {
-                    withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.8))) {
                         imageAppeared = true
                     }
                 }

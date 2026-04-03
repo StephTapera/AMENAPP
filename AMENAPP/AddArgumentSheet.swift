@@ -87,7 +87,7 @@ struct AddArgumentSheet: View {
         let accent = accentColor(for: type)
 
         return Button {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                 selectedType = type
             }
         } label: {
@@ -250,7 +250,7 @@ struct AddArgumentSheet: View {
                     showFlagWarning = false
                     await vm.screenArgument(claimText)
                     isScreening = false
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                         showFlagWarning = !vm.manipulationFlags.isEmpty
                     }
                 }

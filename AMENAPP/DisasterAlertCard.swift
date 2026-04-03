@@ -210,7 +210,7 @@ struct DisasterAlertCard: View {
                 HStack(spacing: 10) {
                     Button {
                         showPrayerSheet = true
-                        withAnimation(.spring(response: 0.3)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3))) {
                             isPraying = true
                             prayerCount += 1
                         }

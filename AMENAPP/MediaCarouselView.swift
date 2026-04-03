@@ -46,7 +46,7 @@ struct MediaCarouselView: View {
         .opacity(carouselAppeared ? 1 : 0)
         .offset(y: carouselAppeared ? 0 : 20)
         .onAppear {
-            withAnimation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.1)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.6, dampingFraction: 0.8)).delay(0.1)) {
                 carouselAppeared = true
             }
         }

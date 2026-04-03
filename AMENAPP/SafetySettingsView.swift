@@ -189,7 +189,7 @@ struct SafetySettingsView: View {
         }
 
         return Button {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                 filterLevel = level
             }
         } label: {

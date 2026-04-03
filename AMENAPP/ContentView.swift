@@ -166,13 +166,13 @@ struct ContentView: View {
                                 onSuccess: {
                                     // Auth resolved: dismiss splash; auth listener will
                                     // set isAuthenticated = true and show main app
-                                    withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                                    withAnimation(Motion.adaptive(.spring(response: 0.6, dampingFraction: 0.8))) {
                                         showSplash = false
                                     }
                                 },
                                 onFailure: {
                                     // Timeout / failed: fall through to login screen
-                                    withAnimation(.spring(response: 0.5, dampingFraction: 0.85)) {
+                                    withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.85))) {
                                         showSplash = false
                                     }
                                 }
@@ -593,7 +593,7 @@ struct ContentView: View {
                                 userInfo: ["post": post, "navigateTo": true, "category": postingBarCategory]
                             )
                         }
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.85))) {
                             postingBarState = .hidden
                         }
                     }
@@ -759,7 +759,7 @@ struct ContentView: View {
         }
         // Handle blocked deep links — show gate banner and route to Resources
         .onReceive(NotificationCenter.default.publisher(for: .shabbatDeepLinkBlocked)) { notification in
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
                 viewModel.selectedTab = 3
             }
         }
@@ -818,7 +818,7 @@ struct ContentView: View {
             setupKeyboardObservers()
         }
         .onReceive(NotificationCenter.default.publisher(for: .openCreatePost)) { _ in
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.8))) {
                 showCreatePost = true
             }
         }
@@ -1010,7 +1010,7 @@ struct ContentView: View {
             Task { @MainActor in
                 postingBarCategory = category
                 postingBarPost = nil
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.85))) {
                     postingBarState = .posting
                 }
             }
@@ -1032,7 +1032,7 @@ struct ContentView: View {
             Task { @MainActor in
                 postingBarCategory = category
                 postingBarPost = post
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.85))) {
                     postingBarState = .posted
                 }
 
@@ -1042,7 +1042,7 @@ struct ContentView: View {
                     try? await Task.sleep(nanoseconds: 3_500_000_000)
                     guard !Task.isCancelled else { return }
                     await MainActor.run {
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.85))) {
                             postingBarState = .hidden
                         }
                     }
@@ -1059,7 +1059,7 @@ struct ContentView: View {
             Task { @MainActor in
                 postingBarDismissTask?.cancel()
                 postingBarDismissTask = nil
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.85))) {
                     postingBarState = .hidden
                 }
             }
@@ -1135,7 +1135,7 @@ struct ContentView: View {
 
         // Small delay so any in-progress navigation animations can settle
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.85))) {
                 switch route {
 
                 case .newPost:
@@ -1234,7 +1234,7 @@ struct ContentView: View {
                         .transition(.opacity.animation(.easeOut(duration: 0.15)))
                         .onTapGesture {
                             HapticManager.impact(style: .soft)
-                            withAnimation(.spring(response: 0.2, dampingFraction: 0.85)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.85))) {
                                 showCreateQuickActions = false
                             }
                         }
@@ -1248,7 +1248,7 @@ struct ContentView: View {
                                 delay: 0.0,
                                 action: {
                                     HapticManager.impact(style: .light)
-                                    withAnimation(.spring(response: 0.2, dampingFraction: 0.85)) {
+                                    withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.85))) {
                                         showCreateQuickActions = false
                                     }
                                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
@@ -1267,7 +1267,7 @@ struct ContentView: View {
                                 delay: 0.05,
                                 action: {
                                     HapticManager.impact(style: .light)
-                                    withAnimation(.spring(response: 0.2, dampingFraction: 0.85)) {
+                                    withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.85))) {
                                         showCreateQuickActions = false
                                     }
                                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
@@ -1286,7 +1286,7 @@ struct ContentView: View {
                                 delay: 0.1,
                                 action: {
                                     HapticManager.impact(style: .light)
-                                    withAnimation(.spring(response: 0.2, dampingFraction: 0.85)) {
+                                    withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.85))) {
                                         showCreateQuickActions = false
                                     }
                                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
@@ -1355,7 +1355,7 @@ struct ContentView: View {
                         .transition(.opacity.animation(.easeOut(duration: 0.15)))
                         .onTapGesture {
                             HapticManager.impact(style: .soft)
-                            withAnimation(.spring(response: 0.2, dampingFraction: 0.85)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.85))) {
                                 showBereanQuickActions = false
                             }
                         }
@@ -1369,7 +1369,7 @@ struct ContentView: View {
                                 delay: 0.0,
                                 action: {
                                     HapticManager.impact(style: .light)
-                                    withAnimation(.spring(response: 0.2, dampingFraction: 0.85)) {
+                                    withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.85))) {
                                         showBereanQuickActions = false
                                     }
                                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
@@ -1387,7 +1387,7 @@ struct ContentView: View {
                                 delay: 0.05,
                                 action: {
                                     HapticManager.impact(style: .light)
-                                    withAnimation(.spring(response: 0.2, dampingFraction: 0.85)) {
+                                    withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.85))) {
                                         showBereanQuickActions = false
                                     }
                                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
@@ -1405,7 +1405,7 @@ struct ContentView: View {
                                 delay: 0.1,
                                 action: {
                                     HapticManager.impact(style: .light)
-                                    withAnimation(.spring(response: 0.2, dampingFraction: 0.85)) {
+                                    withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.85))) {
                                         showBereanQuickActions = false
                                     }
                                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
@@ -1510,7 +1510,7 @@ struct AnimatedQuickActionButton: View {
                 }
         )
         .onAppear {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.75).delay(delay)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75)).delay(delay)) {
                 isAppeared = true
             }
         }
@@ -1608,7 +1608,7 @@ struct CompactTabBar: View {
         .onChange(of: totalUnreadCount) { oldValue, newValue in
             // Trigger pulse animation when unread count increases
             if newValue > oldValue {
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.5)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.5))) {
                     badgePulse = true
                 }
                 
@@ -1629,7 +1629,7 @@ struct CompactTabBar: View {
             // Trigger pulse animation when new posts are added
             if newValue > oldValue && selectedTab != 0 {
                 // Only show if user is not on Home tab
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.5)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.5))) {
                     newPostsBadgePulse = true
                 }
 
@@ -1660,7 +1660,7 @@ struct CompactTabBar: View {
                 }
 
                 // Trigger re-render by changing UUID
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                     profilePhotoUpdateTrigger = UUID()
                 }
 
@@ -1707,7 +1707,7 @@ struct CompactTabBar: View {
             isNavigating = true
             
             dlog("🚦 [TAB] User tapped tab bar → selectedTab = \(tab.tag) (from \(selectedTab))")
-            withAnimation(.spring(response: 0.38, dampingFraction: 0.72)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.72))) {
                 selectedTab = tab.tag
             }
             
@@ -1948,7 +1948,7 @@ struct CompactTabBar: View {
                 return
             }
             
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.6))) {
                 showCreatePost = true
             }
             HapticManager.impact(style: .light)
@@ -1961,7 +1961,7 @@ struct CompactTabBar: View {
                         isLongPressing = true
                         HapticManager.impact(style: .light)
                         
-                        withAnimation(.spring(response: 0.15, dampingFraction: 0.8)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.15, dampingFraction: 0.8))) {
                             createButtonScale = 0.9
                         }
                     }
@@ -1969,7 +1969,7 @@ struct CompactTabBar: View {
                 .onEnded { _ in
                     HapticManager.notification(type: .success)
                     
-                    withAnimation(.spring(response: 0.2, dampingFraction: 0.8)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.8))) {
                         createButtonScale = 1.0
                         showCreateQuickActions = true
                     }
@@ -2074,7 +2074,7 @@ struct SmartMessageBadge: View {
             guard unreadCount > 0 else { return }
             showCount = true
             try? await Task.sleep(for: .seconds(2))
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
                 showCount = false
             }
         }
@@ -2218,7 +2218,7 @@ struct HomeView: View {
                             ForEach(LegacyFeedMode.allCases, id: \.self) { mode in
                                 Button {
                                     HapticManager.impact(style: .light)
-                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                         selectedFeedMode = mode
                                     }
                                 } label: {
@@ -2264,7 +2264,7 @@ struct HomeView: View {
                     ToolbarItem(placement: .principal) {
                         Button {
                             // Tap AMEN title - toggle categories expand/collapse
-                            withAnimation(.spring(response: 0.15, dampingFraction: 0.8)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.15, dampingFraction: 0.8))) {
                                 isCategoriesExpanded.toggle()
                             }
                             HapticManager.impact(style: .light)
@@ -2321,7 +2321,7 @@ struct HomeView: View {
                 // CaughtUpCard redirect actions: switch to Prayer feed or open Berean
                 // when the user is caught up and wants to do something purposeful.
                 .onReceive(NotificationCenter.default.publisher(for: .caughtUpOpenPrayer)) { _ in
-                    withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.82))) {
                         viewModel.selectedCategory = "Prayer"
                         selectedFeedMode = .everyone
                     }
@@ -2347,7 +2347,7 @@ struct HomeView: View {
                                 .contentShape(Rectangle())
                                 .ignoresSafeArea()
                                 .onTapGesture {
-                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                         showFeedModeDropdown = false
                                     }
                                 }
@@ -2402,7 +2402,7 @@ struct HomeView: View {
                     // Feed mode indicator strip — visible when not in Everyone mode
                     if selectedFeedMode != .everyone {
                         FeedModeIndicatorStrip(mode: selectedFeedMode) {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                 selectedFeedMode = .everyone
                             }
                         }
@@ -2501,7 +2501,7 @@ struct HomeView: View {
                         isSelected: viewModel.selectedCategory == category
                     ) {
                         viewModel.selectCategory(category)
-                        withAnimation(.spring(response: 0.15, dampingFraction: 0.8)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.15, dampingFraction: 0.8))) {
                             isCategoriesExpanded = false
                         }
                     }
@@ -2662,7 +2662,7 @@ struct FeedModeNavButton: View {
     var body: some View {
         Button {
             HapticManager.impact(style: .light)
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                 showDropdown.toggle()
             }
         } label: {
@@ -2690,7 +2690,7 @@ struct FeedModeDropdownMenu: View {
             ForEach(LegacyFeedMode.allCases, id: \.self) { mode in
                 Button {
                     HapticManager.impact(style: .light)
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                         selectedMode = mode
                         isVisible = false
                     }
@@ -2848,7 +2848,7 @@ struct SearchButton: View {
                             isLongPressing = true
                             HapticManager.impact(style: .light)
                             
-                            withAnimation(.spring(response: 0.15, dampingFraction: 0.8)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.15, dampingFraction: 0.8))) {
                                 quickActionButtonScale = 0.9
                             }
                         }
@@ -2856,7 +2856,7 @@ struct SearchButton: View {
                     .onEnded { _ in
                         HapticManager.notification(type: .success)
                         
-                        withAnimation(.spring(response: 0.2, dampingFraction: 0.85)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.85))) {
                             quickActionButtonScale = 1.0
                             showQuickActions = true
                             showFirstTimeLongPressHint = false
@@ -2888,7 +2888,7 @@ struct SearchButton: View {
                 // Show long press hint for first-time users
                 if !hasSeenLongPressHint {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
                             showFirstTimeLongPressHint = true
                         }
                         
@@ -2959,7 +2959,7 @@ struct BereanQuickActionButton: View {
                 }
         )
         .onAppear {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.75).delay(delay)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75)).delay(delay)) {
                 isAppeared = true
             }
         }
@@ -3986,7 +3986,7 @@ struct CommentCard: View {
                 // Comment actions
                 HStack(spacing: 16) {
                     Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                             hasAmened.toggle()
                             localAmenCount += hasAmened ? 1 : -1
                             
@@ -4158,7 +4158,7 @@ struct FullCommentsView: View {
                         Spacer()
                         
                         Button {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                 self.replyingTo = nil
                             }
                         } label: {
@@ -4289,7 +4289,7 @@ struct FullCommentsView: View {
             HStack(spacing: 8) {
                 // Bold
                 Button {
-                    withAnimation(.spring(response: 0.2, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.7))) {
                         isBold.toggle()
                     }
                 } label: {
@@ -4305,7 +4305,7 @@ struct FullCommentsView: View {
                 
                 // Italic
                 Button {
-                    withAnimation(.spring(response: 0.2, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.7))) {
                         isItalic.toggle()
                     }
                 } label: {
@@ -4347,7 +4347,7 @@ struct FullCommentsView: View {
         HStack(spacing: 8) {
             // Bold
             Button {
-                withAnimation(.spring(response: 0.2, dampingFraction: 0.7)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.7))) {
                     isBold.toggle()
                 }
             } label: {
@@ -4363,7 +4363,7 @@ struct FullCommentsView: View {
             
             // Italic
             Button {
-                withAnimation(.spring(response: 0.2, dampingFraction: 0.7)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.7))) {
                     isItalic.toggle()
                 }
             } label: {
@@ -4388,7 +4388,7 @@ struct FullCommentsView: View {
     private func submitComment() {
         guard !commentText.isEmpty else { return }
         
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.8))) {
             let newComment = TestimonyComment(
                 authorName: "You",
                 authorInitials: "ME",
@@ -4450,7 +4450,7 @@ struct CommentThreadCard: View {
             if !comment.replies.isEmpty {
                 VStack(alignment: .leading, spacing: 0) {
                     Button {
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.8))) {
                             showReplies.toggle()
                         }
                     } label: {
@@ -4536,7 +4536,7 @@ struct CommentThreadCard: View {
                     // Actions
                     HStack(spacing: 20) {
                         Button {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                                 hasAmened.toggle()
                                 localAmenCount += hasAmened ? 1 : -1
                                 
@@ -4750,7 +4750,7 @@ struct FollowButton: View {
     
     var body: some View {
         Button {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                 isFollowing.toggle()
                 
                 HapticManager.impact(style: isFollowing ? .medium : .light)
@@ -5351,7 +5351,7 @@ struct CollapsibleTrendingSection: View {
         VStack(alignment: .leading, spacing: 12) {
             // Header with expand/collapse button
             Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
                     isExpanded.toggle()
                 }
                 
@@ -5851,7 +5851,7 @@ struct CollapsibleCommunitySection: View {
         VStack(alignment: .leading, spacing: 12) {
             // Header with expand/collapse button
             Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
                     isExpanded.toggle()
                 }
                 
@@ -6267,7 +6267,7 @@ struct TopIdeasView: View {
                             HStack(spacing: 8) {
                                 ForEach(IdeaTimeframe.allCases, id: \.self) { timeframe in
                                     Button {
-                                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                             selectedTimeframe = timeframe
                                         }
                                         Task {
@@ -6313,7 +6313,7 @@ struct TopIdeasView: View {
                             HStack(spacing: 8) {
                                 ForEach(TopIdea.IdeaCategory.allCases, id: \.self) { category in
                                     Button {
-                                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                             selectedCategory = category
                                         }
                                         Task {
@@ -6553,7 +6553,7 @@ struct TopIdeaCard: View {
                 HStack(spacing: 12) {
                     // Lightbulb Reaction with Animation
                     Button {
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.5)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.5))) {
                             hasLightbulbed.toggle()
                             localLightbulbCount += hasLightbulbed ? 1 : -1
                             isAnimating = true
@@ -6630,7 +6630,7 @@ struct TopIdeaCard: View {
                         activeColor: .blue,
                         namespace: glassNamespace
                     ) {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                             showComments.toggle()
                         }
                     }
@@ -7425,7 +7425,7 @@ struct FeedCommunitiesSheet: View {
     private func feedModeRow(_ mode: DrawerFeedMode) -> some View {
         let isActive = drawerState.activeFeedMode == mode
         return Button {
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
                 drawerState.activeFeedMode = mode
             }
             HapticManager.impact(style: .light)

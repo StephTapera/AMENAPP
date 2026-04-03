@@ -42,7 +42,7 @@ struct InAppReviewPromptView: View {
                 .opacity(isAnimatingIn ? 1.0 : 0.0)
         }
         .onAppear {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.8))) {
                 isAnimatingIn = true
             }
         }
@@ -203,7 +203,7 @@ struct InAppReviewPromptView: View {
     
     /// Dismiss the prompt with animation
     private func dismissPrompt() {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
             isAnimatingIn = false
         }
         

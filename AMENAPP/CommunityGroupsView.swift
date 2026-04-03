@@ -192,7 +192,7 @@ struct CommunityGroupsView: View {
 
     private func categoryPill(_ category: CommunityGroup.GroupCategory?, label: String) -> some View {
         Button {
-            withAnimation(.spring(response: 0.25)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.25))) {
                 selectedCategory = category
             }
         } label: {

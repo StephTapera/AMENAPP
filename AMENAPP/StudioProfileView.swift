@@ -334,7 +334,7 @@ struct StudioProfileView: View {
             HStack(spacing: 4) {
                 ForEach(StudioTab.allCases) { tab in
                     Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                             selectedTab = tab
                         }
                     } label: {

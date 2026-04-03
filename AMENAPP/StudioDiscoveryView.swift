@@ -62,7 +62,7 @@ struct StudioDiscoveryView: View {
                 TextField("Search creators, services, products...", text: $searchText)
                     .font(.custom("OpenSans-Regular", size: 15))
                     .onTapGesture {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                             discoverState = .searching
                         }
                     }
@@ -83,7 +83,7 @@ struct StudioDiscoveryView: View {
             if discoverState != .landing {
                 Button("Cancel") {
                     searchText = ""
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                         discoverState = .landing
                     }
                 }
@@ -295,7 +295,7 @@ struct StudioDiscoveryView: View {
 
                     ForEach(StudioCategory.allCases.prefix(12)) { cat in
                         Button {
-                            withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.7))) {
                                 selectedCategory = cat
                             }
                         } label: {
@@ -376,7 +376,7 @@ struct StudioDiscoveryView: View {
             discoverState = .landing
             searchResults = []
         } else if discoverState == .landing {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                 discoverState = .searching
             }
         }
@@ -384,7 +384,7 @@ struct StudioDiscoveryView: View {
 
     private func performSearch() {
         guard !searchText.isEmpty else { return }
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
             discoverState = .results
             isSearching = true
         }

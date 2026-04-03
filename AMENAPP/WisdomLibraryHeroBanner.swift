@@ -229,7 +229,7 @@ struct WisdomLibraryHeroBanner: View {
         .offset(y: isPressed ? 1 : 0)
         .onAppear {
             guard !reduceMotion else { appeared = true; return }
-            withAnimation(.spring(response: 0.70, dampingFraction: 0.80).delay(0.10)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.70, dampingFraction: 0.80)).delay(0.10)) {
                 appeared = true
             }
         }

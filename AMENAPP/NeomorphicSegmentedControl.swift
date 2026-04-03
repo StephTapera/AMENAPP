@@ -18,7 +18,7 @@ struct NeomorphicSegmentedControl: View {
         HStack(spacing: 0) {
             ForEach(options.indices, id: \.self) { index in
                 Button {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
                         selectedIndex = index
                     }
                     let haptic = UIImpactFeedbackGenerator(style: .light)

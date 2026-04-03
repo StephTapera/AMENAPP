@@ -69,7 +69,7 @@ struct MessageSafetyWarningBanner: View {
                 Spacer()
 
                 Button {
-                    withAnimation(.spring(response: 0.3)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3))) {
                         isExpanded.toggle()
                     }
                 } label: {
@@ -298,7 +298,7 @@ struct StrikeNoticeView: View {
 
                 Button(action: {
                     cancelAutoDismiss()
-                    withAnimation(.spring(response: 0.3)) { onDismiss() }
+                    withAnimation(Motion.adaptive(.spring(response: 0.3))) { onDismiss() }
                 }) {
                     Image(systemName: "xmark")
                         .font(.systemScaled(12, weight: .semibold))
@@ -336,7 +336,7 @@ struct StrikeNoticeView: View {
         .opacity(appeared ? 1 : 0)
         .transition(.move(edge: .bottom).combined(with: .opacity))
         .onAppear {
-            withAnimation(.spring(response: 0.42, dampingFraction: 0.72)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.42, dampingFraction: 0.72))) {
                 appeared = true
             }
             startAutoDismiss()
@@ -357,7 +357,7 @@ struct StrikeNoticeView: View {
             try? await Task.sleep(nanoseconds: UInt64(autoDismissAfter * 1_000_000_000))
             guard !Task.isCancelled else { return }
             await MainActor.run {
-                withAnimation(.spring(response: 0.3)) { onDismiss() }
+                withAnimation(Motion.adaptive(.spring(response: 0.3))) { onDismiss() }
             }
         }
     }

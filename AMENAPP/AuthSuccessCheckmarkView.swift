@@ -88,7 +88,7 @@ struct AuthSuccessCheckmarkView: View {
         haptic.notificationOccurred(.success)
         
         // Capsule slides in with smooth spring
-        withAnimation(.spring(response: 0.5, dampingFraction: 0.75)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.75))) {
             capsuleScale = 1.0
             capsuleOpacity = 1.0
         }
@@ -99,7 +99,7 @@ struct AuthSuccessCheckmarkView: View {
         }
         
         // Checkmark subtle rotation
-        withAnimation(.spring(response: 0.6, dampingFraction: 0.7).delay(0.25)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.6, dampingFraction: 0.7)).delay(0.25)) {
             checkmarkRotation = 360
         }
         

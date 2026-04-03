@@ -133,7 +133,7 @@ struct PostToSpaceSheet: View {
         HStack(spacing: 0) {
             ForEach([SpacePost.ContentType.text, .photo], id: \.self) { type in
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                         selectedType = type
                     }
                 } label: {

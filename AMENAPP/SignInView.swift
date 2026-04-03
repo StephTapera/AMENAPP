@@ -192,7 +192,7 @@ struct SignInView: View {
         // Method picker shown for both sign-up and sign-in
         HStack(spacing: 0) {
             Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                     if isLogin { loginMethod = .email } else { signUpMethod = .email }
                 }
             } label: {
@@ -209,7 +209,7 @@ struct SignInView: View {
             }
 
             Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                     if isLogin { loginMethod = .phone } else { signUpMethod = .phone }
                 }
             } label: {
@@ -590,7 +590,7 @@ struct SignInView: View {
                 .foregroundStyle(.white.opacity(0.5))
 
             Button {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.75))) {
                     isLogin.toggle()
                 }
             } label: {
@@ -2033,7 +2033,7 @@ private struct DarkGlassmorphicPasswordField: View {
             }
 
             Button {
-                withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.75))) {
                     showPassword.toggle()
                 }
             } label: {

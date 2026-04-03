@@ -130,7 +130,7 @@ struct BereanChatsView: View {
         .onAppear { chats = BereanChatStore.load() }
         .confirmationDialog("Clear all chats?", isPresented: $confirmClearAll, titleVisibility: .visible) {
             Button("Clear All", role: .destructive) {
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) { chats = [] }
+                withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) { chats = [] }
                 BereanChatStore.save(chats)
                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
             }
@@ -218,7 +218,7 @@ struct BereanChatsView: View {
                 Color.clear
                     .onChange(of: geo.frame(in: .named("scroll")).minY) { _, y in
                         if y > 20 && !showSearch {
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.75))) {
                                 showSearch = true
                             }
                         }
@@ -333,12 +333,12 @@ struct BereanChatsView: View {
     // MARK: - Actions
 
     private func createNewChat() {
-        withAnimation(.spring(response: 0.2, dampingFraction: 0.45)) { fabScale = 0.88 }
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.6).delay(0.1)) { fabScale = 1.0 }
+        withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.45))) { fabScale = 0.88 }
+        withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.6)).delay(0.1)) { fabScale = 1.0 }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
 
         let newChat = BereanChat.new()
-        withAnimation(.spring(response: 0.45, dampingFraction: 0.72)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.45, dampingFraction: 0.72))) {
             chats.insert(newChat, at: 0)
         }
         BereanChatStore.save(chats)
@@ -350,7 +350,7 @@ struct BereanChatsView: View {
     }
 
     private func deleteChat(_ chat: BereanChat) {
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
             chats.removeAll { $0.id == chat.id }
         }
         BereanChatStore.save(chats)
@@ -391,7 +391,7 @@ struct BereanChatsView: View {
             isPinned: false,
             isNew: last.isNew
         )
-        withAnimation(.spring(response: 0.45, dampingFraction: 0.72)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.45, dampingFraction: 0.72))) {
             chats.insert(copy, at: 0)
         }
         BereanChatStore.save(chats)
@@ -545,9 +545,9 @@ struct BereanToolbarButton: View {
 
     var body: some View {
         Button {
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.55)) { pressed = true }
+            withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.55))) { pressed = true }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
-                withAnimation(.spring(response: 0.25)) { pressed = false }
+                withAnimation(Motion.adaptive(.spring(response: 0.25))) { pressed = false }
             }
             action()
         } label: {

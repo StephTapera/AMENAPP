@@ -159,7 +159,7 @@ struct LongitudinalOnboardingView: View {
                     ONBPrimaryButton(
                         title: "Next",
                         action: {
-                            withAnimation(.spring(response: 0.45, dampingFraction: 0.82)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.45, dampingFraction: 0.82))) {
                                 currentPage = index + 1
                             }
                         }

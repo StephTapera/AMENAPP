@@ -402,7 +402,7 @@ struct AttachVerseSheet: View {
             .opacity(contentOpacity)
         }
         .onAppear {
-            withAnimation(.spring(response: 0.45, dampingFraction: 0.82)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.45, dampingFraction: 0.82))) {
                 cardScale = 1.0
                 contentOpacity = 1.0
             }
@@ -433,7 +433,7 @@ struct AttachVerseSheet: View {
 
             Button {
                 if let verse = vm.selectedVerse {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                         onAttach(verse)
                         animateDismiss()
                     }
@@ -461,7 +461,7 @@ struct AttachVerseSheet: View {
             HStack(spacing: 8) {
                 ForEach(BibleTranslation.allCases, id: \.self) { t in
                     Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                             vm.selectedTranslation = t
                         }
                         if vm.hasSearched { vm.search() }
@@ -557,7 +557,7 @@ struct AttachVerseSheet: View {
             VStack(spacing: 10) {
                 ForEach(vm.suggestions, id: \.self) { s in
                     Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                             vm.selectSuggestion(s)
                         }
                     } label: {
@@ -641,7 +641,7 @@ struct AttachVerseSheet: View {
     private func verseCard(_ verse: BibleVerse, index: Int) -> some View {
         let isSelected = vm.selectedVerse?.id == verse.id
         return Button {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.72)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.72))) {
                 vm.selectedVerse = isSelected ? nil : verse
             }
         } label: {
@@ -709,7 +709,7 @@ struct AttachVerseSheet: View {
     // MARK: - Dismiss
 
     private func animateDismiss() {
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.85))) {
             cardScale = 0.92
             contentOpacity = 0
         }
@@ -765,7 +765,7 @@ struct AttachedVerseBadge: View {
         .scaleEffect(appear ? 1 : 0.85)
         .opacity(appear ? 1 : 0)
         .onAppear {
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) { appear = true }
+            withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.7))) { appear = true }
         }
     }
 }

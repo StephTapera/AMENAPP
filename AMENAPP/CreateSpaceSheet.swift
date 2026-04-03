@@ -64,7 +64,7 @@ struct CreateSpaceSheet: View {
                 if showPreview {
                     ToolbarItem(placement: .navigationBarLeading) {
                         Button {
-                            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.8))) {
                                 showPreview = false
                             }
                         } label: {
@@ -360,7 +360,7 @@ struct CreateSpaceSheet: View {
                     editableName        = result.name
                     editableDescription = result.description
                     isGenerating        = false
-                    withAnimation(.spring(response: 0.45, dampingFraction: 0.8)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.45, dampingFraction: 0.8))) {
                         showPreview = true
                     }
                     UINotificationFeedbackGenerator().notificationOccurred(.success)

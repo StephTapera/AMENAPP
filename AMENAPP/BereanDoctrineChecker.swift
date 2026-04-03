@@ -150,7 +150,7 @@ struct DoctrineCheckCard: View {
         VStack(alignment: .leading, spacing: 0) {
             // Header row
             Button {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.8))) {
                     expanded.toggle()
                 }
             } label: {

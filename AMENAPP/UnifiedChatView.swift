@@ -222,7 +222,7 @@ struct UnifiedChatView: View {
                             strikeCount: safetyStrikeCount,
                             reason: safetyStrikeReason,
                             onDismiss: {
-                                withAnimation(.spring(response: 0.3)) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.3))) {
                                     showStrikeNotice = false
                                 }
                             },
@@ -241,7 +241,7 @@ struct UnifiedChatView: View {
                                                 isMutualFollow = followStatus.user1FollowsUser2 && followStatus.user2FollowsUser1
                                                 isFollowButtonLoading = false
                                                 // Dismiss the notice — they can now send a message request
-                                                withAnimation(.spring(response: 0.3)) {
+                                                withAnimation(Motion.adaptive(.spring(response: 0.3))) {
                                                     showStrikeNotice = false
                                                     // Don't increment strike — following is not a safety violation
                                                     safetyStrikeCount = max(0, safetyStrikeCount - 1)
@@ -299,7 +299,7 @@ struct UnifiedChatView: View {
                                 replyToText: replying.text.isEmpty ? "(attachment)" : replying.text,
                                 replyToAuthor: replying.senderName ?? "Message"
                             ) {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                                     replyingTo = nil
                                 }
                             }
@@ -488,7 +488,7 @@ struct UnifiedChatView: View {
             if !newValue.isEmpty { smartReplySuggestions = [] }
         }
         .onChange(of: isInputFocused) { _, newValue in
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                 isInputBarFocused = newValue
                 if newValue {
                     // Auto-collapse media section when keyboard appears
@@ -877,7 +877,7 @@ struct UnifiedChatView: View {
                                                 },
                                                 onLongPress: {
                                                     selectedMessageForReaction = message
-                                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                                         showReactionPicker = true
                                                     }
                                                 },
@@ -912,7 +912,7 @@ struct UnifiedChatView: View {
                                                         guard abs(value.translation.width) > abs(value.translation.height) * 1.5 else { return }
                                                         if value.translation.width > 50 {
                                                             UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                                                            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                                                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                                                                 replyingTo = message
                                                                 isInputFocused = true
                                                             }
@@ -1157,7 +1157,7 @@ struct UnifiedChatView: View {
                 .shadow(color: .black.opacity(0.04), radius: 8, y: -2)
         )
         .onAppear {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.6).delay(0.05)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.6)).delay(0.05)) {
                 isAttachTrayOpen = true
             }
         }
@@ -1177,7 +1177,7 @@ struct UnifiedChatView: View {
     ) -> some View {
         Button {
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                 isMediaSectionExpanded = false
                 isAttachTrayOpen = false
             }
@@ -1290,7 +1290,7 @@ struct UnifiedChatView: View {
                 let haptic = UIImpactFeedbackGenerator(style: .light)
                 haptic.impactOccurred()
 
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.6))) {
                     isMediaSectionExpanded.toggle()
                     if isMediaSectionExpanded {
                         isInputFocused = false
@@ -1348,7 +1348,7 @@ struct UnifiedChatView: View {
                 Button {
                     if isRecording {
                         // Stop recording
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                             isRecording = false
                         }
                     } else if !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -1361,7 +1361,7 @@ struct UnifiedChatView: View {
                         // Mic tap — placeholder for voice recording
                         let haptic = UIImpactFeedbackGenerator(style: .medium)
                         haptic.impactOccurred()
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                             isRecording = true
                         }
                     }
@@ -1431,7 +1431,7 @@ struct UnifiedChatView: View {
                                   !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
                             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                             scheduledDate = Calendar.current.date(byAdding: .hour, value: 1, to: Date()) ?? Date()
-                            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.8))) {
                                 showSchedulePicker = true
                             }
                         }
@@ -1714,7 +1714,7 @@ struct UnifiedChatView: View {
     }
 
     private func cancelEditMode() {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
             editingMessage = nil
             editingOriginalText = ""
             messageText = ""
@@ -3676,7 +3676,7 @@ struct LiquidGlassMessageBubble: View {
                         )
                         .onTapGesture(count: 2) {
                             UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.65)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.65))) {
                                 showInlineReactions.toggle()
                             }
                         }
@@ -3763,7 +3763,7 @@ struct LiquidGlassMessageBubble: View {
                         if abs(swipeOffset) >= swipeThreshold {
                             onReply()
                         }
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.75))) {
                             swipeOffset = 0
                         }
                         didTriggerReplyHaptic = false
@@ -4089,7 +4089,7 @@ struct QuickReplyChipsView: View {
         VStack(alignment: .leading, spacing: 10) {
             // Header row
             Button {
-                withAnimation(.spring(response: 0.45, dampingFraction: 0.7)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.45, dampingFraction: 0.7))) {
                     isExpanded.toggle()
                 }
             } label: {
@@ -4140,7 +4140,7 @@ struct QuickReplyChipsView: View {
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
 
             // Animate chip sliding out
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.7))) {
                 slidingOutId = reply.id
             }
 
@@ -4148,7 +4148,7 @@ struct QuickReplyChipsView: View {
 
             // Restore after 1.5s
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
                     slidingOutId = nil
                     dismissedChipIds.insert(reply.id)
                 }
@@ -4612,12 +4612,12 @@ private struct PollOptionRow: View {
         }
         .buttonStyle(.plain)
         .onAppear {
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.75).delay(0.1)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.75)).delay(0.1)) {
                 animatedProgress = voteRatio
             }
         }
         .onChange(of: option.votes.count) { _, _ in
-            withAnimation(.spring(response: 0.45, dampingFraction: 0.75)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.45, dampingFraction: 0.75))) {
                 animatedProgress = voteRatio
             }
         }
@@ -4721,7 +4721,7 @@ struct CreatePollSheet: View {
 
                     if options.count > 2 {
                         Button {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                                 let removeIndex: Int = idx
                                 options.remove(at: removeIndex)
                             }
@@ -4737,7 +4737,7 @@ struct CreatePollSheet: View {
 
             if options.count < 6 {
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                         options.append("")
                     }
                 } label: {

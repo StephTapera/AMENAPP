@@ -104,7 +104,7 @@ struct HeyFeedBadgeView: View {
 
     private func toggleExpanded() {
         collapseTask?.cancel()
-        withAnimation(.spring(response: 0.38, dampingFraction: 0.72)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.72))) {
             isExpanded.toggle()
         }
         if isExpanded {
@@ -118,7 +118,7 @@ struct HeyFeedBadgeView: View {
             try? await Task.sleep(nanoseconds: 4_000_000_000)
             guard !Task.isCancelled else { return }
             await MainActor.run {
-                withAnimation(.spring(response: 0.38, dampingFraction: 0.72)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.72))) {
                     isExpanded = false
                 }
             }

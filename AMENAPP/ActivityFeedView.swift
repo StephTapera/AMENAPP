@@ -35,7 +35,7 @@ struct ActivityFeedView: View {
                     ForEach(FeedTab.allCases, id: \.self) { tab in
                         let isSelected = selectedTab == tab
                         Button {
-                            withAnimation(.spring(response: 0.28, dampingFraction: 0.78)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.78))) {
                                 selectedTab = tab
                             }
                             UIImpactFeedbackGenerator(style: .light).impactOccurred()

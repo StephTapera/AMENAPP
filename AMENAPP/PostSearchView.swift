@@ -134,7 +134,7 @@ struct PostSearchView: View {
         HStack(spacing: 0) {
             ForEach(SearchTab.allCases, id: \.self) { tab in
                 Button(action: {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                         selectedTab = tab
                     }
                 }) {

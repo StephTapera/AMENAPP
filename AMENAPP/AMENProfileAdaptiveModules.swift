@@ -173,7 +173,7 @@ private struct StaggeredEntranceModifier: ViewModifier {
             .offset(y: appeared ? 0 : 20)
             .opacity(appeared ? 1 : 0)
             .onAppear {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.82).delay(Double(index) * 0.06)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.82)).delay(Double(index) * 0.06)) {
                     appeared = true
                 }
             }

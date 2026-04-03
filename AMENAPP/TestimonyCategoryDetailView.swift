@@ -70,7 +70,7 @@ struct TestimonyCategoryDetailView: View {
                         HStack(spacing: 8) {
                             ForEach(CategoryFilter.allCases, id: \.self) { filter in
                                 Button {
-                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                         selectedFilter = filter
                                     }
                                 } label: {

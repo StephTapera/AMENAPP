@@ -46,7 +46,7 @@ struct PhotoUploadStep: View {
                             
                             // Remove button
                             Button {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                     var photos = selectedPhotos
                                     photos.remove(at: index)
                                     selectedPhotos = photos
@@ -311,7 +311,7 @@ struct VerificationStep: View {
         
         // Simulate verification
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                 isEmailVerified = true
                 isPhoneVerified = !phoneNumber.isEmpty
                 showCodeInput = false
@@ -444,7 +444,7 @@ struct LocationServicesStep: View {
     private func requestLocationPermission() {
         // Request location permission
         // In production: Use CLLocationManager
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
             locationPermissionGranted = true
         }
     }
@@ -513,7 +513,7 @@ struct PrivacySafetyStep: View {
             
             // Agreement checkbox
             Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                     agreedToGuidelines.toggle()
                 }
             } label: {

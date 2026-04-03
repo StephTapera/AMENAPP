@@ -143,7 +143,7 @@ struct CaughtUpCard: View {
         .scaleEffect(appeared ? 1 : 0.92)
         .blur(radius: appeared ? 0 : 6)
         .onAppear {
-            withAnimation(.spring(response: 0.48, dampingFraction: 0.78).delay(0.08)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.48, dampingFraction: 0.78)).delay(0.08)) {
                 appeared = true
             }
             if shouldShowReflection() {
@@ -233,7 +233,7 @@ struct AnimatedCheckRing: View {
                 ringProgress = 1.0
             }
             // Then pop the check
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.6).delay(0.50)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.6)).delay(0.50)) {
                 checkOpacity = 1.0
                 checkScale = 1.0
             }

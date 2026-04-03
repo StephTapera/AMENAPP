@@ -228,7 +228,7 @@ struct GivingNonprofitsDetailView: View {
             HStack(spacing: 0) {
                 ForEach(GivingTab.allCases, id: \.self) { tab in
                     Button {
-                        withAnimation(.spring(response: 0.30, dampingFraction: 0.78)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.30, dampingFraction: 0.78))) {
                             selectedTab = tab
                         }
                         UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -312,7 +312,7 @@ struct GivingNonprofitsDetailView: View {
                 HStack(spacing: 8) {
                     ForEach(GivingCategory.allCases) { cat in
                         Button {
-                            withAnimation(.spring(response: 0.25, dampingFraction: 0.78)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.78))) {
                                 selectedCause = cat
                             }
                             UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -405,7 +405,7 @@ struct GivingNonprofitsDetailView: View {
             ) {
                 ForEach(GivingCategory.allCases.filter { $0 != .all }) { cat in
                     Button {
-                        withAnimation(.spring(response: 0.28, dampingFraction: 0.78)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.78))) {
                             selectedCause = cat
                             selectedTab = .vetted
                         }
@@ -933,7 +933,7 @@ struct HelpRequestFlow: View {
                     Spacer()
 
                     Button {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.78)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.78))) {
                             if step < 2 { step += 1 } else { dismiss() }
                         }
                         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
@@ -958,7 +958,7 @@ struct HelpRequestFlow: View {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button {
                         if step > 0 {
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.78)) { step -= 1 }
+                            withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.78))) { step -= 1 }
                         } else {
                             dismiss()
                         }

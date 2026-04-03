@@ -69,13 +69,13 @@ struct SearchExpandBar: View {
         .animation(.spring(response: 0.38, dampingFraction: 0.78), value: showDropdown)
         .onChange(of: query) { _, newVal in
             scheduleSearch(newVal)
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
                 barState = newVal.isEmpty ? .expandedIdle : .typing
             }
         }
         .onChange(of: results) { _, newResults in
             if !newResults.isEmpty && !query.isEmpty {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
                     barState = .showingResults
                 }
             }
@@ -251,7 +251,7 @@ struct SearchExpandBar: View {
 
     private func open() {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        withAnimation(.spring(response: 0.38, dampingFraction: 0.78)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.78))) {
             barState = .expanding
             expandProgress = 1
         }
@@ -266,7 +266,7 @@ struct SearchExpandBar: View {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         fieldFocused = false
         debounceTask?.cancel()
-        withAnimation(.spring(response: 0.30, dampingFraction: 0.82)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.30, dampingFraction: 0.82))) {
             barState = .collapsing
             expandProgress = 0
         }
@@ -281,7 +281,7 @@ struct SearchExpandBar: View {
     private func select(_ result: DiscoverySearchResult) {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         query = result.name
-        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
             barState = .typing
         }
         onSelectResult(result)

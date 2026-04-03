@@ -364,7 +364,7 @@ struct CreatePostView: View {
             // Camera photo preview
             if let capturedImage = cameraImage {
                 CameraAttachmentPreview(image: capturedImage) {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                         cameraImage = nil
                     }
                 }
@@ -382,7 +382,7 @@ struct CreatePostView: View {
                     options: $pollOptions,
                     duration: $pollDuration,
                     onRemove: {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                             showingPoll = false
                             pollOptions = ["", ""]
                             pollDuration = .oneDay
@@ -451,7 +451,7 @@ struct CreatePostView: View {
 
                                 Button {
                                     // Append a new empty thread segment
-                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                                         isThreadMode = true
                                         threadPosts = [postText, ""]  // Move main text to thread array
                                         currentThreadIndex = 1
@@ -495,7 +495,7 @@ struct CreatePostView: View {
                                         // Remove thread post button
                                         if threadPosts.count > 2 || !threadPosts[index].isEmpty {
                                             Button {
-                                                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                                                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                                                     threadPosts.remove(at: index)
                                                     if threadPosts.count == 1 {
                                                         isThreadMode = false
@@ -530,7 +530,7 @@ struct CreatePostView: View {
                                         .padding(.leading, 16)
                                     
                                     Button {
-                                        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                                             threadPosts.append("")
                                         }
                                     } label: {
@@ -1020,7 +1020,7 @@ struct CreatePostView: View {
                 reference: attachedVerseReference,
                 text: attachedVerseText,
                 onRemove: {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                         attachedVerseReference = ""
                         attachedVerseText = ""
                     }
@@ -1256,7 +1256,7 @@ struct CreatePostView: View {
                 // Camera photo preview (instant capture)
                 if let capturedImage = cameraImage {
                     CameraAttachmentPreview(image: capturedImage) {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                             cameraImage = nil
                         }
                     }
@@ -1277,7 +1277,7 @@ struct CreatePostView: View {
                         options: $pollOptions,
                         duration: $pollDuration,
                         onRemove: {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                                 showingPoll = false
                                 pollOptions = ["", ""]
                                 pollDuration = .oneDay
@@ -1422,7 +1422,7 @@ struct CreatePostView: View {
             .buttonStyle(.plain)
 
             Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                     showingPoll.toggle()
                 }
             } label: {
@@ -1540,7 +1540,7 @@ struct CreatePostView: View {
 
                 // Sensitive content toggle
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
                         hasSensitiveContent.toggle()
                         if !hasSensitiveContent {
                             sensitiveContentReason = ""
@@ -1661,7 +1661,7 @@ struct CreatePostView: View {
 
                         // Expand / Collapse toggle — leftmost in the scroll area
                         Button {
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.75, blendDuration: 0.2)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.75, blendDuration: 0.2))) {
                                 isToolbarExpanded.toggle()
                             }
                             let haptic = UIImpactFeedbackGenerator(style: .light)
@@ -1715,7 +1715,7 @@ struct CreatePostView: View {
                                 isActive: showingPoll
                             ) {
                                 guard cameraImage == nil else { return }
-                                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.8))) {
                                     showingPoll.toggle()
                                     if !showingPoll {
                                         pollOptions = ["", ""]
@@ -1742,7 +1742,7 @@ struct CreatePostView: View {
                                 scheduledDate: scheduledDate,
                                 onTap: { showingScheduleSheet = true },
                                 onClear: {
-                                    withAnimation(.spring(response: 0.30, dampingFraction: 0.78)) {
+                                    withAnimation(Motion.adaptive(.spring(response: 0.30, dampingFraction: 0.78))) {
                                         scheduledDate = nil
                                     }
                                     HapticManager.impact(style: .light)
@@ -1776,7 +1776,7 @@ struct CreatePostView: View {
                                 icon: hasSensitiveContent ? "exclamationmark.triangle.fill" : "exclamationmark.triangle",
                                 isActive: hasSensitiveContent
                             ) {
-                                withAnimation(.spring(response: 0.25, dampingFraction: 0.82)) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.82))) {
                                     hasSensitiveContent.toggle()
                                 }
                                 HapticManager.impact(style: .light)
@@ -1789,7 +1789,7 @@ struct CreatePostView: View {
                                 CompactGlassButton(icon: "square.and.arrow.down", isActive: false) {
                                     isTextFieldFocused = false
                                     saveDraft()
-                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                         showingDraftSavedNotice = true
                                     }
                                     scheduleDelayedAction(seconds: 1.5) {
@@ -2414,7 +2414,7 @@ struct CreatePostView: View {
                 }
                 Spacer()
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                         self.scheduledDate = nil
                     }
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -3810,11 +3810,11 @@ struct CreatePostView: View {
     private func triggerLiquidPost() {
         guard uploadState == .idle else { return }
         Task {
-            withAnimation(.spring(response: 0.22, dampingFraction: 0.72)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.22, dampingFraction: 0.72))) {
                 uploadState = .pressed
             }
             try? await Task.sleep(for: .milliseconds(120))
-            withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.32, dampingFraction: 0.82))) {
                 uploadState = .uploading(progress: 0.05)
             }
             // Kick off real publish pipeline
@@ -3826,9 +3826,9 @@ struct CreatePostView: View {
                 withAnimation(.linear(duration: 0.12)) { uploadState = .uploading(progress: v) }
             }
             try? await Task.sleep(for: .milliseconds(180))
-            withAnimation(.spring(response: 0.34, dampingFraction: 0.84)) { uploadState = .success }
+            withAnimation(Motion.adaptive(.spring(response: 0.34, dampingFraction: 0.84))) { uploadState = .success }
             try? await Task.sleep(for: .milliseconds(900))
-            withAnimation(.spring(response: 0.34, dampingFraction: 0.88)) { uploadState = .idle }
+            withAnimation(Motion.adaptive(.spring(response: 0.34, dampingFraction: 0.88))) { uploadState = .idle }
         }
     }
     
@@ -4667,7 +4667,7 @@ struct CirclePostButton: View {
         
         // Show spinner after 220ms
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.65)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.65))) {
                 showSpinner = true
             }
             
@@ -4693,7 +4693,7 @@ struct CirclePostButton: View {
         
         // Show checkmark after 150ms
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.55)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.55))) {
                 showCheck = true
             }
             
@@ -4803,7 +4803,7 @@ struct ThreadsPostButton: View {
         // Transition to posting state
         buttonState = .posting
         
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
             showSpinner = true
         }
         
@@ -4828,7 +4828,7 @@ struct ThreadsPostButton: View {
         
         // Show checkmark after brief delay
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.6))) {
                 showCheck = true
             }
             
@@ -4899,7 +4899,7 @@ struct GlassCategoryBar: View {
                     namespace: namespace
                 ) {
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.32, dampingFraction: 0.78))) {
                         selected = category
                     }
                     onSelect(category)
@@ -5014,10 +5014,10 @@ private struct GlassCategorySegment: View {
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in
                     guard !isPressed else { return }
-                    withAnimation(.spring(response: 0.18, dampingFraction: 0.7)) { isPressed = true }
+                    withAnimation(Motion.adaptive(.spring(response: 0.18, dampingFraction: 0.7))) { isPressed = true }
                 }
                 .onEnded { _ in
-                    withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) { isPressed = false }
+                    withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.7))) { isPressed = false }
                 }
         )
         .animation(.spring(response: 0.32, dampingFraction: 0.78), value: isSelected)
@@ -5047,13 +5047,13 @@ struct EnhancedToolbarButton: View {
     
     var body: some View {
         Button(action: {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                 isPressed = true
             }
             
             // Button animation reset (non-critical, safe to use DispatchQueue)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                     isPressed = false
                 }
             }
@@ -5206,7 +5206,7 @@ struct TopicTagSheet: View {
                         
                         if !searchText.isEmpty {
                             Button {
-                                withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.7))) {
                                     searchText = ""
                                 }
                             } label: {
@@ -5252,7 +5252,7 @@ struct TopicTagSheet: View {
                                 color: tag.2,
                                 isSelected: selectedTag == tag.0
                             ) {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                     selectedTag = tag.0
                                 }
                                 // Animation reset (non-critical)
@@ -5291,13 +5291,13 @@ struct TopicTagCard: View {
     
     var body: some View {
         Button(action: {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                 isPressed = true
             }
             
             // Button animation reset (non-critical)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                     isPressed = false
                 }
             }
@@ -5639,7 +5639,7 @@ struct MinimalCategoryButton: View {
     
     var body: some View {
         Button(action: {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                 action()
             }
         }) {
@@ -5675,12 +5675,12 @@ struct GlassToolbarButton: View {
     
     var body: some View {
         Button(action: {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                 isPressed = true
             }
             // Button animation reset (non-critical)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                     isPressed = false
                 }
             }
@@ -5797,12 +5797,12 @@ struct EnhancedCategoryChip: View {
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in
-                    withAnimation(.spring(response: 0.2, dampingFraction: 0.6)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.6))) {
                         isPressed = true
                     }
                 }
                 .onEnded { _ in
-                    withAnimation(.spring(response: 0.2, dampingFraction: 0.6)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.6))) {
                         isPressed = false
                     }
                 }
@@ -5854,7 +5854,7 @@ private struct DraggableImageCell: View {
                     .opacity(draggingItem == imageData ? 0.5 : 1.0)
 
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                         images.removeAll { $0 == imageData }
                     }
                 } label: {
@@ -5922,7 +5922,7 @@ struct ImageDropDelegate: DropDelegate {
               let fromIndex = items.firstIndex(of: draggingItem),
               let toIndex = items.firstIndex(of: item) else { return }
         
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
             items.move(fromOffsets: IndexSet(integer: fromIndex), toOffset: toIndex > fromIndex ? toIndex + 1 : toIndex)
         }
     }
@@ -6094,7 +6094,7 @@ struct LinkPreviewCardView: View {
             
             // Remove button
             Button(action: {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                     onRemove()
                 }
             }) {
@@ -6156,7 +6156,7 @@ struct ConsolidatedToolbar: View {
                 icon: "number",
                 isActive: showingSuggestions
             ) {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                     showingSuggestions.toggle()
                 }
             }
@@ -6252,13 +6252,13 @@ struct CompactToolbarButton: View {
     
     var body: some View {
         Button(action: {
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.6)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.6))) {
                 isPressed = true
             }
             
             // Button animation reset (non-critical)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                withAnimation(.spring(response: 0.25, dampingFraction: 0.6)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.6))) {
                     isPressed = false
                 }
             }
@@ -6291,13 +6291,13 @@ struct GlassmorphicButton: View {
     
     var body: some View {
         Button(action: {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                 isPressed = true
             }
             
             // Button animation reset (non-critical)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                     isPressed = false
                 }
             }
@@ -6348,13 +6348,13 @@ struct GlassToolbarIcon: View {
     
     var body: some View {
         Button(action: {
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.65)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.65))) {
                 isPressed = true
             }
             
             // Button animation reset (non-critical)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
-                withAnimation(.spring(response: 0.25, dampingFraction: 0.65)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.65))) {
                     isPressed = false
                 }
             }
@@ -6524,7 +6524,7 @@ struct PollComposerCard: View {
                 Divider().padding(.horizontal, 14)
 
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
                         options.append("")
                         focusedIndex = options.count - 1
                     }
@@ -6586,7 +6586,7 @@ struct PollComposerCard: View {
         Button {
             var copy = options
             copy.remove(at: index)
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
                 options = copy
             }
         } label: {
@@ -6612,14 +6612,14 @@ struct CompactGlassButton: View {
 
     var body: some View {
         Button(action: {
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.7))) {
                 isPressed = true
             }
             action()
             
             // Button animation reset (non-critical)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.7))) {
                     isPressed = false
                 }
             }
@@ -6730,7 +6730,7 @@ struct ComposerSchedulePill: View {
         .scaleEffect(appeared ? 1.0 : 0.88)
         .opacity(appeared ? 1.0 : 0)
         .onAppear {
-            withAnimation(.spring(response: 0.30, dampingFraction: 0.78)) { appeared = true }
+            withAnimation(Motion.adaptive(.spring(response: 0.30, dampingFraction: 0.78))) { appeared = true }
         }
         .animation(.spring(response: 0.30, dampingFraction: 0.78), value: isScheduled)
         .animation(.spring(response: 0.30, dampingFraction: 0.78), value: scheduledDate)
@@ -6749,13 +6749,13 @@ struct MinimalToolbarButton: View {
     
     var body: some View {
         Button(action: {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.65)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.65))) {
                 isPressed = true
             }
             
             // Button animation reset (non-critical)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.65)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.65))) {
                     isPressed = false
                 }
             }
@@ -6838,9 +6838,9 @@ struct LiquidGlassPostButton: View {
     var body: some View {
         Button(action: {
             guard isEnabled && !isPublishing else { return }
-            withAnimation(.spring(response: 0.20, dampingFraction: 0.65)) { isPressed = true }
+            withAnimation(Motion.adaptive(.spring(response: 0.20, dampingFraction: 0.65))) { isPressed = true }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
-                withAnimation(.spring(response: 0.30, dampingFraction: 0.70)) { isPressed = false }
+                withAnimation(Motion.adaptive(.spring(response: 0.30, dampingFraction: 0.70))) { isPressed = false }
             }
             action()
         }) {
@@ -7068,7 +7068,7 @@ private struct TaggedUsersView: View {
                             .foregroundStyle(.primary)
                         
                         Button {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                                 users.removeAll { $0.userId == user.userId }
                             }
                         } label: {
@@ -7149,11 +7149,11 @@ private struct PostedPill: View {
         )
         .onAppear {
             // Phase 1: blocks fade + scale in
-            withAnimation(.spring(response: 0.30, dampingFraction: 0.72)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.30, dampingFraction: 0.72))) {
                 blocksOpacity = 1
                 blocksScale = 1
             }
-            withAnimation(.spring(response: 0.36, dampingFraction: 0.78).delay(0.12)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.36, dampingFraction: 0.78)).delay(0.12)) {
                 labelOpacity = 1
                 labelOffset = 0
             }
@@ -7168,12 +7168,12 @@ private struct PostedPill: View {
                     labelOpacity = 0
                 }
                 // Blocks exit
-                withAnimation(.spring(response: 0.22, dampingFraction: 0.82).delay(0.08)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.22, dampingFraction: 0.82)).delay(0.08)) {
                     blocksOpacity = 0
                     blocksScale = 0.4
                 }
                 // Checkmark enters
-                withAnimation(.spring(response: 0.28, dampingFraction: 0.70).delay(0.18)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.70)).delay(0.18)) {
                     checkmarkOpacity = 1
                     checkmarkScale = 1
                 }
@@ -7184,7 +7184,7 @@ private struct PostedPill: View {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
                     labelText = "Posted"
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    withAnimation(.spring(response: 0.34, dampingFraction: 0.76)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.34, dampingFraction: 0.76))) {
                         labelOpacity = 1
                         labelOffset = 0
                     }
@@ -7693,7 +7693,7 @@ private struct BereanTonePopup: View {
                 .scaleEffect(cardScale)
                 .opacity(cardOpacity)
                 .onAppear {
-                    withAnimation(.spring(response: 0.40, dampingFraction: 0.70)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.40, dampingFraction: 0.70))) {
                         cardScale = 1.0
                         cardOpacity = 1.0
                     }
@@ -7702,11 +7702,11 @@ private struct BereanTonePopup: View {
                         sparkleRotation = 8
                     }
                     // Label has a tiny playful wiggle on appear
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.4).delay(0.45)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.4)).delay(0.45)) {
                         labelWiggle = 2
                     }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.5)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.5))) {
                             labelWiggle = 0
                         }
                     }
@@ -7806,7 +7806,7 @@ private struct SourceLabelPrompt: View {
                         HStack(spacing: 8) {
                             ForEach(sourceOptions, id: \.self) { opt in
                                 Button {
-                                    withAnimation(.spring(response: 0.2, dampingFraction: 0.6)) {
+                                    withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.6))) {
                                         selectedSource = opt
                                     }
                                 } label: {
@@ -7937,7 +7937,7 @@ private struct SourceLabelPrompt: View {
                 .scaleEffect(cardScale)
                 .opacity(cardOpacity)
                 .onAppear {
-                    withAnimation(.spring(response: 0.40, dampingFraction: 0.70)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.40, dampingFraction: 0.70))) {
                         cardScale = 1.0
                         cardOpacity = 1.0
                     }
@@ -8823,18 +8823,18 @@ struct LiquidGlassPostButtonDemoView: View {
     private func runDemoSequence() {
         guard uploadState == .idle else { return }
         Task {
-            withAnimation(.spring(response: 0.24, dampingFraction: 0.72)) { uploadState = .pressed }
+            withAnimation(Motion.adaptive(.spring(response: 0.24, dampingFraction: 0.72))) { uploadState = .pressed }
             try? await Task.sleep(for: .milliseconds(120))
-            withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) { uploadState = .uploading(progress: 0.08) }
+            withAnimation(Motion.adaptive(.spring(response: 0.32, dampingFraction: 0.82))) { uploadState = .uploading(progress: 0.08) }
             let values: [CGFloat] = [0.16, 0.26, 0.38, 0.52, 0.66, 0.79, 0.91, 1.0]
             for value in values {
                 try? await Task.sleep(for: .milliseconds(130))
                 withAnimation(.linear(duration: 0.12)) { uploadState = .uploading(progress: value) }
             }
             try? await Task.sleep(for: .milliseconds(180))
-            withAnimation(.spring(response: 0.34, dampingFraction: 0.84)) { uploadState = .success }
+            withAnimation(Motion.adaptive(.spring(response: 0.34, dampingFraction: 0.84))) { uploadState = .success }
             try? await Task.sleep(for: .milliseconds(1100))
-            withAnimation(.spring(response: 0.36, dampingFraction: 0.9)) { uploadState = .idle }
+            withAnimation(Motion.adaptive(.spring(response: 0.36, dampingFraction: 0.9))) { uploadState = .idle }
         }
     }
 }

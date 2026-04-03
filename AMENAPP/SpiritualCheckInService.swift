@@ -324,7 +324,7 @@ final class SpiritualCheckInService: ObservableObject {
     // MARK: - Intervention Presentation
 
     private func showIntervention(_ intervention: CheckInIntervention) {
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
             currentIntervention = intervention
             isActive = true
         }
@@ -333,7 +333,7 @@ final class SpiritualCheckInService: ObservableObject {
     }
 
     func dismissIntervention(snooze: Bool = false) {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
             currentIntervention = nil
             isActive = false
         }
