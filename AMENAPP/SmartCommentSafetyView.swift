@@ -227,11 +227,11 @@ struct SmartCommentSafetyView: View {
     private var mildView: some View {
         HStack(spacing: 10) {
             Image(systemName: "wind")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(Color.black.opacity(0.4))
 
             Text("Take a breath before posting?")
-                .font(.system(size: 13, weight: .regular))
+                .font(.systemScaled(13, weight: .regular))
                 .foregroundStyle(Color.black.opacity(0.55))
 
             Spacer()
@@ -242,7 +242,7 @@ struct SmartCommentSafetyView: View {
                 }
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                     .foregroundStyle(Color.black.opacity(0.35))
             }
             .buttonStyle(.plain)
@@ -260,12 +260,12 @@ struct SmartCommentSafetyView: View {
             if let suggestion = assessment.rewordSuggestion {
                 HStack(alignment: .top, spacing: 8) {
                     Image(systemName: "lightbulb")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(Color.black.opacity(0.45))
                         .padding(.top, 1)
 
                     Text(suggestion)
-                        .font(.system(size: 13, weight: .regular))
+                        .font(.systemScaled(13, weight: .regular))
                         .foregroundStyle(Color.black.opacity(0.6))
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -278,7 +278,7 @@ struct SmartCommentSafetyView: View {
                     }
                 } label: {
                     Text("Use suggestion")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 7)
@@ -293,7 +293,7 @@ struct SmartCommentSafetyView: View {
                     onProceed()
                 } label: {
                     Text("Post anyway")
-                        .font(.system(size: 13, weight: .regular))
+                        .font(.systemScaled(13, weight: .regular))
                         .foregroundStyle(Color.black.opacity(0.35))
                 }
                 .buttonStyle(.plain)
@@ -310,16 +310,16 @@ struct SmartCommentSafetyView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 Image(systemName: "hand.raised")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(Color.black.opacity(0.4))
 
                 Text("Before you post — want to try a different approach?")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(Color.black.opacity(0.65))
             }
 
             Text("This reply has some strong language. You can still post, but here are a few other options.")
-                .font(.system(size: 12, weight: .regular))
+                .font(.systemScaled(12, weight: .regular))
                 .foregroundStyle(Color.black.opacity(0.45))
 
             VStack(spacing: 7) {
@@ -329,14 +329,14 @@ struct SmartCommentSafetyView: View {
                     } label: {
                         HStack(spacing: 8) {
                             Image(systemName: alt.icon)
-                                .font(.system(size: 13))
+                                .font(.systemScaled(13))
                                 .foregroundStyle(Color.black.opacity(0.5))
                             Text(alt.label)
-                                .font(.system(size: 13, weight: .medium))
+                                .font(.systemScaled(13, weight: .medium))
                                 .foregroundStyle(Color.black.opacity(0.65))
                             Spacer()
                             Image(systemName: "chevron.right")
-                                .font(.system(size: 10))
+                                .font(.systemScaled(10))
                                 .foregroundStyle(Color.black.opacity(0.2))
                         }
                         .padding(.horizontal, 12)
@@ -354,7 +354,7 @@ struct SmartCommentSafetyView: View {
                 onProceed()
             } label: {
                 Text("Post anyway")
-                    .font(.system(size: 12, weight: .regular))
+                    .font(.systemScaled(12, weight: .regular))
                     .foregroundStyle(Color.black.opacity(0.3))
             }
             .buttonStyle(.plain)
@@ -370,16 +370,16 @@ struct SmartCommentSafetyView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
                 Image(systemName: "heart")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(Color.black.opacity(0.4))
 
                 Text("We're glad you're here.")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(Color.black.opacity(0.7))
             }
 
             Text("It sounds like you might be going through something heavy. You don't have to carry that alone.")
-                .font(.system(size: 13, weight: .regular))
+                .font(.systemScaled(13, weight: .regular))
                 .foregroundStyle(Color.black.opacity(0.55))
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -388,14 +388,14 @@ struct SmartCommentSafetyView: View {
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "heart.text.square")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(Color.black.opacity(0.5))
                     Text("Would you like to talk to someone?")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                         .foregroundStyle(Color.black.opacity(0.65))
                     Spacer()
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 10))
+                        .font(.systemScaled(10))
                         .foregroundStyle(Color.black.opacity(0.2))
                 }
                 .padding(.horizontal, 12)
@@ -411,7 +411,7 @@ struct SmartCommentSafetyView: View {
                 onProceed()
             } label: {
                 Text("Continue posting")
-                    .font(.system(size: 12, weight: .regular))
+                    .font(.systemScaled(12, weight: .regular))
                     .foregroundStyle(Color.black.opacity(0.3))
             }
             .buttonStyle(.plain)
@@ -484,12 +484,12 @@ struct CommentInputBarView: View {
                 ZStack(alignment: .leading) {
                     if text.isEmpty {
                         Text(placeholder)
-                            .font(.system(size: 15))
+                            .font(.systemScaled(15))
                             .foregroundStyle(Color.black.opacity(0.3))
                             .padding(.horizontal, 16)
                     }
                     TextField("", text: $text, axis: .vertical)
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                         .foregroundStyle(Color.black.opacity(0.8))
                         .lineLimit(1...5)
                         .padding(.horizontal, 16)
@@ -527,7 +527,7 @@ struct CommentInputBarView: View {
                     }
                 } label: {
                     Image(systemName: "arrow.up")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(.white)
                         .frame(width: 34, height: 34)
                         .background(

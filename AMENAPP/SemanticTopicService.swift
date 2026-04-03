@@ -328,7 +328,7 @@ struct TopicClusterChip: View {
 
     var body: some View {
         Text(cluster.rawValue)
-            .font(.system(size: small ? 10 : 12, weight: .medium))
+            .font(.systemScaled(small ? 10 : 12, weight: .medium))
             .foregroundStyle(chipColor)
             .padding(.horizontal, small ? 7 : 10)
             .padding(.vertical, small ? 3 : 5)

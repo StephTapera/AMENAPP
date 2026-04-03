@@ -7,6 +7,7 @@
 //
 
 import SwiftUI
+import UIKit
 import FirebaseAuth
 import FirebaseDatabase
 import FirebaseFirestore
@@ -63,6 +64,10 @@ struct PostDetailView: View {
     @State private var showCommentsLoadError = false      // P2 FIX: surface loadComments failure
     @State private var scrollOffset: CGFloat = 0
     @State private var carouselPage: Int = 0               // Active slide in media carousel
+    /// Reactive scroll target — set by consumePendingCommentFocus() to trigger ScrollViewReader scrollTo.
+    @State private var commentScrollTarget: String?
+    @State private var textSelection: PostTextSelection?
+    @State private var isTextSelecting = false
 
     // Testimony features — only active when post.category == .testimonies
     @StateObject private var witnessService = TestimonyWitnessService()
@@ -80,6 +85,9 @@ struct PostDetailView: View {
     // Single sheet enum — avoids "only presenting a single sheet" SwiftUI warning
     private enum DetailSheet: Identifiable {
         case berean(String), share, profile, report, editPost
+        case quoteComposer(QuoteComposerContext)
+        case commentsWithQuote(String)
+        case shareExcerpt(String)
         var id: String {
             switch self {
             case .berean:    return "berean"
@@ -87,6 +95,12 @@ struct PostDetailView: View {
             case .profile:   return "profile"
             case .report:    return "report"
             case .editPost:  return "editPost"
+            case .quoteComposer(let context):
+                return "quoteComposer_\(context.id.uuidString)"
+            case .commentsWithQuote(let text):
+                return "commentsWithQuote_\(text.hashValue)"
+            case .shareExcerpt(let text):
+                return "shareExcerpt_\(text.hashValue)"
             }
         }
     }
@@ -131,6 +145,7 @@ struct PostDetailView: View {
             // ── Top nav bar ─────────────────────────────────────────
             topNavBar
 
+            ScrollViewReader { scrollProxy in
             ScrollView(.vertical, showsIndicators: false) {
 
                 VStack(spacing: 0) {
@@ -143,14 +158,51 @@ struct PostDetailView: View {
 
                     // ── Full post text (expanded by default in detail view) ──
                     VStack(alignment: .leading, spacing: 10) {
-                        Text(post.content)
-                            .font(.system(size: 16))
-                            .foregroundStyle(.primary)
-                            .lineSpacing(4)
-                            .lineLimit(isPostExpanded ? nil : 5)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .animation(.spring(response: 0.35, dampingFraction: 0.85), value: isPostExpanded)
+                        if let quote = post.quote {
+                            quoteSnippetView(quote)
+                        }
+
+                        ZStack(alignment: .topLeading) {
+                            SelectablePostTextView(
+                                text: post.content,
+                                mentions: post.mentions,
+                                font: UIFont.systemFont(ofSize: 16),
+                                lineSpacing: 4,
+                                lineLimit: isPostExpanded ? nil : 5,
+                                onMentionTap: { mention in
+                                    if !mention.userId.isEmpty {
+                                        NotificationCenter.default.post(
+                                            name: Notification.Name("openUserProfile"),
+                                            object: mention.userId
+                                        )
+                                    }
+                                },
+                                onTextTap: {
+                                    if textSelection != nil {
+                                        clearTextSelection()
+                                    }
+                                },
+                                selection: $textSelection,
+                                isSelecting: $isTextSelecting
+                            )
                             .frame(maxWidth: .infinity, alignment: .leading)
+
+                            if let selection = textSelection {
+                                GeometryReader { proxy in
+                                    HighlightActionCapsule(
+                                        onQuote: { handleQuoteSelection(selection) },
+                                        onReply: { handleReplyWithQuote(selection) },
+                                        onSave: { handleSaveSelection(selection) },
+                                        onShare: { handleShareSelection(selection) },
+                                        onBerean: { handleBereanSelection(selection) }
+                                    )
+                                    .position(actionCapsulePosition(for: selection.rect, in: proxy.size))
+                                    .transition(.opacity.combined(with: .scale))
+                                }
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: isPostExpanded)
 
                         // Show collapse option only for long posts
                         if !isPostExpanded {
@@ -160,16 +212,23 @@ struct PostDetailView: View {
                                 }
                             } label: {
                                 Text("Read more")
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(.systemScaled(14, weight: .semibold))
                                     .foregroundStyle(.blue)
                             }
                             .buttonStyle(.plain)
                         }
 
+                        if !isTextSelecting && post.content.count > 80 {
+                            Text("Select a thought to quote")
+                                .font(.systemScaled(12))
+                                .foregroundStyle(.secondary)
+                                .padding(.top, 2)
+                        }
+
                         // Topic tag
                         if let topicTag = post.topicTag, !topicTag.isEmpty {
                             Text("#\(topicTag)")
-                                .font(.system(size: 12, weight: .medium))
+                                .font(.systemScaled(12, weight: .medium))
                                 .foregroundStyle(.secondary)
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 4)
@@ -266,6 +325,12 @@ struct PostDetailView: View {
                                 }
                                 isCommentFocused = true
                             },
+                            onReplyWithQuote: { comment, selection in
+                                let excerpt = "“\(selection.text)” — \(comment.authorName)"
+                                commentText = excerpt + "\n\n"
+                                replyingToUsername = comment.authorUsername
+                                isCommentFocused = true
+                            },
                             onAmen: { comment in
                                 let uid = Auth.auth().currentUser?.uid ?? ""
                                 let alreadyAmened = !uid.isEmpty && comment.amenUserIds.contains(uid)
@@ -304,6 +369,14 @@ struct PostDetailView: View {
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 commentInputBar
             }
+            .onChange(of: commentScrollTarget) { _, target in
+                guard let target else { return }
+                withAnimation(.spring(response: 0.38, dampingFraction: 0.9)) {
+                    scrollProxy.scrollTo(target, anchor: .center)
+                }
+                commentScrollTarget = nil
+            }
+            } // end ScrollViewReader
         }
         .background(Color(.systemBackground).ignoresSafeArea())
         .sheet(isPresented: $showAnsweredComposer) {
@@ -329,6 +402,12 @@ struct PostDetailView: View {
                 )
             case .editPost:
                 EditPostSheet(post: post)
+            case .quoteComposer(let context):
+                QuoteComposerView(context: context)
+            case .commentsWithQuote(let text):
+                CommentsView(post: post, prefillText: text)
+            case .shareExcerpt(let text):
+                ShareSheet(items: [text])
             }
         }
         .task {
@@ -347,6 +426,7 @@ struct PostDetailView: View {
         .onDisappear {
             highlightResetTask?.cancel()
             highlightResetTask = nil
+            clearTextSelection()
             if isListening {
                 commentService.stopListening(to: postId)
                 pollingTask?.cancel()
@@ -391,14 +471,14 @@ struct PostDetailView: View {
                 image.resizable().aspectRatio(contentMode: .fill)
             } placeholder: {
                 Circle().fill(Color.gray.opacity(0.4))
-                    .overlay(Text(post.authorInitials).font(.system(size: 14, weight: .semibold)).foregroundStyle(.white))
+                    .overlay(Text(post.authorInitials).font(.systemScaled(14, weight: .semibold)).foregroundStyle(.white))
             }
             .clipShape(Circle())
             .overlay(Circle().strokeBorder(Color.white.opacity(0.3), lineWidth: 1))
         } else {
             Circle()
                 .fill(LinearGradient(colors: [.black, Color(white: 0.2)], startPoint: .topLeading, endPoint: .bottomTrailing))
-                .overlay(Text(post.authorInitials).font(.system(size: 14, weight: .semibold)).foregroundStyle(.white))
+                .overlay(Text(post.authorInitials).font(.systemScaled(14, weight: .semibold)).foregroundStyle(.white))
                 .overlay(Circle().strokeBorder(Color.white.opacity(0.3), lineWidth: 1))
         }
     }
@@ -414,7 +494,7 @@ struct PostDetailView: View {
                         .fill(Color(.secondarySystemBackground))
                         .frame(width: 32, height: 32)
                     Image(systemName: "xmark")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(.primary)
                 }
             }
@@ -430,16 +510,16 @@ struct PostDetailView: View {
 
                     VStack(alignment: .leading, spacing: 1) {
                         Text(post.authorUsername ?? post.authorName)
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                             .foregroundStyle(.primary)
                             .lineLimit(1)
                         if let tag = post.topicTag, !tag.isEmpty {
                             Text("#\(tag)")
-                                .font(.system(size: 11, weight: .medium))
+                                .font(.systemScaled(11, weight: .medium))
                                 .foregroundStyle(.secondary)
                         } else {
                             Text(timeAgo(from: post.createdAt))
-                                .font(.system(size: 11))
+                                .font(.systemScaled(11))
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -480,7 +560,7 @@ struct PostDetailView: View {
                                     .frame(width: geo.size.width, height: imageHeight)
                                     .overlay(
                                         Image(systemName: "photo")
-                                            .font(.system(size: 32, weight: .light))
+                                            .font(.systemScaled(32, weight: .light))
                                             .foregroundStyle(.secondary)
                                     )
                             @unknown default:
@@ -534,7 +614,7 @@ struct PostDetailView: View {
         ZStack {
             postGradientBackground
             Image(systemName: categorySymbol)
-                .font(.system(size: 26, weight: .light))
+                .font(.systemScaled(26, weight: .light))
                 .foregroundStyle(.white.opacity(0.20))
         }
         .frame(maxWidth: .infinity)
@@ -560,11 +640,11 @@ struct PostDetailView: View {
             } label: {
                 HStack(spacing: 5) {
                     Image(systemName: interactionsService.userAmenedPosts.contains(post.firestoreId) ? "hands.clap.fill" : "hands.clap")
-                        .font(.system(size: 17))
+                        .font(.systemScaled(17))
                         .foregroundStyle(interactionsService.userAmenedPosts.contains(post.firestoreId) ? Color.orange : .secondary)
                     if post.amenCount > 0 {
                         Text("\(post.amenCount)")
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.systemScaled(14, weight: .medium))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -577,11 +657,11 @@ struct PostDetailView: View {
             } label: {
                 HStack(spacing: 5) {
                     Image(systemName: "message")
-                        .font(.system(size: 17))
+                        .font(.systemScaled(17))
                         .foregroundStyle(.secondary)
                     if !commentsWithReplies.isEmpty {
                         Text("\(commentsWithReplies.count)")
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.systemScaled(14, weight: .medium))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -595,11 +675,11 @@ struct PostDetailView: View {
                 } label: {
                     HStack(spacing: 5) {
                         Image(systemName: isFasting ? "flame.fill" : "flame")
-                            .font(.system(size: 17))
+                            .font(.systemScaled(17))
                             .foregroundStyle(isFasting ? Color.orange : .secondary)
                         if isFasting {
                             Text("Fasting")
-                                .font(.system(size: 14, weight: .medium))
+                                .font(.systemScaled(14, weight: .medium))
                                 .foregroundStyle(Color.orange)
                         }
                     }
@@ -617,7 +697,7 @@ struct PostDetailView: View {
                 }
             } label: {
                 Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
-                    .font(.system(size: 17))
+                    .font(.systemScaled(17))
                     .foregroundStyle(isSaved ? Color.accentColor : .secondary)
             }
             .buttonStyle(.plain)
@@ -653,7 +733,7 @@ struct PostDetailView: View {
                 }
             } label: {
                 Image(systemName: "ellipsis")
-                    .font(.system(size: 17))
+                    .font(.systemScaled(17))
                     .foregroundStyle(.secondary)
             }
 
@@ -693,10 +773,126 @@ struct PostDetailView: View {
                 activeDetailSheet = .share
             } label: {
                 Image(systemName: "square.and.arrow.up")
-                    .font(.system(size: 17))
+                    .font(.systemScaled(17))
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
+        }
+    }
+
+    private func quoteSnippetView(_ quote: PostQuoteMetadata) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Text(quote.sourceAuthorName)
+                    .font(.systemScaled(12, weight: .semibold))
+                    .foregroundStyle(.primary)
+                if let username = quote.sourceAuthorUsername, !username.isEmpty {
+                    Text("@\(username)")
+                        .font(.systemScaled(11))
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Text(quote.sourceExcerpt)
+                .font(.systemScaled(14))
+                .foregroundStyle(.primary)
+                .padding(8)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color(red: 1.0, green: 0.95, blue: 0.75))
+                )
+        }
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color(.systemBackground))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.black.opacity(0.06), lineWidth: 1)
+                )
+        )
+    }
+
+    private func clearTextSelection() {
+        textSelection = nil
+        isTextSelecting = false
+    }
+
+    private func actionCapsulePosition(for rect: CGRect, in size: CGSize) -> CGPoint {
+        guard !rect.isNull, !rect.isEmpty else {
+            return CGPoint(x: size.width * 0.5, y: 24)
+        }
+
+        let clampedX = min(max(rect.midX, 90), size.width - 90)
+        let capsuleY = max(rect.minY - 26, 22)
+        return CGPoint(x: clampedX, y: capsuleY)
+    }
+
+    private func handleQuoteSelection(_ selection: PostTextSelection) {
+        guard canQuote(post) else {
+            HapticManager.notification(type: .warning)
+            ToastManager.shared.info("Quoting is not allowed for this post")
+            clearTextSelection()
+            return
+        }
+        let context = QuoteComposerContext(
+            sourcePost: post,
+            sourceAuthorId: post.authorId,
+            sourceAuthorName: post.authorName,
+            sourceAuthorUsername: post.authorUsername,
+            selection: selection
+        )
+        activeDetailSheet = .quoteComposer(context)
+        clearTextSelection()
+    }
+
+    private func handleReplyWithQuote(_ selection: PostTextSelection) {
+        guard canQuote(post) else {
+            HapticManager.notification(type: .warning)
+            ToastManager.shared.info("Quoting is not allowed for this post")
+            clearTextSelection()
+            return
+        }
+        let excerpt = "“\(selection.text)” — \(post.authorName)"
+        commentText = excerpt + "\n\n"
+        isCommentFocused = true
+        clearTextSelection()
+    }
+
+    private func handleSaveSelection(_ selection: PostTextSelection) {
+        let excerpt = SavedExcerpt(
+            postId: post.firestoreId,
+            authorId: post.authorId,
+            authorName: post.authorName,
+            excerpt: selection.text
+        )
+        ExcerptStore.shared.save(excerpt)
+        HapticManager.notification(type: .success)
+        ToastManager.shared.success("Saved excerpt")
+        clearTextSelection()
+    }
+
+    private func handleShareSelection(_ selection: PostTextSelection) {
+        let excerpt = "“\(selection.text)” — \(post.authorName)"
+        activeDetailSheet = .shareExcerpt(excerpt)
+        clearTextSelection()
+    }
+
+    private func handleBereanSelection(_ selection: PostTextSelection) {
+        let query = "Explain and reflect on: \"\(selection.text)\""
+        activeDetailSheet = .berean(query)
+        clearTextSelection()
+    }
+
+    private func canQuote(_ post: Post) -> Bool {
+        let permission = post.quotesAllowed ?? .everyone
+        switch permission {
+        case .none:
+            return false
+        case .followers:
+            return isFollowing || isUserPost
+        case .everyone:
+            return true
         }
     }
 
@@ -704,11 +900,11 @@ struct PostDetailView: View {
         VStack(spacing: 0) {
             HStack {
                 Text("Comments")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(.primary)
                 Spacer()
                 Text("\(commentsWithReplies.count)")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(.secondary)
             }
             .padding(.horizontal, 16)
@@ -741,11 +937,11 @@ struct PostDetailView: View {
         VStack(spacing: 10) {
             HStack {
                 Text("Comments")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(.primary)
                 Spacer()
                 Text("0")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(.secondary)
             }
             .padding(.horizontal, 16)
@@ -754,16 +950,16 @@ struct PostDetailView: View {
 
             VStack(spacing: 8) {
                 Image(systemName: "bubble.left")
-                    .font(.system(size: 28))
+                    .font(.systemScaled(28))
                     .foregroundStyle(.secondary.opacity(0.4))
                 Text("No comments yet")
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.systemScaled(15, weight: .medium))
                     .foregroundStyle(.secondary)
                 Button {
                     isCommentFocused = true
                 } label: {
                     Text("Be the first to comment")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(.blue)
                 }
                 .buttonStyle(.plain)
@@ -776,16 +972,16 @@ struct PostDetailView: View {
     private var commentsErrorView: some View {
         VStack(spacing: 12) {
             Image(systemName: "wifi.exclamationmark")
-                .font(.system(size: 28))
+                .font(.systemScaled(28))
                 .foregroundStyle(.secondary.opacity(0.6))
             Text("Could not load comments")
-                .font(.system(size: 15, weight: .medium))
+                .font(.systemScaled(15, weight: .medium))
                 .foregroundStyle(.secondary)
             Button {
                 Task { await loadComments() }
             } label: {
                 Label("Retry", systemImage: "arrow.clockwise")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(.blue)
             }
             .buttonStyle(.plain)
@@ -798,7 +994,7 @@ struct PostDetailView: View {
         VStack(spacing: 14) {
             AMENLoadingIndicator()
             Text("Loading comments…")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
@@ -886,6 +1082,14 @@ struct PostDetailView: View {
             try? await Task.sleep(nanoseconds: 2_200_000_000)
             if highlightedCommentIDs == [highlightId] {
                 highlightedCommentIDs.removeAll()
+            }
+        }
+
+        // Scroll to the comment after a brief settle delay so the view is fully rendered.
+        if let scrollId = pendingFocus.scroll, !scrollId.isEmpty {
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 250_000_000) // 250ms
+                commentScrollTarget = scrollId
             }
         }
     }
@@ -1111,12 +1315,12 @@ private struct PostEngagementAvatarStrip: View {
             // Right: labels
             VStack(alignment: .leading, spacing: 2) {
                 Text("\(reactorCount) people reacted")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundStyle(.white.opacity(0.55))
 
                 if hasFollowedReactor {
                     Text("Including your followers")
-                        .font(.system(size: 10))
+                        .font(.systemScaled(10))
                         .foregroundStyle(.white.opacity(0.3))
                 }
             }
@@ -1277,12 +1481,12 @@ struct CommentRowView: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     Text(comment.authorUsername)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(.primary)
                     Text("·")
                         .foregroundStyle(.tertiary)
                     Text(timeAgo(from: comment.createdAt))
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.tertiary)
                     Spacer()
                 }
@@ -1298,7 +1502,7 @@ struct CommentRowView: View {
                         onReply?(comment.authorUsername)
                     } label: {
                         Text("Reply")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.systemScaled(13, weight: .medium))
                             .foregroundStyle(.secondary)
                     }
                     .buttonStyle(.plain)
@@ -1311,9 +1515,9 @@ struct CommentRowView: View {
                         } label: {
                             HStack(spacing: 4) {
                                 Image(systemName: showReplies ? "chevron.up" : "chevron.down")
-                                    .font(.system(size: 10, weight: .semibold))
+                                    .font(.systemScaled(10, weight: .semibold))
                                 Text(showReplies ? "Hide replies" : "\(replyCount) \(replyCount == 1 ? "reply" : "replies")")
-                                    .font(.system(size: 13, weight: .medium))
+                                    .font(.systemScaled(13, weight: .medium))
                             }
                             .foregroundStyle(.secondary)
                         }
@@ -1347,12 +1551,12 @@ struct CommentRowView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 5) {
                         Text(reply.authorUsername)
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                             .foregroundStyle(.primary)
                         Text("·")
                             .foregroundStyle(.tertiary)
                         Text(timeAgo(from: reply.createdAt))
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(.tertiary)
                         Spacer()
                     }
@@ -1365,7 +1569,7 @@ struct CommentRowView: View {
                         onReply?(reply.authorUsername)
                     } label: {
                         Text("Reply")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.systemScaled(12, weight: .medium))
                             .foregroundStyle(.secondary)
                     }
                     .buttonStyle(.plain)
@@ -1412,14 +1616,14 @@ struct CommentRowView: View {
             } placeholder: {
                 Circle()
                     .fill(LinearGradient(colors: [.black, Color(white: 0.2)], startPoint: .topLeading, endPoint: .bottomTrailing))
-                    .overlay(Text(initials).font(.system(size: size * 0.33, weight: .semibold)).foregroundStyle(.white))
+                    .overlay(Text(initials).font(.systemScaled(size * 0.33, weight: .semibold)).foregroundStyle(.white))
             }
             .frame(width: size, height: size)
             .clipShape(Circle())
         } else {
             Circle()
                 .fill(LinearGradient(colors: [.black, Color(white: 0.2)], startPoint: .topLeading, endPoint: .bottomTrailing))
-                .overlay(Text(initials).font(.system(size: size * 0.33, weight: .semibold)).foregroundStyle(.white))
+                .overlay(Text(initials).font(.systemScaled(size * 0.33, weight: .semibold)).foregroundStyle(.white))
                 .frame(width: size, height: size)
         }
     }

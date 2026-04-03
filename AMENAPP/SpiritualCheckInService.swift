@@ -473,7 +473,7 @@ struct SpiritualCheckInCard: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 12) {
                 Image(systemName: intervention.icon)
-                    .font(.system(size: 22, weight: .medium))
+                    .font(.systemScaled(22, weight: .medium))
                     .foregroundColor(intervention.iconColor)
                     .frame(width: 44, height: 44)
                     .background(intervention.iconColor.opacity(0.12), in: Circle())

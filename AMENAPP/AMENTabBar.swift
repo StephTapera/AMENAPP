@@ -174,7 +174,7 @@ struct AMENTabBar: View {
                         profileAvatar(url: url, isSelected: isSelected)
                     } else {
                         Image(systemName: isSelected ? tab.activeIcon : tab.inactiveIcon)
-                            .font(.system(size: 21, weight: isSelected ? .semibold : .regular))
+                            .font(.systemScaled(21, weight: isSelected ? .semibold : .regular))
                             .foregroundStyle(isSelected ? Color.primary : Color.primary.opacity(0.45))
                             .scaleEffect(isSelected ? 1.06 : 1.0)
                             .animation(.spring(response: 0.22, dampingFraction: 0.7), value: isSelected)
@@ -214,7 +214,7 @@ struct AMENTabBar: View {
                     )
             } else {
                 Image(systemName: isSelected ? AMENTab.profile.activeIcon : AMENTab.profile.inactiveIcon)
-                    .font(.system(size: 21, weight: isSelected ? .semibold : .regular))
+                    .font(.systemScaled(21, weight: isSelected ? .semibold : .regular))
                     .foregroundStyle(isSelected ? Color.primary : Color.primary.opacity(0.38))
             }
         }
@@ -236,7 +236,7 @@ struct AMENTabBar: View {
                     .fill(Color.primary)
                     .frame(width: 30, height: 30)
                 Image(systemName: "square.and.pencil")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(Color(.systemBackground))
             }
         }
@@ -269,7 +269,7 @@ private struct BadgeView: View {
 
     var body: some View {
         Text(displayText)
-            .font(.system(size: 10, weight: .bold))
+            .font(.systemScaled(10, weight: .bold))
             .foregroundColor(.white)
             .padding(.horizontal, count >= 10 ? 4 : 0)
             .frame(minWidth: 17, minHeight: 17)

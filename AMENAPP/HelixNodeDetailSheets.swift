@@ -37,7 +37,7 @@ struct HelixNodeDetailSheet: View {
                                     .fill(node.type.color.opacity(0.18))
                                     .frame(width: 80, height: 80)
                                 Image(systemName: node.type.icon)
-                                    .font(.system(size: 34))
+                                    .font(.systemScaled(34))
                                     .foregroundColor(node.type.color)
                             }
 
@@ -48,7 +48,7 @@ struct HelixNodeDetailSheet: View {
                             // Health badge
                             HStack(spacing: 5) {
                                 Image(systemName: node.health.icon)
-                                    .font(.system(size: 12))
+                                    .font(.systemScaled(12))
                                 Text(node.health.label)
                                     .font(AMENFont.semiBold(12))
                             }
@@ -104,7 +104,7 @@ struct HelixNodeDetailSheet: View {
                                                     .fill(type.color.opacity(0.18))
                                                     .frame(width: 34, height: 34)
                                                 Image(systemName: type.icon)
-                                                    .font(.system(size: 14))
+                                                    .font(.systemScaled(14))
                                                     .foregroundColor(type.color)
                                             }
                                             Text(connectedNode?.label ?? "Node \(connectedId.prefix(6))")
@@ -253,7 +253,7 @@ struct HelixAddNodeSheet: View {
                     } label: {
                         VStack(spacing: 8) {
                             Image(systemName: type.icon)
-                                .font(.system(size: 22))
+                                .font(.systemScaled(22))
                                 .foregroundColor(isSelected ? type.color : .white.opacity(0.5))
                             Text(type.label)
                                 .font(AMENFont.regular(12))
@@ -332,7 +332,7 @@ struct HelixAddNodeSheet: View {
                         } label: {
                             HStack(spacing: 5) {
                                 Image(systemName: health.icon)
-                                    .font(.system(size: 11))
+                                    .font(.systemScaled(11))
                                 Text(health.label)
                                     .font(AMENFont.regular(12))
                             }
@@ -377,14 +377,14 @@ struct HelixAddNodeSheet: View {
                         } label: {
                             HStack(spacing: 10) {
                                 Image(systemName: existingNode.type.icon)
-                                    .font(.system(size: 14))
+                                    .font(.systemScaled(14))
                                     .foregroundColor(existingNode.type.color)
                                 Text(existingNode.label)
                                     .font(AMENFont.regular(14))
                                     .foregroundColor(.white)
                                 Spacer()
                                 Image(systemName: isConnected ? "checkmark.circle.fill" : "circle")
-                                    .font(.system(size: 18))
+                                    .font(.systemScaled(18))
                                     .foregroundColor(isConnected ? Color(hex: "10B981") : .white.opacity(0.25))
                             }
                             .padding(.horizontal, 14)

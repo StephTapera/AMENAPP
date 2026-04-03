@@ -64,14 +64,14 @@ struct ActiveSessionsView: View {
     private var emptyState: some View {
         VStack(spacing: 16) {
             Image(systemName: "iphone.and.arrow.forward")
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(.secondary)
 
             Text("No Active Sessions")
-                .font(.system(size: 18, weight: .semibold))
+                .font(.systemScaled(18, weight: .semibold))
 
             Text("You're not signed in on any devices")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }
@@ -143,10 +143,10 @@ struct ActiveSessionsView: View {
 
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Secure Sessions")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.systemScaled(14, weight: .semibold))
 
                             Text("All sessions are encrypted and protected by Firebase Authentication")
-                                .font(.system(size: 13))
+                                .font(.systemScaled(13))
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -161,10 +161,10 @@ struct ActiveSessionsView: View {
 
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Auto Refresh")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.systemScaled(14, weight: .semibold))
 
                             Text("Sessions automatically refresh every 7 days for security")
-                                .font(.system(size: 13))
+                                .font(.systemScaled(13))
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -287,7 +287,7 @@ struct DeviceSessionRow: View {
                     .frame(width: 44, height: 44)
 
                 Image(systemName: deviceIcon)
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
                     .foregroundStyle(isCurrentDevice ? .green : .gray)
             }
 
@@ -295,11 +295,11 @@ struct DeviceSessionRow: View {
                 // Device name + chips
                 HStack(spacing: 6) {
                     Text(device.deviceName)
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
 
                     if isCurrentDevice {
                         Text("This Device")
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.systemScaled(11, weight: .medium))
                             .foregroundStyle(.green)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 3)
@@ -310,7 +310,7 @@ struct DeviceSessionRow: View {
                     // Remember Me / Standard chip
                     if isCurrentDevice {
                         Text(isRemembered ? "Remembered" : "Standard")
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.systemScaled(11, weight: .medium))
                             .foregroundStyle(isRemembered ? .blue : .secondary)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 3)
@@ -320,17 +320,17 @@ struct DeviceSessionRow: View {
                 }
 
                 Text("\(device.deviceModel) · iOS \(device.osVersion)")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.secondary)
 
                 Text("Last active: \(formattedDate(device.lastRefreshed))")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
 
                 // Show max expiry date for Remembered sessions
                 if let expiry = sessionExpiry {
                     Text("Session expires: \(formattedAbsoluteDate(expiry))")
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(.blue.opacity(0.8))
                 }
             }
@@ -342,7 +342,7 @@ struct DeviceSessionRow: View {
                     onSignOut()
                 } label: {
                     Text("Sign Out")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.systemScaled(14, weight: .medium))
                         .foregroundStyle(.red)
                 }
             }

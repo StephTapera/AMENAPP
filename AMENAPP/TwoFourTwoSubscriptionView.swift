@@ -23,9 +23,9 @@ struct TwoFourTwoSubscriptionView: View {
                     VStack(spacing: 0) {
                         // Header
                         VStack(spacing: 8) {
-                            Text("242 Resources").font(.system(size: 28, weight: .bold, design: .rounded)).foregroundColor(.white)
+                            Text("242 Resources").font(.systemScaled(28, weight: .bold, design: .rounded)).foregroundColor(.white)
                             Text("Unlock the full depth of Acts 2:42")
-                                .font(.system(size: 14, design: .rounded)).foregroundColor(.white.opacity(0.45)).multilineTextAlignment(.center)
+                                .font(.systemScaled(14, design: .rounded)).foregroundColor(.white.opacity(0.45)).multilineTextAlignment(.center)
                         }
                         .padding(.horizontal, 28).padding(.bottom, 28)
                         .opacity(appeared ? 1 : 0).offset(y: appeared ? 0 : 12)
@@ -33,7 +33,7 @@ struct TwoFourTwoSubscriptionView: View {
                         // Free tier note
                         HStack(spacing: 8) {
                             Image(systemName: "checkmark.circle.fill").foregroundColor(Color(red: 0.20, green: 0.72, blue: 0.44))
-                            Text("Core features are always free").font(.system(size: 13, design: .rounded)).foregroundColor(.white.opacity(0.55))
+                            Text("Core features are always free").font(.systemScaled(13, design: .rounded)).foregroundColor(.white.opacity(0.55))
                         }
                         .padding(.bottom, 24)
                         .opacity(appeared ? 1 : 0)
@@ -79,30 +79,30 @@ private struct TierCard: View {
             HStack {
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 8) {
-                        Text(tier.displayName).font(.system(size: 18, weight: .semibold, design: .rounded)).foregroundColor(.white)
+                        Text(tier.displayName).font(.systemScaled(18, weight: .semibold, design: .rounded)).foregroundColor(.white)
                         if isCurrent {
-                            Text("current").font(.system(size: 10, weight: .medium, design: .rounded)).foregroundColor(tier.badgeColor)
+                            Text("current").font(.systemScaled(10, weight: .medium, design: .rounded)).foregroundColor(tier.badgeColor)
                                 .padding(.horizontal, 7).padding(.vertical, 3)
                                 .background(Capsule().fill(tier.badgeColor.opacity(0.15)))
                         }
                     }
-                    Text(subtitle).font(.system(size: 12, design: .rounded)).foregroundColor(.white.opacity(0.40))
+                    Text(subtitle).font(.systemScaled(12, design: .rounded)).foregroundColor(.white.opacity(0.40))
                 }
                 Spacer()
-                Text(tier.price).font(.system(size: 13, weight: .medium, design: .rounded)).foregroundColor(tier.badgeColor)
+                Text(tier.price).font(.systemScaled(13, weight: .medium, design: .rounded)).foregroundColor(tier.badgeColor)
             }
             Divider().background(Color.white.opacity(0.08))
             VStack(alignment: .leading, spacing: 7) {
                 ForEach(features, id: \.self) { f in
                     HStack(spacing: 8) {
                         Circle().fill(tier.badgeColor).frame(width: 4, height: 4)
-                        Text(f).font(.system(size: 12, design: .rounded)).foregroundColor(.white.opacity(0.60))
+                        Text(f).font(.systemScaled(12, design: .rounded)).foregroundColor(.white.opacity(0.60))
                     }
                 }
             }
             Button(action: action) {
                 Text(tier.isContactSales ? "Contact Sales" : isCurrent ? "Current Plan" : "Unlock \(tier.displayName)")
-                    .font(.system(size: 14, weight: .semibold, design: .rounded)).foregroundColor(isCurrent ? .white.opacity(0.40) : .white)
+                    .font(.systemScaled(14, weight: .semibold, design: .rounded)).foregroundColor(isCurrent ? .white.opacity(0.40) : .white)
                     .frame(maxWidth: .infinity).padding(.vertical, 12)
                     .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(isCurrent ? Color.white.opacity(0.06) : tier.badgeColor.opacity(0.85)))
             }

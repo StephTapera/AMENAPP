@@ -45,12 +45,12 @@ private struct ProfileShareCard: View {
             // Header
             HStack {
                 Text("AMEN")
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.systemScaled(14, weight: .bold))
                     .tracking(3)
                     .foregroundStyle(.white.opacity(0.6))
                 Spacer()
                 Image(systemName: "cross.fill")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.white.opacity(0.3))
             }
             .padding(.horizontal, 28)
@@ -71,18 +71,18 @@ private struct ProfileShareCard: View {
                     .frame(width: 88, height: 88)
 
                 Text(name.prefix(1).uppercased())
-                    .font(.system(size: 36, weight: .bold))
+                    .font(.systemScaled(36, weight: .bold))
                     .foregroundStyle(.white)
             }
 
             // Name + username
             VStack(spacing: 6) {
                 Text(name)
-                    .font(.system(size: 24, weight: .bold))
+                    .font(.systemScaled(24, weight: .bold))
                     .foregroundStyle(.white)
 
                 Text("@\(username)")
-                    .font(.system(size: 15, weight: .regular))
+                    .font(.systemScaled(15, weight: .regular))
                     .foregroundStyle(.white.opacity(0.6))
             }
 
@@ -99,7 +99,7 @@ private struct ProfileShareCard: View {
             }
 
             Text("Scan to connect on AMEN")
-                .font(.system(size: 12, weight: .medium))
+                .font(.systemScaled(12, weight: .medium))
                 .foregroundStyle(.white.opacity(0.4))
 
             Spacer()

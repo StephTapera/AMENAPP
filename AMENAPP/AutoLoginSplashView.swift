@@ -113,7 +113,7 @@ struct AutoLoginSplashView: View {
 
                 // ── Username ──────────────────────────────────────────────
                 Text(cachedUsername ?? "Welcome back")
-                    .font(.system(size: 22, weight: .bold))
+                    .font(.systemScaled(22, weight: .bold))
                     .foregroundStyle(ink)
                     .offset(y: nameOffset)
                     .opacity(nameOpacity)
@@ -123,7 +123,7 @@ struct AutoLoginSplashView: View {
                 // ── Status + dots ─────────────────────────────────────────
                 HStack(spacing: 10) {
                     Text("Signing you in")
-                        .font(.system(size: 15, weight: .light))
+                        .font(.systemScaled(15, weight: .light))
                         .foregroundStyle(ink.opacity(0.55))
 
                     LiquidDotsProgressView(color: ink.opacity(0.75))
@@ -134,7 +134,7 @@ struct AutoLoginSplashView: View {
 
                 // ── AMEN watermark ────────────────────────────────────────
                 Text("AMEN")
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .font(.systemScaled(13, weight: .semibold, design: .rounded))
                     .tracking(6)
                     .foregroundStyle(ink.opacity(0.12))
                     .padding(.bottom, 44)
@@ -163,7 +163,7 @@ struct AutoLoginSplashView: View {
                     )
                 )
             Text(String((cachedUsername ?? "A").prefix(1)).uppercased())
-                .font(.system(size: 32, weight: .semibold))
+                .font(.systemScaled(32, weight: .semibold))
                 .foregroundStyle(ink.opacity(0.78))
         }
     }

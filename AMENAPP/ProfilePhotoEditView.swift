@@ -106,7 +106,7 @@ struct ProfilePhotoEditView: View {
                             } label: {
                                 HStack(spacing: 12) {
                                     Image(systemName: "photo.on.rectangle")
-                                        .font(.system(size: 20, weight: .semibold))
+                                        .font(.systemScaled(20, weight: .semibold))
                                     
                                     Text("Choose from Library")
                                         .font(AMENFont.bold(16))
@@ -127,7 +127,7 @@ struct ProfilePhotoEditView: View {
                             } label: {
                                 HStack(spacing: 12) {
                                     Image(systemName: "camera.fill")
-                                        .font(.system(size: 20, weight: .semibold))
+                                        .font(.systemScaled(20, weight: .semibold))
                                     
                                     Text("Take Photo")
                                         .font(AMENFont.bold(16))
@@ -148,7 +148,7 @@ struct ProfilePhotoEditView: View {
                                 } label: {
                                     HStack(spacing: 12) {
                                         Image(systemName: "trash")
-                                            .font(.system(size: 20, weight: .semibold))
+                                            .font(.systemScaled(20, weight: .semibold))
                                         
                                         Text("Remove Photo")
                                             .font(AMENFont.bold(16))
@@ -169,7 +169,7 @@ struct ProfilePhotoEditView: View {
                         VStack(alignment: .leading, spacing: 12) {
                             HStack(spacing: 8) {
                                 Image(systemName: "lightbulb.fill")
-                                    .font(.system(size: 16))
+                                    .font(.systemScaled(16))
                                     .foregroundStyle(.orange)
                                 
                                 Text("Photo Tips")
@@ -199,7 +199,7 @@ struct ProfilePhotoEditView: View {
                         
                         HStack(spacing: 12) {
                             Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 20))
+                                .font(.systemScaled(20))
                                 .foregroundStyle(.green)
                             
                             Text("Profile photo updated!")
@@ -406,7 +406,7 @@ struct ProfilePhotoEditView: View {
             .overlay(
                 VStack(spacing: 12) {
                     Image(systemName: "person.fill")
-                        .font(.system(size: 60))
+                        .font(.systemScaled(60))
                         .foregroundStyle(.secondary)
                     
                     Text("No Photo")
@@ -423,7 +423,7 @@ struct ProfilePhotoEditView: View {
     private func tipRow(icon: String, text: String, color: Color) -> some View {
         HStack(spacing: 10) {
             Image(systemName: icon)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(color)
                 .frame(width: 20)
             

@@ -68,7 +68,7 @@ struct BrowseCommunitiesView: View {
                     showCreateCommunity = true
                 } label: {
                     Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 20))
+                        .font(.systemScaled(20))
                 }
             }
         }
@@ -91,7 +91,7 @@ struct BrowseCommunitiesView: View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(searchFocused ? .primary : .secondary)
-                .font(.system(size: 15, weight: searchFocused ? .semibold : .regular))
+                .font(.systemScaled(15, weight: searchFocused ? .semibold : .regular))
                 .animation(.easeInOut(duration: 0.15), value: searchFocused)
 
             TextField("Search communities…", text: $searchText)
@@ -142,7 +142,7 @@ struct BrowseCommunitiesView: View {
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: icon)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                 Text(label)
                     .font(AMENFont.semiBold(13))
             }
@@ -183,7 +183,7 @@ struct BrowseCommunitiesView: View {
             } else if filteredCommunities.isEmpty {
                 VStack(spacing: 16) {
                     Image(systemName: searchText.isEmpty ? "person.3" : "magnifyingglass")
-                        .font(.system(size: 44))
+                        .font(.systemScaled(44))
                         .foregroundStyle(.tertiary)
                     Text(searchText.isEmpty ? "No communities yet" : "No results for \"\(searchText)\"")
                         .font(AMENFont.semiBold(16))
@@ -275,7 +275,7 @@ struct CommunityBrowseCard: View {
                     .fill(categoryColor.opacity(0.15))
                     .frame(width: 50, height: 50)
                 Text(initials)
-                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                    .font(.systemScaled(18, weight: .bold, design: .rounded))
                     .foregroundStyle(categoryColor)
             }
 
@@ -286,7 +286,7 @@ struct CommunityBrowseCard: View {
                         .foregroundStyle(.primary)
                     if community.isVerified {
                         Image(systemName: "checkmark.seal.fill")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(.blue)
                     }
                 }
@@ -315,11 +315,11 @@ struct CommunityBrowseCard: View {
             // Member badge or chevron
             if isMember {
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
                     .foregroundStyle(categoryColor)
             } else {
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(.tertiary)
             }
         }

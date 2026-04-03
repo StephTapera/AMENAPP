@@ -137,7 +137,7 @@ struct FullscreenMediaViewer: View {
     private var errorPlaceholder: some View {
         VStack(spacing: 12) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 48, weight: .light))
+                .font(.systemScaled(48, weight: .light))
                 .foregroundStyle(.white.opacity(0.7))
             Text("Media unavailable")
                 .font(AMENFont.regular(15))
@@ -186,7 +186,7 @@ struct FullscreenMediaViewer: View {
                     .frame(width: 40, height: 40)
                 
                 Image(systemName: "xmark")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.white)
             }
         }

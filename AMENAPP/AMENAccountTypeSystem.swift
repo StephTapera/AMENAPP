@@ -424,7 +424,7 @@ struct AccountTypeBadgeView: View {
     var body: some View {
         HStack(spacing: 6) {
             Image(systemName: type.icon)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
                 .foregroundColor(.black.opacity(0.7))
 
             Text(pillText)
@@ -479,7 +479,7 @@ struct VerificationStatusBadgeView: View {
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: status.icon)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundColor(iconColor)
 
             Text(status.displayLabel)

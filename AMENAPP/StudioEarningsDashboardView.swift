@@ -93,10 +93,10 @@ struct StudioEarningsDashboardView: View {
                     .foregroundStyle(.primary)
                 HStack(spacing: 6) {
                     Image(systemName: "info.circle.fill")
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(.secondary)
                     Text("After \(Int(AMENFeeConfig.productSaleFeePercent * 100))% AMEN fee")
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -184,7 +184,7 @@ struct StudioEarningsDashboardView: View {
                 }
                 if summary.grossRevenue == 0 {
                     Text("No revenue yet — start by listing a service or product.")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -243,7 +243,7 @@ struct StudioEarningsDashboardView: View {
 
             if transactions.isEmpty {
                 Text("No transactions yet.")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
@@ -261,7 +261,7 @@ struct StudioEarningsDashboardView: View {
     private func transactionRow(_ tx: StudioTransaction) -> some View {
         HStack(spacing: 12) {
             Image(systemName: tx.transactionType == .productSale ? "bag.fill" : "briefcase.fill")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
                 .frame(width: 28)
 
@@ -270,7 +270,7 @@ struct StudioEarningsDashboardView: View {
                     .font(.custom("OpenSans-SemiBold", size: 13))
                     .lineLimit(1)
                 Text(tx.transactionType.label)
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.secondary)
             }
 
@@ -281,7 +281,7 @@ struct StudioEarningsDashboardView: View {
                     .font(.custom("OpenSans-Bold", size: 14))
                     .foregroundStyle(.primary)
                 Text(tx.status.label)
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.systemScaled(10, weight: .semibold))
                     .foregroundStyle(tx.status.color)
             }
         }
@@ -297,25 +297,25 @@ struct StudioEarningsDashboardView: View {
 
             HStack(spacing: 12) {
                 Image(systemName: "building.columns.fill")
-                    .font(.system(size: 18))
+                    .font(.systemScaled(18))
                     .foregroundStyle(.secondary)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Connect your bank account")
                         .font(.custom("OpenSans-SemiBold", size: 14))
                     Text("Set up payouts to receive your earnings")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
             }
             .padding(14)
             .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 12))
 
             Text("AMEN pays out on a weekly schedule. Minimum payout is $10.00. Identity verification required.")
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(.secondary)
         }
         .padding(16)
@@ -348,7 +348,7 @@ struct StudioEarningsDashboardView: View {
                 .font(.custom("OpenSans-Bold", size: 16))
                 .foregroundStyle(color)
             Text(label)
-                .font(.system(size: 10))
+                .font(.systemScaled(10))
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
@@ -359,7 +359,7 @@ struct StudioEarningsDashboardView: View {
     private func revenueRow(icon: String, label: String, amount: Double, total: Double, color: Color) -> some View {
         HStack(spacing: 10) {
             Image(systemName: icon)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(color)
                 .frame(width: 20)
 
@@ -391,13 +391,13 @@ struct StudioEarningsDashboardView: View {
     private func metricCell(icon: String, label: String, value: String, color: Color) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Image(systemName: icon)
-                .font(.system(size: 18))
+                .font(.systemScaled(18))
                 .foregroundStyle(color)
             Text(value)
                 .font(.custom("OpenSans-Bold", size: 22))
                 .foregroundStyle(.primary)
             Text(label)
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(.secondary)
         }
         .padding(12)

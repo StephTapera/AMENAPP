@@ -66,7 +66,7 @@ struct ChurchProfileView: View {
                 } else if let error = viewModel.error {
                     VStack(spacing: 16) {
                         Image(systemName: "exclamationmark.triangle")
-                            .font(.system(size: 48))
+                            .font(.systemScaled(48))
                             .foregroundStyle(.secondary)
                         Text(error)
                             .font(AMENFont.regular(15))
@@ -87,7 +87,7 @@ struct ChurchProfileView: View {
                     dismiss()
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 28))
+                        .font(.systemScaled(28))
                         .foregroundStyle(.white)
                         .shadow(color: .black.opacity(0.3), radius: 4, y: 2)
                 }
@@ -358,7 +358,7 @@ struct ChurchProfileView: View {
             )
             
             Image(systemName: "building.columns.fill")
-                .font(.system(size: 64))
+                .font(.systemScaled(64))
                 .foregroundStyle(.white.opacity(0.8))
         }
     }
@@ -448,7 +448,7 @@ struct ChurchProfileView: View {
         Button(action: action) {
             VStack(spacing: 6) {
                 Image(systemName: icon)
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
                     .foregroundStyle(.blue)
                 
                 Text(label)
@@ -504,7 +504,7 @@ struct ChurchProfileView: View {
     private func infoRow(icon: String, label: String, value: String) -> some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 20))
+                .font(.systemScaled(20))
                 .foregroundStyle(.blue)
                 .frame(width: 24)
             
@@ -602,7 +602,7 @@ struct ChurchProfileView: View {
                                     HStack(spacing: 4) {
                                         Image(systemName: serviceModeActive && selectedServiceForMode == service
                                               ? "stop.circle.fill" : "play.circle")
-                                            .font(.system(size: 14))
+                                            .font(.systemScaled(14))
                                         Text(serviceModeActive && selectedServiceForMode == service
                                              ? "End" : "Start")
                                             .font(AMENFont.semiBold(12))
@@ -758,7 +758,7 @@ struct ChurchTipCard: View {
                 // Category badge
                 HStack(spacing: 4) {
                     Image(systemName: tip.category.icon)
-                        .font(.system(size: 10))
+                        .font(.systemScaled(10))
                     
                     Text(tip.category.displayName)
                         .font(AMENFont.regular(11))
@@ -780,7 +780,7 @@ struct ChurchTipCard: View {
             Button(action: onHelpful) {
                 HStack(spacing: 4) {
                     Image(systemName: tip.isHelpful ? "hand.thumbsup.fill" : "hand.thumbsup")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                     
                     Text("Helpful (\(tip.helpfulCount))")
                         .font(AMENFont.regular(12))
@@ -1059,7 +1059,7 @@ struct ChurchVibeView: View {
                 .tint(.orange)
                 .frame(maxWidth: .infinity)
             Text("\(value)%")
-                .font(.system(size: 11, design: .monospaced))
+                .font(.systemScaled(11, design: .monospaced))
                 .foregroundStyle(.orange)
                 .frame(width: 36, alignment: .trailing)
         }
@@ -1067,7 +1067,7 @@ struct ChurchVibeView: View {
 
     private func vibeTag(label: String, icon: String) -> some View {
         Label(label, systemImage: icon)
-            .font(.system(size: 10, design: .monospaced))
+            .font(.systemScaled(10, design: .monospaced))
             .padding(.horizontal, 8).padding(.vertical, 4)
             .background(Color.orange.opacity(0.1))
             .foregroundStyle(.orange)
@@ -1240,7 +1240,7 @@ struct PlanMyVisitView: View {
                     .stroke(done ? Color.green : active ? Color.orange : Color.gray.opacity(0.3), lineWidth: 1.5)
                     .frame(width: 24, height: 24)
                 if done {
-                    Image(systemName: "checkmark").font(.system(size: 10, weight: .bold)).foregroundStyle(.green)
+                    Image(systemName: "checkmark").font(.systemScaled(10, weight: .bold)).foregroundStyle(.green)
                 } else if active {
                     ProgressView().scaleEffect(0.5)
                 }

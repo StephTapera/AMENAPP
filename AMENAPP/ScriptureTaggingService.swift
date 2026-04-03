@@ -170,7 +170,7 @@ struct ScriptureTagsRow: View {
                                     }
                                 } label: {
                                     Text(tag.reference)
-                                        .font(.system(size: 12, weight: .medium))
+                                        .font(.systemScaled(12, weight: .medium))
                                         .foregroundStyle(.white)
                                         .padding(.horizontal, 10)
                                         .padding(.vertical, 5)
@@ -185,7 +185,7 @@ struct ScriptureTagsRow: View {
                     // Expanded verse preview
                     if let expanded = expandedTag {
                         Text(expanded.preview.isEmpty ? expanded.reference : expanded.preview)
-                            .font(.system(size: 13, weight: .regular))
+                            .font(.systemScaled(13, weight: .regular))
                             .foregroundStyle(.secondary)
                             .italic()
                             .padding(.horizontal, 4)

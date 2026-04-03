@@ -261,7 +261,7 @@ struct InAppNotificationBannerView: View {
                 } else {
                     // Fallback initials
                     Text(initials)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(.primary)
                 }
 
@@ -271,7 +271,7 @@ struct InAppNotificationBannerView: View {
                     .frame(width: 18, height: 18)
                     .overlay {
                         Image(systemName: icon)
-                            .font(.system(size: 9, weight: .bold))
+                            .font(.systemScaled(9, weight: .bold))
                             .foregroundStyle(.white)
                     }
                     .overlay {
@@ -283,13 +283,13 @@ struct InAppNotificationBannerView: View {
             // Text
             VStack(alignment: .leading, spacing: 2) {
                 Text(bodyText)
-                    .font(.system(size: 14, weight: .regular))
+                    .font(.systemScaled(14, weight: .regular))
                     .foregroundStyle(.primary)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
 
                 Text(timeAgo)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -299,7 +299,7 @@ struct InAppNotificationBannerView: View {
                 onDismiss()
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(.secondary)
                     .padding(6)
                     .background(Circle().fill(Color(.tertiarySystemBackground)))

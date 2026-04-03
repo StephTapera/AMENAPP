@@ -251,7 +251,7 @@ struct PersonalizeNudgeBanner: View {
         if isVisible {
             HStack(spacing: 12) {
                 Image(systemName: "lightbulb.fill")
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(.orange)
                 
                 VStack(alignment: .leading, spacing: 4) {
@@ -270,7 +270,7 @@ struct PersonalizeNudgeBanner: View {
                     }
                 } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -317,7 +317,7 @@ struct ModerationDecisionView: View {
         VStack(spacing: 20) {
             // Icon based on action
             Image(systemName: iconForAction(decision.action))
-                .font(.system(size: 50))
+                .font(.systemScaled(50))
                 .foregroundStyle(colorForAction(decision.action))
             
             // Title

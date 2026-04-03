@@ -156,7 +156,7 @@ struct SpaceCardView: View {
     private func statItem(icon: String, value: String, label: String) -> some View {
         HStack(spacing: 4) {
             Image(systemName: icon)
-                .font(.system(size: 10, weight: .medium))
+                .font(.systemScaled(10, weight: .medium))
                 .foregroundStyle(.white.opacity(0.4))
 
             Text("\(value) \(label)")

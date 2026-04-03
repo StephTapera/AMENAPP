@@ -127,10 +127,10 @@ struct JobRecruiterDashboardView: View {
     private func tabBarIcon(for tab: RecruiterTab) -> some View {
         ZStack(alignment: .topTrailing) {
             Image(systemName: tab.icon)
-                .font(.system(size: 18))
+                .font(.systemScaled(18))
             if tab == .applications && service.unreadApplicationCount > 0 {
                 Text("\(service.unreadApplicationCount)")
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.systemScaled(9, weight: .bold))
                     .foregroundStyle(.white)
                     .padding(3)
                     .background(Color.red, in: Circle())
@@ -504,7 +504,7 @@ struct JobRecruiterDashboardView: View {
         VStack(spacing: 16) {
             Spacer()
             Image(systemName: icon)
-                .font(.system(size: 44))
+                .font(.systemScaled(44))
                 .foregroundStyle(.secondary)
             VStack(spacing: 8) {
                 Text(title)

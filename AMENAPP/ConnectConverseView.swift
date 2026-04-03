@@ -83,19 +83,19 @@ struct ConnectConverseView: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 Text("CONVERSATIONS")
-                    .font(.system(size: 10, weight: .semibold)).kerning(3)
+                    .font(.systemScaled(10, weight: .semibold)).kerning(3)
                     .foregroundStyle(Color.white.opacity(0.55))
                 Text("Faith Discussions")
-                    .font(.system(size: 26, weight: .black))
+                    .font(.systemScaled(26, weight: .black))
                     .foregroundStyle(.white)
                 Text("Engage in meaningful conversations about faith, life, and scripture.")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(Color.white.opacity(0.7))
 
                 Button { showCreate = true } label: {
                     HStack(spacing: 6) {
-                        Image(systemName: "plus").font(.system(size: 11, weight: .bold))
-                        Text("Start a Discussion").font(.system(size: 12, weight: .semibold))
+                        Image(systemName: "plus").font(.systemScaled(11, weight: .bold))
+                        Text("Start a Discussion").font(.systemScaled(12, weight: .semibold))
                     }
                     .foregroundStyle(accentTeal)
                     .padding(.horizontal, 14).padding(.vertical, 9)
@@ -124,7 +124,7 @@ struct ConnectConverseView: View {
                         Circle().fill(accentTeal.opacity(0.15))
                             .overlay(
                                 Text(String(topic.authorName.prefix(1)).uppercased())
-                                    .font(.system(size: 12, weight: .bold))
+                                    .font(.systemScaled(12, weight: .bold))
                                     .foregroundStyle(accentTeal)
                             )
                     }
@@ -134,37 +134,37 @@ struct ConnectConverseView: View {
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text(topic.authorName)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(.primary)
                     Text(topic.category)
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
                 Text(timeAgo(topic.createdAt))
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.tertiary)
             }
 
             Text(topic.title)
-                .font(.system(size: 15, weight: .bold))
+                .font(.systemScaled(15, weight: .bold))
                 .foregroundStyle(.primary)
 
             Text(topic.body)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
                 .lineLimit(3)
 
             HStack(spacing: 16) {
                 HStack(spacing: 4) {
-                    Image(systemName: "bubble.left").font(.system(size: 12))
-                    Text("\(topic.replyCount)").font(.system(size: 12))
+                    Image(systemName: "bubble.left").font(.systemScaled(12))
+                    Text("\(topic.replyCount)").font(.systemScaled(12))
                 }
                 .foregroundStyle(.secondary)
 
                 HStack(spacing: 4) {
-                    Image(systemName: "heart").font(.system(size: 12))
-                    Text("\(topic.likeCount)").font(.system(size: 12))
+                    Image(systemName: "heart").font(.systemScaled(12))
+                    Text("\(topic.likeCount)").font(.systemScaled(12))
                 }
                 .foregroundStyle(.secondary)
             }
@@ -177,13 +177,13 @@ struct ConnectConverseView: View {
     private var emptyState: some View {
         VStack(spacing: 12) {
             Image(systemName: "bubble.left.and.bubble.right.fill")
-                .font(.system(size: 40))
+                .font(.systemScaled(40))
                 .foregroundStyle(.secondary.opacity(0.4))
                 .padding(.top, 40)
             Text("No conversations yet")
-                .font(.system(size: 17, weight: .bold))
+                .font(.systemScaled(17, weight: .bold))
             Text("Start a discussion about faith, scripture, or life.")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)

@@ -31,7 +31,7 @@ struct PrivacyDashboardView: View {
                     // Header
                     VStack(spacing: 12) {
                         Image(systemName: "shield.checkered")
-                            .font(.system(size: 50))
+                            .font(.systemScaled(50))
                             .foregroundColor(.blue)
                         
                         Text("Privacy Dashboard")

@@ -87,7 +87,7 @@ struct AccountDeactivationView: View {
                     } label: {
                         HStack(spacing: 14) {
                             Image(systemName: reason.icon)
-                                .font(.system(size: 16, weight: .medium))
+                                .font(.systemScaled(16, weight: .medium))
                                 .foregroundStyle(selectedReason == reason ? .white : .secondary)
                                 .frame(width: 32, height: 32)
                                 .background(
@@ -104,7 +104,7 @@ struct AccountDeactivationView: View {
 
                             if selectedReason == reason {
                                 Image(systemName: "checkmark")
-                                    .font(.system(size: 13, weight: .bold))
+                                    .font(.systemScaled(13, weight: .bold))
                                     .foregroundStyle(.primary)
                             }
                         }
@@ -229,7 +229,7 @@ struct AccountDeactivationView: View {
                     .fill(color.opacity(0.12))
                     .frame(width: 36, height: 36)
                 Image(systemName: icon)
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.systemScaled(15, weight: .medium))
                     .foregroundStyle(color)
             }
             VStack(alignment: .leading, spacing: 3) {
@@ -298,7 +298,7 @@ struct ReactivationPromptView: View {
                         .frame(width: 52, height: 56)
 
                     Text("AMEN")
-                        .font(.system(size: 22, weight: .black))
+                        .font(.systemScaled(22, weight: .black))
                         .tracking(7)
                         .foregroundStyle(.black)
                 }
@@ -313,7 +313,7 @@ struct ReactivationPromptView: View {
                                 .fill(Color.orange.opacity(0.12))
                                 .frame(width: 44, height: 44)
                             Image(systemName: "pause.circle.fill")
-                                .font(.system(size: 22))
+                                .font(.systemScaled(22))
                                 .foregroundStyle(.orange)
                         }
                         VStack(alignment: .leading, spacing: 2) {
@@ -338,7 +338,7 @@ struct ReactivationPromptView: View {
                     if let expiresAt = status.expiresAt {
                         HStack(spacing: 6) {
                             Image(systemName: "exclamationmark.triangle.fill")
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                                 .foregroundStyle(.orange)
                             Text("Auto-deletes \(expiresAt.formatted(.relative(presentation: .named)))")
                                 .font(AMENFont.semiBold(13))

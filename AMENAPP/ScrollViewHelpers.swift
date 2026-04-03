@@ -142,7 +142,7 @@ struct ScrollToBottomModifier: ViewModifier {
             .overlay(alignment: .bottomTrailing) {
                 Button(action: action) {
                     Image(systemName: "arrow.down.circle.fill")
-                        .font(.system(size: 40))
+                        .font(.systemScaled(40))
                         .foregroundStyle(.blue)
                         .background(
                             Circle()

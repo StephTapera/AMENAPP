@@ -32,7 +32,7 @@ struct ProfilePinnedPostsSection: View {
                 } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "pin.fill")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                             .foregroundStyle(.secondary)
                         
                         Text("Pinned")
@@ -54,7 +54,7 @@ struct ProfilePinnedPostsSection: View {
                         Spacer()
                         
                         Image(systemName: "chevron.down")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                             .foregroundStyle(.secondary)
                             .rotationEffect(.degrees(isExpanded ? 0 : -90))
                     }

@@ -162,7 +162,7 @@ struct BereanTabSwitcherView: View {
             Spacer()
 
             Text("Chats")
-                .font(.system(size: 17, weight: .semibold))
+                .font(.systemScaled(17, weight: .semibold))
                 .foregroundStyle(Color.black)
 
             Spacer()
@@ -196,7 +196,7 @@ struct BereanTabSwitcherView: View {
                         .fill(Color.black.opacity(0.06))
                         .frame(width: 30, height: 30)
                     Text("···")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                         .foregroundStyle(Color.black.opacity(0.7))
                         .offset(y: -2)
                 }
@@ -235,7 +235,7 @@ struct BereanTabSwitcherView: View {
                     startPoint: .topLeading, endPoint: .bottomTrailing))
                 .frame(width: 34, height: 34)
             Text(initials.isEmpty ? "?" : initials)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(.white)
         }
     }
@@ -245,7 +245,7 @@ struct BereanTabSwitcherView: View {
     private var suggestedTopicsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("START A NEW CHAT")
-                .font(.system(size: 10, weight: .medium))
+                .font(.systemScaled(10, weight: .medium))
                 .foregroundStyle(Color.gray)
                 .kerning(0.6)
 
@@ -314,7 +314,7 @@ struct BereanTabSwitcherView: View {
                             )
                             .frame(width: 22, height: 22)
                         Text("\(sessionManager.sessions.count)")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.systemScaled(11, weight: .semibold))
                             .foregroundStyle(Color.black)
                     }
                 }
@@ -344,7 +344,7 @@ struct BereanTabSwitcherView: View {
                             .frame(width: 40, height: 40)
                             .shadow(color: Color(hex: "#7A6FFF").opacity(0.35), radius: 8, y: 3)
                         Image(systemName: "plus")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .foregroundStyle(.white)
                     }
                 }
@@ -364,7 +364,7 @@ struct BereanTabSwitcherView: View {
             action()
         } label: {
             Image(systemName: icon)
-                .font(.system(size: 15, weight: .medium))
+                .font(.systemScaled(15, weight: .medium))
                 .foregroundStyle(Color.gray.opacity(0.6))
                 .frame(width: 36, height: 36)
         }
@@ -465,7 +465,7 @@ private struct FeaturedChatCard: View {
                         }
 
                     Text("Active now")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundStyle(Color(hex: "#7A6FFF"))
                 }
                 .padding(.horizontal, 10)
@@ -476,7 +476,7 @@ private struct FeaturedChatCard: View {
 
                 // ── Title ─────────────────────────────────────────────────
                 Text(session.displayTitle)
-                    .font(.system(size: 22, weight: .semibold, design: .serif))
+                    .font(.systemScaled(22, weight: .semibold, design: .serif))
                     .italic()
                     .foregroundStyle(Color(hex: "#2A1A6E"))
                     .lineLimit(2)
@@ -484,7 +484,7 @@ private struct FeaturedChatCard: View {
                 // ── Preview ───────────────────────────────────────────────
                 if let last = session.lastAssistantMessage, !last.content.isEmpty {
                     Text(last.content)
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(Color.gray.opacity(0.7))
                         .lineLimit(2)
                         .lineSpacing(1.55)
@@ -493,14 +493,14 @@ private struct FeaturedChatCard: View {
                 // ── Footer ────────────────────────────────────────────────
                 HStack {
                     Text(session.relativeTimestamp)
-                        .font(.system(size: 10))
+                        .font(.systemScaled(10))
                         .foregroundStyle(Color.gray)
 
                     Spacer()
 
                     Button(action: onContinue) {
                         Text("Continue →")
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.systemScaled(11, weight: .medium))
                             .foregroundStyle(Color(hex: "#7A6FFF"))
                     }
                     .buttonStyle(.plain)
@@ -525,7 +525,7 @@ private struct FeaturedChatCard: View {
             // ── Close X ───────────────────────────────────────────────────
             Button(action: onClose) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.systemScaled(10, weight: .semibold))
                     .foregroundStyle(Color.black.opacity(0.5))
                     .frame(width: 20, height: 20)
                     .background(Color.black.opacity(0.07), in: Circle())
@@ -552,10 +552,10 @@ private struct MiniChatCard: View {
                 // Header
                 HStack(spacing: 5) {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(Color(hex: "#7A6FFF").opacity(0.7))
                     Text(session.displayTitle)
-                        .font(.system(size: 10, weight: .medium))
+                        .font(.systemScaled(10, weight: .medium))
                         .foregroundStyle(Color.black.opacity(0.8))
                         .lineLimit(1)
                 }
@@ -563,7 +563,7 @@ private struct MiniChatCard: View {
                 // Preview
                 if let last = session.lastAssistantMessage, !last.content.isEmpty {
                     Text(last.content)
-                        .font(.system(size: 9))
+                        .font(.systemScaled(9))
                         .foregroundStyle(Color.gray.opacity(0.75))
                         .lineLimit(2)
                         .lineSpacing(1.2)
@@ -573,7 +573,7 @@ private struct MiniChatCard: View {
 
                 // Timestamp
                 Text(session.relativeTimestamp)
-                    .font(.system(size: 8, weight: .light))
+                    .font(.systemScaled(8, weight: .light))
                     .foregroundStyle(Color.gray.opacity(0.55))
             }
             .padding(10)
@@ -600,7 +600,7 @@ private struct MiniChatCard: View {
             // Close X
             Button(action: onClose) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 8, weight: .semibold))
+                    .font(.systemScaled(8, weight: .semibold))
                     .foregroundStyle(Color.black.opacity(0.4))
                     .frame(width: 16, height: 16)
                     .background(Color.black.opacity(0.06), in: Circle())
@@ -622,7 +622,7 @@ private struct BereanTopicChip: View {
     var body: some View {
         Button(action: onTap) {
             Text(label)
-                .font(.system(size: 10, weight: .medium))
+                .font(.systemScaled(10, weight: .medium))
                 .foregroundStyle(isActive ? Color(hex: "#6450FF") : Color(hex: "#555555"))
                 .padding(.vertical, 5)
                 .padding(.horizontal, 11)
@@ -677,7 +677,7 @@ struct BereanTabCountButton: View {
                     .frame(width: 28, height: 28)
 
                 Text("\(count)")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(Color(white: 0.2))
                     .contentTransition(.numericText())
             }

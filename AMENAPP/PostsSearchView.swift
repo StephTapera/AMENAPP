@@ -157,7 +157,7 @@ struct PostsSearchView: View {
                             .frame(width: 40, height: 40)
                         
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .foregroundColor(.white)
                     }
                 }
@@ -166,7 +166,7 @@ struct PostsSearchView: View {
                 // Title with icon
                 HStack(spacing: 10) {
                     Image(systemName: selectedCategory.icon)
-                        .font(.system(size: 20, weight: .bold))
+                        .font(.systemScaled(20, weight: .bold))
                         .foregroundStyle(
                             LinearGradient(
                                 colors: [
@@ -216,7 +216,7 @@ struct PostsSearchView: View {
         VStack(spacing: 0) {
             HStack(spacing: 12) {
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.systemScaled(16, weight: .medium))
                     .foregroundColor(.white.opacity(0.5))
                 
                 TextField("Search posts...", text: $searchText)
@@ -234,7 +234,7 @@ struct PostsSearchView: View {
                         searchText = ""
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 16))
+                            .font(.systemScaled(16))
                             .foregroundColor(.white.opacity(0.5))
                     }
                     .transition(.scale.combined(with: .opacity))
@@ -245,7 +245,7 @@ struct PostsSearchView: View {
                         }
                     } label: {
                         Text("Cancel")
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.systemScaled(14, weight: .medium))
                             .foregroundColor(.white.opacity(0.6))
                     }
                     .transition(.move(edge: .trailing).combined(with: .opacity))
@@ -291,7 +291,7 @@ struct PostsSearchView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Text("Recent")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundColor(.white.opacity(0.5))
                 Spacer()
                 Button {
@@ -299,7 +299,7 @@ struct PostsSearchView: View {
                     UserDefaults.standard.removeObject(forKey: recentSearchesKey)
                 } label: {
                     Text("Clear")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                         .foregroundColor(.white.opacity(0.4))
                 }
             }
@@ -316,14 +316,14 @@ struct PostsSearchView: View {
                 } label: {
                     HStack(spacing: 12) {
                         Image(systemName: "clock")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundColor(.white.opacity(0.4))
                         Text(query)
-                            .font(.system(size: 15))
+                            .font(.systemScaled(15))
                             .foregroundColor(.white.opacity(0.85))
                         Spacer()
                         Image(systemName: "arrow.up.left")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundColor(.white.opacity(0.3))
                     }
                     .padding(.horizontal, 20)
@@ -408,7 +408,7 @@ struct PostsSearchView: View {
     private var emptyStateView: some View {
         VStack(spacing: 16) {
             Image(systemName: "doc.text.magnifyingglass")
-                .font(.system(size: 48, weight: .light))
+                .font(.systemScaled(48, weight: .light))
                 .foregroundColor(.white.opacity(0.3))
             
             Text("No posts found")
@@ -435,7 +435,7 @@ struct CategoryChip: View {
         Button(action: action) {
             HStack(spacing: 8) {
                 Image(systemName: category.icon)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                 
                 Text(category.rawValue)
                     .font(.custom("OpenSans-SemiBold", size: 15))
@@ -520,7 +520,7 @@ struct PostSearchCard: View {
                     if category == .trending {
                         HStack(spacing: 4) {
                             Image(systemName: "flame.fill")
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                             Text("Hot")
                                 .font(.custom("OpenSans-Bold", size: 11))
                         }

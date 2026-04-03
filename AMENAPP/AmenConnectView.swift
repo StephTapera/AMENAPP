@@ -176,18 +176,18 @@ struct AMENConnectView: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 Text("FOR YOU")
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.systemScaled(10, weight: .bold))
                     .tracking(0.1)
                     .foregroundStyle(.white.opacity(0.55))
                     .textCase(.uppercase)
 
                 Text("Your Connect Hub")
-                    .font(.system(size: 28, weight: .heavy))
+                    .font(.systemScaled(28, weight: .heavy))
                     .foregroundStyle(.white)
                     .lineSpacing(-1)
 
                 Text("Jobs, mentorship, events and community — all within the AMEN network.")
-                    .font(.system(size: 12, weight: .regular))
+                    .font(.systemScaled(12, weight: .regular))
                     .foregroundStyle(.white.opacity(0.60))
                     .lineLimit(2)
             }
@@ -273,12 +273,12 @@ struct AMENConnectView: View {
     private var upcomingEventsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Upcoming Events")
-                .font(.system(size: 15, weight: .bold))
+                .font(.systemScaled(15, weight: .bold))
                 .foregroundStyle(.white)
                 .padding(.horizontal, 16)
 
             Text("No upcoming events yet")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(.white.opacity(0.35))
                 .frame(maxWidth: .infinity, alignment: .center)
                 .padding(.vertical, 20)
@@ -318,23 +318,23 @@ struct AMENConnectView: View {
                         )
                         .frame(width: 44, height: 44)
                     Image(systemName: "person.badge.shield.checkmark.fill")
-                        .font(.system(size: 20))
+                        .font(.systemScaled(20))
                         .foregroundStyle(Color(hex: "FFB060"))
                 }
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Find a Mentor")
-                        .font(.system(size: 15, weight: .bold))
+                        .font(.systemScaled(15, weight: .bold))
                         .foregroundStyle(Color(hex: "FFB060"))
                     Text("Connect with experienced faith leaders")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.white.opacity(0.55))
                 }
 
                 Spacer()
 
                 Text("See All")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(Color(hex: "FFB060"))
             }
             .padding(.horizontal, 16)
@@ -360,7 +360,7 @@ private struct ConnectFilterChip: View {
     var body: some View {
         Button(action: action) {
             Text(label)
-                .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                .font(.systemScaled(13, weight: isSelected ? .semibold : .regular))
                 .foregroundStyle(isSelected ? .white : .white.opacity(0.55))
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
@@ -415,13 +415,13 @@ private struct ConnectCategoryCard: View {
                     .frame(height: 8)
 
                 Image(systemName: icon)
-                    .font(.system(size: 24))
+                    .font(.systemScaled(24))
                     .foregroundStyle(.white)
 
                 Spacer()
 
                 Text(label)
-                    .font(.system(size: 13, weight: .bold))
+                    .font(.systemScaled(13, weight: .bold))
                     .foregroundStyle(.white)
                     .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
             }
@@ -452,13 +452,13 @@ struct AMENConnectEntryCard: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
                 Image(systemName: "person.3.fill")
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
                     .foregroundStyle(.blue)
                 Text("AMEN Connect")
-                    .font(.system(size: 18, weight: .bold))
+                    .font(.systemScaled(18, weight: .bold))
             }
             Text("Jobs, serve, mentor, and connect with the faith community")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
         }
         .padding(16)

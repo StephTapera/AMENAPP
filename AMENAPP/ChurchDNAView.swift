@@ -93,7 +93,7 @@ struct ChurchDNADetailView: View {
             // Header
             HStack {
                 Text("Theological Profile")
-                    .font(.system(size: 18, weight: .bold))
+                    .font(.systemScaled(18, weight: .bold))
                     .foregroundStyle(Color(.label))
                 Spacer()
                 if service.isLoading {
@@ -114,13 +114,13 @@ struct ChurchDNADetailView: View {
                 // Updated at
                 if let date = service.updatedAt {
                     Text("Last updated \(date.formatted(.dateTime.month().day().year()))")
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(Color(.tertiaryLabel))
                         .frame(maxWidth: .infinity, alignment: .center)
                 }
             } else if !service.isLoading {
                 Text("No theological data yet.")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(Color(.secondaryLabel))
                     .padding(.horizontal, 20)
             }
@@ -197,7 +197,7 @@ private struct HexRadarChart: View {
                         onAxisTap(axis)
                     } label: {
                         Text(axis.displayName)
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.systemScaled(10, weight: .semibold))
                             .foregroundStyle(Color(.secondaryLabel))
                             .fixedSize()
                     }
@@ -223,12 +223,12 @@ private struct DNAAxisDetailSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text(axis.displayName)
-                .font(.system(size: 20, weight: .bold))
+                .font(.systemScaled(20, weight: .bold))
                 .padding(.horizontal, 20)
                 .padding(.top, 20)
 
             Text("Sermon notes contributing to this score:")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(Color(.secondaryLabel))
                 .padding(.horizontal, 20)
 
@@ -238,7 +238,7 @@ private struct DNAAxisDetailSheet: View {
                     .padding()
             } else if quotes.isEmpty {
                 Text("No notes found for this axis.")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(Color(.tertiaryLabel))
                     .padding(.horizontal, 20)
             } else {
@@ -251,7 +251,7 @@ private struct DNAAxisDetailSheet: View {
                                     .frame(width: 3)
                                     .clipShape(Capsule())
                                 Text(quote)
-                                    .font(.system(size: 14))
+                                    .font(.systemScaled(14))
                                     .foregroundStyle(Color(.label))
                             }
                         }
@@ -305,7 +305,7 @@ struct ChurchDNALink: View {
             showDNA = true
         } label: {
             Text("See theological profile")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(Color(.secondaryLabel))
                 .underline()
         }

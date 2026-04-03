@@ -191,7 +191,7 @@ struct StartCoCreationSheet: View {
                         Image(systemName: "xmark.circle.fill")
                             .symbolRenderingMode(.hierarchical)
                             .foregroundStyle(.white.opacity(0.7))
-                            .font(.system(size: 22))
+                            .font(.systemScaled(22))
                     }
                 }
             }
@@ -244,7 +244,7 @@ private struct SessionTypeButton: View {
                         )
                         .frame(width: 44, height: 44)
                     Image(systemName: type.icon)
-                        .font(.system(size: 20, weight: .semibold))
+                        .font(.systemScaled(20, weight: .semibold))
                         .symbolRenderingMode(.hierarchical)
                         .foregroundStyle(.white)
                 }

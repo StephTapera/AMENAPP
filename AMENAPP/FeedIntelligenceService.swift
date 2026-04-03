@@ -320,7 +320,7 @@ struct FeedReflectionCard: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
                 Image(systemName: "sparkles")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundColor(.purple)
                 Text("Moment of reflection")
                     .font(.custom("OpenSans-SemiBold", size: 13))
@@ -328,7 +328,7 @@ struct FeedReflectionCard: View {
                 Spacer()
                 Button(action: onDismiss) {
                     Image(systemName: "xmark")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundColor(.secondary)
                 }
             }
@@ -494,7 +494,7 @@ struct FeedPacingPromptView: View {
     var body: some View {
         HStack(spacing: 14) {
             Image(systemName: "pause.circle.fill")
-                .font(.system(size: 28))
+                .font(.systemScaled(28))
                 .foregroundColor(.teal)
 
             VStack(alignment: .leading, spacing: 4) {
@@ -514,7 +514,7 @@ struct FeedPacingPromptView: View {
 
             Button(action: onDismiss) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundColor(.secondary)
                     .padding(6)
                     .background(Color.gray.opacity(0.12), in: Circle())

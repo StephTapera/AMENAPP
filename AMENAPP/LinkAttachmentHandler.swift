@@ -37,14 +37,14 @@ struct LinkAttachSheet: View {
                         // URL field
                         VStack(alignment: .leading, spacing: 6) {
                             Text("URL")
-                                .font(.system(size: 13, weight: .medium))
+                                .font(.systemScaled(13, weight: .medium))
                                 .foregroundStyle(.secondary)
                             HStack {
                                 TextField("https://", text: $urlText)
                                     .keyboardType(.URL)
                                     .autocapitalization(.none)
                                     .autocorrectionDisabled()
-                                    .font(.system(size: 16))
+                                    .font(.systemScaled(16))
                                     .onChange(of: urlText) { _, _ in
                                         fetchedMeta = nil
                                         fetchError = nil
@@ -56,7 +56,7 @@ struct LinkAttachSheet: View {
                                 } else if !urlText.isEmpty {
                                     Button { fetchMetadata() } label: {
                                         Text("Preview")
-                                            .font(.system(size: 14, weight: .semibold))
+                                            .font(.systemScaled(14, weight: .semibold))
                                             .foregroundStyle(.blue)
                                     }
                                 }
@@ -68,11 +68,11 @@ struct LinkAttachSheet: View {
                         // Optional description
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Caption (optional)")
-                                .font(.system(size: 13, weight: .medium))
+                                .font(.systemScaled(13, weight: .medium))
                                 .foregroundStyle(.secondary)
                             TextField("Add a note…", text: $description, axis: .vertical)
                                 .lineLimit(1...3)
-                                .font(.system(size: 16))
+                                .font(.systemScaled(16))
                                 .padding(12)
                                 .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 12))
                         }
@@ -83,7 +83,7 @@ struct LinkAttachSheet: View {
                                 .transition(.opacity.combined(with: .move(edge: .bottom)))
                         } else if let err = fetchError {
                             Text(err)
-                                .font(.system(size: 13))
+                                .font(.systemScaled(13))
                                 .foregroundStyle(.red)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
@@ -100,7 +100,7 @@ struct LinkAttachSheet: View {
                                     Text("Attach Link")
                                 }
                             }
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
                             .frame(height: 52)
@@ -241,13 +241,13 @@ private struct LinkAttachSheetPreviewCard: View {
             VStack(alignment: .leading, spacing: 4) {
                 if let domain = metadata.url?.host?.replacingOccurrences(of: "www.", with: "") {
                     Text(domain.uppercased())
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.systemScaled(10, weight: .semibold))
                         .foregroundStyle(.secondary)
                         .tracking(0.5)
                 }
                 if let title = metadata.title {
                     Text(title)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(.primary)
                         .lineLimit(2)
                 }
@@ -305,7 +305,7 @@ struct LinkMessageBubble: View {
             // Optional caption text above the card
             if !message.text.isEmpty {
                 Text(message.text)
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .foregroundStyle(isFromCurrentUser ? .white : Color(.label))
                     .padding(.horizontal, 14)
                     .padding(.top, 10)
@@ -331,7 +331,7 @@ struct LinkMessageBubble: View {
                     ZStack {
                         Color(.systemGray5)
                         Image(systemName: "link")
-                            .font(.system(size: 28))
+                            .font(.systemScaled(28))
                             .foregroundStyle(.secondary)
                     }
                     .frame(height: 80)
@@ -340,19 +340,19 @@ struct LinkMessageBubble: View {
                 VStack(alignment: .leading, spacing: 4) {
                     if let domain = message.linkDomain, !domain.isEmpty {
                         Text(domain.uppercased())
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.systemScaled(10, weight: .semibold))
                             .foregroundStyle(.secondary)
                             .tracking(0.5)
                     }
                     if let title = message.linkTitle, !title.isEmpty {
                         Text(title)
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                             .foregroundStyle(.primary)
                             .lineLimit(2)
                     }
                     if let desc = message.linkDescription, !desc.isEmpty {
                         Text(desc)
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(.secondary)
                             .lineLimit(2)
                     }

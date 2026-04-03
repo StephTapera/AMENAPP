@@ -266,7 +266,7 @@ struct JobSavedAndAppliedView: View {
         VStack(spacing: 20) {
             Spacer()
             Image(systemName: icon)
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(.secondary)
             VStack(spacing: 8) {
                 Text(title)

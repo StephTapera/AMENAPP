@@ -184,7 +184,7 @@ struct MessagingEnhancementsPreview: View {
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "arrow.down")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                     
                     Text("New")
                         .font(.custom("OpenSans-Bold", size: 14))

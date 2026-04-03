@@ -28,13 +28,13 @@ struct ChurchNotePreviewCard: View {
                     .frame(width: 32, height: 32)
                     .overlay(
                         Image(systemName: "book.closed.fill")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                             .foregroundStyle(.white)
                     )
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(note.title)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(.primary)
                         .lineLimit(1)
 
@@ -47,7 +47,7 @@ struct ChurchNotePreviewCard: View {
                             Text(note.date.formatted(date: .abbreviated, time: .omitted))
                         }
                     }
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                 }
@@ -56,12 +56,12 @@ struct ChurchNotePreviewCard: View {
 
                 if !note.worshipSongs.isEmpty {
                     Image(systemName: "music.note")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.systemScaled(11, weight: .medium))
                         .foregroundStyle(.tertiary)
                 }
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(.tertiary)
             }
             .padding(.horizontal, 12)
@@ -93,19 +93,19 @@ struct FindChurchPill: View {
                     .frame(width: 32, height: 32)
                     .overlay(
                         Image(systemName: "building.columns.fill")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                             .foregroundStyle(.white)
                     )
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(churchName)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(.primary)
                         .lineLimit(1)
 
                     if let denom = denomination {
                         Text(denom)
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
@@ -115,13 +115,13 @@ struct FindChurchPill: View {
 
                 if let time = serviceTime, !time.isEmpty {
                     Text(time)
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.systemScaled(11, weight: .medium))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(.tertiary)
             }
             .padding(.horizontal, 12)
@@ -147,18 +147,18 @@ struct WorshipMusicPill: View {
                     .frame(width: 32, height: 32)
                     .overlay(
                         Image(systemName: "music.note")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                             .foregroundStyle(.white)
                     )
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(song.title)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(.primary)
                         .lineLimit(1)
 
                     Text(song.artist)
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
@@ -167,11 +167,11 @@ struct WorshipMusicPill: View {
 
                 // Platform indicator
                 Image(systemName: platformIcon)
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.systemScaled(16, weight: .medium))
                     .foregroundStyle(musicPlatformColor)
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(.tertiary)
             }
             .padding(.horizontal, 12)
@@ -242,10 +242,10 @@ struct ChurchNoteDetailModal: View {
                     VStack(alignment: .leading, spacing: 16) {
                         HStack(spacing: 8) {
                             Image(systemName: "book.closed.fill")
-                                .font(.system(size: 11, weight: .medium))
+                                .font(.systemScaled(11, weight: .medium))
                                 .foregroundStyle(.secondary)
                             Text("Church Note")
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.systemScaled(12, weight: .semibold))
                                 .foregroundStyle(.secondary)
                                 .tracking(0.5)
                         }
@@ -258,7 +258,7 @@ struct ChurchNoteDetailModal: View {
                         )
 
                         Text(note.title)
-                            .font(.system(size: 28, weight: .bold))
+                            .font(.systemScaled(28, weight: .bold))
                             .foregroundStyle(.primary)
                             .lineSpacing(2)
                     }
@@ -289,7 +289,7 @@ struct ChurchNoteDetailModal: View {
                     if !note.worshipSongs.isEmpty {
                         VStack(alignment: .leading, spacing: 10) {
                             Text("WORSHIP")
-                                .font(.system(size: 11, weight: .semibold))
+                                .font(.systemScaled(11, weight: .semibold))
                                 .foregroundStyle(.secondary)
                                 .tracking(0.8)
                                 .padding(.horizontal, 20)
@@ -314,7 +314,7 @@ struct ChurchNoteDetailModal: View {
 
                     // Note body
                     Text(note.content)
-                        .font(.system(size: 16))
+                        .font(.systemScaled(16))
                         .foregroundStyle(.primary)
                         .lineSpacing(6)
                         .padding(.horizontal, 20)
@@ -324,7 +324,7 @@ struct ChurchNoteDetailModal: View {
                     if !note.keyPoints.isEmpty {
                         VStack(alignment: .leading, spacing: 12) {
                             Text("KEY POINTS")
-                                .font(.system(size: 11, weight: .semibold))
+                                .font(.systemScaled(11, weight: .semibold))
                                 .foregroundStyle(.secondary)
                                 .tracking(0.8)
                                 .padding(.bottom, 4)
@@ -336,7 +336,7 @@ struct ChurchNoteDetailModal: View {
                                         .frame(width: 5, height: 5)
                                         .padding(.top, 6)
                                     Text(point)
-                                        .font(.system(size: 15))
+                                        .font(.systemScaled(15))
                                         .foregroundStyle(.primary)
                                         .lineSpacing(4)
                                 }
@@ -350,7 +350,7 @@ struct ChurchNoteDetailModal: View {
                     if !note.tags.isEmpty {
                         VStack(alignment: .leading, spacing: 12) {
                             Text("TAGS")
-                                .font(.system(size: 11, weight: .semibold))
+                                .font(.systemScaled(11, weight: .semibold))
                                 .foregroundStyle(.secondary)
                                 .tracking(0.8)
                                 .padding(.bottom, 4)
@@ -358,7 +358,7 @@ struct ChurchNoteDetailModal: View {
                             FlowLayout(spacing: 8) {
                                 ForEach(note.tags, id: \.self) { tag in
                                     Text(tag)
-                                        .font(.system(size: 13))
+                                        .font(.systemScaled(13))
                                         .foregroundStyle(.secondary)
                                         .padding(.horizontal, 12)
                                         .padding(.vertical, 6)
@@ -377,13 +377,13 @@ struct ChurchNoteDetailModal: View {
                 ToolbarItem(placement: .topBarLeading) {
                     Button(action: { dismiss() }) {
                         Image(systemName: "xmark")
-                            .font(.system(size: 16, weight: .medium))
+                            .font(.systemScaled(16, weight: .medium))
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(action: { showShareSheet = true }) {
                         Image(systemName: "ellipsis")
-                            .font(.system(size: 16, weight: .medium))
+                            .font(.systemScaled(16, weight: .medium))
                     }
                 }
             }
@@ -406,11 +406,11 @@ private struct NoteMetadataRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Text(label)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
                 .frame(width: 80, alignment: .leading)
             Text(value)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.primary)
         }
     }

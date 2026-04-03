@@ -99,7 +99,7 @@ struct FollowRequestsView: View {
                     .shadow(color: .black.opacity(0.1), radius: 20, x: 0, y: 10)
                 
                 Image(systemName: "person.badge.clock")
-                    .font(.system(size: 50))
+                    .font(.systemScaled(50))
                     .foregroundStyle(.secondary)
             }
             

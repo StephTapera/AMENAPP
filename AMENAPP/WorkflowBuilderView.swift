@@ -63,14 +63,14 @@ struct WorkflowBuilderView: View {
                         NavigationLink(destination: CustomWorkflowBuilderView(vm: vm)) {
                             HStack(spacing: 10) {
                                 Image(systemName: "hammer.fill")
-                                    .font(.system(size: 15))
+                                    .font(.systemScaled(15))
                                     .foregroundColor(Color(hex: "6B48FF"))
                                 Text("Advanced: Build Custom")
                                     .font(AMENFont.semiBold(15))
                                     .foregroundColor(Color(hex: "6B48FF"))
                                 Spacer()
                                 Image(systemName: "chevron.right")
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .font(.systemScaled(13, weight: .semibold))
                                     .foregroundColor(.white.opacity(0.3))
                             }
                             .padding(.horizontal, 16)
@@ -127,7 +127,7 @@ private struct TemplateCardView: View {
                         )
                         .frame(width: 52, height: 52)
                     Image(systemName: icon)
-                        .font(.system(size: 22))
+                        .font(.systemScaled(22))
                         .foregroundStyle(
                             LinearGradient(
                                 colors: [Color(hex: "10B981"), Color(hex: "0EA5E9")],
@@ -145,7 +145,7 @@ private struct TemplateCardView: View {
 
                     HStack(spacing: 5) {
                         Image(systemName: template.triggerType.icon)
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                         Text(template.triggerType.label)
                             .font(AMENFont.regular(12))
                     }
@@ -155,7 +155,7 @@ private struct TemplateCardView: View {
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundColor(.white.opacity(0.25))
             }
 
@@ -169,7 +169,7 @@ private struct TemplateCardView: View {
                 ForEach(template.steps.prefix(4)) { step in
                     HStack(spacing: 4) {
                         Image(systemName: step.type.icon)
-                            .font(.system(size: 10))
+                            .font(.systemScaled(10))
                         Text(step.type.label)
                             .font(AMENFont.regular(11))
                     }

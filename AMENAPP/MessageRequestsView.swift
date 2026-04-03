@@ -77,7 +77,7 @@ struct MessageRequestsView: View {
     private var emptyStateView: some View {
         VStack(spacing: 20) {
             Image(systemName: "envelope.badge.shield.half.filled")
-                .font(.system(size: 60))
+                .font(.systemScaled(60))
                 .foregroundStyle(.secondary)
             
             Text("No Message Requests")
@@ -295,7 +295,7 @@ struct SafetyBadge: View {
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: icon)
-                .font(.system(size: 10))
+                .font(.systemScaled(10))
             Text(text)
                 .font(AMENFont.regular(11))
         }

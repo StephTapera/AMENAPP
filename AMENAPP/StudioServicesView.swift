@@ -45,7 +45,7 @@ struct StudioServicesListView: View {
     private var emptyServicesState: some View {
         VStack(spacing: 16) {
             Image(systemName: "briefcase.fill")
-                .font(.system(size: 40))
+                .font(.systemScaled(40))
                 .foregroundStyle(.secondary)
             Text(isOwnProfile ? "List your services" : "No services listed")
                 .font(.custom("OpenSans-SemiBold", size: 16))
@@ -99,7 +99,7 @@ struct StudioServiceCard: View {
                     .fill(service.category.color.opacity(0.12))
                     .frame(width: 52, height: 52)
                 Image(systemName: service.category.icon)
-                    .font(.system(size: 22))
+                    .font(.systemScaled(22))
                     .foregroundStyle(service.category.color)
             }
 
@@ -137,7 +137,7 @@ struct StudioServiceCard: View {
         .overlay(alignment: .topTrailing) {
             if service.isPromoted {
                 Text("Promoted")
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(.systemScaled(9, weight: .semibold))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 3)
@@ -173,7 +173,7 @@ struct StudioServiceCard: View {
                 if let price = service.startingPrice {
                     VStack(alignment: .trailing, spacing: 0) {
                         Text("From")
-                            .font(.system(size: 9))
+                            .font(.systemScaled(9))
                             .foregroundStyle(.secondary)
                         Text(price.formatted(.currency(code: service.currency)))
                             .font(.custom("OpenSans-Bold", size: 13))
@@ -188,10 +188,10 @@ struct StudioServiceCard: View {
     private func serviceMetric(icon: String, label: String) -> some View {
         HStack(spacing: 3) {
             Image(systemName: icon)
-                .font(.system(size: 9))
+                .font(.systemScaled(9))
                 .foregroundStyle(.secondary)
             Text(label)
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(.secondary)
         }
     }
@@ -277,7 +277,7 @@ struct StudioServiceDetailView: View {
                     Text("Custom Quote")
                         .font(.custom("OpenSans-Bold", size: 22))
                     Text("Submit an inquiry to receive a personalized quote.")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.secondary)
                 }
             case .fixed:
@@ -289,7 +289,7 @@ struct StudioServiceDetailView: View {
                 if let price = service.startingPrice {
                     VStack(alignment: .leading) {
                         Text("Starting at")
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundStyle(.secondary)
                         Text(price.formatted(.currency(code: service.currency)))
                             .font(.custom("OpenSans-Bold", size: 28))
@@ -328,13 +328,13 @@ struct StudioServiceDetailView: View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "info.circle.fill")
                 .foregroundStyle(.secondary)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
             VStack(alignment: .leading, spacing: 3) {
                 Text("About AMEN Studio Transactions")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(.secondary)
                 Text("AMEN applies a small platform fee to support the service. You'll see the full breakdown before confirming.")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.secondary)
             }
         }
@@ -360,7 +360,7 @@ struct StudioServiceDetailView: View {
 
             if service.requiresDeposit {
                 Text("\(service.depositPercent)% deposit required to begin")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
             }
         }
@@ -372,15 +372,15 @@ struct StudioServiceDetailView: View {
     private func detailCell(icon: String, label: String, value: String) -> some View {
         HStack(spacing: 10) {
             Image(systemName: icon)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
                 .frame(width: 20)
             VStack(alignment: .leading, spacing: 1) {
                 Text(label)
-                    .font(.system(size: 10))
+                    .font(.systemScaled(10))
                     .foregroundStyle(.secondary)
                 Text(value)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(.primary)
             }
         }

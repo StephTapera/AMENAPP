@@ -22,13 +22,13 @@ struct EmptyStateView: View {
         VStack(spacing: 16) {
             if let emoji {
                 Text(emoji)
-                    .font(.system(size: 52))
+                    .font(.systemScaled(52))
                     .scaleEffect(appeared ? 1 : 0.7)
                     .opacity(appeared ? 1 : 0)
                     .animation(.spring(response: 0.5, dampingFraction: 0.7), value: appeared)
             } else {
                 Image(systemName: icon)
-                    .font(.system(size: 44))
+                    .font(.systemScaled(44))
                     .foregroundStyle(Color.secondary.opacity(0.4))
                     .scaleEffect(appeared ? 1 : 0.7)
                     .opacity(appeared ? 1 : 0)

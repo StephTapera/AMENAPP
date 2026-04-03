@@ -162,7 +162,7 @@ struct AIBibleStudyConversationHistoryView: View {
                     if history.isEmpty {
                         VStack(spacing: 16) {
                             Image(systemName: "clock")
-                                .font(.system(size: 50))
+                                .font(.systemScaled(50))
                                 .foregroundStyle(.secondary)
 
                             Text("No conversation history yet")
@@ -208,7 +208,7 @@ struct AIBibleStudyConversationHistoryView: View {
                                         }
                                         Spacer()
                                         Image(systemName: "chevron.right")
-                                            .font(.system(size: 13, weight: .semibold))
+                                            .font(.systemScaled(13, weight: .semibold))
                                             .foregroundStyle(.secondary)
                                     }
                                     .padding(.horizontal, 16)

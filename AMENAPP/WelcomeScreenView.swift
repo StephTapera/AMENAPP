@@ -36,7 +36,7 @@ struct WelcomeScreenView: View {
                 
                 // Tagline
                 Text("Social Media, Re-ordered")
-                    .font(.system(size: 14, weight: .light))
+                    .font(.systemScaled(14, weight: .light))
                     .tracking(2)
                     .foregroundColor(.black.opacity(0.6))
                     .opacity(taglineOpacity)

@@ -82,7 +82,7 @@ struct SocialFollowersListView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 24))
+                            .font(.systemScaled(24))
                             .foregroundStyle(.black.opacity(0.5))
                     }
                 }
@@ -96,7 +96,7 @@ struct SocialFollowersListView: View {
     private var emptyStateView: some View {
         VStack(spacing: 20) {
             Image(systemName: listType == .followers ? "person.2.slash" : "person.2")
-                .font(.system(size: 60))
+                .font(.systemScaled(60))
                 .foregroundStyle(.black.opacity(0.3))
             
             Text(listType == .followers ? "No Followers Yet" : "Not Following Anyone")

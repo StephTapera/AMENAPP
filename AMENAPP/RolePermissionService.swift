@@ -13,6 +13,7 @@
 //
 
 import Foundation
+import Combine
 // import FirebaseFirestore   ← add when Firebase SDK is linked
 // import FirebaseAuth        ← add when Firebase SDK is linked
 

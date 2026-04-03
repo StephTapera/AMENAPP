@@ -67,7 +67,7 @@ struct ScriptureDNAView: View {
 
                         // Verse text
                         Text(result.verseText)
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .italic()
                             .foregroundColor(.white.opacity(0.80))
                             .padding(.horizontal, 16)
@@ -222,7 +222,7 @@ private struct OriginalWordCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(word.original)
-                .font(.system(size: 15, weight: .semibold))
+                .font(.systemScaled(15, weight: .semibold))
                 .foregroundColor(.cnGold)
             Text(word.english)
                 .font(.caption2)
@@ -232,7 +232,7 @@ private struct OriginalWordCard: View {
                 .font(.caption2)
                 .foregroundColor(.amenPurple.opacity(0.9))
             Text(word.definition)
-                .font(.system(size: 10))
+                .font(.systemScaled(10))
                 .foregroundColor(.white.opacity(0.5))
                 .lineLimit(3)
         }
@@ -260,7 +260,7 @@ private struct WordMapPlaceholderSheet: View {
 
                 VStack(spacing: 24) {
                     Image(systemName: "circle.hexagongrid.fill")
-                        .font(.system(size: 60))
+                        .font(.systemScaled(60))
                         .foregroundStyle(
                             LinearGradient(colors: [.amenPurple, .amenBlue], startPoint: .topLeading, endPoint: .bottomTrailing)
                         )

@@ -56,7 +56,7 @@ struct AddArgumentSheet: View {
                     } label: {
                         Image(systemName: "xmark")
                             .foregroundColor(.black.opacity(0.7))
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.systemScaled(15, weight: .medium))
                     }
                 }
             }
@@ -70,7 +70,7 @@ struct AddArgumentSheet: View {
     private var nodeTypePicker: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Type")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundColor(.black.opacity(0.5))
                 .padding(.top, 4)
 
@@ -93,9 +93,9 @@ struct AddArgumentSheet: View {
         } label: {
             VStack(spacing: 4) {
                 Image(systemName: type.icon)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                 Text(type.label)
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.systemScaled(10, weight: .medium))
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
             }
@@ -119,13 +119,13 @@ struct AddArgumentSheet: View {
     private var claimEditor: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Your Argument")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundColor(.black.opacity(0.5))
 
             ZStack(alignment: .topLeading) {
                 if claimText.isEmpty {
                     Text("State your argument clearly...")
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                         .foregroundColor(.black.opacity(0.25))
                         .padding(.top, 12)
                         .padding(.leading, 14)
@@ -133,7 +133,7 @@ struct AddArgumentSheet: View {
                 }
 
                 TextEditor(text: $claimText)
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .foregroundColor(.black.opacity(0.9))
                     .scrollContentBackground(.hidden)
                     .frame(minHeight: 100)
@@ -159,13 +159,13 @@ struct AddArgumentSheet: View {
     private var evidenceEditor: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Evidence / Sources")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundColor(.white.opacity(0.5))
 
             ZStack(alignment: .topLeading) {
                 if evidenceText.isEmpty {
                     Text("Sources or evidence... (optional)")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundColor(.black.opacity(0.2))
                         .padding(.top, 10)
                         .padding(.leading, 14)
@@ -173,7 +173,7 @@ struct AddArgumentSheet: View {
                 }
 
                 TextEditor(text: $evidenceText)
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundColor(.black.opacity(0.75))
                     .scrollContentBackground(.hidden)
                     .frame(minHeight: 64)
@@ -199,18 +199,18 @@ struct AddArgumentSheet: View {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .foregroundColor(Color(red: 0.96, green: 0.65, blue: 0.14))
                 Text("Heads up")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundColor(Color(red: 0.96, green: 0.65, blue: 0.14))
             }
 
             Text("Our AI flagged some potential issues in your argument:")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundColor(.black.opacity(0.65))
 
             FlowLayout(spacing: 6) {
                 ForEach(vm.manipulationFlags, id: \.self) { flag in
                     Text(flag.replacingOccurrences(of: "_", with: " ").capitalized)
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.systemScaled(11, weight: .medium))
                         .foregroundColor(Color(red: 0.96, green: 0.65, blue: 0.14))
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
@@ -223,7 +223,7 @@ struct AddArgumentSheet: View {
             }
 
             Text("This is just a flag, not a block. You can still post.")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundColor(.black.opacity(0.45))
         }
         .padding(14)
@@ -262,10 +262,10 @@ struct AddArgumentSheet: View {
                             .scaleEffect(0.85)
                     } else {
                         Image(systemName: "shield.lefthalf.filled")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                     }
                     Text(isScreening ? "Checking..." : "Check Argument")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                 }
                 .foregroundColor(.black.opacity(0.8))
                 .frame(maxWidth: .infinity)
@@ -309,10 +309,10 @@ struct AddArgumentSheet: View {
                             .scaleEffect(0.85)
                     } else {
                         Image(systemName: "paperplane.fill")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                     }
                     Text(isPosting ? "Posting..." : "Post")
-                        .font(.system(size: 15, weight: .bold))
+                        .font(.systemScaled(15, weight: .bold))
                 }
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)

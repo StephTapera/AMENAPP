@@ -94,6 +94,9 @@ struct Post: Identifiable, Codable, Equatable {
     var taggedChurchId: String? = nil
     var taggedChurchName: String? = nil
 
+    // Quote metadata (highlight-to-quote)
+    var quote: PostQuoteMetadata? = nil
+
     // Find a Church share — embeds church snapshot so the pill displays without a Firestore fetch
     var isChurchShare: Bool = false
     var sharedChurchName: String? = nil
@@ -323,6 +326,7 @@ struct Post: Identifiable, Codable, Equatable {
         case prayerStatus, linkedTestimonyId, isAnsweredPrayer, linkedPrayerText
         case rippleCount, neededCount, witnessCount, prayerEchoCount, scriptureCount, testimonyStrength
         case taggedChurchId, taggedChurchName
+        case quote
         case isChurchShare, sharedChurchName, sharedChurchDenomination, sharedChurchServiceTime
     }
     
@@ -399,6 +403,7 @@ struct Post: Identifiable, Codable, Equatable {
         testimonyStrength = try container.decodeIfPresent(Int.self, forKey: .testimonyStrength)
         taggedChurchId = try container.decodeIfPresent(String.self, forKey: .taggedChurchId)
         taggedChurchName = try container.decodeIfPresent(String.self, forKey: .taggedChurchName)
+        quote = try container.decodeIfPresent(PostQuoteMetadata.self, forKey: .quote)
         isChurchShare = try container.decodeIfPresent(Bool.self, forKey: .isChurchShare) ?? false
         sharedChurchName = try container.decodeIfPresent(String.self, forKey: .sharedChurchName)
         sharedChurchDenomination = try container.decodeIfPresent(String.self, forKey: .sharedChurchDenomination)
@@ -457,6 +462,7 @@ struct Post: Identifiable, Codable, Equatable {
         try container.encodeIfPresent(contentSource, forKey: .contentSource)
         try container.encodeIfPresent(taggedChurchId, forKey: .taggedChurchId)
         try container.encodeIfPresent(taggedChurchName, forKey: .taggedChurchName)
+        try container.encodeIfPresent(quote, forKey: .quote)
         try container.encode(isChurchShare, forKey: .isChurchShare)
         try container.encodeIfPresent(sharedChurchName, forKey: .sharedChurchName)
         try container.encodeIfPresent(sharedChurchDenomination, forKey: .sharedChurchDenomination)
@@ -499,7 +505,8 @@ struct Post: Identifiable, Codable, Equatable {
         originalAuthorName: String? = nil,
         originalAuthorId: String? = nil,
         churchNoteId: String? = nil,
-        contentSource: String? = nil
+        contentSource: String? = nil,
+        quote: PostQuoteMetadata? = nil
     ) {
         self.id = id
         self.firebaseId = firebaseId
@@ -537,6 +544,7 @@ struct Post: Identifiable, Codable, Equatable {
         self.originalAuthorId = originalAuthorId
         self.churchNoteId = churchNoteId
         self.contentSource = contentSource
+        self.quote = quote
     }
 
     var backendId: String {
@@ -625,18 +633,22 @@ class PostsManager: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] newPosts in
                 guard let self = self else { return }
+                // ✅ FIX CR-6: Filter out blocked users
+                let filteredNewPosts = newPosts.filter { !BlockService.shared.blockedUsers.contains($0.authorId) }
+                
                 // Keep only optimistic posts (firebaseId == nil) that have NOT been confirmed
                 // by the server yet. Use nil-check directly — never use "" as a sentinel.
-                let serverIds = Set(newPosts.compactMap { $0.firebaseId })
+                let serverIds = Set(filteredNewPosts.compactMap { $0.firebaseId })
                 let uniqueOptimistic = self.prayerPosts.filter { $0.firebaseId == nil }
                     .filter { post in
                         // Belt-and-suspenders: also skip any optimistic post whose UUID
                         // somehow matches a server ID string (should never happen).
                         !serverIds.contains(post.id.uuidString)
                     }
-                self.prayerPosts = uniqueOptimistic + newPosts
+                    .filter { !BlockService.shared.blockedUsers.contains($0.authorId) }  // ✅ Also filter optimistic
+                self.prayerPosts = uniqueOptimistic + filteredNewPosts
                 #if DEBUG
-                dlog("🔄 Prayer posts updated: \(newPosts.count) posts")
+                dlog("🔄 Prayer posts updated: \(filteredNewPosts.count) posts (filtered from \(newPosts.count))")
                 #endif
             }
             .store(in: &cancellables)
@@ -647,10 +659,14 @@ class PostsManager: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] newPosts in
                 guard let self = self else { return }
-                let serverIds = Set(newPosts.compactMap { $0.firebaseId })
+                // ✅ FIX CR-6: Filter out blocked users
+                let filteredNewPosts = newPosts.filter { !BlockService.shared.blockedUsers.contains($0.authorId) }
+                
+                let serverIds = Set(filteredNewPosts.compactMap { $0.firebaseId })
                 let uniqueOptimistic = self.testimoniesPosts.filter { $0.firebaseId == nil }
                     .filter { !serverIds.contains($0.id.uuidString) }
-                self.testimoniesPosts = uniqueOptimistic + newPosts
+                    .filter { !BlockService.shared.blockedUsers.contains($0.authorId) }  // ✅ Also filter optimistic
+                self.testimoniesPosts = uniqueOptimistic + filteredNewPosts
             }
             .store(in: &cancellables)
 
@@ -660,12 +676,16 @@ class PostsManager: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] newPosts in
                 guard let self = self else { return }
+                // ✅ FIX CR-6: Filter out blocked users
+                let filteredNewPosts = newPosts.filter { !BlockService.shared.blockedUsers.contains($0.authorId) }
+                
                 // Preserve any optimistic (not-yet-confirmed) posts at the top that
                 // are not yet in the server snapshot (firebaseId == nil means temp UUID post)
-                let serverIds = Set(newPosts.compactMap { $0.firebaseId })
+                let serverIds = Set(filteredNewPosts.compactMap { $0.firebaseId })
                 let uniqueOptimistic = self.openTablePosts.filter { $0.firebaseId == nil }
                     .filter { !serverIds.contains($0.id.uuidString) }
-                self.openTablePosts = uniqueOptimistic + newPosts
+                    .filter { !BlockService.shared.blockedUsers.contains($0.authorId) }  // ✅ Also filter optimistic
+                self.openTablePosts = uniqueOptimistic + filteredNewPosts
             }
             .store(in: &cancellables)
 
@@ -675,7 +695,8 @@ class PostsManager: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] newPosts in
                 guard let self = self else { return }
-                self.allPosts = newPosts
+                // ✅ FIX CR-6: Filter out blocked users
+                self.allPosts = newPosts.filter { !BlockService.shared.blockedUsers.contains($0.authorId) }
             }
             .store(in: &cancellables)
     }
@@ -694,10 +715,11 @@ class PostsManager: ObservableObject {
             
             // Update local arrays from FirebasePostService
             await MainActor.run {
-                self.allPosts = firebasePostService.posts
-                self.openTablePosts = firebasePostService.openTablePosts
-                self.testimoniesPosts = firebasePostService.testimoniesPosts
-                self.prayerPosts = firebasePostService.prayerPosts
+                // ✅ FIX CR-6: Filter out blocked users
+                self.allPosts = firebasePostService.posts.filter { !BlockService.shared.blockedUsers.contains($0.authorId) }
+                self.openTablePosts = firebasePostService.openTablePosts.filter { !BlockService.shared.blockedUsers.contains($0.authorId) }
+                self.testimoniesPosts = firebasePostService.testimoniesPosts.filter { !BlockService.shared.blockedUsers.contains($0.authorId) }
+                self.prayerPosts = firebasePostService.prayerPosts.filter { !BlockService.shared.blockedUsers.contains($0.authorId) }
                 
                 dlog("✅ Posts loaded: \(allPosts.count) total, \(prayerPosts.count) prayer, \(testimoniesPosts.count) testimonies, \(openTablePosts.count) openTable")
             }
@@ -721,7 +743,8 @@ class PostsManager: ObservableObject {
         allowComments: Bool = true,
         imageURLs: [String]? = nil,
         linkURL: String? = nil,
-        churchNoteId: String? = nil
+        churchNoteId: String? = nil,
+        quote: PostQuoteMetadata? = nil
     ) {
         Task {
             do {
@@ -734,7 +757,8 @@ class PostsManager: ObservableObject {
                     allowComments: allowComments,
                     imageURLs: imageURLs,
                     linkURL: linkURL,
-                    churchNoteId: churchNoteId
+                    churchNoteId: churchNoteId,
+                    quote: quote
                 )
                 
                 // Real-time Combine publisher in setupFirebaseSync() will automatically

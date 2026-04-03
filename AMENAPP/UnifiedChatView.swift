@@ -559,7 +559,7 @@ struct UnifiedChatView: View {
                 .shadow(color: .black.opacity(0.15), radius: 8, y: 3)
 
             Text(String(conversation.name.prefix(1)).uppercased())
-                .font(.system(size: 16, weight: .bold))
+                .font(.systemScaled(16, weight: .bold))
                 .foregroundColor(.white)
         }
     }
@@ -588,7 +588,7 @@ struct UnifiedChatView: View {
                 dismiss()
             } label: {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 20, weight: .semibold))
+                    .font(.systemScaled(20, weight: .semibold))
                     .foregroundStyle(Color(red: 0.1, green: 0.1, blue: 0.1))
                     .frame(width: 38, height: 38)
             }
@@ -624,7 +624,7 @@ struct UnifiedChatView: View {
             // Name with cleaner typography and network status
             VStack(alignment: .leading, spacing: 2) {
                 Text(conversation.name)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundColor(Color(red: 0.1, green: 0.1, blue: 0.1))
                 
                 // Network status indicator
@@ -635,7 +635,7 @@ struct UnifiedChatView: View {
                             .frame(width: 6, height: 6)
                         
                         Text("Offline")
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.systemScaled(11, weight: .medium))
                             .foregroundColor(.orange)
                     }
                 }
@@ -652,7 +652,7 @@ struct UnifiedChatView: View {
                 }
             } label: {
                 Image(systemName: conversation.isGroup ? "person.3.fill" : "info.circle")
-                    .font(.system(size: 20, weight: .semibold))
+                    .font(.systemScaled(20, weight: .semibold))
                     .foregroundStyle(Color(red: 0.1, green: 0.1, blue: 0.1))
                     .frame(width: 38, height: 38)
             }
@@ -739,10 +739,10 @@ struct UnifiedChatView: View {
                                             .tint(.secondary)
                                     } else {
                                         Image(systemName: "arrow.up.circle.fill")
-                                            .font(.system(size: 16))
+                                            .font(.systemScaled(16))
                                     }
                                     Text(isLoadingMoreMessages ? "Loading..." : "Load older messages")
-                                        .font(.system(size: 14, weight: .medium))
+                                        .font(.systemScaled(14, weight: .medium))
                                 }
                                 .foregroundStyle(.secondary)
                                 .padding(.vertical, 12)
@@ -933,7 +933,7 @@ struct UnifiedChatView: View {
                                             // Feature 2: Reply count badge
                                             if message.replyCount > 0 {
                                                 Text("↩ \(message.replyCount) \(message.replyCount == 1 ? "reply" : "replies")")
-                                                    .font(.system(size: 12, weight: .medium))
+                                                    .font(.systemScaled(12, weight: .medium))
                                                     .foregroundStyle(.secondary)
                                                     .frame(maxWidth: .infinity, alignment: isFromCurrentUser ? .trailing : .leading)
                                                     .padding(.horizontal, 4)
@@ -1067,7 +1067,7 @@ struct UnifiedChatView: View {
             label = Self.messageDateFormatter.string(from: date)
         }
         return Text(label)
-            .font(.system(size: 12, weight: .medium))
+            .font(.systemScaled(12, weight: .medium))
             .foregroundStyle(.secondary)
             .padding(.horizontal, 12)
             .padding(.vertical, 4)
@@ -1116,7 +1116,7 @@ struct UnifiedChatView: View {
         } label: {
             HStack(spacing: 8) {
                 Image(systemName: "arrow.down")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                 
                 Text("New")
                     .font(.custom("OpenSans-Bold", size: 14))
@@ -1205,17 +1205,17 @@ struct UnifiedChatView: View {
         if editingMessage != nil {
             HStack(spacing: 8) {
                 Image(systemName: "pencil")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundStyle(.secondary)
                 Text("Editing message")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(.secondary)
                 Spacer()
                 Button {
                     cancelEditMode()
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 18))
+                        .font(.systemScaled(18))
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
@@ -1241,15 +1241,15 @@ struct UnifiedChatView: View {
                 ForEach(pending) { scheduled in
                     HStack(spacing: 8) {
                         Image(systemName: "clock.arrow.2.circlepath")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.systemScaled(12, weight: .medium))
                             .foregroundStyle(.secondary)
                         Text(scheduled.scheduledAtFormatted)
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.systemScaled(12, weight: .medium))
                             .foregroundStyle(.secondary)
                         Text("·")
                             .foregroundStyle(.secondary.opacity(0.5))
                         Text(scheduled.text)
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                             .truncationMode(.tail)
@@ -1259,7 +1259,7 @@ struct UnifiedChatView: View {
                             Task { try? await scheduledMessagesService.cancelScheduledMessage(scheduled) }
                         } label: {
                             Image(systemName: "xmark")
-                                .font(.system(size: 10, weight: .bold))
+                                .font(.systemScaled(10, weight: .bold))
                                 .foregroundStyle(.secondary)
                                 .padding(4)
                                 .background(Circle().fill(Color(.systemGray5)))
@@ -1310,7 +1310,7 @@ struct UnifiedChatView: View {
                         )
 
                     Image(systemName: "plus")
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.systemScaled(16, weight: .medium))
                         .foregroundStyle(Color.primary.opacity(0.6))
                         .rotationEffect(.degrees(isMediaSectionExpanded ? 45 : 0))
                         .animation(.spring(response: 0.4, dampingFraction: 0.6), value: isMediaSectionExpanded)
@@ -1331,12 +1331,12 @@ struct UnifiedChatView: View {
                 ZStack(alignment: .leading) {
                     if messageText.isEmpty {
                         Text(placeholderText)
-                            .font(.system(size: 16, weight: .regular))
+                            .font(.systemScaled(16, weight: .regular))
                             .foregroundColor(Color.primary.opacity(0.4))
                             .allowsHitTesting(false)
                     }
                     TextField("", text: $messageText, axis: .vertical)
-                        .font(.system(size: 16, weight: .regular))
+                        .font(.systemScaled(16, weight: .regular))
                         .lineLimit(1...4)
                         .focused($isInputFocused)
                         .tint(Color.primary)
@@ -1397,17 +1397,17 @@ struct UnifiedChatView: View {
 
                         if isRecording {
                             Image(systemName: "stop.fill")
-                                .font(.system(size: 12, weight: .bold))
+                                .font(.systemScaled(12, weight: .bold))
                                 .foregroundColor(.white)
                                 .transition(.scale.combined(with: .opacity))
                         } else if isMessageEmpty {
                             Image(systemName: "mic")
-                                .font(.system(size: 14, weight: .medium))
+                                .font(.systemScaled(14, weight: .medium))
                                 .foregroundColor(.white)
                                 .transition(.scale.combined(with: .opacity))
                         } else {
                             Image(systemName: "arrow.up")
-                                .font(.system(size: 14, weight: .bold))
+                                .font(.systemScaled(14, weight: .bold))
                                 .foregroundColor(.white)
                                 .transition(.scale.combined(with: .opacity))
                         }
@@ -1483,7 +1483,7 @@ struct UnifiedChatView: View {
                         isInputFocused = true
                     } label: {
                         Text(suggestion)
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.systemScaled(13, weight: .medium))
                             .foregroundStyle(.primary)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 8)
@@ -2926,7 +2926,7 @@ struct ChatUserProfileSheet: View {
                     AMENLoadingIndicator()
                     
                     Text("Loading profile...")
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.systemScaled(15, weight: .medium))
                         .foregroundColor(Color(red: 0.4, green: 0.4, blue: 0.4))
                 }
             } else if let userProfile = otherUserProfile {
@@ -2939,7 +2939,7 @@ struct ChatUserProfileSheet: View {
                                 dismiss()
                             } label: {
                                 Image(systemName: "xmark")
-                                    .font(.system(size: 16, weight: .semibold))
+                                    .font(.systemScaled(16, weight: .semibold))
                                     .foregroundStyle(Color(red: 0.1, green: 0.1, blue: 0.1))
                                     .frame(width: 32, height: 32)
                                     .background(
@@ -2956,7 +2956,7 @@ struct ChatUserProfileSheet: View {
                                 showShareSheet = true
                             } label: {
                                 Image(systemName: "square.and.arrow.up")
-                                    .font(.system(size: 16, weight: .semibold))
+                                    .font(.systemScaled(16, weight: .semibold))
                                     .foregroundStyle(Color(red: 0.1, green: 0.1, blue: 0.1))
                                     .frame(width: 32, height: 32)
                                     .background(
@@ -2990,18 +2990,18 @@ struct ChatUserProfileSheet: View {
                             // Name and Username
                             VStack(spacing: 4) {
                                 Text(userProfile.displayName)
-                                    .font(.system(size: 32, weight: .bold))
+                                    .font(.systemScaled(32, weight: .bold))
                                     .foregroundColor(Color(red: 0.1, green: 0.1, blue: 0.1))
                                 
                                 Text("@\(userProfile.username)")
-                                    .font(.system(size: 16, weight: .medium))
+                                    .font(.systemScaled(16, weight: .medium))
                                     .foregroundColor(Color(red: 0.4, green: 0.4, blue: 0.4))
                             }
                             
                             // Bio (if available)
                             if !userProfile.bio.isEmpty {
                                 Text(userProfile.bio)
-                                    .font(.system(size: 15, weight: .regular))
+                                    .font(.systemScaled(15, weight: .regular))
                                     .foregroundColor(Color(red: 0.3, green: 0.3, blue: 0.3))
                                     .multilineTextAlignment(.center)
                                     .lineLimit(3)
@@ -3010,7 +3010,7 @@ struct ChatUserProfileSheet: View {
                             
                             // Member since date
                             Text("Member since \(formattedJoinDate(userProfile.createdAt))")
-                                .font(.system(size: 14, weight: .regular))
+                                .font(.systemScaled(14, weight: .regular))
                                 .foregroundColor(Color(red: 0.5, green: 0.5, blue: 0.5))
                             
                             // Interests tags (if available)
@@ -3054,11 +3054,11 @@ struct ChatUserProfileSheet: View {
                             // Additional info section
                             HStack(spacing: 8) {
                                 Image(systemName: "clock.fill")
-                                    .font(.system(size: 12, weight: .medium))
+                                    .font(.systemScaled(12, weight: .medium))
                                     .foregroundColor(Color(red: 0.5, green: 0.5, blue: 0.5))
                                 
                                 Text("Avg. response: \(averageResponseTime)")
-                                    .font(.system(size: 13, weight: .medium))
+                                    .font(.systemScaled(13, weight: .medium))
                                     .foregroundColor(Color(red: 0.5, green: 0.5, blue: 0.5))
                             }
                             .padding(.top, 12)
@@ -3071,7 +3071,7 @@ struct ChatUserProfileSheet: View {
                                         showFullProfile = true
                                     } label: {
                                         Text("View Full Profile")
-                                            .font(.system(size: 17, weight: .semibold))
+                                            .font(.systemScaled(17, weight: .semibold))
                                             .foregroundColor(.white)
                                             .frame(maxWidth: .infinity)
                                             .frame(height: 56)
@@ -3100,7 +3100,7 @@ struct ChatUserProfileSheet: View {
                                     dismiss()
                                 } label: {
                                     Text("Continue Chat")
-                                        .font(.system(size: 17, weight: .semibold))
+                                        .font(.systemScaled(17, weight: .semibold))
                                         .foregroundColor(.white)
                                         .frame(maxWidth: .infinity)
                                         .frame(height: 56)
@@ -3182,7 +3182,7 @@ struct ChatUserProfileSheet: View {
                                             .shadow(color: .black.opacity(0.08), radius: 12, y: 4)
                                         
                                         Image(systemName: "ellipsis")
-                                            .font(.system(size: 20, weight: .semibold))
+                                            .font(.systemScaled(20, weight: .semibold))
                                             .foregroundStyle(Color(red: 0.1, green: 0.1, blue: 0.1))
                                     }
                                 }
@@ -3222,16 +3222,16 @@ struct ChatUserProfileSheet: View {
                 // Error state
                 VStack(spacing: 16) {
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.system(size: 48))
+                        .font(.systemScaled(48))
                         .foregroundColor(Color(red: 0.8, green: 0.3, blue: 0.3))
                     
                     Text("Unable to load profile")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.systemScaled(18, weight: .semibold))
                         .foregroundColor(Color(red: 0.1, green: 0.1, blue: 0.1))
                     
                     if let errorMessage = errorMessage {
                         Text(errorMessage)
-                            .font(.system(size: 14, weight: .regular))
+                            .font(.systemScaled(14, weight: .regular))
                             .foregroundColor(Color(red: 0.4, green: 0.4, blue: 0.4))
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 40)
@@ -3241,7 +3241,7 @@ struct ChatUserProfileSheet: View {
                         loadUserProfile()
                     } label: {
                         Text("Try Again")
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(.systemScaled(15, weight: .semibold))
                             .foregroundColor(.white)
                             .padding(.horizontal, 32)
                             .padding(.vertical, 12)
@@ -3292,7 +3292,7 @@ struct ChatUserProfileSheet: View {
                 .shadow(color: .black.opacity(0.15), radius: 20, y: 8)
             
             Text(initials.uppercased())
-                .font(.system(size: 40, weight: .bold))
+                .font(.systemScaled(40, weight: .bold))
                 .foregroundColor(.white)
         }
         .padding(.top, 20)
@@ -3414,7 +3414,7 @@ struct ProfileTagPill: View {
     
     var body: some View {
         Text(text)
-            .font(.system(size: 14, weight: .medium))
+            .font(.systemScaled(14, weight: .medium))
             .foregroundColor(Color(red: 0.3, green: 0.3, blue: 0.3))
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
@@ -3434,16 +3434,16 @@ struct ProfileStatItem: View {
         VStack(spacing: 8) {
             HStack(spacing: 4) {
                 Image(systemName: icon)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundColor(Color(red: 0.1, green: 0.1, blue: 0.1))
                 
                 Text(value)
-                    .font(.system(size: 20, weight: .bold))
+                    .font(.systemScaled(20, weight: .bold))
                     .foregroundColor(Color(red: 0.1, green: 0.1, blue: 0.1))
             }
             
             Text(label)
-                .font(.system(size: 13, weight: .medium))
+                .font(.systemScaled(13, weight: .medium))
                 .foregroundColor(Color(red: 0.5, green: 0.5, blue: 0.5))
         }
     }
@@ -3580,7 +3580,7 @@ struct LiquidGlassMessageBubble: View {
                 // Swipe-to-reply indicator
                 if abs(swipeOffset) > 10 {
                     Image(systemName: "arrowshape.turn.up.left.circle.fill")
-                        .font(.system(size: 24))
+                        .font(.systemScaled(24))
                         .foregroundStyle(abs(swipeOffset) >= swipeThreshold ? .blue : .secondary)
                         .scaleEffect(abs(swipeOffset) >= swipeThreshold ? 1.1 : 0.8)
                         .opacity(min(1.0, abs(swipeOffset) / swipeThreshold))
@@ -3603,7 +3603,7 @@ struct LiquidGlassMessageBubble: View {
                     // Sender name (group chats)
                     if !isFromCurrentUser, let name = message.senderName, isLastInGroup {
                         Text(name)
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.systemScaled(11, weight: .medium))
                             .foregroundStyle(.secondary)
                             .padding(isFromCurrentUser ? .trailing : .leading, 14)
                     }
@@ -3624,13 +3624,13 @@ struct LiquidGlassMessageBubble: View {
                                     ProgressView()
                                         .scaleEffect(0.7)
                                     Text("Retrying…")
-                                        .font(.system(size: 11))
+                                        .font(.systemScaled(11))
                                         .foregroundStyle(.secondary)
                                 }
                             } else {
                                 Button { onRetry?() } label: {
                                     Image(systemName: "exclamationmark.circle.fill")
-                                        .font(.system(size: 18))
+                                        .font(.systemScaled(18))
                                         .foregroundStyle(.red)
                                 }
                             }
@@ -3649,7 +3649,7 @@ struct LiquidGlassMessageBubble: View {
                                 // Default text / photo bubble (existing behavior untouched)
                                 VStack(alignment: isFromCurrentUser ? .trailing : .leading, spacing: 2) {
                                     Text(message.text)
-                                        .font(.system(size: 16))
+                                        .font(.systemScaled(16))
                                         .foregroundStyle(isFromCurrentUser ? .white : Color(.label))
                                         .fixedSize(horizontal: false, vertical: true)
                                         .padding(.horizontal, 14)
@@ -3659,7 +3659,7 @@ struct LiquidGlassMessageBubble: View {
                                     // "Edited" indicator — subtle, below bubble
                                     if message.editedAt != nil {
                                         Text("Edited")
-                                            .font(.system(size: 10, weight: .regular))
+                                            .font(.systemScaled(10, weight: .regular))
                                             .foregroundStyle(.secondary)
                                             .padding(.horizontal, 4)
                                     }
@@ -3795,7 +3795,7 @@ struct LiquidGlassMessageBubble: View {
                     withAnimation { showInlineReactions = false }
                 } label: {
                     Text(emoji)
-                        .font(.system(size: 26))
+                        .font(.systemScaled(26))
                         .padding(6)
                         .background(
                             Circle()
@@ -3836,27 +3836,27 @@ struct LiquidGlassMessageBubble: View {
                 EmptyView()
             } else if !message.isSent {
                 Image(systemName: "clock")
-                    .font(.system(size: 10))
+                    .font(.systemScaled(10))
                     .foregroundStyle(.secondary)
             } else if message.isRead {
                 HStack(spacing: 1) {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 9, weight: .semibold))
+                        .font(.systemScaled(9, weight: .semibold))
                     Image(systemName: "checkmark")
-                        .font(.system(size: 9, weight: .semibold))
+                        .font(.systemScaled(9, weight: .semibold))
                 }
                 .foregroundStyle(sentColor)
             } else if message.isDelivered {
                 HStack(spacing: 1) {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 9, weight: .semibold))
+                        .font(.systemScaled(9, weight: .semibold))
                     Image(systemName: "checkmark")
-                        .font(.system(size: 9, weight: .semibold))
+                        .font(.systemScaled(9, weight: .semibold))
                 }
                 .foregroundStyle(.secondary)
             } else {
                 Image(systemName: "checkmark")
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(.systemScaled(9, weight: .semibold))
                     .foregroundStyle(.secondary)
             }
         }
@@ -3874,12 +3874,12 @@ struct LiquidGlassMessageBubble: View {
             VStack(alignment: .leading, spacing: 1) {
                 if let name = replyMessage.senderName {
                     Text(name)
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundStyle(isFromCurrentUser ? .white.opacity(0.85) : Color.accentColor)
                         .lineLimit(1)
                 }
                 Text(replyMessage.text)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(isFromCurrentUser ? .white.opacity(0.7) : .secondary)
                     .lineLimit(2)
             }
@@ -3925,7 +3925,7 @@ struct LiquidGlassMessageBubble: View {
             .frame(width: 28, height: 28)
             .overlay(
                 Text(String(message.senderName?.prefix(1) ?? "?").uppercased())
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(Color.accentColor)
             )
     }
@@ -3999,13 +3999,13 @@ struct MediaButton: View {
                         .frame(width: 52, height: 52)
                     
                     Image(systemName: icon)
-                        .font(.system(size: 22, weight: .semibold))
+                        .font(.systemScaled(22, weight: .semibold))
                         .foregroundStyle(comingSoon ? Color.gray.opacity(0.5) : color)
                         .frame(width: 52, height: 52)
                     
                     if comingSoon {
                         Text("Soon")
-                            .font(.system(size: 8, weight: .bold))
+                            .font(.systemScaled(8, weight: .bold))
                             .foregroundStyle(.white)
                             .padding(.horizontal, 4)
                             .padding(.vertical, 2)
@@ -4016,7 +4016,7 @@ struct MediaButton: View {
                 }
                 
                 Text(title)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundStyle(comingSoon ? Color.gray.opacity(0.5) : Color.gray)
             }
         }
@@ -4049,11 +4049,11 @@ struct AttachItemView: View {
                     .fill(item.bgColor)
                     .frame(width: 44, height: 44)
                 Image(systemName: item.icon)
-                    .font(.system(size: 19, weight: .semibold))
+                    .font(.systemScaled(19, weight: .semibold))
                     .foregroundStyle(item.iconColor)
             }
             Text(item.label)
-                .font(.system(size: 11, weight: .medium))
+                .font(.systemScaled(11, weight: .medium))
                 .foregroundStyle(Color(.systemGray))
         }
     }
@@ -4100,20 +4100,20 @@ struct QuickReplyChipsView: View {
                             .fill(Color(.systemGray5))
                             .frame(width: 24, height: 24)
                         Image(systemName: "plus")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.systemScaled(11, weight: .semibold))
                             .foregroundStyle(.secondary)
                             .rotationEffect(.degrees(isExpanded ? 45 : 0))
                             .animation(.spring(response: 0.45, dampingFraction: 0.7), value: isExpanded)
                     }
 
                     Text("Quick replies")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                         .foregroundStyle(.secondary)
 
                     Spacer()
 
                     Image(systemName: "chevron.down")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundStyle(.secondary)
                         .rotationEffect(.degrees(isExpanded ? 180 : 0))
                         .animation(.spring(response: 0.45, dampingFraction: 0.7), value: isExpanded)
@@ -4156,13 +4156,13 @@ struct QuickReplyChipsView: View {
         } label: {
             HStack(spacing: 10) {
                 Text(reply.emoji)
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                 Text(reply.text)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(.primary)
                 Spacer()
                 Image(systemName: "arrow.right")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundStyle(.secondary)
             }
             .padding(.horizontal, 14)
@@ -4199,7 +4199,7 @@ struct BereanTypingIndicatorBubble: View {
             VStack(alignment: .leading, spacing: 6) {
                 // Header label
                 Text("BEREAN AI")
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.systemScaled(10, weight: .bold))
                     .tracking(1.2)
                     .foregroundStyle(Color(red: 0.75, green: 0.60, blue: 0.20))
 
@@ -4253,12 +4253,12 @@ struct BereanStreamingBubble: View {
             VStack(alignment: .leading, spacing: 4) {
                 // Header label
                 Text("BEREAN AI")
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.systemScaled(10, weight: .bold))
                     .tracking(1.2)
                     .foregroundStyle(Color(red: 0.75, green: 0.60, blue: 0.20))
 
                 Text(text)
-                    .font(.system(size: 15, weight: .regular))
+                    .font(.systemScaled(15, weight: .regular))
                     .foregroundStyle(Color.primary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -4360,7 +4360,7 @@ private struct AmenReactionTray: View {
                     onSelect(reaction)
                 } label: {
                     Text(reaction)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundStyle(.black.opacity(0.8))
                         .padding(.horizontal, 10)
                         .padding(.vertical, 7)
@@ -4405,10 +4405,10 @@ private struct ReactionCapsulesRow: View {
                     Button { onToggle(key) } label: {
                         HStack(spacing: 4) {
                             Text(key)
-                                .font(.system(size: 11, weight: .medium))
+                                .font(.systemScaled(11, weight: .medium))
                             if uids.count > 1 {
                                 Text("\(uids.count)")
-                                    .font(.system(size: 11, weight: .semibold))
+                                    .font(.systemScaled(11, weight: .semibold))
                             }
                         }
                         .foregroundStyle(isSelected ? Color.white : Color.black.opacity(0.75))
@@ -4442,10 +4442,10 @@ struct ReplyPreviewStrip: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(replyToAuthor)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(.black.opacity(0.65))
                 Text(replyToText)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.black.opacity(0.45))
                     .lineLimit(1)
             }
@@ -4454,7 +4454,7 @@ struct ReplyPreviewStrip: View {
 
             Button(action: onCancel) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(.black.opacity(0.5))
                     .frame(width: 24, height: 24)
                     .background(Color.black.opacity(0.06))
@@ -4488,10 +4488,10 @@ struct InlineReplyQuote: View {
                 .frame(width: 3)
             VStack(alignment: .leading, spacing: 1) {
                 Text(authorName)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(.black.opacity(0.55))
                 Text(text)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.black.opacity(0.4))
                     .lineLimit(2)
             }
@@ -4518,10 +4518,10 @@ struct GlassPollCard: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 Image(systemName: "chart.bar.fill")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(.black.opacity(0.5))
                 Text(poll.question)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(.black.opacity(0.88))
             }
 
@@ -4538,7 +4538,7 @@ struct GlassPollCard: View {
 
             if totalVotes > 0 {
                 Text("\(totalVotes) vote\(totalVotes == 1 ? "" : "s")")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.black.opacity(0.35))
             }
         }
@@ -4585,11 +4585,11 @@ private struct PollOptionRow: View {
                     HStack(spacing: 6) {
                         if isSelected {
                             Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 14, weight: .medium))
+                                .font(.systemScaled(14, weight: .medium))
                                 .foregroundStyle(.black.opacity(0.6))
                         }
                         Text(option.text)
-                            .font(.system(size: 14, weight: isSelected ? .semibold : .regular))
+                            .font(.systemScaled(14, weight: isSelected ? .semibold : .regular))
                             .foregroundStyle(.black.opacity(0.8))
                     }
                     .padding(.leading, 12)
@@ -4598,7 +4598,7 @@ private struct PollOptionRow: View {
 
                     if totalVotes > 0 {
                         Text("\(Int(voteRatio * 100))%")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.systemScaled(12, weight: .medium))
                             .foregroundStyle(.black.opacity(0.4))
                             .padding(.trailing, 12)
                     }
@@ -4677,7 +4677,7 @@ struct CreatePollSheet: View {
                         isPresented = false
                     }
                     .disabled(!canCreate)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(canCreate ? .black : .black.opacity(0.25))
                 }
             }
@@ -4688,11 +4688,11 @@ struct CreatePollSheet: View {
     private var questionSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Question")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(.black.opacity(0.5))
                 .padding(.horizontal, 4)
             TextField("Ask something...", text: $question, axis: .vertical)
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
                 .lineLimit(1...3)
                 .padding(14)
                 .background(.ultraThinMaterial)
@@ -4705,14 +4705,14 @@ struct CreatePollSheet: View {
     private var optionsSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Options")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(.black.opacity(0.5))
                 .padding(.horizontal, 4)
 
             ForEach(Array(options.indices), id: \.self) { idx in
                 HStack(spacing: 10) {
                     TextField("Option \(idx + 1)", text: $options[idx])
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                         .padding(12)
                         .background(.ultraThinMaterial)
                         .background(Color.white.opacity(0.7))
@@ -4727,7 +4727,7 @@ struct CreatePollSheet: View {
                             }
                         } label: {
                             Image(systemName: "minus.circle.fill")
-                                .font(.system(size: 20))
+                                .font(.systemScaled(20))
                                 .foregroundStyle(.black.opacity(0.3))
                         }
                         .buttonStyle(.plain)
@@ -4743,9 +4743,9 @@ struct CreatePollSheet: View {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "plus.circle")
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.systemScaled(15, weight: .medium))
                         Text("Add option")
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.systemScaled(14, weight: .medium))
                     }
                     .foregroundStyle(.black.opacity(0.45))
                     .padding(.horizontal, 14)
@@ -4762,10 +4762,10 @@ struct CreatePollSheet: View {
         Toggle(isOn: $allowMultiple) {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Allow multiple choices")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(.black.opacity(0.75))
                 Text("People can vote on more than one option")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.black.opacity(0.4))
             }
         }
@@ -4829,11 +4829,11 @@ struct ScheduleReplyPickerSheet: View {
                         // Message preview
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Message")
-                                .font(.system(size: 12, weight: .medium))
+                                .font(.systemScaled(12, weight: .medium))
                                 .foregroundStyle(.secondary)
                                 .textCase(.uppercase)
                             Text(text)
-                                .font(.system(size: 15))
+                                .font(.systemScaled(15))
                                 .foregroundStyle(.primary)
                                 .padding(12)
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -4847,7 +4847,7 @@ struct ScheduleReplyPickerSheet: View {
                         // Quick presets
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Quick Schedule")
-                                .font(.system(size: 12, weight: .medium))
+                                .font(.systemScaled(12, weight: .medium))
                                 .foregroundStyle(.secondary)
                                 .textCase(.uppercase)
                                 .padding(.horizontal, 20)
@@ -4858,12 +4858,12 @@ struct ScheduleReplyPickerSheet: View {
                                     } label: {
                                         HStack {
                                             Text(preset.label)
-                                                .font(.system(size: 15))
+                                                .font(.systemScaled(15))
                                                 .foregroundStyle(.primary)
                                             Spacer()
                                             if Calendar.current.isDate(selectedDate, equalTo: preset.date, toGranularity: .minute) {
                                                 Image(systemName: "checkmark")
-                                                    .font(.system(size: 12, weight: .semibold))
+                                                    .font(.systemScaled(12, weight: .semibold))
                                                     .foregroundStyle(.blue)
                                             }
                                         }
@@ -4887,7 +4887,7 @@ struct ScheduleReplyPickerSheet: View {
                         // Custom date picker
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Custom Time")
-                                .font(.system(size: 12, weight: .medium))
+                                .font(.systemScaled(12, weight: .medium))
                                 .foregroundStyle(.secondary)
                                 .textCase(.uppercase)
                                 .padding(.horizontal, 20)
@@ -4913,9 +4913,9 @@ struct ScheduleReplyPickerSheet: View {
                         } label: {
                             HStack(spacing: 8) {
                                 Image(systemName: "clock.arrow.2.circlepath")
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(.systemScaled(14, weight: .semibold))
                                 Text("Schedule for \(selectedDate.formatted(date: .abbreviated, time: .shortened))")
-                                    .font(.system(size: 15, weight: .semibold))
+                                    .font(.systemScaled(15, weight: .semibold))
                             }
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)

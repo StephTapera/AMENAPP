@@ -87,7 +87,7 @@ struct VergeRoomSummaryView: View {
     private var headerSection: some View {
         VStack(spacing: 8) {
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 44, weight: .semibold))
+                .font(.systemScaled(44, weight: .semibold))
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(amenViolet)
 
@@ -110,7 +110,7 @@ struct VergeRoomSummaryView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 Image(systemName: "sparkles")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(amenViolet)
                 Text("AI Summary")
@@ -180,7 +180,7 @@ struct VergeRoomSummaryView: View {
                     ForEach(topQuestions) { msg in
                         HStack(alignment: .top, spacing: 10) {
                             Image(systemName: "questionmark.circle.fill")
-                                .font(.system(size: 16, weight: .medium))
+                                .font(.systemScaled(16, weight: .medium))
                                 .symbolRenderingMode(.hierarchical)
                                 .foregroundStyle(Color(hex: "06B6D4"))
                                 .padding(.top, 1)
@@ -225,7 +225,7 @@ struct VergeRoomSummaryView: View {
     private func earningsRow(label: String, value: String, icon: String, color: Color, bold: Bool = false) -> some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 16, weight: .medium))
+                .font(.systemScaled(16, weight: .medium))
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(color)
                 .frame(width: 22)
@@ -252,7 +252,7 @@ struct VergeRoomSummaryView: View {
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "square.and.arrow.up")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                     Text("Share Summary")
                         .font(AMENFont.bold(16))
                 }

@@ -323,54 +323,310 @@ class WellnessGuardianService: ObservableObject {
 
 struct WellnessBreakReminderView: View {
     @ObservedObject var wellness: WellnessGuardianService
-    
+
+    @State private var isExpanded = false
+    @State private var selectedMode: BreakSuggestion = .pause
+    @State private var pulseOn = false
+
+    private let dailyLimitMinutes = 45
+
+    private var minutesUsed: Int {
+        max(0, wellness.dailyUsageMinutes)
+    }
+
+    private var usageProgress: Double {
+        let limit = max(dailyLimitMinutes, 1)
+        return min(Double(minutesUsed) / Double(limit), 1.0)
+    }
+
+    enum BreakSuggestion: String, CaseIterable, Identifiable {
+        case pause
+        case prayer
+        case selah
+
+        var id: String { rawValue }
+
+        var title: String {
+            switch self {
+            case .pause: return "Quiet Pause"
+            case .prayer: return "Pray"
+            case .selah: return "Selah"
+            }
+        }
+
+        var subtitle: String {
+            switch self {
+            case .pause: return "2 minutes to breathe and reset"
+            case .prayer: return "Short guided prayer"
+            case .selah: return "Reflect on a verse"
+            }
+        }
+
+        var actionTitle: String {
+            switch self {
+            case .selah: return "Open"
+            default: return "Start"
+            }
+        }
+
+        var iconName: String {
+            switch self {
+            case .pause: return "pause.circle"
+            case .prayer: return "heart.circle"
+            case .selah: return "book.closed"
+            }
+        }
+    }
+
     var body: some View {
         if wellness.shouldShowBreakReminder {
-            VStack(spacing: 12) {
-                Image(systemName: "heart.circle.fill")
-                    .font(.system(size: 32))
-                    .foregroundColor(.pink)
-                
-                Text(wellness.breakReminderMessage)
-                    .font(.custom("OpenSans-SemiBold", size: 15))
-                    .foregroundColor(.primary)
-                    .multilineTextAlignment(.center)
-                
-                HStack(spacing: 12) {
-                    Button("Keep Going") {
-                        wellness.dismissBreakReminder()
+            ZStack {
+                Color.black.opacity(0.12)
+                    .ignoresSafeArea()
+
+                GlassCard {
+                    VStack(spacing: 0) {
+                        headerRow
+                        progressRing
+                        titleSection
+                        usageStats
+                        suggestedBreaks
+                        quoteSection
+                        actionButtons
                     }
-                    .font(.custom("OpenSans-Medium", size: 14))
-                    .foregroundColor(.secondary)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .background(
-                        Capsule()
-                            .fill(Color.gray.opacity(0.15))
-                    )
-                    
-                    Button("Take Break") {
-                        wellness.takeBreak()
-                    }
-                    .font(.custom("OpenSans-Bold", size: 14))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .background(
-                        Capsule()
-                            .fill(Color.pink)
-                    )
+                    .padding(20)
+                }
+                .frame(maxWidth: 420)
+                .padding(.horizontal, 20)
+                .transition(.scale.combined(with: .opacity))
+                .zIndex(999)
+            }
+            .onAppear {
+                withAnimation(.easeInOut(duration: 4.0).repeatForever(autoreverses: true)) {
+                    pulseOn = true
                 }
             }
-            .padding(20)
-            .background(
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(Color(.systemBackground))
-                    .shadow(color: .black.opacity(0.15), radius: 20, y: 10)
-            )
-            .padding(.horizontal, 40)
-            .transition(.scale.combined(with: .opacity))
-            .zIndex(999)
         }
+    }
+
+    private var headerRow: some View {
+        HStack {
+            Text("Wellness Break")
+                .font(.systemScaled(11, weight: .semibold))
+                .foregroundStyle(Color.black.opacity(0.4))
+                .textCase(.uppercase)
+                .tracking(1.2)
+
+            Spacer()
+
+            Button {
+                wellness.dismissBreakReminder()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.systemScaled(14, weight: .semibold))
+                    .foregroundStyle(Color.black.opacity(0.4))
+                    .frame(width: 28, height: 28)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.bottom, 12)
+    }
+
+    private var progressRing: some View {
+        let progress = usageProgress
+        return ZStack {
+            Circle()
+                .fill(
+                    AngularGradient(
+                        gradient: Gradient(stops: [
+                            .init(color: Color.black, location: 0.0),
+                            .init(color: Color.black, location: progress),
+                            .init(color: Color.white.opacity(0.4), location: progress),
+                            .init(color: Color.white.opacity(0.4), location: 1.0)
+                        ]),
+                        center: .center
+                    )
+                )
+                .frame(width: 112, height: 112)
+                .scaleEffect(pulseOn ? 1.03 : 1.0)
+                .animation(.easeInOut(duration: 4.0).repeatForever(autoreverses: true), value: pulseOn)
+
+            Circle()
+                .fill(Color.white.opacity(0.6))
+                .frame(width: 80, height: 80)
+                .overlay(
+                    Image(systemName: "clock")
+                        .font(.systemScaled(24, weight: .medium))
+                        .foregroundStyle(Color.black.opacity(0.85))
+                )
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 8)
+    }
+
+    private var titleSection: some View {
+        VStack(spacing: 6) {
+            Text("Time to Reset")
+                .font(.systemScaled(22, weight: .semibold))
+                .foregroundStyle(Color.black)
+
+            Text("You’ve spent \\(minutesUsed) minutes today.")
+                .font(.systemScaled(13, weight: .regular))
+                .foregroundStyle(Color.black.opacity(0.6))
+        }
+        .padding(.top, 4)
+    }
+
+    private var usageStats: some View {
+        HStack {
+            VStack(spacing: 4) {
+                Text("\\(minutesUsed)")
+                    .font(.systemScaled(18, weight: .semibold))
+                Text("Used")
+                    .font(.systemScaled(11, weight: .medium))
+                    .foregroundStyle(Color.black.opacity(0.45))
+            }
+            .frame(maxWidth: .infinity)
+
+            VStack(spacing: 4) {
+                Text("\\(dailyLimitMinutes)")
+                    .font(.systemScaled(18, weight: .semibold))
+                Text("Limit")
+                    .font(.systemScaled(11, weight: .medium))
+                    .foregroundStyle(Color.black.opacity(0.45))
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .padding(.top, 16)
+    }
+
+    private var suggestedBreaks: some View {
+        VStack(spacing: 10) {
+            Button {
+                withAnimation(.easeOut(duration: 0.2)) {
+                    isExpanded.toggle()
+                }
+            } label: {
+                HStack {
+                    Text("Suggested Break")
+                        .font(.systemScaled(13, weight: .medium))
+                        .foregroundStyle(Color.black.opacity(0.55))
+                    Spacer()
+                    Image(systemName: "chevron.down")
+                        .font(.systemScaled(12, weight: .semibold))
+                        .foregroundStyle(Color.black.opacity(0.35))
+                        .rotationEffect(.degrees(isExpanded ? 180 : 0))
+                }
+            }
+            .buttonStyle(.plain)
+
+            if isExpanded {
+                VStack(spacing: 8) {
+                    ForEach(BreakSuggestion.allCases) { suggestion in
+                        Button {
+                            selectedMode = suggestion
+                        } label: {
+                            HStack(spacing: 10) {
+                                Image(systemName: suggestion.iconName)
+                                    .font(.systemScaled(14, weight: .medium))
+                                    .foregroundStyle(Color.black.opacity(0.7))
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(suggestion.title)
+                                        .font(.systemScaled(14, weight: .medium))
+                                        .foregroundStyle(Color.black)
+                                    Text(suggestion.subtitle)
+                                        .font(.systemScaled(11, weight: .regular))
+                                        .foregroundStyle(Color.black.opacity(0.5))
+                                }
+                                Spacer()
+                                Text(suggestion.actionTitle)
+                                    .font(.systemScaled(11, weight: .semibold))
+                                    .foregroundStyle(Color.black.opacity(0.6))
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 10)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .fill(selectedMode == suggestion ? Color.white.opacity(0.65) : Color.white.opacity(0.4))
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .transition(.opacity)
+            }
+        }
+        .padding(.top, 18)
+    }
+
+    private var quoteSection: some View {
+        Text("\"Be still, and know that I am God\"")
+            .font(.systemScaled(12, weight: .regular))
+            .italic()
+            .foregroundStyle(Color.black.opacity(0.7))
+            .frame(maxWidth: .infinity)
+            .multilineTextAlignment(.center)
+            .padding(.top, 16)
+    }
+
+    private var actionButtons: some View {
+        VStack(spacing: 10) {
+            Button {
+                wellness.takeBreak()
+            } label: {
+                Text("Take a Break")
+                    .font(.systemScaled(15, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(Color.black)
+                    )
+            }
+            .buttonStyle(.plain)
+
+            Button {
+                wellness.dismissBreakReminder()
+            } label: {
+                Text("Continue Anyway")
+                    .font(.systemScaled(13, weight: .medium))
+                    .foregroundStyle(Color.black.opacity(0.5))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 6)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.top, 16)
+    }
+}
+
+private struct GlassCard<Content: View>: View {
+    let content: Content
+
+    init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
+
+    var body: some View {
+        content
+            .background(
+                RoundedRectangle(cornerRadius: 32, style: .continuous)
+                    .fill(Color.white.opacity(0.45))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 32, style: .continuous)
+                            .strokeBorder(Color.white.opacity(0.55), lineWidth: 1)
+                    )
+                    .shadow(color: Color.black.opacity(0.08), radius: 24, y: 8)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 32, style: .continuous)
+                            .stroke(Color.white.opacity(0.35), lineWidth: 0.5)
+                    )
+            )
+            .background(
+                RoundedRectangle(cornerRadius: 32, style: .continuous)
+                    .fill(Color.white.opacity(0.25))
+                    .blur(radius: 2)
+            )
     }
 }

@@ -54,14 +54,14 @@ struct ChurchSermonArchiveModuleView: View {
     private var sectionHeader: some View {
         HStack {
             Label("Sermons", systemImage: "play.circle.fill")
-                .font(.system(size: 15, weight: .semibold))
+                .font(.systemScaled(15, weight: .semibold))
                 .foregroundStyle(.primary)
 
             Spacer()
 
             if sermons.count > 3 {
                 Button("See All") { }
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(.secondary)
             }
         }
@@ -73,10 +73,10 @@ struct ChurchSermonArchiveModuleView: View {
             Spacer()
             VStack(spacing: 6) {
                 Image(systemName: "play.circle")
-                    .font(.system(size: 28))
+                    .font(.systemScaled(28))
                     .foregroundStyle(Color.black.opacity(0.25))
                 Text("No sermons yet")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.secondary)
             }
             .padding(.vertical, 24)
@@ -111,17 +111,17 @@ private struct SermonCard: View {
                 if sermon.thumbnailURL != nil {
                     // AsyncImage would go here; placeholder for now
                     Image(systemName: "play.circle.fill")
-                        .font(.system(size: 32))
+                        .font(.systemScaled(32))
                         .foregroundStyle(Color.black.opacity(0.3))
                 } else {
                     Image(systemName: "waveform.and.mic")
-                        .font(.system(size: 28))
+                        .font(.systemScaled(28))
                         .foregroundStyle(Color.black.opacity(0.25))
                 }
 
                 // Play badge
                 Image(systemName: "play.fill")
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.systemScaled(11, weight: .bold))
                     .foregroundStyle(.white)
                     .padding(6)
                     .background(Color.black.opacity(0.65))
@@ -133,23 +133,23 @@ private struct SermonCard: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(sermon.title)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.primary)
                     .lineLimit(2)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                 Text(sermon.preacherName)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
 
                 Text(sermon.preachedAt, style: .date)
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(Color(white: 0.6))
 
                 if !sermon.scriptureReferences.isEmpty {
                     Text(sermon.scriptureReferences.prefix(2).joined(separator: " · "))
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.systemScaled(11, weight: .medium))
                         .foregroundStyle(Color.black.opacity(0.45))
                         .lineLimit(1)
                 }
@@ -194,7 +194,7 @@ private struct SermonDetailSheet: View {
                             .aspectRatio(16/9, contentMode: .fit)
 
                         Image(systemName: "play.circle.fill")
-                            .font(.system(size: 48))
+                            .font(.systemScaled(48))
                             .foregroundStyle(Color.black.opacity(0.3))
                     }
                     .padding(.horizontal, 16)
@@ -202,15 +202,15 @@ private struct SermonDetailSheet: View {
                     // Metadata
                     VStack(alignment: .leading, spacing: 8) {
                         Text(sermon.title)
-                            .font(.system(size: 20, weight: .bold))
+                            .font(.systemScaled(20, weight: .bold))
 
                         HStack(spacing: 12) {
                             Text(sermon.preacherName)
-                                .font(.system(size: 14, weight: .medium))
+                                .font(.systemScaled(14, weight: .medium))
                                 .foregroundStyle(.secondary)
 
                             Text(sermon.preachedAt, style: .date)
-                                .font(.system(size: 13))
+                                .font(.systemScaled(13))
                                 .foregroundStyle(Color(white: 0.6))
                         }
 
@@ -219,7 +219,7 @@ private struct SermonDetailSheet: View {
                                 HStack(spacing: 8) {
                                     ForEach(sermon.scriptureReferences, id: \.self) { ref in
                                         Text(ref)
-                                            .font(.system(size: 12, weight: .medium))
+                                            .font(.systemScaled(12, weight: .medium))
                                             .padding(.horizontal, 10)
                                             .padding(.vertical, 5)
                                             .background(.ultraThinMaterial)
@@ -240,10 +240,10 @@ private struct SermonDetailSheet: View {
                     if let summary = sermon.summary {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Summary")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.systemScaled(13, weight: .semibold))
                                 .foregroundStyle(.secondary)
                             Text(summary)
-                                .font(.system(size: 15))
+                                .font(.systemScaled(15))
                                 .foregroundStyle(.primary)
                         }
                         .padding(16)
@@ -261,7 +261,7 @@ private struct SermonDetailSheet: View {
                     // Reflection prompts
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Reflect")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                             .foregroundStyle(.secondary)
                         VStack(spacing: 8) {
                             ForEach([
@@ -272,11 +272,11 @@ private struct SermonDetailSheet: View {
                             ], id: \.self) { prompt in
                                 HStack {
                                     Text(prompt)
-                                        .font(.system(size: 14))
+                                        .font(.systemScaled(14))
                                         .foregroundStyle(.primary)
                                     Spacer()
                                     Image(systemName: "chevron.right")
-                                        .font(.system(size: 12))
+                                        .font(.systemScaled(12))
                                         .foregroundStyle(.tertiary)
                                 }
                                 .padding(.horizontal, 14)
@@ -299,9 +299,9 @@ private struct SermonDetailSheet: View {
                     } label: {
                         HStack(spacing: 10) {
                             Image(systemName: "sparkles")
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(.systemScaled(15, weight: .semibold))
                             Text("Ask Berean about this sermon")
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(.systemScaled(15, weight: .semibold))
                         }
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)

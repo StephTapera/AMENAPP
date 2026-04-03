@@ -96,7 +96,7 @@ struct VoiceSphereView: View {
 
             VStack(spacing: 0) {
                 Text("AMEN")
-                    .font(.system(size: 11, weight: .regular))
+                    .font(.systemScaled(11, weight: .regular))
                     .tracking(5)
                     .foregroundStyle(.white.opacity(0.18))
                     .frame(maxWidth: .infinity, alignment: .center)
@@ -129,14 +129,14 @@ struct VoiceSphereView: View {
                 Spacer()
 
                 Text(state.statusLabel.uppercased())
-                    .font(.system(size: 11, weight: .regular))
+                    .font(.systemScaled(11, weight: .regular))
                     .tracking(3)
                     .foregroundStyle(statusColor)
                     .animation(.easeInOut(duration: 0.5), value: state)
                     .padding(.bottom, 6)
 
                 Text(state.hintLabel)
-                    .font(.system(size: 15, weight: .light))
+                    .font(.systemScaled(15, weight: .light))
                     .foregroundStyle(.white.opacity(0.14))
                     .frame(height: 20)
                     .animation(.easeInOut(duration: 0.4), value: state)

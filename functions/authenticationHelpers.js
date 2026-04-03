@@ -754,3 +754,93 @@ exports.onUserDocCreated = onDocCreated(
       return null;
     }
 );
+
+// ============================================================================
+// SESSION INVALIDATION — revoke all refresh tokens for the calling user.
+// Called by the iOS client during sign-out to force all other devices to
+// re-authenticate on their next request. Without this, a stolen device
+// retains a valid session for up to 1 hour (Firebase ID token TTL).
+// ============================================================================
+
+exports.revokeUserSessions = onCall(
+    {region: "us-central1", enforceAppCheck: true},
+    async (request) => {
+      if (!request.auth) {
+        throw new HttpsError("unauthenticated", "Must be authenticated.");
+      }
+
+      const uid = request.auth.uid;
+
+      try {
+        // Revoke all Firebase refresh tokens for this user.
+        // All existing sessions on other devices will fail on next token refresh.
+        await admin.auth().revokeRefreshTokens(uid);
+        console.log(`✅ [revokeUserSessions] Refresh tokens revoked for ${uid}`);
+        return {success: true};
+      } catch (err) {
+        console.error(`❌ [revokeUserSessions] Failed for ${uid}:`, err);
+        throw new HttpsError("internal", "Failed to revoke sessions.");
+      }
+    }
+);
+
+/**
+ * Set admin Custom Claim on a user.
+ * Only callable by users who already have the admin claim.
+ * This prevents any user from escalating themselves to admin.
+ *
+ * Usage (from Firebase console or admin tool):
+ *   functions.httpsCallable("setAdminClaim").call({ targetUid: "...", grant: true })
+ */
+exports.setAdminClaim = onCall(
+    {region: "us-central1", enforceAppCheck: true},
+    async (request) => {
+      // Only existing admins can grant or revoke admin status
+      if (!request.auth || request.auth.token.admin !== true) {
+        throw new HttpsError(
+            "permission-denied",
+            "Only admins can modify admin claims."
+        );
+      }
+
+      const {targetUid, grant} = request.data;
+      if (!targetUid || typeof grant !== "boolean") {
+        throw new HttpsError("invalid-argument", "targetUid (string) and grant (boolean) are required.");
+      }
+
+      // Prevent self-modification
+      if (targetUid === request.auth.uid) {
+        throw new HttpsError("invalid-argument", "Admins cannot modify their own claim.");
+      }
+
+      try {
+        // Get existing custom claims to avoid overwriting other claims
+        const user = await admin.auth().getUser(targetUid);
+        const existingClaims = user.customClaims || {};
+        const updatedClaims = {...existingClaims, admin: grant};
+
+        await admin.auth().setCustomUserClaims(targetUid, updatedClaims);
+        console.log(`✅ [setAdminClaim] admin=${grant} set for ${targetUid} by ${request.auth.uid}`);
+
+        // Force token refresh so the new claim takes effect on next request
+        await admin.auth().revokeRefreshTokens(targetUid);
+
+        return {success: true, targetUid, admin: grant};
+      } catch (err) {
+        console.error(`❌ [setAdminClaim] Failed for ${targetUid}:`, err);
+        throw new HttpsError("internal", "Failed to set admin claim.");
+      }
+    }
+);
+
+/**
+ * Bootstrap the very first admin from the Firebase console or Admin SDK.
+ * This function can ONLY be called via the Firebase Admin SDK (server-to-server) —
+ * it is NOT a callable function. Run it once during initial platform setup:
+ *
+ *   const admin = require('firebase-admin');
+ *   admin.initializeApp();
+ *   admin.auth().setCustomUserClaims('<your-uid>', { admin: true });
+ *
+ * After the first admin is set, use setAdminClaim() to manage subsequent admins.
+ */

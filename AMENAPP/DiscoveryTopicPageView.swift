@@ -53,7 +53,7 @@ struct DiscoveryTopicPageView: View {
                         VStack(spacing: 12) {
                             Spacer(minLength: 40)
                             Image(systemName: topic.icon)
-                                .font(.system(size: 32))
+                                .font(.systemScaled(32))
                                 .foregroundStyle(topic.iconColor.opacity(0.5))
                             Text("No posts in \(topic.title) yet")
                                 .font(.custom("OpenSans-Regular", size: 15))
@@ -116,7 +116,7 @@ struct DiscoveryTopicPageView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 14) {
                 Image(systemName: topic.icon)
-                    .font(.system(size: 28, weight: .medium))
+                    .font(.systemScaled(28, weight: .medium))
                     .foregroundStyle(topic.iconColor)
                     .frame(width: 60, height: 60)
                     .background(topic.backgroundColor)
@@ -207,14 +207,14 @@ struct DiscoveryTopicPageView: View {
     private func scriptureReference(_ ref: String) -> some View {
         HStack(spacing: 10) {
             Image(systemName: "book.fill")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.indigo)
             Text(ref)
                 .font(.custom("OpenSans-SemiBold", size: 14))
                 .foregroundStyle(.indigo)
             Spacer()
             Image(systemName: "chevron.right")
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(.tertiary)
         }
         .padding(12)

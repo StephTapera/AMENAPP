@@ -22,7 +22,7 @@ struct NotificationBellButton: View {
         } label: {
             ZStack(alignment: .topTrailing) {
                 Image(systemName: "bell")
-                    .font(.system(size: 20, weight: .regular))
+                    .font(.systemScaled(20, weight: .regular))
                     .foregroundStyle(Color(.label))
 
                 if badgeManager.unreadNotifications > 0 {
@@ -40,7 +40,7 @@ struct NotificationBellButton: View {
 
     private func badgePill(_ count: Int) -> some View {
         Text(count > 99 ? "99+" : "\(count)")
-            .font(.system(size: 9, weight: .bold))
+            .font(.systemScaled(9, weight: .bold))
             .foregroundStyle(.white)
             .padding(.horizontal, count > 9 ? 4 : 5)
             .padding(.vertical, 2)
@@ -66,12 +66,12 @@ struct NotificationBellButtonFilled: View {
                         .fill(Color(.secondarySystemBackground))
                         .frame(width: 36, height: 36)
                     Image(systemName: badgeManager.unreadNotifications > 0 ? "bell.badge.fill" : "bell.fill")
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.systemScaled(16, weight: .medium))
                         .foregroundStyle(badgeManager.unreadNotifications > 0 ? Color.red : Color(.label))
                 }
                 if badgeManager.unreadNotifications > 0 {
                     Text(badgeManager.unreadNotifications > 99 ? "99+" : "\(badgeManager.unreadNotifications)")
-                        .font(.system(size: 9, weight: .bold))
+                        .font(.systemScaled(9, weight: .bold))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 4)
                         .padding(.vertical, 2)

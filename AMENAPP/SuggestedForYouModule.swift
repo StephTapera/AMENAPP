@@ -249,7 +249,7 @@ struct SuggestedForYouModule: View {
             // Header
             HStack {
                 Text("Suggested for you")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(.primary)
                 Spacer()
                 Button {
@@ -257,7 +257,7 @@ struct SuggestedForYouModule: View {
                     vm.hideModule()
                 } label: {
                     Text("Hide")
-                        .font(.system(size: 13, weight: .regular))
+                        .font(.systemScaled(13, weight: .regular))
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
@@ -328,14 +328,14 @@ struct SuggestedForYouModule: View {
     private var hiddenBanner: some View {
         HStack(spacing: 10) {
             Text("Suggestions hidden")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.secondary)
             Spacer()
             Button("Show again") {
                 HapticManager.impact(style: .light)
                 vm.restoreModule()
             }
-            .font(.system(size: 13, weight: .medium))
+            .font(.systemScaled(13, weight: .medium))
             .foregroundStyle(.primary)
             .accessibilityLabel("Show suggestions again")
         }
@@ -365,7 +365,7 @@ private struct SuggestionCard: View {
             // Dismiss X
             Button(action: onDismiss) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.systemScaled(10, weight: .semibold))
                     .foregroundStyle(.secondary)
                     .frame(width: 22, height: 22)
                     .background(
@@ -394,32 +394,32 @@ private struct SuggestionCard: View {
                 // Name + verified badge
                 HStack(spacing: 4) {
                     Text(item.displayName)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(.primary)
                         .lineLimit(1)
                     if item.isVerified {
                         Image(systemName: "checkmark.seal.fill")
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                             .foregroundStyle(Color.accentColor)
                     }
                 }
 
                 // Handle
                 Text("@\(item.handle)")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
 
                 // Reason
                 Text(item.reasonText)
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.secondary.opacity(0.85))
                     .lineLimit(1)
 
                 // Account type badge (optional)
                 if let badge = item.accountType.badge {
                     Text(badge)
-                        .font(.system(size: 10, weight: .medium))
+                        .font(.systemScaled(10, weight: .medium))
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 7)
                         .padding(.vertical, 3)
@@ -481,7 +481,7 @@ private struct SuggestionFollowButton: View {
             HStack {
                 Spacer()
                 Text(isFollowing ? "Following" : "Follow")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(isFollowing ? Color.primary : Color.white)
                 Spacer()
             }
@@ -537,13 +537,13 @@ private struct SuggestionAvatarView: View {
                             .clipShape(Circle())
                     default:
                         Text(item.initials)
-                            .font(.system(size: size * 0.35, weight: .semibold))
+                            .font(.systemScaled(size * 0.35, weight: .semibold))
                             .foregroundStyle(.white)
                     }
                 }
             } else {
                 Text(item.initials)
-                    .font(.system(size: size * 0.35, weight: .semibold))
+                    .font(.systemScaled(size * 0.35, weight: .semibold))
                     .foregroundStyle(.white)
             }
 

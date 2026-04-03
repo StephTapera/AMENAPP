@@ -34,7 +34,7 @@ struct ReflectionPromptCard: View {
 
             // Prompt text
             Text(promptText)
-                .font(.system(size: 12).italic())
+                .font(.systemScaled(12).italic())
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.leading)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -57,7 +57,7 @@ struct ReflectionPromptCard: View {
                         .fill(localCompleted ? Color(red: 0.09, green: 0.64, blue: 0.29).opacity(0.12) : Color(.secondarySystemBackground))
                         .frame(width: 28, height: 28)
                     Image(systemName: localCompleted ? "checkmark" : "plus")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(localCompleted ? Color(red: 0.09, green: 0.64, blue: 0.29) : Color(red: 0.71, green: 0.33, blue: 0.04))
                         .rotationEffect(.degrees(rotation))
                         .scaleEffect(localCompleted ? 1.15 : 1.0)

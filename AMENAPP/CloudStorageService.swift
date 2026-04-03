@@ -94,18 +94,27 @@ class CloudStorageService {
         }
     }
     
-    /// Upload image with compression
+    /// Upload image with compression.
+    /// Uses ImageCompressor: resizes to ≤1920px then compresses to ≤1MB JPEG.
+    /// Raw 5MB+ phone photos become ~300–500KB — critical for storage cost control.
     func uploadImage(
         image: UIImage,
         userId: String,
-        compressionQuality: CGFloat = 0.7,
+        compressionQuality: CGFloat = 0.75,
         progressHandler: ((Double) -> Void)? = nil
     ) async throws -> String {
-        
-        guard let imageData = image.jpegData(compressionQuality: compressionQuality) else {
-            throw NSError(domain: "CloudStorage", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to compress image"])
+        // ✅ FIX: Run dimension resize (max 1920px) + quality compression before upload.
+        // Previously only jpegData(compressionQuality:) was called — no resize.
+        // A 4032×3024 photo at quality 0.7 is still ~3MB.
+        guard let imageData = await ImageCompressor.compressAsync(
+            image,
+            maxSizeMB: 1.0,
+            maxDimension: 1920
+        ) else {
+            throw NSError(domain: "CloudStorage", code: -1,
+                          userInfo: [NSLocalizedDescriptionKey: "Failed to compress image"])
         }
-        
+
         return try await uploadMedia(
             data: imageData,
             type: .image,

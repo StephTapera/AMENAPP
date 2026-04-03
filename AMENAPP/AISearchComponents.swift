@@ -7,6 +7,7 @@
 //
 
 import SwiftUI
+import Combine
 
 // Note: SearchSuggestion is defined in SearchSuggestionsService.swift
 
@@ -34,7 +35,7 @@ struct AISearchSuggestionChip: View {
         }) {
             HStack(spacing: 6) {
                 Image(systemName: suggestion.icon)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundColor(.blue)
 
                 Text(suggestion.text)
@@ -44,7 +45,7 @@ struct AISearchSuggestionChip: View {
 
                 if suggestion.popularity > 80 {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.systemScaled(10, weight: .semibold))
                         .foregroundColor(.yellow)
                 }
             }
@@ -97,7 +98,7 @@ struct FilterRecommendationPill: View {
             HStack(spacing: 6) {
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundColor(pillColor)
                 }
 
@@ -107,7 +108,7 @@ struct FilterRecommendationPill: View {
 
                 if recommendation.confidence > 0.85 {
                     Image(systemName: "star.fill")
-                        .font(.system(size: 9))
+                        .font(.systemScaled(9))
                         .foregroundColor(.yellow)
                 }
             }
@@ -136,7 +137,7 @@ struct AISearchSuggestionsSection: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 6) {
                 Image(systemName: "sparkles")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundColor(.blue)
 
                 Text("AI Suggestions")
@@ -174,7 +175,7 @@ struct FilterRecommendationsSection: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 6) {
                 Image(systemName: "slider.horizontal.3")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundColor(.purple)
 
                 Text("Smart Filters")
@@ -233,7 +234,7 @@ struct AIEnhancedSearchBar: View {
         HStack(spacing: 12) {
             // Search icon
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
                 .foregroundColor(.gray)
 
             // Search field
@@ -249,7 +250,7 @@ struct AIEnhancedSearchBar: View {
             if showAIIndicator {
                 HStack(spacing: 4) {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 10, weight: .bold))
+                        .font(.systemScaled(10, weight: .bold))
                         .foregroundColor(.blue)
 
                     Text("AI")
@@ -271,7 +272,7 @@ struct AIEnhancedSearchBar: View {
                     isSearching = false
                 }) {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 18))
+                        .font(.systemScaled(18))
                         .foregroundColor(.gray)
                 }
             }
@@ -298,7 +299,7 @@ struct AISearchLoadingView: View {
             HStack(spacing: 8) {
                 ForEach(0..<3) { index in
                     Image(systemName: "sparkles")
-                        .font(.system(size: 20, weight: .semibold))
+                        .font(.systemScaled(20, weight: .semibold))
                         .foregroundColor(.blue)
                         .opacity(0.3)
                         .scaleEffect(1.2)
@@ -345,7 +346,7 @@ struct AISearchEmptyState: View {
                     .frame(width: 80, height: 80)
 
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 32, weight: .semibold))
+                    .font(.systemScaled(32, weight: .semibold))
                     .foregroundColor(.blue)
             }
 
@@ -373,7 +374,7 @@ struct AISearchEmptyState: View {
                     }) {
                         HStack {
                             Image(systemName: "arrow.right.circle.fill")
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                                 .foregroundColor(.blue)
 
                             Text(suggestion)

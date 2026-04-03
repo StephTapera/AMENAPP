@@ -169,7 +169,31 @@ final class AMENAnalyticsService {
     private static let maxBufferSize = 200
     private var flushTask: Task<Void, Never>?
 
+    // MARK: - User Opt-Out (GDPR Article 21)
+
+    /// UserDefaults key for the user's analytics opt-out preference.
+    static let analyticsOptOutKey = "amen.analyticsOptOut"
+
+    /// True when the current user has opted out of analytics collection.
+    var isUserOptedOut: Bool {
+        UserDefaults.standard.bool(forKey: Self.analyticsOptOutKey)
+    }
+
+    /// Set the user's analytics opt-out preference.
+    /// Also toggles Firebase Analytics collection immediately.
+    func setAnalyticsOptOut(_ optOut: Bool) {
+        UserDefaults.standard.set(optOut, forKey: Self.analyticsOptOutKey)
+        Analytics.setAnalyticsCollectionEnabled(!optOut)
+        dlog("📊 Analytics collection \(optOut ? "DISABLED" : "ENABLED") by user preference")
+    }
+
     private init() {
+        // Apply stored opt-out preference on launch
+        let storedOptOut = UserDefaults.standard.bool(forKey: Self.analyticsOptOutKey)
+        if storedOptOut {
+            Analytics.setAnalyticsCollectionEnabled(false)
+        }
+
         schedulePeriodicFlush()
 
         // P1 FIX: Flush buffered Firestore events before the app is suspended.
@@ -190,7 +214,7 @@ final class AMENAnalyticsService {
     // MARK: - Track
 
     func track(_ event: AMENAnalyticsEvent) {
-        guard flags.analyticsEnabled else { return }
+        guard flags.analyticsEnabled, !isUserOptedOut else { return }
 
         // P1 FIX: Fire to Firebase Analytics immediately — events are durable and
         // survive sign-out and process termination. The Firestore batch write below

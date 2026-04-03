@@ -57,7 +57,7 @@ struct StudioDiscoveryView: View {
         HStack(spacing: 10) {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .foregroundStyle(.secondary)
                 TextField("Search creators, services, products...", text: $searchText)
                     .font(.custom("OpenSans-Regular", size: 15))
@@ -189,7 +189,7 @@ struct StudioDiscoveryView: View {
                     } label: {
                         HStack(spacing: 12) {
                             Image(systemName: cat.icon)
-                                .font(.system(size: 16))
+                                .font(.systemScaled(16))
                                 .foregroundStyle(cat.color)
                                 .frame(width: 28)
                             Text(cat.label)
@@ -197,7 +197,7 @@ struct StudioDiscoveryView: View {
                                 .foregroundStyle(.primary)
                             Spacer()
                             Image(systemName: "arrow.up.left")
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                                 .foregroundStyle(.secondary)
                         }
                         .padding(.horizontal, 20)
@@ -250,7 +250,7 @@ struct StudioDiscoveryView: View {
     private var noResultsState: some View {
         VStack(spacing: 16) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 40))
+                .font(.systemScaled(40))
                 .foregroundStyle(.secondary)
             Text("No results for \"\(searchText)\"")
                 .font(.custom("OpenSans-SemiBold", size: 16))
@@ -280,7 +280,7 @@ struct StudioDiscoveryView: View {
                         selectedCategory = nil
                     } label: {
                         Text("All")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                             .foregroundStyle(selectedCategory == nil ? .white : .secondary)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 7)
@@ -300,8 +300,8 @@ struct StudioDiscoveryView: View {
                             }
                         } label: {
                             HStack(spacing: 5) {
-                                Image(systemName: cat.icon).font(.system(size: 11))
-                                Text(cat.label).font(.system(size: 12, weight: .semibold))
+                                Image(systemName: cat.icon).font(.systemScaled(11))
+                                Text(cat.label).font(.systemScaled(12, weight: .semibold))
                             }
                             .foregroundStyle(selectedCategory == cat ? .white : cat.color)
                             .padding(.horizontal, 10)
@@ -328,13 +328,13 @@ struct StudioDiscoveryView: View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "info.circle.fill")
                 .foregroundStyle(.secondary)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
             VStack(alignment: .leading, spacing: 4) {
                 Text("About Studio Discovery")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(.secondary)
                 Text("Creators are ranked by quality, trust, and relevance — not by who pays the most. Promoted placements are always clearly labeled.")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.secondary)
             }
         }
@@ -357,7 +357,7 @@ struct StudioDiscoveryView: View {
                     .font(.custom("OpenSans-Bold", size: 17))
                 if let badge = badge {
                     Text(badge)
-                        .font(.system(size: 11, weight: .bold))
+                        .font(.systemScaled(11, weight: .bold))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
@@ -422,7 +422,7 @@ struct StudioCreatorCard: View {
                     .frame(width: 44, height: 44)
                     .overlay(
                         Text(String(profile.displayName.prefix(1)))
-                            .font(.system(size: 16, weight: .bold))
+                            .font(.systemScaled(16, weight: .bold))
                             .foregroundStyle(.white)
                     )
                     .overlay(Circle().stroke(.white, lineWidth: 2))
@@ -438,12 +438,12 @@ struct StudioCreatorCard: View {
                         .lineLimit(1)
                     if profile.isVerified {
                         Image(systemName: "checkmark.seal.fill")
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                             .foregroundStyle(Color(red: 0.15, green: 0.45, blue: 0.90))
                     }
                 }
                 Text(profile.tagline)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                 if let firstCat = profile.categories.first {
@@ -461,7 +461,7 @@ struct StudioCreatorCard: View {
         .overlay(alignment: .topTrailing) {
             if let expiry = profile.boostExpiry, expiry > Date() {
                 Text("Promoted")
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(.systemScaled(9, weight: .semibold))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 3)
@@ -484,7 +484,7 @@ struct StudioCompactCreatorCard: View {
                 .frame(width: 52, height: 52)
                 .overlay(
                     Text(String(profile.displayName.prefix(1)))
-                        .font(.system(size: 18, weight: .bold))
+                        .font(.systemScaled(18, weight: .bold))
                         .foregroundStyle(Color(red: 0.55, green: 0.25, blue: 0.88))
                 )
 
@@ -497,7 +497,7 @@ struct StudioCompactCreatorCard: View {
                     .fill(Color(red: 0.55, green: 0.25, blue: 0.88))
                     .frame(width: 5, height: 5)
                 Text("Open")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.systemScaled(10, weight: .semibold))
                     .foregroundStyle(Color(red: 0.55, green: 0.25, blue: 0.88))
             }
         }
@@ -523,7 +523,7 @@ struct StudioProductThumb: View {
                     .fill(product.category.color.opacity(0.15))
                     .frame(width: 120, height: 90)
                 Image(systemName: product.category.icon)
-                    .font(.system(size: 28))
+                    .font(.systemScaled(28))
                     .foregroundStyle(product.category.color)
             }
 
@@ -533,7 +533,7 @@ struct StudioProductThumb: View {
                 .frame(width: 120, alignment: .leading)
 
             Text(product.isFree ? "Free" : product.price.formatted(.currency(code: product.currency)))
-                .font(.system(size: 12, weight: .bold))
+                .font(.systemScaled(12, weight: .bold))
                 .foregroundStyle(product.isFree ? Color(red: 0.18, green: 0.62, blue: 0.36) : .primary)
         }
         .padding(10)
@@ -558,7 +558,7 @@ struct StudioSearchResultRow: View {
                 .frame(width: 48, height: 48)
                 .overlay(
                     Text(String(profile.displayName.prefix(1)))
-                        .font(.system(size: 16, weight: .bold))
+                        .font(.systemScaled(16, weight: .bold))
                         .foregroundStyle(Color(red: 0.15, green: 0.45, blue: 0.90))
                 )
 
@@ -568,12 +568,12 @@ struct StudioSearchResultRow: View {
                         .font(.custom("OpenSans-SemiBold", size: 15))
                     if profile.isVerified {
                         Image(systemName: "checkmark.seal.fill")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(Color(red: 0.15, green: 0.45, blue: 0.90))
                     }
                 }
                 Text(profile.tagline)
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
 
@@ -581,11 +581,11 @@ struct StudioSearchResultRow: View {
                     if profile.isOpenForWork {
                         HStack(spacing: 3) {
                             Circle().fill(Color(red: 0.18, green: 0.62, blue: 0.36)).frame(width: 5, height: 5)
-                            Text("For Hire").font(.system(size: 10, weight: .semibold)).foregroundStyle(Color(red: 0.18, green: 0.62, blue: 0.36))
+                            Text("For Hire").font(.systemScaled(10, weight: .semibold)).foregroundStyle(Color(red: 0.18, green: 0.62, blue: 0.36))
                         }
                     }
                     if profile.isOpenForCommissions {
-                        Text("Commissions Open").font(.system(size: 10, weight: .semibold)).foregroundStyle(Color(red: 0.55, green: 0.25, blue: 0.88))
+                        Text("Commissions Open").font(.systemScaled(10, weight: .semibold)).foregroundStyle(Color(red: 0.55, green: 0.25, blue: 0.88))
                     }
                 }
             }
@@ -593,7 +593,7 @@ struct StudioSearchResultRow: View {
             Spacer()
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(.secondary)
         }
         .padding(12)

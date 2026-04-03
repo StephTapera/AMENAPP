@@ -100,7 +100,7 @@ struct SearchExpandBar: View {
                     .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 4)
 
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.systemScaled(18, weight: .semibold))
                     .foregroundStyle(.primary)
             }
         }
@@ -114,7 +114,7 @@ struct SearchExpandBar: View {
         HStack(spacing: 0) {
             // Left: magnifying glass icon — scales slightly when focused
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 15, weight: .medium))
+                .font(.systemScaled(15, weight: .medium))
                 .foregroundStyle(.secondary)
                 .scaleEffect(fieldFocused ? 1.06 : 1.0)
                 .animation(.spring(response: 0.48, dampingFraction: 0.82), value: fieldFocused)
@@ -148,7 +148,7 @@ struct SearchExpandBar: View {
             // Right: xmark close
             Button { close() } label: {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 17))
+                    .font(.systemScaled(17))
                     .foregroundStyle(Color(.tertiaryLabel))
                     .frame(width: 36, height: 44)
                     .padding(.trailing, 4)
@@ -196,7 +196,7 @@ struct SearchExpandBar: View {
                                     .fill(Color(uiColor: .tertiarySystemFill))
                                     .frame(width: 36, height: 36)
                                 Image(systemName: result.icon)
-                                    .font(.system(size: 14, weight: .medium))
+                                    .font(.systemScaled(14, weight: .medium))
                                     .foregroundStyle(.secondary)
                             }
 
@@ -217,7 +217,7 @@ struct SearchExpandBar: View {
                             Spacer()
 
                             Image(systemName: "arrow.up.left")
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                                 .foregroundStyle(.tertiary)
                         }
                         .padding(.horizontal, 14)

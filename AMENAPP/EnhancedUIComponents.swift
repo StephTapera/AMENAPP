@@ -48,7 +48,7 @@ struct AmenButtonStyle: ButtonStyle {
     
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 16, weight: .light, design: .default))
+            .font(.systemScaled(16, weight: .light, design: .default))
             .tracking(1.5)
             .foregroundColor(isPrimary ? .black : .white)
             .frame(maxWidth: .infinity)
@@ -75,7 +75,7 @@ struct AmenTextField: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title.uppercased())
-                .font(.system(size: 11, weight: .light))
+                .font(.systemScaled(11, weight: .light))
                 .tracking(2)
                 .foregroundColor(.white.opacity(0.6))
             
@@ -86,7 +86,7 @@ struct AmenTextField: View {
                     TextField("", text: $text)
                 }
             }
-            .font(.system(size: 16, weight: .light))
+            .font(.systemScaled(16, weight: .light))
             .foregroundColor(.white)
             .padding()
             .background(
@@ -207,11 +207,11 @@ struct AmenTabBarItem: View {
     var body: some View {
         VStack(spacing: 4) {
             Image(systemName: icon)
-                .font(.system(size: 22, weight: .light))
+                .font(.systemScaled(22, weight: .light))
                 .foregroundColor(isSelected ? .white : .white.opacity(0.5))
             
             Text(title)
-                .font(.system(size: 10, weight: .light))
+                .font(.systemScaled(10, weight: .light))
                 .tracking(1)
                 .foregroundColor(isSelected ? .white : .white.opacity(0.5))
         }
@@ -304,12 +304,12 @@ struct HapticFeedback {
         
         VStack(spacing: 20) {
             Text("AMEN")
-                .font(.system(size: 32, weight: .thin, design: .serif))
+                .font(.systemScaled(32, weight: .thin, design: .serif))
                 .tracking(8)
                 .foregroundColor(.white)
             
             Text("This is a card with the elegant AMEN design aesthetic.")
-                .font(.system(size: 14, weight: .light))
+                .font(.systemScaled(14, weight: .light))
                 .foregroundColor(.white.opacity(0.8))
                 .multilineTextAlignment(.center)
         }
@@ -338,7 +338,7 @@ struct HapticFeedback {
     ZStack {
         Color.black.ignoresSafeArea()
         Text("AMEN")
-            .font(.system(size: 64, weight: .thin, design: .serif))
+            .font(.systemScaled(64, weight: .thin, design: .serif))
             .tracking(10)
             .foregroundColor(.white)
             .amenShimmerEffect()

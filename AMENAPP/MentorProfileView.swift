@@ -44,7 +44,7 @@ struct MentorProfileView: View {
                             dismiss()
                         } label: {
                             Text("Continue with \(plan.name)")
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(.systemScaled(15, weight: .semibold))
                                 .foregroundStyle(.white)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 16)
@@ -79,32 +79,32 @@ struct MentorProfileView: View {
 
             HStack(spacing: 6) {
                 Text(mentor.name)
-                    .font(.system(size: 20, weight: .bold))
+                    .font(.systemScaled(20, weight: .bold))
                 if mentor.isVerified {
                     Image(systemName: "checkmark.seal.fill")
-                        .font(.system(size: 16))
+                        .font(.systemScaled(16))
                         .foregroundStyle(Color(red: 0.15, green: 0.45, blue: 0.82))
                 }
             }
 
             Text("\(mentor.role) · \(mentor.church)")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.secondary)
 
             HStack(spacing: 16) {
                 HStack(spacing: 4) {
                     Image(systemName: "star.fill")
                         .foregroundStyle(.yellow)
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                     Text(String(format: "%.1f", mentor.rating))
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                 }
                 HStack(spacing: 4) {
                     Image(systemName: "person.2.fill")
                         .foregroundStyle(.secondary)
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                     Text("\(mentor.sessionCount) sessions")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -119,11 +119,11 @@ struct MentorProfileView: View {
                 .fill(mentor.availabilityStatus.dotColor)
                 .frame(width: 8, height: 8)
             Text(mentor.availabilityStatus.label)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(mentor.availabilityStatus.color)
             if mentor.spotsAvailable > 0 {
                 Text("· \(mentor.spotsAvailable) spots available")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
             }
         }
@@ -138,13 +138,13 @@ struct MentorProfileView: View {
     private var bioSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("About")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 18)
 
             VStack(alignment: .leading, spacing: 8) {
                 Text(mentor.bio)
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(.primary)
                     .lineLimit(bioExpanded ? nil : 3)
                     .animation(.easeInOut(duration: 0.25), value: bioExpanded)
@@ -154,7 +154,7 @@ struct MentorProfileView: View {
                         withAnimation(.easeInOut(duration: 0.25)) { bioExpanded.toggle() }
                     } label: {
                         Text(bioExpanded ? "Show less" : "Read more")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.systemScaled(13, weight: .medium))
                             .foregroundStyle(Color(red: 0.49, green: 0.23, blue: 0.93))
                     }
                 }
@@ -170,14 +170,14 @@ struct MentorProfileView: View {
     private var specialtiesSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Specialties")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 18)
 
             FlowLayout(spacing: 8) {
                 ForEach(mentor.specialties, id: \.self) { spec in
                     Text(spec)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundStyle(Color(red: 0.49, green: 0.23, blue: 0.93))
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
@@ -194,7 +194,7 @@ struct MentorProfileView: View {
     private var plansSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Mentorship Plans")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 18)
 
@@ -221,10 +221,10 @@ private struct MentorProfilePlanCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text(plan.name).font(.system(size: 14, weight: .bold))
+                Text(plan.name).font(.systemScaled(14, weight: .bold))
                 if let badge = plan.badge {
                     Text(badge)
-                        .font(.system(size: 9, weight: .bold))
+                        .font(.systemScaled(9, weight: .bold))
                         .foregroundStyle(plan.isFree ? Color(red: 0.09, green: 0.64, blue: 0.29) : Color(red: 0.49, green: 0.23, blue: 0.93))
                         .padding(.horizontal, 7).padding(.vertical, 3)
                         .background(
@@ -232,9 +232,9 @@ private struct MentorProfilePlanCard: View {
                         )
                 }
                 Spacer()
-                Text(plan.priceLabel).font(.system(size: 16, weight: .bold))
+                Text(plan.priceLabel).font(.systemScaled(16, weight: .bold))
             }
-            Text(plan.description).font(.system(size: 12)).foregroundStyle(.secondary)
+            Text(plan.description).font(.systemScaled(12)).foregroundStyle(.secondary)
 
             VStack(alignment: .leading, spacing: 3) {
                 MentorPlanFeatureRow(text: "\(plan.sessionsPerMonth) session\(plan.sessionsPerMonth == 1 ? "" : "s") per month", included: true)
@@ -263,10 +263,10 @@ private struct MentorPlanFeatureRow: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: included ? "checkmark" : "xmark")
-                .font(.system(size: 10, weight: .semibold))
+                .font(.systemScaled(10, weight: .semibold))
                 .foregroundStyle(included ? Color(red: 0.09, green: 0.64, blue: 0.29) : Color(.systemGray3))
             Text(text)
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(included ? .primary : .secondary)
         }
     }

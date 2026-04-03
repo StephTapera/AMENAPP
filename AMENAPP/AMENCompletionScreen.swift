@@ -100,7 +100,7 @@ struct AMENCompletionScreen: View {
 
                 // Subtitle
                 Text(moment.subtitle)
-                    .font(.system(size: 16, design: .rounded))
+                    .font(.systemScaled(16, design: .rounded))
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
                     .padding(.top, 32)
@@ -112,7 +112,7 @@ struct AMENCompletionScreen: View {
                 // Dismiss
                 Button(action: { onDismiss?() }) {
                     Text("continue")
-                        .font(.system(size: 15, weight: .medium, design: .rounded))
+                        .font(.systemScaled(15, weight: .medium, design: .rounded))
                         .foregroundColor(moment.color)
                         .padding(.horizontal, 32)
                         .padding(.vertical, 14)

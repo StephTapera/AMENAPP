@@ -18,7 +18,7 @@ struct QuickProfileImageFixView: View {
     var body: some View {
         VStack(spacing: 24) {
             Image(systemName: "person.crop.circle.badge.checkmark")
-                .font(.system(size: 60))
+                .font(.systemScaled(60))
                 .foregroundStyle(.blue)
                 .padding(.top, 40)
             

@@ -372,9 +372,9 @@ struct AttachVerseSheet: View {
                 if vm.usingLocalFallback && vm.hasSearched {
                     HStack(spacing: 6) {
                         Image(systemName: "wifi.slash")
-                            .font(.system(size: 10))
+                            .font(.systemScaled(10))
                         Text("Showing offline results · Add a valid API key for full search")
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                     }
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 20)
@@ -415,7 +415,7 @@ struct AttachVerseSheet: View {
         HStack {
             Button { animateDismiss() } label: {
                 Text("Cancel")
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.systemScaled(15, weight: .medium))
                     .foregroundColor(.secondary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
@@ -426,7 +426,7 @@ struct AttachVerseSheet: View {
             Spacer()
 
             Text("Attach Verse")
-                .font(.system(size: 17, weight: .semibold))
+                .font(.systemScaled(17, weight: .semibold))
                 .foregroundColor(Color(white: 0.18))
 
             Spacer()
@@ -440,7 +440,7 @@ struct AttachVerseSheet: View {
                 }
             } label: {
                 Text("Attach")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundColor(vm.selectedVerse != nil ? accentB : Color(white: 0.6))
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
@@ -467,7 +467,7 @@ struct AttachVerseSheet: View {
                         if vm.hasSearched { vm.search() }
                     } label: {
                         Text(t.rawValue)
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                             .foregroundColor(vm.selectedTranslation == t ? .white : Color(white: 0.4))
                             .padding(.horizontal, 16)
                             .padding(.vertical, 9)
@@ -498,11 +498,11 @@ struct AttachVerseSheet: View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
                 .foregroundColor(inputFocused ? accentB : .secondary)
-                .font(.system(size: 15, weight: inputFocused ? .semibold : .regular))
+                .font(.systemScaled(15, weight: inputFocused ? .semibold : .regular))
                 .animation(.spring(response: 0.2), value: inputFocused)
 
             TextField("Search: John 3:16 · fear not · verse about peace", text: $vm.searchText)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundColor(Color(white: 0.2))
                 .focused($inputFocused)
                 .autocorrectionDisabled()
@@ -519,7 +519,7 @@ struct AttachVerseSheet: View {
                 } label: {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundColor(.secondary)
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                 }
                 .transition(.scale.combined(with: .opacity))
             }
@@ -547,12 +547,12 @@ struct AttachVerseSheet: View {
                     .fill(accentB.opacity(0.08))
                     .frame(width: 80, height: 80)
                 Image(systemName: "book.closed.fill")
-                    .font(.system(size: 34, weight: .light))
+                    .font(.systemScaled(34, weight: .light))
                     .foregroundColor(accentB.opacity(0.6))
             }
             .padding(.top, 20)
             Text("Search by keyword or reference")
-                .font(.system(size: 16, weight: .medium))
+                .font(.systemScaled(16, weight: .medium))
                 .foregroundColor(Color(white: 0.4))
             VStack(spacing: 10) {
                 ForEach(vm.suggestions, id: \.self) { s in
@@ -562,7 +562,7 @@ struct AttachVerseSheet: View {
                         }
                     } label: {
                         Text("\"\(s)\"")
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.systemScaled(14, weight: .medium))
                             .foregroundColor(accentB)
                             .padding(.horizontal, 20)
                             .padding(.vertical, 11)
@@ -596,7 +596,7 @@ struct AttachVerseSheet: View {
                 }
             }
             Text("Searching scriptures…")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundColor(.secondary)
             Spacer()
         }
@@ -609,13 +609,13 @@ struct AttachVerseSheet: View {
         VStack(spacing: 12) {
             Spacer()
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 30))
+                .font(.systemScaled(30))
                 .foregroundColor(Color(white: 0.6))
             Text("No verses found")
-                .font(.system(size: 16, weight: .medium))
+                .font(.systemScaled(16, weight: .medium))
                 .foregroundColor(Color(white: 0.4))
             Text("Try a different keyword or verse reference")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundColor(.secondary)
             Spacer()
         }
@@ -649,10 +649,10 @@ struct AttachVerseSheet: View {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 8) {
                         Text(verse.reference)
-                            .font(.system(size: 14, weight: .bold))
+                            .font(.systemScaled(14, weight: .bold))
                             .foregroundColor(isSelected ? accentB : Color(white: 0.2))
                         Text(verse.translation)
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.systemScaled(10, weight: .semibold))
                             .foregroundColor(isSelected ? accentB : accentR)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
@@ -660,7 +660,7 @@ struct AttachVerseSheet: View {
                             .clipShape(RoundedRectangle(cornerRadius: 4))
                     }
                     Text(verse.text)
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundColor(Color(white: isSelected ? 0.2 : 0.4))
                         .lineLimit(3)
                         .fixedSize(horizontal: false, vertical: true)
@@ -674,7 +674,7 @@ struct AttachVerseSheet: View {
                         .shadow(color: isSelected ? .clear : neuLight, radius: 4, x: -2, y: -2)
                     if isSelected {
                         Image(systemName: "checkmark")
-                            .font(.system(size: 11, weight: .bold))
+                            .font(.systemScaled(11, weight: .bold))
                             .foregroundColor(.white)
                             .transition(.scale.combined(with: .opacity))
                     }
@@ -728,15 +728,15 @@ struct AttachedVerseBadge: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: "book.closed.fill")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundColor(accentB)
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(verse.reference)
-                    .font(.system(size: 12, weight: .bold))
+                    .font(.systemScaled(12, weight: .bold))
                     .foregroundColor(accentB)
                 Text(verse.text)
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundColor(Color(white: 0.4))
                     .lineLimit(2)
             }
@@ -745,7 +745,7 @@ struct AttachedVerseBadge: View {
 
             Button { onRemove() } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundColor(.secondary)
                     .frame(width: 24, height: 24)
                     .background(neuBG)

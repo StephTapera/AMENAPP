@@ -147,7 +147,7 @@ private struct CommunityNoteCard: View {
 
             // Note snippet
             Text(note.noteSnippet)
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundColor(.white.opacity(0.70))
                 .lineLimit(3)
 

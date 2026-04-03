@@ -16,7 +16,7 @@ struct TestimonyOriginLinkView: View {
                     .fill(originBg)
                     .frame(width: 7, height: 7)
                 Text("Answered prayer")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.systemScaled(10, weight: .semibold))
                     .foregroundStyle(Color.secondary)
             }
 
@@ -30,11 +30,11 @@ struct TestimonyOriginLinkView: View {
 
                         VStack(alignment: .leading, spacing: 2) {
                             Text("THIS ANSWERED")
-                                .font(.system(size: 9, weight: .semibold))
+                                .font(.systemScaled(9, weight: .semibold))
                                 .foregroundStyle(Color.secondary)
                                 .kerning(0.5)
                             Text(prayerText)
-                                .font(.system(size: 11).italic())
+                                .font(.systemScaled(11).italic())
                                 .foregroundStyle(Color.primary)
                                 .lineLimit(1)
                         }

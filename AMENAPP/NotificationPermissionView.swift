@@ -66,7 +66,7 @@ struct NotificationPermissionView: View {
                         
                         // Bell icon
                         Image(systemName: "bell.badge.fill")
-                            .font(.system(size: 50))
+                            .font(.systemScaled(50))
                             .foregroundStyle(
                                 LinearGradient(
                                     colors: [.blue, .purple],
@@ -257,7 +257,7 @@ struct NotificationBenefitRow: View {
                     .frame(width: 48, height: 48)
                 
                 Image(systemName: icon)
-                    .font(.system(size: 20, weight: .semibold))
+                    .font(.systemScaled(20, weight: .semibold))
                     .foregroundStyle(iconColor)
             }
             

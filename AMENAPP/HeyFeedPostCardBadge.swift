@@ -44,22 +44,22 @@ struct HeyFeedBadgeView: View {
         } label: {
             HStack(spacing: 6) {
                 Text(request.requestType.icon)
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
 
                 Text(request.requestType.displayName)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundColor(Color.white.opacity(0.88))
                     .lineLimit(1)
 
                 if request.resonanceCount > 0 {
                     Text("· \(request.resonanceCount)")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.systemScaled(11, weight: .medium))
                         .foregroundColor(Color.white.opacity(0.60))
                 }
 
                 if isExpanded {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundColor(Color.white.opacity(0.55))
                 }
             }
@@ -145,10 +145,10 @@ struct HeyFeedFeedbackButton: View {
         } label: {
             HStack(spacing: 4) {
                 Text(type.icon)
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
 
                 Text(type.displayName)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundColor(isActive ? .white : Color.white.opacity(0.88))
                     .lineLimit(1)
             }
@@ -209,10 +209,10 @@ struct FeedbackChip: View {
     var body: some View {
         HStack(spacing: 3) {
             Text(type.icon)
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
 
             Text("\(count)")
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
                 .foregroundColor(isActive ? .white : Color.white.opacity(0.75))
         }
         .padding(.horizontal, 8)

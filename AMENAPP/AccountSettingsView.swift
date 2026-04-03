@@ -85,11 +85,11 @@ struct SundayChurchFocusSettingRow: View {
                     // Candle with flame
                     ZStack {
                         Image(systemName: "flame.fill")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundStyle(.white)
                         
                         Image(systemName: "flame.fill")
-                            .font(.system(size: 10))
+                            .font(.systemScaled(10))
                             .foregroundStyle(
                                 LinearGradient(
                                     colors: [.yellow, .orange],
@@ -207,7 +207,7 @@ struct AccountSettingsView: View {
                                 }
                                 Spacer()
                                 Image(systemName: "chevron.right")
-                                    .font(.system(size: 12, weight: .semibold))
+                                    .font(.systemScaled(12, weight: .semibold))
                                     .foregroundStyle(.secondary)
                             }
                             .padding(.horizontal, 16)
@@ -241,7 +241,7 @@ struct AccountSettingsView: View {
                                 }
                                 Spacer()
                                 Image(systemName: "chevron.right")
-                                    .font(.system(size: 12, weight: .semibold))
+                                    .font(.systemScaled(12, weight: .semibold))
                                     .foregroundStyle(.secondary)
                             }
                             .padding(.horizontal, 16)
@@ -269,7 +269,7 @@ struct AccountSettingsView: View {
                                 }
                                 Spacer()
                                 Image(systemName: "chevron.right")
-                                    .font(.system(size: 12, weight: .semibold))
+                                    .font(.systemScaled(12, weight: .semibold))
                                     .foregroundStyle(.secondary)
                             }
                             .padding(.horizontal, 16)
@@ -305,7 +305,7 @@ struct AccountSettingsView: View {
                             }
                             Spacer()
                             Image(systemName: "lock.fill")
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                                 .foregroundStyle(.tertiary)
                         }
                         .padding(.horizontal, 16)
@@ -336,7 +336,7 @@ struct AccountSettingsView: View {
                                     .font(AMENFont.regular(15))
                                 Spacer()
                                 Image(systemName: "chevron.right")
-                                    .font(.system(size: 12, weight: .semibold))
+                                    .font(.systemScaled(12, weight: .semibold))
                                     .foregroundStyle(.secondary)
                             }
                             .foregroundStyle(.primary)
@@ -380,7 +380,7 @@ struct AccountSettingsView: View {
                                 }
                                 Spacer()
                                 Image(systemName: "chevron.right")
-                                    .font(.system(size: 12, weight: .semibold))
+                                    .font(.systemScaled(12, weight: .semibold))
                                     .foregroundStyle(.secondary)
                             }
                             .padding(.horizontal, 16)
@@ -404,7 +404,7 @@ struct AccountSettingsView: View {
                                 }
                                 Spacer()
                                 Image(systemName: "chevron.right")
-                                    .font(.system(size: 12, weight: .semibold))
+                                    .font(.systemScaled(12, weight: .semibold))
                                     .foregroundStyle(.secondary)
                             }
                             .padding(.horizontal, 16)
@@ -428,7 +428,7 @@ struct AccountSettingsView: View {
                                 }
                                 Spacer()
                                 Image(systemName: "chevron.right")
-                                    .font(.system(size: 12, weight: .semibold))
+                                    .font(.systemScaled(12, weight: .semibold))
                                     .foregroundStyle(.secondary)
                             }
                             .padding(.horizontal, 16)
@@ -486,7 +486,7 @@ struct AccountSettingsView: View {
                                     .font(AMENFont.regular(15))
                                 Spacer()
                                 Image(systemName: "chevron.right")
-                                    .font(.system(size: 12, weight: .semibold))
+                                    .font(.systemScaled(12, weight: .semibold))
                                     .foregroundStyle(.secondary)
                             }
                             .padding(.horizontal, 16)
@@ -506,7 +506,7 @@ struct AccountSettingsView: View {
                                     .font(AMENFont.regular(15))
                                 Spacer()
                                 Image(systemName: "chevron.right")
-                                    .font(.system(size: 12, weight: .semibold))
+                                    .font(.systemScaled(12, weight: .semibold))
                                     .foregroundStyle(.secondary)
                             }
                             .padding(.horizontal, 16)
@@ -596,7 +596,7 @@ struct AccountSettingsView: View {
                                     .foregroundStyle(.primary)
                                 Spacer()
                                 Image(systemName: "chevron.right")
-                                    .font(.system(size: 12, weight: .semibold))
+                                    .font(.systemScaled(12, weight: .semibold))
                                     .foregroundStyle(.secondary)
                             }
                             .padding(.horizontal, 16)
@@ -658,7 +658,7 @@ struct AccountSettingsView: View {
                                 }
                                 Spacer()
                                 Image(systemName: "chevron.right")
-                                    .font(.system(size: 12, weight: .semibold))
+                                    .font(.systemScaled(12, weight: .semibold))
                                     .foregroundStyle(.secondary)
                             }
                             .padding(.horizontal, 16)
@@ -696,7 +696,7 @@ struct AccountSettingsView: View {
                                 }
                                 Spacer()
                                 Image(systemName: "chevron.right")
-                                    .font(.system(size: 12, weight: .semibold))
+                                    .font(.systemScaled(12, weight: .semibold))
                                     .foregroundStyle(.secondary)
                             }
                             .padding(.horizontal, 16)
@@ -740,7 +740,7 @@ struct AccountSettingsView: View {
                                 }
                                 Spacer()
                                 Image(systemName: "chevron.right")
-                                    .font(.system(size: 12, weight: .semibold))
+                                    .font(.systemScaled(12, weight: .semibold))
                                     .foregroundStyle(.secondary)
                             }
                             .padding(.horizontal, 16)
@@ -956,7 +956,7 @@ struct AccountSettingsView: View {
                                     .font(AMENFont.regular(15))
                                 Spacer()
                                 Image(systemName: "chevron.right")
-                                    .font(.system(size: 12, weight: .semibold))
+                                    .font(.systemScaled(12, weight: .semibold))
                                     .foregroundStyle(.secondary)
                             }
                             .padding(.horizontal, 16)
@@ -1016,7 +1016,7 @@ struct AccountSettingsView: View {
                                     .foregroundStyle(.primary)
                                 Spacer()
                                 Image(systemName: "arrow.up.right")
-                                    .font(.system(size: 11))
+                                    .font(.systemScaled(11))
                                     .foregroundStyle(.secondary)
                             }
                             .padding(.horizontal, 16)
@@ -1040,7 +1040,7 @@ struct AccountSettingsView: View {
                                     .foregroundStyle(.primary)
                                 Spacer()
                                 Image(systemName: "arrow.up.right")
-                                    .font(.system(size: 11))
+                                    .font(.systemScaled(11))
                                     .foregroundStyle(.secondary)
                             }
                             .padding(.horizontal, 16)
@@ -1064,7 +1064,7 @@ struct AccountSettingsView: View {
                                     .foregroundStyle(.primary)
                                 Spacer()
                                 Image(systemName: "arrow.up.right")
-                                    .font(.system(size: 11))
+                                    .font(.systemScaled(11))
                                     .foregroundStyle(.secondary)
                             }
                             .padding(.horizontal, 16)
@@ -1223,7 +1223,7 @@ struct AccountSettingsView: View {
                     .font(AMENFont.regular(15))
                     .foregroundStyle(.secondary)
                 Image(systemName: "chevron.up.chevron.down")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(.secondary)
             }
             .padding(.horizontal, 16)
@@ -1437,7 +1437,7 @@ struct ChangeDisplayNameView: View {
                     // Info Section
                     VStack(spacing: 16) {
                         Image(systemName: "person.circle.fill")
-                            .font(.system(size: 60))
+                            .font(.systemScaled(60))
                             .foregroundStyle(.blue)
                             .padding(.top, 20)
                         
@@ -1542,7 +1542,7 @@ struct ChangeDisplayNameView: View {
                         // Cooldown Message
                         VStack(spacing: 12) {
                             Image(systemName: "calendar.badge.clock")
-                                .font(.system(size: 50))
+                                .font(.systemScaled(50))
                                 .foregroundStyle(.orange)
                             
                             Text("Please Wait")
@@ -1686,7 +1686,7 @@ struct ChangeUsernameView: View {
                     // Info Section
                     VStack(spacing: 16) {
                         Image(systemName: "at.circle.fill")
-                            .font(.system(size: 60))
+                            .font(.systemScaled(60))
                             .foregroundStyle(.purple)
                             .padding(.top, 20)
                         
@@ -1819,7 +1819,7 @@ struct ChangeUsernameView: View {
                         // Cooldown Message
                         VStack(spacing: 12) {
                             Image(systemName: "calendar.badge.clock")
-                                .font(.system(size: 50))
+                                .font(.systemScaled(50))
                                 .foregroundStyle(.orange)
                             
                             Text("Please Wait")
@@ -1941,7 +1941,7 @@ struct InfoRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: icon)
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(.secondary)
                 .frame(width: 16)
             
@@ -1987,7 +1987,7 @@ struct ChangeEmailView: View {
                     // Header
                     VStack(spacing: 16) {
                         Image(systemName: isPasswordlessUser ? (authProviderName == "Apple ID" ? "apple.logo" : "globe") : "envelope.fill")
-                            .font(.system(size: 60))
+                            .font(.systemScaled(60))
                             .foregroundStyle(isPasswordlessUser ? .orange : .blue)
                             .padding(.top, 20)
                         
@@ -2229,7 +2229,7 @@ struct ChangePasswordView: View {
                     // Header
                     VStack(spacing: 16) {
                         Image(systemName: isPasswordlessUser ? (authProviderName == "Apple ID" ? "apple.logo" : "globe") : "lock.shield.fill")
-                            .font(.system(size: 60))
+                            .font(.systemScaled(60))
                             .foregroundStyle(isPasswordlessUser ? .orange : .blue)
                             .padding(.top, 20)
                         
@@ -2465,7 +2465,7 @@ struct RequirementRow: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: met ? "checkmark.circle.fill" : "circle")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(met ? .green : .gray)
             
             Text(text)

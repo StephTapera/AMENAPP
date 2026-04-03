@@ -75,7 +75,7 @@ struct VergeMessageBubbleView: View {
             if message.isPinned {
                 HStack(spacing: 4) {
                     Image(systemName: "pin.fill")
-                        .font(.system(size: 9, weight: .medium))
+                        .font(.systemScaled(9, weight: .medium))
                         .foregroundStyle(amenGold.opacity(0.7))
                     Text("Pinned")
                         .font(AMENFont.regular(10))
@@ -103,7 +103,7 @@ struct VergeMessageBubbleView: View {
                     if message.type == .question || message.type == .aiInsight {
                         HStack(spacing: 4) {
                             Image(systemName: message.type == .question ? "questionmark.circle.fill" : "sparkles")
-                                .font(.system(size: 10, weight: .medium))
+                                .font(.systemScaled(10, weight: .medium))
                                 .symbolRenderingMode(.hierarchical)
                                 .foregroundStyle(message.type.accentColor)
                             Text(message.type == .question ? "Question" : "AI Insight")
@@ -154,7 +154,7 @@ struct VergeMessageBubbleView: View {
             ForEach(message.reactions.sorted(by: { $0.key < $1.key }), id: \.key) { emoji, count in
                 HStack(spacing: 3) {
                     Text(emoji)
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                     Text("\(count)")
                         .font(AMENFont.regular(11))
                         .foregroundStyle(.white.opacity(0.55))
@@ -181,7 +181,7 @@ struct VergeMessageBubbleView: View {
                         addReaction(emoji)
                         showReactionPicker = false
                     } label: {
-                        Text(emoji).font(.system(size: 32))
+                        Text(emoji).font(.systemScaled(32))
                     }
                     .buttonStyle(CoCreationPressStyle())
                 }

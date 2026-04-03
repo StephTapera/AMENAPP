@@ -60,7 +60,7 @@ struct TipSheetView: View {
                         Image(systemName: "xmark.circle.fill")
                             .symbolRenderingMode(.hierarchical)
                             .foregroundStyle(.white.opacity(0.6))
-                            .font(.system(size: 22))
+                            .font(.systemScaled(22))
                     }
                 }
             }
@@ -79,7 +79,7 @@ struct TipSheetView: View {
                 // Room context banner
                 HStack(spacing: 10) {
                     Image(systemName: "video.fill")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .symbolRenderingMode(.hierarchical)
                         .foregroundStyle(amenViolet)
                     Text("Supporting during \"\(roomTitle)\"")
@@ -125,7 +125,7 @@ struct TipSheetView: View {
                 // Note
                 HStack(spacing: 6) {
                     Image(systemName: "applelogo")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundStyle(.white.opacity(0.3))
                     Text("Charged via Apple Pay")
                         .font(AMENFont.regular(12))
@@ -217,7 +217,7 @@ struct TipSheetView: View {
                 } else {
                     HStack(spacing: 8) {
                         Text("❤️")
-                            .font(.system(size: 16))
+                            .font(.systemScaled(16))
                         Text("Send with ❤️  \(String(format: "$%.0f", effectiveAmount))")
                             .font(AMENFont.bold(17))
                             .foregroundStyle(.white)
@@ -264,7 +264,7 @@ struct TipSheetView: View {
                 }
 
                 Text("❤️")
-                    .font(.system(size: heartBurst ? 72 : 40))
+                    .font(.systemScaled(heartBurst ? 72 : 40))
                     .scaleEffect(heartBurst ? 1.0 : 0.5)
                     .opacity(heartBurst ? 1.0 : 0.0)
                     .animation(.spring(response: 0.4, dampingFraction: 0.6), value: heartBurst)

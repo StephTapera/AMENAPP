@@ -72,7 +72,7 @@ struct ScriptureAnchorCard: View {
         if !service.suggestions.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
                 Label("Scripture Anchor", systemImage: "sparkles")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(.orange)
 
                 ForEach(service.suggestions) { s in
@@ -80,10 +80,10 @@ struct ScriptureAnchorCard: View {
                         HStack(spacing: 10) {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(s.reference)
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .font(.systemScaled(13, weight: .semibold))
                                     .foregroundStyle(.primary)
                                 Text(s.text)
-                                    .font(.system(size: 12))
+                                    .font(.systemScaled(12))
                                     .foregroundStyle(.secondary)
                                     .lineLimit(2)
                             }
@@ -174,12 +174,12 @@ struct EchoButton: View {
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: isEchoed ? "hands.and.sparkles.fill" : "hands.and.sparkles")
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .scaleEffect(isAnimating ? 1.3 : 1.0)
                     .foregroundStyle(isEchoed ? .purple : .secondary)
                 if echoCount > 0 {
                     Text("\(echoCount)")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(isEchoed ? .purple : .secondary)
                 }
             }
@@ -221,7 +221,7 @@ struct TestimonyArcView: View {
         if let linkedId = testimony.linkedPrayerRequestId {
             VStack(alignment: .leading, spacing: 10) {
                 Label("Prayer → Testimony Journey", systemImage: "arrow.triangle.path.badge.chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(.purple)
 
                 HStack(spacing: 12) {
@@ -232,10 +232,10 @@ struct TestimonyArcView: View {
                     if journeyDays > 0 {
                         VStack(spacing: 2) {
                             Text("\(journeyDays)")
-                                .font(.system(size: 16, weight: .bold))
+                                .font(.systemScaled(16, weight: .bold))
                                 .foregroundStyle(.purple)
                             Text("days")
-                                .font(.system(size: 10))
+                                .font(.systemScaled(10))
                                 .foregroundStyle(.secondary)
                         }
                         Rectangle().frame(width: 24, height: 1).foregroundStyle(.purple.opacity(0.3))
@@ -247,7 +247,7 @@ struct TestimonyArcView: View {
 
                 if let prayer = originalPrayer {
                     Text("\"\(prayer.content.prefix(80))…\"")
-                        .font(.system(size: 12, design: .serif).italic())
+                        .font(.systemScaled(12, design: .serif).italic())
                         .foregroundStyle(.secondary)
                         .padding(8)
                         .background(Color.purple.opacity(0.06))
@@ -271,10 +271,10 @@ struct TestimonyArcView: View {
 
     private func arcStep(icon: String, label: String, color: Color, date: Date?) -> some View {
         VStack(spacing: 4) {
-            Image(systemName: icon).font(.system(size: 18)).foregroundStyle(color)
-            Text(label).font(.system(size: 10)).foregroundStyle(.secondary)
+            Image(systemName: icon).font(.systemScaled(18)).foregroundStyle(color)
+            Text(label).font(.systemScaled(10)).foregroundStyle(.secondary)
             if let date {
-                Text(date, style: .date).font(.system(size: 9)).foregroundStyle(.tertiary)
+                Text(date, style: .date).font(.systemScaled(9)).foregroundStyle(.tertiary)
             }
         }
     }
@@ -427,17 +427,17 @@ struct SermonConnectBanner: View {
                 Image(systemName: "note.text").foregroundStyle(.orange)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Your pastor spoke on this")
-                        .font(.system(size: 12, weight: .semibold))
-                    Text(title).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1)
+                        .font(.systemScaled(12, weight: .semibold))
+                    Text(title).font(.systemScaled(11)).foregroundStyle(.secondary).lineLimit(1)
                 }
                 Spacer()
                 Button { onTapNote(service.matchedNoteId ?? "") } label: {
-                    Text("Read").font(.system(size: 11, weight: .semibold))
+                    Text("Read").font(.systemScaled(11, weight: .semibold))
                         .foregroundStyle(.white).padding(.horizontal, 10).padding(.vertical, 4)
                         .background(Capsule().fill(Color.orange))
                 }
                 Button { service.isDismissed = true } label: {
-                    Image(systemName: "xmark").font(.system(size: 10)).foregroundStyle(.secondary)
+                    Image(systemName: "xmark").font(.systemScaled(10)).foregroundStyle(.secondary)
                 }
             }
             .padding(10)
@@ -523,20 +523,20 @@ struct PrayerRoomCard: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Label("Prayer Room", systemImage: "person.3.fill")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(.purple)
                 Spacer()
                 Text(room.scheduledAt, style: .relative)
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.secondary)
             }
 
             Text(room.title)
-                .font(.system(size: 15, weight: .semibold))
+                .font(.systemScaled(15, weight: .semibold))
 
             HStack {
                 Label("\(room.rsvpUserIds.count) joining", systemImage: "person.badge.plus")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
                 Spacer()
                 Button {
@@ -544,7 +544,7 @@ struct PrayerRoomCard: View {
                     Task { await PrayerRoomService.shared.rsvp(roomId: room.id ?? "") }
                 } label: {
                     Text(hasRSVPd ? "Joined ✓" : "Join")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(hasRSVPd ? .secondary : Color.white)
                         .padding(.horizontal, 16).padding(.vertical, 6)
                         .background(hasRSVPd ? Color.clear : Color.purple)
@@ -574,7 +574,7 @@ struct PrayerRoomsSection: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Label("Prayer Rooms", systemImage: "person.3.sequence.fill")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                     Spacer()
                     Button { showCreateRoom = true } label: {
                         Image(systemName: "plus.circle").foregroundStyle(.purple)
@@ -708,12 +708,12 @@ struct BurdenMatchPrompt: View {
     var body: some View {
         if service.showMatchPrompt {
             VStack(spacing: 12) {
-                Image(systemName: "heart.circle.fill").font(.system(size: 36)).foregroundStyle(.purple)
+                Image(systemName: "heart.circle.fill").font(.systemScaled(36)).foregroundStyle(.purple)
                 Text("Someone nearby is walking through something similar.")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .multilineTextAlignment(.center)
                 Text("Want to connect?")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.secondary)
                 HStack(spacing: 12) {
                     Button("Not now") { service.declineMatch() }
@@ -802,7 +802,7 @@ struct FastingChainView: View {
                     Text(service.totalFastingDays > 0
                          ? "\(service.totalFastingDays) days fasted collectively"
                          : "Start a fast for this prayer")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(service.totalFastingDays > 0 ? .primary : .secondary)
                 }
                 Spacer()
@@ -810,14 +810,14 @@ struct FastingChainView: View {
                     Button("Fast") {
                         showJoinSheet = true
                     }
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 12).padding(.vertical, 4)
                     .background(Capsule().fill(Color.orange))
                     .buttonStyle(.plain)
                 } else {
                     Label("Fasting", systemImage: "checkmark.circle.fill")
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(.orange)
                 }
             }

@@ -47,7 +47,7 @@ struct WitnessBannerView: View {
 
             // Count text
             Text(displayText)
-                .font(.system(size: 12, weight: .medium))
+                .font(.systemScaled(12, weight: .medium))
                 .foregroundStyle(.primary.opacity(0.75))
                 .lineLimit(1)
 
@@ -100,7 +100,7 @@ private struct WitnessAvatarCircle: View {
             .fill(Color.accentColor.opacity(0.25))
             .overlay(
                 Text(String(uid.prefix(1)).uppercased())
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(.systemScaled(9, weight: .semibold))
                     .foregroundStyle(.primary.opacity(0.6))
             )
     }

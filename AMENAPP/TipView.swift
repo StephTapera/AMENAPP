@@ -58,7 +58,7 @@ struct TipView: View {
                         Image(systemName: "xmark.circle.fill")
                             .symbolRenderingMode(.hierarchical)
                             .foregroundStyle(.white.opacity(0.7))
-                            .font(.system(size: 22))
+                            .font(.systemScaled(22))
                     }
                 }
             }
@@ -171,7 +171,7 @@ struct TipView: View {
                         } else {
                             HStack(spacing: 8) {
                                 Image(systemName: "heart.fill")
-                                    .font(.system(size: 15, weight: .semibold))
+                                    .font(.systemScaled(15, weight: .semibold))
                                     .symbolRenderingMode(.hierarchical)
                                 Text("Send \(formattedAmount)")
                                     .font(AMENFont.bold(17))
@@ -199,7 +199,7 @@ struct TipView: View {
                 // ── Apple Pay note ────────────────────────────────────
                 HStack(spacing: 6) {
                     Image(systemName: "applelogo")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(.white.opacity(0.35))
                     Text("Charged via Apple Pay")
                         .font(AMENFont.regular(12))
@@ -225,7 +225,7 @@ struct TipView: View {
                     .fill(Color.green.opacity(0.15))
                     .frame(width: 100, height: 100)
                 Image(systemName: "heart.circle.fill")
-                    .font(.system(size: 64, weight: .semibold))
+                    .font(.systemScaled(64, weight: .semibold))
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(Color.green)
                 // Shimmer ring

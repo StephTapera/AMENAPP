@@ -128,7 +128,7 @@ struct NotificationSettingsView: View {
                 HStack(spacing: 12) {
                     let isGranted = pushManager.notificationPermissionGranted
                     Image(systemName: isGranted ? "checkmark.circle.fill" : "xmark.circle.fill")
-                        .font(.system(size: 22))
+                        .font(.systemScaled(22))
                         .foregroundStyle(isGranted ? .green : .red)
                         .frame(width: 28)
                     
@@ -273,7 +273,7 @@ struct NotificationSettingsView: View {
                 Toggle(isOn: $soundEnabled) {
                     HStack(spacing: 12) {
                         Image(systemName: "speaker.wave.2.fill")
-                            .font(.system(size: 18))
+                            .font(.systemScaled(18))
                             .foregroundStyle(.blue)
                             .frame(width: 28)
                         
@@ -296,7 +296,7 @@ struct NotificationSettingsView: View {
                 Toggle(isOn: $badgeEnabled) {
                     HStack(spacing: 12) {
                         Image(systemName: "app.badge.fill")
-                            .font(.system(size: 18))
+                            .font(.systemScaled(18))
                             .foregroundStyle(.red)
                             .frame(width: 28)
                         
@@ -335,7 +335,7 @@ struct NotificationSettingsView: View {
             } label: {
                 HStack(spacing: 12) {
                     Image(systemName: "bell.badge.fill")
-                        .font(.system(size: 18))
+                        .font(.systemScaled(18))
                         .foregroundStyle(.orange)
                         .frame(width: 28)
                     
@@ -346,7 +346,7 @@ struct NotificationSettingsView: View {
                     Spacer()
                     
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(.white.opacity(0.3))
                 }
                 .padding(16)
@@ -374,7 +374,7 @@ struct NotificationSettingsView: View {
             Toggle(isOn: isOn) {
                 HStack(spacing: 12) {
                     Image(systemName: icon)
-                        .font(.system(size: 18))
+                        .font(.systemScaled(18))
                         .foregroundStyle(iconColor)
                         .frame(width: 28)
                     
@@ -412,10 +412,10 @@ struct NotificationSettingsView: View {
         )) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(Color.primary)
                 Text(subtitle)
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(Color.secondary)
             }
         }

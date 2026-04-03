@@ -40,7 +40,7 @@ struct CoachMarkOverlay: View {
                             .frame(width: 80, height: 80)
 
                         Image(systemName: ftueManager.currentStep.icon)
-                            .font(.system(size: 36, weight: .medium))
+                            .font(.systemScaled(36, weight: .medium))
                             .foregroundStyle(.white)
                     }
                     .scaleEffect(slideIn ? 1 : 0.6)
@@ -50,7 +50,7 @@ struct CoachMarkOverlay: View {
 
                     // Title
                     Text(ftueManager.currentStep.title)
-                        .font(.system(size: 28, weight: .bold))
+                        .font(.systemScaled(28, weight: .bold))
                         .foregroundStyle(.white)
                         .multilineTextAlignment(.center)
                         .opacity(slideIn ? 1 : 0)
@@ -60,7 +60,7 @@ struct CoachMarkOverlay: View {
 
                     // Description
                     Text(ftueManager.currentStep.description)
-                        .font(.system(size: 15, weight: .regular))
+                        .font(.systemScaled(15, weight: .regular))
                         .foregroundStyle(.white.opacity(0.7))
                         .multilineTextAlignment(.center)
                         .lineSpacing(4)
@@ -128,10 +128,10 @@ struct CoachMarkOverlay: View {
                     Button {
                         print("🎯 FTUE Button tapped!")
                         UINotificationFeedbackGenerator().notificationOccurred(.success)
-                        ftueManager.completeFTUE()
+                        ftueManager.nextStep()
                     } label: {
                         Text(ftueManager.currentStep.primaryButtonText)
-                            .font(.system(size: 17, weight: .semibold))
+                            .font(.systemScaled(17, weight: .semibold))
                             .foregroundStyle(.black)
                             .frame(maxWidth: .infinity)
                             .frame(height: 54)
@@ -176,17 +176,17 @@ struct CoachMarkOverlay: View {
     private func ruleItem(index: Int, icon: String, color: Color, title: String, description: String) -> some View {
         HStack(alignment: .top, spacing: 14) {
             Image(systemName: icon)
-                .font(.system(size: 22))
+                .font(.systemScaled(22))
                 .foregroundColor(color)
                 .frame(width: 28)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundColor(.white)
 
                 Text(description)
-                    .font(.system(size: 14, weight: .regular))
+                    .font(.systemScaled(14, weight: .regular))
                     .foregroundColor(.white.opacity(0.7))
                     .lineSpacing(3)
             }

@@ -28,7 +28,7 @@ struct SubtleCollaborationSuggestionsView: View {
                 } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "person.2.badge.gearshape.fill")
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.systemScaled(14, weight: .medium))
                             .foregroundStyle(.blue.opacity(0.8))
                         
                         Text("People You Might Connect With")
@@ -38,7 +38,7 @@ struct SubtleCollaborationSuggestionsView: View {
                         Spacer()
                         
                         Image(systemName: "chevron.down")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.systemScaled(11, weight: .semibold))
                             .foregroundStyle(.secondary)
                             .rotationEffect(.degrees(isExpanded ? 180 : 0))
                     }
@@ -111,7 +111,7 @@ struct SubtleCollaborationSuggestionsView: View {
                     ForEach(match.matchReasons.prefix(3), id: \.self) { reason in
                         HStack(spacing: 4) {
                             Image(systemName: reason.icon)
-                                .font(.system(size: 9, weight: .medium))
+                                .font(.systemScaled(9, weight: .medium))
                             
                             Text(reason.rawValue)
                                 .font(.custom("OpenSans-Regular", size: 10))
@@ -154,7 +154,7 @@ struct SubtleCollaborationSuggestionsView: View {
                         Text("Next")
                             .font(.custom("OpenSans-SemiBold", size: 13))
                         Image(systemName: "arrow.right")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.systemScaled(11, weight: .semibold))
                     }
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 16)
@@ -223,7 +223,7 @@ struct InlineCollaboratorSuggestion: View {
                 Spacer()
                 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.systemScaled(10, weight: .semibold))
                     .foregroundStyle(.tertiary)
             }
             .padding(.horizontal, 12)

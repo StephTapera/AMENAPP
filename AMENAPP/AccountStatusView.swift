@@ -85,7 +85,7 @@ struct AccountStatusView: View {
                 VStack(spacing: 0) {
                     HStack(spacing: 16) {
                         Image(systemName: standing.icon)
-                            .font(.system(size: 32))
+                            .font(.systemScaled(32))
                             .foregroundStyle(standing.color)
 
                         VStack(alignment: .leading, spacing: 4) {
@@ -146,7 +146,7 @@ struct AccountStatusView: View {
                     VStack(spacing: 0) {
                         VStack(spacing: 8) {
                             Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 36))
+                                .font(.systemScaled(36))
                                 .foregroundStyle(.green)
                             Text("No enforcement actions")
                                 .font(AMENFont.semiBold(15))
@@ -211,7 +211,7 @@ struct AccountStatusView: View {
             HStack {
                 Image(systemName: iconForAction(action.type))
                     .foregroundStyle(colorForStatus(action.status))
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
 
                 Text(labelForAction(action.type))
                     .font(AMENFont.semiBold(14))
@@ -414,7 +414,7 @@ struct AppealSubmissionSheet: View {
                     // MARK: Header
                     VStack(spacing: 10) {
                         Image(systemName: "person.badge.shield.checkmark.fill")
-                            .font(.system(size: 48))
+                            .font(.systemScaled(48))
                             .foregroundStyle(.blue)
                             .padding(.top, 24)
 

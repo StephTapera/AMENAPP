@@ -306,7 +306,7 @@ struct ReactionItemView: View {
 
     var body: some View {
         Text(item.emoji)
-            .font(.system(size: isHovered ? 28 : 22))
+            .font(.systemScaled(isHovered ? 28 : 22))
             .frame(width: baseSize, height: baseSize)
             .scaleEffect(isHovered ? hoverScale : (isSelected ? 1.12 : 1.0))
             .offset(
@@ -394,10 +394,10 @@ struct ReactionAnchorBadgeView: View {
         }) {
             HStack(spacing: 3) {
                 Text(emoji)
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                 if count > 1 {
                     Text("\(count)")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundStyle(isFromCurrentUser ? Color.accentColor : .secondary)
                         .contentTransition(.numericText())
                 }

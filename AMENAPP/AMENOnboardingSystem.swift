@@ -134,7 +134,7 @@ struct AmenOnboardingHeroIcon: View {
                 .shadow(color: ONB.glassShadow, radius: 16, y: 4)
                 .shadow(color: ONB.glassShadow.opacity(0.4), radius: 4, y: 2)
             Image(systemName: systemName)
-                .font(.system(size: size * iconScale, weight: .semibold))
+                .font(.systemScaled(size * iconScale, weight: .semibold))
                 .foregroundStyle(accent)
         }
         .frame(width: size, height: size)
@@ -159,19 +159,19 @@ struct AmenOnboardingInfoRow: View {
                     .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(ONB.glassBorder, lineWidth: 0.75))
                     .shadow(color: ONB.glassShadow, radius: 4, y: 1)
                 Image(systemName: icon)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(accent)
             }
             .frame(width: 40, height: 40)
 
             VStack(alignment: .leading, spacing: subtitle.isEmpty ? 0 : 3) {
                 Text(title)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(ONB.inkPrimary)
                     .fixedSize(horizontal: false, vertical: true)
                 if !subtitle.isEmpty {
                     Text(subtitle)
-                        .font(.system(size: 13, weight: .regular))
+                        .font(.systemScaled(13, weight: .regular))
                         .foregroundStyle(ONB.inkSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                         .lineSpacing(2)
@@ -218,7 +218,7 @@ struct ONBPrimaryButton: View {
                             .font(ONB.ctaFont())
                         if !trailingIcon.isEmpty {
                             Image(systemName: trailingIcon)
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.systemScaled(13, weight: .semibold))
                         }
                     }
                     .foregroundStyle(.white)
@@ -256,7 +256,7 @@ struct ONBSecondaryButton: View {
             action()
         }) {
             Text(title)
-                .font(.system(size: 15, weight: .medium))
+                .font(.systemScaled(15, weight: .medium))
                 .foregroundStyle(ONB.inkSecondary)
                 .frame(maxWidth: .infinity)
                 .frame(height: 48)
@@ -281,7 +281,7 @@ struct ONBHeroText: View {
     var body: some View {
         VStack(alignment: alignment, spacing: 10) {
             Text(headline)
-                .font(.system(size: 34, weight: .bold))
+                .font(.systemScaled(34, weight: .bold))
                 .foregroundStyle(ONB.inkPrimary)
                 .tracking(-0.5)
                 .fixedSize(horizontal: false, vertical: true)
@@ -289,7 +289,7 @@ struct ONBHeroText: View {
                 .offset(y: appeared ? 0 : 14)
 
             Text(subheadline)
-                .font(.system(size: 17, weight: .regular))
+                .font(.systemScaled(17, weight: .regular))
                 .foregroundStyle(ONB.inkSecondary)
                 .lineSpacing(3)
                 .fixedSize(horizontal: false, vertical: true)
@@ -321,7 +321,7 @@ struct ONBIconBadge: View {
                 .frame(width: size, height: size)
                 .shadow(color: ONB.glassShadow, radius: 4, y: 1)
             Image(systemName: systemName)
-                .font(.system(size: size * 0.42, weight: .semibold))
+                .font(.systemScaled(size * 0.42, weight: .semibold))
                 .foregroundStyle(color)
         }
     }
@@ -341,10 +341,10 @@ struct ONBFeatureRow: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(ONB.inkPrimary)
                 Text(description)
-                    .font(.system(size: 14, weight: .regular))
+                    .font(.systemScaled(14, weight: .regular))
                     .foregroundStyle(ONB.inkSecondary)
                     .lineSpacing(2)
                     .fixedSize(horizontal: false, vertical: true)
@@ -372,23 +372,23 @@ struct ONBPrivacyRow: View {
             } label: {
                 HStack(spacing: 12) {
                     Image(systemName: icon)
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.systemScaled(14, weight: .medium))
                         .foregroundStyle(ONB.accent)
                         .frame(width: 24)
 
                     VStack(alignment: .leading, spacing: 1) {
                         Text(category)
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                             .foregroundStyle(ONB.inkPrimary)
                         Text(detail)
-                            .font(.system(size: 12, weight: .regular))
+                            .font(.systemScaled(12, weight: .regular))
                             .foregroundStyle(ONB.inkSecondary)
                     }
 
                     Spacer()
 
                     Image(systemName: expanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.systemScaled(11, weight: .medium))
                         .foregroundStyle(ONB.inkTertiary)
                 }
                 .contentShape(Rectangle())
@@ -397,7 +397,7 @@ struct ONBPrivacyRow: View {
 
             if expanded {
                 Text(why)
-                    .font(.system(size: 12, weight: .regular))
+                    .font(.systemScaled(12, weight: .regular))
                     .foregroundStyle(ONB.inkSecondary)
                     .lineSpacing(2)
                     .padding(.top, 8)
@@ -420,7 +420,7 @@ struct ONBAMENLogo: View {
                 .fill(ONB.inkPrimary)
                 .frame(width: size, height: size)
             Image(systemName: "cross.fill")
-                .font(.system(size: size * 0.42, weight: .regular))
+                .font(.systemScaled(size * 0.42, weight: .regular))
                 .foregroundStyle(.white)
         }
     }
@@ -483,7 +483,7 @@ struct ONBInputField: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(label.uppercased())
-                .font(.system(size: 10, weight: .semibold))
+                .font(.systemScaled(10, weight: .semibold))
                 .tracking(1.2)
                 .foregroundStyle(ONB.inkTertiary)
 
@@ -498,7 +498,7 @@ struct ONBInputField: View {
                             .autocorrectionDisabled(keyboardType == .emailAddress)
                     }
                 }
-                .font(.system(size: 16, weight: .regular))
+                .font(.systemScaled(16, weight: .regular))
                 .foregroundStyle(ONB.inkPrimary)
                 .focused($focused)
 
@@ -507,7 +507,7 @@ struct ONBInputField: View {
                         showPassword.toggle()
                     } label: {
                         Image(systemName: showPassword ? "eye.slash" : "eye")
-                            .font(.system(size: 15))
+                            .font(.systemScaled(15))
                             .foregroundStyle(ONB.inkTertiary)
                     }
                     .buttonStyle(.plain)
@@ -547,10 +547,10 @@ struct ONBToggleRow: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(ONB.inkPrimary)
                 Text(description)
-                    .font(.system(size: 12, weight: .regular))
+                    .font(.systemScaled(12, weight: .regular))
                     .foregroundStyle(ONB.inkSecondary)
             }
 

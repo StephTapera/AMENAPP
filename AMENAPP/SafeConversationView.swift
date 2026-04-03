@@ -22,7 +22,7 @@ struct SafeConversationView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         HStack(spacing: 12) {
                             Image(systemName: "shield.checkered")
-                                .font(.system(size: 32))
+                                .font(.systemScaled(32))
                                 .foregroundStyle(.green)
                             
                             Text("Safe Conversation Mode")
@@ -41,7 +41,7 @@ struct SafeConversationView: View {
                     if let autoUntil = viewModel.autoEnabledUntil, autoUntil > Date() {
                         HStack(spacing: 12) {
                             Image(systemName: "info.circle.fill")
-                                .font(.system(size: 20))
+                                .font(.systemScaled(20))
                                 .foregroundStyle(.blue)
                             
                             VStack(alignment: .leading, spacing: 4) {
@@ -173,7 +173,7 @@ struct SafeConversationView: View {
                             } label: {
                                 HStack {
                                     Image(systemName: "plus.circle.fill")
-                                        .font(.system(size: 20))
+                                        .font(.systemScaled(20))
                                     
                                     Text("Add Trusted User")
                                         .font(.custom("OpenSans-SemiBold", size: 16))
@@ -227,7 +227,7 @@ struct SafeModeCard: View {
         Button(action: onSelect) {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
                     .foregroundStyle(isSelected ? .green : .secondary)
                 
                 VStack(alignment: .leading, spacing: 4) {
@@ -362,7 +362,7 @@ struct TrustedUserPickerView: View {
                 } else if searchText.isEmpty {
                     VStack(spacing: 12) {
                         Image(systemName: "person.2.fill")
-                            .font(.system(size: 40))
+                            .font(.systemScaled(40))
                             .foregroundStyle(.secondary)
                         Text("Search for people to trust")
                             .font(.custom("OpenSans-Regular", size: 15))
@@ -372,7 +372,7 @@ struct TrustedUserPickerView: View {
                 } else if searchResults.isEmpty {
                     VStack(spacing: 12) {
                         Image(systemName: "person.slash")
-                            .font(.system(size: 40))
+                            .font(.systemScaled(40))
                             .foregroundStyle(.secondary)
                         Text("No users found for \"\(searchText)\"")
                             .font(.custom("OpenSans-Regular", size: 15))

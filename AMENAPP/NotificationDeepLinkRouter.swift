@@ -9,6 +9,7 @@
 import Foundation
 import SwiftUI
 import Combine
+import FirebaseFirestore
 
 /// Handles deep linking from notifications to specific app screens
 @MainActor
@@ -176,8 +177,10 @@ final class NotificationDeepLinkRouter: ObservableObject {
         default:
             destination = .notifications
         }
-        
-        performNavigation(to: destination)
+
+        // ✅ FIX: Verify content exists before navigating — graceful fallback
+        // if the post/conversation was deleted after the notification was sent.
+        verifyAndNavigate(to: destination)
     }
     
     // MARK: - Determine Destination
@@ -304,6 +307,35 @@ final class NotificationDeepLinkRouter: ObservableObject {
     func navigate(to destination: NavigationDestination) {
         performNavigation(to: destination)
     }
+
+    /// ✅ FIX: Navigate only if the target content still exists in Firestore.
+    /// If the post or conversation was deleted, fall back to .notifications
+    /// instead of navigating to a dead view. Prevents the "push says X, screen
+    /// shows nothing" trust-erosion pattern.
+    func verifyAndNavigate(to destination: NavigationDestination) {
+        Task {
+            let verified = await contentExists(for: destination)
+            let resolved = verified ? destination : .notifications
+            if !verified {
+                dlog("⚠️ Deep link target no longer exists — redirecting to notifications")
+            }
+            performNavigation(to: resolved)
+        }
+    }
+
+    private func contentExists(for destination: NavigationDestination) async -> Bool {
+        let db = Firestore.firestore()
+        switch destination {
+        case .post(let postId, _):
+            let doc = try? await db.collection("posts").document(postId).getDocument()
+            return doc?.exists ?? false
+        case .conversation(let conversationId, _):
+            let doc = try? await db.collection("conversations").document(conversationId).getDocument()
+            return doc?.exists ?? false
+        default:
+            return true  // Profiles, settings, notifications don't need existence checks
+        }
+    }
     
     /// True once the user is authenticated and the root navigation tree is mounted.
     /// Call `appDidBecomeReady()` from ContentView.onAppear (after auth resolves) to release
@@ -410,6 +442,7 @@ extension URL {
 struct NotificationNavigationHandler: ViewModifier {
     @ObservedObject var router = NotificationDeepLinkRouter.shared
     @Binding var selectedTab: Int  // Reference to tab selection binding
+    @State private var pendingAction: (() -> Void)?
 
     func body(content: Content) -> some View {
         content
@@ -421,54 +454,81 @@ struct NotificationNavigationHandler: ViewModifier {
                 switch destination {
                 case .post(let postId, let scrollToCommentId):
                     selectedTab = 0  // Switch to Home tab
-                    // Give the tab a moment to appear, then post notification for HomeView to open post detail
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    // ✅ FIX: Wait for next run loop cycle (view already rendered)
+                    // This ensures tab switch completes before posting notification
+                    pendingAction = {
                         NotificationCenter.default.post(
                             name: .openPostFromNotification,
                             object: nil,
                             userInfo: ["postId": postId, "scrollToCommentId": scrollToCommentId as Any]
                         )
                     }
+                    
                 case .profile(let userId):
                     selectedTab = 5  // Switch to Profile tab
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    pendingAction = {
                         NotificationCenter.default.post(
                             name: .openProfileFromNotification,
                             object: nil,
                             userInfo: ["userId": userId]
                         )
                     }
+                    
                 case .conversation(let conversationId, _):
                     selectedTab = 2  // Switch to Messages tab
-                    // Trigger MessagingCoordinator to open the specific conversation
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    pendingAction = {
                         NotificationCenter.default.post(
                             name: .openConversation,
                             object: nil,
                             userInfo: ["conversationId": conversationId]
                         )
                     }
+                    
                 case .messages:
                     selectedTab = 2  // Messages tab
+                    pendingAction = nil
+                    
                 case .notifications:
                     selectedTab = 4  // Notifications tab
+                    pendingAction = nil
+                    
                 case .prayer, .churchNote:
                     // Routed to Resources tab which contains Prayer and Church Notes
                     selectedTab = 3
+                    pendingAction = nil
+                    
                 case .job:
                     // Jobs are accessible via AMEN Connect (Resources tab)
                     selectedTab = 3
+                    pendingAction = nil
+                    
                 case .event:
                     // Events are accessible via Resources tab
                     selectedTab = 3
+                    pendingAction = nil
+                    
                 case .studioProfile:
                     // Studio profiles are accessible via Resources tab
                     selectedTab = 3
+                    pendingAction = nil
                 }
 
                 // Clear destination after handling
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 100_000_000) // 0.1s for tab transition
                     router.clearDestination()
+                }
+            }
+            .onChange(of: selectedTab) { oldTab, newTab in
+                // ✅ FIX: Execute pending action when tab finishes switching
+                // This ensures the target view is mounted before we post notification
+                if let action = pendingAction {
+                    Task { @MainActor in
+                        // Wait one more run loop for view to fully appear
+                        try? await Task.sleep(nanoseconds: 50_000_000) // 0.05s
+                        action()
+                        pendingAction = nil
+                    }
                 }
             }
     }

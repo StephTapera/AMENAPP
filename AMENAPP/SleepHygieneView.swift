@@ -54,7 +54,7 @@ struct SleepHygieneView: View {
                         HStack {
                             Button { dismiss() } label: {
                                 Image(systemName: "xmark")
-                                    .font(.system(size: 14, weight: .medium))
+                                    .font(.systemScaled(14, weight: .medium))
                                     .foregroundStyle(.white.opacity(0.6))
                                     .frame(width: 36, height: 36)
                                     .background(Color.white.opacity(0.1), in: Circle())
@@ -71,7 +71,7 @@ struct SleepHygieneView: View {
 
                         // Moon icon
                         Image(systemName: "moon.stars.fill")
-                            .font(.system(size: 48))
+                            .font(.systemScaled(48))
                             .foregroundStyle(accent)
                             .padding(.top, 28)
                             .padding(.bottom, 8)
@@ -113,7 +113,7 @@ struct SleepHygieneView: View {
                         } label: {
                             HStack(spacing: 8) {
                                 Image(systemName: "checkmark")
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(.systemScaled(14, weight: .semibold))
                                 Text("Complete Routine (\(totalChecked)/\(totalItems))")
                                     .font(.custom("OpenSans-SemiBold", size: 16))
                             }
@@ -139,10 +139,10 @@ struct SleepHygieneView: View {
     private func sectionHeader(_ title: String, icon: String) -> some View {
         HStack(spacing: 8) {
             Image(systemName: icon)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(accent)
             Text(title)
-                .font(.system(size: 10, weight: .semibold))
+                .font(.systemScaled(10, weight: .semibold))
                 .kerning(2)
                 .foregroundStyle(.white.opacity(0.45))
             Spacer()
@@ -160,7 +160,7 @@ struct SleepHygieneView: View {
                         .fill(checked ? accent : Color.white.opacity(0.1))
                         .frame(width: 32, height: 32)
                     Image(systemName: item.icon)
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                         .foregroundStyle(checked ? .white : .white.opacity(0.6))
                 }
                 VStack(alignment: .leading, spacing: 2) {
@@ -174,7 +174,7 @@ struct SleepHygieneView: View {
                 Spacer()
                 if checked {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 12, weight: .bold))
+                        .font(.systemScaled(12, weight: .bold))
                         .foregroundStyle(accent)
                 }
             }
@@ -192,7 +192,7 @@ struct SleepHygieneView: View {
         VStack(spacing: 24) {
             Spacer()
             Image(systemName: "moon.zzz.fill")
-                .font(.system(size: 64))
+                .font(.systemScaled(64))
                 .foregroundStyle(accent)
             Text("Rest well.")
                 .font(.custom("OpenSans-Bold", size: 28))

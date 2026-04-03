@@ -25,7 +25,7 @@ struct FaithProgressRing: View {
                 .rotationEffect(.degrees(-90))
             // Label
             Text("\(displayPercent)%")
-                .font(.system(size: size * 0.22, weight: .semibold, design: .rounded))
+                .font(.systemScaled(size * 0.22, weight: .semibold, design: .rounded))
                 .foregroundStyle(color)
         }
     }

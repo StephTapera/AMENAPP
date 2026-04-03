@@ -280,24 +280,24 @@ struct EnhancedChurchNoteEditor: View {
             Button("Cancel") {
                 handleCancel()
             }
-            .font(.system(size: 17, weight: .regular))
+            .font(.systemScaled(17, weight: .regular))
             .foregroundStyle(.black.opacity(0.6))
             
             Spacer()
             
             VStack(spacing: 2) {
                 Text(isEditMode ? "Edit Note" : "New Note")
-                    .font(.system(size: 17, weight: .medium))
+                    .font(.systemScaled(17, weight: .medium))
                     .foregroundStyle(.black)
                 
                 // UX-2: Auto-save indicator
                 if showAutoSaveIndicator {
                     HStack(spacing: 4) {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 10))
+                            .font(.systemScaled(10))
                             .foregroundStyle(.green)
                         Text("Auto-saved")
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                             .foregroundStyle(.black.opacity(0.5))
                     }
                     .transition(.opacity)
@@ -314,7 +314,7 @@ struct EnhancedChurchNoteEditor: View {
                         .tint(contextAllFilled ? Color.purple : .black)
                 } else {
                     Text("Save")
-                        .font(.system(size: 17, weight: .medium))
+                        .font(.systemScaled(17, weight: .medium))
                         .foregroundStyle(contextAllFilled ? Color.purple : (canSave ? .black : .black.opacity(0.3)))
                 }
             }
@@ -352,7 +352,7 @@ struct EnhancedChurchNoteEditor: View {
                     Text(ghostSuggestion)
                         .foregroundStyle(Color(.tertiaryLabel))
                 }
-                .font(.system(size: 32, weight: .medium))
+                .font(.systemScaled(32, weight: .medium))
                 .padding(.horizontal, 20)
                 .padding(.top, 20)
                 .allowsHitTesting(false)
@@ -360,7 +360,7 @@ struct EnhancedChurchNoteEditor: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 TextField("Note Title", text: $title)
-                    .font(.system(size: 32, weight: .medium))
+                    .font(.systemScaled(32, weight: .medium))
                     .foregroundStyle(titleColor)
                     .tint(.black)
                     .padding(.horizontal, 20)
@@ -374,7 +374,7 @@ struct EnhancedChurchNoteEditor: View {
                 if showAcceptHint {
                     Button { acceptSuggestion() } label: {
                         Text("tab to accept →")
-                            .font(.system(size: 10))
+                            .font(.systemScaled(10))
                             .foregroundStyle(.secondary)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 3)
@@ -403,15 +403,15 @@ struct EnhancedChurchNoteEditor: View {
                 } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.systemScaled(11, weight: .medium))
                             .foregroundStyle(.black.opacity(0.35))
                         if metaSummary.isEmpty {
                             Text("Add sermon details…")
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                                 .foregroundStyle(.black.opacity(0.35))
                         } else {
                             Text(metaSummary)
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                                 .foregroundStyle(.black.opacity(0.65))
                                 .lineLimit(1)
                         }
@@ -429,7 +429,7 @@ struct EnhancedChurchNoteEditor: View {
                 VStack(alignment: .leading, spacing: 16) {
                     HStack {
                         Text("Sermon Context")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.systemScaled(13, weight: .medium))
                             .foregroundStyle(.black.opacity(0.5))
                             .textCase(.uppercase)
                             .tracking(1)
@@ -448,9 +448,9 @@ struct EnhancedChurchNoteEditor: View {
                             } label: {
                                 HStack(spacing: 4) {
                                     Image(systemName: "chevron.up")
-                                        .font(.system(size: 11, weight: .medium))
+                                        .font(.systemScaled(11, weight: .medium))
                                     Text("Collapse")
-                                        .font(.system(size: 12, weight: .medium))
+                                        .font(.systemScaled(12, weight: .medium))
                                 }
                                 .foregroundStyle(.black.opacity(0.4))
                                 .padding(.horizontal, 8)
@@ -477,7 +477,7 @@ struct EnhancedChurchNoteEditor: View {
 
                         HStack {
                             Image(systemName: "calendar")
-                                .font(.system(size: 16))
+                                .font(.systemScaled(16))
                                 .foregroundStyle(.black.opacity(0.4))
                                 .frame(width: 24)
                             DatePicker("", selection: $selectedDate, displayedComponents: .date)
@@ -511,7 +511,7 @@ struct EnhancedChurchNoteEditor: View {
     private var scriptureSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Scripture Reference")
-                .font(.system(size: 13, weight: .medium))
+                .font(.systemScaled(13, weight: .medium))
                 .foregroundStyle(.black.opacity(0.5))
                 .textCase(.uppercase)
                 .tracking(1)
@@ -520,12 +520,12 @@ struct EnhancedChurchNoteEditor: View {
             // Scripture field with inline "Look up" button
             HStack {
                 Image(systemName: "book")
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(.black.opacity(0.4))
                     .frame(width: 24)
 
                 TextField("e.g., John 3:16", text: $scripture)
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(.black)
                     .tint(.black)
                     .onChange(of: scripture) { _, _ in
@@ -547,7 +547,7 @@ struct EnhancedChurchNoteEditor: View {
                             .frame(width: 52, height: 20)
                     } else {
                         Text("Look up")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.systemScaled(12, weight: .medium))
                             .foregroundStyle(
                                 scripture.trimmingCharacters(in: .whitespaces).isEmpty
                                     ? Color.black.opacity(0.3)
@@ -581,7 +581,7 @@ struct EnhancedChurchNoteEditor: View {
             if showVersePreview, let verse = verseText {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(verse)
-                        .font(.system(size: 12, design: .serif).italic())
+                        .font(.systemScaled(12, design: .serif).italic())
                         .foregroundStyle(.black.opacity(0.75))
                         .padding(12)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -606,7 +606,7 @@ struct EnhancedChurchNoteEditor: View {
             if !detectedScriptures.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Detected in notes:")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.black.opacity(0.5))
                         .padding(.horizontal, 20)
 
@@ -632,7 +632,7 @@ struct EnhancedChurchNoteEditor: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Your Notes")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(.black.opacity(0.5))
                     .textCase(.uppercase)
                     .tracking(1)
@@ -647,7 +647,7 @@ struct EnhancedChurchNoteEditor: View {
 
                 // Character count (debounced)
                 Text("\(characterCount) characters")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.black.opacity(0.4))
 
                 // Formatting toolbar toggle
@@ -660,9 +660,9 @@ struct EnhancedChurchNoteEditor: View {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "textformat")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.systemScaled(12, weight: .medium))
                         Text(showingToolbar ? "Hide" : "Format")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.systemScaled(12, weight: .medium))
                     }
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
@@ -692,7 +692,7 @@ struct EnhancedChurchNoteEditor: View {
             // Text editor with focus glow + milestone ring overlay
             ZStack {
                 TextEditor(text: $content)
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(.primary)
                     .frame(minHeight: 300)
                     .padding(16)
@@ -743,7 +743,7 @@ struct EnhancedChurchNoteEditor: View {
     private var quickInsertToolbar: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Quick Insert")
-                .font(.system(size: 13, weight: .medium))
+                .font(.systemScaled(13, weight: .medium))
                 .foregroundStyle(.black.opacity(0.5))
                 .textCase(.uppercase)
                 .tracking(1)
@@ -799,7 +799,7 @@ struct EnhancedChurchNoteEditor: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Worship Songs")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(.black.opacity(0.5))
                     .textCase(.uppercase)
                     .tracking(1)
@@ -811,9 +811,9 @@ struct EnhancedChurchNoteEditor: View {
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "plus")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.systemScaled(11, weight: .semibold))
                         Text("Add")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.systemScaled(12, weight: .medium))
                     }
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
@@ -842,7 +842,7 @@ struct EnhancedChurchNoteEditor: View {
                             }
                         } label: {
                             Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 18))
+                                .font(.systemScaled(18))
                                 .foregroundStyle(Color(.systemGray3))
                         }
                         .buttonStyle(.plain)
@@ -860,7 +860,7 @@ struct EnhancedChurchNoteEditor: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
                 Text("AI Tags")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(.black.opacity(0.5))
                     .textCase(.uppercase)
                     .tracking(1)
@@ -874,7 +874,7 @@ struct EnhancedChurchNoteEditor: View {
                 NoteTagFlowLayout(tags: detectedTags, visibleCount: visibleTagCount)
             } else if !isAnalyzing && content.count > 50 {
                 Text("Tags appear after you write a few sentences")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.black.opacity(0.35))
                     .padding(.horizontal, 20)
             }
@@ -1177,13 +1177,13 @@ struct EnhancedChurchNoteEditor: View {
 
             if contextAllFilled {
                 Image(systemName: "checkmark")
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.systemScaled(9, weight: .bold))
                     .foregroundStyle(.green)
                     .scaleEffect(contextAllFilled ? 1 : 0)
                     .animation(.spring(response: 0.4, dampingFraction: 0.6), value: contextAllFilled)
             } else {
                 Text("\(contextFilledCount)/4")
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.systemScaled(9, weight: .bold))
                     .foregroundStyle(.purple)
                     .opacity(contextAllFilled ? 0 : 1)
             }
@@ -1201,7 +1201,7 @@ struct EnhancedChurchNoteEditor: View {
                 )
             if filled {
                 Image(systemName: "checkmark")
-                    .font(.system(size: 7, weight: .bold))
+                    .font(.systemScaled(7, weight: .bold))
                     .foregroundStyle(.white)
             }
         }
@@ -1257,9 +1257,9 @@ struct QuickInsertButton: View {
         Button(action: action) {
             HStack(spacing: 8) {
                 Image(systemName: icon)
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                 Text(label)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
@@ -1368,11 +1368,11 @@ struct SongSearchSheet: View {
 
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(song.title)
-                                        .font(.system(size: 15, weight: .semibold))
+                                        .font(.systemScaled(15, weight: .semibold))
                                         .foregroundStyle(.primary)
                                         .lineLimit(1)
                                     Text(song.artist)
-                                        .font(.system(size: 13))
+                                        .font(.systemScaled(13))
                                         .foregroundStyle(.secondary)
                                         .lineLimit(1)
                                 }
@@ -1380,7 +1380,7 @@ struct SongSearchSheet: View {
                                 Spacer()
 
                                 Image(systemName: "plus.circle")
-                                    .font(.system(size: 20))
+                                    .font(.systemScaled(20))
                                     .foregroundStyle(Color.purple)
                             }
                             .contentShape(Rectangle())
@@ -1475,12 +1475,12 @@ private struct EditorMinimalTextField: View {
     var body: some View {
         HStack {
             Image(systemName: icon)
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .foregroundStyle(.secondary)
                 .frame(width: 22)
 
             TextField(placeholder, text: $text)
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
                 .foregroundStyle(.primary)
                 .tint(.primary)
         }
@@ -1533,7 +1533,7 @@ struct NoteTagFlowLayout: View {
         TagWrapLayout(spacing: 8) {
             ForEach(Array(tags.prefix(visibleCount).enumerated()), id: \.element) { idx, tag in
                 Text(tag)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                     .foregroundStyle(.white.opacity(0.9))
                     .padding(.horizontal, 9)
                     .padding(.vertical, 4)
@@ -1812,7 +1812,7 @@ struct PhotoNotesScanSheet: View {
                 } else {
                     VStack(spacing: 16) {
                         Image(systemName: "camera.viewfinder")
-                            .font(.system(size: 64))
+                            .font(.systemScaled(64))
                             .foregroundStyle(.secondary)
                         Text("Scan a bulletin, slide, or whiteboard\nto extract text into your notes.")
                             .font(.subheadline)
@@ -1914,7 +1914,7 @@ struct BibleVerseChip: View {
                     Text(reference)
                     Image(systemName: expanded ? "chevron.up" : "chevron.down")
                 }
-                .font(.system(size: 12, design: .serif))
+                .font(.systemScaled(12, design: .serif))
                 .foregroundStyle(.orange)
                 .padding(.horizontal, 10).padding(.vertical, 5)
                 .background(Color.orange.opacity(0.1))
@@ -1927,7 +1927,7 @@ struct BibleVerseChip: View {
                     ProgressView().scaleEffect(0.7).padding(.leading, 8)
                 } else if let text = manager.verses[reference] {
                     Text("\"\(text)\"")
-                        .font(.system(size: 12, design: .serif).italic())
+                        .font(.systemScaled(12, design: .serif).italic())
                         .foregroundStyle(.primary.opacity(0.8))
                         .padding(8)
                         .background(Color.orange.opacity(0.06))
@@ -2043,7 +2043,7 @@ struct ScriptureReminderView: View {
                 mgr.isScheduled ? "Reminders On ✓" : "Memorize This Verse",
                 systemImage: mgr.isScheduled ? "bell.fill" : "bell.badge"
             )
-            .font(.system(size: 12, weight: .medium))
+            .font(.systemScaled(12, weight: .medium))
             .frame(maxWidth: .infinity)
         }
         .buttonStyle(.bordered)

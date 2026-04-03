@@ -113,7 +113,7 @@ struct QuickStartBibleAPIResponse: Codable {
  } else {
      Button(action: onRefresh) {
          Image(systemName: "arrow.clockwise")
-             .font(.system(size: 16, weight: .semibold))
+             .font(.systemScaled(16, weight: .semibold))
              .foregroundStyle(.blue)
      }
  }

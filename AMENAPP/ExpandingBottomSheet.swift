@@ -240,7 +240,7 @@ struct SheetAttributeRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 14, weight: .medium))
+                .font(.systemScaled(14, weight: .medium))
                 .foregroundStyle(.secondary)
                 .frame(width: 22)
 

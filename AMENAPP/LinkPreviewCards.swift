@@ -198,7 +198,7 @@ struct RichLinkPreviewCard: View {
                     // Domain label
                     if let host = metadata?.siteName ?? url.host {
                         Text(host.lowercased())
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.systemScaled(11, weight: .medium))
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
@@ -210,7 +210,7 @@ struct RichLinkPreviewCard: View {
                             .lineLimit(2)
                     } else {
                         Text(url.absoluteString)
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(.secondary)
                             .lineLimit(2)
                     }
@@ -263,7 +263,7 @@ struct RichLinkPreviewCard: View {
         ZStack {
             Color(.systemGray6)
             Image(systemName: "link")
-                .font(.system(size: 18, weight: .medium))
+                .font(.systemScaled(18, weight: .medium))
                 .foregroundStyle(.secondary)
         }
     }
@@ -312,7 +312,7 @@ struct RichLinkPreviewCard: View {
                     .fill(.ultraThinMaterial)
                     .frame(width: 22, height: 22)
                 Image(systemName: "xmark")
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.systemScaled(9, weight: .bold))
                     .foregroundStyle(.secondary)
             }
         }
@@ -372,7 +372,7 @@ struct VersePreviewCard: View {
             HStack(alignment: .top, spacing: 12) {
                 // Book icon
                 Image(systemName: "book.closed.fill")
-                    .font(.system(size: 20, weight: .medium))
+                    .font(.systemScaled(20, weight: .medium))
                     .foregroundStyle(Color.accentColor)
                     .frame(width: 28)
                     .padding(.top, 2)
@@ -395,10 +395,10 @@ struct VersePreviewCard: View {
                         // Fallback: show domain hint
                         HStack(spacing: 4) {
                             Image(systemName: "arrow.up.forward.square")
-                                .font(.system(size: 11))
+                                .font(.systemScaled(11))
                                 .foregroundStyle(.secondary)
                             Text(metadata.url.host?.replacingOccurrences(of: "www.", with: "") ?? "Open Bible")
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -434,7 +434,7 @@ struct VersePreviewCard: View {
                     .fill(.ultraThinMaterial)
                     .frame(width: 22, height: 22)
                 Image(systemName: "xmark")
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.systemScaled(9, weight: .bold))
                     .foregroundStyle(.secondary)
             }
         }
@@ -512,7 +512,7 @@ struct LinkPreviewCard: View {
         Button(action: onTap) {
             HStack(spacing: 6) {
                 Image(systemName: metadata.previewType == .verse ? "book.closed.fill" : "link")
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(.systemScaled(9, weight: .semibold))
                     .foregroundStyle(metadata.previewType == .verse ? Color.accentColor.opacity(0.8) : .black.opacity(0.6))
 
                 if let title = metadata.title ?? metadata.verseReference, !title.isEmpty {
@@ -532,7 +532,7 @@ struct LinkPreviewCard: View {
                 }
 
                 Image(systemName: "arrow.up.forward")
-                    .font(.system(size: 8, weight: .medium))
+                    .font(.systemScaled(8, weight: .medium))
                     .foregroundStyle(.black.opacity(0.4))
             }
             .padding(.horizontal, 10)

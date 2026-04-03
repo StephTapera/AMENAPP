@@ -181,7 +181,7 @@ struct FullScreenPostImageView: View {
                                     .fill(Color.black.opacity(0.55))
                                     .frame(width: 36, height: 36)
                                 Image(systemName: "xmark")
-                                    .font(.system(size: 13, weight: .bold))
+                                    .font(.systemScaled(13, weight: .bold))
                                     .foregroundStyle(.white)
                             }
                         }

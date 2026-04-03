@@ -193,7 +193,7 @@ struct GivingNonprofitsDetailView: View {
                                 .fill(Color.black.opacity(0.28))
                                 .frame(width: 36, height: 36)
                             Image(systemName: "xmark")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.systemScaled(13, weight: .semibold))
                                 .foregroundStyle(.white)
                         }
                     }
@@ -206,7 +206,7 @@ struct GivingNonprofitsDetailView: View {
                                 .fill(Color.black.opacity(0.28))
                                 .frame(width: 36, height: 36)
                             Image(systemName: "info")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.systemScaled(13, weight: .semibold))
                                 .foregroundStyle(.white)
                         }
                     }
@@ -286,7 +286,7 @@ struct GivingNonprofitsDetailView: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
                     Image(systemName: "checkmark.seal.fill")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(greenAccent)
                     Text("How we select featured organizations")
                         .font(.custom("OpenSans-SemiBold", size: 13))
@@ -319,7 +319,7 @@ struct GivingNonprofitsDetailView: View {
                         } label: {
                             HStack(spacing: 5) {
                                 Image(systemName: cat.icon)
-                                    .font(.system(size: 11, weight: .medium))
+                                    .font(.systemScaled(11, weight: .medium))
                                 Text(cat.rawValue)
                                     .font(.custom(selectedCause == cat ? "OpenSans-SemiBold" : "OpenSans-Regular", size: 12))
                             }
@@ -343,7 +343,7 @@ struct GivingNonprofitsDetailView: View {
             if selectedCause != .all {
                 HStack(spacing: 6) {
                     Image(systemName: selectedCause.icon)
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(selectedCause.color)
                     Text("\(filteredNonprofits.count) organization\(filteredNonprofits.count == 1 ? "" : "s") in \(selectedCause.rawValue)")
                         .font(.custom("OpenSans-Regular", size: 12))
@@ -355,7 +355,7 @@ struct GivingNonprofitsDetailView: View {
             if filteredNonprofits.isEmpty {
                 VStack(spacing: 10) {
                     Image(systemName: selectedCause.icon)
-                        .font(.system(size: 36))
+                        .font(.systemScaled(36))
                         .foregroundStyle(selectedCause.color.opacity(0.4))
                     Text("More \(selectedCause.rawValue) organizations coming soon.")
                         .font(.custom("OpenSans-Regular", size: 14))
@@ -373,7 +373,7 @@ struct GivingNonprofitsDetailView: View {
             // Guardrail
             HStack(alignment: .top, spacing: 8) {
                 Image(systemName: "info.circle")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(inkSecondary)
                     .padding(.top, 1)
                 Text("Nonprofit listings are informational. AMEN does not process donations or guarantee accuracy. Always verify directly with the organization before giving.")
@@ -417,7 +417,7 @@ struct GivingNonprofitsDetailView: View {
                                     .fill(cat.color.opacity(0.12))
                                     .frame(width: 48, height: 48)
                                 Image(systemName: cat.icon)
-                                    .font(.system(size: 20, weight: .medium))
+                                    .font(.systemScaled(20, weight: .medium))
                                     .foregroundStyle(cat.color)
                             }
                             Text(cat.rawValue)
@@ -451,7 +451,7 @@ struct GivingNonprofitsDetailView: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 10) {
                     Image(systemName: "location.circle.fill")
-                        .font(.system(size: 18))
+                        .font(.systemScaled(18))
                         .foregroundStyle(goldAccent)
                     Text("Give locally")
                         .font(.custom("OpenSans-SemiBold", size: 16))
@@ -467,7 +467,7 @@ struct GivingNonprofitsDetailView: View {
                 } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "location.fill")
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                         Text("Find local organizations")
                             .font(.custom("OpenSans-SemiBold", size: 14))
                     }
@@ -510,7 +510,7 @@ struct GivingNonprofitsDetailView: View {
                                     .fill(cat.2.opacity(0.13))
                                     .frame(width: 40, height: 40)
                                 Image(systemName: cat.0)
-                                    .font(.system(size: 17, weight: .medium))
+                                    .font(.systemScaled(17, weight: .medium))
                                     .foregroundStyle(cat.2)
                             }
                             Text(cat.1)
@@ -554,7 +554,7 @@ struct GivingNonprofitsDetailView: View {
                             .fill(way.3.opacity(0.12))
                             .frame(width: 44, height: 44)
                         Image(systemName: way.0)
-                            .font(.system(size: 18, weight: .medium))
+                            .font(.systemScaled(18, weight: .medium))
                             .foregroundStyle(way.3)
                     }
                     VStack(alignment: .leading, spacing: 3) {
@@ -567,7 +567,7 @@ struct GivingNonprofitsDetailView: View {
                     }
                     Spacer()
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(inkSecondary.opacity(0.5))
                 }
                 .padding(16)
@@ -610,7 +610,7 @@ struct GivingNonprofitsDetailView: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
                     Image(systemName: "shield.fill")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(greenAccent)
                     Text("Safe, verified matching only")
                         .font(.custom("OpenSans-SemiBold", size: 14))
@@ -647,7 +647,7 @@ struct GivingNonprofitsDetailView: View {
                                 .fill(req.3.opacity(0.12))
                                 .frame(width: 44, height: 44)
                             Image(systemName: req.0)
-                                .font(.system(size: 18, weight: .medium))
+                                .font(.systemScaled(18, weight: .medium))
                                 .foregroundStyle(req.3)
                         }
                         VStack(alignment: .leading, spacing: 3) {
@@ -683,7 +683,7 @@ struct GivingNonprofitsDetailView: View {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 8) {
                     Image(systemName: "building.2.fill")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(inkSecondary)
                     Text("Churches and nonprofits can sponsor and verify requests")
                         .font(.custom("OpenSans-Regular", size: 12))
@@ -712,7 +712,7 @@ private struct NonprofitEditorialCard: View {
                         .fill(nonprofit.color.opacity(0.13))
                         .frame(width: 52, height: 52)
                     Image(systemName: nonprofit.icon)
-                        .font(.system(size: 22, weight: .medium))
+                        .font(.systemScaled(22, weight: .medium))
                         .foregroundStyle(nonprofit.color)
                 }
 
@@ -723,7 +723,7 @@ private struct NonprofitEditorialCard: View {
                             .foregroundStyle(ink)
                         if nonprofit.isVerified {
                             Image(systemName: "checkmark.seal.fill")
-                                .font(.system(size: 13))
+                                .font(.systemScaled(13))
                                 .foregroundStyle(Color(red: 0.22, green: 0.52, blue: 0.38))
                         }
                     }
@@ -735,12 +735,12 @@ private struct NonprofitEditorialCard: View {
                             .textCase(.uppercase)
                             .kerning(0.4)
                         Text("·")
-                            .font(.system(size: 10))
+                            .font(.systemScaled(10))
                             .foregroundStyle(inkSecondary.opacity(0.5))
                         // Scope pill
                         HStack(spacing: 3) {
                             Image(systemName: nonprofit.scope == "Global" ? "globe" : nonprofit.scope == "National" ? "flag" : "location")
-                                .font(.system(size: 9, weight: .medium))
+                                .font(.systemScaled(9, weight: .medium))
                             Text(nonprofit.scope)
                                 .font(.custom("OpenSans-Regular", size: 10))
                         }
@@ -752,7 +752,7 @@ private struct NonprofitEditorialCard: View {
                         )
                         if nonprofit.isFaithBased {
                             Image(systemName: "cross.fill")
-                                .font(.system(size: 9))
+                                .font(.systemScaled(9))
                                 .foregroundStyle(inkSecondary.opacity(0.5))
                         }
                     }
@@ -771,7 +771,7 @@ private struct NonprofitEditorialCard: View {
                         ForEach(nonprofit.verificationBadges, id: \.self) { badge in
                             HStack(spacing: 4) {
                                 Image(systemName: "checkmark.seal.fill")
-                                    .font(.system(size: 9))
+                                    .font(.systemScaled(9))
                                     .foregroundStyle(Color(red: 0.22, green: 0.52, blue: 0.38))
                                 Text(badge)
                                     .font(.custom("OpenSans-SemiBold", size: 10))
@@ -830,7 +830,7 @@ private struct NonprofitEditorialCard: View {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "safari.fill")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                         Text("Website")
                             .font(.custom("OpenSans-SemiBold", size: 13))
                     }
@@ -853,7 +853,7 @@ private struct NonprofitEditorialCard: View {
                     } label: {
                         HStack(spacing: 6) {
                             Image(systemName: "heart.fill")
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                             Text("Give")
                                 .font(.custom("OpenSans-SemiBold", size: 13))
                         }
@@ -964,7 +964,7 @@ struct HelpRequestFlow: View {
                         }
                     } label: {
                         Image(systemName: step > 0 ? "chevron.left" : "xmark")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                             .foregroundStyle(ink)
                     }
                 }
@@ -1086,7 +1086,7 @@ struct HelpRequestFlow: View {
                                       : Color(red: 0.14, green: 0.12, blue: 0.10).opacity(0.07))
                                 .frame(width: 40, height: 40)
                             Image(systemName: tier.0)
-                                .font(.system(size: 16))
+                                .font(.systemScaled(16))
                                 .foregroundStyle(tier.3
                                                  ? Color(red: 0.22, green: 0.52, blue: 0.38)
                                                  : inkSecondary)
@@ -1630,7 +1630,7 @@ struct ImpactRow: View {
     let icon: String; let title: String; let description: String; let color: Color
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: icon).font(.system(size: 18)).foregroundStyle(color).frame(width: 24)
+            Image(systemName: icon).font(.systemScaled(18)).foregroundStyle(color).frame(width: 24)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.custom("OpenSans-Bold", size: 14)).foregroundStyle(.primary)
                 Text(description).font(.custom("OpenSans-Regular", size: 13)).foregroundStyle(.secondary)
@@ -1645,7 +1645,7 @@ struct WaysToGiveCard: View {
         HStack(spacing: 12) {
             ZStack {
                 Circle().fill(color.opacity(0.15)).frame(width: 44, height: 44)
-                Image(systemName: icon).font(.system(size: 18, weight: .semibold)).foregroundStyle(color)
+                Image(systemName: icon).font(.systemScaled(18, weight: .semibold)).foregroundStyle(color)
             }
             VStack(alignment: .leading, spacing: 3) {
                 Text(title).font(.custom("OpenSans-Bold", size: 15)).foregroundStyle(.primary)

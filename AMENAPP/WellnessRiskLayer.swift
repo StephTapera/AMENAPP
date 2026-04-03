@@ -761,7 +761,7 @@ struct WellnessSoftNudgeCard: View {
             HStack(spacing: 12) {
                 Image(systemName: "sparkles")
                     .foregroundColor(Color(white: 0.45))
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Take a moment")
@@ -779,7 +779,7 @@ struct WellnessSoftNudgeCard: View {
                         onTap?()
                     } label: {
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.systemScaled(13, weight: .medium))
                             .foregroundColor(Color(white: 0.45))
                     }
 
@@ -791,7 +791,7 @@ struct WellnessSoftNudgeCard: View {
                         onDismiss?()
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.systemScaled(12, weight: .medium))
                             .foregroundColor(Color(white: 0.55))
                     }
                 }
@@ -860,7 +860,7 @@ struct SupportChoiceRow: View {
         } label: {
             HStack(spacing: 14) {
                 Image(systemName: domain.icon)
-                    .font(.system(size: 18))
+                    .font(.systemScaled(18))
                     .foregroundColor(Color(white: 0.45))
                     .frame(width: 24)
 
@@ -877,7 +877,7 @@ struct SupportChoiceRow: View {
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundColor(Color(white: 0.65))
             }
             .padding(.horizontal, 16)
@@ -1053,7 +1053,7 @@ private struct CrisisChoiceCard: View {
         Button(action: action) {
             HStack(spacing: 16) {
                 Image(systemName: icon)
-                    .font(.system(size: 26))
+                    .font(.systemScaled(26))
                     .foregroundColor(Color(white: 0.45))
                     .frame(width: 36)
 
@@ -1069,7 +1069,7 @@ private struct CrisisChoiceCard: View {
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundColor(Color(white: 0.65))
             }
             .padding(.horizontal, 18)
@@ -1183,7 +1183,7 @@ struct WellnessFeedAdjustmentCard: View {
         // Subtle opt-in pill — the feed adjustment itself is invisible
         HStack(spacing: 8) {
             Image(systemName: "leaf.fill")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundColor(Color(white: 0.45))
 
             Text("Showing calmer content")
@@ -1248,7 +1248,7 @@ struct WellnessComparisonHarmBanner: View {
         if !dismissed {
             HStack(spacing: 14) {
                 Image(systemName: "arrow.triangle.2.circlepath")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundColor(Color(white: 0.45))
 
                 Text("Want to switch to a calmer feed for a bit?")

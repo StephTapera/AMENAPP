@@ -94,7 +94,7 @@ struct SpaceFeedView: View {
 
                     HStack(spacing: 6) {
                         Image(systemName: "person.2.fill")
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.systemScaled(11, weight: .medium))
                             .foregroundStyle(.white.opacity(0.55))
                         Text("\(space.memberCount.compactFormatted) members")
                             .font(AMENFont.regular(13))
@@ -171,7 +171,7 @@ struct SpaceFeedView: View {
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: icon)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                 Text(label)
                     .font(AMENFont.semiBold(13))
             }
@@ -234,7 +234,7 @@ struct SpaceFeedView: View {
     private var emptyState: some View {
         VStack(spacing: 16) {
             Image(systemName: "book.open")
-                .font(.system(size: 44, weight: .light))
+                .font(.systemScaled(44, weight: .light))
                 .foregroundStyle(accentPurple.opacity(0.7))
 
             Text("No posts yet in this community")
@@ -257,7 +257,7 @@ struct SpaceFeedView: View {
         } label: {
             HStack(spacing: 8) {
                 Image(systemName: "square.and.pencil")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                 Text("Post Here")
                     .font(AMENFont.semiBold(15))
             }
@@ -297,7 +297,7 @@ private struct SpacePostRow: View {
                             .fill(Color(red: 0.6, green: 0.35, blue: 1.0).opacity(0.25))
                             .overlay(
                                 Image(systemName: "person.fill")
-                                    .font(.system(size: 14))
+                                    .font(.systemScaled(14))
                                     .foregroundStyle(Color(red: 0.6, green: 0.35, blue: 1.0))
                             )
                     }
@@ -329,7 +329,7 @@ private struct SpacePostRow: View {
             HStack(spacing: 14) {
                 HStack(spacing: 4) {
                     Image(systemName: "heart")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.white.opacity(0.4))
                     Text("\(post.likes)")
                         .font(AMENFont.regular(12))
@@ -337,7 +337,7 @@ private struct SpacePostRow: View {
                 }
                 HStack(spacing: 4) {
                     Image(systemName: "bubble.left")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.white.opacity(0.4))
                     Text("\(post.comments)")
                         .font(AMENFont.regular(12))
@@ -391,7 +391,7 @@ private struct MediaCellView: View {
                         .frame(width: 36, height: 36)
                         .overlay(
                             Image(systemName: "play.fill")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.systemScaled(14, weight: .semibold))
                                 .foregroundStyle(.white)
                                 .offset(x: 1.5)
                         )

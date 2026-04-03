@@ -104,7 +104,7 @@ struct VerifiedBadge: View {
                 .frame(width: size, height: size)
             
             Image(systemName: iconName)
-                .font(.system(size: size * 0.6, weight: .bold))
+                .font(.systemScaled(size * 0.6, weight: .bold))
                 .foregroundColor(.white)
         }
         .shadow(color: badgeColor.opacity(0.3), radius: 2, x: 0, y: 1)
@@ -132,19 +132,19 @@ struct VerifiedBadge: View {
     VStack(spacing: 20) {
         HStack(spacing: 8) {
             Text("Username")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
             VerifiedBadge(size: 16)
         }
 
         HStack(spacing: 8) {
             Text("Display Name")
-                .font(.system(size: 20, weight: .bold))
+                .font(.systemScaled(20, weight: .bold))
             VerifiedBadge(size: 20)
         }
 
         HStack(spacing: 8) {
             Text("Small Badge")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
             VerifiedBadge(size: 14)
         }
     }

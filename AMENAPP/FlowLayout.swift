@@ -108,7 +108,7 @@ struct FlowLayout: Layout {
                 FlowLayout(spacing: 8) {
                     ForEach(["Prayer", "Faith", "Hope", "Love", "Grace", "Mercy", "Worship", "Praise"], id: \.self) { tag in
                         Text("#\(tag)")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                             .foregroundStyle(.white)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 6)
@@ -128,7 +128,7 @@ struct FlowLayout: Layout {
                 FlowLayout(spacing: 10) {
                     ForEach(["Short", "Medium Length Tag", "X", "Another Long Tag Here", "Hi", "Test"], id: \.self) { tag in
                         Text(tag)
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.systemScaled(15, weight: .medium))
                             .foregroundStyle(.white)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 8)
@@ -148,7 +148,7 @@ struct FlowLayout: Layout {
                 FlowLayout(horizontalSpacing: 16, verticalSpacing: 12) {
                     ForEach(1...10, id: \.self) { number in
                         Text("\(number)")
-                            .font(.system(size: 16, weight: .bold))
+                            .font(.systemScaled(16, weight: .bold))
                             .foregroundStyle(.white)
                             .frame(width: 44, height: 44)
                             .background(

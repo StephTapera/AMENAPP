@@ -123,7 +123,7 @@ struct ErrorBannerView: View {
                 HStack(spacing: 12) {
                     // Icon
                     Image(systemName: error.type.icon)
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.systemScaled(18, weight: .semibold))
                         .foregroundStyle(error.type.color)
                     
                     // Message
@@ -155,7 +155,7 @@ struct ErrorBannerView: View {
                             manager.dismissError()
                         }) {
                             Image(systemName: "xmark")
-                                .font(.system(size: 12, weight: .bold))
+                                .font(.systemScaled(12, weight: .bold))
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -190,7 +190,7 @@ struct OfflineBannerView: View {
             if manager.isOffline {
                 HStack(spacing: 10) {
                     Image(systemName: "wifi.slash")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(.white)
                     
                     Text("You're offline")

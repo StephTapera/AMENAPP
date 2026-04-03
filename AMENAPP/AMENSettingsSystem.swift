@@ -297,7 +297,7 @@ struct SettingsToggleRow: View {
     var body: some View {
         HStack(spacing: 14) {
             Image(systemName: icon)
-                .font(.system(size: 15, weight: .medium))
+                .font(.systemScaled(15, weight: .medium))
                 .foregroundStyle(ST.secondary)
                 .frame(width: 22, alignment: .center)
 
@@ -335,7 +335,7 @@ struct SettingsNavigationRow: View {
         Button(action: action) {
             HStack(spacing: 14) {
                 Image(systemName: icon)
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.systemScaled(15, weight: .medium))
                     .foregroundStyle(ST.secondary)
                     .frame(width: 22, alignment: .center)
 
@@ -362,7 +362,7 @@ struct SettingsNavigationRow: View {
                 }
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                     .foregroundStyle(ST.tertiary)
             }
             .padding(.horizontal, 16)
@@ -450,7 +450,7 @@ struct SettingsSectionIcon: View {
                 .fill(section.accentColor)
                 .frame(width: 36, height: 36)
             Image(systemName: section.icon)
-                .font(.system(size: 16, weight: .medium))
+                .font(.systemScaled(16, weight: .medium))
                 .foregroundStyle(.white)
         }
     }
@@ -474,7 +474,7 @@ struct SettingsSectionRow: View {
             }
             Spacer()
             Image(systemName: "chevron.right")
-                .font(.system(size: 11, weight: .medium))
+                .font(.systemScaled(11, weight: .medium))
                 .foregroundStyle(ST.tertiary)
         }
         .padding(.horizontal, 16)
@@ -492,7 +492,7 @@ struct SettingsSearchResultsView: View {
         if results.isEmpty {
             VStack(spacing: 10) {
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 32, weight: .light))
+                    .font(.systemScaled(32, weight: .light))
                     .foregroundStyle(ST.tertiary)
                 Text("No results found")
                     .font(AMENFont.semiBold(16))
@@ -525,7 +525,7 @@ struct SettingsSearchResultsView: View {
                             }
                             Spacer()
                             Image(systemName: "chevron.right")
-                                .font(.system(size: 10, weight: .medium))
+                                .font(.systemScaled(10, weight: .medium))
                                 .foregroundStyle(ST.tertiary)
                         }
                         .padding(.horizontal, 16)
@@ -564,7 +564,7 @@ struct SettingsSuggestedCard: View {
                         withAnimation(ST.spring) { isDismissed = true }
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.systemScaled(12, weight: .medium))
                             .foregroundStyle(ST.tertiary)
                             .padding(6)
                             .background(Circle().fill(Color.black.opacity(0.06)))
@@ -578,7 +578,7 @@ struct SettingsSuggestedCard: View {
                     Button { onAction(item.2) } label: {
                         HStack(spacing: 12) {
                             Image(systemName: item.0)
-                                .font(.system(size: 13, weight: .medium))
+                                .font(.systemScaled(13, weight: .medium))
                                 .foregroundStyle(item.2.accentColor)
                                 .frame(width: 22, alignment: .center)
                             Text(item.1)
@@ -586,7 +586,7 @@ struct SettingsSuggestedCard: View {
                                 .foregroundStyle(ST.primary)
                             Spacer()
                             Image(systemName: "arrow.right")
-                                .font(.system(size: 11, weight: .medium))
+                                .font(.systemScaled(11, weight: .medium))
                                 .foregroundStyle(ST.tertiary)
                         }
                         .padding(.horizontal, 16)
@@ -633,13 +633,13 @@ struct AccountTypePill: View {
         Button(action: onTap) {
             HStack(spacing: 6) {
                 Image(systemName: type.icon)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundStyle(ST.secondary)
                 Text(type.rawValue)
                     .font(AMENFont.semiBold(13))
                     .foregroundStyle(ST.primary)
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.systemScaled(10, weight: .medium))
                     .foregroundStyle(ST.tertiary)
             }
             .padding(.horizontal, 14)
@@ -744,7 +744,7 @@ struct AMENSettingsView: View {
         HStack(spacing: 10) {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(ST.tertiary)
                 TextField("Search settings...", text: $searchText)
                     .font(AMENFont.regular(15))
@@ -757,7 +757,7 @@ struct AMENSettingsView: View {
                         withAnimation(ST.spring) { searchText = "" }
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 15))
+                            .font(.systemScaled(15))
                             .foregroundStyle(ST.tertiary)
                     }
                 }
@@ -977,7 +977,7 @@ struct PrivacySettingsViewNew: View {
             STGroup {
                 HStack(spacing: 14) {
                     Image(systemName: "eye")
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.systemScaled(15, weight: .medium))
                         .foregroundStyle(ST.secondary)
                         .frame(width: 22, alignment: .center)
                     Text("Default Post Audience")
@@ -1015,7 +1015,7 @@ struct PrivacySettingsViewNew: View {
             STGroup {
                 HStack(spacing: 14) {
                     Image(systemName: "bubble.left")
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.systemScaled(15, weight: .medium))
                         .foregroundStyle(ST.secondary)
                         .frame(width: 22, alignment: .center)
                     Text("Who can comment")
@@ -1034,7 +1034,7 @@ struct PrivacySettingsViewNew: View {
 
                 HStack(spacing: 14) {
                     Image(systemName: "at")
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.systemScaled(15, weight: .medium))
                         .foregroundStyle(ST.secondary)
                         .frame(width: 22, alignment: .center)
                     Text("Who can mention me")
@@ -1176,7 +1176,7 @@ struct MessagesSettingsViewNew: View {
             STGroup {
                 HStack(spacing: 14) {
                     Image(systemName: "message")
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.systemScaled(15, weight: .medium))
                         .foregroundStyle(ST.secondary)
                         .frame(width: 22, alignment: .center)
                     Text("Who can DM me")
@@ -1195,7 +1195,7 @@ struct MessagesSettingsViewNew: View {
 
                 HStack(spacing: 14) {
                     Image(systemName: "tray.and.arrow.down")
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.systemScaled(15, weight: .medium))
                         .foregroundStyle(ST.secondary)
                         .frame(width: 22, alignment: .center)
                     Text("Message Requests")
@@ -1232,7 +1232,7 @@ struct MessagesSettingsViewNew: View {
                     STDivider()
                     HStack(spacing: 14) {
                         Image(systemName: "clock")
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.systemScaled(15, weight: .medium))
                             .foregroundStyle(ST.secondary)
                             .frame(width: 22, alignment: .center)
                         Text("Restrict from")
@@ -1247,7 +1247,7 @@ struct MessagesSettingsViewNew: View {
                     STDivider()
                     HStack(spacing: 14) {
                         Image(systemName: "clock.fill")
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.systemScaled(15, weight: .medium))
                             .foregroundStyle(ST.secondary)
                             .frame(width: 22, alignment: .center)
                         Text("Until")
@@ -1344,7 +1344,7 @@ struct NotificationsSettingsViewNew: View {
             STGroup {
                 HStack(spacing: 14) {
                     Image(systemName: "tray.2")
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.systemScaled(15, weight: .medium))
                         .foregroundStyle(ST.secondary)
                         .frame(width: 22, alignment: .center)
                     Text("Digest Frequency")
@@ -1366,7 +1366,7 @@ struct NotificationsSettingsViewNew: View {
                     STDivider()
                     HStack(spacing: 14) {
                         Image(systemName: "clock")
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.systemScaled(15, weight: .medium))
                             .foregroundStyle(ST.secondary)
                             .frame(width: 22, alignment: .center)
                         Text("Start")
@@ -1381,7 +1381,7 @@ struct NotificationsSettingsViewNew: View {
                     STDivider()
                     HStack(spacing: 14) {
                         Image(systemName: "clock.fill")
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.systemScaled(15, weight: .medium))
                             .foregroundStyle(ST.secondary)
                             .frame(width: 22, alignment: .center)
                         Text("End")
@@ -1416,7 +1416,7 @@ struct ContentPostingSettingsView: View {
             STGroup {
                 HStack(spacing: 14) {
                     Image(systemName: "eye")
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.systemScaled(15, weight: .medium))
                         .foregroundStyle(ST.secondary)
                         .frame(width: 22, alignment: .center)
                     Text("Default Post Audience")
@@ -1488,7 +1488,7 @@ struct FeedDiscoverySettingsViewNew: View {
             STGroup {
                 HStack(spacing: 14) {
                     Image(systemName: "rectangle.stack")
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.systemScaled(15, weight: .medium))
                         .foregroundStyle(ST.secondary)
                         .frame(width: 22, alignment: .center)
                     Text("Feed Mode")
@@ -1512,7 +1512,7 @@ struct FeedDiscoverySettingsViewNew: View {
                 } label: {
                     HStack(spacing: 14) {
                         Image(systemName: "moon.stars")
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.systemScaled(15, weight: .medium))
                             .foregroundStyle(ST.secondary)
                             .frame(width: 22, alignment: .center)
                         Text("Focus Modes")
@@ -1520,7 +1520,7 @@ struct FeedDiscoverySettingsViewNew: View {
                             .foregroundStyle(ST.primary)
                         Spacer()
                         Image(systemName: focusModeExpanded ? "chevron.up" : "chevron.down")
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.systemScaled(11, weight: .medium))
                             .foregroundStyle(ST.tertiary)
                     }
                     .padding(.horizontal, 16).padding(.vertical, 14)
@@ -1533,7 +1533,7 @@ struct FeedDiscoverySettingsViewNew: View {
                     ForEach(Array(focusModes.enumerated()), id: \.offset) { i, mode in
                         HStack(spacing: 14) {
                             Image(systemName: mode.0)
-                                .font(.system(size: 15, weight: .medium))
+                                .font(.systemScaled(15, weight: .medium))
                                 .foregroundStyle(AMENSettingsSection.feedDiscovery.accentColor)
                                 .frame(width: 22, alignment: .center)
                             VStack(alignment: .leading, spacing: 2) {
@@ -1574,7 +1574,7 @@ struct FeedDiscoverySettingsViewNew: View {
                         STDivider()
                         HStack(spacing: 14) {
                             Image(systemName: "timer")
-                                .font(.system(size: 15, weight: .medium))
+                                .font(.systemScaled(15, weight: .medium))
                                 .foregroundStyle(ST.secondary)
                                 .frame(width: 22, alignment: .center)
                             Text("Duration")
@@ -1598,7 +1598,7 @@ struct FeedDiscoverySettingsViewNew: View {
             STGroup {
                 HStack(spacing: 14) {
                     Image(systemName: "slider.horizontal.3")
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.systemScaled(15, weight: .medium))
                         .foregroundStyle(ST.secondary)
                         .frame(width: 22, alignment: .center)
                     Text("Sensitive Content")
@@ -1617,7 +1617,7 @@ struct FeedDiscoverySettingsViewNew: View {
 
                 HStack(spacing: 14) {
                     Image(systemName: "play.rectangle")
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.systemScaled(15, weight: .medium))
                         .foregroundStyle(ST.secondary)
                         .frame(width: 22, alignment: .center)
                     Text("Autoplay Videos")
@@ -1677,7 +1677,7 @@ struct BereanAISettingsViewNew: View {
                 STGroup {
                     HStack(spacing: 14) {
                         Image(systemName: "dial.low")
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.systemScaled(15, weight: .medium))
                             .foregroundStyle(ST.secondary)
                             .frame(width: 22, alignment: .center)
                         Text("Default Mode")
@@ -1696,7 +1696,7 @@ struct BereanAISettingsViewNew: View {
 
                     HStack(spacing: 14) {
                         Image(systemName: "text.alignleft")
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.systemScaled(15, weight: .medium))
                             .foregroundStyle(ST.secondary)
                             .frame(width: 22, alignment: .center)
                         Text("Response Style")
@@ -1722,7 +1722,7 @@ struct BereanAISettingsViewNew: View {
                         } label: {
                             HStack {
                                 Image(systemName: "trash")
-                                    .font(.system(size: 15, weight: .medium))
+                                    .font(.systemScaled(15, weight: .medium))
                                     .foregroundStyle(ST.danger)
                                     .frame(width: 22, alignment: .center)
                                     .padding(.leading, 16)
@@ -1778,7 +1778,7 @@ struct ChurchNotesSettingsViewNew: View {
             STGroup {
                 HStack(spacing: 14) {
                     Image(systemName: "folder")
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.systemScaled(15, weight: .medium))
                         .foregroundStyle(ST.secondary)
                         .frame(width: 22, alignment: .center)
                     Text("Default Folder")
@@ -1809,7 +1809,7 @@ struct ChurchNotesSettingsViewNew: View {
                 STDivider()
                 HStack(spacing: 14) {
                     Image(systemName: "square.and.arrow.up")
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.systemScaled(15, weight: .medium))
                         .foregroundStyle(ST.secondary)
                         .frame(width: 22, alignment: .center)
                     Text("Export Format")
@@ -1891,7 +1891,7 @@ struct StorageDataSettingsView: View {
             STGroup {
                 HStack(spacing: 14) {
                     Image(systemName: "internaldrive")
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.systemScaled(15, weight: .medium))
                         .foregroundStyle(ST.secondary)
                         .frame(width: 22, alignment: .center)
                     Text("Cache Size")
@@ -1911,7 +1911,7 @@ struct StorageDataSettingsView: View {
                 } label: {
                     HStack(spacing: 14) {
                         Image(systemName: "trash")
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.systemScaled(15, weight: .medium))
                             .foregroundStyle(Color(red: 0.20, green: 0.42, blue: 0.98))
                             .frame(width: 22, alignment: .center)
                         Text("Clear Cache")
@@ -1929,7 +1929,7 @@ struct StorageDataSettingsView: View {
             STGroup {
                 HStack(spacing: 14) {
                     Image(systemName: "arrow.down.circle")
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.systemScaled(15, weight: .medium))
                         .foregroundStyle(ST.secondary)
                         .frame(width: 22, alignment: .center)
                     Text("Download Quality")
@@ -1948,7 +1948,7 @@ struct StorageDataSettingsView: View {
 
                 HStack(spacing: 14) {
                     Image(systemName: "play.rectangle")
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.systemScaled(15, weight: .medium))
                         .foregroundStyle(ST.secondary)
                         .frame(width: 22, alignment: .center)
                     Text("Pre-load Videos")
@@ -1969,7 +1969,7 @@ struct StorageDataSettingsView: View {
                 Button { showDownloadDataConfirm = true } label: {
                     HStack(spacing: 14) {
                         Image(systemName: "square.and.arrow.down")
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.systemScaled(15, weight: .medium))
                             .foregroundStyle(Color(red: 0.20, green: 0.42, blue: 0.98))
                             .frame(width: 22, alignment: .center)
                         Text("Download My Data")
@@ -2045,7 +2045,7 @@ struct SecuritySettingsViewNew: View {
                 ForEach(Array(loginHistory.enumerated()), id: \.offset) { index, entry in
                     HStack(spacing: 14) {
                         Image(systemName: index == 0 ? "iphone" : index == 1 ? "ipad" : "laptopcomputer")
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.systemScaled(15, weight: .medium))
                             .foregroundStyle(ST.secondary)
                             .frame(width: 22, alignment: .center)
                         VStack(alignment: .leading, spacing: 2) {
@@ -2097,7 +2097,7 @@ struct FamilySafetySettingsView: View {
             STGroup {
                 HStack(spacing: 14) {
                     Image(systemName: "timer")
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.systemScaled(15, weight: .medium))
                         .foregroundStyle(ST.secondary)
                         .frame(width: 22, alignment: .center)
                     Text("Daily Time Limit")
@@ -2142,7 +2142,7 @@ struct SupportTransparencySettingsView: View {
                 Button {} label: {
                     HStack(spacing: 14) {
                         Image(systemName: "envelope")
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.systemScaled(15, weight: .medium))
                             .foregroundStyle(Color(red: 0.20, green: 0.42, blue: 0.98))
                             .frame(width: 22, alignment: .center)
                         Text("Contact Support")
@@ -2197,7 +2197,7 @@ struct AboutSettingsViewNew: View {
             // Version card
             VStack(spacing: 4) {
                 Image(systemName: "a.circle.fill")
-                    .font(.system(size: 44, weight: .light))
+                    .font(.systemScaled(44, weight: .light))
                     .foregroundStyle(Color(red: 0.20, green: 0.42, blue: 0.98))
                     .padding(.top, 16)
                 Text("AMEN")
@@ -2218,7 +2218,7 @@ struct AboutSettingsViewNew: View {
                 ForEach(Array(changelog.enumerated()), id: \.offset) { index, item in
                     HStack(spacing: 14) {
                         Image(systemName: item.0)
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.systemScaled(15, weight: .medium))
                             .foregroundStyle(Color(red: 0.20, green: 0.42, blue: 0.98))
                             .frame(width: 22, alignment: .center)
                         Text(item.1)
@@ -2238,7 +2238,7 @@ struct AboutSettingsViewNew: View {
                 Button { showShareSheet = true } label: {
                     HStack(spacing: 14) {
                         Image(systemName: "square.and.arrow.up")
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.systemScaled(15, weight: .medium))
                             .foregroundStyle(ST.secondary)
                             .frame(width: 22, alignment: .center)
                         Text("Share AMEN")
@@ -2258,7 +2258,7 @@ struct AboutSettingsViewNew: View {
                     .font(AMENFont.regular(12))
                     .foregroundStyle(ST.tertiary)
                 Image(systemName: "heart.fill")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(ST.danger)
                 Text("for the Kingdom")
                     .font(AMENFont.regular(12))
@@ -2274,7 +2274,7 @@ struct AboutSettingsViewNew: View {
                 STDivider()
                 HStack(spacing: 14) {
                     Image(systemName: "internaldrive")
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.systemScaled(15, weight: .medium))
                         .foregroundStyle(ST.secondary)
                         .frame(width: 22, alignment: .center)
                     Text("Cache Info")

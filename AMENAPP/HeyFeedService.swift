@@ -198,6 +198,8 @@ class HeyFeedService: ObservableObject {
     private func attachMyResonancesListener(uid: String) {
         let query = db.collection("heyfeed_resonance")
             .whereField("userId", isEqualTo: uid)
+            .order(by: "createdAt", descending: true)
+            .limit(to: 200)  // ✅ FIX CR-4: Add pagination limit (generous for resonance tracking)
 
         let registration = query.addSnapshotListener { [weak self] snapshot, error in
             guard let self else { return }

@@ -25,7 +25,7 @@ struct TrustedCircleView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         HStack(spacing: 12) {
                             Image(systemName: "person.2.circle.fill")
-                                .font(.system(size: 32))
+                                .font(.systemScaled(32))
                                 .foregroundStyle(.purple)
 
                             Text("Trusted Circle")
@@ -120,7 +120,7 @@ struct TrustedCircleView: View {
                             if viewModel.contacts.isEmpty {
                                 VStack(spacing: 12) {
                                     Image(systemName: "person.crop.circle.badge.plus")
-                                        .font(.system(size: 48))
+                                        .font(.systemScaled(48))
                                         .foregroundStyle(.secondary)
 
                                     Text("No contacts added yet")
@@ -150,7 +150,7 @@ struct TrustedCircleView: View {
                                 } label: {
                                     HStack {
                                         Image(systemName: "plus.circle.fill")
-                                            .font(.system(size: 20))
+                                            .font(.systemScaled(20))
                                         Text("Add Trusted Contact")
                                             .font(AMENFont.semiBold(16))
                                     }
@@ -214,7 +214,7 @@ struct EscalationRuleCard: View {
         Button(action: onSelect) {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
                     .foregroundStyle(isSelected ? .purple : .secondary)
 
                 VStack(alignment: .leading, spacing: 4) {
@@ -246,7 +246,7 @@ struct TrustedContactRow: View {
     var body: some View {
         HStack(spacing: 16) {
             Image(systemName: "person.circle.fill")
-                .font(.system(size: 40))
+                .font(.systemScaled(40))
                 .foregroundStyle(.purple)
 
             VStack(alignment: .leading, spacing: 4) {
@@ -270,7 +270,7 @@ struct TrustedContactRow: View {
                 onDelete()
             } label: {
                 Image(systemName: "trash")
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(.red)
             }
         }
@@ -357,7 +357,7 @@ struct AddTrustedContactSheet: View {
         } else if followers.isEmpty {
             VStack(spacing: 12) {
                 Image(systemName: "person.2.slash")
-                    .font(.system(size: 40))
+                    .font(.systemScaled(40))
                     .foregroundStyle(.secondary)
                 Text("No followers to add")
                     .font(AMENFont.regular(15))
@@ -390,7 +390,7 @@ struct AddTrustedContactSheet: View {
                     } label: {
                         HStack {
                             Image(systemName: "person.circle.fill")
-                                .font(.system(size: 32))
+                                .font(.systemScaled(32))
                                 .foregroundStyle(.purple)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(user.displayName)

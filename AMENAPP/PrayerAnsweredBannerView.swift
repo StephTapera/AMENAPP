@@ -22,11 +22,11 @@ struct PrayerAnsweredBannerView: View {
 
                 HStack {
                     Text("This prayer was answered — read the testimony")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                         .foregroundStyle(Color.primary)
                     Spacer()
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(Color.secondary)
                 }
                 .padding(.horizontal, 12)

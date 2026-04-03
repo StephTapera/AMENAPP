@@ -80,7 +80,7 @@ struct FollowingListView: View {
     private func errorView(_ message: String) -> some View {
         VStack(spacing: 16) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(.red)
             
             Text("Error")
@@ -111,7 +111,7 @@ struct FollowingListView: View {
     private var emptyStateView: some View {
         VStack(spacing: 16) {
             Image(systemName: "person.2.slash")
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(.secondary)
             
             Text("Not following anyone")

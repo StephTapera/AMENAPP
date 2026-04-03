@@ -8,6 +8,7 @@
 //
 
 import SwiftUI
+import UIKit
 import FirebaseAuth
 import FirebaseFirestore
 import Combine  // Required for Timer.publish().autoconnect()
@@ -16,7 +17,8 @@ import Vision
 
 struct CommentsView: View {
     let post: Post
-    
+    let prefillText: String?
+
     @Environment(\.dismiss) var dismiss
     @ObservedObject private var commentService = CommentService.shared  // P0 FIX: ObservedObject for singletons (faster init)
     @ObservedObject private var userService = UserService.shared  // P0 FIX: ObservedObject for singletons (faster init)
@@ -101,6 +103,12 @@ struct CommentsView: View {
     // Proactive rate limit banner (shown immediately if daily limit already hit)
     @State private var rateLimitMessage: String? = nil
     
+    init(post: Post, prefillText: String? = nil) {
+        self.post = post
+        self.prefillText = prefillText
+        _commentText = State(initialValue: prefillText ?? "")
+    }
+
     // Use full firestoreId — RTDB listener paths use the same full UUID as Firestore.
     // PostDetailView uses post.firestoreId directly; CommentsView must match.
     private var postId: String { post.firestoreId }
@@ -285,7 +293,7 @@ struct CommentsView: View {
                                             .frame(width: 16, height: 16)
                                             .overlay(
                                                 Image(systemName: "pencil")
-                                                    .font(.system(size: 8, weight: .bold))
+                                                    .font(.systemScaled(8, weight: .bold))
                                                     .foregroundStyle(.white)
                                             )
                                             .overlay(
@@ -353,7 +361,7 @@ struct CommentsView: View {
                     HapticManager.impact(style: .light)
                 } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(.primary)
                         .frame(width: 36, height: 36)
                         .background(
@@ -427,19 +435,19 @@ struct CommentsView: View {
             } label: {
                 HStack(spacing: 10) {
                     Image(systemName: "clock.badge.questionmark")
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.systemScaled(16, weight: .medium))
                         .foregroundStyle(.orange)
                     VStack(alignment: .leading, spacing: 1) {
                         Text("\(pendingComments.count) comment\(pendingComments.count == 1 ? "" : "s") waiting for approval")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                             .foregroundStyle(.primary)
                         Text("Tap to review")
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundStyle(.secondary)
                 }
                 .padding(.horizontal, 16)
@@ -475,7 +483,7 @@ struct CommentsView: View {
                         } else if commentsWithReplies.isEmpty {
                             VStack(spacing: 12) {
                                 Image(systemName: "bubble.left")
-                                    .font(.system(size: 48))
+                                    .font(.systemScaled(48))
                                     .foregroundStyle(.black.opacity(0.3))
                                 
                                 Text("No comments yet")
@@ -494,6 +502,7 @@ struct CommentsView: View {
                                 VStack(alignment: .leading, spacing: 8) {
                                     // Main Comment with animation
                                     PostCommentRow(
+                                        post: post,
                                         comment: commentWithReplies.comment,
                                         isNew: newCommentIds.contains(commentWithReplies.comment.id ?? ""),
                                         onReply: {
@@ -505,6 +514,13 @@ struct CommentsView: View {
                                             // Haptic feedback
                                             // haptic
                                             HapticManager.impact(style: .light)
+                                        },
+                                        onReplyWithQuote: { quoteText in
+                                            withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                                                replyingTo = commentWithReplies.comment
+                                                commentText = quoteText
+                                                isInputFocused = true
+                                            }
                                         },
                                         onDelete: {
                                             withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
@@ -577,7 +593,7 @@ struct CommentsView: View {
                                                             .tint(.secondary)
                                                         
                                                         Text("Generating thread summary...")
-                                                            .font(.system(size: 13))
+                                                            .font(.systemScaled(13))
                                                             .foregroundStyle(.secondary)
                                                     }
                                                     .padding(.horizontal, 20)
@@ -596,6 +612,7 @@ struct CommentsView: View {
                                                         .transition(.scale(scale: 0.1, anchor: .top))
                                                     
                                                     PostCommentRow(
+                                                        post: post,
                                                         comment: reply,
                                                         isReply: true,
                                                         isNew: newCommentIds.contains(reply.id ?? ""),
@@ -607,6 +624,13 @@ struct CommentsView: View {
                                                             
                                                             // haptic
                                                             HapticManager.impact(style: .light)
+                                                        },
+                                                        onReplyWithQuote: { quoteText in
+                                                            withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                                                                replyingTo = commentWithReplies.comment
+                                                                commentText = quoteText
+                                                                isInputFocused = true
+                                                            }
                                                         },
                                                         onDelete: {
                                                             withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
@@ -668,7 +692,7 @@ struct CommentsView: View {
                             }
                         } label: {
                             Image(systemName: "xmark")
-                                .font(.system(size: 12, weight: .medium))
+                                .font(.systemScaled(12, weight: .medium))
                                 .foregroundStyle(.black.opacity(0.6))
                         }
                     }
@@ -688,7 +712,7 @@ struct CommentsView: View {
                                     isInputFocused = true
                                 } label: {
                                     Text(suggestion)
-                                        .font(.system(size: 13, weight: .medium))
+                                        .font(.systemScaled(13, weight: .medium))
                                         .foregroundStyle(.primary)
                                         .padding(.horizontal, 14)
                                         .padding(.vertical, 7)
@@ -844,7 +868,7 @@ struct CommentsView: View {
                                         }
                                     } label: {
                                         Image(systemName: "xmark")
-                                            .font(.system(size: 11, weight: .medium))
+                                            .font(.systemScaled(11, weight: .medium))
                                             .foregroundStyle(.secondary)
                                     }
                                 }
@@ -916,7 +940,7 @@ struct CommentsView: View {
                                     }
                                 } label: {
                                     Image(systemName: "xmark.circle.fill")
-                                        .font(.system(size: 18))
+                                        .font(.systemScaled(18))
                                         .foregroundStyle(Color(uiColor: .secondaryLabel))
                                         .background(Color(uiColor: .systemBackground), in: Circle())
                                 }
@@ -930,10 +954,10 @@ struct CommentsView: View {
                         if cooldownRemaining > 0 {
                             HStack(spacing: 6) {
                                 Image(systemName: "timer")
-                                    .font(.system(size: 12, weight: .medium))
+                                    .font(.systemScaled(12, weight: .medium))
                                     .foregroundStyle(.orange)
                                 Text("Comment in \(Int(cooldownRemaining))s")
-                                    .font(.system(size: 12, weight: .medium))
+                                    .font(.systemScaled(12, weight: .medium))
                                     .foregroundStyle(.orange)
                                 Spacer()
                             }
@@ -946,10 +970,10 @@ struct CommentsView: View {
                         if let limitMsg = rateLimitMessage {
                             HStack(spacing: 6) {
                                 Image(systemName: "clock.badge.xmark")
-                                    .font(.system(size: 12, weight: .medium))
+                                    .font(.systemScaled(12, weight: .medium))
                                     .foregroundStyle(.red.opacity(0.8))
                                 Text(limitMsg)
-                                    .font(.system(size: 12, weight: .medium))
+                                    .font(.systemScaled(12, weight: .medium))
                                     .foregroundStyle(.red.opacity(0.85))
                                     .fixedSize(horizontal: false, vertical: true)
                                 Spacer()
@@ -968,7 +992,7 @@ struct CommentsView: View {
                                 HapticManager.impact(style: .light)
                             } label: {
                                 Image(systemName: "face.smiling")
-                                    .font(.system(size: 18, weight: .medium))
+                                    .font(.systemScaled(18, weight: .medium))
                                     .foregroundStyle(.black.opacity(0.7))
                                     .frame(width: 24, height: 24)
                             }
@@ -984,12 +1008,12 @@ struct CommentsView: View {
                                             .scaleEffect(0.7)
                                     } else if commentPhotoData != nil {
                                         Image(systemName: "photo.fill")
-                                            .font(.system(size: 18, weight: .medium))
+                                            .font(.systemScaled(18, weight: .medium))
                                             .foregroundStyle(.blue)
                                             .frame(width: 24, height: 24)
                                     } else {
                                         Image(systemName: "photo")
-                                            .font(.system(size: 18, weight: .medium))
+                                            .font(.systemScaled(18, weight: .medium))
                                             .foregroundStyle(.black.opacity(0.7))
                                             .frame(width: 24, height: 24)
                                     }
@@ -1984,10 +2008,12 @@ struct CommentsView: View {
 // MARK: - Comment Row
 
 private struct PostCommentRow: View {
+    let post: Post
     let comment: Comment
     var isReply: Bool = false
     var isNew: Bool = false
     let onReply: () -> Void
+    let onReplyWithQuote: (String) -> Void
     let onDelete: () -> Void
     let onAmen: () -> Void
     let onProfileTap: () -> Void
@@ -2003,7 +2029,27 @@ private struct PostCommentRow: View {
     @State private var localAmenCount: Int = 0
     @State private var didJustFollow = false  // Optimistic follow state
     @State private var showReportSheet = false  // Report reason picker
+    @State private var activeCommentSheet: CommentSheet?
+    @State private var textSelection: PostTextSelection?
+    @State private var isTextSelecting = false
     // reaction picker is handled by AMENReactionSystem (.reactionPicker modifier on MentionTextView)
+    
+    private enum CommentSheet: Identifiable {
+        case quoteComposer(QuoteComposerContext)
+        case share(String)
+        case berean(String)
+
+        var id: String {
+            switch self {
+            case .quoteComposer(let context):
+                return "quoteComposer_\(context.id.uuidString)"
+            case .share(let text):
+                return "share_\(text.hashValue)"
+            case .berean(let query):
+                return "berean_\(query.hashValue)"
+            }
+        }
+    }
     
     private var isOwnComment: Bool {
         comment.authorId == FirebaseManager.shared.currentUser?.uid
@@ -2014,6 +2060,46 @@ private struct PostCommentRow: View {
         guard !isOwnComment else { return false }
         guard !didJustFollow else { return false }
         return !followService.following.contains(comment.authorId)
+    }
+
+    @ViewBuilder
+    private var commentSelectableText: some View {
+        let base = SelectablePostTextView(
+            text: comment.content,
+            mentions: nil,
+            font: UIFont(name: "OpenSans-Regular", size: isReply ? 13 : 14) ?? .systemFont(ofSize: isReply ? 13 : 14),
+            lineSpacing: 3,
+            lineLimit: nil,
+            onMentionTap: { _ in },
+            onTextTap: {
+                if textSelection != nil {
+                    clearTextSelection()
+                }
+            },
+            selection: $textSelection,
+            isSelecting: $isTextSelecting
+        )
+
+        if isTextSelecting {
+            base
+        } else {
+            base.reactionPicker(
+                id: comment.id ?? UUID().uuidString,
+                isFromCurrentUser: false,
+                context: .comment,
+                selectedEmoji: hasAmened ? "❤️" : nil,
+                onSelect: { emoji in
+                    if emoji == "❤️" || emoji == "🙏" {
+                        // Map heart/amen reactions to the existing amen toggle
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+                            hasAmened.toggle()
+                        }
+                        onAmen()
+                    }
+                    // Future: route other emoji reactions to their own handlers
+                }
+            )
+        }
     }
     
     var body: some View {
@@ -2091,7 +2177,7 @@ private struct PostCommentRow: View {
                         } label: {
                             HStack(spacing: 2) {
                                 Image(systemName: "plus")
-                                    .font(.system(size: isReply ? 8 : 9, weight: .semibold))
+                                    .font(.systemScaled(isReply ? 8 : 9, weight: .semibold))
                                 Text("Follow")
                                     .font(.custom("OpenSans-SemiBold", size: isReply ? 10 : 11))
                             }
@@ -2118,32 +2204,26 @@ private struct PostCommentRow: View {
                         .foregroundStyle(.black.opacity(0.5))
                 }
                 
-                // Content with @mention highlight + link detection
-                // Long-press opens the AMEN reaction tray (AMENReactionSystem)
-                MentionTextView(
-                    text: comment.content,
-                    autoDetectMentions: true,
-                    font: .custom("OpenSans-Regular", size: isReply ? 13 : 14),
-                    fontSize: isReply ? 13 : 14,
-                    lineSpacing: 3
-                )
-                .fixedSize(horizontal: false, vertical: true)
-                .reactionPicker(
-                    id: comment.id ?? UUID().uuidString,
-                    isFromCurrentUser: false,
-                    context: .comment,
-                    selectedEmoji: hasAmened ? "❤️" : nil,
-                    onSelect: { emoji in
-                        if emoji == "❤️" || emoji == "🙏" {
-                            // Map heart/amen reactions to the existing amen toggle
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
-                                hasAmened.toggle()
-                            }
-                            onAmen()
+                // Content with highlight-to-quote support
+                ZStack(alignment: .topLeading) {
+                    commentSelectableText
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    if let selection = textSelection {
+                        GeometryReader { proxy in
+                            HighlightActionCapsule(
+                                onQuote: { handleQuoteSelection(selection) },
+                                onReply: { handleReplyWithQuote(selection) },
+                                onSave: { handleSaveSelection(selection) },
+                                onShare: { handleShareSelection(selection) },
+                                onBerean: { handleBereanSelection(selection) }
+                            )
+                            .position(actionCapsulePosition(for: selection.rect, in: proxy.size))
+                            .transition(.opacity.combined(with: .scale))
                         }
-                        // Future: route other emoji reactions to their own handlers
                     }
-                )
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
 
                 // Translation affordance (lightweight, inline, non-blocking)
                 CommentTranslationRow(
@@ -2163,7 +2243,7 @@ private struct PostCommentRow: View {
                     } label: {
                         HStack(spacing: 6) {
                             Image(systemName: hasAmened ? "heart.fill" : "heart")
-                                .font(.system(size: 14, weight: .medium))
+                                .font(.systemScaled(14, weight: .medium))
                                 .foregroundStyle(hasAmened ? Color.red : Color.black.opacity(0.5))
                                 .scaleEffect(hasAmened ? 1.15 : 1.0)
                                 .animation(.spring(response: 0.3, dampingFraction: 0.5), value: hasAmened)
@@ -2184,7 +2264,7 @@ private struct PostCommentRow: View {
                         } label: {
                             HStack(spacing: 4) {
                                 Image(systemName: "arrowshape.turn.up.left")
-                                    .font(.system(size: 12))
+                                    .font(.systemScaled(12))
                                 
                                 if comment.replyCount > 0 {
                                     Text("\(comment.replyCount)")
@@ -2204,7 +2284,7 @@ private struct PostCommentRow: View {
                             } label: {
                                 HStack(spacing: 4) {
                                     Image(systemName: isThreadExpanded ? "chevron.up" : "chevron.down")
-                                        .font(.system(size: 10, weight: .semibold))
+                                        .font(.systemScaled(10, weight: .semibold))
                                     
                                     Text(isThreadExpanded ? "Hide" : "View")
                                         .font(.custom("OpenSans-SemiBold", size: 11))
@@ -2228,7 +2308,7 @@ private struct PostCommentRow: View {
                             showOptions = true
                         } label: {
                             Image(systemName: "ellipsis")
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                                 .foregroundStyle(.black.opacity(0.6))
                         }
                         .confirmationDialog("Comment Options", isPresented: $showOptions) {
@@ -2320,6 +2400,16 @@ private struct PostCommentRow: View {
                 }
             }
         }
+        .sheet(item: $activeCommentSheet) { sheet in
+            switch sheet {
+            case .quoteComposer(let context):
+                QuoteComposerView(context: context)
+            case .share(let text):
+                ShareSheet(activityItems: [text])
+            case .berean(let query):
+                BereanAIAssistantView(initialQuery: query.isEmpty ? nil : query)
+            }
+        }
         .sheet(isPresented: $showReportSheet) {
             CommentReportSheet(comment: comment)
                 .presentationDetents([.medium])
@@ -2340,6 +2430,89 @@ private struct PostCommentRow: View {
         }
         .onChange(of: comment.amenCount) { _, newCount in
             localAmenCount = newCount
+        }
+    }
+
+    private func clearTextSelection() {
+        textSelection = nil
+        isTextSelecting = false
+    }
+
+    private func actionCapsulePosition(for rect: CGRect, in size: CGSize) -> CGPoint {
+        guard !rect.isNull, !rect.isEmpty else {
+            return CGPoint(x: size.width * 0.5, y: 24)
+        }
+
+        let clampedX = min(max(rect.midX, 90), size.width - 90)
+        let capsuleY = max(rect.minY - 26, 22)
+        return CGPoint(x: clampedX, y: capsuleY)
+    }
+
+    private func handleQuoteSelection(_ selection: PostTextSelection) {
+        guard canQuote(post) else {
+            HapticManager.notification(type: .warning)
+            ToastManager.shared.info("Quoting is not allowed for this post")
+            clearTextSelection()
+            return
+        }
+        let context = QuoteComposerContext(
+            sourcePost: post,
+            sourceAuthorId: comment.authorId,
+            sourceAuthorName: comment.authorName,
+            sourceAuthorUsername: comment.authorUsername,
+            selection: selection
+        )
+        activeCommentSheet = .quoteComposer(context)
+        clearTextSelection()
+    }
+
+    private func handleReplyWithQuote(_ selection: PostTextSelection) {
+        guard canQuote(post) else {
+            HapticManager.notification(type: .warning)
+            ToastManager.shared.info("Quoting is not allowed for this post")
+            clearTextSelection()
+            return
+        }
+        let excerpt = "“\(selection.text)” — \(comment.authorName)"
+        onReplyWithQuote(excerpt + "\n\n")
+        clearTextSelection()
+    }
+
+    private func handleSaveSelection(_ selection: PostTextSelection) {
+        let excerpt = SavedExcerpt(
+            postId: post.firestoreId,
+            authorId: comment.authorId,
+            authorName: comment.authorName,
+            excerpt: selection.text
+        )
+        ExcerptStore.shared.save(excerpt)
+        HapticManager.notification(type: .success)
+        ToastManager.shared.success("Saved excerpt")
+        clearTextSelection()
+    }
+
+    private func handleShareSelection(_ selection: PostTextSelection) {
+        let excerpt = "“\(selection.text)” — \(comment.authorName)"
+        activeCommentSheet = .share(excerpt)
+        clearTextSelection()
+    }
+
+    private func handleBereanSelection(_ selection: PostTextSelection) {
+        let query = "Explain and reflect on: \"\(selection.text)\""
+        activeCommentSheet = .berean(query)
+        clearTextSelection()
+    }
+
+    private func canQuote(_ post: Post) -> Bool {
+        let permission = post.quotesAllowed ?? .everyone
+        switch permission {
+        case .none:
+            return false
+        case .followers:
+            let isUserPost = post.authorId == FirebaseManager.shared.currentUser?.uid
+            return followService.following.contains(post.authorId) || isUserPost
+        case .everyone:
+            return true
         }
     }
 
@@ -2366,12 +2539,12 @@ struct PendingCommentsQueueView: View {
                 if pendingComments.isEmpty {
                     VStack(spacing: 16) {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 52))
+                            .font(.systemScaled(52))
                             .foregroundStyle(.green)
                         Text("All caught up!")
-                            .font(.system(size: 18, weight: .semibold))
+                            .font(.systemScaled(18, weight: .semibold))
                         Text("No comments waiting for review.")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -2380,14 +2553,14 @@ struct PendingCommentsQueueView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             HStack {
                                 Text(comment.authorName)
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(.systemScaled(14, weight: .semibold))
                                 Spacer()
                                 Text(comment.createdAt.timeAgoDisplay())
-                                    .font(.system(size: 12))
+                                    .font(.systemScaled(12))
                                     .foregroundStyle(.secondary)
                             }
                             Text(comment.content)
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                                 .foregroundStyle(.primary)
                                 .lineLimit(4)
                             HStack(spacing: 12) {
@@ -2395,7 +2568,7 @@ struct PendingCommentsQueueView: View {
                                     onApprove(comment)
                                 } label: {
                                     Label("Approve", systemImage: "checkmark.circle.fill")
-                                        .font(.system(size: 13, weight: .semibold))
+                                        .font(.systemScaled(13, weight: .semibold))
                                         .foregroundStyle(.green)
                                 }
                                 .buttonStyle(.plain)
@@ -2403,7 +2576,7 @@ struct PendingCommentsQueueView: View {
                                     onReject(comment)
                                 } label: {
                                     Label("Reject", systemImage: "xmark.circle.fill")
-                                        .font(.system(size: 13, weight: .semibold))
+                                        .font(.systemScaled(13, weight: .semibold))
                                         .foregroundStyle(.red)
                                 }
                                 .buttonStyle(.plain)
@@ -2512,7 +2685,7 @@ struct EmojiQuickPickerView: View {
                         HapticManager.impact(style: .light)
                     } label: {
                         Text(emoji)
-                            .font(.system(size: 40))
+                            .font(.systemScaled(40))
                             .frame(width: 60, height: 60)
                             .background(
                                 ZStack {
@@ -2617,7 +2790,7 @@ struct CommentReportSheet: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Cancel") { dismiss() }
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                 }
             }
         }
@@ -2627,7 +2800,7 @@ struct CommentReportSheet: View {
         List {
             Section {
                 Text("Why are you reporting this comment?")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(.secondary)
                     .listRowBackground(Color.clear)
                     .listRowInsets(.init(top: 8, leading: 0, bottom: 4, trailing: 0))
@@ -2640,18 +2813,18 @@ struct CommentReportSheet: View {
                     } label: {
                         HStack(spacing: 14) {
                             Image(systemName: reason.icon)
-                                .font(.system(size: 16))
+                                .font(.systemScaled(16))
                                 .foregroundStyle(.primary)
                                 .frame(width: 22)
                             Text(reason.rawValue)
-                                .font(.system(size: 15))
+                                .font(.systemScaled(15))
                                 .foregroundStyle(.primary)
                             Spacer()
                             if isSubmitting {
                                 ProgressView().scaleEffect(0.7)
                             } else {
                                 Image(systemName: "chevron.right")
-                                    .font(.system(size: 12, weight: .semibold))
+                                    .font(.systemScaled(12, weight: .semibold))
                                     .foregroundStyle(Color(uiColor: .tertiaryLabel))
                             }
                         }
@@ -2669,17 +2842,17 @@ struct CommentReportSheet: View {
         VStack(spacing: 20) {
             Spacer()
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 56))
+                .font(.systemScaled(56))
                 .foregroundStyle(.green)
             Text("Report Submitted")
-                .font(.system(size: 20, weight: .bold))
+                .font(.systemScaled(20, weight: .bold))
             Text("Thank you for helping keep AMEN safe. We review every report.")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
             Button("Done") { dismiss() }
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
                 .padding(.horizontal, 40)
                 .padding(.vertical, 12)
                 .background(Color(uiColor: .label), in: Capsule())
@@ -2745,7 +2918,7 @@ struct CommentReactionPicker: View {
                     HapticManager.impact(style: .light)
                 } label: {
                     Text(reaction.emoji)
-                        .font(.system(size: 26))
+                        .font(.systemScaled(26))
                         .frame(width: 42, height: 42)
                         .background(Color(uiColor: .systemBackground).opacity(0.01), in: Circle())
                 }

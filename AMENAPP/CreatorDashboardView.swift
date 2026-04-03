@@ -89,7 +89,7 @@ struct CreatorDashboardView: View {
                     )
                     VStack(spacing: 12) {
                         Image(systemName: "star.circle.fill")
-                            .font(.system(size: 52, weight: .semibold))
+                            .font(.systemScaled(52, weight: .semibold))
                             .symbolRenderingMode(.hierarchical)
                             .foregroundStyle(.white)
                         Text("Enable Creator Mode")
@@ -205,7 +205,7 @@ struct CreatorDashboardView: View {
                                 .fill(amenGold.opacity(0.15))
                                 .frame(width: 44, height: 44)
                             Image(systemName: "crown.fill")
-                                .font(.system(size: 20, weight: .semibold))
+                                .font(.systemScaled(20, weight: .semibold))
                                 .symbolRenderingMode(.hierarchical)
                                 .foregroundStyle(amenGold)
                         }
@@ -219,7 +219,7 @@ struct CreatorDashboardView: View {
                         }
                         Spacer()
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                             .foregroundStyle(.white.opacity(0.35))
                     }
                     .padding(16)
@@ -257,7 +257,7 @@ struct CreatorDashboardView: View {
             VStack(alignment: .trailing, spacing: 6) {
                 HStack(spacing: 4) {
                     Image(systemName: "arrow.up.right")
-                        .font(.system(size: 14, weight: .bold))
+                        .font(.systemScaled(14, weight: .bold))
                     Text("Trending up")
                         .font(AMENFont.semiBold(13))
                 }
@@ -347,7 +347,7 @@ struct CreatorDashboardView: View {
             HStack {
                 HStack(spacing: 7) {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .symbolRenderingMode(.hierarchical)
                         .foregroundStyle(amenPurple)
                     Text("AI Forecast")
@@ -359,7 +359,7 @@ struct CreatorDashboardView: View {
                     Task { await vm.refreshAIProjection() }
                 } label: {
                     Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .symbolRenderingMode(.hierarchical)
                         .foregroundStyle(.white.opacity(0.5))
                 }
@@ -390,7 +390,7 @@ struct CreatorDashboardView: View {
     private var nextMoveCard: some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: "star.fill")
-                .font(.system(size: 18, weight: .semibold))
+                .font(.systemScaled(18, weight: .semibold))
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(amenGold)
                 .padding(.top, 2)
@@ -440,7 +440,7 @@ private struct MetricCard: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Image(systemName: icon)
-                    .font(.system(size: 20, weight: .semibold))
+                    .font(.systemScaled(20, weight: .semibold))
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(color)
                 Spacer()

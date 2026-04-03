@@ -330,6 +330,7 @@
 		EFAE0A7E2F4E6E7E009D7209 /* SafetyUIComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafetyUIComponents.swift; sourceTree = "<group>"; };
 		EFAE0A802F4E87B0009D7209 /* NetworkTimeoutHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkTimeoutHandler.swift; sourceTree = "<group>"; };
 		EFB9554E2F7A48F9001FEE47 /* Assets2.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets2.xcassets; sourceTree = "<group>"; };
+		EFB955D72F7CD850001FEE47 /* MESSAGING_PERMISSIONS_FIX.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = MESSAGING_PERMISSIONS_FIX.md; sourceTree = "<group>"; };
 		EFBA28C02F6F429600B54517 /* NotificationScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationScheduler.swift; sourceTree = "<group>"; };
 		EFCC00012F7000000099AA01 /* ScriptureIntelligenceEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScriptureIntelligenceEngine.swift; sourceTree = "<group>"; };
 		EFCC00022F7000000099AA02 /* PersonalSpiritualGraphService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonalSpiritualGraphService.swift; sourceTree = "<group>"; };
@@ -765,6 +766,7 @@
 				EFCC000C2F7000000099AA0C /* HolidayReflectionJourneyService.swift */,
 				EFCC000D2F7000000099AA0D /* UserObservanceProfileService.swift */,
 				EFB9554E2F7A48F9001FEE47 /* Assets2.xcassets */,
+				EFB955D72F7CD850001FEE47 /* MESSAGING_PERMISSIONS_FIX.md */,
 			);
 			sourceTree = "<group>";
 		};

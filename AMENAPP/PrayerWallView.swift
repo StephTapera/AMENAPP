@@ -204,7 +204,7 @@ struct PrayerWallMapView_DEPRECATED: View {
                         } label: {
                             VStack(spacing: 6) {
                                 Image(systemName: "shuffle")
-                                    .font(.system(size: 20, weight: .semibold))
+                                    .font(.systemScaled(20, weight: .semibold))
                                 
                                 Text("Random")
                                     .font(.custom("OpenSans-Bold", size: 11))
@@ -247,7 +247,7 @@ struct PrayerWallMapView_DEPRECATED: View {
                 }
             } label: {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 28))
+                    .font(.systemScaled(28))
                     .foregroundStyle(.white.opacity(0.6))
             }
         }
@@ -339,7 +339,7 @@ struct PrayerWallMapView_DEPRECATED: View {
                             .frame(width: 50, height: 50)
                         
                         Image(systemName: pin.category.icon)
-                            .font(.system(size: 22, weight: .medium))
+                            .font(.systemScaled(22, weight: .medium))
                             .foregroundStyle(pin.category.color)
                     }
                     
@@ -361,7 +361,7 @@ struct PrayerWallMapView_DEPRECATED: View {
                         }
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 24))
+                            .font(.systemScaled(24))
                             .foregroundStyle(.white.opacity(0.5))
                     }
                 }
@@ -379,7 +379,7 @@ struct PrayerWallMapView_DEPRECATED: View {
                 HStack(spacing: 24) {
                     HStack(spacing: 8) {
                         Image(systemName: "hands.sparkles.fill")
-                            .font(.system(size: 16))
+                            .font(.systemScaled(16))
                             .foregroundStyle(.white.opacity(0.6))
                         
                         Text("\(pin.prayerCount) praying")
@@ -400,7 +400,7 @@ struct PrayerWallMapView_DEPRECATED: View {
                     } label: {
                         HStack(spacing: 8) {
                             Image(systemName: "hands.sparkles.fill")
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.systemScaled(16, weight: .semibold))
                             
                             Text("I'm Praying")
                                 .font(.custom("OpenSans-Bold", size: 15))
@@ -418,7 +418,7 @@ struct PrayerWallMapView_DEPRECATED: View {
                         // Share
                     } label: {
                         Image(systemName: "square.and.arrow.up")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .foregroundStyle(.white)
                             .frame(width: 50, height: 50)
                             .background(
@@ -492,7 +492,7 @@ struct PrayerPinView: View {
             
             // Pin
             Image(systemName: "mappin.circle.fill")
-                .font(.system(size: isSelected ? 32 : 20, weight: .medium))
+                .font(.systemScaled(isSelected ? 32 : 20, weight: .medium))
                 .foregroundStyle(pin.category.color)
                 .shadow(color: .black.opacity(0.5), radius: 4, y: 2)
         }
@@ -512,7 +512,7 @@ private struct StatCard_Deprecated: View {
         VStack(spacing: 8) {
             HStack(spacing: 6) {
                 Image(systemName: icon)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(color)
                 
                 Text("\(count)")
@@ -548,7 +548,7 @@ struct CategoryButton: View {
         Button(action: onSelect) {
             HStack(spacing: 8) {
                 Image(systemName: category.icon)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                 
                 Text(category.rawValue)
                     .font(.custom("OpenSans-SemiBold", size: 14))

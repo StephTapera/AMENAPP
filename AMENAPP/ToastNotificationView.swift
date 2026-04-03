@@ -65,12 +65,12 @@ struct ToastNotificationView: View {
         HStack(spacing: 12) {
             // Icon
             Image(systemName: toast.style.icon)
-                .font(.system(size: 20, weight: .semibold))
+                .font(.systemScaled(20, weight: .semibold))
                 .foregroundColor(toast.style.color)
             
             // Message
             Text(toast.message)
-                .font(.system(size: 14, weight: .medium))
+                .font(.systemScaled(14, weight: .medium))
                 .foregroundColor(.primary)
                 .lineLimit(2)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -82,7 +82,7 @@ struct ToastNotificationView: View {
                     onDismiss()
                 }) {
                     Text(actionLabel)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundColor(toast.style.color)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
@@ -96,7 +96,7 @@ struct ToastNotificationView: View {
             // Dismiss button
             Button(action: onDismiss) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundColor(.secondary)
             }
         }

@@ -41,7 +41,7 @@ struct AccountLinkingView: View {
                     // Description row
                     VStack(spacing: 0) {
                         Text("Link multiple sign-in methods to your account for easier access and added security.")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundStyle(.secondary)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 14)
@@ -71,11 +71,11 @@ struct AccountLinkingView: View {
 
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text("Email & Password")
-                                        .font(.system(size: 16, weight: .medium))
+                                        .font(.systemScaled(16, weight: .medium))
 
                                     if let email = Auth.auth().currentUser?.email {
                                         Text(email)
-                                            .font(.system(size: 13))
+                                            .font(.systemScaled(13))
                                             .foregroundStyle(.secondary)
                                     }
                                 }
@@ -83,7 +83,7 @@ struct AccountLinkingView: View {
                                 Spacer()
 
                                 Text("Linked")
-                                    .font(.system(size: 12, weight: .medium))
+                                    .font(.systemScaled(12, weight: .medium))
                                     .foregroundStyle(.green)
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 6)
@@ -105,11 +105,11 @@ struct AccountLinkingView: View {
 
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text("Phone Number")
-                                        .font(.system(size: 16, weight: .medium))
+                                        .font(.systemScaled(16, weight: .medium))
 
                                     if let phone = Auth.auth().currentUser?.phoneNumber {
                                         Text(phone)
-                                            .font(.system(size: 13))
+                                            .font(.systemScaled(13))
                                             .foregroundStyle(.secondary)
                                     }
                                 }
@@ -121,7 +121,7 @@ struct AccountLinkingView: View {
                                     showUnlinkConfirmation = true
                                 } label: {
                                     Text("Unlink")
-                                        .font(.system(size: 14, weight: .medium))
+                                        .font(.systemScaled(14, weight: .medium))
                                         .foregroundStyle(.red)
                                 }
                             }
@@ -139,7 +139,7 @@ struct AccountLinkingView: View {
                                         .frame(width: 24)
 
                                     Text("Link Phone Number")
-                                        .font(.system(size: 16, weight: .medium))
+                                        .font(.systemScaled(16, weight: .medium))
                                         .foregroundStyle(.primary)
 
                                     Spacer()
@@ -164,7 +164,7 @@ struct AccountLinkingView: View {
                                     .frame(width: 24)
 
                                 Text("Google")
-                                    .font(.system(size: 16, weight: .medium))
+                                    .font(.systemScaled(16, weight: .medium))
 
                                 Spacer()
 
@@ -173,7 +173,7 @@ struct AccountLinkingView: View {
                                     showUnlinkConfirmation = true
                                 } label: {
                                     Text("Unlink")
-                                        .font(.system(size: 14, weight: .medium))
+                                        .font(.systemScaled(14, weight: .medium))
                                         .foregroundStyle(.red)
                                 }
                             }
@@ -194,7 +194,7 @@ struct AccountLinkingView: View {
                                         .frame(width: 24)
 
                                     Text("Link Google Account")
-                                        .font(.system(size: 16, weight: .medium))
+                                        .font(.systemScaled(16, weight: .medium))
                                         .foregroundStyle(.primary)
 
                                     Spacer()
@@ -219,7 +219,7 @@ struct AccountLinkingView: View {
                                     .frame(width: 24)
 
                                 Text("Apple")
-                                    .font(.system(size: 16, weight: .medium))
+                                    .font(.systemScaled(16, weight: .medium))
 
                                 Spacer()
 
@@ -228,7 +228,7 @@ struct AccountLinkingView: View {
                                     showUnlinkConfirmation = true
                                 } label: {
                                     Text("Unlink")
-                                        .font(.system(size: 14, weight: .medium))
+                                        .font(.systemScaled(14, weight: .medium))
                                         .foregroundStyle(.red)
                                 }
                             }
@@ -244,7 +244,7 @@ struct AccountLinkingView: View {
                                         .frame(width: 24)
 
                                     Text("Link Apple Account")
-                                        .font(.system(size: 16, weight: .medium))
+                                        .font(.systemScaled(16, weight: .medium))
                                         .foregroundStyle(.primary)
 
                                     Spacer()
@@ -280,10 +280,10 @@ struct AccountLinkingView: View {
 
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Enhanced Security")
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(.systemScaled(14, weight: .semibold))
 
                                 Text("Multiple sign-in methods make your account more secure and accessible")
-                                    .font(.system(size: 13))
+                                    .font(.systemScaled(13))
                                     .foregroundStyle(.secondary)
                             }
                         }
@@ -298,10 +298,10 @@ struct AccountLinkingView: View {
 
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Flexible Access")
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(.systemScaled(14, weight: .semibold))
 
                                 Text("Sign in with any linked method - email, phone, Google, or Apple")
-                                    .font(.system(size: 13))
+                                    .font(.systemScaled(13))
                                     .foregroundStyle(.secondary)
                             }
                         }
@@ -493,7 +493,7 @@ struct PhoneLinkingSheet: View {
         NavigationStack {
             VStack(spacing: 24) {
                 Image(systemName: "phone.circle.fill")
-                    .font(.system(size: 60))
+                    .font(.systemScaled(60))
                     .foregroundStyle(.green)
                     .padding(.top, 32)
 
@@ -566,7 +566,7 @@ struct PhoneVerificationSheet: View {
         NavigationStack {
             VStack(spacing: 24) {
                 Image(systemName: "envelope.badge.shield.half.filled")
-                    .font(.system(size: 60))
+                    .font(.systemScaled(60))
                     .foregroundStyle(.blue)
                     .padding(.top, 32)
 
@@ -591,7 +591,7 @@ struct PhoneVerificationSheet: View {
                         .keyboardType(.numberPad)
                         .textContentType(.oneTimeCode)
                         .multilineTextAlignment(.center)
-                        .font(.system(size: 24, weight: .semibold))
+                        .font(.systemScaled(24, weight: .semibold))
                         .padding()
                         .background(Color(.systemGray6))
                         .cornerRadius(12)

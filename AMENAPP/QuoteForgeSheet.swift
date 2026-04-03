@@ -28,7 +28,7 @@ struct QuoteForgeSheet: View {
                             sectionHeader("BEST LINE DETECTED")
 
                             Text(viewModel.detectedQuote.isEmpty ? "Start writing your notes to detect a powerful quote." : viewModel.detectedQuote)
-                                .font(.system(size: 18, weight: .bold, design: .serif))
+                                .font(.systemScaled(18, weight: .bold, design: .serif))
                                 .italic()
                                 .foregroundColor(.white.opacity(0.9))
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -160,7 +160,7 @@ private struct QuoteDesignPreviewCard: View {
 
             // Emoji top-right
             Text(style.emoji)
-                .font(.system(size: 36))
+                .font(.systemScaled(36))
                 .padding(12)
 
             // Quote text center
@@ -168,7 +168,7 @@ private struct QuoteDesignPreviewCard: View {
                 Spacer()
                 HStack {
                     Text(quote.isEmpty ? "Your powerful quote will appear here." : String(quote.prefix(120)))
-                        .font(.system(size: 16, weight: .bold, design: .serif))
+                        .font(.systemScaled(16, weight: .bold, design: .serif))
                         .italic()
                         .foregroundColor(.white)
                         .lineLimit(4)

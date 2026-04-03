@@ -14,10 +14,10 @@ struct ContentSafetyBadge: View {
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: icon)
-                .font(.system(size: compact ? 10 : 11))
+                .font(.systemScaled(compact ? 10 : 11))
             if !compact {
                 Text(label)
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.systemScaled(10, weight: .medium))
             }
         }
         .foregroundColor(color)
@@ -67,9 +67,9 @@ struct SafetyScorePill: View {
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: "shield.fill")
-                .font(.system(size: 10))
+                .font(.systemScaled(10))
             Text("\(Int(score * 100))%")
-                .font(.system(size: 10, weight: .semibold))
+                .font(.systemScaled(10, weight: .semibold))
         }
         .foregroundColor(color)
         .padding(.horizontal, 7)

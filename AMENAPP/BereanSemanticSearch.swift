@@ -180,11 +180,11 @@ struct BereanSemanticSearchView: View {
             // Search bar
             HStack(spacing: 10) {
                 Image(systemName: "sparkle.magnifyingglass")
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .foregroundStyle(Color(.secondaryLabel))
 
                 TextField("Search your notes semantically…", text: $query)
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .focused($focused)
                     .onChange(of: query) { _, newVal in
                         scheduleSearch(newVal)
@@ -209,7 +209,7 @@ struct BereanSemanticSearchView: View {
                 HStack(spacing: 6) {
                     ProgressView().scaleEffect(0.7)
                     Text("Indexing notes…")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(Color(.tertiaryLabel))
                 }
                 .padding(.bottom, 8)
@@ -227,7 +227,7 @@ struct BereanSemanticSearchView: View {
                 }
             } else if !query.isEmpty && !service.isSearching {
                 Text("No notes matched \"\(query)\"")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(Color(.tertiaryLabel))
                     .padding(.top, 32)
             }
@@ -258,22 +258,22 @@ private struct SemanticResultRow: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Text(result.note.title)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(Color(.label))
                     .lineLimit(1)
                 Spacer()
                 Text("\(Int(result.score * 100))% match")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                     .foregroundStyle(Color(.tertiaryLabel))
             }
             Text(result.matchContext)
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(Color(.secondaryLabel))
                 .lineLimit(2)
 
             if let date = result.note.date as Date? {
                 Text(date.formatted(.dateTime.month().day().year()))
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(Color(.tertiaryLabel))
             }
         }
@@ -294,7 +294,7 @@ struct SemanticSearchButton: View {
             showSearch = true
         } label: {
             Image(systemName: "sparkle.magnifyingglass")
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
         }
         .sheet(isPresented: $showSearch) {
             NavigationView {

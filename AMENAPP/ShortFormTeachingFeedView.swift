@@ -95,7 +95,7 @@ struct ShortFormTeachingFeedView: View {
                     dismiss()
                 } label: {
                     Image(systemName: "chevron.left")
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(.systemScaled(17, weight: .semibold))
                         .foregroundColor(.white)
                         .padding(10)
                         .background(
@@ -112,7 +112,7 @@ struct ShortFormTeachingFeedView: View {
                 Spacer()
 
                 Text("Teachings")
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.systemScaled(17, weight: .semibold))
                     .foregroundColor(.white)
 
                 Spacer()
@@ -198,7 +198,7 @@ struct TeachingClipCard: View {
         ZStack {
             Color.black.opacity(0.85)
             Image(systemName: "play.rectangle.fill")
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundColor(.white.opacity(0.2))
         }
     }
@@ -213,7 +213,7 @@ struct TeachingClipCard: View {
             // TODO: Trigger actual video playback via AVPlayer or video player service
         } label: {
             Image(systemName: "play.circle.fill")
-                .font(.system(size: 60))
+                .font(.systemScaled(60))
                 .foregroundColor(.white.opacity(0.9))
                 .shadow(color: .black.opacity(0.4), radius: 8)
         }
@@ -258,7 +258,7 @@ struct TeachingClipCard: View {
 
             // Title
             Text(clip.title)
-                .font(.system(size: 18, weight: .bold))
+                .font(.systemScaled(18, weight: .bold))
                 .foregroundColor(.white)
                 .lineLimit(2)
                 .multilineTextAlignment(.leading)
@@ -266,7 +266,7 @@ struct TeachingClipCard: View {
             // Scripture reference
             if let ref = clip.scriptureRef {
                 Text(ref)
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .italic()
                     .foregroundColor(.white.opacity(0.85))
             }
@@ -281,7 +281,7 @@ struct TeachingClipCard: View {
 
     private var authorBadge: some View {
         Text(clip.authorName)
-            .font(.system(size: 12, weight: .semibold))
+            .font(.systemScaled(12, weight: .semibold))
             .foregroundColor(.white)
             .padding(.horizontal, 12)
             .padding(.vertical, 5)
@@ -298,7 +298,7 @@ struct TeachingClipCard: View {
 
     private var clipTypeChip: some View {
         Text(clip.type.rawValue)
-            .font(.system(size: 11, weight: .semibold))
+            .font(.systemScaled(11, weight: .semibold))
             .foregroundColor(.white)
             .padding(.horizontal, 10)
             .padding(.vertical, 4)
@@ -313,7 +313,7 @@ struct TeachingClipCard: View {
             HStack(spacing: 8) {
                 ForEach(clip.smartSignals, id: \.self) { signal in
                     Text(signal)
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.systemScaled(11, weight: .medium))
                         .foregroundColor(.white.opacity(0.9))
                         .padding(.horizontal, 10)
                         .padding(.vertical, 4)
@@ -375,10 +375,10 @@ struct TeachingClipCard: View {
         Button(action: action) {
             VStack(spacing: 4) {
                 Image(systemName: icon)
-                    .font(.system(size: 24, weight: .medium))
+                    .font(.systemScaled(24, weight: .medium))
                     .foregroundColor(tint)
                 Text(label)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                     .foregroundColor(.white)
             }
         }

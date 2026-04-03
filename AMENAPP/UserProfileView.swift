@@ -392,7 +392,7 @@ struct UserProfileView: View {
                                 dismiss()
                             } label: {
                                 Image(systemName: "chevron.left")
-                                    .font(.system(size: 18, weight: .semibold))
+                                    .font(.systemScaled(18, weight: .semibold))
                                     .foregroundStyle(.black)
                             }
                             .buttonStyle(.plain)
@@ -545,7 +545,7 @@ struct UserProfileView: View {
                 handleErrorDismiss()
             } label: {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 18))
+                    .font(.systemScaled(18))
                     .foregroundStyle(.gray)
             }
             .padding(.trailing, 8)
@@ -1925,7 +1925,7 @@ struct UserProfileView: View {
                     toggleFollow()
                 } label: {
                     Image(systemName: isFollowing ? "person.fill.checkmark" : "person.fill.badge.plus")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.systemScaled(18, weight: .semibold))
                         .foregroundStyle(isFollowing ? .blue : .primary)
                 }
                 .transition(.scale.combined(with: .opacity))
@@ -1934,7 +1934,7 @@ struct UserProfileView: View {
                     sendMessage()
                 } label: {
                     Image(systemName: "message.fill")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.systemScaled(18, weight: .semibold))
                         .foregroundStyle(.primary)
                 }
                 .transition(.scale.combined(with: .opacity))
@@ -1944,7 +1944,7 @@ struct UserProfileView: View {
                 shareProfile()
             } label: {
                 Image(systemName: "square.and.arrow.up")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.systemScaled(18, weight: .semibold))
                     .foregroundStyle(.primary)
             }
             .buttonStyle(.plain)
@@ -2032,7 +2032,7 @@ struct UserProfileView: View {
                 }
             } label: {
                 Image(systemName: "ellipsis")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.systemScaled(18, weight: .semibold))
                     .foregroundStyle(.primary)
             }
             .buttonStyle(.plain)
@@ -2069,7 +2069,7 @@ struct UserProfileView: View {
                                 if profileData.isPrivateAccount {
                                     HStack(spacing: 4) {
                                         Image(systemName: "lock.fill")
-                                            .font(.system(size: 12, weight: .semibold))
+                                            .font(.systemScaled(12, weight: .semibold))
                                         Text("Private")
                                             .font(AMENFont.semiBold(11))
                                     }
@@ -2101,7 +2101,7 @@ struct UserProfileView: View {
                                 Link(destination: bioURLParsed) {
                                     HStack(spacing: 6) {
                                         Image(systemName: "link.circle.fill")
-                                            .font(.system(size: 11, weight: .semibold))
+                                            .font(.systemScaled(11, weight: .semibold))
                                             .foregroundStyle(.primary)
 
                                         Text(bioURL.replacingOccurrences(of: "https://", with: "")
@@ -2322,7 +2322,7 @@ struct UserProfileView: View {
                                             )
                                         
                                         Text(messageBlocked ? "Follow to message" : "Message")
-                                            .font(.system(size: 14, weight: .bold))
+                                            .font(.systemScaled(14, weight: .bold))
                                             .foregroundStyle(messageBlocked ? Color.secondary : Color.primary)
                                     }
                                     .frame(maxWidth: .infinity)
@@ -2413,7 +2413,7 @@ struct UserProfileView: View {
                         HStack(spacing: 6) {
                             // Uncomment to show icons alongside text:
                             // Image(systemName: tab.icon)
-                            //     .font(.system(size: 14, weight: .semibold))
+                            //     .font(.systemScaled(14, weight: .semibold))
                             
                             Text(tab.rawValue)
                                 .font(AMENFont.bold(15))
@@ -2498,7 +2498,7 @@ struct UserProfileView: View {
     private var lockedProfileView: some View {
         VStack(spacing: 20) {
             Image(systemName: "lock.fill")
-                .font(.system(size: 44, weight: .semibold))
+                .font(.systemScaled(44, weight: .semibold))
                 .foregroundStyle(.secondary)
 
             VStack(spacing: 8) {
@@ -2714,7 +2714,7 @@ struct UserProfileReplyCard: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 6) {
                     Image(systemName: "arrowshape.turn.up.left")
-                        .font(.system(size: 10))
+                        .font(.systemScaled(10))
                         .foregroundStyle(.black.opacity(0.4))
                     
                     Text("Replying to \(originalAuthor)")
@@ -2780,20 +2780,20 @@ struct UserRepostsContentView: View {
                                     .frame(width: 30, height: 30)
                                     .overlay(
                                         Text(String(repost.originalAuthor.prefix(2)).uppercased())
-                                            .font(.system(size: 11, weight: .bold))
+                                            .font(.systemScaled(11, weight: .bold))
                                             .foregroundStyle(.secondary)
                                     )
                                 VStack(alignment: .leading, spacing: 1) {
                                     HStack(spacing: 5) {
                                         Text(repost.originalAuthor)
-                                            .font(.system(size: 12, weight: .semibold))
+                                            .font(.systemScaled(12, weight: .semibold))
                                         Spacer()
                                         Text(repost.timestamp)
-                                            .font(.system(size: 10))
+                                            .font(.systemScaled(10))
                                             .foregroundStyle(.quaternary)
                                     }
                                     Text(repost.content)
-                                        .font(.system(size: 13))
+                                        .font(.systemScaled(13))
                                         .foregroundStyle(.primary.opacity(0.85))
                                         .lineSpacing(3)
                                         .lineLimit(4)
@@ -2807,15 +2807,15 @@ struct UserRepostsContentView: View {
                                     Spacer()
                                     if repost.likes > 0 {
                                         HStack(spacing: 4) {
-                                            Image(systemName: "hands.clap").font(.system(size: 11))
-                                            Text("\(repost.likes)").font(.system(size: 11, weight: .medium))
+                                            Image(systemName: "hands.clap").font(.systemScaled(11))
+                                            Text("\(repost.likes)").font(.systemScaled(11, weight: .medium))
                                         }
                                         .foregroundStyle(.secondary)
                                     }
                                     if repost.replies > 0 {
                                         HStack(spacing: 4) {
-                                            Image(systemName: "bubble.left").font(.system(size: 11))
-                                            Text("\(repost.replies)").font(.system(size: 11, weight: .medium))
+                                            Image(systemName: "bubble.left").font(.systemScaled(11))
+                                            Text("\(repost.replies)").font(.systemScaled(11, weight: .medium))
                                         }
                                         .foregroundStyle(.secondary)
                                     }
@@ -2879,7 +2879,7 @@ struct UnifiedFeedContentView: View {
                         if item.type == .repost {
                             HStack(spacing: 6) {
                                 Image(systemName: "arrow.2.squarepath")
-                                    .font(.system(size: 12, weight: .semibold))
+                                    .font(.systemScaled(12, weight: .semibold))
                                     .foregroundStyle(.black.opacity(0.4))
                                 
                                 Text("Reposted from \(item.originalAuthor ?? "Unknown")")
@@ -2992,7 +2992,7 @@ struct UnifiedFeedItemCard: View {
                         Text(isExpanded ? "See Less" : "See More")
                             .font(AMENFont.semiBold(13))
                         Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.systemScaled(10, weight: .semibold))
                     }
                     .foregroundStyle(.black.opacity(0.5))
                 }
@@ -3012,7 +3012,7 @@ struct UnifiedFeedItemCard: View {
                     Button(action: onLike) {
                         HStack(spacing: 6) {
                             Image(systemName: isLiked ? "hands.sparkles.fill" : "hands.sparkles")
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.systemScaled(16, weight: .semibold))
                                 .foregroundStyle(isLiked ? .blue : .black.opacity(0.6))
                             
                             if item.likes > 0 {
@@ -3027,7 +3027,7 @@ struct UnifiedFeedItemCard: View {
                     Button(action: onReply) {
                         HStack(spacing: 6) {
                             Image(systemName: "bubble.left")
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.systemScaled(16, weight: .semibold))
                                 .foregroundStyle(.black.opacity(0.6))
                             
                             if item.replies > 0 {
@@ -3113,7 +3113,7 @@ struct ReadOnlyProfilePostCard: View {
                 if let postType = post.postType {
                     HStack(spacing: 3) {
                         Image(systemName: postType.icon)
-                            .font(.system(size: 9, weight: .medium))
+                            .font(.systemScaled(9, weight: .medium))
                         Text(postType.rawValue)
                             .font(AMENFont.semiBold(9))
                     }
@@ -3136,7 +3136,7 @@ struct ReadOnlyProfilePostCard: View {
                     onLike()
                 } label: {
                     Image(systemName: isLiked ? "hands.clap.fill" : "hands.clap")
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.systemScaled(16, weight: .medium))
                         .foregroundStyle(isLiked ? .black : .black.opacity(0.4))
                         .frame(width: 32, height: 32)
                         .background(
@@ -3158,7 +3158,7 @@ struct ReadOnlyProfilePostCard: View {
                 } label: {
                     ZStack(alignment: .topTrailing) {
                         Image(systemName: "bubble.left")
-                            .font(.system(size: 16, weight: .medium))
+                            .font(.systemScaled(16, weight: .medium))
                             .foregroundStyle(.black.opacity(0.4))
                             .frame(width: 32, height: 32)
                             .background(
@@ -3192,7 +3192,7 @@ struct ReadOnlyProfilePostCard: View {
                     sharePost()
                 } label: {
                     Image(systemName: "square.and.arrow.up")
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.systemScaled(16, weight: .medium))
                         .foregroundStyle(.black.opacity(0.4))
                         .frame(width: 32, height: 32)
                         .background(
@@ -3287,7 +3287,7 @@ struct ReadOnlyProfilePostCard: View {
                 .frame(width: 50, height: 50)
             
             Image(systemName: "hands.clap.fill")
-                .font(.system(size: 24, weight: .semibold))
+                .font(.systemScaled(24, weight: .semibold))
                 .foregroundStyle(.black.opacity(0.6))
         }
     }
@@ -3300,7 +3300,7 @@ struct ReadOnlyProfilePostCard: View {
                 .frame(width: 50, height: 50)
             
             Image(systemName: "bubble.left.fill")
-                .font(.system(size: 24, weight: .semibold))
+                .font(.systemScaled(24, weight: .semibold))
                 .foregroundStyle(.black.opacity(0.6))
         }
     }
@@ -3397,7 +3397,7 @@ struct UserProfileEmptyStateView: View {
                     .shadow(color: .black.opacity(0.1), radius: 20, x: 0, y: 10)
                 
                 Image(systemName: icon)
-                    .font(.system(size: 40, weight: .medium))
+                    .font(.systemScaled(40, weight: .medium))
                     .foregroundStyle(.black.opacity(0.3))
             }
             
@@ -3768,7 +3768,7 @@ struct ReportUserView: View {
                     // Header
                     VStack(spacing: 12) {
                         Image(systemName: "exclamationmark.triangle.fill")
-                            .font(.system(size: 50))
+                            .font(.systemScaled(50))
                             .foregroundStyle(.orange)
                         
                         Text("Report \(userName)")
@@ -3901,7 +3901,7 @@ struct ReportReasonRow: View {
         } label: {
             HStack(spacing: 16) {
                 Image(systemName: reason.icon)
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
                     .foregroundStyle(isSelected ? .red : .black.opacity(0.6))
                     .frame(width: 32)
                 
@@ -3913,7 +3913,7 @@ struct ReportReasonRow: View {
                 
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 20))
+                        .font(.systemScaled(20))
                         .foregroundStyle(.red)
                 }
             }
@@ -3959,7 +3959,7 @@ struct InterestTagsView: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 6) {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.black.opacity(0.5))
                     
                     Text("Interests")
@@ -4097,7 +4097,7 @@ struct SocialLinksView: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 6) {
                     Image(systemName: "link")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.black.opacity(0.5))
 
                     Text("Social Links")
@@ -4115,7 +4115,7 @@ struct SocialLinksView: View {
                         } label: {
                             HStack(spacing: 10) {
                                 Image(systemName: link.platform.icon)
-                                    .font(.system(size: 14))
+                                    .font(.systemScaled(14))
                                     .foregroundStyle(.blue)
                                     .frame(width: 20)
 
@@ -4126,7 +4126,7 @@ struct SocialLinksView: View {
                                 Spacer()
 
                                 Image(systemName: "arrow.up.right")
-                                    .font(.system(size: 12, weight: .semibold))
+                                    .font(.systemScaled(12, weight: .semibold))
                                     .foregroundStyle(.black.opacity(0.3))
                             }
                             .padding(.horizontal, 12)
@@ -4157,7 +4157,7 @@ struct ProfileRepostCard: View {
             // Repost indicator - Matches PostCard style
             HStack(spacing: 4) {
                 Image(systemName: "arrow.triangle.2.circlepath")
-                    .font(.system(size: 9, weight: .medium))
+                    .font(.systemScaled(9, weight: .medium))
                 Text("Reposted from \(originalAuthor)")
                     .font(AMENFont.semiBold(10))
             }
@@ -4194,7 +4194,7 @@ struct ProfileRepostCard: View {
                     // Disabled for reposts
                 } label: {
                     Image(systemName: "hands.clap")
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.systemScaled(16, weight: .medium))
                         .foregroundStyle(.black.opacity(0.4))
                         .frame(width: 32, height: 32)
                         .background(
@@ -4215,7 +4215,7 @@ struct ProfileRepostCard: View {
                 } label: {
                     ZStack(alignment: .topTrailing) {
                         Image(systemName: "bubble.left")
-                            .font(.system(size: 16, weight: .medium))
+                            .font(.systemScaled(16, weight: .medium))
                             .foregroundStyle(.black.opacity(0.4))
                             .frame(width: 32, height: 32)
                             .background(
@@ -4250,7 +4250,7 @@ struct ProfileRepostCard: View {
                     // Disabled for reposts
                 } label: {
                     Image(systemName: "square.and.arrow.up")
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.systemScaled(16, weight: .medium))
                         .foregroundStyle(.black.opacity(0.4))
                         .frame(width: 32, height: 32)
                         .background(
@@ -4515,7 +4515,7 @@ struct BackToTopButton: View {
             Button(action: action) {
                 HStack(spacing: 8) {
                     Image(systemName: "arrow.up")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                     Text("Back to top")
                         .font(AMENFont.semiBold(13))
                 }
@@ -4684,7 +4684,7 @@ struct ErrorRecoveryView: View {
                     .frame(width: 80, height: 80)
                 
                 Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 36))
+                    .font(.systemScaled(36))
                     .foregroundStyle(.red)
             }
             
@@ -4714,7 +4714,7 @@ struct ErrorRecoveryView: View {
                                 .scaleEffect(0.9)
                         } else {
                             Image(systemName: "arrow.clockwise")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.systemScaled(14, weight: .semibold))
                         }
                         
                         Text(isRetrying ? "Retrying..." : "Try Again")
@@ -4830,7 +4830,7 @@ struct InlineErrorBanner: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
                 .foregroundStyle(.orange)
             
             Text(message)
@@ -4873,7 +4873,7 @@ struct PrivacyStatusBadge: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: icon)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
             
             Text(text)
                 .font(AMENFont.semiBold(13))
@@ -4926,7 +4926,7 @@ struct ChatConversationLoader: View {
                 // Error state — only shown if ID never resolves
                 VStack(spacing: 20) {
                     Image(systemName: "exclamationmark.triangle")
-                        .font(.system(size: 50))
+                        .font(.systemScaled(50))
                         .foregroundStyle(.red)
                     
                     Text("Unable to start conversation")

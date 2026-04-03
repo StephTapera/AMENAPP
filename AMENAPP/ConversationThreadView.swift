@@ -17,6 +17,7 @@
 //   WisdomRankingService            — lightweight offline scoring; AI hook for cloud scoring
 
 import SwiftUI
+import UIKit
 import FirebaseAuth
 import FirebaseFirestore
 
@@ -186,6 +187,7 @@ struct ConversationThreadView: View {
     let highlightedCommentIDs: Set<String>
 
     var onReply: (Comment?) -> Void       // nil = reply to post
+    var onReplyWithQuote: (Comment, PostTextSelection) -> Void
     var onAmen: (Comment) -> Void
     var onDelete: (Comment) -> Void
     var onProfileTap: (String) -> Void
@@ -234,6 +236,7 @@ struct ConversationThreadView: View {
                     ForEach(Array(sortedComments.enumerated()), id: \.element.id) { idx, item in
                         VStack(spacing: 0) {
                             ThreadReplyRow(
+                                post: post,
                                 comment: item.comment,
                                 replies: item.replies,
                                 isHighlighted: highlightedCommentIDs.contains(commentAnchorID(for: item.comment)),
@@ -253,6 +256,7 @@ struct ConversationThreadView: View {
                                     maybeShowReflection(after: item.comment.id ?? "")
                                 },
                                 onReply: { onReply(item.comment) },
+                                onReplyWithQuote: { comment, selection in onReplyWithQuote(comment, selection) },
                                 onAmen: { onAmen(item.comment) },
                                 onDelete: { onDelete(item.comment) },
                                 onProfileTap: { onProfileTap(item.comment.authorId) },
@@ -284,6 +288,9 @@ struct ConversationThreadView: View {
                                 .transition(.move(edge: .top).combined(with: .opacity))
                             }
                         }
+                        // Deep-link scroll anchor — used by PostDetailView's ScrollViewReader
+                        // to navigate directly to a comment from a notification tap.
+                        .id(item.comment.id ?? "")
                     }
                 }
             }
@@ -296,11 +303,11 @@ struct ConversationThreadView: View {
         HStack(alignment: .center) {
             VStack(alignment: .leading, spacing: 1) {
                 Text("Conversation")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(.primary)
                 if !commentsWithReplies.isEmpty {
                     Text("\(commentsWithReplies.count) \(commentsWithReplies.count == 1 ? "reply" : "replies")")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -315,11 +322,11 @@ struct ConversationThreadView: View {
             } label: {
                 HStack(spacing: 4) {
                     Image(systemName: sort.icon)
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.systemScaled(11, weight: .medium))
                     Text(sort.rawValue)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                     Image(systemName: "chevron.down")
-                        .font(.system(size: 10, weight: .medium))
+                        .font(.systemScaled(10, weight: .medium))
                         .rotationEffect(.degrees(showSortPicker ? 180 : 0))
                 }
                 .foregroundStyle(.secondary)
@@ -349,20 +356,20 @@ struct ConversationThreadView: View {
     private var emptyThreadView: some View {
         VStack(spacing: 12) {
             Image(systemName: "bubble.left.and.bubble.right")
-                .font(.system(size: 32, weight: .light))
+                .font(.systemScaled(32, weight: .light))
                 .foregroundStyle(.secondary.opacity(0.45))
             Text("Start the conversation")
-                .font(.system(size: 15, weight: .medium))
+                .font(.systemScaled(15, weight: .medium))
                 .foregroundStyle(.secondary)
             Text("Be the first to reply with wisdom and grace.")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.secondary.opacity(0.7))
                 .multilineTextAlignment(.center)
             Button {
                 onReply(nil)
             } label: {
                 Text("Add a thoughtful reply")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 20)
                     .padding(.vertical, 10)
@@ -422,16 +429,16 @@ private struct ThreadSortPicker: View {
                 } label: {
                     HStack(spacing: 10) {
                         Image(systemName: option.icon)
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.systemScaled(13, weight: .medium))
                             .foregroundStyle(option == selected ? Color(red: 0.78, green: 0.50, blue: 0.18) : .secondary)
                             .frame(width: 18)
                         Text(option.rawValue)
-                            .font(.system(size: 14, weight: option == selected ? .semibold : .regular))
+                            .font(.systemScaled(14, weight: option == selected ? .semibold : .regular))
                             .foregroundStyle(.primary)
                         Spacer()
                         if option == selected {
                             Image(systemName: "checkmark")
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.systemScaled(12, weight: .semibold))
                                 .foregroundStyle(Color(red: 0.78, green: 0.50, blue: 0.18))
                         }
                     }
@@ -458,6 +465,7 @@ private struct ThreadSortPicker: View {
 // MARK: - Thread Reply Row (Threads-style layout)
 
 struct ThreadReplyRow: View {
+    let post: Post
     let comment: Comment
     let replies: [Comment]
     let isHighlighted: Bool
@@ -465,6 +473,7 @@ struct ThreadReplyRow: View {
     let isClusterExpanded: Bool
     let onExpandCluster: () -> Void
     let onReply: () -> Void
+    let onReplyWithQuote: (Comment, PostTextSelection) -> Void
     let onAmen: () -> Void
     let onDelete: () -> Void
     let onProfileTap: () -> Void
@@ -476,10 +485,31 @@ struct ThreadReplyRow: View {
     @State private var isPressed = false
     @State private var hasAmened = false
     @State private var localAmenCount: Int = 0
+    @ObservedObject private var followService = FollowService.shared
+    @State private var textSelection: PostTextSelection?
+    @State private var isTextSelecting = false
+    @State private var activeCommentSheet: CommentSheet?
     @Environment(\.colorScheme) private var colorScheme
 
     private var badges: [ThreadWisdomBadge] { WisdomRankingService.badges(for: comment) }
     private var isOwn: Bool { comment.authorId == Auth.auth().currentUser?.uid }
+
+    private enum CommentSheet: Identifiable {
+        case quoteComposer(QuoteComposerContext)
+        case share(String)
+        case berean(String)
+
+        var id: String {
+            switch self {
+            case .quoteComposer(let context):
+                return "quoteComposer_\(context.id.uuidString)"
+            case .share(let text):
+                return "share_\(text.hashValue)"
+            case .berean(let query):
+                return "berean_\(query.hashValue)"
+            }
+        }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -512,14 +542,14 @@ struct ThreadReplyRow: View {
                     // Author + timestamp header
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
                         Text(comment.authorName)
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                             .foregroundStyle(.primary)
                         Text("@\(comment.authorUsername)")
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundStyle(.secondary)
                         Spacer()
                         Text(timeAgoShort(from: comment.createdAt))
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(.secondary)
 
                         // Options menu (own comment)
@@ -530,20 +560,47 @@ struct ThreadReplyRow: View {
                                 }
                             } label: {
                                 Image(systemName: "ellipsis")
-                                    .font(.system(size: 14))
+                                    .font(.systemScaled(14))
                                     .foregroundStyle(.secondary)
                                     .frame(width: 28, height: 28)
                             }
                         }
                     }
 
-                    // Content
-                    Text(comment.content)
-                        .font(.system(size: 15))
-                        .foregroundStyle(.primary)
-                        .lineSpacing(3)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .textSelection(.enabled)
+                    // Content with highlight-to-quote support
+                    ZStack(alignment: .topLeading) {
+                        SelectablePostTextView(
+                            text: comment.content,
+                            mentions: nil,
+                            font: UIFont.systemFont(ofSize: 15),
+                            lineSpacing: 3,
+                            lineLimit: nil,
+                            onMentionTap: { _ in },
+                            onTextTap: {
+                                if textSelection != nil {
+                                    clearTextSelection()
+                                }
+                            },
+                            selection: $textSelection,
+                            isSelecting: $isTextSelecting
+                        )
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                        if let selection = textSelection {
+                            GeometryReader { proxy in
+                                HighlightActionCapsule(
+                                    onQuote: { handleQuoteSelection(selection) },
+                                    onReply: { handleReplyWithQuote(selection) },
+                                    onSave: { handleSaveSelection(selection) },
+                                    onShare: { handleShareSelection(selection) },
+                                    onBerean: { handleBereanSelection(selection) }
+                                )
+                                .position(actionCapsulePosition(for: selection.rect, in: proxy.size))
+                                .transition(.opacity.combined(with: .scale))
+                            }
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
                     // Wisdom badges
                     if !badges.isEmpty {
@@ -567,12 +624,12 @@ struct ThreadReplyRow: View {
                         } label: {
                             HStack(spacing: 4) {
                                 Image(systemName: hasAmened ? "hands.clap.fill" : "hands.clap")
-                                    .font(.system(size: 14))
+                                    .font(.systemScaled(14))
                                     .scaleEffect(hasAmened ? 1.15 : 1.0)
                                     .animation(.spring(response: 0.3, dampingFraction: 0.5), value: hasAmened)
                                 if localAmenCount > 0 {
                                     Text("\(localAmenCount)")
-                                        .font(.system(size: 13))
+                                        .font(.systemScaled(13))
                                         .contentTransition(.numericText())
                                 }
                             }
@@ -584,9 +641,9 @@ struct ThreadReplyRow: View {
                         Button(action: onReply) {
                             HStack(spacing: 4) {
                                 Image(systemName: "arrowshape.turn.up.left")
-                                    .font(.system(size: 14))
+                                    .font(.systemScaled(14))
                                 Text("Reply")
-                                    .font(.system(size: 13))
+                                    .font(.systemScaled(13))
                             }
                             .foregroundStyle(.secondary)
                         }
@@ -595,7 +652,7 @@ struct ThreadReplyRow: View {
                         // Berean AI
                         Button(action: onBerean) {
                             Image(systemName: "sparkles")
-                                .font(.system(size: 13))
+                                .font(.systemScaled(13))
                                 .foregroundStyle(.secondary)
                         }
                         .buttonStyle(.plain)
@@ -611,7 +668,7 @@ struct ThreadReplyRow: View {
                                     Text(isClusterExpanded
                                          ? "Hide replies"
                                          : "View \(replies.count) \(replies.count == 1 ? "reply" : "replies")")
-                                        .font(.system(size: 12, weight: .medium))
+                                        .font(.systemScaled(12, weight: .medium))
                                         .foregroundStyle(Color(red: 0.78, green: 0.50, blue: 0.18))
                                 }
                             }
@@ -627,13 +684,15 @@ struct ThreadReplyRow: View {
             // ── Expanded sub-thread (branching cluster) ───────────────────────
             if isClusterExpanded && !replies.isEmpty {
                 ThreadBranchCluster(
+                    post: post,
                     replies: replies,
                     parentComment: comment,
                     highlightedCommentIDs: highlightedCommentIDs,
                     onReplyAmen: onReplyAmen,
                     onReplyDelete: onReplyDelete,
                     onReplyProfile: onReplyProfile,
-                    onReplyToReply: { _ in onReply() }
+                    onReplyToReply: { _ in onReply() },
+                    onReplyWithQuote: onReplyWithQuote
                 )
                 .padding(.leading, 52) // indent to align with parent content
                 .transition(.move(edge: .top).combined(with: .opacity))
@@ -656,6 +715,98 @@ struct ThreadReplyRow: View {
         }
         .onChange(of: comment.amenCount) { _, newCount in
             localAmenCount = newCount
+        }
+        .sheet(item: $activeCommentSheet) { sheet in
+            switch sheet {
+            case .quoteComposer(let context):
+                QuoteComposerView(context: context)
+            case .share(let text):
+                ShareSheet(items: [text])
+            case .berean(let query):
+                BereanAIAssistantView(initialQuery: query.isEmpty ? nil : query)
+            }
+        }
+    }
+
+    private func clearTextSelection() {
+        textSelection = nil
+        isTextSelecting = false
+    }
+
+    private func actionCapsulePosition(for rect: CGRect, in size: CGSize) -> CGPoint {
+        guard !rect.isNull, !rect.isEmpty else {
+            return CGPoint(x: size.width * 0.5, y: 24)
+        }
+
+        let clampedX = min(max(rect.midX, 90), size.width - 90)
+        let capsuleY = max(rect.minY - 26, 22)
+        return CGPoint(x: clampedX, y: capsuleY)
+    }
+
+    private func handleQuoteSelection(_ selection: PostTextSelection) {
+        guard canQuote(post) else {
+            HapticManager.notification(type: .warning)
+            ToastManager.shared.info("Quoting is not allowed for this post")
+            clearTextSelection()
+            return
+        }
+        let context = QuoteComposerContext(
+            sourcePost: post,
+            sourceAuthorId: comment.authorId,
+            sourceAuthorName: comment.authorName,
+            sourceAuthorUsername: comment.authorUsername,
+            selection: selection
+        )
+        activeCommentSheet = .quoteComposer(context)
+        clearTextSelection()
+    }
+
+    private func handleReplyWithQuote(_ selection: PostTextSelection) {
+        guard canQuote(post) else {
+            HapticManager.notification(type: .warning)
+            ToastManager.shared.info("Quoting is not allowed for this post")
+            clearTextSelection()
+            return
+        }
+        onReplyWithQuote(comment, selection)
+        clearTextSelection()
+    }
+
+    private func handleSaveSelection(_ selection: PostTextSelection) {
+        let excerpt = SavedExcerpt(
+            postId: post.firestoreId,
+            authorId: comment.authorId,
+            authorName: comment.authorName,
+            excerpt: selection.text
+        )
+        ExcerptStore.shared.save(excerpt)
+        HapticManager.notification(type: .success)
+        ToastManager.shared.success("Saved excerpt")
+        clearTextSelection()
+    }
+
+    private func handleShareSelection(_ selection: PostTextSelection) {
+        let excerpt = "“\(selection.text)” — \(comment.authorName)"
+        activeCommentSheet = .share(excerpt)
+        clearTextSelection()
+    }
+
+    private func handleBereanSelection(_ selection: PostTextSelection) {
+        let query = "Explain and reflect on: \"\(selection.text)\""
+        activeCommentSheet = .berean(query)
+        clearTextSelection()
+    }
+
+    private func canQuote(_ post: Post) -> Bool {
+        let permission = post.quotesAllowed ?? .everyone
+        switch permission {
+        case .none:
+            return false
+        case .followers:
+            let isUserPost = post.authorId == FirebaseManager.shared.currentUser?.uid
+            return followService.following.contains(post.authorId) || isUserPost
+        case .everyone:
+            return true
         }
     }
 
@@ -694,6 +845,7 @@ struct ThreadReplyRow: View {
 // MARK: - Thread Branch Cluster (nested replies)
 
 private struct ThreadBranchCluster: View {
+    let post: Post
     let replies: [Comment]
     let parentComment: Comment
     let highlightedCommentIDs: Set<String>
@@ -701,6 +853,7 @@ private struct ThreadBranchCluster: View {
     let onReplyDelete: (Comment) -> Void
     let onReplyProfile: (Comment) -> Void
     let onReplyToReply: (Comment) -> Void
+    let onReplyWithQuote: (Comment, PostTextSelection) -> Void
 
     // Collapse very deep threads beyond 5 visible replies
     @State private var showAll = false
@@ -714,12 +867,14 @@ private struct ThreadBranchCluster: View {
         VStack(spacing: 0) {
             ForEach(Array(visibleReplies.enumerated()), id: \.element.stableId) { idx, reply in
                 ThreadReplyBranchRow(
+                    post: post,
                     reply: reply,
                     isHighlighted: highlightedCommentIDs.contains(reply.id ?? reply.stableId),
                     isFirst: idx == 0,
                     hasMoreBelow: idx < visibleReplies.count - 1,
                     onAmen: { onReplyAmen(reply) },
                     onReply: { onReplyToReply(reply) },
+                    onReplyWithQuote: onReplyWithQuote,
                     onProfileTap: { onReplyProfile(reply) }
                 )
             }
@@ -738,7 +893,7 @@ private struct ThreadBranchCluster: View {
                             .padding(.leading, 14)
 
                         Text("View \(replies.count - visibleLimit) more \(replies.count - visibleLimit == 1 ? "reply" : "replies") in this thread")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.systemScaled(13, weight: .medium))
                             .foregroundStyle(Color(red: 0.78, green: 0.50, blue: 0.18))
                     }
                     .padding(.vertical, 8)
@@ -753,16 +908,39 @@ private struct ThreadBranchCluster: View {
 // MARK: - Thread Reply Branch Row (nested reply with amen state)
 
 private struct ThreadReplyBranchRow: View {
+    let post: Post
     let reply: Comment
     let isHighlighted: Bool
     let isFirst: Bool
     let hasMoreBelow: Bool
     let onAmen: () -> Void
     let onReply: () -> Void
+    let onReplyWithQuote: (Comment, PostTextSelection) -> Void
     let onProfileTap: () -> Void
 
     @State private var hasAmened = false
     @State private var localAmenCount: Int = 0
+    @ObservedObject private var followService = FollowService.shared
+    @State private var textSelection: PostTextSelection?
+    @State private var isTextSelecting = false
+    @State private var activeCommentSheet: CommentSheet?
+
+    private enum CommentSheet: Identifiable {
+        case quoteComposer(QuoteComposerContext)
+        case share(String)
+        case berean(String)
+
+        var id: String {
+            switch self {
+            case .quoteComposer(let context):
+                return "quoteComposer_\(context.id.uuidString)"
+            case .share(let text):
+                return "share_\(text.hashValue)"
+            case .berean(let query):
+                return "berean_\(query.hashValue)"
+            }
+        }
+    }
 
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
@@ -798,20 +976,47 @@ private struct ThreadReplyBranchRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(alignment: .firstTextBaseline, spacing: 5) {
                     Text(reply.authorName)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(.primary)
                     Text(timeAgoShort(from: reply.createdAt))
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(.secondary)
                     Spacer()
                 }
 
-                Text(reply.content)
-                    .font(.system(size: 14))
-                    .foregroundStyle(.primary)
-                    .lineSpacing(2)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .textSelection(.enabled)
+                ZStack(alignment: .topLeading) {
+                    SelectablePostTextView(
+                        text: reply.content,
+                        mentions: nil,
+                        font: UIFont.systemFont(ofSize: 14),
+                        lineSpacing: 2,
+                        lineLimit: nil,
+                        onMentionTap: { _ in },
+                        onTextTap: {
+                            if textSelection != nil {
+                                clearTextSelection()
+                            }
+                        },
+                        selection: $textSelection,
+                        isSelecting: $isTextSelecting
+                    )
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    if let selection = textSelection {
+                        GeometryReader { proxy in
+                            HighlightActionCapsule(
+                                onQuote: { handleQuoteSelection(selection) },
+                                onReply: { handleReplyWithQuote(selection) },
+                                onSave: { handleSaveSelection(selection) },
+                                onShare: { handleShareSelection(selection) },
+                                onBerean: { handleBereanSelection(selection) }
+                            )
+                            .position(actionCapsulePosition(for: selection.rect, in: proxy.size))
+                            .transition(.opacity.combined(with: .scale))
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
 
                 // Mini wisdom badges
                 let nestedBadges = WisdomRankingService.badges(for: reply)
@@ -834,12 +1039,12 @@ private struct ThreadReplyBranchRow: View {
                     } label: {
                         HStack(spacing: 3) {
                             Image(systemName: hasAmened ? "hands.clap.fill" : "hands.clap")
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                                 .scaleEffect(hasAmened ? 1.15 : 1.0)
                                 .animation(.spring(response: 0.3, dampingFraction: 0.5), value: hasAmened)
                             if localAmenCount > 0 {
                                 Text("\(localAmenCount)")
-                                    .font(.system(size: 11))
+                                    .font(.systemScaled(11))
                                     .contentTransition(.numericText())
                             }
                         }
@@ -849,7 +1054,7 @@ private struct ThreadReplyBranchRow: View {
 
                     Button(action: onReply) {
                         Text("Reply")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(.secondary)
                     }
                     .buttonStyle(.plain)
@@ -873,6 +1078,98 @@ private struct ThreadReplyBranchRow: View {
         }
         .onChange(of: reply.amenCount) { _, newCount in
             localAmenCount = newCount
+        }
+        .sheet(item: $activeCommentSheet) { sheet in
+            switch sheet {
+            case .quoteComposer(let context):
+                QuoteComposerView(context: context)
+            case .share(let text):
+                ShareSheet(items: [text])
+            case .berean(let query):
+                BereanAIAssistantView(initialQuery: query.isEmpty ? nil : query)
+            }
+        }
+    }
+
+    private func clearTextSelection() {
+        textSelection = nil
+        isTextSelecting = false
+    }
+
+    private func actionCapsulePosition(for rect: CGRect, in size: CGSize) -> CGPoint {
+        guard !rect.isNull, !rect.isEmpty else {
+            return CGPoint(x: size.width * 0.5, y: 24)
+        }
+
+        let clampedX = min(max(rect.midX, 90), size.width - 90)
+        let capsuleY = max(rect.minY - 26, 22)
+        return CGPoint(x: clampedX, y: capsuleY)
+    }
+
+    private func handleQuoteSelection(_ selection: PostTextSelection) {
+        guard canQuote(post) else {
+            HapticManager.notification(type: .warning)
+            ToastManager.shared.info("Quoting is not allowed for this post")
+            clearTextSelection()
+            return
+        }
+        let context = QuoteComposerContext(
+            sourcePost: post,
+            sourceAuthorId: reply.authorId,
+            sourceAuthorName: reply.authorName,
+            sourceAuthorUsername: reply.authorUsername,
+            selection: selection
+        )
+        activeCommentSheet = .quoteComposer(context)
+        clearTextSelection()
+    }
+
+    private func handleReplyWithQuote(_ selection: PostTextSelection) {
+        guard canQuote(post) else {
+            HapticManager.notification(type: .warning)
+            ToastManager.shared.info("Quoting is not allowed for this post")
+            clearTextSelection()
+            return
+        }
+        onReplyWithQuote(reply, selection)
+        clearTextSelection()
+    }
+
+    private func handleSaveSelection(_ selection: PostTextSelection) {
+        let excerpt = SavedExcerpt(
+            postId: post.firestoreId,
+            authorId: reply.authorId,
+            authorName: reply.authorName,
+            excerpt: selection.text
+        )
+        ExcerptStore.shared.save(excerpt)
+        HapticManager.notification(type: .success)
+        ToastManager.shared.success("Saved excerpt")
+        clearTextSelection()
+    }
+
+    private func handleShareSelection(_ selection: PostTextSelection) {
+        let excerpt = "“\(selection.text)” — \(reply.authorName)"
+        activeCommentSheet = .share(excerpt)
+        clearTextSelection()
+    }
+
+    private func handleBereanSelection(_ selection: PostTextSelection) {
+        let query = "Explain and reflect on: \"\(selection.text)\""
+        activeCommentSheet = .berean(query)
+        clearTextSelection()
+    }
+
+    private func canQuote(_ post: Post) -> Bool {
+        let permission = post.quotesAllowed ?? .everyone
+        switch permission {
+        case .none:
+            return false
+        case .followers:
+            let isUserPost = post.authorId == FirebaseManager.shared.currentUser?.uid
+            return followService.following.contains(post.authorId) || isUserPost
+        case .everyone:
+            return true
         }
     }
 
@@ -963,7 +1260,7 @@ struct ThreadAvatar: View {
             .frame(width: size, height: size)
             .overlay(
                 Text(initials.prefix(1))
-                    .font(.system(size: size * 0.38, weight: .semibold))
+                    .font(.systemScaled(size * 0.38, weight: .semibold))
                     .foregroundStyle(.white)
             )
     }
@@ -978,10 +1275,10 @@ struct ThreadWisdomBadgeView: View {
     var body: some View {
         HStack(spacing: 3) {
             Image(systemName: badge.icon)
-                .font(.system(size: compact ? 9 : 10, weight: .semibold))
+                .font(.systemScaled(compact ? 9 : 10, weight: .semibold))
             if !compact {
                 Text(badge.rawValue)
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.systemScaled(10, weight: .medium))
             }
         }
         .foregroundStyle(badge.color)
@@ -1015,15 +1312,15 @@ struct ThreadReflectionCard: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 Image(systemName: "leaf")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(Color(red: 0.30, green: 0.65, blue: 0.40))
                 Text("Take a moment")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.primary)
             }
 
             Text(message)
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.secondary)
                 .lineSpacing(2)
 
@@ -1031,9 +1328,9 @@ struct ThreadReflectionCard: View {
                 Button(action: onPray) {
                     HStack(spacing: 5) {
                         Image(systemName: "hands.sparkles")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                         Text("Pray")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.systemScaled(13, weight: .medium))
                     }
                     .foregroundStyle(Color(red: 0.30, green: 0.65, blue: 0.40))
                     .padding(.horizontal, 14)
@@ -1045,7 +1342,7 @@ struct ThreadReflectionCard: View {
 
                 Button(action: onContinue) {
                     Text("Continue reading")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
@@ -1074,22 +1371,22 @@ struct ThreadDeescalationCard: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
                 Image(systemName: "exclamationmark.bubble")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(Color.orange)
                 Text("A moment of grace")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.primary)
                 Spacer()
                 Button(action: onDismiss) {
                     Image(systemName: "xmark")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
             }
 
             Text(prompt)
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.secondary)
                 .lineSpacing(2)
                 .fixedSize(horizontal: false, vertical: true)
@@ -1098,9 +1395,9 @@ struct ThreadDeescalationCard: View {
                 Button(action: onRewrite) {
                     HStack(spacing: 5) {
                         Image(systemName: "pencil.and.sparkles")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                         Text("Rewrite with grace")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.systemScaled(13, weight: .medium))
                     }
                     .foregroundStyle(.white)
                     .padding(.horizontal, 14)
@@ -1111,7 +1408,7 @@ struct ThreadDeescalationCard: View {
 
                 Button(action: onPostAnyway) {
                     Text("Post anyway")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
@@ -1175,10 +1472,10 @@ struct ThreadComposerView: View {
             if let username = replyingToUsername {
                 HStack {
                     Image(systemName: "arrowshape.turn.up.left.fill")
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(Color(red: 0.78, green: 0.50, blue: 0.18))
                     Text("Replying to @\(username)")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.secondary)
                     Spacer()
                     Button {
@@ -1190,7 +1487,7 @@ struct ThreadComposerView: View {
                         }
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundStyle(.secondary)
                     }
                     .buttonStyle(.plain)
@@ -1205,7 +1502,7 @@ struct ThreadComposerView: View {
                 // Text field
                 TextField("Reply with wisdom…", text: $text, axis: .vertical)
                     .focused(isFocused)
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .lineLimit(1...6)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
@@ -1242,7 +1539,7 @@ struct ThreadComposerView: View {
                     }
                 } label: {
                     Image(systemName: isSubmitting ? "hourglass" : "arrow.up")
-                        .font(.system(size: 14, weight: .bold))
+                        .font(.systemScaled(14, weight: .bold))
                         .foregroundStyle(.white)
                         .frame(width: 34, height: 34)
                         .background(canPost ? Color(red: 0.78, green: 0.50, blue: 0.18) : Color(.systemGray4),

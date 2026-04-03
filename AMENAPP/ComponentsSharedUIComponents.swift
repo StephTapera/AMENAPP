@@ -284,7 +284,7 @@ struct ToastView: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: toast.type.icon)
-                .font(.system(size: 20, weight: .semibold))
+                .font(.systemScaled(20, weight: .semibold))
                 .foregroundColor(.white)
             
             Text(toast.message)
@@ -407,7 +407,7 @@ struct ErrorView: View {
     var body: some View {
         VStack(spacing: 16) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundColor(.orange)
             
             Text("Something Went Wrong")
@@ -463,7 +463,7 @@ struct SharedUIInlineErrorBanner: View {
             if let retryAction = retryAction {
                 Button(action: retryAction) {
                     Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundColor(.blue)
                 }
             }

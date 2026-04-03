@@ -66,6 +66,9 @@ struct FirestorePost: Codable, Identifiable {
     // Content source label — set when user acknowledges pasted/AI content
     var contentSource: String?
 
+    // Quote metadata (highlight-to-quote)
+    var quote: PostQuoteMetadata?
+
     // Prayer Arc — testimony ↔ prayer link
     var linkedPrayerRequestId: String?  // Set on testimony posts to link to originating prayer
     var journeyDays: Int?               // Days from prayer creation to testimony date
@@ -109,6 +112,7 @@ struct FirestorePost: Codable, Identifiable {
         case churchNoteId
         case isChurchShare, sharedChurchName, sharedChurchDenomination, sharedChurchServiceTime
         case contentSource
+        case quote
         case linkedPrayerRequestId
         case journeyDays
         case stoneCount
@@ -157,6 +161,7 @@ struct FirestorePost: Codable, Identifiable {
         sharedChurchDenomination = try container.decodeIfPresent(String.self, forKey: .sharedChurchDenomination)
         sharedChurchServiceTime = try container.decodeIfPresent(String.self, forKey: .sharedChurchServiceTime)
         contentSource = try container.decodeIfPresent(String.self, forKey: .contentSource)
+        quote = try container.decodeIfPresent(PostQuoteMetadata.self, forKey: .quote)
         linkedPrayerRequestId = try container.decodeIfPresent(String.self, forKey: .linkedPrayerRequestId)
         journeyDays = try container.decodeIfPresent(Int.self, forKey: .journeyDays)
         stoneCount = try container.decodeIfPresent(Int.self, forKey: .stoneCount)
@@ -195,7 +200,8 @@ struct FirestorePost: Codable, Identifiable {
         sharedChurchName: String? = nil,
         sharedChurchDenomination: String? = nil,
         sharedChurchServiceTime: String? = nil,
-        contentSource: String? = nil
+        contentSource: String? = nil,
+        quote: PostQuoteMetadata? = nil
     ) {
         self.id = id
         self.authorId = authorId
@@ -228,6 +234,7 @@ struct FirestorePost: Codable, Identifiable {
         self.sharedChurchDenomination = sharedChurchDenomination
         self.sharedChurchServiceTime = sharedChurchServiceTime
         self.contentSource = contentSource
+        self.quote = quote
     }
 
     // Convert to local Post model
@@ -293,7 +300,8 @@ struct FirestorePost: Codable, Identifiable {
             originalAuthorName: originalAuthorName,
             originalAuthorId: originalAuthorId,
             churchNoteId: churchNoteId,
-            contentSource: contentSource
+            contentSource: contentSource,
+            quote: quote
         ).withPrayerArc(
             linkedPrayerRequestId: linkedPrayerRequestId,
             journeyDays: journeyDays,
@@ -375,6 +383,23 @@ class FirebasePostService: ObservableObject {
     
     // P0 FIX: Add refresh flag for pull-to-refresh
     @Published var isRefreshing = false
+    
+    // ✅ FIX CR-6: Computed properties that filter out blocked users
+    var filteredPosts: [Post] {
+        posts.filter { !BlockService.shared.blockedUsers.contains($0.authorId) }
+    }
+    
+    var filteredOpenTablePosts: [Post] {
+        openTablePosts.filter { !BlockService.shared.blockedUsers.contains($0.authorId) }
+    }
+    
+    var filteredTestimoniesPosts: [Post] {
+        testimoniesPosts.filter { !BlockService.shared.blockedUsers.contains($0.authorId) }
+    }
+    
+    var filteredPrayerPosts: [Post] {
+        prayerPosts.filter { !BlockService.shared.blockedUsers.contains($0.authorId) }
+    }
     
     private init() {
         setupRealtimeFeed()
@@ -501,7 +526,8 @@ class FirebasePostService: ObservableObject {
         isChurchShare: Bool = false,
         sharedChurchName: String? = nil,
         sharedChurchDenomination: String? = nil,
-        sharedChurchServiceTime: String? = nil
+        sharedChurchServiceTime: String? = nil,
+        quote: PostQuoteMetadata? = nil
     ) async throws {
         #if DEBUG
         dlog("📝 Creating new post with INSTANT optimistic update...")
@@ -549,7 +575,8 @@ class FirebasePostService: ObservableObject {
                 isChurchShare: isChurchShare,
                 sharedChurchName: sharedChurchName,
                 sharedChurchDenomination: sharedChurchDenomination,
-                sharedChurchServiceTime: sharedChurchServiceTime
+                sharedChurchServiceTime: sharedChurchServiceTime,
+                quote: quote
             )
         }
         inflightPostCreations[idempotencyKey] = creationTask
@@ -571,7 +598,8 @@ class FirebasePostService: ObservableObject {
         isChurchShare: Bool = false,
         sharedChurchName: String? = nil,
         sharedChurchDenomination: String? = nil,
-        sharedChurchServiceTime: String? = nil
+        sharedChurchServiceTime: String? = nil,
+        quote: PostQuoteMetadata? = nil
     ) async throws {
 
         // Rate-limit check for new accounts
@@ -581,6 +609,19 @@ class FirebasePostService: ObservableObject {
                 domain: "RateLimit",
                 code: 429,
                 userInfo: [NSLocalizedDescriptionKey: postRateLimit.reason ?? "Daily post limit reached. Try again tomorrow."]
+            )
+        }
+
+        let trimmedContent = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        let hasMedia = (imageURLs ?? []).contains { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        let hasLink = !(linkURL?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+        let hasQuote = quote != nil
+        let hasPostBody = !trimmedContent.isEmpty || hasMedia || hasLink || churchNoteId != nil || isChurchShare || hasQuote
+        guard hasPostBody else {
+            throw NSError(
+                domain: "PostValidation",
+                code: 400,
+                userInfo: [NSLocalizedDescriptionKey: "Post can't be empty."]
             )
         }
 
@@ -665,6 +706,7 @@ class FirebasePostService: ObservableObject {
         optimisticPost.sharedChurchName = sharedChurchName
         optimisticPost.sharedChurchDenomination = sharedChurchDenomination
         optimisticPost.sharedChurchServiceTime = sharedChurchServiceTime
+        optimisticPost.quote = quote
         
         // 🚀 STEP 3: INSTANTLY notify ProfileView (UI updates IMMEDIATELY)
         await MainActor.run {
@@ -697,7 +739,8 @@ class FirebasePostService: ObservableObject {
             isChurchShare: isChurchShare,
             sharedChurchName: sharedChurchName,
             sharedChurchDenomination: sharedChurchDenomination,
-            sharedChurchServiceTime: sharedChurchServiceTime
+            sharedChurchServiceTime: sharedChurchServiceTime,
+            quote: quote
         )
         
         // Background save - don't wait for it
@@ -706,6 +749,11 @@ class FirebasePostService: ObservableObject {
         Task(priority: .userInitiated) { @MainActor in
             do {
                 var postData = try Firestore.Encoder().encode(firestorePost)
+                // Remove legacy interaction arrays — interactions now live in subcollections
+                // (posts/{postId}/amens/{userId}, posts/{postId}/lightbulbs/{userId}).
+                // Keeping these arrays would create unbounded document growth at scale.
+                postData.removeValue(forKey: "amenUserIds")
+                postData.removeValue(forKey: "lightbulbUserIds")
                 // P0 IDEMPOTENCY: Embed the key so Cloud Functions / security rules can
                 // detect and reject replayed writes server-side.
                 postData["idempotencyKey"] = _idempotencyKey
@@ -781,7 +829,8 @@ class FirebasePostService: ObservableObject {
                         isRepost: false,
                         originalAuthorName: nil,
                         originalAuthorId: nil,
-                        churchNoteId: churchNoteId
+                        churchNoteId: churchNoteId,
+                        quote: quote
                     )
                     
                     NotificationCenter.default.post(
@@ -1322,8 +1371,13 @@ class FirebasePostService: ObservableObject {
     func loadMorePosts(category: Post.PostCategory? = nil) async {
         let categoryKey = category?.rawValue ?? "all"
         
-        guard hasMorePosts, !isLoadingMore else {
-            dlog("⏭️ Skipping load more: hasMore=\(hasMorePosts), isLoading=\(isLoadingMore)")
+        // ✅ FIX CR-9: Check if refresh is in progress, cancel pagination if so
+        guard hasMorePosts, !isLoadingMore, !isRefreshing else {
+            if isRefreshing {
+                dlog("⏭️ Skipping load more: refresh in progress")
+            } else {
+                dlog("⏭️ Skipping load more: hasMore=\(hasMorePosts), isLoading=\(isLoadingMore)")
+            }
             return
         }
         
@@ -1382,19 +1436,24 @@ class FirebasePostService: ObservableObject {
             
             await MainActor.run {
                 if let category = category {
+                    // ✅ FIX CR-8: Apply deduplication before appending
                     switch category {
                     case .prayer:
                         prayerPosts.append(contentsOf: newPosts)
+                        prayerPosts = deduplicateAndSort(prayerPosts)
                     case .testimonies:
                         testimoniesPosts.append(contentsOf: newPosts)
+                        testimoniesPosts = deduplicateAndSort(testimoniesPosts)
                     case .openTable:
                         openTablePosts.append(contentsOf: newPosts)
+                        openTablePosts = deduplicateAndSort(openTablePosts)
                     case .tip, .funFact:
                         break
                     }
                     posts = prayerPosts + testimoniesPosts + openTablePosts
                 } else {
                     posts.append(contentsOf: newPosts)
+                    posts = deduplicateAndSort(posts)
                     updateCategoryArrays()
                 }
                 
@@ -1497,78 +1556,61 @@ class FirebasePostService: ObservableObject {
     /// Toggle "Amen" on a post with INSTANT optimistic update
     func toggleAmen(postId: String) async throws {
         dlog("🙏 Toggling Amen on post (INSTANT): \(postId)")
-        
+
         guard let userId = firebaseManager.currentUser?.uid else {
             throw FirebaseError.unauthorized
         }
-        
-        // 🚀 STEP 1: Check current state locally
+
         let postRef = db.collection(FirebaseManager.CollectionPath.posts).document(postId)
-        let postDoc = try await postRef.getDocument()
-        
-        guard let data = postDoc.data(),
-              var amenUserIds = data["amenUserIds"] as? [String] else {
-            throw FirebaseError.invalidData
-        }
-        
-        let hasAmened = amenUserIds.contains(userId)
+        // Subcollection document: posts/{postId}/amens/{userId}
+        let amenRef = postRef.collection("amens").document(userId)
+
+        // Determine current state from subcollection (single document fetch)
+        let amenDoc = try await amenRef.getDocument()
+        let hasAmened = amenDoc.exists
         let willAdd = !hasAmened
-        let postAuthorId = data["authorId"] as? String ?? ""
-        
-        // 🚀 STEP 2: Update UI INSTANTLY via RealtimePostService
-        // Note: Optimistic updates temporarily disabled
-        // await MainActor.run {
-        //     RealtimePostService.shared.updateReactionOptimistically(
-        //         postId: postId,
-        //         reactionType: .amen,
-        //         increment: willAdd
-        //     )
-        // }
-        
-        // 🚀 STEP 3: Update Firestore in background (non-blocking)
+
+        let postAuthorId: String
+        if willAdd {
+            let postDoc = try await postRef.getDocument()
+            postAuthorId = postDoc.data()?["authorId"] as? String ?? ""
+        } else {
+            postAuthorId = ""
+        }
+
+        // Update Firestore in background (non-blocking)
         Task.detached(priority: .userInitiated) {
             do {
                 if willAdd {
-                    // Add amen
-                    amenUserIds.append(userId)
+                    // Write subcollection document; no unbounded array touched
+                    try await amenRef.setData(["userId": userId, "createdAt": FieldValue.serverTimestamp()])
                     try await postRef.updateData([
                         "amenCount": FieldValue.increment(Int64(1)),
-                        "amenUserIds": amenUserIds,
                         "updatedAt": Date()
                     ])
-                    dlog("✅ Amen added to Firestore")
-                    
-                    // Create notification for post author (background)
-                    try? await self.createAmenNotification(
-                        postId: postId,
-                        postAuthorId: postAuthorId,
-                        postContent: data["content"] as? String ?? "",
-                        fromUserId: userId
-                    )
+                    dlog("✅ Amen added to Firestore subcollection")
+
+                    if !postAuthorId.isEmpty {
+                        try? await self.createAmenNotification(
+                            postId: postId,
+                            postAuthorId: postAuthorId,
+                            postContent: "",
+                            fromUserId: userId
+                        )
+                    }
                 } else {
-                    // Remove amen
-                    amenUserIds.removeAll { $0 == userId }
+                    try await amenRef.delete()
                     try await postRef.updateData([
                         "amenCount": FieldValue.increment(Int64(-1)),
-                        "amenUserIds": amenUserIds,
                         "updatedAt": Date()
                     ])
-                    dlog("✅ Amen removed from Firestore")
+                    dlog("✅ Amen removed from Firestore subcollection")
                 }
             } catch {
                 dlog("❌ Failed to update amen in Firestore: \(error)")
-                // Rollback optimistic update
-                // Note: Optimistic updates temporarily disabled
-                // await MainActor.run {
-                //     RealtimePostService.shared.updateReactionOptimistically(
-                //         postId: postId,
-                //         reactionType: .amen,
-                //         increment: !willAdd // Reverse the action
-                //     )
-                // }
             }
         }
-        
+
         // Haptic feedback
         let haptic = UIImpactFeedbackGenerator(style: .medium)
         haptic.impactOccurred()
@@ -1736,36 +1778,28 @@ class FirebasePostService: ObservableObject {
     /// Check if current user has interacted with a post
     func hasUserAmened(postId: String) async -> Bool {
         guard let userId = firebaseManager.currentUser?.uid else { return false }
-        
         do {
-            let postDoc = try await db.collection(FirebaseManager.CollectionPath.posts)
+            let doc = try await db.collection(FirebaseManager.CollectionPath.posts)
                 .document(postId)
+                .collection("amens")
+                .document(userId)
                 .getDocument()
-            
-            guard let amenUserIds = postDoc.data()?["amenUserIds"] as? [String] else {
-                return false
-            }
-            
-            return amenUserIds.contains(userId)
+            return doc.exists
         } catch {
             dlog("❌ Error checking amen status: \(error)")
             return false
         }
     }
-    
+
     func hasUserLitLightbulb(postId: String) async -> Bool {
         guard let userId = firebaseManager.currentUser?.uid else { return false }
-        
         do {
-            let postDoc = try await db.collection(FirebaseManager.CollectionPath.posts)
+            let doc = try await db.collection(FirebaseManager.CollectionPath.posts)
                 .document(postId)
+                .collection("lightbulbs")
+                .document(userId)
                 .getDocument()
-            
-            guard let lightbulbUserIds = postDoc.data()?["lightbulbUserIds"] as? [String] else {
-                return false
-            }
-            
-            return lightbulbUserIds.contains(userId)
+            return doc.exists
         } catch {
             dlog("❌ Error checking lightbulb status: \(error)")
             return false
@@ -1775,41 +1809,34 @@ class FirebasePostService: ObservableObject {
     /// Toggle lightbulb (like) on a post - FULL FIREBASE IMPLEMENTATION
     func toggleLightbulb(postId: String) async throws {
         dlog("💡 Toggling lightbulb on post: \(postId)")
-        
+
         guard let userId = firebaseManager.currentUser?.uid else {
             throw FirebaseError.unauthorized
         }
-        
+
         let postRef = db.collection(FirebaseManager.CollectionPath.posts).document(postId)
-        let postDoc = try await postRef.getDocument()
-        
-        guard let data = postDoc.data(),
-              var lightbulbUserIds = data["lightbulbUserIds"] as? [String] else {
-            throw FirebaseError.invalidData
-        }
-        
-        let hasLit = lightbulbUserIds.contains(userId)
-        
+        // Subcollection document: posts/{postId}/lightbulbs/{userId}
+        let lightbulbRef = postRef.collection("lightbulbs").document(userId)
+
+        let lightbulbDoc = try await lightbulbRef.getDocument()
+        let hasLit = lightbulbDoc.exists
+
         if hasLit {
-            // Remove lightbulb
-            lightbulbUserIds.removeAll { $0 == userId }
+            try await lightbulbRef.delete()
             try await postRef.updateData([
                 "lightbulbCount": FieldValue.increment(Int64(-1)),
-                "lightbulbUserIds": lightbulbUserIds,
                 "updatedAt": Date()
             ])
-            dlog("💡 Lightbulb removed")
+            dlog("💡 Lightbulb removed from subcollection")
         } else {
-            // Add lightbulb
-            lightbulbUserIds.append(userId)
+            try await lightbulbRef.setData(["userId": userId, "createdAt": FieldValue.serverTimestamp()])
             try await postRef.updateData([
                 "lightbulbCount": FieldValue.increment(Int64(1)),
-                "lightbulbUserIds": lightbulbUserIds,
                 "updatedAt": Date()
             ])
-            dlog("💡 Lightbulb lit!")
+            dlog("💡 Lightbulb lit via subcollection!")
         }
-        
+
         // Haptic feedback
         let haptic = UIImpactFeedbackGenerator(style: hasLit ? .light : .medium)
         haptic.impactOccurred()

@@ -72,7 +72,7 @@ struct GrowthArcSheet: View {
                                 .overlay(
                                     VStack(spacing: 8) {
                                         Text("\(viewModel.animatedScore)")
-                                            .font(.system(size: 48, weight: .bold, design: .rounded))
+                                            .font(.systemScaled(48, weight: .bold, design: .rounded))
                                             .foregroundColor(.cnGold)
 
                                         Text("FAITH VOCABULARY SCORE")

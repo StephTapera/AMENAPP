@@ -114,7 +114,7 @@ struct MentalHealthFeaturedCard: View {
                             )
                         
                         Image(systemName: icon)
-                            .font(.system(size: 22, weight: .semibold))
+                            .font(.systemScaled(22, weight: .semibold))
                             .foregroundStyle(iconColor)
                     }
                     
@@ -142,7 +142,7 @@ struct MentalHealthFeaturedCard: View {
                         Text(actionTitle)
                             .font(.custom("OpenSans-Bold", size: 14))
                         Image(systemName: "arrow.right")
-                            .font(.system(size: 12, weight: .bold))
+                            .font(.systemScaled(12, weight: .bold))
                     }
                     .foregroundStyle(.white)
                     Spacer()
@@ -240,7 +240,7 @@ private struct MentalHealthResourceCard: View {
                         .frame(width: 56, height: 56)
                     
                     Image(systemName: icon)
-                        .font(.system(size: 24))
+                        .font(.systemScaled(24))
                         .foregroundStyle(iconColor)
                 }
                 
@@ -268,7 +268,7 @@ private struct MentalHealthResourceCard: View {
                 Spacer()
                 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.secondary)
             }
             .padding()
@@ -306,7 +306,7 @@ struct SupportGroupCard: View {
                         .frame(width: 50, height: 50)
                     
                     Image(systemName: "person.3.fill")
-                        .font(.system(size: 22))
+                        .font(.systemScaled(22))
                         .foregroundStyle(.cyan)
                 }
                 
@@ -336,7 +336,7 @@ struct SupportGroupCard: View {
                 Spacer()
                 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.secondary)
             }
             .padding(16)

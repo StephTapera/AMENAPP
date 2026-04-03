@@ -223,7 +223,7 @@ struct ArkCommunityDetailView: View {
                             showLeaveConfirm = true
                         } label: {
                             Image(systemName: "ellipsis")
-                                .font(.system(size: 16, weight: .medium))
+                                .font(.systemScaled(16, weight: .medium))
                         }
                     }
                 }
@@ -283,7 +283,7 @@ struct ArkCommunityDetailView: View {
                         .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
 
                     Text(vm.community.initials)
-                        .font(.system(size: 26, weight: .bold, design: .rounded))
+                        .font(.systemScaled(26, weight: .bold, design: .rounded))
                         .foregroundStyle(vm.community.categoryColor)
                 }
                 .offset(x: 20, y: 36)
@@ -301,7 +301,7 @@ struct ArkCommunityDetailView: View {
                             .foregroundStyle(.primary)
                         if vm.community.isVerified {
                             Image(systemName: "checkmark.seal.fill")
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                                 .foregroundStyle(.blue)
                         }
                     }
@@ -406,7 +406,7 @@ struct ArkCommunityDetailView: View {
             } else if vm.posts.isEmpty {
                 VStack(spacing: 16) {
                     Image(systemName: "bubble.left.and.bubble.right")
-                        .font(.system(size: 44))
+                        .font(.systemScaled(44))
                         .foregroundStyle(.tertiary)
                     Text(vm.isMember ? "Be the first to post!" : "Join to see community posts")
                         .font(AMENFont.semiBold(16))
@@ -452,7 +452,7 @@ struct ArkCommunityDetailView: View {
                     HapticManager.impact(style: .light)
                 } label: {
                     Image(systemName: isAnonymousPost ? "person.fill.questionmark" : "person.circle.fill")
-                        .font(.system(size: 22))
+                        .font(.systemScaled(22))
                         .foregroundStyle(isAnonymousPost ? .secondary : vm.community.categoryColor)
                 }
                 .buttonStyle(.plain)
@@ -475,7 +475,7 @@ struct ArkCommunityDetailView: View {
                             ProgressView().frame(width: 30, height: 30)
                         } else {
                             Image(systemName: "arrow.up.circle.fill")
-                                .font(.system(size: 28))
+                                .font(.systemScaled(28))
                                 .foregroundStyle(vm.community.categoryColor)
                         }
                     }
@@ -583,7 +583,7 @@ struct ArkCommunityDetailView: View {
                 infoCard {
                     HStack(spacing: 12) {
                         Image(systemName: "shield.fill")
-                            .font(.system(size: 18))
+                            .font(.systemScaled(18))
                             .foregroundStyle(vm.community.categoryColor)
                         VStack(alignment: .leading, spacing: 2) {
                             Text("AI-Assisted Moderation")
@@ -645,7 +645,7 @@ private struct ArkPostCard: View {
                     .fill(post.isAnonymous ? Color.secondary.opacity(0.2) : community.categoryColor.opacity(0.15))
                     .frame(width: 38, height: 38)
                 Image(systemName: post.isAnonymous ? "person.fill.questionmark" : "person.fill")
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(post.isAnonymous ? .secondary : community.categoryColor)
             }
 
@@ -703,7 +703,7 @@ private struct MemberRow: View {
                     .fill(community.categoryColor.opacity(0.15))
                     .frame(width: 40, height: 40)
                 Image(systemName: "person.fill")
-                    .font(.system(size: 17))
+                    .font(.systemScaled(17))
                     .foregroundStyle(community.categoryColor)
             }
 

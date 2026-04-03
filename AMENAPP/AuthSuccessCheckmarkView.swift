@@ -26,7 +26,7 @@ struct AuthSuccessCheckmarkView: View {
             HStack(spacing: 10) {
                 // Red checkmark icon (similar to red accent in "Thinking")
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.systemScaled(18, weight: .semibold))
                     .foregroundStyle(
                         LinearGradient(
                             colors: [Color.red, Color.red.opacity(0.8)],

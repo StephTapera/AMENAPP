@@ -88,7 +88,7 @@ struct JobDetailView: View {
     private var errorView: some View {
         VStack(spacing: 16) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 40))
+                .font(.systemScaled(40))
                 .foregroundStyle(.secondary.opacity(0.5))
             Text("Opportunity not found")
                 .font(AMENFont.semiBold(16))
@@ -170,7 +170,7 @@ struct JobDetailView: View {
                                     ForEach(job.requirements, id: \.self) { req in
                                         HStack(alignment: .top, spacing: 8) {
                                             Image(systemName: "checkmark.circle.fill")
-                                                .font(.system(size: 13))
+                                                .font(.systemScaled(13))
                                                 .foregroundStyle(Color(red: 0.20, green: 0.70, blue: 0.45))
                                                 .padding(.top, 1)
                                             Text(req)
@@ -201,7 +201,7 @@ struct JobDetailView: View {
                                     ForEach(job.responsibilities, id: \.self) { resp in
                                         HStack(alignment: .top, spacing: 8) {
                                             Image(systemName: "arrow.right.circle.fill")
-                                                .font(.system(size: 13))
+                                                .font(.systemScaled(13))
                                                 .foregroundStyle(Color(red: 0.20, green: 0.55, blue: 0.95))
                                                 .padding(.top, 1)
                                             Text(resp)
@@ -232,7 +232,7 @@ struct JobDetailView: View {
                                     ForEach(job.benefits, id: \.self) { benefit in
                                         HStack(alignment: .top, spacing: 8) {
                                             Image(systemName: "star.fill")
-                                                .font(.system(size: 11))
+                                                .font(.systemScaled(11))
                                                 .foregroundStyle(Color(red: 0.90, green: 0.65, blue: 0.20))
                                                 .padding(.top, 2)
                                             Text(benefit)
@@ -278,7 +278,7 @@ struct JobDetailView: View {
                     .fill(job.category.color.opacity(0.15))
                     .frame(width: 56, height: 56)
                 Image(systemName: job.category.icon)
-                    .font(.system(size: 26))
+                    .font(.systemScaled(26))
                     .foregroundStyle(job.category.color)
             }
 
@@ -289,7 +289,7 @@ struct JobDetailView: View {
                 if job.employerVerified {
                     HStack(spacing: 4) {
                         Image(systemName: "checkmark.seal.fill")
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                         Text("Verified Employer")
                             .font(AMENFont.regular(11))
                     }
@@ -327,7 +327,7 @@ struct JobDetailView: View {
             if job.compensationType != .undisclosed {
                 HStack(spacing: 6) {
                     Image(systemName: "dollarsign.circle.fill")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(Color(red: 0.25, green: 0.70, blue: 0.45))
                     Text(job.formattedSalary)
                         .font(AMENFont.semiBold(14))
@@ -343,7 +343,7 @@ struct JobDetailView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 6) {
                 Image(systemName: "sparkles")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(Color(red: 0.20, green: 0.55, blue: 0.95))
                 Text("Why this matched")
                     .font(AMENFont.bold(13))
@@ -362,7 +362,7 @@ struct JobDetailView: View {
             ForEach(match.matchReasons.prefix(3)) { reason in
                 HStack(spacing: 8) {
                     Image(systemName: reason.icon)
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(Color(red: 0.35, green: 0.80, blue: 0.35))
                         .frame(width: 16)
                     Text(reason.text)
@@ -474,7 +474,7 @@ struct JobDetailView: View {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 6) {
                     Image(systemName: "info.circle.fill")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.secondary)
                     Text("Important Notice")
                         .font(AMENFont.semiBold(12))
@@ -510,7 +510,7 @@ struct JobDetailView: View {
                 }
             } label: {
                 Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
-                    .font(.system(size: 18))
+                    .font(.systemScaled(18))
                     .foregroundStyle(isSaved ? Color(red: 0.20, green: 0.55, blue: 0.95) : .secondary)
                     .frame(width: 44, height: 44)
                     .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -522,7 +522,7 @@ struct JobDetailView: View {
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: job.applyModel.icon)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                     Text(hasApplied ? "Applied" : job.applyModel.ctaLabel)
                         .font(AMENFont.bold(15))
                 }
@@ -694,7 +694,7 @@ struct AMENEasyApplyForm: View {
     private var successView: some View {
         VStack(spacing: 20) {
             Image(systemName: "checkmark.seal.fill")
-                .font(.system(size: 56))
+                .font(.systemScaled(56))
                 .foregroundStyle(Color(red: 0.20, green: 0.70, blue: 0.45))
             Text("Application Submitted!")
                 .font(AMENFont.bold(20))
@@ -721,7 +721,7 @@ struct AMENEasyApplyForm: View {
                         .fill(job.category.color.opacity(0.15))
                         .frame(width: 40, height: 40)
                     Image(systemName: job.category.icon)
-                        .font(.system(size: 18))
+                        .font(.systemScaled(18))
                         .foregroundStyle(job.category.color)
                 }
                 VStack(alignment: .leading, spacing: 2) {
@@ -862,7 +862,7 @@ struct AMENEasyApplyForm: View {
                         } label: {
                             HStack {
                                 Image(systemName: screeningAnswers[q.id] == opt ? "circle.fill" : "circle")
-                                    .font(.system(size: 14))
+                                    .font(.systemScaled(14))
                                     .foregroundStyle(Color(red: 0.20, green: 0.55, blue: 0.95))
                                 Text(opt)
                                     .font(AMENFont.regular(13))
@@ -942,7 +942,7 @@ struct ExpressInterestForm: View {
                 if didSubmit {
                     VStack(spacing: 16) {
                         Image(systemName: "hand.raised.fill")
-                            .font(.system(size: 52))
+                            .font(.systemScaled(52))
                             .foregroundStyle(Color(red: 0.20, green: 0.55, blue: 0.95))
                         Text("Interest Sent!")
                             .font(AMENFont.bold(20))
@@ -1046,7 +1046,7 @@ struct ExternalApplyConfirmation: View {
         NavigationStack {
             VStack(spacing: 24) {
                 Image(systemName: "arrow.up.right.square.fill")
-                    .font(.system(size: 52))
+                    .font(.systemScaled(52))
                     .foregroundStyle(Color(red: 0.20, green: 0.55, blue: 0.95))
 
                 VStack(spacing: 8) {
@@ -1104,7 +1104,7 @@ struct JobReportSheet: View {
             if didSubmit {
                 VStack(spacing: 16) {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 48))
+                        .font(.systemScaled(48))
                         .foregroundStyle(Color(red: 0.35, green: 0.75, blue: 0.45))
                     Text("Report Submitted")
                         .font(AMENFont.bold(18))
@@ -1129,7 +1129,7 @@ struct JobReportSheet: View {
                                     Spacer()
                                     if selectedReason == reason {
                                         Image(systemName: "checkmark")
-                                            .font(.system(size: 13, weight: .bold))
+                                            .font(.systemScaled(13, weight: .bold))
                                             .foregroundStyle(Color(red: 0.20, green: 0.55, blue: 0.95))
                                     }
                                 }

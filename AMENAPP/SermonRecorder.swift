@@ -299,12 +299,12 @@ struct SermonRecordingSheet: View {
                     .frame(width: 8, height: 8)
                     .opacity(recorder.isRecording ? 1 : 0.4)
                 Text(recorder.isRecording ? elapsedString : recorder.stage.rawValue)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(Color(.secondaryLabel))
                 Spacer()
                 if recorder.chunkCount > 0 {
                     Text("\(recorder.chunkCount) chunks")
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(Color(.tertiaryLabel))
                 }
             }
@@ -316,19 +316,19 @@ struct SermonRecordingSheet: View {
                 VStack(alignment: .leading, spacing: 12) {
                     if !recorder.liveNote.title.isEmpty {
                         Text(recorder.liveNote.title)
-                            .font(.system(size: 18, weight: .semibold))
+                            .font(.systemScaled(18, weight: .semibold))
                             .foregroundStyle(Color(.label))
                     }
                     if !recorder.liveNote.keyPoints.isEmpty {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Key Points")
-                                .font(.system(size: 11, weight: .semibold))
+                                .font(.systemScaled(11, weight: .semibold))
                                 .foregroundStyle(Color(.tertiaryLabel))
                                 .textCase(.uppercase)
                             ForEach(recorder.liveNote.keyPoints, id: \.self) { pt in
                                 HStack(alignment: .top, spacing: 6) {
                                     Text("•").foregroundStyle(Color(.secondaryLabel))
-                                    Text(pt).font(.system(size: 14)).foregroundStyle(Color(.label))
+                                    Text(pt).font(.systemScaled(14)).foregroundStyle(Color(.label))
                                 }
                             }
                         }
@@ -337,7 +337,7 @@ struct SermonRecordingSheet: View {
                         FlowLayout(spacing: 6) {
                             ForEach(recorder.liveNote.scriptures, id: \.self) { ref in
                                 Text(ref)
-                                    .font(.system(size: 12, weight: .medium))
+                                    .font(.systemScaled(12, weight: .medium))
                                     .foregroundStyle(.purple)
                                     .padding(.horizontal, 8).padding(.vertical, 4)
                                     .background(Color.purple.opacity(0.08), in: Capsule())
@@ -346,7 +346,7 @@ struct SermonRecordingSheet: View {
                     }
                     if !recorder.transcriptBuffer.isEmpty {
                         Text(recorder.transcriptBuffer.suffix(300))
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(Color(.tertiaryLabel))
                             .lineLimit(4)
                     }
@@ -362,7 +362,7 @@ struct SermonRecordingSheet: View {
             HStack(spacing: 16) {
                 Button(action: onDismiss) {
                     Text("Cancel")
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                         .foregroundStyle(Color(.secondaryLabel))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
@@ -378,7 +378,7 @@ struct SermonRecordingSheet: View {
                         }
                     } label: {
                         Label("Stop & Save", systemImage: "stop.circle.fill")
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(.systemScaled(15, weight: .semibold))
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
@@ -390,7 +390,7 @@ struct SermonRecordingSheet: View {
                         try? recorder.start()
                     } label: {
                         Label("Start Recording", systemImage: "mic.fill")
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(.systemScaled(15, weight: .semibold))
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)

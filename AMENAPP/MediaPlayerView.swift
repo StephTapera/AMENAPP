@@ -55,7 +55,7 @@ struct AVPlayerControllerWrapper: View {
                     Color(hex: item.dominantColor)
                         .overlay(
                             Image(systemName: "headphones")
-                                .font(.system(size: 48))
+                                .font(.systemScaled(48))
                                 .foregroundStyle(.white.opacity(0.5))
                         )
                 }
@@ -67,11 +67,11 @@ struct AVPlayerControllerWrapper: View {
             // Time labels
             HStack {
                 Text(formatTime(currentTime))
-                    .font(.system(size: 12, weight: .medium).monospacedDigit())
+                    .font(.systemScaled(12, weight: .medium).monospacedDigit())
                     .foregroundStyle(.secondary)
                 Spacer()
                 Text(formatTime(totalDuration))
-                    .font(.system(size: 12, weight: .medium).monospacedDigit())
+                    .font(.systemScaled(12, weight: .medium).monospacedDigit())
                     .foregroundStyle(.secondary)
             }
             .padding(.horizontal)
@@ -97,9 +97,9 @@ struct AVPlayerControllerWrapper: View {
                 } label: {
                     VStack(spacing: 2) {
                         Image(systemName: "gobackward.15")
-                            .font(.system(size: 22))
+                            .font(.systemScaled(22))
                         Text("15s")
-                            .font(.system(size: 10))
+                            .font(.systemScaled(10))
                     }
                     .foregroundStyle(.primary)
                 }
@@ -115,7 +115,7 @@ struct AVPlayerControllerWrapper: View {
                     }
                 } label: {
                     Image(systemName: vm.isPlaying ? "pause.fill" : "play.fill")
-                        .font(.system(size: 32))
+                        .font(.systemScaled(32))
                         .frame(width: 60, height: 60)
                         .background(accentPurple)
                         .foregroundStyle(.white)
@@ -128,9 +128,9 @@ struct AVPlayerControllerWrapper: View {
                 } label: {
                     VStack(spacing: 2) {
                         Image(systemName: "goforward.30")
-                            .font(.system(size: 22))
+                            .font(.systemScaled(22))
                         Text("30s")
-                            .font(.system(size: 10))
+                            .font(.systemScaled(10))
                     }
                     .foregroundStyle(.primary)
                 }
@@ -145,7 +145,7 @@ struct AVPlayerControllerWrapper: View {
                             player?.rate = option.value
                         }
                     }
-                    .font(.system(size: 12, weight: vm.playbackSpeed == option.value ? .bold : .regular))
+                    .font(.systemScaled(12, weight: vm.playbackSpeed == option.value ? .bold : .regular))
                     .foregroundStyle(vm.playbackSpeed == option.value ? accentPurple : .secondary)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
@@ -258,20 +258,20 @@ struct MediaPlayerView: View {
                         VStack(alignment: .leading, spacing: 12) {
                             // Title
                             Text(item.title)
-                                .font(.system(size: 22, weight: .bold))
+                                .font(.systemScaled(22, weight: .bold))
                                 .foregroundStyle(.primary)
                                 .padding(.top, 16)
 
                             // Channel + Subscribe
                             HStack {
                                 Text(item.channelOrShow)
-                                    .font(.system(size: 15))
+                                    .font(.systemScaled(15))
                                     .foregroundStyle(.secondary)
                                 Spacer()
                                 Button("Subscribe") {
                                     dlog("MediaPlayerView: Subscribe tapped for \(item.channelOrShow)")
                                 }
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.systemScaled(13, weight: .semibold))
                                 .foregroundStyle(accentPurple)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 6)
@@ -287,12 +287,12 @@ struct MediaPlayerView: View {
                                 } label: {
                                     HStack(spacing: 6) {
                                         Image(systemName: "book.fill")
-                                            .font(.system(size: 12))
+                                            .font(.systemScaled(12))
                                         Text(scripture)
-                                            .font(.system(size: 13, weight: .medium))
+                                            .font(.systemScaled(13, weight: .medium))
                                         Spacer()
                                         Image(systemName: "chevron.right")
-                                            .font(.system(size: 11))
+                                            .font(.systemScaled(11))
                                     }
                                     .foregroundStyle(accentPurple)
                                     .padding(10)
@@ -313,7 +313,7 @@ struct MediaPlayerView: View {
                                         descriptionExpanded.toggle()
                                     }
                                 }
-                                .font(.system(size: 13, weight: .medium))
+                                .font(.systemScaled(13, weight: .medium))
                                 .foregroundStyle(accentPurple)
                             }
 
@@ -334,7 +334,7 @@ struct MediaPlayerView: View {
                             dismiss()
                         } label: {
                             Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 20))
+                                .font(.systemScaled(20))
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -378,7 +378,7 @@ struct MediaPlayerView: View {
         if !related.isEmpty {
             VStack(alignment: .leading, spacing: 12) {
                 Text("More from \(item.channelOrShow)")
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.systemScaled(17, weight: .semibold))
                     .foregroundStyle(.primary)
 
                 ForEach(Array(related)) { relatedItem in
@@ -404,11 +404,11 @@ struct MediaPlayerView: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(relatedItem.title)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(.primary)
                     .lineLimit(2)
                 Text("\(relatedItem.author) · \(relatedItem.duration)")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.secondary)
             }
 
@@ -418,7 +418,7 @@ struct MediaPlayerView: View {
                 vm.play(relatedItem)
             } label: {
                 Image(systemName: "play.fill")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(accentPurple)
                     .frame(width: 30, height: 30)
                     .background(accentPurple.opacity(0.12))

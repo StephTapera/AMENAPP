@@ -101,7 +101,7 @@ struct EditPostSheet: View {
                         if let topicTag = post.topicTag {
                             HStack {
                                 Image(systemName: "tag.fill")
-                                    .font(.system(size: 12))
+                                    .font(.systemScaled(12))
                                     .foregroundStyle(.secondary)
                                 
                                 Text(topicTag)

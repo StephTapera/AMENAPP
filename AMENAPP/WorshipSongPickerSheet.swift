@@ -120,7 +120,7 @@ struct WorshipSongPickerSheet: View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(source == .spotify ? Color.green.opacity(0.8) : Color.purple.opacity(0.8))
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
 
             TextField("", text: $query, prompt:
                 Text("Search worship songs...").foregroundStyle(.white.opacity(0.4))
@@ -164,13 +164,13 @@ struct WorshipSongPickerSheet: View {
     private var promptState: some View {
         VStack(spacing: 16) {
             Image(systemName: "music.note.list")
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(source == .spotify ? Color.green.opacity(0.6) : Color.purple.opacity(0.6))
             Text("Search for a worship song")
-                .font(.system(size: 17, weight: .semibold, design: .rounded))
+                .font(.systemScaled(17, weight: .semibold, design: .rounded))
                 .foregroundStyle(.white.opacity(0.8))
             Text("Search by song title or artist name")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.white.opacity(0.5))
         }
     }
@@ -178,13 +178,13 @@ struct WorshipSongPickerSheet: View {
     private var emptyState: some View {
         VStack(spacing: 16) {
             Image(systemName: "music.note.slash")
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(.white.opacity(0.3))
             Text("No results for \"\(query)\"")
-                .font(.system(size: 16, weight: .semibold, design: .rounded))
+                .font(.systemScaled(16, weight: .semibold, design: .rounded))
                 .foregroundStyle(.white.opacity(0.7))
             Text("Try a different song title or artist")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.white.opacity(0.4))
         }
     }
@@ -192,10 +192,10 @@ struct WorshipSongPickerSheet: View {
     private func errorView(_ message: String) -> some View {
         VStack(spacing: 16) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 40))
+                .font(.systemScaled(40))
                 .foregroundStyle(.orange.opacity(0.8))
             Text(message)
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .foregroundStyle(.white.opacity(0.7))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
@@ -280,13 +280,13 @@ private struct SongResultRow: View {
                                 .clipShape(RoundedRectangle(cornerRadius: 10))
                         default:
                             Image(systemName: "music.note")
-                                .font(.system(size: 22))
+                                .font(.systemScaled(22))
                                 .foregroundStyle(song.source == .spotify ? Color.green.opacity(0.7) : Color.purple.opacity(0.7))
                         }
                     }
                 } else {
                     Image(systemName: "music.note")
-                        .font(.system(size: 22))
+                        .font(.systemScaled(22))
                         .foregroundStyle(song.source == .spotify ? Color.green.opacity(0.7) : Color.purple.opacity(0.7))
                 }
                 // Source badge
@@ -296,11 +296,11 @@ private struct SongResultRow: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(song.title)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(.white)
                     .lineLimit(1)
                 Text(song.artist)
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.white.opacity(0.6))
                     .lineLimit(1)
             }
@@ -311,11 +311,11 @@ private struct SongResultRow: View {
             Button(action: onAdd) {
                 if isAdded {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 28))
+                        .font(.systemScaled(28))
                         .foregroundStyle(.green)
                 } else {
                     Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 28))
+                        .font(.systemScaled(28))
                         .foregroundStyle(song.source == .spotify ? Color.green : Color.purple)
                 }
             }
@@ -348,12 +348,12 @@ private struct SourceBadge: View {
         Group {
             if source == .spotify {
                 Image(systemName: "s.circle.fill")
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.systemScaled(14, weight: .bold))
                     .foregroundStyle(Color.green)
                     .background(Circle().fill(Color.black).padding(-1))
             } else {
                 Image(systemName: "music.note.list")
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.systemScaled(10, weight: .bold))
                     .foregroundStyle(.white)
                     .padding(3)
                     .background(Circle().fill(Color(red: 0.98, green: 0.26, blue: 0.45)))
@@ -502,9 +502,9 @@ struct SavedWorshipSongsSection: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 5) {
                 Image(systemName: "music.note")
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.systemScaled(10, weight: .medium))
                 Text("WORSHIP")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.systemScaled(10, weight: .semibold))
                     .tracking(1.2)
             }
             .foregroundStyle(.white.opacity(0.4))
@@ -556,7 +556,7 @@ private struct WorshipSongRow: View {
                     .frame(width: 10, height: 10)
                     .overlay(
                         Text(isSpotify ? "S" : "♪")
-                            .font(.system(size: 5.5, weight: .black))
+                            .font(.systemScaled(5.5, weight: .black))
                             .foregroundStyle(.white)
                     )
                     .offset(x: 3, y: 3)
@@ -564,11 +564,11 @@ private struct WorshipSongRow: View {
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(song.title)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(.white)
                     .lineLimit(1)
                 Text(song.artist)
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.white.opacity(0.5))
                     .lineLimit(1)
             }
@@ -581,11 +581,11 @@ private struct WorshipSongRow: View {
                         ProgressView().scaleEffect(0.6).tint(.white)
                     } else if isSpotify {
                         Image(systemName: "arrow.up.right")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.systemScaled(11, weight: .semibold))
                             .foregroundStyle(spotifyGreen)
                     } else {
                         Image(systemName: isPlaying ? "pause.fill" : "play.fill")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.systemScaled(11, weight: .semibold))
                             .foregroundStyle(isCurrentSong ? Color.purple : .white.opacity(0.7))
                     }
                 }
@@ -600,7 +600,7 @@ private struct WorshipSongRow: View {
             if let onRemove {
                 Button { onRemove(song) } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 9, weight: .bold))
+                        .font(.systemScaled(9, weight: .bold))
                         .foregroundStyle(.white.opacity(0.4))
                         .frame(width: 22, height: 22)
                         .background(Circle().fill(Color.white.opacity(0.07)))
@@ -626,7 +626,7 @@ private struct WorshipSongRow: View {
             .fill(isSpotify ? spotifyGreen.opacity(0.15) : Color.purple.opacity(0.2))
             .overlay(
                 Image(systemName: isPlaying ? "waveform" : "music.note")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(isSpotify ? spotifyGreen : Color.purple)
                     .symbolEffect(.variableColor.iterative, isActive: isPlaying)
             )

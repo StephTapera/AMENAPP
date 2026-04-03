@@ -78,7 +78,7 @@ struct ContactSearchView: View {
         HStack(spacing: 12) {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(.secondary)
                 
                 TextField("Search by name, username, or interests", text: $searchText)
@@ -98,7 +98,7 @@ struct ContactSearchView: View {
                         }
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 16))
+                            .font(.systemScaled(16))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -165,7 +165,7 @@ struct ContactSearchView: View {
     private var emptySearchResults: some View {
         VStack(spacing: 16) {
             Image(systemName: "person.crop.circle.badge.questionmark")
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(.secondary)
             
             Text("No users found")
@@ -217,7 +217,7 @@ struct ContactSearchView: View {
                     }
                 } label: {
                     Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(.primary)
                 }
             }
@@ -468,7 +468,7 @@ struct ContactUserSearchRow: View {
                 // Message Button
                 Button(action: onMessage) {
                     Image(systemName: "message.fill")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.systemScaled(18, weight: .semibold))
                         .foregroundStyle(.white)
                         .frame(width: 40, height: 40)
                         .background(
@@ -546,7 +546,7 @@ struct CategoryBrowseCard: View {
                         .frame(width: 44, height: 44)
                     
                     Image(systemName: icon)
-                        .font(.system(size: 20, weight: .semibold))
+                        .font(.systemScaled(20, weight: .semibold))
                         .foregroundStyle(color)
                 }
                 
@@ -563,7 +563,7 @@ struct CategoryBrowseCard: View {
                 Spacer()
                 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(.secondary)
             }
             .padding(16)
@@ -730,7 +730,7 @@ struct UserProfileSheet: View {
                         }
                     } label: {
                         Image(systemName: "ellipsis.circle")
-                            .font(.system(size: 18, weight: .semibold))
+                            .font(.systemScaled(18, weight: .semibold))
                     }
                 }
             }

@@ -1474,12 +1474,12 @@ struct AnimatedQuickActionButton: View {
         Button(action: action) {
             HStack(spacing: 12) {
                 Image(systemName: icon)
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.systemScaled(16, weight: .medium))
                     .foregroundStyle(isPressed ? Color.primary.opacity(0.5) : Color.primary)
                     .frame(width: 22)
                 
                 Text(title)
-                    .font(.system(size: 15, weight: .regular))
+                    .font(.systemScaled(15, weight: .regular))
                     .foregroundStyle(isPressed ? Color.primary.opacity(0.5) : Color.primary)
                 
                 Spacer()
@@ -1869,7 +1869,7 @@ struct CompactTabBar: View {
                     case .failure(_):
                         // Fallback to icon if image fails to load
                         Image(systemName: "person.fill")
-                            .font(.system(size: 18, weight: isSelected ? .semibold : .medium))
+                            .font(.systemScaled(18, weight: isSelected ? .semibold : .medium))
                             .foregroundStyle(isSelected ? .primary : .secondary)
                             .symbolEffect(.bounce, value: isSelected)
                     case .empty:
@@ -1883,7 +1883,7 @@ struct CompactTabBar: View {
                             )
                     @unknown default:
                         Image(systemName: "person.fill")
-                            .font(.system(size: 20, weight: isSelected ? .semibold : .medium))  // Smaller icon
+                            .font(.systemScaled(20, weight: isSelected ? .semibold : .medium))  // Smaller icon
                             .foregroundStyle(isSelected ? .primary : .secondary)
                     }
                 }
@@ -1891,7 +1891,7 @@ struct CompactTabBar: View {
             } else {
                 // No profile photo - show default icon
                 Image(systemName: "person.fill")
-                    .font(.system(size: 20, weight: isSelected ? .semibold : .medium))  // Smaller icon
+                    .font(.systemScaled(20, weight: isSelected ? .semibold : .medium))  // Smaller icon
                     .foregroundStyle(isSelected ? .primary : .secondary)
                     .symbolEffect(.bounce, value: isSelected)
             }
@@ -1918,7 +1918,7 @@ struct CompactTabBar: View {
                 .frame(width: 54, height: 54)
 
             Image(systemName: "plus")
-                .font(.system(size: 22, weight: .semibold))
+                .font(.systemScaled(22, weight: .semibold))
                 .foregroundStyle(.black)
                 // Rotates 45° → 0° on first appear — subtle "unfurl"
                 .transition(.opacity)
@@ -2048,7 +2048,7 @@ struct SmartMessageBadge: View {
                         .frame(width: max(16, CGFloat(unreadCount > 9 ? 20 : 16)), height: 16)
                     
                     Text(unreadCount > 9 ? "9+" : "\(unreadCount)")
-                        .font(.system(size: 10, weight: .bold))
+                        .font(.systemScaled(10, weight: .bold))
                         .foregroundStyle(.white)
                 }
                 .scaleEffect(pulse ? 1.15 : 1.0)
@@ -2243,7 +2243,7 @@ struct HomeView: View {
                         }
                     } label: {
                         Image(systemName: "person.3.fill")
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.systemScaled(15, weight: .medium))
                             .foregroundStyle(.primary)
                             .frame(width: 22, height: 22)
                             .padding(8)
@@ -2292,7 +2292,7 @@ struct HomeView: View {
                                     .font(AMENFont.bold(24))
                                     .foregroundStyle(.primary)
                                 Image(systemName: "chevron.up")
-                                    .font(.system(size: 9, weight: .medium))
+                                    .font(.systemScaled(9, weight: .medium))
                                     .foregroundStyle(.primary.opacity(0.6))
                                     .rotationEffect(.degrees(isCategoriesExpanded ? 180 : 0))
                             }
@@ -2589,7 +2589,7 @@ struct FollowingFeedView: View {
             if followingPosts.isEmpty {
                 VStack(spacing: 16) {
                     Image(systemName: "person.2")
-                        .font(.system(size: 48))
+                        .font(.systemScaled(48))
                         .foregroundStyle(.secondary.opacity(0.4))
                     Text("Follow people to see their posts here")
                         .font(AMENFont.regular(15))
@@ -2630,7 +2630,7 @@ struct QuietFeedView: View {
             if quietPosts.isEmpty {
                 VStack(spacing: 16) {
                     Image(systemName: "moon.stars")
-                        .font(.system(size: 48))
+                        .font(.systemScaled(48))
                         .foregroundStyle(.secondary.opacity(0.4))
                     Text("Nothing here yet.\nPosts will appear as they're shared.")
                         .font(AMENFont.regular(15))
@@ -2667,7 +2667,7 @@ struct FeedModeNavButton: View {
             }
         } label: {
             Image(systemName: selectedMode == .everyone ? "person.2" : selectedMode.icon)
-                .font(.system(size: 15, weight: .medium))
+                .font(.systemScaled(15, weight: .medium))
                 .foregroundStyle(.primary)
                 .frame(width: 22, height: 22)
                 .padding(8)
@@ -2704,7 +2704,7 @@ struct FeedModeDropdownMenu: View {
                                     .frame(width: 28, height: 28)
                             }
                             Image(systemName: mode.icon)
-                                .font(.system(size: 14, weight: .medium))
+                                .font(.systemScaled(14, weight: .medium))
                                 .foregroundStyle(selectedMode == mode ? .primary : .secondary)
                         }
                         .frame(width: 28)
@@ -2717,7 +2717,7 @@ struct FeedModeDropdownMenu: View {
 
                         if selectedMode == mode {
                             Image(systemName: "checkmark")
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.systemScaled(12, weight: .semibold))
                                 .foregroundStyle(.primary)
                         }
                     }
@@ -2764,13 +2764,13 @@ struct FeedModeIndicatorStrip: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: mode.icon)
-                .font(.system(size: 12, weight: .medium))
+                .font(.systemScaled(12, weight: .medium))
             Text(mode.rawValue)
                 .font(AMENFont.semiBold(13))
             Spacer()
             Button(action: onClear) {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(.secondary)
             }
         }
@@ -2923,12 +2923,12 @@ struct BereanQuickActionButton: View {
         Button(action: action) {
             HStack(spacing: 12) {
                 Image(systemName: icon)
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.systemScaled(16, weight: .medium))
                     .foregroundStyle(isPressed ? Color.primary.opacity(0.5) : Color.primary)
                     .frame(width: 22)
                 
                 Text(title)
-                    .font(.system(size: 15, weight: .regular))
+                    .font(.systemScaled(15, weight: .regular))
                     .foregroundStyle(isPressed ? Color.primary.opacity(0.5) : Color.primary)
                 
                 Spacer()
@@ -2986,24 +2986,24 @@ struct QuickActionRow: View {
                         .frame(width: 44, height: 44)
                     
                     Image(systemName: icon)
-                        .font(.system(size: 18, weight: .medium))
+                        .font(.systemScaled(18, weight: .medium))
                         .foregroundStyle(gradient)
                 }
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(.primary)
                     
                     Text(subtitle)
-                        .font(.system(size: 12, weight: .regular))
+                        .font(.systemScaled(12, weight: .regular))
                         .foregroundStyle(.secondary)
                 }
                 
                 Spacer()
                 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(.tertiary)
             }
             .padding(.horizontal, 16)
@@ -3303,7 +3303,7 @@ struct CommunityCard: View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 4) {
                 Image(systemName: icon)
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
                     .foregroundStyle(.black)
                 
                 Spacer()
@@ -3375,7 +3375,7 @@ struct SmartCommunityCard: View {
                         .frame(width: 32, height: 32)
                     
                     Image(systemName: icon)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(iconColor)
                         .symbolEffect(.bounce, value: isPressed)
                 }
@@ -3393,7 +3393,7 @@ struct SmartCommunityCard: View {
                 Spacer()
                 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.systemScaled(10, weight: .semibold))
                     .foregroundStyle(.secondary.opacity(0.5))
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -3462,7 +3462,7 @@ struct TrendingCard: View {
         } label: {
             VStack(spacing: 8) {
                 Image(systemName: icon)
-                    .font(.system(size: 24))
+                    .font(.systemScaled(24))
                     .foregroundStyle(.black)
                     .frame(height: 40)
                 
@@ -3602,7 +3602,7 @@ struct TrendingTopicDetailView: View {
                                 .frame(width: 80, height: 80)
                             
                             Image(systemName: icon)
-                                .font(.system(size: 40))
+                                .font(.systemScaled(40))
                                 .foregroundStyle(.black)
                         }
                         
@@ -3767,7 +3767,7 @@ struct TrendingTopicDetailView: View {
                                         Spacer()
                                         
                                         Image(systemName: "chevron.right")
-                                            .font(.system(size: 12, weight: .semibold))
+                                            .font(.systemScaled(12, weight: .semibold))
                                             .foregroundStyle(.black.opacity(0.3))
                                     }
                                     .padding()
@@ -3798,7 +3798,7 @@ struct TrendingTopicDetailView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 28))
+                            .font(.systemScaled(28))
                             .foregroundStyle(.black.opacity(0.3))
                     }
                 }
@@ -3825,7 +3825,7 @@ struct ReactionButton: View {
         Button(action: action) {
             HStack(spacing: 4) {
                 Image(systemName: icon)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(isActive ? .black : .black.opacity(0.5))
                 
                 if let count = count {
@@ -3876,7 +3876,7 @@ struct FormatButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: icon)
-                .font(.system(size: 14, weight: .medium))
+                .font(.systemScaled(14, weight: .medium))
                 .foregroundStyle(isActive ? .white : .primary)
                 .frame(width: 32, height: 32)
                 .background(
@@ -3913,7 +3913,7 @@ struct EmojiPickerView: View {
                             dismiss()
                         } label: {
                             Text(emoji)
-                                .font(.system(size: 32))
+                                .font(.systemScaled(32))
                                 .frame(width: 44, height: 44)
                                 .background(
                                     Circle()
@@ -3995,7 +3995,7 @@ struct CommentCard: View {
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: "hands.sparkles.fill")
-                                .font(.system(size: 11))
+                                .font(.systemScaled(11))
                             if localAmenCount > 0 {
                                 Text("\(localAmenCount)")
                                     .font(AMENFont.semiBold(12))
@@ -4110,7 +4110,7 @@ struct FullCommentsView: View {
                     dismiss()
                 } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(.primary)
                         .frame(width: 32, height: 32)
                         .background(
@@ -4163,7 +4163,7 @@ struct FullCommentsView: View {
                             }
                         } label: {
                             Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -4208,7 +4208,7 @@ struct FullCommentsView: View {
                                 isCommentFocused = false
                             } label: {
                                 Image(systemName: "photo")
-                                    .font(.system(size: 18))
+                                    .font(.systemScaled(18))
                                     .foregroundStyle(.secondary)
                                     .padding(.trailing, 12)
                             }
@@ -4327,7 +4327,7 @@ struct FullCommentsView: View {
                     // Show emoji picker
                 } label: {
                     Image(systemName: "face.smiling")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(.primary)
                         .frame(width: 32, height: 32)
                         .background(
@@ -4456,7 +4456,7 @@ struct CommentThreadCard: View {
                     } label: {
                         HStack(spacing: 6) {
                             Image(systemName: showReplies ? "chevron.down" : "chevron.right")
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.systemScaled(12, weight: .semibold))
                             Text("\(comment.replies.count) \(comment.replies.count == 1 ? "reply" : "replies")")
                                 .font(AMENFont.semiBold(13))
                         }
@@ -4545,7 +4545,7 @@ struct CommentThreadCard: View {
                         } label: {
                             HStack(spacing: 6) {
                                 Image(systemName: "hands.sparkles.fill")
-                                    .font(.system(size: 13))
+                                    .font(.systemScaled(13))
                                 if localAmenCount > 0 {
                                     Text("\(localAmenCount)")
                                         .font(AMENFont.semiBold(13))
@@ -4560,7 +4560,7 @@ struct CommentThreadCard: View {
                         } label: {
                             HStack(spacing: 6) {
                                 Image(systemName: "arrowshape.turn.up.left")
-                                    .font(.system(size: 12))
+                                    .font(.systemScaled(12))
                                 Text("Reply")
                                     .font(AMENFont.semiBold(13))
                             }
@@ -4581,7 +4581,7 @@ struct CommentThreadCard: View {
                             }
                         } label: {
                             Image(systemName: "ellipsis")
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -4781,7 +4781,7 @@ struct FollowButton: View {
         HStack(spacing: 4) {
             if !isFollowing {
                 Image(systemName: "plus")
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.systemScaled(10, weight: .bold))
             }
             Text(isFollowing ? "Following" : "Follow")
                 .font(AMENFont.bold(12))
@@ -5005,7 +5005,7 @@ struct OpenTableView: View {
                     if showOfflineBanner && allPosts.isEmpty {
                         HStack(spacing: 10) {
                             Image(systemName: "wifi.slash")
-                                .font(.system(size: 14, weight: .medium))
+                                .font(.systemScaled(14, weight: .medium))
                                 .foregroundStyle(.secondary)
                             Text("You're offline. Pull down to retry when connected.")
                                 .font(AMENFont.regular(13))
@@ -5365,7 +5365,7 @@ struct CollapsibleTrendingSection: View {
                     Spacer()
                     
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(.secondary)
                         .rotationEffect(.degrees(isExpanded ? 0 : 180))
                 }
@@ -5689,7 +5689,7 @@ struct BannerColorPickerSheet: View {
                                             .strokeBorder(accentColor, lineWidth: 2.5)
                                             .frame(width: 52, height: 52)
                                         Image(systemName: "checkmark")
-                                            .font(.system(size: 14, weight: .bold))
+                                            .font(.systemScaled(14, weight: .bold))
                                             .foregroundStyle(accentColor)
                                     }
                                 }
@@ -5865,7 +5865,7 @@ struct CollapsibleCommunitySection: View {
                     Spacer()
                     
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(.secondary)
                         .rotationEffect(.degrees(isExpanded ? 0 : 180))
                 }
@@ -5938,19 +5938,19 @@ struct LiquidGlassCommunityCard: View {
             HStack(spacing: 12) {
                 // White icon
                 Image(systemName: icon)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(.white)
                     .symbolEffect(.bounce, value: isPressed)
                 
                 VStack(alignment: .leading, spacing: 3) {
                     // White text for both banners
                     Text(title)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .italic()
                         .foregroundStyle(.white)
                     
                     Text(subtitle)
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .italic()
                         .foregroundStyle(.white.opacity(0.9))
                 }
@@ -5958,7 +5958,7 @@ struct LiquidGlassCommunityCard: View {
                 Spacer()
                 
                 Image(systemName: "arrow.right")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundStyle(.white.opacity(0.5))
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -6084,7 +6084,7 @@ struct SmartTrendingCard: View {
                         .shadow(color: iconColor.opacity(0.3), radius: 12, y: 6)
                     
                     Image(systemName: icon)
-                        .font(.system(size: 22, weight: .semibold))
+                        .font(.systemScaled(22, weight: .semibold))
                         .foregroundStyle(.white)
                         .symbolEffect(.bounce, value: isPressed)
                 }
@@ -6103,7 +6103,7 @@ struct SmartTrendingCard: View {
                 
                 // Premium Arrow
                 Image(systemName: "arrow.right")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.white.opacity(0.8))
                     .padding(8)
                     .background(
@@ -6250,7 +6250,7 @@ struct TopIdeasView: View {
                                     .frame(width: 60, height: 60)
                                 
                                 Image(systemName: "lightbulb.fill")
-                                    .font(.system(size: 40, weight: .semibold))
+                                    .font(.systemScaled(40, weight: .semibold))
                                     .foregroundStyle(
                                         LinearGradient(
                                             colors: [.yellow, .orange],
@@ -6325,7 +6325,7 @@ struct TopIdeasView: View {
                                     } label: {
                                         HStack(spacing: 6) {
                                             Image(systemName: category.icon)
-                                                .font(.system(size: 10, weight: .semibold))
+                                                .font(.systemScaled(10, weight: .semibold))
                                             
                                             Text(category.rawValue)
                                                 .font(AMENFont.semiBold(12))
@@ -6373,7 +6373,7 @@ struct TopIdeasView: View {
                     } else if filteredTopIdeas.isEmpty {
                         VStack(spacing: 12) {
                             Image(systemName: "lightbulb.slash")
-                                .font(.system(size: 48))
+                                .font(.systemScaled(48))
                                 .foregroundStyle(.secondary)
                             Text("No trending ideas yet")
                                 .font(AMENFont.bold(18))
@@ -6401,7 +6401,7 @@ struct TopIdeasView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 28))
+                            .font(.systemScaled(28))
                             .foregroundStyle(.gray.opacity(0.3))
                     }
                 }
@@ -6570,7 +6570,7 @@ struct TopIdeaCard: View {
                                 // Glow effect when active
                                 if hasLightbulbed {
                                     Image(systemName: "lightbulb.fill")
-                                        .font(.system(size: 16, weight: .bold))
+                                        .font(.systemScaled(16, weight: .bold))
                                         .foregroundStyle(.yellow)
                                         .blur(radius: 8)
                                         .scaleEffect(isAnimating ? 1.5 : 1.0)
@@ -6578,7 +6578,7 @@ struct TopIdeaCard: View {
                                 }
                                 
                                 Image(systemName: hasLightbulbed ? "lightbulb.fill" : "lightbulb")
-                                    .font(.system(size: 16, weight: .semibold))
+                                    .font(.systemScaled(16, weight: .semibold))
                                     .foregroundStyle(hasLightbulbed ? 
                                         LinearGradient(
                                             colors: [.yellow, .orange],
@@ -6643,7 +6643,7 @@ struct TopIdeaCard: View {
                         HapticManager.impact(style: .light)
                     } label: {
                         Image(systemName: "square.and.arrow.up")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                             .foregroundStyle(.black.opacity(0.5))
                             .padding(8)
                     }
@@ -6691,12 +6691,12 @@ struct NotificationBadge: View {
             
             if count <= 99 {
                 Text("\(count)")
-                    .font(.system(size: count > 9 ? 8 : 9, weight: .bold))
+                    .font(.systemScaled(count > 9 ? 8 : 9, weight: .bold))
                     .foregroundStyle(.white)
                     .minimumScaleFactor(0.5)
             } else {
                 Text("99+")
-                    .font(.system(size: 7, weight: .bold))
+                    .font(.systemScaled(7, weight: .bold))
                     .foregroundStyle(.white)
                     .minimumScaleFactor(0.5)
             }
@@ -6783,18 +6783,18 @@ struct ThreadsPostingBar: View {
                             .scaleEffect(0.75)
                             .tint(.secondary)
                         Text("Posting…")
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.systemScaled(15, weight: .medium))
                             .foregroundStyle(.primary)
                     }
                     .transition(.opacity.combined(with: .scale(scale: 0.95)))
                 } else {
                     HStack(spacing: 6) {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(.systemScaled(15, weight: .semibold))
                             .foregroundStyle(.green)
                             .symbolEffect(.bounce, value: state == .posted)
                         Text("Posted")
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.systemScaled(15, weight: .medium))
                             .foregroundStyle(.primary)
                     }
                     .transition(.opacity.combined(with: .scale(scale: 0.95)))
@@ -6808,7 +6808,7 @@ struct ThreadsPostingBar: View {
             if state == .posted {
                 Button(action: onView) {
                     Text("View")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(accent)
                 }
                 .transition(.opacity.combined(with: .move(edge: .trailing)))
@@ -6898,7 +6898,7 @@ struct PostSuccessToast: View {
                 
                 // Icon
                 Image(systemName: categoryInfo.icon)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(categoryInfo.color)
                     .symbolEffect(.bounce, value: isAnimating)
             }
@@ -6918,7 +6918,7 @@ struct PostSuccessToast: View {
             
             // Checkmark
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 20))
+                .font(.systemScaled(20))
                 .foregroundStyle(.green)
                 .symbolEffect(.bounce, value: isAnimating)
         }
@@ -7008,7 +7008,7 @@ struct EmptyFeedView: View {
                     .fill(Color(.secondarySystemBackground))
                     .frame(width: 80, height: 80)
                 Image(systemName: "person.2.fill")
-                    .font(.system(size: 32, weight: .medium))
+                    .font(.systemScaled(32, weight: .medium))
                     .foregroundStyle(.secondary)
             }
 
@@ -7053,7 +7053,7 @@ struct EmptyFeedView: View {
                     .fill(Color(.secondarySystemBackground))
                     .frame(width: 80, height: 80)
                 Image(systemName: "sparkles")
-                    .font(.system(size: 32, weight: .medium))
+                    .font(.systemScaled(32, weight: .medium))
                     .foregroundStyle(.secondary)
             }
 
@@ -7184,24 +7184,24 @@ struct CreateQuickActionRow: View {
                         .frame(width: 44, height: 44)
                     
                     Image(systemName: icon)
-                        .font(.system(size: 18, weight: .medium))
+                        .font(.systemScaled(18, weight: .medium))
                         .foregroundStyle(gradient)
                 }
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(.primary)
                     
                     Text(subtitle)
-                        .font(.system(size: 12, weight: .regular))
+                        .font(.systemScaled(12, weight: .regular))
                         .foregroundStyle(.secondary)
                 }
                 
                 Spacer()
                 
                 Image(systemName: "arrow.up.circle.fill")
-                    .font(.system(size: 20, weight: .semibold))
+                    .font(.systemScaled(20, weight: .semibold))
                     .foregroundStyle(gradient)
             }
             .padding(.horizontal, 16)
@@ -7277,7 +7277,7 @@ struct FeedCommunitiesSheet: View {
                     } label: {
                         HStack(spacing: 12) {
                             Image(systemName: "square.grid.2x2.fill")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.systemScaled(14, weight: .semibold))
                                 .foregroundStyle(Color.accentColor)
                                 .frame(width: 36, height: 36)
                                 .background(Color.accentColor.opacity(0.12), in: Circle())
@@ -7291,7 +7291,7 @@ struct FeedCommunitiesSheet: View {
                             }
                             Spacer()
                             Image(systemName: "chevron.right")
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.systemScaled(12, weight: .semibold))
                                 .foregroundStyle(.tertiary)
                         }
                         .padding(.horizontal, 14)
@@ -7339,7 +7339,7 @@ struct FeedCommunitiesSheet: View {
                         if vm.communities.isEmpty {
                             VStack(spacing: 12) {
                                 Image(systemName: "person.3")
-                                    .font(.system(size: 36))
+                                    .font(.systemScaled(36))
                                     .foregroundStyle(.tertiary)
                                 Text("No communities yet")
                                     .font(AMENFont.semiBold(15))
@@ -7373,7 +7373,7 @@ struct FeedCommunitiesSheet: View {
                         onDismiss()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 24))
+                            .font(.systemScaled(24))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -7432,7 +7432,7 @@ struct FeedCommunitiesSheet: View {
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: mode.icon)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(isActive ? Color.white : Color.primary)
                     .frame(width: 32, height: 32)
                     .background(isActive ? Color.accentColor : Color.clear, in: Circle())
@@ -7450,7 +7450,7 @@ struct FeedCommunitiesSheet: View {
 
                 if isActive {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 11, weight: .bold))
+                        .font(.systemScaled(11, weight: .bold))
                         .foregroundStyle(Color.accentColor)
                 }
             }
@@ -7498,7 +7498,7 @@ struct FeedCommunitiesSheet: View {
                     .fill(accent.opacity(0.15))
                     .frame(width: 40, height: 40)
                 Text(community.name.prefix(2).uppercased())
-                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .font(.systemScaled(14, weight: .bold, design: .rounded))
                     .foregroundStyle(accent)
             }
 
@@ -7509,7 +7509,7 @@ struct FeedCommunitiesSheet: View {
                         .foregroundStyle(.primary)
                     if community.isVerified {
                         Image(systemName: "checkmark.seal.fill")
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                             .foregroundStyle(.blue)
                     }
                 }
@@ -7522,7 +7522,7 @@ struct FeedCommunitiesSheet: View {
             Spacer()
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(.tertiary)
         }
         .padding(.horizontal, 14)
@@ -7556,7 +7556,7 @@ struct FeedCommunitiesSheet: View {
                     .fill(Color.orange.opacity(0.15))
                     .frame(width: 40, height: 40)
                 Text(community.name.prefix(2).uppercased())
-                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .font(.systemScaled(14, weight: .bold, design: .rounded))
                     .foregroundStyle(Color.orange)
             }
 
@@ -7605,7 +7605,7 @@ struct FeedCommunitiesSheet: View {
     private func sectionLabel(_ title: String, icon: String) -> some View {
         HStack(spacing: 6) {
             Image(systemName: icon)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
                 .foregroundStyle(.secondary)
             Text(title)
                 .font(AMENFont.semiBold(12))

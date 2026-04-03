@@ -26,7 +26,7 @@ struct WhyAmISeeingThisSheet: View {
                 // Header
                 VStack(spacing: 12) {
                     Image(systemName: "lightbulb.circle.fill")
-                        .font(.system(size: 48))
+                        .font(.systemScaled(48))
                         .foregroundColor(.blue)
                     
                     Text("Why you're seeing this")
@@ -375,7 +375,7 @@ struct ThinkFirstPromptSheet: View {
             VStack(spacing: 24) {
                 // Icon based on action type
                 Image(systemName: iconName)
-                    .font(.system(size: 48))
+                    .font(.systemScaled(48))
                     .foregroundColor(iconColor)
                     .padding(.top, 24)
                 

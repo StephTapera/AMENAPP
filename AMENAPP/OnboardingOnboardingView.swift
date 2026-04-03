@@ -154,7 +154,7 @@ struct OnboardingView: View {
                     advance(by: -1)
                 } label: {
                     Image(systemName: "chevron.left")
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.systemScaled(16, weight: .medium))
                         .foregroundStyle(ONB.inkSecondary)
                         .frame(width: 36, height: 36)
                         .background(Circle().fill(Color(uiColor: .secondarySystemBackground)))
@@ -177,7 +177,7 @@ struct OnboardingView: View {
                     advance(by: 1)
                 } label: {
                     Text("Skip")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.systemScaled(14, weight: .medium))
                         .foregroundStyle(ONB.inkTertiary)
                 }
                 .buttonStyle(.plain)
@@ -223,7 +223,7 @@ struct OnboardingView: View {
                         .foregroundStyle(ONB.inkPrimary)
 
                     Text("AMEN is a social platform designed around your faith, not your attention.")
-                        .font(.system(size: 17, weight: .regular))
+                        .font(.systemScaled(17, weight: .regular))
                         .foregroundStyle(ONB.inkSecondary)
                         .lineSpacing(4)
                         .fixedSize(horizontal: false, vertical: true)
@@ -266,15 +266,15 @@ struct OnboardingView: View {
                 // Social proof (P1-4)
                 HStack(spacing: 6) {
                     Image(systemName: "person.2.fill")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(ONB.accent)
                     if let count = memberCount {
                         Text("\(count.formatted()) believers already here")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.systemScaled(13, weight: .medium))
                             .foregroundStyle(ONB.inkSecondary)
                     } else {
                         Text("Thousands of believers already here")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.systemScaled(13, weight: .medium))
                             .foregroundStyle(ONB.inkSecondary)
                     }
                 }
@@ -310,16 +310,16 @@ struct OnboardingView: View {
                         .fill(color.opacity(0.12))
                         .frame(width: 46, height: 46)
                     Image(systemName: icon)
-                        .font(.system(size: 20, weight: .semibold))
+                        .font(.systemScaled(20, weight: .semibold))
                         .foregroundStyle(color)
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(title)
-                        .font(.system(size: 15, weight: .bold))
+                        .font(.systemScaled(15, weight: .bold))
                         .foregroundStyle(ONB.inkPrimary)
                     Text(body)
-                        .font(.system(size: 13, weight: .regular))
+                        .font(.systemScaled(13, weight: .regular))
                         .foregroundStyle(ONB.inkSecondary)
                         .lineSpacing(2)
                         .fixedSize(horizontal: false, vertical: true)
@@ -342,7 +342,7 @@ struct OnboardingView: View {
                         .foregroundStyle(ONB.inkPrimary)
 
                     Text("Add a photo and choose a username. You can always update these later.")
-                        .font(.system(size: 17, weight: .regular))
+                        .font(.systemScaled(17, weight: .regular))
                         .foregroundStyle(ONB.inkSecondary)
                         .lineSpacing(4)
                         .fixedSize(horizontal: false, vertical: true)
@@ -366,7 +366,7 @@ struct OnboardingView: View {
                                     ZStack {
                                         ONB.accentSoft
                                         Image(systemName: "person.fill")
-                                            .font(.system(size: 38))
+                                            .font(.systemScaled(38))
                                             .foregroundStyle(ONB.accent.opacity(0.5))
                                     }
                                 }
@@ -379,7 +379,7 @@ struct OnboardingView: View {
                             ZStack {
                                 Circle().fill(ONB.inkPrimary).frame(width: 32, height: 32)
                                 Image(systemName: "camera.fill")
-                                    .font(.system(size: 13, weight: .medium))
+                                    .font(.systemScaled(13, weight: .medium))
                                     .foregroundStyle(.white)
                             }
                             .offset(x: 34, y: 34)
@@ -391,7 +391,7 @@ struct OnboardingView: View {
                 .padding(.bottom, 8)
 
                 Text(selectedProfileImage == nil ? "Add a profile photo" : "Looking good!")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(ONB.inkTertiary)
                     .frame(maxWidth: .infinity)
                     .multilineTextAlignment(.center)
@@ -403,11 +403,11 @@ struct OnboardingView: View {
                 ONBGlassCard(padding: .init(top: 16, leading: 18, bottom: 16, trailing: 18)) {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("DISPLAY NAME")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.systemScaled(10, weight: .semibold))
                             .tracking(1.4)
                             .foregroundStyle(ONB.inkTertiary)
                         TextField("Your name", text: $displayName)
-                            .font(.system(size: 18, weight: .medium))
+                            .font(.systemScaled(18, weight: .medium))
                             .foregroundStyle(ONB.inkPrimary)
                             .textInputAutocapitalization(.words)
                             .autocorrectionDisabled()
@@ -418,7 +418,7 @@ struct OnboardingView: View {
                 Spacer().frame(height: 8)
 
                 Text("This is what people see first — your @username is for mentions.")
-                    .font(.system(size: 12, weight: .regular))
+                    .font(.systemScaled(12, weight: .regular))
                     .foregroundStyle(ONB.inkTertiary)
                     .padding(.horizontal, ONB.pagePadding + 4)
 
@@ -428,17 +428,17 @@ struct OnboardingView: View {
                 ONBGlassCard(padding: .init(top: 16, leading: 18, bottom: 16, trailing: 18)) {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("USERNAME")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.systemScaled(10, weight: .semibold))
                             .tracking(1.4)
                             .foregroundStyle(ONB.inkTertiary)
 
                         HStack(spacing: 10) {
                             Text("@")
-                                .font(.system(size: 18, weight: .medium))
+                                .font(.systemScaled(18, weight: .medium))
                                 .foregroundStyle(ONB.inkTertiary)
 
                             TextField("yourname", text: $username)
-                                .font(.system(size: 18, weight: .medium))
+                                .font(.systemScaled(18, weight: .medium))
                                 .foregroundStyle(ONB.inkPrimary)
                                 .textInputAutocapitalization(.never)
                                 .autocorrectionDisabled()
@@ -452,7 +452,7 @@ struct OnboardingView: View {
                                     AMENLoadingIndicator(color: ONB.inkTertiary, dotSize: 5, bounceHeight: 4)
                                 } else if let avail = usernameAvailable {
                                     Image(systemName: avail ? "checkmark.circle.fill" : "xmark.circle.fill")
-                                        .font(.system(size: 18))
+                                        .font(.systemScaled(18))
                                         .foregroundStyle(avail ? Color.green : Color.red)
                                 }
                             }
@@ -462,7 +462,7 @@ struct OnboardingView: View {
 
                         if let avail = usernameAvailable {
                             Text(avail ? "Username available" : "Already taken — try another")
-                                .font(.system(size: 12, weight: .regular))
+                                .font(.systemScaled(12, weight: .regular))
                                 .foregroundStyle(avail ? Color.green : Color.red)
                                 .transition(.opacity.combined(with: .move(edge: .top)))
                                 .animation(.easeInOut(duration: 0.2), value: avail)
@@ -472,7 +472,7 @@ struct OnboardingView: View {
                         if usernameAvailable == false && !usernameSuggestions.isEmpty {
                             VStack(alignment: .leading, spacing: 6) {
                                 Text("Try one of these:")
-                                    .font(.system(size: 11, weight: .medium))
+                                    .font(.systemScaled(11, weight: .medium))
                                     .foregroundStyle(ONB.inkTertiary)
                                 HStack(spacing: 8) {
                                     ForEach(usernameSuggestions, id: \.self) { suggestion in
@@ -482,7 +482,7 @@ struct OnboardingView: View {
                                             scheduleUsernameCheck(suggestion)
                                         } label: {
                                             Text("@\(suggestion)")
-                                                .font(.system(size: 12, weight: .medium))
+                                                .font(.systemScaled(12, weight: .medium))
                                                 .foregroundStyle(ONB.accent)
                                                 .padding(.horizontal, 10)
                                                 .padding(.vertical, 5)
@@ -502,7 +502,7 @@ struct OnboardingView: View {
                 Spacer().frame(height: 12)
 
                 Text("Your username is how others find and mention you in the community.")
-                    .font(.system(size: 12, weight: .regular))
+                    .font(.systemScaled(12, weight: .regular))
                     .foregroundStyle(ONB.inkTertiary)
                     .padding(.horizontal, ONB.pagePadding + 4)
 
@@ -512,7 +512,7 @@ struct OnboardingView: View {
                 ONBGlassCard(padding: .init(top: 16, leading: 18, bottom: 16, trailing: 18)) {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("DATE OF BIRTH")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.systemScaled(10, weight: .semibold))
                             .tracking(1.4)
                             .foregroundStyle(ONB.inkTertiary)
 
@@ -524,17 +524,17 @@ struct OnboardingView: View {
                         } label: {
                             HStack {
                                 Image(systemName: "calendar")
-                                    .font(.system(size: 16, weight: .medium))
+                                    .font(.systemScaled(16, weight: .medium))
                                     .foregroundStyle(ONB.accent)
 
                                 Text(birthDate, style: .date)
-                                    .font(.system(size: 17, weight: .medium))
+                                    .font(.systemScaled(17, weight: .medium))
                                     .foregroundStyle(ONB.inkPrimary)
 
                                 Spacer()
 
                                 Image(systemName: showDOBPicker ? "chevron.up" : "chevron.down")
-                                    .font(.system(size: 13, weight: .medium))
+                                    .font(.systemScaled(13, weight: .medium))
                                     .foregroundStyle(ONB.inkTertiary)
                                     .animation(.easeInOut(duration: 0.2), value: showDOBPicker)
                             }
@@ -560,7 +560,7 @@ struct OnboardingView: View {
                 Spacer().frame(height: 8)
 
                 Text("Used to personalise your experience.")
-                    .font(.system(size: 12, weight: .regular))
+                    .font(.systemScaled(12, weight: .regular))
                     .foregroundStyle(ONB.inkTertiary)
                     .padding(.horizontal, ONB.pagePadding + 4)
 
@@ -644,7 +644,7 @@ struct OnboardingView: View {
                         .foregroundStyle(ONB.inkPrimary)
 
                     Text("We only collect what makes AMEN better for you. Here's exactly what we use and why.")
-                        .font(.system(size: 17, weight: .regular))
+                        .font(.systemScaled(17, weight: .regular))
                         .foregroundStyle(ONB.inkSecondary)
                         .lineSpacing(4)
                         .fixedSize(horizontal: false, vertical: true)
@@ -661,8 +661,8 @@ struct OnboardingView: View {
                         ("hand.raised.fill", "Moderated"),
                     ], id: \.1) { icon, label in
                         HStack(spacing: 5) {
-                            Image(systemName: icon).font(.system(size: 10, weight: .semibold))
-                            Text(label).font(.system(size: 11, weight: .semibold))
+                            Image(systemName: icon).font(.systemScaled(10, weight: .semibold))
+                            Text(label).font(.systemScaled(11, weight: .semibold))
                         }
                         .foregroundStyle(ONB.accent)
                         .padding(.horizontal, 10)
@@ -736,16 +736,16 @@ struct OnboardingView: View {
                 // Policy link
                 HStack(spacing: 4) {
                     Text("Read our full")
-                        .font(.system(size: 12, weight: .regular))
+                        .font(.systemScaled(12, weight: .regular))
                         .foregroundStyle(ONB.inkTertiary)
                     Link("Privacy Policy", destination: AMENLinks.privacy)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundStyle(ONB.accent)
                     Text("and")
-                        .font(.system(size: 12, weight: .regular))
+                        .font(.systemScaled(12, weight: .regular))
                         .foregroundStyle(ONB.inkTertiary)
                     Link("Terms of Service", destination: AMENLinks.terms)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundStyle(ONB.accent)
                 }
                 .padding(.horizontal, ONB.pagePadding)
@@ -795,7 +795,7 @@ struct OnboardingView: View {
                         .foregroundStyle(ONB.inkPrimary)
 
                     Text("Choose a few interests and we'll personalize your feed. Skip if you prefer to explore first.")
-                        .font(.system(size: 17, weight: .regular))
+                        .font(.systemScaled(17, weight: .regular))
                         .foregroundStyle(ONB.inkSecondary)
                         .lineSpacing(4)
                         .fixedSize(horizontal: false, vertical: true)
@@ -803,10 +803,10 @@ struct OnboardingView: View {
                     // P1-7: Algo training signal
                     HStack(spacing: 5) {
                         Image(systemName: "sparkles")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.systemScaled(11, weight: .semibold))
                             .foregroundStyle(ONB.accent)
                         Text("Your picks shape your For You feed — adjust anytime in Discover.")
-                            .font(.system(size: 12, weight: .regular))
+                            .font(.systemScaled(12, weight: .regular))
                             .foregroundStyle(ONB.inkTertiary)
                     }
                 }
@@ -860,7 +860,7 @@ struct OnboardingView: View {
                                     .frame(width: 22, height: 22)
                                 if hasAgreedToTerms {
                                     Image(systemName: "checkmark")
-                                        .font(.system(size: 12, weight: .bold))
+                                        .font(.systemScaled(12, weight: .bold))
                                         .foregroundStyle(.white)
                                 }
                             }
@@ -873,7 +873,7 @@ struct OnboardingView: View {
                                 Text("Privacy Policy").underline() +
                                 Text(".")
                             }
-                            .font(.system(size: 13, weight: .regular))
+                            .font(.systemScaled(13, weight: .regular))
                             .foregroundStyle(ONB.inkSecondary)
                             .lineSpacing(2)
                             .fixedSize(horizontal: false, vertical: true)
@@ -914,7 +914,7 @@ struct OnboardingView: View {
                         .foregroundStyle(ONB.inkPrimary)
 
                     Text("Follow a few believers to seed your feed. You can always change who you follow later.")
-                        .font(.system(size: 17, weight: .regular))
+                        .font(.systemScaled(17, weight: .regular))
                         .foregroundStyle(ONB.inkSecondary)
                         .lineSpacing(4)
                         .fixedSize(horizontal: false, vertical: true)
@@ -935,7 +935,7 @@ struct OnboardingView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     if !selectedInterests.isEmpty {
                         Text("Based on your interests")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                             .foregroundStyle(ONB.inkTertiary)
                             .padding(.horizontal, ONB.pagePadding)
                             .padding(.top, discoveryService.contactSuggestions.isEmpty ? 0 : 16)
@@ -998,20 +998,20 @@ struct OnboardingView: View {
                             .fill(Color(red: 0.35, green: 0.50, blue: 0.95).opacity(0.12))
                             .frame(width: 40, height: 40)
                         Image(systemName: "person.crop.circle.badge.plus")
-                            .font(.system(size: 18, weight: .medium))
+                            .font(.systemScaled(18, weight: .medium))
                             .foregroundStyle(Color(red: 0.35, green: 0.50, blue: 0.95))
                     }
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Find friends from your contacts")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                             .foregroundStyle(ONB.inkPrimary)
                         Text("See who's already on AMEN")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(ONB.inkTertiary)
                     }
                     Spacer()
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundStyle(ONB.inkTertiary)
                 }
                 .padding(14)
@@ -1027,14 +1027,14 @@ struct OnboardingView: View {
                 HStack(spacing: 10) {
                     ProgressView().scaleEffect(0.8)
                     Text("Finding friends…")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(ONB.inkTertiary)
                 }
                 .padding(.vertical, 8)
             } else if !discoveryService.contactSuggestions.isEmpty {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("From your contacts")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(ONB.inkTertiary)
 
                     ForEach(discoveryService.contactSuggestions.prefix(5)) { suggestion in
@@ -1108,7 +1108,7 @@ struct OnboardingView: View {
                         .foregroundStyle(ONB.inkPrimary)
 
                     Text("Connect with your church community on AMEN. You can skip this and find them later in Discover.")
-                        .font(.system(size: 17, weight: .regular))
+                        .font(.systemScaled(17, weight: .regular))
                         .foregroundStyle(ONB.inkSecondary)
                         .lineSpacing(4)
                         .fixedSize(horizontal: false, vertical: true)
@@ -1126,24 +1126,24 @@ struct OnboardingView: View {
                         )
                         VStack(alignment: .leading, spacing: 12) {
                             Image(systemName: "building.columns.fill")
-                                .font(.system(size: 32))
+                                .font(.systemScaled(32))
                                 .foregroundStyle(.white.opacity(0.85))
 
                             Text("Find a Church")
-                                .font(.system(size: 20, weight: .bold))
+                                .font(.systemScaled(20, weight: .bold))
                                 .foregroundStyle(.white)
 
                             Text("Search churches by name, denomination, or zip code. Follow your church to see their posts, events and announcements.")
-                                .font(.system(size: 13, weight: .regular))
+                                .font(.systemScaled(13, weight: .regular))
                                 .foregroundStyle(.white.opacity(0.70))
                                 .lineLimit(3)
                                 .fixedSize(horizontal: false, vertical: true)
 
                             HStack(spacing: 6) {
                                 Image(systemName: "arrow.right")
-                                    .font(.system(size: 12, weight: .semibold))
+                                    .font(.systemScaled(12, weight: .semibold))
                                 Text("Browse churches")
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .font(.systemScaled(13, weight: .semibold))
                             }
                             .foregroundStyle(.white.opacity(0.85))
                             .padding(.horizontal, 14)
@@ -1167,7 +1167,7 @@ struct OnboardingView: View {
                 Spacer().frame(height: 16)
 
                 Text("Don't see your church yet? Invite them to join AMEN.")
-                    .font(.system(size: 12, weight: .regular))
+                    .font(.systemScaled(12, weight: .regular))
                     .foregroundStyle(ONB.inkTertiary)
                     .padding(.horizontal, ONB.pagePadding + 4)
 
@@ -1303,7 +1303,7 @@ struct ONBFirstPostSheet: View {
                             ))
                             .frame(width: 72, height: 72)
                         Image(systemName: "hands.sparkles.fill")
-                            .font(.system(size: 30, weight: .semibold))
+                            .font(.systemScaled(30, weight: .semibold))
                             .foregroundStyle(.white)
                     }
                     .scaleEffect(appeared ? 1.0 : 0.5)
@@ -1313,7 +1313,7 @@ struct ONBFirstPostSheet: View {
                     Spacer().frame(height: 20)
 
                     Text("You're in. 🎉")
-                        .font(.system(size: 28, weight: .bold))
+                        .font(.systemScaled(28, weight: .bold))
                         .foregroundStyle(.primary)
                         .opacity(appeared ? 1 : 0)
                         .offset(y: appeared ? 0 : 10)
@@ -1322,7 +1322,7 @@ struct ONBFirstPostSheet: View {
                     Spacer().frame(height: 10)
 
                     Text("Your first post is a moment worth marking.\nWhat's on your heart today?")
-                        .font(.system(size: 16, weight: .regular))
+                        .font(.systemScaled(16, weight: .regular))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                         .lineSpacing(3)
@@ -1338,7 +1338,7 @@ struct ONBFirstPostSheet: View {
                         showComposer = true
                     } label: {
                         Text("Share to AMEN")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
                             .frame(height: 52)
@@ -1356,7 +1356,7 @@ struct ONBFirstPostSheet: View {
                         isPresented = false
                     } label: {
                         Text("Maybe later")
-                            .font(.system(size: 15, weight: .regular))
+                            .font(.systemScaled(15, weight: .regular))
                             .foregroundStyle(.secondary)
                     }
                     .buttonStyle(.plain)
@@ -1389,10 +1389,10 @@ private struct ONBInterestChip: View {
         Button(action: action) {
             HStack(spacing: 8) {
                 Image(systemName: icon)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(selected ? .white : color)
                 Text(label)
-                    .font(.system(size: 14, weight: selected ? .semibold : .medium))
+                    .font(.systemScaled(14, weight: selected ? .semibold : .medium))
                     .foregroundStyle(selected ? .white : ONB.inkPrimary)
             }
             .frame(maxWidth: .infinity)

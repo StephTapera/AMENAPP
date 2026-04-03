@@ -20,7 +20,7 @@ private struct GlassDialogButton: View {
         Button(action: action) {
             HStack(spacing: 12) {
                 Image(systemName: systemImage)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(.black)
                     .frame(width: 36, height: 36)
                     .background(Color.white.opacity(0.6))
@@ -38,7 +38,7 @@ private struct GlassDialogButton: View {
                 Spacer()
                 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(.black.opacity(0.4))
             }
             .padding(14)
@@ -79,7 +79,7 @@ struct PostShareOptionsSheet: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                             .foregroundStyle(.black.opacity(0.7))
                             .frame(width: 28, height: 28)
                             .background(Color.white.opacity(0.6))
@@ -283,7 +283,7 @@ struct MessageComposeView: View {
                     Spacer()
                     VStack(spacing: 8) {
                         Image(systemName: "bubble.left.and.bubble.right")
-                            .font(.system(size: 32))
+                            .font(.systemScaled(32))
                             .foregroundStyle(.secondary.opacity(0.5))
                         Text("No conversations yet")
                             .foregroundStyle(.secondary)
@@ -455,10 +455,10 @@ struct MessageComposeView: View {
     private var postPreviewBanner: some View {
         HStack(spacing: 10) {
             Image(systemName: "doc.text")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(.secondary)
             Text(post.content.prefix(80) + (post.content.count > 80 ? "…" : ""))
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
             Spacer()
@@ -481,15 +481,15 @@ struct MessageComposeView: View {
                 .frame(width: 44, height: 44)
                 .overlay(
                     Text(conversation.initials)
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(.white)
                 )
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(conversation.name)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                 Text(conversation.lastMessage)
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
@@ -517,7 +517,7 @@ struct MessageComposeView: View {
                     image.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: {
                     Circle().fill(Color.accentColor.opacity(0.3))
-                        .overlay(Text(user.initials).font(.system(size: 14, weight: .semibold)).foregroundStyle(.white))
+                        .overlay(Text(user.initials).font(.systemScaled(14, weight: .semibold)).foregroundStyle(.white))
                 }
                 .frame(width: 44, height: 44)
                 .clipShape(Circle())
@@ -525,14 +525,14 @@ struct MessageComposeView: View {
                 Circle()
                     .fill(Color.accentColor.opacity(0.3))
                     .frame(width: 44, height: 44)
-                    .overlay(Text(user.initials).font(.system(size: 14, weight: .semibold)).foregroundStyle(.white))
+                    .overlay(Text(user.initials).font(.systemScaled(14, weight: .semibold)).foregroundStyle(.white))
             }
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(user.displayName)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                 Text("@\(user.username)")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.secondary)
             }
 
@@ -557,12 +557,12 @@ struct MessageComposeView: View {
                 ProgressView().frame(width: 64, height: 32)
             } else if alreadySent {
                 Label("Sent", systemImage: "checkmark")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(.green)
                     .frame(width: 64, height: 32)
             } else {
                 Text("Send")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(.white)
                     .frame(width: 64, height: 32)
                     .background(Color.accentColor)

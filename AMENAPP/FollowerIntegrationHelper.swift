@@ -41,7 +41,7 @@ struct QuickFollowButton: View {
         } label: {
             HStack(spacing: 8) {
                 Image(systemName: isFollowing ? "person.fill.checkmark" : "person.fill.badge.plus")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                 
                 Text(isFollowing ? "Following" : "Follow")
                     .font(.custom("OpenSans-Bold", size: 14))
@@ -187,7 +187,7 @@ struct FollowerSettingsSection: View {
             } label: {
                 HStack {
                     Image(systemName: "person.2.fill")
-                        .font(.system(size: 18))
+                        .font(.systemScaled(18))
                         .foregroundStyle(.blue)
                         .frame(width: 32)
                     
@@ -198,7 +198,7 @@ struct FollowerSettingsSection: View {
                     Spacer()
                     
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -209,7 +209,7 @@ struct FollowerSettingsSection: View {
             } label: {
                 HStack {
                     Image(systemName: "person.badge.clock")
-                        .font(.system(size: 18))
+                        .font(.systemScaled(18))
                         .foregroundStyle(.purple)
                         .frame(width: 32)
                     
@@ -220,7 +220,7 @@ struct FollowerSettingsSection: View {
                     Spacer()
                     
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -232,7 +232,7 @@ struct FollowerSettingsSection: View {
             } label: {
                 HStack {
                     Image(systemName: "chart.line.uptrend.xyaxis")
-                        .font(.system(size: 18))
+                        .font(.systemScaled(18))
                         .foregroundStyle(.green)
                         .frame(width: 32)
                     
@@ -243,7 +243,7 @@ struct FollowerSettingsSection: View {
                     Spacer()
                     
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -630,7 +630,7 @@ struct SimpleUserCard: View {
                                 .clipShape(Circle())
                         case .failure, .empty:
                             Image(systemName: "person.circle.fill")
-                                .font(.system(size: 48))
+                                .font(.systemScaled(48))
                                 .foregroundStyle(.secondary)
                         @unknown default:
                             EmptyView()
@@ -638,7 +638,7 @@ struct SimpleUserCard: View {
                     }
                 } else {
                     Image(systemName: "person.circle.fill")
-                        .font(.system(size: 48))
+                        .font(.systemScaled(48))
                         .foregroundStyle(.secondary)
                 }
             }

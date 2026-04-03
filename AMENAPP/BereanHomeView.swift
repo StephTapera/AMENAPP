@@ -176,7 +176,7 @@ struct BereanHomeView: View {
                         showSettings = true
                     } label: {
                         Image(systemName: "person.circle")
-                            .font(.system(size: 20, weight: .light))
+                            .font(.systemScaled(20, weight: .light))
                             .foregroundColor(BereanColor.textSecondary)
                     }
                 }
@@ -249,7 +249,7 @@ struct BereanHomeView: View {
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: mode.icon)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                 Text(mode.rawValue)
                     .font(AMENFont.semiBold(13))
             }
@@ -323,7 +323,7 @@ struct BereanHomeView: View {
     private var recentEmptyState: some View {
         VStack(spacing: 12) {
             Image(systemName: "bubble.left.and.bubble.right")
-                .font(.system(size: 28))
+                .font(.systemScaled(28))
                 .foregroundColor(BereanColor.textTertiary)
             Text("No recent chats")
                 .font(AMENFont.semiBold(15))
@@ -374,7 +374,7 @@ struct BereanHomeView: View {
                         .font(AMENFont.regular(12))
                         .foregroundColor(BereanColor.textTertiary)
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.systemScaled(11, weight: .medium))
                         .foregroundColor(BereanColor.textTertiary)
                 }
             }
@@ -395,7 +395,7 @@ struct BereanHomeView: View {
                     .font(AMENFont.semiBold(15))
                     .foregroundColor(Color.black)
                 Text("+")
-                    .font(.system(size: 18, weight: .light))
+                    .font(.systemScaled(18, weight: .light))
                     .foregroundColor(Color.black)
             }
             .padding(.horizontal, 20)

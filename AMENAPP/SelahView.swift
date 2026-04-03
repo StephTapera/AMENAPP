@@ -409,7 +409,7 @@ struct SelahView: View {
                         Image(systemName: "checkmark.circle.fill")
                             .foregroundStyle(.green)
                         Text("Saved to Church Notes")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                     }
                     .padding(.horizontal, 20)
                     .padding(.vertical, 12)
@@ -460,7 +460,7 @@ struct SelahView: View {
                             )
                             .shadow(color: Color.black.opacity(0.08), radius: 6, y: 2)
                         Image(systemName: "xmark")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -470,7 +470,7 @@ struct SelahView: View {
 
             // Center label
             Text("Selah")
-                .font(.system(size: 15, weight: .semibold))
+                .font(.systemScaled(15, weight: .semibold))
                 .foregroundStyle(.primary)
 
             // Highlights toggle — right
@@ -483,9 +483,9 @@ struct SelahView: View {
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: showHighlights ? "highlighter" : "highlighter")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.systemScaled(13, weight: .medium))
                         Text(showHighlights ? "On" : "Off")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.systemScaled(12, weight: .medium))
                     }
                     .foregroundStyle(showHighlights ? Color.accentColor : .secondary)
                     .padding(.horizontal, 10)
@@ -557,18 +557,18 @@ struct SelahView: View {
     private var queryHeader: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("BEREAN")
-                .font(.system(size: 10, weight: .semibold))
+                .font(.systemScaled(10, weight: .semibold))
                 .tracking(2)
                 .foregroundStyle(Color.accentColor.opacity(0.75))
 
             Text(originalQuery.isEmpty ? "Scripture Study" : originalQuery)
-                .font(.system(size: 26, weight: .bold, design: .serif))
+                .font(.systemScaled(26, weight: .bold, design: .serif))
                 .foregroundStyle(.primary)
                 .lineSpacing(4)
                 .fixedSize(horizontal: false, vertical: true)
 
             Text(Date().formatted(.dateTime.weekday(.wide).month().day()))
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(.secondary)
         }
     }
@@ -610,9 +610,9 @@ struct SelahView: View {
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "plus.bubble")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.systemScaled(14, weight: .medium))
                     Text("Ask Follow-up")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 13)
@@ -631,10 +631,10 @@ struct SelahView: View {
         Button(action: action) {
             VStack(spacing: 5) {
                 Image(systemName: icon)
-                    .font(.system(size: 18, weight: .regular))
+                    .font(.systemScaled(18, weight: .regular))
                     .foregroundStyle(.primary)
                 Text(label)
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.systemScaled(10, weight: .medium))
                     .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity)
@@ -733,11 +733,11 @@ private struct SelahFormatSegment: View {
 
                 HStack(spacing: 5) {
                     Image(systemName: format.icon)
-                        .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
+                        .font(.systemScaled(12, weight: isSelected ? .semibold : .regular))
                         .foregroundStyle(isSelected ? .primary : .secondary)
                     if isSelected {
                         Text(format.rawValue)
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                             .foregroundStyle(.primary)
                             .lineLimit(1)
                             .transition(.opacity.combined(with: .scale(scale: 0.85)))
@@ -781,14 +781,14 @@ struct SelahSectionView: View {
             Button(action: onToggle) {
                 HStack(spacing: 10) {
                     Text(section.kind.rawValue.uppercased())
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.systemScaled(10, weight: .semibold))
                         .tracking(1.5)
                         .foregroundStyle(.secondary)
 
                     Spacer()
 
                     Image(systemName: "chevron.down")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundStyle(.secondary)
                         .rotationEffect(.degrees(isExpanded ? 0 : -90))
                 }
@@ -813,7 +813,7 @@ struct SelahSectionView: View {
                             HStack(spacing: 6) {
                                 ForEach(section.references, id: \.self) { ref in
                                     Text(ref)
-                                        .font(.system(size: 11, weight: .semibold))
+                                        .font(.systemScaled(11, weight: .semibold))
                                         .foregroundStyle(Color.accentColor)
                                         .padding(.horizontal, 8)
                                         .padding(.vertical, 4)
@@ -842,7 +842,7 @@ struct SelahSectionView: View {
             )
         } else {
             Text(section.body)
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .foregroundStyle(.primary)
                 .lineSpacing(5)
                 .fixedSize(horizontal: false, vertical: true)
@@ -860,7 +860,7 @@ struct SelahSectionView: View {
                 HStack(alignment: .top, spacing: 10) {
                     if isNumbered {
                         Text(String(index + 1))
-                            .font(.system(size: 11, weight: .bold))
+                            .font(.systemScaled(11, weight: .bold))
                             .foregroundStyle(.white)
                             .frame(width: 20, height: 20)
                             .background(Color.accentColor, in: Circle())
@@ -872,7 +872,7 @@ struct SelahSectionView: View {
                             .padding(.top, 6)
                     }
                     Text(isNumbered ? cleanLine.drop(while: { $0.isNumber || $0 == "." || $0 == ")" || $0 == " " }).description : cleanLine)
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                         .foregroundStyle(.primary)
                         .lineSpacing(4)
                         .fixedSize(horizontal: false, vertical: true)
@@ -890,7 +890,7 @@ struct HighlightedTextView: View {
 
     var body: some View {
         buildAttributed()
-            .font(.system(size: 15))
+            .font(.systemScaled(15))
             .lineSpacing(5)
             .fixedSize(horizontal: false, vertical: true)
     }

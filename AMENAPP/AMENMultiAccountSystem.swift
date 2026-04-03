@@ -279,7 +279,7 @@ struct AMENAccountSwitcherView: View {
                                             .frame(width: 48, height: 48)
                                         
                                         Image(systemName: "plus")
-                                            .font(.system(size: 18, weight: .semibold))
+                                            .font(.systemScaled(18, weight: .semibold))
                                             .foregroundColor(.black)
                                     }
                                     
@@ -384,13 +384,13 @@ private struct AccountRow: View {
                 // Checkmark for current account
                 if isCurrent {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 22))
+                        .font(.systemScaled(22))
                         .foregroundColor(.black)
                 } else if let onRemove = onRemove {
                     // Remove button for other accounts
                     Button(action: onRemove) {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 22))
+                            .font(.systemScaled(22))
                             .foregroundColor(Color(white: 0.75))
                     }
                     .buttonStyle(PlainButtonStyle())
@@ -427,7 +427,7 @@ struct AMENAccountSwitcherButton: View {
                 }
                 
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundColor(Color(white: 0.45))
                 
                 if manager.accounts.count > 1 {
@@ -437,7 +437,7 @@ struct AMENAccountSwitcherButton: View {
                             .frame(width: 18, height: 18)
                         
                         Text("\(manager.accounts.count)")
-                            .font(.system(size: 10, weight: .bold))
+                            .font(.systemScaled(10, weight: .bold))
                             .foregroundColor(.white)
                     }
                 }

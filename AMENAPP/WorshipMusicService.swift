@@ -380,17 +380,17 @@ struct WorshipSongCard: View {
                     .fill(Color(.systemGray6))
                     .frame(width: 40, height: 40)
                 Image(systemName: isCurrentSong && isPlaying ? "waveform" : "music.note")
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(isCurrentSong ? Color.purple : Color.secondary)
                     .symbolEffect(.variableColor.iterative, isActive: isCurrentSong && isPlaying)
             }
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .lineLimit(1)
                 Text(artist)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
@@ -405,7 +405,7 @@ struct WorshipSongCard: View {
                         ProgressView().scaleEffect(0.8)
                     } else {
                         Image(systemName: isCurrentSong && isPlaying ? "pause.circle.fill" : "play.circle.fill")
-                            .font(.system(size: 28))
+                            .font(.systemScaled(28))
                             .foregroundStyle(isCurrentSong ? Color.purple : Color.secondary)
                     }
                 }

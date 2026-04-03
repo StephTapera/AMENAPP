@@ -346,7 +346,7 @@ private struct AccountTypeCard: View {
                 .strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5)
 
             Image(systemName: type.icon)
-                .font(.system(size: 22, weight: .medium))
+                .font(.systemScaled(22, weight: .medium))
                 .foregroundColor(type.badgeColor)
         }
         .frame(width: 52, height: 52)
@@ -362,7 +362,7 @@ private struct AccountTypeCard: View {
                     .frame(width: 24, height: 24)
 
                 Image(systemName: "checkmark")
-                    .font(.system(size: 12, weight: .bold))
+                    .font(.systemScaled(12, weight: .bold))
                     .foregroundColor(.white)
             } else {
                 Circle()
@@ -473,7 +473,7 @@ private struct CapabilityRow: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: "checkmark")
-                .font(.system(size: 12, weight: .bold))
+                .font(.systemScaled(12, weight: .bold))
                 .foregroundColor(accentColor)
                 .frame(width: 16)
 

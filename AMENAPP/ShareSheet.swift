@@ -76,7 +76,7 @@ struct AmenShareSheet: View {
 
                     // Subtitle
                     Text("Share your note with the AMEN community or externally")
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 20)
@@ -334,18 +334,18 @@ struct ShareOptionRow: View {
                     .frame(width: 48, height: 48)
 
                 Image(systemName: icon)
-                    .font(.system(size: 20, weight: .semibold))
+                    .font(.systemScaled(20, weight: .semibold))
                     .foregroundStyle(color)
             }
 
             // Text
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(.primary)
 
                 Text(description)
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
             }
@@ -353,7 +353,7 @@ struct ShareOptionRow: View {
             Spacer()
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(.secondary)
         }
         .padding(.vertical, 8)

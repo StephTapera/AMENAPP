@@ -57,7 +57,7 @@ struct PostToSpaceSheet: View {
                                 HStack(spacing: 8) {
                                     Image(systemName: "exclamationmark.triangle.fill")
                                         .foregroundStyle(.orange)
-                                        .font(.system(size: 13))
+                                        .font(.systemScaled(13))
                                     Text(error)
                                         .font(AMENFont.regular(13))
                                         .foregroundStyle(.orange)
@@ -110,7 +110,7 @@ struct PostToSpaceSheet: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                             .foregroundStyle(.white.opacity(0.6))
                             .padding(8)
                             .background(
@@ -139,7 +139,7 @@ struct PostToSpaceSheet: View {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: type == .text ? "text.bubble" : "photo")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.systemScaled(13, weight: .medium))
                         Text(type == .text ? "Text" : "Photo")
                             .font(AMENFont.semiBold(13))
                     }
@@ -220,7 +220,7 @@ struct PostToSpaceSheet: View {
                     .overlay(
                         VStack(spacing: 12) {
                             Image(systemName: "photo.on.rectangle.angled")
-                                .font(.system(size: 34, weight: .light))
+                                .font(.systemScaled(34, weight: .light))
                                 .foregroundStyle(accentPurple.opacity(0.6))
                             Text("Photo upload coming soon")
                                 .font(AMENFont.regular(14))
@@ -240,7 +240,7 @@ struct PostToSpaceSheet: View {
                     .fill(accentPurple.opacity(0.15))
                     .frame(width: 34, height: 34)
                 Image(systemName: "sparkles")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(accentPurple)
             }
 
@@ -295,7 +295,7 @@ struct PostToSpaceSheet: View {
                         .scaleEffect(0.85)
                 } else {
                     Image(systemName: "paperplane.fill")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                 }
                 Text(isPosting ? "Posting…" : "Post")
                     .font(AMENFont.semiBold(16))

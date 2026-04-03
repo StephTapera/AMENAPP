@@ -46,11 +46,11 @@ struct MentorshipChatView: View {
                     Image(systemName: "checklist")
                         .foregroundStyle(Color(red: 0.49, green: 0.23, blue: 0.93))
                     Text("Check-in due: \"\(String(checkIn.prompt.prefix(40)))...\"")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .lineLimit(1)
                     Spacer()
                     Button("Respond") { showCheckIn = true }
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(Color(red: 0.49, green: 0.23, blue: 0.93))
                 }
                 .padding(.horizontal, 16)
@@ -75,7 +75,7 @@ struct MentorshipChatView: View {
                     dlog("📅 Book session tapped")
                 } label: {
                     Label("Book", systemImage: "calendar.badge.plus")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                 }
             }
         }

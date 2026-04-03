@@ -16,6 +16,7 @@ import FirebaseFirestore
 import FirebaseAppCheck
 import FirebaseCrashlytics
 import UserNotifications
+import AppTrackingTransparency
 
 class AppDelegate: NSObject, UIApplicationDelegate {
     
@@ -140,6 +141,15 @@ class AppDelegate: NSObject, UIApplicationDelegate {
             }
             // Return true — the quick action was handled; do NOT return false here
             // because that would prevent the standard SwiftUI lifecycle from starting.
+        }
+
+        // ✅ ATT: Request App Tracking Transparency after a brief delay so the
+        // launch screen has settled. Apple requires this dialog before any
+        // IDFA access. App Store will reject binaries that access IDFA without it.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            ATTrackingManager.requestTrackingAuthorization { status in
+                dlog("✅ ATT authorization status: \(status.rawValue)")
+            }
         }
 
         return true

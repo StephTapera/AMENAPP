@@ -108,7 +108,7 @@ struct SpiritualNeedsRouterView: View {
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                     Text("Find churches for my needs")
                         .font(AMENFont.bold(15))
                 }
@@ -143,7 +143,7 @@ struct SpiritualNeedsRouterView: View {
         } label: {
             VStack(alignment: .leading, spacing: 8) {
                 Image(systemName: need.icon)
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
                     .foregroundStyle(isSelected ? Color.white : Color.black)
 
                 Text(need.displayName)
@@ -245,7 +245,7 @@ struct PostVisitReflectionCard: View {
                     // Dismiss
                     Button(action: onDismiss) {
                         Image(systemName: "xmark")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                             .foregroundStyle(Color(white: 0.65))
                             .padding(6)
                             .background(Color(white: 0.93), in: Circle())
@@ -281,7 +281,7 @@ struct PostVisitReflectionCard: View {
                         } label: {
                             HStack(spacing: 5) {
                                 Image(systemName: rating.icon)
-                                    .font(.system(size: 12))
+                                    .font(.systemScaled(12))
                                 Text(rating.label)
                                     .font(AMENFont.semiBold(12))
                             }
@@ -398,7 +398,7 @@ struct PostVisitReflectionCard: View {
         Button(action: action) {
             HStack(spacing: 14) {
                 Image(systemName: icon)
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(Color.black)
                     .frame(width: 22)
                 Text(label)
@@ -406,7 +406,7 @@ struct PostVisitReflectionCard: View {
                     .foregroundStyle(Color.black)
                 Spacer()
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(Color(white: 0.7))
             }
             .padding(.horizontal, 20)
@@ -570,7 +570,7 @@ struct VisitTogetherView: View {
         Button(action: action) {
             HStack(spacing: 14) {
                 Image(systemName: icon)
-                    .font(.system(size: 17))
+                    .font(.systemScaled(17))
                     .foregroundStyle(Color.black)
                     .frame(width: 22)
 
@@ -587,7 +587,7 @@ struct VisitTogetherView: View {
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(Color(white: 0.75))
             }
             .padding(.horizontal, 18)
@@ -675,7 +675,7 @@ struct ChurchInviteComposer: View {
                     } label: {
                         HStack(spacing: 6) {
                             Image(systemName: sent ? "checkmark" : "paperplane")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.systemScaled(14, weight: .semibold))
                             Text(sent ? "Invite sent" : "Send invite")
                                 .font(AMENFont.bold(15))
                         }
@@ -756,7 +756,7 @@ struct OpenTablePostComposer: View {
                     // Church tag pill
                     HStack(spacing: 6) {
                         Image(systemName: "building.columns")
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                         Text(church.name)
                             .font(AMENFont.semiBold(12))
                         Text("·")
@@ -840,7 +840,7 @@ struct ChurchVisitCard: View {
                 }
                 Spacer()
                 Image(systemName: "building.columns.fill")
-                    .font(.system(size: 40))
+                    .font(.systemScaled(40))
                     .foregroundStyle(Color(white: 0.88))
             }
             .padding(18)
@@ -973,7 +973,7 @@ struct LiveChurchIntelligenceView: View {
                 pulsingDot
             } else {
                 Image(systemName: signal.icon)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(Color(white: 0.35))
             }
 

@@ -22,10 +22,10 @@ struct AnsweredPrayerComposerView: View {
             // Dark header
             VStack(spacing: 4) {
                 Text("Your prayer was answered")
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.systemScaled(17, weight: .semibold))
                     .foregroundStyle(.white)
                 Text("Share what God did")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(Color.white.opacity(0.65))
             }
             .frame(maxWidth: .infinity)
@@ -43,11 +43,11 @@ struct AnsweredPrayerComposerView: View {
 
                         VStack(alignment: .leading, spacing: 4) {
                             Text("YOU PRAYED FOR")
-                                .font(.system(size: 9, weight: .semibold))
+                                .font(.systemScaled(9, weight: .semibold))
                                 .foregroundStyle(Color.secondary)
                                 .kerning(0.5)
                             Text(originalPrayerPost.content)
-                                .font(.system(size: 13).italic())
+                                .font(.systemScaled(13).italic())
                                 .foregroundStyle(Color.primary)
                                 .lineLimit(4)
                         }
@@ -65,7 +65,7 @@ struct AnsweredPrayerComposerView: View {
 
                     // Text editor
                     TextEditor(text: $testimonyText)
-                        .font(.system(size: 15).italic())
+                        .font(.systemScaled(15).italic())
                         .frame(minHeight: 180)
                         .padding(10)
                         .background(
@@ -76,7 +76,7 @@ struct AnsweredPrayerComposerView: View {
                             Group {
                                 if testimonyText.isEmpty {
                                     Text("God provided... (share what happened)")
-                                        .font(.system(size: 15).italic())
+                                        .font(.systemScaled(15).italic())
                                         .foregroundStyle(Color.secondary.opacity(0.6))
                                         .allowsHitTesting(false)
                                         .padding(.leading, 14)
@@ -90,7 +90,7 @@ struct AnsweredPrayerComposerView: View {
 
                     if let err = errorMessage {
                         Text(err)
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundStyle(.red)
                             .padding(.horizontal, 16)
                     }
@@ -104,7 +104,7 @@ struct AnsweredPrayerComposerView: View {
                                 ProgressView().tint(.white)
                             } else {
                                 Text("Post testimony")
-                                    .font(.system(size: 16, weight: .semibold))
+                                    .font(.systemScaled(16, weight: .semibold))
                                     .foregroundStyle(.white)
                             }
                         }

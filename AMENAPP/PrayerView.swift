@@ -165,7 +165,7 @@ struct PrayerView: View {
                     if allPosts.isEmpty {
                         VStack(spacing: 16) {
                             Image(systemName: emptyStateIcon)
-                                .font(.system(size: 48))
+                                .font(.systemScaled(48))
                                 .foregroundStyle(.secondary)
                             Text(emptyStateTitle)
                                 .font(AMENFont.bold(18))
@@ -385,7 +385,7 @@ struct PrayerBannerCard: View {
                         .shadow(color: isBlackAndWhite ? .black.opacity(0.2) : (gradientColors?.first ?? .black).opacity(0.3), radius: 6, y: 2)
                     
                     Image(systemName: icon)
-                        .font(.system(size: 18, weight: .semibold))  // ✅ Reduced from 26 to 18
+                        .font(.systemScaled(18, weight: .semibold))  // ✅ Reduced from 26 to 18
                         .foregroundStyle(isBlackAndWhite ? .white : .white)
                         .symbolEffect(.pulse, options: .repeating.speed(0.7))
                 }
@@ -403,7 +403,7 @@ struct PrayerBannerCard: View {
                 Spacer()
                 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))  // ✅ Reduced from 16 to 12
+                    .font(.systemScaled(12, weight: .semibold))  // ✅ Reduced from 16 to 12
                     .foregroundStyle(isBlackAndWhite ? .black.opacity(0.3) : .white.opacity(0.7))
             }
             
@@ -541,7 +541,7 @@ struct DailyPrayerView: View {
                         }
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 28))
+                            .font(.systemScaled(28))
                             .foregroundStyle(.white.opacity(0.6))
                     }
                 }
@@ -732,7 +732,7 @@ struct DailyPrayerCard: View {
                             
                             // Icon
                             Image(systemName: prayer.icon)
-                                .font(.system(size: 36, weight: .medium))
+                                .font(.systemScaled(36, weight: .medium))
                                 .foregroundStyle(prayer.color)
                                 .symbolEffect(.pulse, options: .repeating.speed(0.5))
                         }
@@ -760,7 +760,7 @@ struct DailyPrayerCard: View {
                                         .frame(width: 32, height: 32)
                                     
                                     Image(systemName: "hands.sparkles.fill")
-                                        .font(.system(size: 14, weight: .semibold))
+                                        .font(.systemScaled(14, weight: .semibold))
                                         .foregroundStyle(prayer.color)
                                 }
                                 
@@ -818,7 +818,7 @@ struct DailyPrayerCard: View {
                                         .frame(width: 32, height: 32)
                                     
                                     Image(systemName: "book.closed.fill")
-                                        .font(.system(size: 14, weight: .semibold))
+                                        .font(.systemScaled(14, weight: .semibold))
                                         .foregroundStyle(prayer.color)
                                 }
                                 
@@ -897,7 +897,7 @@ struct DailyPrayerCard: View {
                         } label: {
                             HStack(spacing: 8) {
                                 Image(systemName: "hands.sparkles")
-                                    .font(.system(size: 15, weight: .medium))
+                                    .font(.systemScaled(15, weight: .medium))
                                 Text("Focus Prayer")
                                     .font(AMENFont.semiBold(15))
                             }
@@ -925,7 +925,7 @@ struct DailyPrayerCard: View {
                     }) {
                         HStack(spacing: 10) {
                             Image(systemName: isCompleted ? "checkmark.circle.fill" : "circle")
-                                .font(.system(size: 20, weight: .bold))
+                                .font(.systemScaled(20, weight: .bold))
                                 .symbolEffect(.bounce, value: isCompleted)
                             
                             Text(isCompleted ? "Prayed ✓" : "Mark as Prayed")
@@ -999,7 +999,7 @@ struct CompletionCelebrationView: View {
                         .frame(width: 100, height: 100)
                     
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 60))
+                        .font(.systemScaled(60))
                         .foregroundStyle(Color(red: 0.4, green: 0.85, blue: 0.7))
                         .symbolEffect(.bounce)
                 }
@@ -1152,7 +1152,7 @@ struct PrayerGroupsView: View {
                         }
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 28))
+                            .font(.systemScaled(28))
                             .foregroundStyle(.white.opacity(0.6))
                     }
                 }
@@ -1214,7 +1214,7 @@ struct PrayerGroupsView: View {
                 } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 18, weight: .semibold))
+                            .font(.systemScaled(18, weight: .semibold))
                         
                         Text("Create Prayer Group")
                             .font(AMENFont.bold(16))
@@ -1278,7 +1278,7 @@ struct PrayerGroupCard: View {
                             .frame(width: 56, height: 56)
                         
                         Image(systemName: group.icon)
-                            .font(.system(size: 24, weight: .medium))
+                            .font(.systemScaled(24, weight: .medium))
                             .foregroundStyle(group.color)
                     }
                     
@@ -1311,7 +1311,7 @@ struct PrayerGroupCard: View {
                 HStack(spacing: 20) {
                     HStack(spacing: 6) {
                         Image(systemName: "person.2.fill")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(.white.opacity(0.6))
                         
                         Text("\(group.memberCount) members")
@@ -1334,7 +1334,7 @@ struct PrayerGroupCard: View {
                     Spacer()
                     
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(.white.opacity(0.4))
                 }
             }
@@ -1477,7 +1477,7 @@ struct PrayerPostCard: View {
             } else {
                 VStack(spacing: 20) {
                     Image(systemName: "person.crop.circle.badge.exclamationmark")
-                        .font(.system(size: 60))
+                        .font(.systemScaled(60))
                         .foregroundStyle(.secondary)
                     
                     Text("Unable to Load Profile")
@@ -1552,7 +1552,7 @@ struct PrayerPostCard: View {
         if let topicTag = topicTag {
             HStack(spacing: 6) {
                 Image(systemName: "tag.fill")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.systemScaled(10, weight: .semibold))
                     .foregroundStyle(prayerTopicTagColor)
                 
                 Text(topicTag)
@@ -1791,7 +1791,7 @@ struct PrayerPostCard: View {
     @ViewBuilder
     private var followButtonOverlay: some View {
         Image(systemName: isFollowing ? "checkmark.circle.fill" : "plus.circle.fill")
-            .font(.system(size: 18, weight: .semibold))
+            .font(.systemScaled(18, weight: .semibold))
             .foregroundStyle(isFollowing ? .black : .white)
             .background(
                 Circle()
@@ -1841,7 +1841,7 @@ struct PrayerPostCard: View {
             }
         } label: {
             Image(systemName: "ellipsis")
-                .font(.system(size: 18, weight: .semibold))
+                .font(.systemScaled(18, weight: .semibold))
                 .foregroundStyle(Color.black.opacity(0.6))
                 .frame(width: 32, height: 32)
         }
@@ -1944,7 +1944,7 @@ struct PrayerPostCard: View {
         
         HStack(spacing: 4) {
             Image(systemName: iconName)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(foregroundColor)
                 .scaleEffect(isAmenAnimating ? 1.2 : 1.0)
                 .rotationEffect(.degrees(isAmenAnimating ? 12 : 0))
@@ -2366,7 +2366,7 @@ struct PrayerPostCard: View {
         
         HStack(spacing: 4) {
             Image(systemName: config.icon)
-                .font(.system(size: 10, weight: .semibold))
+                .font(.systemScaled(10, weight: .semibold))
             
             Text(config.label)
                 .font(AMENFont.bold(10))
@@ -2424,7 +2424,7 @@ struct PrayerReactionButton: View {
         Button(action: action) {
             HStack(spacing: 4) {
                 Image(systemName: icon)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(isActive ? .black : .black.opacity(0.5))
                 
                 if let count = count {
@@ -2547,7 +2547,7 @@ struct PrayerCommentSection: View {
         if showError, let error = errorMessage {
             HStack {
                 Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(.orange)
                 
                 Text(error)
@@ -2562,7 +2562,7 @@ struct PrayerCommentSection: View {
                     }
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 16))
+                        .font(.systemScaled(16))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -2694,7 +2694,7 @@ struct PrayerCommentSection: View {
                 }
             } label: {
                 Image(systemName: showQuickPrayers ? "hand.raised.fill" : "hand.raised")
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(showQuickPrayers ? .black : .black.opacity(0.4))
             }
             
@@ -2702,7 +2702,7 @@ struct PrayerCommentSection: View {
                 showVerseSelector = true
             } label: {
                 Image(systemName: "book.closed")
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(.black.opacity(0.4))
             }
         }
@@ -2724,7 +2724,7 @@ struct PrayerCommentSection: View {
                             .frame(width: 32, height: 32)
                     } else {
                         Image(systemName: "arrow.up.circle.fill")
-                            .font(.system(size: 32))
+                            .font(.systemScaled(32))
                             .foregroundStyle(.black)
                     }
                 }
@@ -2994,7 +2994,7 @@ struct PrayerCommentRow: View {
                             }
                         } label: {
                             Image(systemName: "ellipsis")
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.systemScaled(12, weight: .semibold))
                                 .foregroundStyle(.black.opacity(0.4))
                         }
                     }
@@ -3014,7 +3014,7 @@ struct PrayerCommentRow: View {
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: hasPrayed ? "hands.sparkles.fill" : "hands.sparkles")
-                                .font(.system(size: 11, weight: .semibold))
+                                .font(.systemScaled(11, weight: .semibold))
                             
                             if localPrayCount > 0 {
                                 Text("\(localPrayCount)")
@@ -3063,7 +3063,7 @@ struct PrayerCommentRow: View {
                                 ProgressView().scaleEffect(0.7)
                             } else {
                                 Image(systemName: "arrow.up.circle.fill")
-                                    .font(.system(size: 24))
+                                    .font(.systemScaled(24))
                                     .foregroundStyle(replyText.trimmingCharacters(in: .whitespaces).isEmpty ? .gray : .blue)
                             }
                         }
@@ -3267,7 +3267,7 @@ struct PrayerWallView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 28))
+                            .font(.systemScaled(28))
                             .foregroundStyle(.black.opacity(0.3))
                     }
                 }
@@ -3351,7 +3351,7 @@ struct PrayerWallCard: View {
                 if post.isUrgent {
                     HStack(spacing: 4) {
                         Image(systemName: "exclamationmark.circle.fill")
-                            .font(.system(size: 9))
+                            .font(.systemScaled(9))
                         Text("URGENT")
                             .font(AMENFont.bold(9))
                     }
@@ -3399,7 +3399,7 @@ struct PrayerWallCard: View {
                     // Pray count
                     HStack(spacing: 3) {
                         Image(systemName: "hands.sparkles.fill")
-                            .font(.system(size: 10))
+                            .font(.systemScaled(10))
                         Text("\(post.prayCount + (hasPrayed ? 1 : 0))")
                             .font(AMENFont.bold(11))
                     }
@@ -3417,7 +3417,7 @@ struct PrayerWallCard: View {
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: hasPrayed ? "hands.sparkles.fill" : "hands.sparkles")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                     Text(hasPrayed ? "Prayed" : "Pray Now")
                         .font(AMENFont.bold(12))
                 }
@@ -3449,7 +3449,7 @@ struct PrayerWallCard: View {
         
         HStack(spacing: 3) {
             Image(systemName: config.icon)
-                .font(.system(size: 9, weight: .semibold))
+                .font(.systemScaled(9, weight: .semibold))
             
             Text(config.label)
                 .font(AMENFont.bold(9))
@@ -3514,7 +3514,7 @@ struct SmartPrayerChatView: View {
                             dismiss()
                         } label: {
                             Image(systemName: "chevron.left")
-                                .font(.system(size: 18, weight: .semibold))
+                                .font(.systemScaled(18, weight: .semibold))
                                 .foregroundStyle(.black)
                         }
                         
@@ -3547,7 +3547,7 @@ struct SmartPrayerChatView: View {
                         
                         Button {} label: {
                             Image(systemName: "ellipsis")
-                                .font(.system(size: 18, weight: .semibold))
+                                .font(.systemScaled(18, weight: .semibold))
                                 .foregroundStyle(.black)
                                 .rotationEffect(.degrees(90))
                         }
@@ -3676,7 +3676,7 @@ struct SmartPrayerChatView: View {
                                     }
                                 } label: {
                                     Image(systemName: showQuickResponses ? "bubble.left.fill" : "bubble.left")
-                                        .font(.system(size: 18))
+                                        .font(.systemScaled(18))
                                         .foregroundStyle(showQuickResponses ? .black : .black.opacity(0.5))
                                 }
                                 
@@ -3687,7 +3687,7 @@ struct SmartPrayerChatView: View {
                                     }
                                 } label: {
                                     Image(systemName: showPrayerTemplates ? "hands.sparkles.fill" : "hands.sparkles")
-                                        .font(.system(size: 18))
+                                        .font(.systemScaled(18))
                                         .foregroundStyle(showPrayerTemplates ? .black : .black.opacity(0.5))
                                 }
                             }
@@ -3711,7 +3711,7 @@ struct SmartPrayerChatView: View {
                             if !messageText.isEmpty {
                                 Button { sendMessage() } label: {
                                     Image(systemName: "arrow.up.circle.fill")
-                                        .font(.system(size: 36))
+                                        .font(.systemScaled(36))
                                         .foregroundStyle(.black)
                                 }
                                 .transition(.scale.combined(with: .opacity))
@@ -3786,7 +3786,7 @@ struct PrayerContextCard: View {
                 HStack {
                     HStack(spacing: 6) {
                         Image(systemName: categoryIcon)
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                             .foregroundStyle(categoryColor)
                         
                         Text("Prayer Request")
@@ -3800,7 +3800,7 @@ struct PrayerContextCard: View {
                         withAnimation { isDismissed = true }
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.systemScaled(10, weight: .semibold))
                             .foregroundStyle(.black.opacity(0.4))
                     }
                 }
@@ -3923,7 +3923,7 @@ struct PrayerTemplateChip: View {
         Button(action: action) {
             HStack(spacing: 6) {
                 Image(systemName: icon)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(color)
                 
                 Text(title)
@@ -4021,7 +4021,7 @@ struct LiveDiscussionView: View {
                         }
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 28))
+                            .font(.systemScaled(28))
                             .foregroundStyle(.white.opacity(0.6))
                     }
                 }
@@ -4103,7 +4103,7 @@ struct LiveDiscussionView: View {
                                     .frame(width: 60, height: 60)
                                 
                                 Image(systemName: isMuted ? "mic.slash.fill" : "mic.fill")
-                                    .font(.system(size: 24, weight: .semibold))
+                                    .font(.systemScaled(24, weight: .semibold))
                                     .foregroundStyle(.white)
                             }
                             
@@ -4125,7 +4125,7 @@ struct LiveDiscussionView: View {
                                     .frame(width: 60, height: 60)
                                 
                                 Image(systemName: "hand.raised.fill")
-                                    .font(.system(size: 24, weight: .semibold))
+                                    .font(.systemScaled(24, weight: .semibold))
                                     .foregroundStyle(.white)
                             }
                             
@@ -4147,7 +4147,7 @@ struct LiveDiscussionView: View {
                                     .frame(width: 60, height: 60)
                                 
                                 Image(systemName: "phone.down.fill")
-                                    .font(.system(size: 24, weight: .semibold))
+                                    .font(.systemScaled(24, weight: .semibold))
                                     .foregroundStyle(.white)
                             }
                             
@@ -4281,7 +4281,7 @@ struct CollaborationHubView: View {
                         }
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 28))
+                            .font(.systemScaled(28))
                             .foregroundStyle(.white.opacity(0.6))
                     }
                 }
@@ -4412,7 +4412,7 @@ struct CollaboratorCard: View {
                 HStack(spacing: 20) {
                     HStack(spacing: 6) {
                         Image(systemName: "star.fill")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(Color(red: 1.0, green: 0.85, blue: 0.4))
                         
                         Text(String(format: "%.1f", collaborator.rating))
@@ -4422,7 +4422,7 @@ struct CollaboratorCard: View {
                     
                     HStack(spacing: 6) {
                         Image(systemName: "hands.sparkles.fill")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(.white.opacity(0.6))
                         
                         Text("\(collaborator.prayerCount) prayers")
@@ -4436,7 +4436,7 @@ struct CollaboratorCard: View {
                 // Availability
                 HStack {
                     Image(systemName: "clock.fill")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(collaborator.isOnline ? Color(red: 0.4, green: 0.85, blue: 0.7) : .white.opacity(0.5))
                     
                     Text(collaborator.availability)
@@ -4446,7 +4446,7 @@ struct CollaboratorCard: View {
                     Spacer()
                     
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(.white.opacity(0.4))
                 }
             }
@@ -4539,7 +4539,7 @@ struct PrayerGroupDetailView: View {
                                 .frame(width: 80, height: 80)
                             
                             Image(systemName: group.icon)
-                                .font(.system(size: 36, weight: .semibold))
+                                .font(.systemScaled(36, weight: .semibold))
                                 .foregroundStyle(.white)
                         }
                         
@@ -4678,7 +4678,7 @@ struct PrayerGroupDetailView: View {
             // Message group
         } label: {
             Image(systemName: "message.fill")
-                .font(.system(size: 18))
+                .font(.systemScaled(18))
                 .foregroundStyle(.white)
                 .frame(width: 50, height: 50)
                 .background(Circle().fill(group.color))
@@ -4755,7 +4755,7 @@ struct GroupRuleRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 18))
+                .font(.systemScaled(18))
                 .foregroundStyle(color)
                 .frame(width: 30)
             
@@ -4810,7 +4810,7 @@ struct MembersView: View {
                         // Message member
                     } label: {
                         Image(systemName: "message")
-                            .font(.system(size: 16))
+                            .font(.systemScaled(16))
                             .foregroundStyle(.secondary)
                     }
                 }

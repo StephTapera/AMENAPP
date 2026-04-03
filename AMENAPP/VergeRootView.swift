@@ -163,7 +163,7 @@ struct VergeRootView: View {
         } label: {
             HStack(spacing: 14) {
                 Image(systemName: "dollarsign.circle.fill")
-                    .font(.system(size: 28, weight: .semibold))
+                    .font(.systemScaled(28, weight: .semibold))
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(amenGold)
                 VStack(alignment: .leading, spacing: 3) {
@@ -176,7 +176,7 @@ struct VergeRootView: View {
                 }
                 Spacer()
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(.white.opacity(0.4))
             }
             .padding(14)
@@ -209,7 +209,7 @@ struct VergeRootView: View {
         } label: {
             HStack(spacing: 8) {
                 Image(systemName: "video.fill")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                 Text("Go Live")
                     .font(AMENFont.bold(15))
             }
@@ -247,7 +247,7 @@ struct VergeRootView: View {
         VStack(spacing: 20) {
             Spacer()
             Image(systemName: "video.fill")
-                .font(.system(size: 52, weight: .semibold))
+                .font(.systemScaled(52, weight: .semibold))
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(amenPurple.opacity(0.6))
             Text("Start a live discussion")

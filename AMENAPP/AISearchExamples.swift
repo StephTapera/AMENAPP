@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Combine
 
 #if DEBUG
 
@@ -62,7 +63,7 @@ struct AISearchExamplesView: View {
                     if searchQuery.isEmpty {
                         VStack(spacing: 16) {
                             Image(systemName: "magnifyingglass.circle.fill")
-                                .font(.system(size: 60))
+                                .font(.systemScaled(60))
                                 .foregroundStyle(.purple.gradient)
                             
                             Text("Try These Example Searches:")
@@ -185,7 +186,7 @@ struct ExampleSearchRow: View {
         Button(action: action) {
             HStack(spacing: 12) {
                 Image(systemName: icon)
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
                     .foregroundStyle(.purple)
                     .frame(width: 30)
                 
@@ -202,7 +203,7 @@ struct ExampleSearchRow: View {
                 Spacer()
                 
                 Image(systemName: "arrow.right.circle.fill")
-                    .font(.system(size: 24))
+                    .font(.systemScaled(24))
                     .foregroundStyle(.purple.opacity(0.3))
             }
             .padding()

@@ -268,7 +268,7 @@ struct PhoneVerificationView: View {
                     .frame(width: 80, height: 80)
                 
                 Image(systemName: "shield.checkered")
-                    .font(.system(size: 36))
+                    .font(.systemScaled(36))
                     .foregroundStyle(
                         LinearGradient(
                             colors: [Color.blue, Color.purple],
@@ -310,7 +310,7 @@ struct PhoneVerificationView: View {
                             Text(selectedCountry.dialCode)
                                 .font(.custom("OpenSans-SemiBold", size: 16))
                             Image(systemName: "chevron.down")
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                         }
                         .foregroundStyle(.primary)
                         .padding(.horizontal, 12)
@@ -482,7 +482,7 @@ struct PhoneVerificationView: View {
                     .frame(width: 100, height: 100)
                 
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 60))
+                    .font(.systemScaled(60))
                     .foregroundStyle(.green)
             }
             
@@ -512,7 +512,7 @@ struct PhoneVerificationView: View {
     private func benefitRow(icon: String, text: String, color: Color) -> some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
                 .foregroundStyle(color)
                 .frame(width: 24)
             

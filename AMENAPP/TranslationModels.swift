@@ -172,8 +172,15 @@ struct UserLanguagePreferences: Codable, Equatable {
     var updatedAt: Date
 
     static var `default`: UserLanguagePreferences {
-        UserLanguagePreferences(
-            appLanguage: Locale.current.language.languageCode?.identifier ?? "en",
+        let appLang: String = {
+            if #available(iOS 16, *) {
+                return Locale.current.language.languageCode?.identifier ?? "en"
+            } else {
+                return Locale.current.languageCode ?? "en"
+            }
+        }()
+        return UserLanguagePreferences(
+            appLanguage: appLang,
             contentTranslationMode: .onRequest,
             autoTranslatePosts: false,
             autoTranslateComments: false,

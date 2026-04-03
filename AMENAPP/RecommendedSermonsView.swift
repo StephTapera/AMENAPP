@@ -214,7 +214,7 @@ struct ForYouSermonCard: View {
                     
                     // Play button overlay
                     Image(systemName: "play.circle.fill")
-                        .font(.system(size: 40))
+                        .font(.systemScaled(40))
                         .foregroundStyle(.white)
                         .shadow(color: .black.opacity(0.3), radius: 4, y: 2)
                 }
@@ -289,7 +289,7 @@ struct EnhancedSermonCard: View {
                     
                     // Play button
                     Image(systemName: "play.circle.fill")
-                        .font(.system(size: 32))
+                        .font(.systemScaled(32))
                         .foregroundStyle(.white)
                         .shadow(color: .black.opacity(0.3), radius: 4, y: 2)
                 }
@@ -313,7 +313,7 @@ struct EnhancedSermonCard: View {
                     HStack(spacing: 8) {
                         HStack(spacing: 4) {
                             Image(systemName: "play.circle")
-                                .font(.system(size: 10))
+                                .font(.systemScaled(10))
                             Text("Watch")
                                 .font(.custom("OpenSans-SemiBold", size: 12))
                         }
@@ -341,7 +341,7 @@ struct EnhancedSermonCard: View {
                     }
                 } label: {
                     Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
-                        .font(.system(size: 24))
+                        .font(.systemScaled(24))
                         .foregroundStyle(isSaved ? .purple : .secondary)
                 }
             }
@@ -579,7 +579,7 @@ struct SermonVideoPlayerView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 24))
+                            .font(.systemScaled(24))
                             .foregroundStyle(.secondary)
                     }
                 }

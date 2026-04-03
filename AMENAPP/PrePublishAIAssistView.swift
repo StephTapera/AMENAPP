@@ -54,9 +54,9 @@ private struct AIAssistChip: View {
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: action.icon)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                 Text(action.label)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
             }
             .foregroundStyle(Color.black.opacity(0.7))
             .padding(.horizontal, 13)
@@ -102,7 +102,7 @@ private struct ResultPreviewCard: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Preview")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(Color.black.opacity(0.4))
                     .textCase(.uppercase)
                     .tracking(0.5)
@@ -110,7 +110,7 @@ private struct ResultPreviewCard: View {
             }
 
             Text(previewText)
-                .font(.system(size: 14, weight: .regular))
+                .font(.systemScaled(14, weight: .regular))
                 .foregroundStyle(Color.black.opacity(0.75))
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -119,7 +119,7 @@ private struct ResultPreviewCard: View {
                     onApply()
                 } label: {
                     Text("Apply")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 18)
                         .padding(.vertical, 8)
@@ -134,7 +134,7 @@ private struct ResultPreviewCard: View {
                     onDiscard()
                 } label: {
                     Text("Discard")
-                        .font(.system(size: 13, weight: .regular))
+                        .font(.systemScaled(13, weight: .regular))
                         .foregroundStyle(Color.black.opacity(0.4))
                 }
                 .buttonStyle(.plain)
@@ -220,15 +220,15 @@ struct PrePublishAIAssistView: View {
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: "sparkles")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(Color.black.opacity(0.5))
 
                 Text("AI Assist")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(Color.black.opacity(0.6))
 
                 Image(systemName: "chevron.up")
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.systemScaled(10, weight: .medium))
                     .foregroundStyle(Color.black.opacity(0.3))
             }
             .padding(.horizontal, 14)
@@ -257,7 +257,7 @@ struct PrePublishAIAssistView: View {
             // Header
             HStack {
                 Text("Pre-publish assist")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(Color.black.opacity(0.4))
                     .textCase(.uppercase)
                     .tracking(0.5)
@@ -272,7 +272,7 @@ struct PrePublishAIAssistView: View {
                     }
                 } label: {
                     Image(systemName: "chevron.down")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.systemScaled(11, weight: .medium))
                         .foregroundStyle(Color.black.opacity(0.35))
                         .frame(width: 28, height: 28)
                         .background(
@@ -286,7 +286,7 @@ struct PrePublishAIAssistView: View {
             // Action chips — horizontal scroll
             if relevantActions.isEmpty {
                 Text("No suggestions for this post type.")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(Color.black.opacity(0.35))
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -358,7 +358,7 @@ struct PrePublishAIAssistView: View {
                         .foregroundStyle(.secondary)
 
                     Text("God has been teaching me so much about patience this season. It hasn't been easy, but I'm learning to trust the process even when I can't see where it's going.")
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                         .foregroundStyle(Color.black.opacity(0.8))
                         .padding(14)
                         .frame(maxWidth: .infinity, alignment: .leading)

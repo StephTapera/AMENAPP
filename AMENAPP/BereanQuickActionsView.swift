@@ -116,7 +116,7 @@ struct BereanQuickActionsView: View {
         VStack(alignment: .leading, spacing: 8) {
             // Section label
             Text("Quick actions")
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
                 .foregroundStyle(Color(white: 0.55))
                 .kerning(0.6)
                 .textCase(.uppercase)
@@ -153,9 +153,9 @@ struct BereanQuickActionsView: View {
         } label: {
             HStack(spacing: 5) {
                 Text(chip.emoji)
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                 Text(chip.label)
-                    .font(.system(size: 13, weight: isSelected ? .semibold : .medium))
+                    .font(.systemScaled(13, weight: isSelected ? .semibold : .medium))
                     .foregroundStyle(isSelected ? .white : Color(white: 0.28))
             }
             .padding(.horizontal, 13)

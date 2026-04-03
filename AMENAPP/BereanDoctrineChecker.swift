@@ -156,28 +156,28 @@ struct DoctrineCheckCard: View {
             } label: {
                 HStack(spacing: 10) {
                     Image(systemName: verdictIcon(check.overall))
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(verdictColor(check.overall))
 
                     VStack(alignment: .leading, spacing: 1) {
                         Text("Doctrine Check")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.systemScaled(11, weight: .semibold))
                             .foregroundStyle(Color(.tertiaryLabel))
                             .textCase(.uppercase)
                         Text(check.overall.rawValue)
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                             .foregroundStyle(verdictColor(check.overall))
                     }
 
                     Spacer()
 
                     Text(check.tradition)
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(Color(.tertiaryLabel))
                         .lineLimit(1)
 
                     Image(systemName: expanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.systemScaled(11, weight: .medium))
                         .foregroundStyle(Color(.tertiaryLabel))
                 }
                 .padding(.horizontal, 14)
@@ -192,7 +192,7 @@ struct DoctrineCheckCard: View {
                 VStack(alignment: .leading, spacing: 10) {
                     // Summary
                     Text(check.summary)
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(Color(.secondaryLabel))
                         .padding(.horizontal, 14)
                         .padding(.top, 8)
@@ -208,11 +208,11 @@ struct DoctrineCheckCard: View {
 
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("\(ann.claim)")
-                                        .font(.system(size: 12, weight: .medium))
+                                        .font(.systemScaled(12, weight: .medium))
                                         .foregroundStyle(Color(.label))
                                         .lineLimit(2)
                                     Text(ann.note)
-                                        .font(.system(size: 11))
+                                        .font(.systemScaled(11))
                                         .foregroundStyle(Color(.secondaryLabel))
                                 }
                             }
@@ -281,10 +281,10 @@ struct DoctrineCheckButton: View {
                         ProgressView().scaleEffect(0.7)
                     } else {
                         Image(systemName: "checkmark.seal")
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                     }
                     Text(isAnalyzing ? "Checking doctrine…" : (check == nil ? "Check doctrine" : "Re-check"))
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                 }
                 .foregroundStyle(Color(.secondaryLabel))
                 .padding(.horizontal, 12)

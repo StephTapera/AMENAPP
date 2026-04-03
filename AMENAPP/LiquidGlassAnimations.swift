@@ -158,7 +158,7 @@ struct FloatingActionBubble: View {
                 
                 // Icon
                 Image(systemName: icon)
-                    .font(.system(size: 24, weight: .medium))
+                    .font(.systemScaled(24, weight: .medium))
                     .foregroundColor(color)
             }
             .shadow(color: color.opacity(0.3), radius: 12, x: 0, y: 4)
@@ -204,7 +204,7 @@ struct MetaballBadge: View {
                 
                 // Count
                 Text("\(min(count, 99))")
-                    .font(.system(size: 12, weight: .bold))
+                    .font(.systemScaled(12, weight: .bold))
                     .foregroundColor(.white)
             }
             .scaleEffect(scale)
@@ -342,7 +342,7 @@ struct LiquidGlassExampleView: View {
             // Example: Badge with metaball effect
             ZStack(alignment: .topTrailing) {
                 Image(systemName: "bell.fill")
-                    .font(.system(size: 32))
+                    .font(.systemScaled(32))
                     .foregroundColor(.blue)
                 
                 MetaballBadge(count: badgeCount)

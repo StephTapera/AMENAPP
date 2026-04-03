@@ -63,12 +63,19 @@ class YouVersionBibleService: ObservableObject {
         
         // Fetch
         let (data, response) = try await URLSession.shared.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse,
-              httpResponse.statusCode == 200 else {
+
+        guard let httpResponse = response as? HTTPURLResponse else {
             throw YouVersionError.apiError
         }
-        
+
+        guard httpResponse.statusCode == 200 else {
+            dlog("❌ YouVersion: Fetch API returned status \(httpResponse.statusCode) for \(reference)")
+            if let responseString = String(data: data, encoding: .utf8) {
+                dlog("   Response: \(responseString)")
+            }
+            throw YouVersionError.apiError
+        }
+
         // Parse response
         let decoder = JSONDecoder()
         let youVersionResponse = try decoder.decode(YouVersionResponse.self, from: data)
@@ -261,14 +268,23 @@ class YouVersionBibleService: ObservableObject {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         
         let (data, response) = try await URLSession.shared.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse,
-              httpResponse.statusCode == 200 else {
+
+        guard let httpResponse = response as? HTTPURLResponse else {
             throw YouVersionError.apiError
         }
-        
+
+        guard httpResponse.statusCode == 200 else {
+            dlog("❌ YouVersion: Search API returned status \(httpResponse.statusCode)")
+            if let responseString = String(data: data, encoding: .utf8) {
+                dlog("   Response: \(responseString)")
+            }
+            throw YouVersionError.apiError
+        }
+
         let decoder = JSONDecoder()
         let searchResponse = try decoder.decode(YouVersionSearchResponse.self, from: data)
+
+        dlog("✅ YouVersion: Found \(searchResponse.data.verses.count) results for '\(query)'")
         
         // Convert to ScripturePassages
         return searchResponse.data.verses.compactMap { verse in

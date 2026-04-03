@@ -172,7 +172,7 @@ struct ResourcesView: View {
                 // Left: large date number (same reference-image style)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(dayString)
-                        .font(.system(size: 52, weight: .black))
+                        .font(.systemScaled(52, weight: .black))
                         .foregroundStyle(.primary)
                         .lineLimit(1)
                         .minimumScaleFactor(0.5)
@@ -229,7 +229,7 @@ struct ResourcesView: View {
     private var activeFiltersBadge: some View {
         HStack(spacing: 6) {
             Image(systemName: "line.3.horizontal.decrease.circle.fill")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
             Text("\(searchFilteredResources.count) result\(searchFilteredResources.count == 1 ? "" : "s")")
                 .font(AMENFont.semiBold(13))
         }
@@ -284,7 +284,7 @@ struct ResourcesView: View {
                             .scaleEffect(0.8)
                     } else {
                         Image(systemName: searchText.isEmpty ? "magnifyingglass" : "sparkles.rectangle.stack.fill")
-                            .font(.system(size: 18, weight: .semibold))
+                            .font(.systemScaled(18, weight: .semibold))
                             .foregroundStyle(searchText.isEmpty ? Color.primary.opacity(0.6) : Color.purple)
                             .symbolEffect(.pulse, options: .repeating, isActive: useAISearch && !searchText.isEmpty)
                     }
@@ -327,7 +327,7 @@ struct ResourcesView: View {
                             .frame(width: 28, height: 28)
                         
                         Image(systemName: "xmark")
-                            .font(.system(size: 11, weight: .bold))
+                            .font(.systemScaled(11, weight: .bold))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -396,63 +396,11 @@ struct ResourcesView: View {
                 DisasterResourcesSection()
             }
 
-            // ── Communities — Spaces + Workspace ──
+            // ── Communities — Spaces ──
             if selectedCategory == .all || selectedCategory == .communities {
                 resourceSection(title: "Communities", subtitle: "Find your people") {
                     VStack(spacing: 10) {
-                        // Workspace Hub — featured full-width card
-                        NavigationLink(destination: WorkspaceHubView()) {
-                            ZStack(alignment: .bottomLeading) {
-                                // Gradient background
-                                LinearGradient(
-                                    colors: [Color(hex: "1A0A2E"), Color(hex: "0A1628")],
-                                    startPoint: .topLeading, endPoint: .bottomTrailing
-                                )
-                                .clipShape(RoundedRectangle(cornerRadius: 18))
-
-                                // Platform badge row
-                                VStack(alignment: .leading, spacing: 10) {
-                                    HStack(spacing: 8) {
-                                        ForEach([
-                                            ("K", "F59E0B"),
-                                            ("V", "06B6D4"),
-                                            ("H", "10B981")
-                                        ], id: \.0) { letter, hex in
-                                            Text(letter)
-                                                .font(.system(size: 11, weight: .bold))
-                                                .foregroundColor(.white)
-                                                .frame(width: 22, height: 22)
-                                                .background(Color(hex: hex).opacity(0.25), in: Circle())
-                                                .overlay(Circle().stroke(Color(hex: hex).opacity(0.5), lineWidth: 1))
-                                        }
-                                        Spacer()
-                                        Image(systemName: "square.grid.2x2.fill")
-                                            .font(.system(size: 18))
-                                            .foregroundStyle(
-                                                LinearGradient(colors: [Color(hex: "6B48FF"), Color(hex: "C084FC")],
-                                                               startPoint: .topLeading, endPoint: .bottomTrailing)
-                                            )
-                                    }
-                                    VStack(alignment: .leading, spacing: 3) {
-                                        Text("Workspace")
-                                            .font(.system(size: 18, weight: .bold))
-                                            .foregroundColor(.white)
-                                        Text("Circles · Live Rooms · Workflows")
-                                            .font(.caption)
-                                            .foregroundColor(.white.opacity(0.55))
-                                    }
-                                }
-                                .padding(16)
-                            }
-                            .frame(height: 110)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 18)
-                                    .stroke(Color(hex: "6B48FF").opacity(0.3), lineWidth: 1)
-                            )
-                        }
-                        .buttonStyle(ResourceCardPressStyle())
-
-                        // Spaces — smaller entry row
+                        // Spaces — entry row
                         NavigationLink(destination: SpacesDiscoveryView()) {
                             HStack(spacing: 14) {
                                 ZStack {
@@ -463,12 +411,12 @@ struct ResourcesView: View {
                                         ))
                                         .frame(width: 44, height: 44)
                                     Image(systemName: "person.3.fill")
-                                        .font(.system(size: 18))
+                                        .font(.systemScaled(18))
                                         .foregroundColor(.white)
                                 }
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text("Spaces")
-                                        .font(.system(size: 16, weight: .semibold))
+                                        .font(.systemScaled(16, weight: .semibold))
                                         .foregroundColor(.primary)
                                     Text("Join AI-curated faith communities")
                                         .font(.caption)
@@ -476,7 +424,7 @@ struct ResourcesView: View {
                                 }
                                 Spacer()
                                 Image(systemName: "chevron.right")
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .font(.systemScaled(13, weight: .semibold))
                                     .foregroundColor(.secondary)
                             }
                             .padding(14)
@@ -488,59 +436,123 @@ struct ResourcesView: View {
                 }
             }
 
-            // ── Living Memory — Soul Engine resonant content ──
-            if selectedCategory == .all || selectedCategory == .community {
-                LivingMemorySection()
-                    .padding(.top, 8)
+            // ── Church ── Notes + Find a Church (side-by-side liquid glass) ──
+            if selectedCategory == .all || selectedCategory == .tools || selectedCategory == .community {
+                resourceSection(title: "Church", subtitle: "Your faith home") {
+                    HStack(spacing: 12) {
+                        // Church Notes
+                        NavigationLink(destination: ChurchNotesView()) {
+                            VStack(alignment: .leading, spacing: 10) {
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .fill(LinearGradient(
+                                            colors: [Color(hex: "F59E0B").opacity(0.85), Color(hex: "FBBF24").opacity(0.60)],
+                                            startPoint: .topLeading, endPoint: .bottomTrailing
+                                        ))
+                                        .frame(width: 38, height: 38)
+                                    Image(systemName: "note.text")
+                                        .font(.systemScaled(16, weight: .medium))
+                                        .foregroundColor(.white)
+                                }
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text("Church Notes")
+                                        .font(.systemScaled(14, weight: .semibold))
+                                        .foregroundColor(.primary)
+                                    Text("Sermons, highlights & insights")
+                                        .font(.systemScaled(11))
+                                        .foregroundColor(.secondary)
+                                        .lineLimit(2)
+                                }
+                                Spacer()
+                                HStack(spacing: 3) {
+                                    Text("Open")
+                                        .font(.systemScaled(11, weight: .medium))
+                                        .foregroundColor(Color(hex: "F59E0B"))
+                                    Image(systemName: "arrow.right")
+                                        .font(.systemScaled(9, weight: .semibold))
+                                        .foregroundColor(Color(hex: "F59E0B"))
+                                }
+                            }
+                            .padding(14)
+                            .frame(maxWidth: .infinity, minHeight: 120, alignment: .leading)
+                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 18)
+                                    .strokeBorder(
+                                        LinearGradient(
+                                            colors: [Color(hex: "F59E0B").opacity(0.35), Color.white.opacity(0.10)],
+                                            startPoint: .topLeading, endPoint: .bottomTrailing
+                                        ),
+                                        lineWidth: 0.75
+                                    )
+                            )
+                            .shadow(color: Color(hex: "F59E0B").opacity(0.08), radius: 12, x: 0, y: 4)
+                            .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
+                        }
+                        .buttonStyle(ResourceCardPressStyle())
+
+                        // Find a Church
+                        NavigationLink(destination: FindChurchView()) {
+                            VStack(alignment: .leading, spacing: 10) {
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .fill(LinearGradient(
+                                            colors: [Color(hex: "10B981").opacity(0.85), Color(hex: "34D399").opacity(0.60)],
+                                            startPoint: .topLeading, endPoint: .bottomTrailing
+                                        ))
+                                        .frame(width: 38, height: 38)
+                                    Image(systemName: "mappin.and.ellipse")
+                                        .font(.systemScaled(16, weight: .medium))
+                                        .foregroundColor(.white)
+                                }
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text("Find a Church")
+                                        .font(.systemScaled(14, weight: .semibold))
+                                        .foregroundColor(.primary)
+                                    Text("Discover churches near you")
+                                        .font(.systemScaled(11))
+                                        .foregroundColor(.secondary)
+                                        .lineLimit(2)
+                                }
+                                Spacer()
+                                HStack(spacing: 3) {
+                                    Text("Open")
+                                        .font(.systemScaled(11, weight: .medium))
+                                        .foregroundColor(Color(hex: "10B981"))
+                                    Image(systemName: "arrow.right")
+                                        .font(.systemScaled(9, weight: .semibold))
+                                        .foregroundColor(Color(hex: "10B981"))
+                                }
+                            }
+                            .padding(14)
+                            .frame(maxWidth: .infinity, minHeight: 120, alignment: .leading)
+                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 18)
+                                    .strokeBorder(
+                                        LinearGradient(
+                                            colors: [Color(hex: "10B981").opacity(0.35), Color.white.opacity(0.10)],
+                                            startPoint: .topLeading, endPoint: .bottomTrailing
+                                        ),
+                                        lineWidth: 0.75
+                                    )
+                            )
+                            .shadow(color: Color(hex: "10B981").opacity(0.08), radius: 12, x: 0, y: 4)
+                            .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
+                        }
+                        .buttonStyle(ResourceCardPressStyle())
+                    }
+                    .padding(.horizontal, 20)
+                }
             }
-            
-            // ── AMEN | Connect — Find Church + Church Notes ──
-            // NOTE: AMEN Connect commented out - still needs work
+
+            // ── AMEN Connect ──
             if selectedCategory == .all || selectedCategory == .community || selectedCategory == .opportunities {
                 resourceSection(title: "Connect", subtitle: "Acts 2:42") {
-                    VStack(spacing: 12) {
-                        // AMEN Connect — full-width entry card
-                        // TODO: Work on AMEN Connect separately
-                        /* NavigationLink(destination: AMENConnectView()) {
-                            AMENConnectEntryCard()
-                        }
-                        .buttonStyle(ResourceCardPressStyle()) */
-
-                        HStack(spacing: 12) {
-                            NavigationLink(destination: FindChurchView()) {
-                                ResourceHubCard(
-                                    icon: "building.2.fill",
-                                    title: "Find Church",
-                                    subtitle: "Nearby worship",
-                                    accentColor: Color(red: 0.42, green: 0.24, blue: 0.82),
-                                    bgColor: Color(red: 0.94, green: 0.91, blue: 1.0)
-                                )
-                            }
-                            .buttonStyle(ResourceCardPressStyle())
-
-                            NavigationLink(destination: ChurchNotesView()) {
-                                ResourceHubCard(
-                                    icon: "note.text",
-                                    title: "Church Notes",
-                                    subtitle: "Take & share",
-                                    accentColor: Color(red: 0.90, green: 0.47, blue: 0.10),
-                                    bgColor: Color(red: 1.0, green: 0.94, blue: 0.87)
-                                )
-                            }
-                            .buttonStyle(ResourceCardPressStyle())
-
-                            NavigationLink(destination: LivingSermonView()) {
-                                ResourceHubCard(
-                                    icon: "waveform.and.mic",
-                                    title: "Live Sermon",
-                                    subtitle: "Capture & transcribe",
-                                    accentColor: Color(red: 0.29, green: 0.56, blue: 1.0),
-                                    bgColor: Color(red: 0.90, green: 0.94, blue: 1.0)
-                                )
-                            }
-                            .buttonStyle(ResourceCardPressStyle())
-                        }
+                    NavigationLink(destination: AMENConnectView()) {
+                        AMENConnectBanner()
                     }
+                    .buttonStyle(ResourceCardPressStyle())
                     .padding(.horizontal, 20)
                 }
             }
@@ -586,223 +598,173 @@ struct ResourcesView: View {
                 }
             }
             
-            // ── Grow — Walk With Christ discipleship resource ─────────────
-            if selectedCategory == .all || selectedCategory == .learning || selectedCategory == .community {
-                resourceSection(title: "Grow") {
-                    NavigationLink(destination: WalkWithChristView()) {
-                        GrowFeaturedCard()
+            // ── Grow + Journey + Wisdom + Media ── compact rows ──────────
+            if selectedCategory == .all || selectedCategory == .learning || selectedCategory == .community || selectedCategory == .reading || selectedCategory == .listening {
+                resourceSection(title: "Faith & Learning") {
+                    VStack(spacing: 10) {
+                        // Walk With Christ
+                        if selectedCategory == .all || selectedCategory == .learning || selectedCategory == .community {
+                            NavigationLink(destination: WalkWithChristView()) {
+                                CompactResourceRow(
+                                    icon: "figure.walk",
+                                    iconColors: [Color(hex: "10B981"), Color(hex: "34D399")],
+                                    title: "Walk With Christ",
+                                    subtitle: "Discipleship journey & devotionals"
+                                )
+                            }
+                            .buttonStyle(ResourceCardPressStyle())
+                        }
+
+                        // Spiritual Timeline
+                        if selectedCategory == .all || selectedCategory == .learning || selectedCategory == .community {
+                            NavigationLink(destination: SpiritualTimelineView()) {
+                                CompactResourceRow(
+                                    icon: "clock.arrow.circlepath",
+                                    iconColors: [Color(hex: "6B48FF"), Color(hex: "8B5CF6")],
+                                    title: "Spiritual Timeline",
+                                    subtitle: "AI-powered personal faith milestones"
+                                )
+                            }
+                            .buttonStyle(ResourceCardPressStyle())
+                        }
+
+                        // Wisdom Library
+                        if selectedCategory == .all || selectedCategory == .reading || selectedCategory == .learning {
+                            NavigationLink(destination: WisdomLibraryView()) {
+                                CompactResourceRow(
+                                    icon: "books.vertical.fill",
+                                    iconColors: [Color(hex: "F59E0B"), Color(hex: "FBBF24")],
+                                    title: "Wisdom Library",
+                                    subtitle: "Books, studies & reading plans"
+                                )
+                            }
+                            .buttonStyle(ResourceCardPressStyle())
+                        }
+
+                        // Christian Media
+                        if selectedCategory == .all || selectedCategory == .listening || selectedCategory == .learning {
+                            NavigationLink(destination: ChristianMediaView()) {
+                                CompactResourceRow(
+                                    icon: "play.circle.fill",
+                                    iconColors: [Color(hex: "EF4444"), Color(hex: "F87171")],
+                                    title: "Media",
+                                    subtitle: "Sermons, podcasts & worship"
+                                )
+                            }
+                            .buttonStyle(ResourceCardPressStyle())
+                        }
                     }
-                    .buttonStyle(FeaturedCardPressStyle())
-                    .padding(.horizontal, 20)
                 }
             }
 
-            // ── Spiritual Journey — AI-powered personal timeline ──────────
-            if selectedCategory == .all || selectedCategory == .learning || selectedCategory == .community {
-                resourceSection(title: "Your Journey") {
-                    SpiritualTimelineEntry()
-                        .padding(.horizontal, 20)
-                }
-            }
-
-            // ── Wisdom Library ── Hero banner · Book discovery with Amazon + Apple Books ──
-            if selectedCategory == .all || selectedCategory == .reading || selectedCategory == .learning {
-                resourceSection(title: "Wisdom Library") {
-                    NavigationLink(destination: WisdomLibraryView()) {
-                        WisdomLibraryHeroBanner()
-                    }
-                    .buttonStyle(WLBannerPressStyle())
-                    .padding(.horizontal, 20)
-                }
-            }
-
-            // ── Christian Media ── Premium layered discovery banner ────────
-            if selectedCategory == .all || selectedCategory == .listening || selectedCategory == .learning {
-                resourceSection(title: "Media") {
-                    NavigationLink(destination: ChristianMediaView()) {
-                        ChristianMediaBannerView()
-                    }
-                    .buttonStyle(MediaBannerPressStyle())
-                    .padding(.horizontal, 20)
-                }
-            }
-
-            // ── Platform ── featured hero banner + 3-col grid ────────────
-            if selectedCategory == .all || selectedCategory == .community || selectedCategory == .learning {
-                resourceSection(title: "Platform") {
-                    // Featured hero card — navigates to the first platform destination
-                    // (Mentorship) as an entry point; the grid below provides direct access.
-                    NavigationLink(destination: MentorshipView()) {
-                        PlatformFeaturedCard()
-                    }
-                    .buttonStyle(FeaturedCardPressStyle())
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 4)
-
-                    // Sub-destination grid
-                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
-                        NavigationLink(destination: MentorshipView()) {
-                            FolderSquareCard(
-                                icon: "person.fill.checkmark",
-                                title: "Mentorship",
-                                accentColor: Color(red: 0.15, green: 0.54, blue: 0.44),
-                                folderColor: Color(red: 0.10, green: 0.42, blue: 0.34),
-                                paperColor: Color(red: 0.90, green: 0.98, blue: 0.95)
-                            )
-                        }
-                        .buttonStyle(ResourceCardPressStyle())
-
-                        NavigationLink(destination: EventsView()) {
-                            FolderSquareCard(
-                                icon: "calendar.badge.plus",
-                                title: "Events",
-                                accentColor: Color(red: 0.42, green: 0.22, blue: 0.82),
-                                folderColor: Color(red: 0.32, green: 0.15, blue: 0.68),
-                                paperColor: Color(red: 0.95, green: 0.92, blue: 1.0)
-                            )
-                        }
-                        .buttonStyle(ResourceCardPressStyle())
-
-                        NavigationLink(destination: ChurchToolsView()) {
-                            FolderSquareCard(
-                                icon: "building.2.crop.circle.fill",
-                                title: "Church Tools",
-                                accentColor: Color(red: 0.88, green: 0.44, blue: 0.08),
-                                folderColor: Color(red: 0.72, green: 0.34, blue: 0.04),
-                                paperColor: Color(red: 1.0, green: 0.95, blue: 0.87)
-                            )
-                        }
-                        .buttonStyle(ResourceCardPressStyle())
-
-                        NavigationLink(destination: SpiritualHealthView()) {
-                            FolderSquareCard(
-                                icon: "sparkles",
-                                title: "Spiritual Health",
-                                accentColor: Color(red: 0.18, green: 0.48, blue: 0.80),
-                                folderColor: Color(red: 0.12, green: 0.36, blue: 0.66),
-                                paperColor: Color(red: 0.91, green: 0.95, blue: 1.0)
-                            )
-                        }
-                        .buttonStyle(ResourceCardPressStyle())
-
-                        NavigationLink(destination: CreatorView()) {
-                            FolderSquareCard(
-                                icon: "pencil.and.ruler.fill",
-                                title: "Creator Hub",
-                                accentColor: Color(red: 0.80, green: 0.22, blue: 0.52),
-                                folderColor: Color(red: 0.64, green: 0.14, blue: 0.40),
-                                paperColor: Color(red: 1.0, green: 0.92, blue: 0.96)
-                            )
-                        }
-                        .buttonStyle(ResourceCardPressStyle())
-
-                        NavigationLink(destination: StudioHubView()) {
-                            FolderSquareCard(
-                                icon: "sparkles.rectangle.stack.fill",
-                                title: "Studio",
-                                accentColor: Color(red: 0.60, green: 0.18, blue: 0.82),
-                                folderColor: Color(red: 0.46, green: 0.12, blue: 0.66),
-                                paperColor: Color(red: 0.96, green: 0.91, blue: 1.0)
-                            )
-                        }
-                        .buttonStyle(ResourceCardPressStyle())
-
-                        NavigationLink(destination: TwoFourTwoHub()) {
-                            FolderSquareCard(
-                                icon: "book.closed.fill",
-                                title: "242 Hub",
-                                accentColor: Color(red: 0.12, green: 0.52, blue: 0.82),
-                                folderColor: Color(red: 0.08, green: 0.38, blue: 0.66),
-                                paperColor: Color(red: 0.90, green: 0.95, blue: 1.0)
-                            )
-                        }
-                        .buttonStyle(ResourceCardPressStyle())
-                    }
-                    .padding(.horizontal, 20)
-                }
-            }
-
-            // ── Studio ── AMEN Studio + 242 Hub ──────────────────────────
-            if selectedCategory == .all || selectedCategory == .tools || selectedCategory == .learning {
-                resourceSection(title: "Create", subtitle: "Studio & 242 Hub") {
+            // ── Build & Serve ── two consolidated cards ───────────────────
+            if selectedCategory == .all || selectedCategory == .community || selectedCategory == .learning || selectedCategory == .tools {
+                resourceSection(title: "Build & Serve") {
                     HStack(spacing: 12) {
-                        NavigationLink(destination: StudioHubView()) {
-                            ResourceHubCard(
-                                icon: "sparkles.rectangle.stack.fill",
-                                title: "AMEN Studio",
-                                subtitle: "Write · Voice · AI",
-                                accentColor: Color(red: 0.60, green: 0.18, blue: 0.82),
-                                bgColor: Color(red: 0.96, green: 0.91, blue: 1.0)
-                            )
+                        // Serve — ministry, mentorship, events, church tools
+                        VStack(alignment: .leading, spacing: 10) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 10)
+                                    .fill(LinearGradient(
+                                        colors: [Color(hex: "6B48FF").opacity(0.85), Color(hex: "8B5CF6").opacity(0.60)],
+                                        startPoint: .topLeading, endPoint: .bottomTrailing
+                                    ))
+                                    .frame(width: 38, height: 38)
+                                Image(systemName: "hands.sparkles.fill")
+                                    .font(.systemScaled(16, weight: .medium))
+                                    .foregroundColor(.white)
+                            }
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("Serve")
+                                    .font(.systemScaled(14, weight: .semibold))
+                                    .foregroundColor(.primary)
+                                Text("Mentorship · Events · Church Tools · Spiritual Health")
+                                    .font(.systemScaled(10))
+                                    .foregroundColor(.secondary)
+                                    .lineLimit(2)
+                            }
+                            Spacer()
+                            NavigationLink(destination: MentorshipView()) {
+                                HStack(spacing: 3) {
+                                    Text("Explore")
+                                        .font(.systemScaled(11, weight: .medium))
+                                        .foregroundColor(Color(hex: "6B48FF"))
+                                    Image(systemName: "arrow.right")
+                                        .font(.systemScaled(9, weight: .semibold))
+                                        .foregroundColor(Color(hex: "6B48FF"))
+                                }
+                            }
                         }
-                        .buttonStyle(ResourceCardPressStyle())
+                        .padding(14)
+                        .frame(maxWidth: .infinity, minHeight: 130, alignment: .leading)
+                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 18)
+                                .strokeBorder(
+                                    LinearGradient(
+                                        colors: [Color(hex: "6B48FF").opacity(0.35), Color.white.opacity(0.10)],
+                                        startPoint: .topLeading, endPoint: .bottomTrailing
+                                    ),
+                                    lineWidth: 0.75
+                                )
+                        )
+                        .shadow(color: Color(hex: "6B48FF").opacity(0.08), radius: 12, x: 0, y: 4)
+                        .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
 
-                        NavigationLink(destination: TwoFourTwoHub()) {
-                            ResourceHubCard(
-                                icon: "book.closed.fill",
-                                title: "242 Hub",
-                                subtitle: "Disciple · Grow",
-                                accentColor: Color(red: 0.12, green: 0.52, blue: 0.82),
-                                bgColor: Color(red: 0.90, green: 0.95, blue: 1.0)
-                            )
+                        // Build — create, studio, 242 hub
+                        VStack(alignment: .leading, spacing: 10) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 10)
+                                    .fill(LinearGradient(
+                                        colors: [Color(hex: "EC4899").opacity(0.85), Color(hex: "F472B6").opacity(0.60)],
+                                        startPoint: .topLeading, endPoint: .bottomTrailing
+                                    ))
+                                    .frame(width: 38, height: 38)
+                                Image(systemName: "pencil.and.ruler.fill")
+                                    .font(.systemScaled(16, weight: .medium))
+                                    .foregroundColor(.white)
+                            }
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("Create")
+                                    .font(.systemScaled(14, weight: .semibold))
+                                    .foregroundColor(.primary)
+                                Text("Creator Hub · Studio · 242 Hub")
+                                    .font(.systemScaled(10))
+                                    .foregroundColor(.secondary)
+                                    .lineLimit(2)
+                            }
+                            Spacer()
+                            NavigationLink(destination: CreatorView()) {
+                                HStack(spacing: 3) {
+                                    Text("Explore")
+                                        .font(.systemScaled(11, weight: .medium))
+                                        .foregroundColor(Color(hex: "EC4899"))
+                                    Image(systemName: "arrow.right")
+                                        .font(.systemScaled(9, weight: .semibold))
+                                        .foregroundColor(Color(hex: "EC4899"))
+                                }
+                            }
                         }
-                        .buttonStyle(ResourceCardPressStyle())
+                        .padding(14)
+                        .frame(maxWidth: .infinity, minHeight: 130, alignment: .leading)
+                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 18)
+                                .strokeBorder(
+                                    LinearGradient(
+                                        colors: [Color(hex: "EC4899").opacity(0.35), Color.white.opacity(0.10)],
+                                        startPoint: .topLeading, endPoint: .bottomTrailing
+                                    ),
+                                    lineWidth: 0.75
+                                )
+                        )
+                        .shadow(color: Color(hex: "EC4899").opacity(0.08), radius: 12, x: 0, y: 4)
+                        .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
                     }
                     .padding(.horizontal, 20)
                 }
             }
 
-            // ── Opportunities ── 3-col grid ───────────────────────────────
-            if selectedCategory == .all || selectedCategory == .opportunities || selectedCategory == .community {
-                resourceSection(title: "Opportunities") {
-                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
-                        NavigationLink(destination: AMENConnectView(initialTab: .jobs)) {
-                            FolderSquareCard(
-                                icon: "briefcase.fill",
-                                title: "Jobs",
-                                accentColor: Color(red: 0.15, green: 0.44, blue: 0.82),
-                                folderColor: Color(red: 0.10, green: 0.32, blue: 0.68),
-                                paperColor: Color(red: 0.91, green: 0.95, blue: 1.0)
-                            )
-                        }
-                        .buttonStyle(ResourceCardPressStyle())
-
-                        NavigationLink(destination: AMENConnectView(initialTab: .serve)) {
-                            FolderSquareCard(
-                                icon: "hands.sparkles.fill",
-                                title: "Serve",
-                                accentColor: Color(red: 0.18, green: 0.60, blue: 0.34),
-                                folderColor: Color(red: 0.12, green: 0.46, blue: 0.26),
-                                paperColor: Color(red: 0.91, green: 0.98, blue: 0.93)
-                            )
-                        }
-                        .buttonStyle(ResourceCardPressStyle())
-
-                        NavigationLink(destination: AMENConnectView(initialTab: .ministries)) {
-                            FolderSquareCard(
-                                icon: "person.3.fill",
-                                title: "Ministries",
-                                accentColor: Color(red: 0.60, green: 0.26, blue: 0.82),
-                                folderColor: Color(red: 0.46, green: 0.18, blue: 0.66),
-                                paperColor: Color(red: 0.96, green: 0.92, blue: 1.0)
-                            )
-                        }
-                        .buttonStyle(ResourceCardPressStyle())
-
-                        NavigationLink(destination: AMENConnectView(initialTab: .converse)) {
-                            FolderSquareCard(
-                                icon: "quote.bubble.fill",
-                                title: "Conversations",
-                                accentColor: Color(red: 0.88, green: 0.44, blue: 0.08),
-                                folderColor: Color(red: 0.72, green: 0.32, blue: 0.04),
-                                paperColor: Color(red: 1.0, green: 0.95, blue: 0.87)
-                            )
-                        }
-                        .buttonStyle(ResourceCardPressStyle())
-                    }
-                    .padding(.horizontal, 20)
-                }
-            }
 
             // ── Search Results ────────────────────────────────────────────
             if !searchText.isEmpty {
@@ -811,7 +773,7 @@ struct ResourcesView: View {
                     HStack(spacing: 8) {
                         Image(systemName: useAISearch ? "sparkles" : "magnifyingglass")
                             .foregroundStyle(useAISearch ? Color.purple : .secondary)
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                         Text(useAISearch ? "AI Search Results" : "Search Results")
                             .font(AMENFont.bold(20))
                             .foregroundStyle(.primary)
@@ -834,7 +796,7 @@ struct ResourcesView: View {
                     if useAISearch && !aiSearchResults.isEmpty {
                         HStack(spacing: 6) {
                             Image(systemName: "brain.head.profile")
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                             Text("Results ranked by AI relevance")
                                 .font(AMENFont.regular(13))
                         }
@@ -993,7 +955,7 @@ struct ResourcesView: View {
     private var emptyStateView: some View {
         VStack(spacing: 16) {
             Image(systemName: searchText.isEmpty ? "tray.fill" : "magnifyingglass")
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(.secondary.opacity(0.5))
                 .symbolEffect(.pulse, options: .repeating)
 
@@ -1042,6 +1004,51 @@ struct ResourcesView: View {
     }
 }
 
+// MARK: - Compact Resource Row
+/// Reusable compact navigation row used throughout ResourcesView for space-efficient entries.
+struct CompactResourceRow: View {
+    let icon: String
+    let iconColors: [Color]
+    let title: String
+    let subtitle: String
+
+    var body: some View {
+        HStack(spacing: 14) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(LinearGradient(
+                        colors: iconColors,
+                        startPoint: .topLeading, endPoint: .bottomTrailing
+                    ))
+                    .frame(width: 40, height: 40)
+                Image(systemName: icon)
+                    .font(.systemScaled(17, weight: .medium))
+                    .foregroundColor(.white)
+            }
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.systemScaled(15, weight: .semibold))
+                    .foregroundColor(.primary)
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            Spacer()
+            Image(systemName: "chevron.right")
+                .font(.systemScaled(12, weight: .semibold))
+                .foregroundColor(.secondary.opacity(0.6))
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .strokeBorder(Color(white: 0.88).opacity(0.6), lineWidth: 0.5)
+        )
+        .padding(.horizontal, 20)
+    }
+}
+
 // MARK: - Bible Fact Card
 struct BibleFactCard: View {
     let fact: BibleFact
@@ -1053,7 +1060,7 @@ struct BibleFactCard: View {
             HStack {
                 HStack(spacing: 6) {
                     Image(systemName: "lightbulb.fill")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(.primary)
                         .symbolEffect(.bounce, value: fact.id)
                         .padding(7)
@@ -1071,7 +1078,7 @@ struct BibleFactCard: View {
                 
                 Button(action: onRefresh) {
                     Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(.secondary)
                         .padding(7)
                         .background(
@@ -1154,7 +1161,7 @@ struct FeaturedBanner: View {
                         )
                     
                     Image(systemName: icon)
-                        .font(.system(size: 26, weight: .semibold))
+                        .font(.systemScaled(26, weight: .semibold))
                         .foregroundStyle(iconColor)
                         .symbolEffect(.pulse, options: .repeating.speed(0.7))
                 }
@@ -1184,7 +1191,7 @@ struct FeaturedBanner: View {
                     Text("Explore Now")
                         .font(AMENFont.bold(14))
                     Image(systemName: "arrow.right")
-                        .font(.system(size: 12, weight: .bold))
+                        .font(.systemScaled(12, weight: .bold))
                 }
                 .foregroundStyle(.white)
                 .padding(.horizontal, 16)
@@ -1297,7 +1304,7 @@ struct LiquidGlassConnectCard: View {
                             .frame(width: 56, height: 56)
                         
                         Image(systemName: icon)
-                            .font(.system(size: 24))
+                            .font(.systemScaled(24))
                             .foregroundStyle(iconColor)
                             .symbolEffect(.bounce, value: isExpanded)
                     }
@@ -1323,7 +1330,7 @@ struct LiquidGlassConnectCard: View {
                     Spacer()
                     
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.right")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(.secondary)
                         .rotationEffect(.degrees(isExpanded ? 0 : 0))
                 }
@@ -1337,7 +1344,7 @@ struct LiquidGlassConnectCard: View {
                         ForEach(features, id: \.self) { feature in
                             HStack(spacing: 10) {
                                 Image(systemName: "checkmark.circle.fill")
-                                    .font(.system(size: 14))
+                                    .font(.systemScaled(14))
                                     .foregroundStyle(iconColor)
                                 
                                 Text(feature)
@@ -1434,7 +1441,7 @@ struct LiquidGlassConnectCard: View {
             Text("Get Started")
                 .font(AMENFont.bold(14))
             Image(systemName: "arrow.right.circle.fill")
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
         }
         .foregroundStyle(.white)
         .padding(.horizontal, 18)
@@ -1462,7 +1469,7 @@ struct ResourceCard: View {
                     .frame(width: 56, height: 56)
                 
                 Image(systemName: icon)
-                    .font(.system(size: 24))
+                    .font(.systemScaled(24))
                     .foregroundStyle(iconColor)
             }
             
@@ -1490,7 +1497,7 @@ struct ResourceCard: View {
             Spacer()
             
             Image(systemName: "chevron.right")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(.secondary)
         }
         .padding()
@@ -1519,7 +1526,7 @@ struct BibleAppCard: View {
                         .frame(width: 56, height: 56)
                     
                     Image(systemName: "book.fill")
-                        .font(.system(size: 24, weight: .semibold))
+                        .font(.systemScaled(24, weight: .semibold))
                         .foregroundStyle(.blue)
                 }
                 
@@ -1559,7 +1566,7 @@ struct BibleAppCard: View {
                 Spacer()
                 
                 Image(systemName: "arrow.up.right.square.fill")
-                    .font(.system(size: 24))
+                    .font(.systemScaled(24))
                     .foregroundStyle(.blue)
             }
             .padding()
@@ -1621,7 +1628,7 @@ struct PrayComCard: View {
                         .frame(width: 56, height: 56)
                     
                     Image(systemName: "hands.sparkles.fill")
-                        .font(.system(size: 24, weight: .semibold))
+                        .font(.systemScaled(24, weight: .semibold))
                         .foregroundStyle(.purple)
                 }
                 
@@ -1661,7 +1668,7 @@ struct PrayComCard: View {
                 Spacer()
                 
                 Image(systemName: "arrow.up.right.square.fill")
-                    .font(.system(size: 24))
+                    .font(.systemScaled(24))
                     .foregroundStyle(.purple)
             }
             .padding()
@@ -1720,7 +1727,7 @@ struct PlaceholderResourceView: View {
                         .frame(width: 120, height: 120)
                     
                     Image(systemName: icon)
-                        .font(.system(size: 48))
+                        .font(.systemScaled(48))
                         .foregroundStyle(iconColor)
                 }
                 
@@ -1976,7 +1983,7 @@ struct CompactConnectBanner: View {
                     )
                 
                 Image(systemName: icon)
-                    .font(.system(size: 22, weight: .semibold))
+                    .font(.systemScaled(22, weight: .semibold))
                     .foregroundStyle(iconColor)
             }
             
@@ -2007,7 +2014,7 @@ struct CompactConnectBanner: View {
             Spacer()
             
             Image(systemName: "chevron.right")
-                .font(.system(size: 13, weight: .bold))
+                .font(.systemScaled(13, weight: .bold))
                 .foregroundStyle(.white.opacity(0.7))
         }
         .padding(16)
@@ -2244,7 +2251,7 @@ struct FeaturedCommunityBanner: View {
                     Spacer()
                     HStack {
                         Image(systemName: "person.3.fill")
-                            .font(.system(size: 60))
+                            .font(.systemScaled(60))
                             .foregroundStyle(.white.opacity(0.05))
                         Spacer()
                     }
@@ -2257,7 +2264,7 @@ struct FeaturedCommunityBanner: View {
                         VStack(alignment: .leading, spacing: 8) {
                             HStack(spacing: 8) {
                                 Image(systemName: "sparkles")
-                                    .font(.system(size: 14, weight: .bold))
+                                    .font(.systemScaled(14, weight: .bold))
                                     .foregroundStyle(.yellow)
                                     .symbolEffect(.pulse, options: .repeating)
                                 
@@ -2289,7 +2296,7 @@ struct FeaturedCommunityBanner: View {
                         Spacer()
                         
                         Image(systemName: "arrow.right.circle.fill")
-                            .font(.system(size: 32))
+                            .font(.systemScaled(32))
                             .foregroundStyle(.white)
                             .symbolEffect(.bounce, value: isAnimating)
                     }
@@ -2356,7 +2363,7 @@ struct CommunityStatBadge: View {
     var body: some View {
         HStack(spacing: 6) {
             Image(systemName: icon)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(color)
             
             Text(text)
@@ -2423,7 +2430,7 @@ struct ResourceComingSoonPlaceholder: View {
                                 )
                             
                             Image(systemName: icon)
-                                .font(.system(size: 48, weight: .semibold))
+                                .font(.systemScaled(48, weight: .semibold))
                                 .foregroundStyle(iconColor)
                                 .symbolEffect(.pulse, options: .repeating)
                         }
@@ -2432,7 +2439,7 @@ struct ResourceComingSoonPlaceholder: View {
                             // Coming Soon Badge
                             HStack(spacing: 8) {
                                 Image(systemName: "sparkles")
-                                    .font(.system(size: 14, weight: .bold))
+                                    .font(.systemScaled(14, weight: .bold))
                                     .foregroundStyle(.orange)
                                 
                                 Text("COMING SOON")
@@ -2515,7 +2522,7 @@ struct ResourceComingSoonPlaceholder: View {
                         } label: {
                             HStack(spacing: 8) {
                                 Image(systemName: "arrow.left")
-                                    .font(.system(size: 16, weight: .semibold))
+                                    .font(.systemScaled(16, weight: .semibold))
                                 Text("Back to Resources")
                                     .font(AMENFont.bold(16))
                             }
@@ -2542,7 +2549,7 @@ struct ResourceComingSoonPlaceholder: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 24))
+                            .font(.systemScaled(24))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -2561,7 +2568,7 @@ struct ResourceFeatureHighlightRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 18))
+                .font(.systemScaled(18))
                 .foregroundStyle(color)
                 .frame(width: 24)
             
@@ -2596,7 +2603,7 @@ struct MinimalConnectCard: View {
                         )
                     
                     Image(systemName: icon)
-                        .font(.system(size: isFullWidth ? 22 : 20, weight: .semibold))
+                        .font(.systemScaled(isFullWidth ? 22 : 20, weight: .semibold))
                         .foregroundStyle(accentColor)
                 }
                 
@@ -2634,7 +2641,7 @@ struct MinimalConnectCard: View {
                 
                 if isFullWidth {
                     Image(systemName: "arrow.right")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(accentColor)
                 }
             }
@@ -2693,7 +2700,7 @@ struct MinimalResourceCard: View {
                         )
                     
                     Image(systemName: icon)
-                        .font(.system(size: 24, weight: .semibold))
+                        .font(.systemScaled(24, weight: .semibold))
                         .foregroundStyle(accentColor)
                         .symbolEffect(.pulse, options: .repeating.speed(0.5))
                 }
@@ -2816,7 +2823,7 @@ struct SimplifiedFeatureBanner: View {
                         .frame(width: 44, height: 44)
                     
                     Image(systemName: icon)
-                        .font(.system(size: 20, weight: .semibold))
+                        .font(.systemScaled(20, weight: .semibold))
                         .foregroundStyle(accentColor)
                 }
                 
@@ -2842,7 +2849,7 @@ struct SimplifiedFeatureBanner: View {
                     haptic.impactOccurred()
                 } label: {
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(accentColor)
                         .padding(8)
                 }
@@ -2859,7 +2866,7 @@ struct SimplifiedFeatureBanner: View {
                     ForEach(features, id: \.self) { feature in
                         HStack(spacing: 10) {
                             Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                                 .foregroundStyle(accentColor)
                             
                             Text(feature)
@@ -2929,7 +2936,7 @@ struct SafeAIDailyVerseCard: View {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack(spacing: 6) {
                         Image(systemName: "book.closed.fill")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                             .foregroundStyle(.primary)
                             .padding(6)
                             .background(Circle().fill(.ultraThinMaterial))
@@ -3015,7 +3022,7 @@ struct ResourceHubCard: View {
                     .frame(height: 70)
                 
                 Image(systemName: icon)
-                    .font(.system(size: 28, weight: .semibold))
+                    .font(.systemScaled(28, weight: .semibold))
                     .foregroundStyle(accentColor)
                     .padding(16)
             }
@@ -3081,7 +3088,7 @@ struct WellnessCard: View {
                     .frame(width: 52, height: 52)
 
                 Image(systemName: icon)
-                    .font(.system(size: 22, weight: .semibold))
+                    .font(.systemScaled(22, weight: .semibold))
                     .foregroundStyle(accentColor)
             }
             .padding(.leading, 14)
@@ -3108,7 +3115,7 @@ struct WellnessCard: View {
             Spacer(minLength: 8)
             
             Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(Color(.tertiaryLabel))
                 .padding(.trailing, 18)
         }
@@ -3177,7 +3184,7 @@ struct WalkWithChristEntryCard: View {
 
             // Faint cross accent — very subtle
             Image(systemName: "cross")
-                .font(.system(size: 100, weight: .ultraLight))
+                .font(.systemScaled(100, weight: .ultraLight))
                 .foregroundStyle(Color.white.opacity(0.05))
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                 .padding(.top, 16)
@@ -3193,13 +3200,13 @@ struct WalkWithChristEntryCard: View {
             VStack(alignment: .leading, spacing: 6) {
                 // Eyebrow
                 Text("DISCIPLESHIP")
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(.systemScaled(9, weight: .semibold))
                     .kerning(2.5)
                     .foregroundStyle(Color.white.opacity(0.55))
 
                 // Title
                 Text("Walk With Christ")
-                    .font(.system(size: 24, weight: .bold, design: .serif))
+                    .font(.systemScaled(24, weight: .bold, design: .serif))
                     .foregroundStyle(.white)
                     .tracking(-0.3)
 
@@ -3207,10 +3214,10 @@ struct WalkWithChristEntryCard: View {
                 if store.profile.onboardingComplete {
                     HStack(spacing: 6) {
                         Image(systemName: store.profile.pathAssigned.icon)
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.systemScaled(10, weight: .semibold))
                             .foregroundStyle(store.profile.pathAssigned.accentColor)
                         Text(store.profile.pathAssigned.rawValue)
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.systemScaled(12, weight: .medium))
                             .foregroundStyle(Color.white.opacity(0.85))
                     }
                     .padding(.horizontal, 9)
@@ -3221,7 +3228,7 @@ struct WalkWithChristEntryCard: View {
                     )
                 } else {
                     Text("Personalized guidance for every stage of your faith journey")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(Color.white.opacity(0.70))
                         .lineSpacing(2)
                         .lineLimit(2)
@@ -3230,10 +3237,10 @@ struct WalkWithChristEntryCard: View {
                 // CTA chip
                 HStack(spacing: 5) {
                     Text(store.profile.onboardingComplete ? "Continue" : "Start Your Path")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundStyle(ink)
                     Image(systemName: "arrow.right")
-                        .font(.system(size: 9, weight: .semibold))
+                        .font(.systemScaled(9, weight: .semibold))
                         .foregroundStyle(ink)
                 }
                 .padding(.horizontal, 12)

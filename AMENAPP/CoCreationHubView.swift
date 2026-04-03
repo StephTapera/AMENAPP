@@ -110,13 +110,13 @@ struct CoCreationHubView: View {
                     // Icon row
                     HStack(spacing: 20) {
                         Image(systemName: "music.note")
-                            .font(.system(size: 28, weight: .semibold))
+                            .font(.systemScaled(28, weight: .semibold))
                             .symbolRenderingMode(.hierarchical)
                         Image(systemName: "hands.sparkles.fill")
-                            .font(.system(size: 32, weight: .semibold))
+                            .font(.systemScaled(32, weight: .semibold))
                             .symbolRenderingMode(.hierarchical)
                         Image(systemName: "pencil.line")
-                            .font(.system(size: 28, weight: .semibold))
+                            .font(.systemScaled(28, weight: .semibold))
                             .symbolRenderingMode(.hierarchical)
                     }
                     .foregroundStyle(.white)
@@ -155,7 +155,7 @@ struct CoCreationHubView: View {
     private var liveEmptyState: some View {
         VStack(spacing: 12) {
             Image(systemName: "person.3.fill")
-                .font(.system(size: 36, weight: .semibold))
+                .font(.systemScaled(36, weight: .semibold))
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(amenPurple)
 
@@ -245,7 +245,7 @@ private struct LiveSessionCard: View {
                     )
                     .frame(width: 48, height: 48)
                 Image(systemName: session.type.icon)
-                    .font(.system(size: 20, weight: .semibold))
+                    .font(.systemScaled(20, weight: .semibold))
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(.white)
             }
@@ -293,7 +293,7 @@ private struct LiveSessionCard: View {
                 // Collaborator count
                 HStack(spacing: 4) {
                     Image(systemName: "person.2.fill")
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .symbolRenderingMode(.hierarchical)
                         .foregroundStyle(amenPurple)
                     Text("\(session.collaboratorIds.count) collaborating")
@@ -354,7 +354,7 @@ private struct YourSessionCard: View {
                     )
                     .frame(width: 40, height: 40)
                 Image(systemName: session.type.icon)
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.systemScaled(18, weight: .semibold))
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(.white)
             }

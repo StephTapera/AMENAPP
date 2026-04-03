@@ -113,7 +113,7 @@ struct LongitudinalOnboardingView: View {
 
             // Icon
             Image(systemName: page.icon)
-                .font(.system(size: 88))
+                .font(.systemScaled(88))
                 .foregroundStyle(page.iconColor)
                 .padding(.bottom, 36)
 
@@ -139,7 +139,7 @@ struct LongitudinalOnboardingView: View {
                     ForEach(page.bullets, id: \.self) { bullet in
                         HStack(spacing: 10) {
                             Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 15))
+                                .font(.systemScaled(15))
                                 .foregroundColor(ONB.accentGold)
                             Text(bullet)
                                 .font(AMENFont.regular(15))

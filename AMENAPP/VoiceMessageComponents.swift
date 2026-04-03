@@ -255,7 +255,7 @@ struct VoiceMessageRecorderButton: View {
             .frame(width: 36, height: 36)
             .overlay(
                 Image(systemName: "waveform")
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.systemScaled(15, weight: .medium))
                     .foregroundColor(.white)
             )
             .scaleEffect(holdScale)
@@ -282,7 +282,7 @@ struct VoiceMessageRecorderButton: View {
 
             // Duration
             Text(formattedDuration(vm.recordingDuration))
-                .font(.system(size: 13, weight: .semibold).monospacedDigit())
+                .font(.systemScaled(13, weight: .semibold).monospacedDigit())
                 .foregroundStyle(.primary)
                 .frame(minWidth: 38, alignment: .leading)
 
@@ -294,7 +294,7 @@ struct VoiceMessageRecorderButton: View {
                 vm.cancelRecording()
             } label: {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 22))
+                    .font(.systemScaled(22))
                     .foregroundStyle(.secondary)
             }
 
@@ -308,7 +308,7 @@ struct VoiceMessageRecorderButton: View {
                     .frame(width: 36, height: 36)
                     .overlay(
                         Image(systemName: "arrow.up")
-                            .font(.system(size: 15, weight: .bold))
+                            .font(.systemScaled(15, weight: .bold))
                             .foregroundColor(.white)
                     )
                     .shadow(color: .purple.opacity(0.4), radius: 8)
@@ -352,7 +352,7 @@ struct VoiceMessageBubble: View {
                     .frame(width: 34, height: 34)
                     .overlay(
                         Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                             .foregroundColor(isFromCurrentUser ? .white : .primary)
                     )
             }
@@ -365,7 +365,7 @@ struct VoiceMessageBubble: View {
 
                 // Duration
                 Text(player.displayDuration)
-                    .font(.system(size: 11, weight: .medium).monospacedDigit())
+                    .font(.systemScaled(11, weight: .medium).monospacedDigit())
                     .foregroundStyle(.secondary)
             }
         }

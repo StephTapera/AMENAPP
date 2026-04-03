@@ -141,7 +141,7 @@ struct PostSearchView: View {
                     VStack(spacing: 8) {
                         HStack(spacing: 6) {
                             Image(systemName: tab.icon)
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.systemScaled(14, weight: .semibold))
                             Text(tab.rawValue)
                                 .font(.custom("OpenSans-Bold", size: 14))
                         }
@@ -208,7 +208,7 @@ struct PostSearchView: View {
                     .frame(width: 100, height: 100)
                 
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 40))
+                    .font(.systemScaled(40))
                     .foregroundStyle(.secondary)
             }
             
@@ -287,7 +287,7 @@ struct PostThumbnailView: View {
                 // Engagement indicator
                 HStack(spacing: 4) {
                     Image(systemName: "heart.fill")
-                        .font(.system(size: 10))
+                        .font(.systemScaled(10))
                     Text("\(post.likesCount)")
                         .font(.custom("OpenSans-Bold", size: 11))
                 }

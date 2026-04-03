@@ -98,7 +98,7 @@ struct SocialProfileExampleView: View {
                                             .shadow(color: .orange.opacity(0.5), radius: 8, y: 4)
                                         
                                         Image(systemName: "camera.fill")
-                                            .font(.system(size: 16, weight: .bold))
+                                            .font(.systemScaled(16, weight: .bold))
                                             .foregroundStyle(.white)
                                     }
                                 }

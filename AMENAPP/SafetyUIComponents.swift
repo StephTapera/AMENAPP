@@ -25,7 +25,7 @@ struct ModerationFeedbackSheet: View {
         VStack(spacing: 24) {
             // Icon
             Image(systemName: iconForAction)
-                .font(.system(size: 50))
+                .font(.systemScaled(50))
                 .foregroundStyle(colorForAction)
                 .padding(.top, 20)
             
@@ -53,7 +53,7 @@ struct ModerationFeedbackSheet: View {
                     ForEach(suggestions, id: \.self) { suggestion in
                         HStack(alignment: .top, spacing: 8) {
                             Image(systemName: "lightbulb.fill")
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                                 .foregroundStyle(.orange)
                                 .padding(.top, 2)
                             
@@ -183,7 +183,7 @@ struct SafetyWarningBanner: View {
         if isVisible {
             HStack(spacing: 12) {
                 Image(systemName: iconForType)
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(colorForType)
                 
                 Text(message)
@@ -199,7 +199,7 @@ struct SafetyWarningBanner: View {
                     }
                 } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -238,7 +238,7 @@ struct CooldownTimer: View {
     var body: some View {
         VStack(spacing: 12) {
             Image(systemName: "clock.fill")
-                .font(.system(size: 40))
+                .font(.systemScaled(40))
                 .foregroundStyle(.orange)
             
             Text("Take a Breath")
@@ -295,7 +295,7 @@ struct AppealSubmissionView: View {
                 // Header
                 VStack(spacing: 12) {
                     Image(systemName: "hand.raised.fill")
-                        .font(.system(size: 50))
+                        .font(.systemScaled(50))
                         .foregroundStyle(.blue)
                     
                     Text("Submit an Appeal")
@@ -448,7 +448,7 @@ struct SafetyDashboardView: View {
             
             HStack(spacing: 16) {
                 Image(systemName: dashboard.enforcementCount == 0 ? "checkmark.shield.fill" : "exclamationmark.shield.fill")
-                    .font(.system(size: 40))
+                    .font(.systemScaled(40))
                     .foregroundStyle(dashboard.enforcementCount == 0 ? .green : .orange)
                 
                 VStack(alignment: .leading, spacing: 4) {
@@ -525,7 +525,7 @@ struct SafetyDashboardView: View {
             
             HStack(spacing: 12) {
                 Image(systemName: "shield.fill")
-                    .font(.system(size: 24))
+                    .font(.systemScaled(24))
                     .foregroundStyle(.green)
                 
                 Text("Enhanced protection is enabled on your account. Comments require your approval.")
@@ -557,7 +557,7 @@ struct SafetyDashboardView: View {
                     Spacer()
                     
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(.secondary)
                 }
                 .padding(16)

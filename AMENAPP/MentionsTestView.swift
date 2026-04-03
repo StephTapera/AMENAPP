@@ -53,7 +53,7 @@ struct MentionsTestView: View {
                     // Header
                     VStack(spacing: 8) {
                         Image(systemName: "at.circle.fill")
-                            .font(.system(size: 48))
+                            .font(.systemScaled(48))
                             .foregroundStyle(.blue)
                         
                         Text("@Mentions Test")
@@ -139,23 +139,23 @@ struct MentionsTestView: View {
                     .frame(width: 40, height: 40)
                     .overlay(
                         Text(post.authorInitials)
-                            .font(.system(size: 16, weight: .bold))
+                            .font(.systemScaled(16, weight: .bold))
                             .foregroundStyle(.blue)
                     )
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(post.authorName)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                     
                     Text("@\(post.authorUsername)")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.secondary)
                 }
                 
                 Spacer()
                 
                 Text(post.timestamp)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
             }
             
@@ -174,9 +174,9 @@ struct MentionsTestView: View {
             if let mentions = post.mentions, !mentions.isEmpty {
                 HStack(spacing: 4) {
                     Image(systemName: "at")
-                        .font(.system(size: 10))
+                        .font(.systemScaled(10))
                     Text("\(mentions.count) mention\(mentions.count == 1 ? "" : "s")")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.systemScaled(11, weight: .medium))
                 }
                 .foregroundStyle(.blue)
                 .padding(.horizontal, 8)
@@ -201,16 +201,16 @@ struct MentionsTestView: View {
     private func featureRow(icon: String, title: String, description: String, color: Color) -> some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 20))
+                .font(.systemScaled(20))
                 .foregroundStyle(color)
                 .frame(width: 24)
             
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                 
                 Text(description)
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }

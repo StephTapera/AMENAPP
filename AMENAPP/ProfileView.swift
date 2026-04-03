@@ -457,12 +457,12 @@ struct ProfileView: View {
                 HapticManager.impact(style: .light)
             } label: {
                 Image(systemName: "person.badge.clock")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(.primary)
                     .overlay(alignment: .topTrailing) {
                         if pendingFollowCount > 0 {
                             Text(pendingFollowCount < 100 ? "\(pendingFollowCount)" : "99+")
-                                .font(.system(size: 9, weight: .bold))
+                                .font(.systemScaled(9, weight: .bold))
                                 .foregroundStyle(.white)
                                 .padding(.horizontal, 4)
                                 .padding(.vertical, 2)
@@ -478,7 +478,7 @@ struct ProfileView: View {
                 HapticManager.impact(style: .light)
             } label: {
                 Image(systemName: "chart.line.uptrend.xyaxis")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(.primary)
             }
 
@@ -488,7 +488,7 @@ struct ProfileView: View {
                     showLoginHistory = true
                 } label: {
                     Image(systemName: "clock.arrow.circlepath")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(.primary)
                 }
                 .transition(.scale.combined(with: .opacity))
@@ -497,7 +497,7 @@ struct ProfileView: View {
                     showQRCode = true
                 } label: {
                     Image(systemName: "qrcode")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(.primary)
                 }
                 .transition(.scale.combined(with: .opacity))
@@ -506,7 +506,7 @@ struct ProfileView: View {
                     shareProfile()
                 } label: {
                     Image(systemName: "square.and.arrow.up")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(.primary)
                 }
                 .transition(.scale.combined(with: .opacity))
@@ -515,7 +515,7 @@ struct ProfileView: View {
                     showSettings = true
                 } label: {
                     Image(systemName: "line.3.horizontal")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(.primary)
                 }
                 .transition(.scale.combined(with: .opacity))
@@ -530,7 +530,7 @@ struct ProfileView: View {
             } label: {
                 // Icon morphs between ellipsis ↔ xmark with liquid dissolve-reform
                 Image(systemName: isToolbarExpanded ? "xmark" : "ellipsis")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(.primary)
                     .frame(width: 28, height: 28)
                     .contentShape(Rectangle())
@@ -1447,7 +1447,7 @@ struct ProfileView: View {
         if showDigestBanner && !digestSummary.isEmpty {
             HStack(spacing: 8) {
                 Image(systemName: "sparkles")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(Color.indigo)
                 Text(digestSummary)
                     .font(AMENFont.regular(12))
@@ -1456,7 +1456,7 @@ struct ProfileView: View {
                 Spacer(minLength: 0)
                 Button { dismissDigestBanner() } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.systemScaled(10, weight: .semibold))
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
@@ -1629,7 +1629,7 @@ struct ProfileView: View {
                 .frame(width: 24, height: 24)
                 .overlay(
                     Image(systemName: "camera.fill")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundStyle(.black)
                 )
                 .shadow(color: .black.opacity(0.15), radius: 4, y: 2)
@@ -1699,7 +1699,7 @@ struct ProfileView: View {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: tab.icon)
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .foregroundStyle(selectedTab == tab ? .white : .black.opacity(0.6))
                         
                         if selectedTab == tab {
@@ -1805,7 +1805,7 @@ struct ProfileView: View {
                 Link(destination: bioURLParsed) {
                     HStack(spacing: 6) {
                         Image(systemName: "link.circle.fill")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.systemScaled(11, weight: .semibold))
                             .foregroundStyle(.black)
 
                         Text(bioURL
@@ -1912,7 +1912,7 @@ struct ProfileView: View {
                         } label: {
                             HStack(spacing: 8) {
                                 Image(systemName: link.platform.icon)
-                                    .font(.system(size: 14))
+                                    .font(.systemScaled(14))
                                     .foregroundStyle(link.platform.color)
                                 
                                 Text(link.username)
@@ -1922,7 +1922,7 @@ struct ProfileView: View {
                                 Spacer()
                                 
                                 Image(systemName: "arrow.up.right")
-                                    .font(.system(size: 10))
+                                    .font(.systemScaled(10))
                                     .foregroundStyle(.black.opacity(0.3))
                             }
                         }
@@ -2105,7 +2105,7 @@ struct ProfileQRCodeView: View {
                         } else {
                             // Placeholder
                             Image(systemName: "qrcode")
-                                .font(.system(size: 120))
+                                .font(.systemScaled(120))
                                 .foregroundStyle(.black.opacity(0.2))
                         }
                     }
@@ -2123,7 +2123,7 @@ struct ProfileQRCodeView: View {
                 } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "square.and.arrow.up")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                         Text("Share QR Code")
                             .font(AMENFont.bold(16))
                     }
@@ -2147,7 +2147,7 @@ struct ProfileQRCodeView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .foregroundStyle(.black)
                     }
                 }
@@ -2251,9 +2251,9 @@ struct ProfilePostCard: View {
                 // Category badge - always show
                 HStack(spacing: 4) {
                     Image(systemName: categoryIcon)
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.systemScaled(10, weight: .semibold))
                     Text(post.category.displayName)
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                 }
                 .foregroundStyle(.black.opacity(0.6))
                 .padding(.horizontal, 10)
@@ -2268,7 +2268,7 @@ struct ProfilePostCard: View {
                 )
                 
                 Text(post.timeAgo)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(.black.opacity(0.4))
                 
                 Spacer()
@@ -2277,7 +2277,7 @@ struct ProfilePostCard: View {
                     menuContent
                 } label: {
                     Image(systemName: "ellipsis")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(.black.opacity(0.3))
                         .frame(width: 32, height: 32)
                         .background(
@@ -2289,7 +2289,7 @@ struct ProfilePostCard: View {
             
             // CONTENT: Post text
             Text(post.content)
-                .font(.system(size: 15, weight: .regular))
+                .font(.systemScaled(15, weight: .regular))
                 .foregroundStyle(.black)
                 .lineSpacing(4)
                 .fixedSize(horizontal: false, vertical: true)
@@ -2466,12 +2466,12 @@ struct ProfilePostCard: View {
         Button(action: action) {
             HStack(spacing: 4) {
                 Image(systemName: icon)
-                    .font(.system(size: 15, weight: isActive ? .semibold : .medium))
+                    .font(.systemScaled(15, weight: isActive ? .semibold : .medium))
                     .foregroundStyle(isActive ? activeColor : .black.opacity(0.5))
                 
                 if count > 0 {
                     Text("\(count)")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundStyle(isActive ? activeColor : .black.opacity(0.6))
                 }
             }
@@ -2520,7 +2520,7 @@ struct ProfilePostCard: View {
     
     private var lightbulbMainIcon: some View {
         Image(systemName: hasLitLightbulb ? "lightbulb.fill" : "lightbulb")
-            .font(.system(size: 17, weight: hasLitLightbulb ? .semibold : .thin))
+            .font(.systemScaled(17, weight: hasLitLightbulb ? .semibold : .thin))
             .foregroundStyle(hasLitLightbulb ? lightbulbGradientActive : lightbulbGradientInactive)
     }
     
@@ -2612,7 +2612,7 @@ struct ProfilePostCard: View {
     private func swipeIndicator(icon: String, color: Color, text: String) -> some View {
         VStack(spacing: 8) {
             Image(systemName: icon)
-                .font(.system(size: 28, weight: .medium))
+                .font(.systemScaled(28, weight: .medium))
                 .foregroundColor(color)
             Text(text)
                 .font(AMENFont.semiBold(12))
@@ -2762,7 +2762,7 @@ struct PostsContentView: View {
                 // Simple empty state
                 VStack(spacing: 16) {
                     Image(systemName: "square.grid.2x2")
-                        .font(.system(size: 48))
+                        .font(.systemScaled(48))
                         .foregroundStyle(.secondary)
                     
                     Text("No posts yet")
@@ -2816,7 +2816,7 @@ struct RepliesContentView: View {
             // Empty state
             VStack(spacing: 16) {
                 Image(systemName: "bubble.left.and.bubble.right")
-                    .font(.system(size: 48))
+                    .font(.systemScaled(48))
                     .foregroundStyle(Color.secondary)
                 
                 Text("No replies yet")
@@ -2873,7 +2873,7 @@ struct SavedContentView: View {
             // Empty state
             VStack(spacing: 16) {
                 Image(systemName: "bookmark")
-                    .font(.system(size: 48))
+                    .font(.systemScaled(48))
                     .foregroundStyle(.secondary)
                 
                 Text("No saved posts")
@@ -2910,7 +2910,7 @@ struct RepostsContentView: View {
             // Empty state
             VStack(spacing: 16) {
                 Image(systemName: "arrow.2.squarepath")
-                    .font(.system(size: 48))
+                    .font(.systemScaled(48))
                     .foregroundStyle(.secondary)
                 
                 Text("No reposts yet")
@@ -3045,7 +3045,7 @@ struct ProfileReplyCard: View {
             // Replied to post indicator
             HStack(spacing: 6) {
                 Image(systemName: "arrowshape.turn.up.left")
-                    .font(.system(size: 10))
+                    .font(.systemScaled(10))
                     .foregroundStyle(Color.secondary)
                 
                 Text("Replying to post")
@@ -3058,7 +3058,7 @@ struct ProfileReplyCard: View {
                 if comment.amenCount > 0 {
                     HStack(spacing: 4) {
                         Image(systemName: "hands.clap")
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                         Text("\(comment.amenCount)")
                             .font(AMENFont.semiBold(12))
                     }
@@ -3068,7 +3068,7 @@ struct ProfileReplyCard: View {
                 if comment.replyCount > 0 {
                     HStack(spacing: 4) {
                         Image(systemName: "bubble.left")
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                         Text("\(comment.replyCount)")
                             .font(AMENFont.semiBold(12))
                     }
@@ -3376,7 +3376,7 @@ struct EditProfileView: View {
             if let error = nameError {
                 HStack(spacing: 4) {
                     Image(systemName: "exclamationmark.circle.fill")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.red)
                     
                     Text(error)
@@ -3438,7 +3438,7 @@ struct EditProfileView: View {
                     HStack(spacing: 4) {
                         if bio.count > bioCharacterLimit {
                             Image(systemName: "exclamationmark.triangle.fill")
-                                .font(.system(size: 10))
+                                .font(.systemScaled(10))
                                 .foregroundStyle(.red)
                         }
                         Text("\(bio.count)/\(bioCharacterLimit)")
@@ -3477,7 +3477,7 @@ struct EditProfileView: View {
                 if let error = bioError {
                     HStack(spacing: 4) {
                         Image(systemName: "exclamationmark.circle.fill")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(.red)
                         
                         Text(error)
@@ -3501,7 +3501,7 @@ struct EditProfileView: View {
                 if !bioURL.isEmpty && bioURLError == nil {
                     HStack(spacing: 4) {
                         Image(systemName: "link.circle.fill")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(.green)
                         
                         Text("Valid")
@@ -3513,7 +3513,7 @@ struct EditProfileView: View {
             
             HStack(spacing: 8) {
                 Image(systemName: "link")
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(.black.opacity(0.4))
                     .frame(width: 24)
                 
@@ -3543,7 +3543,7 @@ struct EditProfileView: View {
                         }
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 16))
+                            .font(.systemScaled(16))
                             .foregroundStyle(.black.opacity(0.3))
                     }
                 }
@@ -3559,7 +3559,7 @@ struct EditProfileView: View {
             if let error = bioURLError {
                 HStack(spacing: 4) {
                     Image(systemName: "exclamationmark.circle.fill")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.red)
                     
                     Text(error)
@@ -3569,7 +3569,7 @@ struct EditProfileView: View {
             } else if !bioURL.isEmpty && bioURLError == nil {
                 HStack(spacing: 4) {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.green)
                     
                     Text("Will be saved as: \(bioURL)")
@@ -3603,7 +3603,7 @@ struct EditProfileView: View {
                         HapticManager.impact(style: .light)
                     } label: {
                         Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 20))
+                            .font(.systemScaled(20))
                             .foregroundStyle(.black)
                     }
                 }
@@ -3654,7 +3654,7 @@ struct EditProfileView: View {
                         showAddTopic = true
                     } label: {
                         Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 20))
+                            .font(.systemScaled(20))
                             .foregroundStyle(.black)
                     }
                 }
@@ -3680,7 +3680,7 @@ struct EditProfileView: View {
                                     }
                                 } label: {
                                     Image(systemName: "xmark")
-                                        .font(.system(size: 10, weight: .bold))
+                                        .font(.systemScaled(10, weight: .bold))
                                 }
                             }
                             .foregroundStyle(.primary)
@@ -3723,7 +3723,7 @@ struct EditProfileView: View {
                         Text("Edit")
                             .font(AMENFont.semiBold(14))
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                     }
                     .foregroundStyle(.black)
                 }
@@ -3739,7 +3739,7 @@ struct EditProfileView: View {
                     ForEach(socialLinks) { link in
                         HStack(spacing: 12) {
                             Image(systemName: link.platform.icon)
-                                .font(.system(size: 16))
+                                .font(.systemScaled(16))
                                 .foregroundStyle(link.platform.color)
                                 .frame(width: 24)
                             
@@ -3831,7 +3831,7 @@ struct EditProfileView: View {
             showImagePicker = true
         } label: {
             Image(systemName: "camera.fill")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.white)
                 .frame(width: 32, height: 32)
                 .background(Circle().fill(Color.black))
@@ -4265,7 +4265,7 @@ struct InterestChip: View {
                 onRemove()
             } label: {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(.black.opacity(0.3))
             }
         }
@@ -4316,7 +4316,7 @@ struct ProfileSection: View {
                         .frame(width: 44, height: 44)
                     
                     Image(systemName: icon)
-                        .font(.system(size: 18))
+                        .font(.systemScaled(18))
                         .foregroundStyle(color)
                 }
                 
@@ -4327,7 +4327,7 @@ struct ProfileSection: View {
                 Spacer()
                 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.secondary)
             }
             .padding()
@@ -4359,7 +4359,7 @@ struct AboutAmenView: View {
                 // Logo and Title
                 VStack(spacing: 16) {
                     Image(systemName: "hands.sparkles")
-                        .font(.system(size: 80))
+                        .font(.systemScaled(80))
                         .foregroundStyle(
                             LinearGradient(
                                 colors: [.blue, .purple],
@@ -4437,7 +4437,7 @@ struct AboutAmenView: View {
                             Spacer()
                             
                             Image(systemName: "arrow.up.right")
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -4464,7 +4464,7 @@ struct AboutAmenView: View {
                             Spacer()
                             
                             Image(systemName: "arrow.up.right")
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -4835,7 +4835,7 @@ struct AboutInfoRow: View {
             
             if isEmail || isURL || isLink {
                 Image(systemName: "arrow.up.right")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
             }
         }
@@ -4855,7 +4855,7 @@ struct ProfileFeatureRow: View {
                     .frame(width: 40, height: 40)
                 
                 Image(systemName: icon)
-                    .font(.system(size: 18))
+                    .font(.systemScaled(18))
                     .foregroundStyle(.blue)
             }
             
@@ -4889,7 +4889,7 @@ struct SettingsRow: View {
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: icon)
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(color)
                     .frame(width: 24)
                 
@@ -4900,7 +4900,7 @@ struct SettingsRow: View {
                 Spacer()
                 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(.black.opacity(0.3))
             }
         }
@@ -4986,7 +4986,7 @@ struct FullScreenAvatarView: View {
                         }
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 32))
+                            .font(.systemScaled(32))
                             .foregroundStyle(.white.opacity(0.8))
                             .padding(24)
                     }
@@ -5047,7 +5047,7 @@ struct ProfilePhotoEditView: View {
                         PhotosPicker(selection: $selectedItem, matching: .images) {
                             HStack {
                                 Image(systemName: "photo.on.rectangle")
-                                    .font(.system(size: 18, weight: .semibold))
+                                    .font(.systemScaled(18, weight: .semibold))
                                 Text(currentImageURL != nil ? "Change Photo" : "Select Photo")
                                     .font(AMENFont.bold(16))
                             }
@@ -5092,7 +5092,7 @@ struct ProfilePhotoEditView: View {
                                         Text("Uploading...")
                                     } else {
                                         Image(systemName: "checkmark.circle")
-                                            .font(.system(size: 18, weight: .semibold))
+                                            .font(.systemScaled(18, weight: .semibold))
                                         Text("Save Photo")
                                     }
                                 }
@@ -5116,7 +5116,7 @@ struct ProfilePhotoEditView: View {
                             } label: {
                                 HStack {
                                     Image(systemName: "trash")
-                                        .font(.system(size: 18, weight: .semibold))
+                                        .font(.systemScaled(18, weight: .semibold))
                                     Text("Remove Photo")
                                         .font(AMENFont.bold(16))
                                 }
@@ -5239,7 +5239,7 @@ struct ProfilePhotoEditView: View {
             .frame(width: 200, height: 200)
             .overlay(
                 Image(systemName: "person.fill")
-                    .font(.system(size: 80))
+                    .font(.systemScaled(80))
                     .foregroundStyle(.black.opacity(0.3))
             )
     }
@@ -5349,7 +5349,7 @@ struct TipRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
                 .foregroundStyle(.blue)
                 .frame(width: 24)
             
@@ -5386,12 +5386,12 @@ struct AchievementBadge: View {
                         .frame(width: 50, height: 50)
                     
                     Image(systemName: icon)
-                        .font(.system(size: 22))
+                        .font(.systemScaled(22))
                         .foregroundStyle(isUnlocked ? color : Color.gray.opacity(0.4))
                     
                     if !isUnlocked {
                         Image(systemName: "lock.fill")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(.white)
                             .padding(4)
                             .background(Circle().fill(Color.gray))
@@ -5450,7 +5450,7 @@ struct ProfileImagePicker: View {
                         .frame(width: 200, height: 200)
                         .overlay(
                             Image(systemName: "person.fill")
-                                .font(.system(size: 80))
+                                .font(.systemScaled(80))
                                 .foregroundStyle(.black.opacity(0.3))
                         )
                 }
@@ -5835,7 +5835,7 @@ struct SafetySecurityView: View {
                         Spacer()
                         
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -5902,7 +5902,7 @@ struct SafetySecurityView: View {
                             .foregroundStyle(.primary)
                         Spacer()
                         Image(systemName: "arrow.up.right")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -5922,7 +5922,7 @@ struct SafetySecurityView: View {
                             .foregroundStyle(.primary)
                         Spacer()
                         Image(systemName: "arrow.up.right")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -6070,7 +6070,7 @@ struct SecurityTipRow: View {
                     .frame(width: 40, height: 40)
                 
                 Image(systemName: icon)
-                    .font(.system(size: 18))
+                    .font(.systemScaled(18))
                     .foregroundStyle(color)
             }
             
@@ -6098,7 +6098,7 @@ struct TwoFactorSetupView: View {
             ScrollView {
                 VStack(spacing: 24) {
                     Image(systemName: "lock.shield.fill")
-                        .font(.system(size: 70))
+                        .font(.systemScaled(70))
                         .foregroundStyle(.blue)
                         .padding(.top, 40)
                     
@@ -6253,7 +6253,7 @@ struct LoginHistoryView: View {
     private var emptyHistoryState: some View {
         VStack(spacing: 16) {
             Image(systemName: "clock")
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(.secondary)
             
             Text("No login history")
@@ -6315,7 +6315,7 @@ struct LoginSessionRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: deviceIcon)
-                .font(.system(size: 24))
+                .font(.systemScaled(24))
                 .foregroundStyle(session.isCurrent ? .blue : .secondary)
                 .frame(width: 32)
             

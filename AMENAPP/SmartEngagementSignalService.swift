@@ -22,16 +22,7 @@ import Foundation
 
 // MARK: - Supporting Types
 
-/// Aggregated engagement signals stored per post in Firestore.
-/// This struct is internal; only `publicLabels` leaves the service boundary.
-private struct SmartEngagementSignals: Codable {
-    var encouragedCount: Int        = 0
-    var savedToNotesCount: Int      = 0
-    var prayerfulResponseCount: Int = 0
-    var sharedCount: Int            = 0
-    var publicLabels: [String]      = []
-    var discussionHealthScore: Double = 0.0
-}
+// SmartEngagementSignals is defined in AMENAccountTypeSystem.swift
 
 // MARK: - Service
 

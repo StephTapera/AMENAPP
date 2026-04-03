@@ -45,7 +45,7 @@ struct KoraCircleCardView: View {
                 // Next check-in row
                 HStack(spacing: 6) {
                     Image(systemName: "calendar")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundColor(.white.opacity(0.45))
                     Text("Next check-in: \(daysUntilNextCheckIn)")
                         .font(AMENFont.regular(12))
@@ -61,12 +61,12 @@ struct KoraCircleCardView: View {
                 // AI summary preview
                 if let summary = circle.lastCheckInAt.map({ _ in "Last summary" }) {
                     Text(summary)
-                        .font(.system(size: 12).italic())
+                        .font(.systemScaled(12).italic())
                         .foregroundColor(.white.opacity(0.35))
                         .lineLimit(1)
                 } else {
                     Text("No summary yet")
-                        .font(.system(size: 12).italic())
+                        .font(.systemScaled(12).italic())
                         .foregroundColor(.white.opacity(0.25))
                         .lineLimit(1)
                 }
@@ -88,7 +88,7 @@ struct KoraCircleCardView: View {
     private var purposeBadge: some View {
         HStack(spacing: 4) {
             Image(systemName: circle.purpose.icon)
-                .font(.system(size: 10))
+                .font(.systemScaled(10))
             Text(circle.purpose.label)
                 .font(AMENFont.regular(11))
         }

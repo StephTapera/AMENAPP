@@ -47,7 +47,7 @@ struct GroupChatLiquidHeader: View {
             
             // Group name
             Text(groupName)
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
                 .foregroundStyle(Color.black.opacity(0.85))
                 .lineLimit(1)
         }
@@ -262,7 +262,7 @@ struct GroupChatMemberCluster: View {
                 .frame(width: 40, height: 40)
             
             Text("+\(overflowCount)")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(Color.black.opacity(0.6))
         }
         .overlay(
@@ -333,7 +333,7 @@ struct GroupChatMemberBubble: View {
                 )
             
             Text(participant.initials)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(Color.black.opacity(0.5))
         }
         .frame(width: 40, height: 40)

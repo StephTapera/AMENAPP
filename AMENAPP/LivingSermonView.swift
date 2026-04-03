@@ -278,7 +278,7 @@ struct LivingSermonView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                             .foregroundColor(.black)
                             .padding(8)
                             .background(
@@ -322,7 +322,7 @@ private struct SermonStatusBar: View {
             // Church + speaker pill
             HStack(spacing: 6) {
                 Image(systemName: "building.columns.fill")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                     .foregroundColor(Color(white: 0.45))
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Grace Community Church")
@@ -407,7 +407,7 @@ private struct SermonTabPill: View {
         Button(action: action) {
             HStack(spacing: 5) {
                 Image(systemName: tab.icon)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                 Text(tab.rawValue)
                     .font(AMENFont.semiBold(12))
             }
@@ -463,7 +463,7 @@ struct SermonLiveCaptureBar: View {
                 inputText += " [\(vm.formatTime(vm.elapsedSeconds))]"
             } label: {
                 Text("📍")
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .frame(width: 32, height: 32)
                     .background(
                         Circle()
@@ -484,7 +484,7 @@ struct SermonLiveCaptureBar: View {
                 isFocused = false
             } label: {
                 Image(systemName: "arrow.up")
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.systemScaled(14, weight: .bold))
                     .foregroundColor(.white)
                     .frame(width: 32, height: 32)
                     .background(
@@ -566,7 +566,7 @@ private struct SermonCaptureTab: View {
             if showScriptureBadge {
                 HStack(spacing: 6) {
                     Image(systemName: "magnifyingglass")
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                     Text("Auto-detecting scripture...")
                         .font(AMENFont.regular(12))
                 }
@@ -649,7 +649,7 @@ private struct NoteCardRow: View {
                 // Highlight icon if present
                 if let ht = note.highlightType {
                     Image(systemName: ht.icon)
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundColor(Color(white: 0.45))
                 }
 
@@ -660,7 +660,7 @@ private struct NoteCardRow: View {
                     }
                 } label: {
                     Image(systemName: "plus.circle")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundColor(Color(white: 0.65))
                 }
                 .buttonStyle(GlassPressStyle())
@@ -675,7 +675,7 @@ private struct NoteCardRow: View {
             if let verse = note.detectedVerse {
                 HStack(spacing: 4) {
                     Image(systemName: "book.closed.fill")
-                        .font(.system(size: 10))
+                        .font(.systemScaled(10))
                     Text(verse)
                         .font(AMENFont.semiBold(11))
                 }
@@ -738,7 +738,7 @@ private struct HighlightPickerChip: View {
         } label: {
             HStack(spacing: 4) {
                 Text(type.emoji)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                 Text(type.label)
                     .font(AMENFont.semiBold(11))
                     .foregroundColor(.black)
@@ -800,7 +800,7 @@ private struct HighlightCircleButton: View {
         } label: {
             VStack(spacing: 4) {
                 Text(type.emoji)
-                    .font(.system(size: 18))
+                    .font(.systemScaled(18))
                     .frame(width: 42, height: 42)
                     .background(
                         Circle()
@@ -840,7 +840,7 @@ private struct SermonTranscriptTab: View {
                 // AI badge
                 HStack(spacing: 4) {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 10))
+                        .font(.systemScaled(10))
                     Text("AI-Assisted")
                         .font(AMENFont.semiBold(11))
                 }
@@ -949,7 +949,7 @@ private struct LivingTranscriptSegmentRow: View {
                     } label: {
                         HStack(spacing: 5) {
                             Image(systemName: "plus.circle.fill")
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                             Text("Add to Notes")
                                 .font(AMENFont.semiBold(12))
                         }
@@ -982,7 +982,7 @@ private struct ListeningDotsRow: View {
     var body: some View {
         HStack(spacing: 6) {
             Image(systemName: "waveform")
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundColor(Color(white: 0.65))
             Text("Listening")
                 .font(AMENFont.regular(12))
@@ -1308,7 +1308,7 @@ private struct KeyMomentsCard: View {
 
                         if let ht = note.highlightType {
                             Image(systemName: ht.icon)
-                                .font(.system(size: 11))
+                                .font(.systemScaled(11))
                                 .foregroundColor(Color(white: 0.5))
                         }
                     }
@@ -1450,7 +1450,7 @@ private struct LiveReactionsStrip: View {
     private func reactionPill(emoji: String, count: Int) -> some View {
         HStack(spacing: 5) {
             Text(emoji)
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
             Text("\(count)")
                 .font(AMENFont.semiBold(13))
                 .foregroundColor(.black)
@@ -1517,7 +1517,7 @@ private struct SmartInviteCard: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 6) {
                 Image(systemName: "person.badge.plus")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundColor(Color(white: 0.45))
                 Text("Invite to This Sermon")
                     .font(AMENFont.bold(15))
@@ -1536,7 +1536,7 @@ private struct SmartInviteCard: View {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "link")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                         Text("Copy Link")
                             .font(AMENFont.semiBold(13))
                     }
@@ -1557,7 +1557,7 @@ private struct SmartInviteCard: View {
                 ShareLink(item: URL(string: "https://amenapp.com/live/grace-community")!) {
                     HStack(spacing: 6) {
                         Image(systemName: "square.and.arrow.up")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                         Text("Share")
                             .font(AMENFont.semiBold(13))
                     }

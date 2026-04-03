@@ -618,7 +618,7 @@ struct UniversalSearchResultsView: View {
         VStack(spacing: 14) {
             Spacer().frame(height: 60)
             Image(systemName: "xmark.circle")
-                .font(.system(size: 40, weight: .light))
+                .font(.systemScaled(40, weight: .light))
                 .foregroundStyle(.white.opacity(0.4))
             Text("Nothing found for '\(query)'")
                 .font(.custom("OpenSans-Regular", size: 15))
@@ -765,7 +765,7 @@ struct USSPersonRow: View {
                                 .foregroundStyle(.primary)
                             if person.isVerified {
                                 Image(systemName: "checkmark.seal.fill")
-                                    .font(.system(size: 11))
+                                    .font(.systemScaled(11))
                                     .foregroundStyle(.blue)
                             }
                         }
@@ -892,7 +892,7 @@ struct USSChurchRow: View {
                         .foregroundStyle(.primary)
                     if church.isVerified {
                         Image(systemName: "checkmark.seal.fill")
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                             .foregroundStyle(.blue)
                     }
                 }
@@ -902,7 +902,7 @@ struct USSChurchRow: View {
             }
             Spacer()
             Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .medium))
+                .font(.systemScaled(12, weight: .medium))
                 .foregroundStyle(.tertiary)
         }
         .padding(.horizontal, 16)
@@ -942,7 +942,7 @@ struct USSTopicRow: View {
             }
             Spacer()
             Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .medium))
+                .font(.systemScaled(12, weight: .medium))
                 .foregroundStyle(.tertiary)
         }
         .padding(.horizontal, 16)
@@ -957,7 +957,7 @@ struct USSSimpleRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: item.iconName)
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
                 .foregroundStyle(.secondary)
                 .frame(width: 28)
             VStack(alignment: .leading, spacing: 2) {
@@ -1122,7 +1122,7 @@ struct SearchRecentListView: View {
                 ForEach(recentSnapshot, id: \.self) { term in
                     HStack(spacing: 12) {
                         Image(systemName: "clock")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundStyle(.secondary)
                             .frame(width: 20)
 
@@ -1141,7 +1141,7 @@ struct SearchRecentListView: View {
                             recentSnapshot = viewModel.recentSearches
                         } label: {
                             Image(systemName: "xmark")
-                                .font(.system(size: 11, weight: .medium))
+                                .font(.systemScaled(11, weight: .medium))
                                 .foregroundStyle(.tertiary)
                         }
                         .buttonStyle(.plain)

@@ -72,7 +72,7 @@ struct BereanShieldView: View {
                 ToolbarItem(placement: .principal) {
                     HStack(spacing: 7) {
                         Image(systemName: "shield.fill")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .foregroundColor(coralRed)
                         Text("Berean Shield")
                             .font(.custom("OpenSans-Bold", size: 17))
@@ -82,7 +82,7 @@ struct BereanShieldView: View {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button(action: { dismiss() }) {
                         Image(systemName: "xmark")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                             .foregroundColor(labelSecondary)
                             .frame(width: 30, height: 30)
                             .background(Circle().fill(Color(white: 1, opacity: 0.08)))
@@ -160,7 +160,7 @@ struct BereanShieldView: View {
                         .scaleEffect(0.85)
                 } else {
                     Image(systemName: "shield.lefthalf.filled")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                 }
                 Text(service.isAnalyzing ? "Analyzing…" : "Analyze")
                     .font(.custom("OpenSans-SemiBold", size: 15))
@@ -202,7 +202,7 @@ struct BereanShieldView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 10) {
                 Image(systemName: analysis.verdict.icon)
-                    .font(.system(size: 22, weight: .semibold))
+                    .font(.systemScaled(22, weight: .semibold))
                     .foregroundColor(analysis.verdict.color)
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -256,11 +256,11 @@ struct BereanShieldView: View {
         }) {
             HStack(spacing: 8) {
                 Image(systemName: "message.fill")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                 Text("Ask Berean more about this")
                     .font(.custom("OpenSans-SemiBold", size: 15))
                 Image(systemName: "arrow.right")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
             }
             .foregroundColor(coralRed)
             .frame(maxWidth: .infinity)
@@ -282,7 +282,7 @@ struct BereanShieldView: View {
     private func errorBanner(_ message: String) -> some View {
         HStack(spacing: 10) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundColor(Color(red: 0.95, green: 0.60, blue: 0.20))
             Text(message)
                 .font(.custom("OpenSans-Regular", size: 14))
@@ -369,7 +369,7 @@ private struct DimensionCard: View {
                             .fill(accent.opacity(0.15))
                             .frame(width: 34, height: 34)
                         Image(systemName: dimension.icon)
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.systemScaled(15, weight: .medium))
                             .foregroundColor(accent)
                     }
 
@@ -381,7 +381,7 @@ private struct DimensionCard: View {
                     Spacer()
 
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.systemScaled(11, weight: .medium))
                         .foregroundColor(Color(white: 0.40))
                 }
             }

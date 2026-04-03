@@ -184,7 +184,7 @@ private struct GlassCircleButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.system(size: iconSize, weight: .medium))
+                .font(.systemScaled(iconSize, weight: .medium))
                 .foregroundStyle(Color.black.opacity(0.7))
                 .frame(width: size, height: size)
                 .background(
@@ -209,7 +209,7 @@ private struct AmenDiscoverCategoryPill: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(isActive ? Color.black : Color.black.opacity(0.72))
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
@@ -259,7 +259,7 @@ private struct DiscoverHeroCardView: View {
 
             // Large decorative symbol
             Image(systemName: card.symbolName)
-                .font(.system(size: 90, weight: .ultraLight))
+                .font(.systemScaled(90, weight: .ultraLight))
                 .foregroundStyle(card.accentColor.opacity(0.30))
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                 .padding(.bottom, 60)
@@ -268,7 +268,7 @@ private struct DiscoverHeroCardView: View {
             VStack {
                 HStack {
                     Text(card.badge.uppercased())
-                        .font(.system(size: 10, weight: .bold))
+                        .font(.systemScaled(10, weight: .bold))
                         .foregroundStyle(Color.black.opacity(0.72))
                         .padding(.horizontal, 10)
                         .padding(.vertical, 5)
@@ -288,11 +288,11 @@ private struct DiscoverHeroCardView: View {
             // Bottom info tray
             VStack(alignment: .leading, spacing: 3) {
                 Text(card.title)
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.systemScaled(17, weight: .semibold))
                     .foregroundStyle(Color.white)
                     .lineLimit(1)
                 Text(card.subtitle)
-                    .font(.system(size: 13, weight: .regular))
+                    .font(.systemScaled(13, weight: .regular))
                     .foregroundStyle(Color.white.opacity(0.80))
                     .lineLimit(1)
             }
@@ -325,16 +325,16 @@ private struct AmenIntelligenceBanner: View {
                     .fill(Color.black)
                     .frame(width: 44, height: 44)
                 Image(systemName: "sparkles")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.systemScaled(18, weight: .semibold))
                     .foregroundStyle(.white)
             }
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("Ranked for meaning, not noise")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(Color.black)
                 Text("Discover through scripture, communities, and faith")
-                    .font(.system(size: 13, weight: .regular))
+                    .font(.systemScaled(13, weight: .regular))
                     .foregroundStyle(Color.black.opacity(0.60))
                     .lineLimit(1)
             }
@@ -342,7 +342,7 @@ private struct AmenIntelligenceBanner: View {
             Spacer(minLength: 0)
 
             Text("Explore →")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(Color.white)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
@@ -375,7 +375,7 @@ private struct DiscoveryGridCard: View {
                 )
 
             Image(systemName: item.sfSymbol)
-                .font(.system(size: 48, weight: .ultraLight))
+                .font(.systemScaled(48, weight: .ultraLight))
                 .foregroundStyle(symbolColor.opacity(0.35))
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                 .padding(.bottom, 56)
@@ -397,7 +397,7 @@ private struct DiscoveryGridCard: View {
             VStack {
                 HStack {
                     Text(item.badge.uppercased())
-                        .font(.system(size: 9, weight: .bold))
+                        .font(.systemScaled(9, weight: .bold))
                         .foregroundStyle(Color.black.opacity(0.72))
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
@@ -416,11 +416,11 @@ private struct DiscoveryGridCard: View {
             // Bottom info tray
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.title)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(Color.black)
                     .lineLimit(2)
                 Text(item.subtitle)
-                    .font(.system(size: 11, weight: .regular))
+                    .font(.systemScaled(11, weight: .regular))
                     .foregroundStyle(Color.black.opacity(0.55))
                     .lineLimit(1)
             }
@@ -512,12 +512,12 @@ struct AmenDiscoverView: View {
             // Title block
             VStack(alignment: .leading, spacing: 4) {
                 Text("AMEN DISCOVER")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(Color.black.opacity(0.40))
                     .kerning(1.2)
 
                 Text("Find people, truth, and\nmeaningful content.")
-                    .font(.system(size: 28, weight: .bold))
+                    .font(.systemScaled(28, weight: .bold))
                     .foregroundStyle(Color.black)
                     .lineSpacing(2)
             }
@@ -538,11 +538,11 @@ struct AmenDiscoverView: View {
             // Search field capsule
             HStack(spacing: 10) {
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.systemScaled(16, weight: .medium))
                     .foregroundStyle(Color.black.opacity(0.35))
 
                 TextField("Search people, verses, communities...", text: $searchText)
-                    .font(.system(size: 16, weight: .regular))
+                    .font(.systemScaled(16, weight: .regular))
                     .foregroundStyle(Color.black)
                     .tint(Color.black)
                     .submitLabel(.search)
@@ -555,7 +555,7 @@ struct AmenDiscoverView: View {
                         searchText = ""
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundStyle(Color.black.opacity(0.35))
                     }
                     .buttonStyle(.plain)
@@ -576,7 +576,7 @@ struct AmenDiscoverView: View {
                 dlog("AmenDiscoverView: Ask Berean tapped")
             } label: {
                 Text("Ask Berean")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(Color.white)
                     .padding(.horizontal, 14)
                     .frame(height: 52)
@@ -626,7 +626,7 @@ struct AmenDiscoverView: View {
     private var heroCardsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Trending Moments")
-                .font(.system(size: 18, weight: .semibold))
+                .font(.systemScaled(18, weight: .semibold))
                 .foregroundStyle(Color.black)
                 .padding(.horizontal, 20)
 
@@ -647,7 +647,7 @@ struct AmenDiscoverView: View {
     private var exploreByTypeSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Explore by Type")
-                .font(.system(size: 18, weight: .semibold))
+                .font(.systemScaled(18, weight: .semibold))
                 .foregroundStyle(Color.black)
                 .padding(.horizontal, 20)
 
@@ -687,9 +687,9 @@ struct AmenDiscoverView: View {
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: item.symbol)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                 Text(item.label)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
             }
             .foregroundStyle(activeFilter == item.label ? Color.white : Color.black.opacity(0.75))
             .padding(.horizontal, 14)
@@ -708,7 +708,7 @@ struct AmenDiscoverView: View {
     private var discoveryGridSection: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Discover")
-                .font(.system(size: 18, weight: .semibold))
+                .font(.systemScaled(18, weight: .semibold))
                 .foregroundStyle(Color.black)
                 .padding(.horizontal, 20)
 

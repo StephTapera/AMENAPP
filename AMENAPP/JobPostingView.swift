@@ -101,11 +101,11 @@ struct JobPostingView: View {
                             .frame(width: 24, height: 24)
                         if i < step {
                             Image(systemName: "checkmark")
-                                .font(.system(size: 10, weight: .bold))
+                                .font(.systemScaled(10, weight: .bold))
                                 .foregroundStyle(.white)
                         } else {
                             Text("\(i + 1)")
-                                .font(.system(size: 11, weight: .bold))
+                                .font(.systemScaled(11, weight: .bold))
                                 .foregroundStyle(i == step ? .white : .secondary)
                         }
                     }
@@ -236,19 +236,19 @@ struct JobPostingView: View {
                             if !trimmed.isEmpty { requirements.append(trimmed); requirementText = "" }
                         } label: {
                             Image(systemName: "plus.circle.fill")
-                                .font(.system(size: 22))
+                                .font(.systemScaled(22))
                                 .foregroundStyle(Color(red: 0.20, green: 0.55, blue: 0.95))
                         }
                     }
                     ForEach(requirements, id: \.self) { req in
                         HStack {
                             Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                                 .foregroundStyle(Color(red: 0.20, green: 0.70, blue: 0.45))
                             Text(req).font(AMENFont.regular(13)).foregroundStyle(.primary)
                             Spacer()
                             Button { requirements.removeAll { $0 == req } } label: {
-                                Image(systemName: "xmark.circle.fill").font(.system(size: 14)).foregroundStyle(.secondary)
+                                Image(systemName: "xmark.circle.fill").font(.systemScaled(14)).foregroundStyle(.secondary)
                             }
                         }
                     }
@@ -323,16 +323,16 @@ struct JobPostingView: View {
                             let trimmed = benefitText.trimmingCharacters(in: .whitespaces)
                             if !trimmed.isEmpty { benefits.append(trimmed); benefitText = "" }
                         } label: {
-                            Image(systemName: "plus.circle.fill").font(.system(size: 22)).foregroundStyle(Color(red: 0.20, green: 0.55, blue: 0.95))
+                            Image(systemName: "plus.circle.fill").font(.systemScaled(22)).foregroundStyle(Color(red: 0.20, green: 0.55, blue: 0.95))
                         }
                     }
                     ForEach(benefits, id: \.self) { b in
                         HStack {
-                            Image(systemName: "star.fill").font(.system(size: 10)).foregroundStyle(Color(red: 0.90, green: 0.65, blue: 0.20))
+                            Image(systemName: "star.fill").font(.systemScaled(10)).foregroundStyle(Color(red: 0.90, green: 0.65, blue: 0.20))
                             Text(b).font(AMENFont.regular(13)).foregroundStyle(.primary)
                             Spacer()
                             Button { benefits.removeAll { $0 == b } } label: {
-                                Image(systemName: "xmark.circle.fill").font(.system(size: 14)).foregroundStyle(.secondary)
+                                Image(systemName: "xmark.circle.fill").font(.systemScaled(14)).foregroundStyle(.secondary)
                             }
                         }
                     }
@@ -351,7 +351,7 @@ struct JobPostingView: View {
                         Button { applyModel = model } label: {
                             HStack(spacing: 12) {
                                 Image(systemName: model.icon)
-                                    .font(.system(size: 18))
+                                    .font(.systemScaled(18))
                                     .foregroundStyle(applyModel == model ? Color(red: 0.20, green: 0.55, blue: 0.95) : .secondary)
                                     .frame(width: 28)
                                 VStack(alignment: .leading, spacing: 2) {
@@ -385,7 +385,7 @@ struct JobPostingView: View {
             }
             if let warning = safetyWarning {
                 HStack(alignment: .top, spacing: 8) {
-                    Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 14)).foregroundStyle(Color(red: 0.90, green: 0.65, blue: 0.20))
+                    Image(systemName: "exclamationmark.triangle.fill").font(.systemScaled(14)).foregroundStyle(Color(red: 0.90, green: 0.65, blue: 0.20))
                     Text(warning).font(AMENFont.regular(12)).foregroundStyle(.primary)
                 }
                 .padding(12)
@@ -429,7 +429,7 @@ struct JobPostingView: View {
     private var successView: some View {
         VStack(spacing: 24) {
             Image(systemName: "checkmark.seal.fill")
-                .font(.system(size: 60))
+                .font(.systemScaled(60))
                 .foregroundStyle(Color(red: 0.20, green: 0.55, blue: 0.95))
             Text("Job Posted!")
                 .font(AMENFont.bold(22))

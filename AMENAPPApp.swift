@@ -11,6 +11,7 @@ import FirebaseAuth
 import FirebaseFirestore
 import FirebaseDatabase  // ✅ Added for Realtime Database
 import FirebaseRemoteConfig  // ✅ Added for AI API keys
+import FirebaseFunctions
 import GoogleSignIn
 import StoreKit  // ✅ Added for In-App Purchases
 import BackgroundTasks  // ✅ BGAppRefreshTask for background feed refresh
@@ -518,6 +519,16 @@ struct AMENAPPApp: App {
                     self.fcmSetupDone = false
                     dlog("👋 User logged out, unregistering device token")
                     await DeviceTokenManager.shared.unregisterDeviceToken()
+                    // ✅ FIX: Clear badge count on sign-out so stale unread numbers
+                    // don't persist to the next user session or show on the Home Screen.
+                    await MainActor.run { BadgeCountManager.shared.clearBadge() }
+                    // ✅ FIX: Revoke all Firebase refresh tokens so other devices are
+                    // forced to re-authenticate. Non-fatal if this call fails — the
+                    // local sign-out still completes; tokens expire within 1 hour.
+                    Task.detached(priority: .background) {
+                        try? await Functions.functions(region: "us-central1")
+                            .httpsCallable("revokeUserSessions").call()
+                    }
                     AgeAssuranceService.shared.reset()
                     // Stop FollowService listeners so stale following data from the
                     // previous user doesn't leak into the next sign-in session.

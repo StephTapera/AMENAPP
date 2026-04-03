@@ -6,7 +6,7 @@ import SwiftUI
 
 // MARK: - Models
 
-struct TranscriptSegment: Identifiable {
+struct VideoTranscriptSegment: Identifiable {
     let id: String
     let offsetSeconds: TimeInterval
     let text: String
@@ -42,7 +42,7 @@ enum TranscriptTab: String, CaseIterable {
 struct VideoTranscriptSheetView: View {
     let videoTitle: String
     let preacherName: String
-    let segments: [TranscriptSegment]
+    let segments: [VideoTranscriptSegment]
     let keyMoments: [VideoKeyMoment]
     let onJumpTo: (TimeInterval) -> Void
     let onSaveNote: (String) -> Void
@@ -100,12 +100,12 @@ struct VideoTranscriptSheetView: View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(videoTitle)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(.black)
                     .lineLimit(1)
 
                 Text(preacherName)
-                    .font(.system(size: 13, weight: .regular))
+                    .font(.systemScaled(13, weight: .regular))
                     .foregroundStyle(.black.opacity(0.50))
             }
 
@@ -126,7 +126,7 @@ struct VideoTranscriptSheetView: View {
                         .frame(width: 32, height: 32)
 
                     Image(systemName: "xmark")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(.black.opacity(0.60))
                 }
             }
@@ -159,7 +159,7 @@ struct VideoTranscriptSheetView: View {
                     }
                 } label: {
                     Text(tab.rawValue)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(activeTab == tab ? Color.white : Color.black.opacity(0.65))
                         .padding(.horizontal, 14)
                         .padding(.vertical, 8)
@@ -212,7 +212,7 @@ struct VideoTranscriptSheetView: View {
         .padding(.top, 4)
     }
 
-    private func transcriptSegmentRow(_ segment: TranscriptSegment) -> some View {
+    private func transcriptSegmentRow(_ segment: VideoTranscriptSegment) -> some View {
         Button {
             onJumpTo(segment.offsetSeconds)
         } label: {
@@ -229,7 +229,7 @@ struct VideoTranscriptSheetView: View {
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
                         // Timestamp pill
                         Text(formatTimestamp(segment.offsetSeconds))
-                            .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                            .font(.systemScaled(11, weight: .semibold, design: .monospaced))
                             .foregroundStyle(.black.opacity(0.70))
                             .padding(.horizontal, 8)
                             .padding(.vertical, 3)
@@ -242,14 +242,14 @@ struct VideoTranscriptSheetView: View {
 
                         if segment.isKeyMoment {
                             Text("Key moment")
-                                .font(.system(size: 10, weight: .semibold))
+                                .font(.systemScaled(10, weight: .semibold))
                                 .foregroundStyle(Color.orange.opacity(0.80))
                         }
                     }
 
                     // Segment text
                     Text(segment.text)
-                        .font(.system(size: 14, weight: .regular))
+                        .font(.systemScaled(14, weight: .regular))
                         .foregroundStyle(.black.opacity(0.80))
                         .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
@@ -261,10 +261,10 @@ struct VideoTranscriptSheetView: View {
                                 ForEach(segment.detectedVerses, id: \.self) { verse in
                                     HStack(spacing: 4) {
                                         Image(systemName: "book.fill")
-                                            .font(.system(size: 9, weight: .semibold))
+                                            .font(.systemScaled(9, weight: .semibold))
                                             .foregroundStyle(.black.opacity(0.55))
                                         Text(verse)
-                                            .font(.system(size: 11, weight: .medium))
+                                            .font(.systemScaled(11, weight: .medium))
                                             .foregroundStyle(.black.opacity(0.65))
                                     }
                                     .padding(.horizontal, 8)
@@ -328,18 +328,18 @@ struct VideoTranscriptSheetView: View {
                     .frame(width: 40, height: 40)
 
                 Image(systemName: keyMomentIcon(moment.type))
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(keyMomentColor(moment.type))
             }
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(moment.title)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.black)
                     .lineLimit(2)
 
                 Text(formatTimestamp(moment.offsetSeconds))
-                    .font(.system(size: 12, weight: .regular, design: .monospaced))
+                    .font(.systemScaled(12, weight: .regular, design: .monospaced))
                     .foregroundStyle(.black.opacity(0.45))
             }
 
@@ -350,7 +350,7 @@ struct VideoTranscriptSheetView: View {
                 onJumpTo(moment.offsetSeconds)
             } label: {
                 Text("Jump to")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(.black.opacity(0.70))
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
@@ -395,11 +395,11 @@ struct VideoTranscriptSheetView: View {
                 // Empty state
                 VStack(spacing: 8) {
                     Image(systemName: "square.and.pencil")
-                        .font(.system(size: 28, weight: .ultraLight))
+                        .font(.systemScaled(28, weight: .ultraLight))
                         .foregroundStyle(.black.opacity(0.25))
 
                     Text("No notes yet")
-                        .font(.system(size: 14, weight: .regular))
+                        .font(.systemScaled(14, weight: .regular))
                         .foregroundStyle(.black.opacity(0.35))
                 }
                 .frame(maxWidth: .infinity)
@@ -415,7 +415,7 @@ struct VideoTranscriptSheetView: View {
     private func savedNoteCard(_ note: String) -> some View {
         HStack(alignment: .top, spacing: 12) {
             Text(note)
-                .font(.system(size: 14, weight: .regular))
+                .font(.systemScaled(14, weight: .regular))
                 .foregroundStyle(.black.opacity(0.80))
                 .multilineTextAlignment(.leading)
                 .fixedSize(horizontal: false, vertical: true)
@@ -428,7 +428,7 @@ struct VideoTranscriptSheetView: View {
                 #endif
             } label: {
                 Image(systemName: "doc.on.doc")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(.black.opacity(0.40))
                     .frame(width: 28, height: 28)
             }
@@ -469,7 +469,7 @@ struct VideoTranscriptSheetView: View {
 
                 if noteText.isEmpty {
                     Text("Write a note from this clip…")
-                        .font(.system(size: 14, weight: .regular))
+                        .font(.systemScaled(14, weight: .regular))
                         .foregroundStyle(.black.opacity(0.30))
                         .padding(.top, 12)
                         .padding(.horizontal, 14)
@@ -477,7 +477,7 @@ struct VideoTranscriptSheetView: View {
                 }
 
                 TextEditor(text: $noteText)
-                    .font(.system(size: 14, weight: .regular))
+                    .font(.systemScaled(14, weight: .regular))
                     .foregroundStyle(.black.opacity(0.80))
                     .scrollContentBackground(.hidden)
                     .background(Color.clear)
@@ -497,7 +497,7 @@ struct VideoTranscriptSheetView: View {
                 }
             } label: {
                 Text("Save Note")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 13)
@@ -547,22 +547,22 @@ struct VideoTranscriptSheetView: View {
 
 #if DEBUG
 struct VideoTranscriptSheetView_Previews: PreviewProvider {
-    static let sampleSegments: [TranscriptSegment] = [
-        TranscriptSegment(
+    static let sampleSegments: [VideoTranscriptSegment] = [
+        VideoTranscriptSegment(
             id: "s1",
             offsetSeconds: 12,
             text: "Today we're going to talk about the peace that surpasses all understanding — the kind of peace that holds you steady even in the storm.",
             isKeyMoment: false,
             detectedVerses: ["Philippians 4:7"]
         ),
-        TranscriptSegment(
+        VideoTranscriptSegment(
             id: "s2",
             offsetSeconds: 45,
             text: "Jesus said 'Peace I leave with you, my peace I give you. Not as the world gives do I give to you.' That word peace here — shalom — means completeness. Wholeness.",
             isKeyMoment: true,
             detectedVerses: ["John 14:27"]
         ),
-        TranscriptSegment(
+        VideoTranscriptSegment(
             id: "s3",
             offsetSeconds: 112,
             text: "So how do we access that peace? Paul tells us in Philippians — through prayer, through thanksgiving, through bringing every anxious thought to God.",

@@ -177,7 +177,7 @@ struct StudioHubView: View {
                         .frame(width: 34, height: 34)
                         .overlay(Circle().strokeBorder(Color.white.opacity(0.12), lineWidth: 0.5))
                     Image(systemName: "xmark")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(.white)
                 }
             }
@@ -195,11 +195,11 @@ struct StudioHubView: View {
             Button { showPaywall = true } label: {
                 HStack(spacing: 12) {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(.purple)
                     VStack(alignment: .leading, spacing: 1) {
                         Text("Unlock Studio Creator")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                             .foregroundStyle(.white)
                         Text("\(3 - subscriptionService.freeCreatesUsed) free creates remaining • Try 7 days free")
                             .font(.caption)
@@ -295,13 +295,13 @@ private struct DarkGlassModeCard: View {
                             .fill(mode.accentColor.opacity(0.12))
                             .frame(width: 44, height: 44)
                         Image(systemName: mode.icon)
-                            .font(.system(size: 20, weight: .medium))
+                            .font(.systemScaled(20, weight: .medium))
                             .foregroundStyle(mode.accentColor)
                     }
 
                     VStack(alignment: .leading, spacing: 3) {
                         Text(mode.title)
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(.systemScaled(15, weight: .semibold))
                             .foregroundStyle(.white)
                         Text(mode.subtitle)
                             .font(.caption)
@@ -315,9 +315,9 @@ private struct DarkGlassModeCard: View {
                     if mode.requiresPaid && subscription.entitlement == .free {
                         HStack(spacing: 4) {
                             Image(systemName: "lock.fill")
-                                .font(.system(size: 9))
+                                .font(.systemScaled(9))
                             Text("Creator+")
-                                .font(.system(size: 10, weight: .semibold))
+                                .font(.systemScaled(10, weight: .semibold))
                         }
                         .foregroundStyle(Color.white.opacity(0.5))
                         .padding(.horizontal, 8)
@@ -403,13 +403,13 @@ private struct FaithReelLiveCard: View {
                             .fill(Color.red.opacity(0.12))
                             .frame(width: 48, height: 48)
                         Image(systemName: "film.stack")
-                            .font(.system(size: 20))
+                            .font(.systemScaled(20))
                             .foregroundStyle(Color.red.opacity(0.85))
                     }
 
                     VStack(alignment: .leading, spacing: 3) {
                         Text("Faith Reel Studio")
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(.systemScaled(15, weight: .semibold))
                             .foregroundStyle(.white)
                         Text("Create short-form video testimonies and worship reels")
                             .font(.caption)
@@ -497,17 +497,17 @@ private struct DarkGlassSynapticCard: View {
                             )
                             .frame(width: 48, height: 48)
                         Image(systemName: "waveform.path.ecg")
-                            .font(.system(size: 20))
+                            .font(.systemScaled(20))
                             .foregroundStyle(.purple)
                     }
 
                     VStack(alignment: .leading, spacing: 3) {
                         HStack(spacing: 6) {
                             Text("Synaptic Studio")
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(.systemScaled(15, weight: .semibold))
                                 .foregroundStyle(.white)
                             Text("BETA")
-                                .font(.system(size: 9, weight: .bold))
+                                .font(.systemScaled(9, weight: .bold))
                                 .foregroundStyle(Color.white.opacity(0.7))
                                 .padding(.horizontal, 5)
                                 .padding(.vertical, 2)
@@ -577,17 +577,17 @@ private struct DarkGlassBlueprintCard: View {
                         )
                         .frame(width: 52, height: 52)
                     Image(systemName: "lightbulb.max.fill")
-                        .font(.system(size: 22, weight: .medium))
+                        .font(.systemScaled(22, weight: .medium))
                         .foregroundStyle(.orange)
                 }
 
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 6) {
                         Text("Blueprint")
-                            .font(.system(size: 16, weight: .bold))
+                            .font(.systemScaled(16, weight: .bold))
                             .foregroundStyle(.white)
                         Text("COMING SOON")
-                            .font(.system(size: 9, weight: .semibold))
+                            .font(.systemScaled(9, weight: .semibold))
                             .kerning(0.5)
                             .foregroundStyle(Color.white.opacity(0.35))
                             .padding(.horizontal, 6)
@@ -595,13 +595,13 @@ private struct DarkGlassBlueprintCard: View {
                             .background(Capsule().fill(Color.white.opacity(0.07)))
                     }
                     Text("Turn your ideas into reality")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(Color.white.opacity(0.35))
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 5) {
                             ForEach(["Idea Intake", "Stress Test", "Collaborators", "Launch Pad"], id: \.self) { tag in
                                 Text(tag)
-                                    .font(.system(size: 10, weight: .medium))
+                                    .font(.systemScaled(10, weight: .medium))
                                     .foregroundStyle(.orange.opacity(0.85))
                                     .padding(.horizontal, 7)
                                     .padding(.vertical, 2)
@@ -649,17 +649,17 @@ private struct DarkGlassCollabCard: View {
                         )
                         .frame(width: 52, height: 52)
                     Image(systemName: "person.3.fill")
-                        .font(.system(size: 20, weight: .medium))
+                        .font(.systemScaled(20, weight: .medium))
                         .foregroundStyle(.teal)
                 }
 
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 6) {
                         Text("Collab")
-                            .font(.system(size: 16, weight: .bold))
+                            .font(.systemScaled(16, weight: .bold))
                             .foregroundStyle(.white)
                         Text("COMING SOON")
-                            .font(.system(size: 9, weight: .semibold))
+                            .font(.systemScaled(9, weight: .semibold))
                             .kerning(0.5)
                             .foregroundStyle(Color.white.opacity(0.35))
                             .padding(.horizontal, 6)
@@ -667,13 +667,13 @@ private struct DarkGlassCollabCard: View {
                             .background(Capsule().fill(Color.white.opacity(0.07)))
                     }
                     Text("Co-create with your community")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(Color.white.opacity(0.35))
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 5) {
                             ForEach(["Active Collabs", "Invite Followers", "Live Presence"], id: \.self) { tag in
                                 Text(tag)
-                                    .font(.system(size: 10, weight: .medium))
+                                    .font(.systemScaled(10, weight: .medium))
                                     .foregroundStyle(.teal.opacity(0.85))
                                     .padding(.horizontal, 7)
                                     .padding(.vertical, 2)
@@ -753,7 +753,7 @@ private struct DarkGlassChallengeCard: View {
                             .fill(Color.orange.opacity(0.12))
                             .frame(width: 48, height: 48)
                         Image(systemName: "trophy.fill")
-                            .font(.system(size: 20))
+                            .font(.systemScaled(20))
                             .foregroundStyle(.orange)
                     }
                     VStack(alignment: .leading, spacing: 3) {
@@ -762,7 +762,7 @@ private struct DarkGlassChallengeCard: View {
                             .fontWeight(.semibold)
                             .foregroundStyle(.orange)
                         Text(challengeTitle)
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.systemScaled(14, weight: .medium))
                             .foregroundStyle(.white)
                             .lineLimit(2)
                         Text("\(participantCount) creators participating • \(challengeDeadline)")

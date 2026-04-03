@@ -40,7 +40,7 @@ struct SmartBookCard_WithViewModel: View {
                         .frame(width: 80, height: 120)
                     
                     Image(systemName: "book.fill")
-                        .font(.system(size: 32))
+                        .font(.systemScaled(32))
                         .foregroundStyle(.white.opacity(0.7))
                 }
                 .shadow(color: .black.opacity(0.15), radius: 8, y: 2)
@@ -66,7 +66,7 @@ struct SmartBookCard_WithViewModel: View {
                         HStack(spacing: 2) {
                             ForEach(0..<5) { index in
                                 Image(systemName: index < book.rating ? "star.fill" : "star")
-                                    .font(.system(size: 10))
+                                    .font(.systemScaled(10))
                                     .foregroundStyle(.orange)
                             }
                         }
@@ -93,7 +93,7 @@ struct SmartBookCard_WithViewModel: View {
                     }
                 } label: {
                     Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
-                        .font(.system(size: 24, weight: .semibold))
+                        .font(.systemScaled(24, weight: .semibold))
                         .foregroundStyle(isSaved ? .blue : .secondary)
                         .symbolEffect(.bounce, value: isSaved)
                 }
@@ -143,7 +143,7 @@ struct GridBookCard_WithViewModel: View {
                             .aspectRatio(0.67, contentMode: .fit)
                         
                         Image(systemName: "book.fill")
-                            .font(.system(size: 48))
+                            .font(.systemScaled(48))
                             .foregroundStyle(.white.opacity(0.4))
                     }
                     
@@ -155,7 +155,7 @@ struct GridBookCard_WithViewModel: View {
                         }
                     } label: {
                         Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
-                            .font(.system(size: 18))
+                            .font(.systemScaled(18))
                             .foregroundStyle(isSaved ? .blue : .white)
                             .symbolEffect(.bounce, value: isSaved)
                             .padding(8)
@@ -182,7 +182,7 @@ struct GridBookCard_WithViewModel: View {
                     HStack(spacing: 2) {
                         ForEach(0..<5) { index in
                             Image(systemName: index < book.rating ? "star.fill" : "star")
-                                .font(.system(size: 9))
+                                .font(.systemScaled(9))
                                 .foregroundStyle(.orange)
                         }
                     }
@@ -224,7 +224,7 @@ struct BookDetailView_WithViewModel: View {
                             .frame(width: 200, height: 300)
                         
                         Image(systemName: "book.fill")
-                            .font(.system(size: 80))
+                            .font(.systemScaled(80))
                             .foregroundStyle(.white.opacity(0.4))
                     }
                     .shadow(color: .black.opacity(0.2), radius: 16, y: 8)
@@ -244,7 +244,7 @@ struct BookDetailView_WithViewModel: View {
                             HStack(spacing: 2) {
                                 ForEach(0..<5) { index in
                                     Image(systemName: index < book.rating ? "star.fill" : "star")
-                                        .font(.system(size: 14))
+                                        .font(.systemScaled(14))
                                         .foregroundStyle(.orange)
                                 }
                             }
@@ -300,7 +300,7 @@ struct BookDetailView_WithViewModel: View {
                             }
                         } label: {
                             Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
-                                .font(.system(size: 18))
+                                .font(.systemScaled(18))
                                 .foregroundStyle(isSaved ? .white : .primary)
                                 .frame(width: 50, height: 50)
                                 .background(
@@ -312,7 +312,7 @@ struct BookDetailView_WithViewModel: View {
                         
                         ShareLink(item: book.title) {
                             Image(systemName: "square.and.arrow.up")
-                                .font(.system(size: 18))
+                                .font(.systemScaled(18))
                                 .foregroundStyle(.primary)
                                 .frame(width: 50, height: 50)
                                 .background(
@@ -366,7 +366,7 @@ struct BookDetailView_WithViewModel: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 28))
+                            .font(.systemScaled(28))
                             .foregroundStyle(.secondary)
                     }
                 }

@@ -107,7 +107,7 @@ struct KoraRootView: View {
             Spacer()
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundColor(Color(hex: "F59E0B").opacity(0.7))
         }
         .padding(.horizontal, 16)
@@ -138,7 +138,7 @@ struct KoraRootView: View {
     private var emptyState: some View {
         VStack(spacing: 20) {
             Image(systemName: "hands.sparkles.fill")
-                .font(.system(size: 52))
+                .font(.systemScaled(52))
                 .foregroundStyle(
                     LinearGradient(
                         colors: [Color(hex: "F59E0B"), Color(hex: "EF4444")],
@@ -211,7 +211,7 @@ struct KoraRootView: View {
                     .shadow(color: Color(hex: "F59E0B").opacity(0.4), radius: 12, x: 0, y: 4)
 
                 Image(systemName: "plus")
-                    .font(.system(size: 22, weight: .semibold))
+                    .font(.systemScaled(22, weight: .semibold))
                     .foregroundColor(.white)
             }
         }

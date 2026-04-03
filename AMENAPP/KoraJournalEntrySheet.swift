@@ -136,7 +136,7 @@ struct KoraJournalEntrySheet: View {
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: icon)
-                    .font(.system(size: 10))
+                    .font(.systemScaled(10))
                 Text(label)
                     .font(isSelected ? AMENFont.semiBold(12) : AMENFont.regular(12))
             }
@@ -168,7 +168,7 @@ struct KoraJournalEntrySheet: View {
                             .scaleEffect(0.8)
                     } else {
                         Image(systemName: "sparkles")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundColor(Color(hex: "F59E0B"))
                     }
                     Text(isLoadingReflection ? "Getting reflection…" : "Ask AI for Reflection")
@@ -207,14 +207,14 @@ struct KoraJournalEntrySheet: View {
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundColor(Color(hex: "F59E0B"))
                     Text("AI Reflection")
                         .font(AMENFont.semiBold(13))
                         .foregroundColor(Color(hex: "F59E0B"))
                     Spacer()
                     Image(systemName: isReflectionExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundColor(Color(hex: "F59E0B").opacity(0.6))
                 }
             }

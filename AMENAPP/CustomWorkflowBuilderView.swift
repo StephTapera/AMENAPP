@@ -119,7 +119,7 @@ struct CustomWorkflowBuilderView: View {
                                     .fill(isSelected ? Color(hex: "6B48FF").opacity(0.22) : Color.white.opacity(0.05))
                                     .frame(width: 44, height: 44)
                                 Image(systemName: trigger.icon)
-                                    .font(.system(size: 18))
+                                    .font(.systemScaled(18))
                                     .foregroundColor(isSelected ? Color(hex: "6B48FF") : .white.opacity(0.45))
                             }
                             VStack(alignment: .leading, spacing: 2) {
@@ -133,7 +133,7 @@ struct CustomWorkflowBuilderView: View {
                             Spacer()
                             if isSelected {
                                 Image(systemName: "checkmark.circle.fill")
-                                    .font(.system(size: 18))
+                                    .font(.systemScaled(18))
                                     .foregroundColor(Color(hex: "10B981"))
                             }
                         }
@@ -216,7 +216,7 @@ struct CustomWorkflowBuilderView: View {
                 } label: {
                     HStack(spacing: 5) {
                         Image(systemName: "plus")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                         Text("Add Step")
                             .font(AMENFont.semiBold(13))
                     }
@@ -238,7 +238,7 @@ struct CustomWorkflowBuilderView: View {
                     Spacer()
                     VStack(spacing: 10) {
                         Image(systemName: "list.bullet.rectangle.portrait")
-                            .font(.system(size: 28))
+                            .font(.systemScaled(28))
                             .foregroundColor(.white.opacity(0.2))
                         Text("Tap \"Add Step\" to build your workflow")
                             .font(AMENFont.regular(13))
@@ -285,11 +285,11 @@ struct CustomWorkflowBuilderView: View {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: step.wrappedValue.type.icon)
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                         Text(step.wrappedValue.type.label)
                             .font(AMENFont.semiBold(13))
                         Image(systemName: "chevron.down")
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                     }
                     .foregroundColor(.white)
                     .padding(.horizontal, 12)
@@ -311,7 +311,7 @@ struct CustomWorkflowBuilderView: View {
                     }
                 } label: {
                     Image(systemName: "minus.circle.fill")
-                        .font(.system(size: 20))
+                        .font(.systemScaled(20))
                         .foregroundColor(Color(hex: "EF4444").opacity(0.7))
                 }
                 .buttonStyle(CoCreationPressStyle())

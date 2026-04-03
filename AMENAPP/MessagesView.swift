@@ -521,7 +521,7 @@ struct MessagesView: View {
                 // Inline badge count (requests only) with scale animation on first appearance
                 if let count = badge, count > 0 {
                     Text("\(min(count, 99))")
-                        .font(.system(size: 10, weight: .bold))
+                        .font(.systemScaled(10, weight: .bold))
                         .foregroundStyle(isActive ? AMENInboxTokens.accent : .white)
                         .padding(.horizontal, 5)
                         .padding(.vertical, 2)
@@ -579,7 +579,7 @@ struct MessagesView: View {
                     HapticManager.impact(style: .light)
                 } label: {
                     Image(systemName: "chevron.left")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.systemScaled(18, weight: .semibold))
                         .foregroundStyle(.primary)
                         .frame(width: 40, height: 40)
                         .background(
@@ -603,7 +603,7 @@ struct MessagesView: View {
                     HapticManager.impact(style: .light)
                 } label: {
                     Image(systemName: "square.and.pencil")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.systemScaled(18, weight: .semibold))
                         .foregroundStyle(.primary)
                         .frame(width: 44, height: 44)
                         .background(
@@ -639,7 +639,7 @@ struct MessagesView: View {
                 HapticManager.impact(style: .light)
             } label: {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(.primary)
                     .frame(width: 32, height: 32)
             }
@@ -658,7 +658,7 @@ struct MessagesView: View {
                 HapticManager.impact(style: .light)
             } label: {
                 Image(systemName: "square.and.pencil")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(.primary)
                     .frame(width: 32, height: 32)
             }
@@ -730,7 +730,7 @@ struct MessagesView: View {
         VStack(spacing: 8) {
             HStack(spacing: 12) {
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.systemScaled(16, weight: .medium))
                     .foregroundStyle(.secondary)
 
                 TextField("Search conversations", text: $searchText)
@@ -744,7 +744,7 @@ struct MessagesView: View {
                         searchText = ""
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 16))
+                            .font(.systemScaled(16))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -765,7 +765,7 @@ struct MessagesView: View {
                     HStack(spacing: 8) {
                         ForEach(["Photos", "Links", "People"], id: \.self) { filter in
                             Text(filter)
-                                .font(.system(size: 12, weight: .medium))
+                                .font(.systemScaled(12, weight: .medium))
                                 .foregroundStyle(.secondary)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 6)
@@ -810,7 +810,7 @@ struct MessagesView: View {
                         if selectedTab == .messages && !pinnedConversations.isEmpty && searchText.isEmpty {
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("PINNED")
-                                    .font(.system(size: 11, weight: .semibold))
+                                    .font(.systemScaled(11, weight: .semibold))
                                     .tracking(1)
                                     .foregroundStyle(.secondary.opacity(0.6))
                                     .padding(.horizontal, 20)
@@ -831,7 +831,7 @@ struct MessagesView: View {
                                     .padding(.vertical, 10)
 
                                 Text("ALL MESSAGES")
-                                    .font(.system(size: 11, weight: .semibold))
+                                    .font(.systemScaled(11, weight: .semibold))
                                     .tracking(1)
                                     .foregroundStyle(.secondary.opacity(0.6))
                                     .padding(.horizontal, 20)
@@ -844,7 +844,7 @@ struct MessagesView: View {
                         // Search results header
                         if !searchText.isEmpty {
                             Text("RESULTS")
-                                .font(.system(size: 11, weight: .semibold))
+                                .font(.systemScaled(11, weight: .semibold))
                                 .tracking(1)
                                 .foregroundStyle(.secondary.opacity(0.6))
                                 .padding(.horizontal, 20)
@@ -897,7 +897,7 @@ struct MessagesView: View {
                 // Swipe hint tooltip
                 if showSwipeHint {
                     Text("Tip: swipe conversations for more options")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 8)
@@ -913,7 +913,7 @@ struct MessagesView: View {
                     HapticManager.impact(style: .light)
                 } label: {
                     Image(systemName: "square.and.pencil")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.systemScaled(18, weight: .semibold))
                         .foregroundStyle(.white)
                         .frame(width: 52, height: 52)
                         .background(
@@ -947,7 +947,7 @@ struct MessagesView: View {
                         
                         if conversation.isGroup {
                             Image(systemName: "person.2.fill")
-                                .font(.system(size: 10))
+                                .font(.systemScaled(10))
                                 .foregroundStyle(.secondary)
                         }
                         
@@ -983,7 +983,7 @@ struct MessagesView: View {
 
                                 if conversation.unreadCount > 9 {
                                     Text("\(conversation.unreadCount)")
-                                        .font(.system(size: 11, weight: .bold))
+                                        .font(.systemScaled(11, weight: .bold))
                                         .foregroundStyle(.white)
                                         .padding(.horizontal, 5)
                                         .padding(.vertical, 1)
@@ -1057,7 +1057,7 @@ struct MessagesView: View {
             if !searchText.isEmpty {
                 // Search empty state
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 48))
+                    .font(.systemScaled(48))
                     .foregroundStyle(.secondary.opacity(0.4))
 
                 Text("No results for \"\(searchText)\"")
@@ -1073,7 +1073,7 @@ struct MessagesView: View {
                 }
             } else {
                 Image(systemName: "bubble.left.and.bubble.right")
-                    .font(.system(size: 64))
+                    .font(.systemScaled(64))
                     .foregroundStyle(.secondary.opacity(0.5))
 
                 Text("No messages yet")
@@ -1330,7 +1330,7 @@ struct MessagesView: View {
                             VStack(alignment: .leading, spacing: 8) {
                                 HStack {
                                     Text("Pinned")
-                                        .font(.system(size: 13, weight: .semibold))
+                                        .font(.systemScaled(13, weight: .semibold))
                                         .foregroundStyle(.secondary)
                                         .textCase(.uppercase)
                                         .tracking(0.5)
@@ -1338,7 +1338,7 @@ struct MessagesView: View {
                                     Spacer()
 
                                     Text("\(pinnedConversations.count)/3")
-                                        .font(.system(size: 12, weight: .medium))
+                                        .font(.systemScaled(12, weight: .medium))
                                         .foregroundStyle(.secondary.opacity(0.7))
                                 }
                                 .padding(.horizontal, 20)
@@ -1437,7 +1437,7 @@ struct MessagesView: View {
                         if !filteredConversations.isEmpty && !pinnedConversations.isEmpty {
                             HStack {
                                 Text("Messages")
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .font(.systemScaled(13, weight: .semibold))
                                     .foregroundStyle(.secondary)
                                     .textCase(.uppercase)
                                     .tracking(0.5)
@@ -2043,7 +2043,7 @@ struct MessagesView: View {
                     .shadow(color: .white.opacity(0.7), radius: 20, x: -10, y: -10)
                 
                 Image(systemName: "archivebox.fill")
-                    .font(.system(size: 50))
+                    .font(.systemScaled(50))
                     .foregroundStyle(
                         LinearGradient(
                             colors: [.gray, .gray.opacity(0.6)],
@@ -2328,7 +2328,7 @@ struct MessagesView: View {
                     .shadow(color: .white.opacity(0.7), radius: 20, x: -10, y: -10)
                 
                 Image(systemName: "envelope.open.fill")
-                    .font(.system(size: 50))
+                    .font(.systemScaled(50))
                     .foregroundStyle(
                         LinearGradient(
                             colors: [.green, .green.opacity(0.7)],
@@ -2415,7 +2415,7 @@ struct MessagesView: View {
                     .shadow(color: .white.opacity(0.7), radius: 20, x: -10, y: -10)
                 
                 Image(systemName: "message.fill")
-                    .font(.system(size: 50))
+                    .font(.systemScaled(50))
                     .foregroundStyle(
                         LinearGradient(
                             colors: [.blue, .blue.opacity(0.7)],
@@ -2614,7 +2614,7 @@ struct SmartGlassmorphicButton: View {
                 .frame(width: size, height: size)
             
             Image(systemName: icon)
-                .font(.system(size: iconSize, weight: .semibold))
+                .font(.systemScaled(iconSize, weight: .semibold))
                 .foregroundStyle(isActive ? .blue : .primary)
                 .symbolEffect(.bounce, value: isPressed)
         }
@@ -2697,7 +2697,7 @@ struct NeumorphicConversationRow: View {
                 
                 if conversation.isGroup {
                     Image(systemName: "person.3.fill")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.systemScaled(18, weight: .semibold))
                         .foregroundStyle(conversation.avatarColor)
                         .symbolEffect(.bounce, value: isPressed)
                 } else {
@@ -2842,7 +2842,7 @@ struct ModernConversationRow: View {
                 
                 if conversation.isGroup {
                     Image(systemName: "person.3.fill")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.systemScaled(18, weight: .semibold))
                         .foregroundStyle(conversation.avatarColor)
                 } else {
                     Text(conversation.initials)
@@ -2955,7 +2955,7 @@ struct ConversationRow: View {
                 
                 if conversation.isGroup {
                     Image(systemName: "person.3.fill")
-                        .font(.system(size: 20))
+                        .font(.systemScaled(20))
                         .foregroundStyle(conversation.avatarColor)
                 } else if let profilePhotoURL = conversation.profilePhotoURL, !profilePhotoURL.isEmpty {
                     // Show profile photo with caching for persistence
@@ -3203,7 +3203,7 @@ struct CreateGroupView: View {
             // Group preview line
             HStack(spacing: 6) {
                 Text("Members: \(selectedUsers.count)")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                     .foregroundStyle(.tertiary)
             }
 
@@ -3230,7 +3230,7 @@ struct CreateGroupView: View {
     private func checklistItem(text: String, satisfied: Bool) -> some View {
         HStack(spacing: 6) {
             Image(systemName: satisfied ? "checkmark.circle.fill" : "circle")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundColor(satisfied ? .green : Color.secondary.opacity(0.5))
             Text(text)
                 .font(.custom("OpenSans-Regular", size: 12))
@@ -3360,7 +3360,7 @@ struct CreateGroupView: View {
             } else if hasSearched && searchResults.isEmpty {
                 VStack(spacing: 12) {
                     Image(systemName: "person.crop.circle.badge.questionmark")
-                        .font(.system(size: 50))
+                        .font(.systemScaled(50))
                         .foregroundStyle(.secondary)
                     
                     Text("No users found")
@@ -3440,20 +3440,20 @@ struct CreateGroupView: View {
             
             if isUserSelected(user) {
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 22))
+                    .font(.systemScaled(22))
                     .foregroundStyle(.blue)
             } else if selectedUsers.count >= maxMembers {
                 VStack(spacing: 2) {
                     Image(systemName: "exclamationmark.circle")
-                        .font(.system(size: 22))
+                        .font(.systemScaled(22))
                         .foregroundStyle(.orange)
                     Text("Limit")
-                        .font(.system(size: 9, weight: .medium))
+                        .font(.systemScaled(9, weight: .medium))
                         .foregroundStyle(.orange)
                 }
             } else {
                 Image(systemName: "circle")
-                    .font(.system(size: 22))
+                    .font(.systemScaled(22))
                     .foregroundStyle(.secondary.opacity(0.3))
             }
         }
@@ -3466,7 +3466,7 @@ struct CreateGroupView: View {
             
             VStack(spacing: 12) {
                 Image(systemName: "person.3")
-                    .font(.system(size: 50))
+                    .font(.systemScaled(50))
                     .foregroundStyle(.secondary)
                 
                 Text("Search to add members")
@@ -3649,7 +3649,7 @@ struct SelectedUserChip: View {
             
             Button(action: onRemove) {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(.secondary)
             }
         }
@@ -3780,7 +3780,7 @@ struct ProductionMessagingUserSearchView: View {
                     .shadow(color: .white.opacity(0.8), radius: 8, x: -4, y: -4)
                 
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(.secondary)
             }
             
@@ -3853,7 +3853,7 @@ struct ProductionMessagingUserSearchView: View {
                     .shadow(color: .black.opacity(0.1), radius: 20, x: 0, y: 10)
                 
                 Image(systemName: "person.2.fill")
-                    .font(.system(size: 40))
+                    .font(.systemScaled(40))
                     .foregroundStyle(.blue)
             }
             
@@ -3878,7 +3878,7 @@ struct ProductionMessagingUserSearchView: View {
             Spacer()
             
             Image(systemName: "person.crop.circle.badge.questionmark")
-                .font(.system(size: 60))
+                .font(.systemScaled(60))
                 .foregroundStyle(.gray)
             
             VStack(spacing: 8) {
@@ -3901,7 +3901,7 @@ struct ProductionMessagingUserSearchView: View {
             Spacer()
             
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 50))
+                .font(.systemScaled(50))
                 .foregroundStyle(.orange)
             
             Text(message)
@@ -4054,7 +4054,7 @@ struct ProductionUserRow: View {
             
             // Message indicator
             Image(systemName: "paperplane.fill")
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
                 .foregroundStyle(.blue)
         }
         .padding(.horizontal, 20)
@@ -4191,7 +4191,7 @@ struct GlobalMessageSearchView: View {
             Spacer()
             
             Image(systemName: "text.magnifyingglass")
-                .font(.system(size: 60))
+                .font(.systemScaled(60))
                 .foregroundStyle(.secondary)
             
             VStack(spacing: 8) {
@@ -4214,7 +4214,7 @@ struct GlobalMessageSearchView: View {
             Spacer()
             
             Image(systemName: "doc.text.magnifyingglass")
-                .font(.system(size: 60))
+                .font(.systemScaled(60))
                 .foregroundStyle(.secondary)
             
             VStack(spacing: 8) {
@@ -4401,7 +4401,7 @@ struct MessageSearchResultRow: View {
                 
                 if result.hasAttachment {
                     Image(systemName: "paperclip")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -4479,7 +4479,7 @@ struct SmartConversationRow: View {
                         HStack {
                             Spacer()
                             Image(systemName: "pin.fill")
-                                .font(.system(size: 10, weight: .bold))
+                                .font(.systemScaled(10, weight: .bold))
                                 .foregroundStyle(.orange)
                                 .padding(4)
                                 .background(
@@ -4507,7 +4507,7 @@ struct SmartConversationRow: View {
                         
                         if conversation.isMuted {
                             Image(systemName: "bell.slash.fill")
-                                .font(.system(size: 10))
+                                .font(.systemScaled(10))
                                 .foregroundStyle(.secondary.opacity(0.6))
                         }
                     }
@@ -4561,7 +4561,7 @@ struct SmartConversationRow: View {
                         // Delivery status for last message
                         if conversation.lastMessage.hasPrefix("You: ") {
                             Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 10))
+                                .font(.systemScaled(10))
                                 .foregroundStyle(.blue.opacity(0.6))
                         }
                     }
@@ -4650,7 +4650,7 @@ struct SmartConversationRow: View {
             
             if conversation.isGroup {
                 Image(systemName: "person.3.fill")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(conversation.avatarColor)
                     .symbolEffect(.bounce, value: isPressed)
             } else {
@@ -4667,19 +4667,19 @@ struct SmartConversationRow: View {
             // Icon based on message type
             if conversation.lastMessage.contains("📷") || conversation.lastMessage.contains("Photo") {
                 Image(systemName: "photo.fill")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.secondary)
             } else if conversation.lastMessage.contains("🎤") || conversation.lastMessage.contains("Voice") {
                 Image(systemName: "mic.fill")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.secondary)
             } else if conversation.lastMessage.contains("📎") || conversation.lastMessage.contains("Attachment") {
                 Image(systemName: "paperclip")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.secondary)
             } else if conversation.lastMessage.contains("❤️") || conversation.lastMessage.contains("Liked") {
                 Image(systemName: "heart.fill")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.red.opacity(0.8))
             }
             
@@ -5021,7 +5021,7 @@ struct ModernConversationDetailView: View {
             HapticManager.impact(style: .light)
         } label: {
             Image(systemName: "chevron.left")
-                .font(.system(size: 18, weight: .semibold))
+                .font(.systemScaled(18, weight: .semibold))
                 .foregroundStyle(.white)
                 .frame(width: 36, height: 36)
                 .background(liquidGlassCircleSmall)
@@ -5049,7 +5049,7 @@ struct ModernConversationDetailView: View {
             
             if conversation.isGroup {
                 Image(systemName: "person.3.fill")
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(.white.opacity(0.9))
             } else {
                 Text(conversation.initials)
@@ -5084,7 +5084,7 @@ struct ModernConversationDetailView: View {
             // More options
         } label: {
             Image(systemName: "ellipsis")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
                 .foregroundStyle(.white)
                 .frame(width: 36, height: 36)
                 .background(liquidGlassCircleSmall)

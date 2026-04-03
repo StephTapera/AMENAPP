@@ -259,7 +259,7 @@ struct ChurchLiveModeView: View {
                 if vm.isLive {
                     VStack(spacing: 12) {
                         Image(systemName: "video.fill")
-                            .font(.system(size: 44))
+                            .font(.systemScaled(44))
                             .foregroundColor(.white.opacity(0.2))
                         Text("Live Stream Active")
                             .font(AMENFont.semiBold(15))
@@ -268,7 +268,7 @@ struct ChurchLiveModeView: View {
                 } else {
                     VStack(spacing: 12) {
                         Image(systemName: "video.slash.fill")
-                            .font(.system(size: 44))
+                            .font(.systemScaled(44))
                             .foregroundColor(.white.opacity(0.2))
                         Text("Stream Ended")
                             .font(AMENFont.semiBold(15))
@@ -334,7 +334,7 @@ struct ChurchLiveModeView: View {
                 // Viewer count
                 HStack(spacing: 5) {
                     Image(systemName: "eye.fill")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                     Text("\(vm.viewerCount)")
                         .font(AMENFont.semiBold(13))
                         .monospacedDigit()
@@ -390,7 +390,7 @@ struct ChurchLiveModeView: View {
                 } label: {
                     ZStack(alignment: .topTrailing) {
                         Image(systemName: "hands.sparkles.fill")
-                            .font(.system(size: 22))
+                            .font(.systemScaled(22))
                             .foregroundColor(.white)
                             .frame(width: 52, height: 52)
                             .background(.ultraThinMaterial)
@@ -432,7 +432,7 @@ struct ChurchLiveModeView: View {
                         } label: {
                             VStack(spacing: 4) {
                                 Image(systemName: tab.icon)
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(.systemScaled(14, weight: .semibold))
                                 Text(tab.rawValue)
                                     .font(AMENFont.semiBold(11))
                             }
@@ -514,7 +514,7 @@ struct ChurchLiveModeView: View {
             // Amber glass pill for prayer requests
             HStack(alignment: .top, spacing: 8) {
                 Image(systemName: "hands.sparkles.fill")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundColor(Color.orange)
                     .padding(.top, 2)
                 VStack(alignment: .leading, spacing: 2) {
@@ -553,7 +553,7 @@ struct ChurchLiveModeView: View {
     private var chatInputBar: some View {
         HStack(spacing: 10) {
             TextField("Say something...", text: $messageText)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundColor(.black)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 9)
@@ -572,7 +572,7 @@ struct ChurchLiveModeView: View {
                 messageText = ""
             } label: {
                 Image(systemName: "arrow.up.circle.fill")
-                    .font(.system(size: 30))
+                    .font(.systemScaled(30))
                     .foregroundColor(.white)
             }
         }
@@ -608,7 +608,7 @@ struct ChurchLiveModeView: View {
     private func prayerQueueEntryCard(_ entry: PrayerQueueEntry) -> some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "hands.sparkles.fill")
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .foregroundColor(entry.isAddressed ? .white.opacity(0.3) : Color.orange)
                 .padding(.top, 2)
 
@@ -629,7 +629,7 @@ struct ChurchLiveModeView: View {
                     vm.markPrayerAddressed(id: entry.id)
                 } label: {
                     Image(systemName: entry.isAddressed ? "checkmark.circle.fill" : "circle")
-                        .font(.system(size: 20))
+                        .font(.systemScaled(20))
                         .foregroundColor(entry.isAddressed ? .white.opacity(0.4) : .white)
                 }
             }
@@ -687,7 +687,7 @@ struct ChurchLiveModeView: View {
             Spacer()
 
             Image(systemName: "bookmark.fill")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundColor(.white.opacity(0.3))
         }
         .padding(.horizontal, 10)
@@ -704,7 +704,7 @@ struct ChurchLiveModeView: View {
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                     Text("Generate AI Recap")
                         .font(AMENFont.semiBold(15))
                 }
@@ -725,7 +725,7 @@ struct ChurchLiveModeView: View {
         NavigationStack {
             VStack(spacing: 24) {
                 Image(systemName: "sparkles")
-                    .font(.system(size: 44))
+                    .font(.systemScaled(44))
                     .foregroundColor(.black.opacity(0.4))
                     .padding(.top, 32)
 

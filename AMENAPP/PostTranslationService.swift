@@ -28,7 +28,13 @@ class PostTranslationService: ObservableObject {
     @Published var translationCache: [String: CachedTranslation] = [:]
 
     private let db = Firestore.firestore()
-    let deviceLanguage: String = Locale.current.language.languageCode?.identifier ?? "en"
+    let deviceLanguage: String = {
+        if #available(iOS 16, *) {
+            return Locale.current.language.languageCode?.identifier ?? "en"
+        } else {
+            return Locale.current.languageCode ?? "en"
+        }
+    }()
 
     struct CachedTranslation: Codable {
         let originalText: String
@@ -77,6 +83,13 @@ class PostTranslationService: ObservableObject {
     /// Falls back to the original text if the language pair is unsupported or the
     /// model download fails.
     func translateText(_ text: String, from sourceLanguage: String, to targetLanguage: String) async throws -> String {
+        // Translation framework requires iOS 17.4+
+        guard #available(iOS 17.4, *) else {
+            throw NSError(domain: "PostTranslationService", code: 1, userInfo: [
+                NSLocalizedDescriptionKey: "Translation requires iOS 17.4 or later"
+            ])
+        }
+        
         // 1. In-memory cache hit
         let cacheKey = "\(sourceLanguage)_\(targetLanguage)_\(text.hashValue)"
         if let cached = translationCache[cacheKey],

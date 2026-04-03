@@ -83,17 +83,17 @@ struct SmartMediaPressSheetView: View {
                     .frame(width: 48, height: 48)
 
                 Image(systemName: context.item.type == .video ? "play.rectangle.fill" : "photo.fill")
-                    .font(.system(size: 20, weight: .semibold))
+                    .font(.systemScaled(20, weight: .semibold))
                     .foregroundStyle(.black.opacity(0.70))
             }
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(headerTitle)
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.systemScaled(17, weight: .semibold))
                     .foregroundStyle(.black)
 
                 Text(headerSubtitle)
-                    .font(.system(size: 13, weight: .regular))
+                    .font(.systemScaled(13, weight: .regular))
                     .foregroundStyle(.black.opacity(0.50))
             }
 
@@ -136,18 +136,18 @@ struct SmartMediaPressSheetView: View {
                         .frame(width: 40, height: 40)
 
                     Image(systemName: smartAction.icon)
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(smartAction.isDestructive ? Color.red.opacity(0.75) : Color.black.opacity(0.70))
                 }
 
                 // Label + description
                 VStack(alignment: .leading, spacing: 2) {
                     Text(smartAction.label)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(smartAction.isDestructive ? Color.red.opacity(0.85) : Color.black)
 
                     Text(smartAction.description)
-                        .font(.system(size: 12, weight: .regular))
+                        .font(.systemScaled(12, weight: .regular))
                         .foregroundStyle(.black.opacity(0.45))
                         .lineLimit(2)
                 }
@@ -155,7 +155,7 @@ struct SmartMediaPressSheetView: View {
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(.black.opacity(0.25))
             }
             .padding(14)
@@ -185,7 +185,7 @@ struct SmartMediaPressSheetView: View {
             }
         } label: {
             Text("Done")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)

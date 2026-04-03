@@ -166,7 +166,7 @@ struct AMENBrandedWatermark: View {
     private var cornerStampView: some View {
         HStack(spacing: 4) {
             Image(systemName: "seal.fill")
-                .font(.system(size: 9, weight: .bold))
+                .font(.systemScaled(9, weight: .bold))
                 .foregroundColor(.black.opacity(0.7))
             Text("AMEN")
                 .font(AMENFont.bold(10))
@@ -181,7 +181,7 @@ struct AMENBrandedWatermark: View {
     private var bottomSignatureView: some View {
         HStack(spacing: 6) {
             Image(systemName: "seal.fill")
-                .font(.system(size: 12, weight: .bold))
+                .font(.systemScaled(12, weight: .bold))
                 .foregroundColor(.black)
             Text("AMEN")
                 .font(AMENFont.bold(13))
@@ -273,7 +273,7 @@ private struct PostTypePill: View {
         HStack(spacing: 4) {
             if let icon = icon {
                 Image(systemName: icon)
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.systemScaled(10, weight: .medium))
                     .foregroundColor(Color(white: 0.45))
             }
             Text(label)
@@ -398,7 +398,7 @@ struct AMENTestimonyShareCard: View {
                 VStack(alignment: .center, spacing: 16) {
                     // Opening quotation mark
                     Text("\u{275D}")
-                        .font(.system(size: 52, weight: .ultraLight))
+                        .font(.systemScaled(52, weight: .ultraLight))
                         .foregroundColor(Color(white: 0.82))
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, hPad)
@@ -414,7 +414,7 @@ struct AMENTestimonyShareCard: View {
 
                     // Closing quotation mark
                     Text("\u{275E}")
-                        .font(.system(size: 52, weight: .ultraLight))
+                        .font(.systemScaled(52, weight: .ultraLight))
                         .foregroundColor(Color(white: 0.82))
                         .frame(maxWidth: .infinity, alignment: .trailing)
                         .padding(.horizontal, hPad)
@@ -487,7 +487,7 @@ struct AMENPrayerShareCard: View {
                 // ── CONTENT ZONE ───────────────────────────────────────
                 VStack(spacing: 20) {
                     Image(systemName: "hands.sparkles")
-                        .font(.system(size: 32, weight: .light))
+                        .font(.systemScaled(32, weight: .light))
                         .foregroundColor(Color(white: 0.45))
 
                     Text(payload.captionText)
@@ -577,7 +577,7 @@ struct AMENVerseShareCard: View {
 
                 // Large open-quote
                 Text("\u{201C}")
-                    .font(.system(size: 64, weight: .thin))
+                    .font(.systemScaled(64, weight: .thin))
                     .foregroundColor(Color(white: 0.82))
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.horizontal, hPad)
@@ -770,7 +770,7 @@ struct AMENVideoShareCard: View {
                         ShareGlass.circleBackground()
                             .frame(width: 60, height: 60)
                         Image(systemName: "play.fill")
-                            .font(.system(size: 22, weight: .medium))
+                            .font(.systemScaled(22, weight: .medium))
                             .foregroundColor(.black.opacity(0.75))
                             .offset(x: 2)
                     }
@@ -782,7 +782,7 @@ struct AMENVideoShareCard: View {
                             if let duration = payload.videoDuration {
                                 HStack(spacing: 5) {
                                     Image(systemName: "video")
-                                        .font(.system(size: 10, weight: .medium))
+                                        .font(.systemScaled(10, weight: .medium))
                                         .foregroundColor(Color(white: 0.40))
                                     Text("Video · \(duration)")
                                         .font(AMENFont.semiBold(11))
@@ -902,7 +902,7 @@ struct AMENCarouselShareCard: View {
                                 Text("·")
                                     .foregroundColor(Color(white: 0.55))
                                 Image(systemName: payload.postType.icon)
-                                    .font(.system(size: 10, weight: .medium))
+                                    .font(.systemScaled(10, weight: .medium))
                                     .foregroundColor(Color(white: 0.40))
                             }
                             .padding(.horizontal, 10)
@@ -1001,7 +1001,7 @@ struct AMENChurchNoteShareCard: View {
                 // ── GLASS NOTE CARD ────────────────────────────────────
                 VStack(alignment: .leading, spacing: 14) {
                     Image(systemName: "book.fill")
-                        .font(.system(size: 20, weight: .regular))
+                        .font(.systemScaled(20, weight: .regular))
                         .foregroundColor(Color(white: 0.45))
 
                     Text(payload.captionText)
@@ -1016,7 +1016,7 @@ struct AMENChurchNoteShareCard: View {
                     if let ref = payload.verseReference {
                         HStack(spacing: 5) {
                             Image(systemName: "book")
-                                .font(.system(size: 10, weight: .medium))
+                                .font(.systemScaled(10, weight: .medium))
                                 .foregroundColor(Color(white: 0.45))
                             Text(ref)
                                 .font(AMENFont.semiBold(11))
@@ -1133,7 +1133,7 @@ struct ShareActionButton: View {
         Button(action: action) {
             HStack(spacing: 10) {
                 Image(systemName: icon)
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.systemScaled(16, weight: .medium))
                     .foregroundColor(.black.opacity(0.75))
                 Text(label)
                     .font(AMENFont.semiBold(15))

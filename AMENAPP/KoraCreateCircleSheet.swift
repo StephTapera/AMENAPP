@@ -129,7 +129,7 @@ struct KoraCreateCircleSheet: View {
         } label: {
             VStack(spacing: 7) {
                 Image(systemName: purpose.icon)
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
                     .foregroundColor(isSelected ? Color(hex: selectedColorHex) : .white.opacity(0.4))
                 Text(purpose.label)
                     .font(AMENFont.regular(11))
@@ -243,7 +243,7 @@ struct KoraCreateCircleSheet: View {
         Toggle(isOn: $isPrivate) {
             HStack(spacing: 8) {
                 Image(systemName: "lock.fill")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundColor(.white.opacity(0.6))
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Private circle")
@@ -289,7 +289,7 @@ struct KoraCreateCircleSheet: View {
                         .stroke(Color.white, lineWidth: 2.5)
                         .frame(width: 40, height: 40)
                     Image(systemName: "checkmark")
-                        .font(.system(size: 11, weight: .bold))
+                        .font(.systemScaled(11, weight: .bold))
                         .foregroundColor(.white)
                 }
             }

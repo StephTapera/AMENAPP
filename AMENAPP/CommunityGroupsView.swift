@@ -123,7 +123,7 @@ struct CommunityGroupsView: View {
                 if !myGroups.isEmpty {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("My Groups")
-                            .font(.system(size: 18, weight: .bold))
+                            .font(.systemScaled(18, weight: .bold))
                             .padding(.horizontal, 16)
 
                         ScrollView(.horizontal, showsIndicators: false) {
@@ -140,16 +140,16 @@ struct CommunityGroupsView: View {
                 // Discover groups
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Discover Groups")
-                        .font(.system(size: 18, weight: .bold))
+                        .font(.systemScaled(18, weight: .bold))
                         .padding(.horizontal, 16)
 
                     if filteredGroups.isEmpty && !isLoading {
                         VStack(spacing: 12) {
                             Image(systemName: "person.3.fill")
-                                .font(.system(size: 36))
+                                .font(.systemScaled(36))
                                 .foregroundStyle(.secondary.opacity(0.5))
                             Text("No groups found")
-                                .font(.system(size: 15))
+                                .font(.systemScaled(15))
                                 .foregroundStyle(.secondary)
                         }
                         .frame(maxWidth: .infinity)
@@ -173,7 +173,7 @@ struct CommunityGroupsView: View {
                     Image(systemName: "plus")
                     Text("Create Group")
                 }
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
                 .foregroundStyle(.white)
                 .padding(.horizontal, 24)
                 .padding(.vertical, 14)
@@ -197,7 +197,7 @@ struct CommunityGroupsView: View {
             }
         } label: {
             Text(label)
-                .font(.system(size: 13, weight: .medium))
+                .font(.systemScaled(13, weight: .medium))
                 .foregroundStyle(selectedCategory == category ? .white : .primary)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 7)
@@ -218,11 +218,11 @@ struct CommunityGroupsView: View {
                 )
 
             Text(group.name)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .lineLimit(1)
 
             Text("\(group.memberCount) members")
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(.secondary)
         }
         .frame(width: 120)
@@ -237,33 +237,33 @@ struct CommunityGroupsView: View {
                 .frame(width: 48, height: 48)
                 .overlay(
                     Image(systemName: group.category.icon)
-                        .font(.system(size: 18))
+                        .font(.systemScaled(18))
                         .foregroundStyle(group.category.color)
                 )
 
             VStack(alignment: .leading, spacing: 3) {
                 HStack {
                     Text(group.name)
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                     if group.isPrivate {
                         Image(systemName: "lock.fill")
-                            .font(.system(size: 10))
+                            .font(.systemScaled(10))
                             .foregroundStyle(.secondary)
                     }
                 }
                 Text(group.description)
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                 Text("\(group.memberCount) members")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.tertiary)
             }
 
             Spacer()
 
             Button("Join") {}
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(.blue)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 6)

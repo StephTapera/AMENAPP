@@ -104,12 +104,12 @@ struct AmenOptionsSheet: View {
                         VStack(spacing: 4) {
                             if let title {
                                 Text(title)
-                                    .font(.system(size: 18, weight: .semibold))
+                                    .font(.systemScaled(18, weight: .semibold))
                                     .foregroundStyle(.black)
                             }
                             if let subtitle {
                                 Text(subtitle)
-                                    .font(.system(size: 13, weight: .regular))
+                                    .font(.systemScaled(13, weight: .regular))
                                     .foregroundStyle(.black.opacity(0.55))
                             }
                         }
@@ -196,12 +196,12 @@ struct AmenQuickActionTile: View {
         } label: {
             VStack(spacing: 6) {
                 Image(systemName: action.systemImage)
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.systemScaled(18, weight: .semibold))
                     .foregroundStyle(Color.black.opacity(action.isEnabled ? 0.9 : 0.35))
                     .frame(width: 30, height: 30)
 
                 Text(action.title)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(Color.black.opacity(action.isEnabled ? 0.75 : 0.35))
             }
             .frame(maxWidth: .infinity)
@@ -232,7 +232,7 @@ struct AmenOptionsSection: View {
         VStack(alignment: .leading, spacing: 8) {
             if let title = model.title {
                 Text(title)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(.black.opacity(0.5))
                     .padding(.horizontal, 6)
             }
@@ -281,12 +281,12 @@ struct AmenOptionRow: View {
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(action.title)
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(.systemScaled(17, weight: .semibold))
                         .foregroundStyle(titleColor)
 
                     if let subtitle = action.subtitle {
                         Text(subtitle)
-                            .font(.system(size: 12, weight: .regular))
+                            .font(.systemScaled(12, weight: .regular))
                             .foregroundStyle(Color.black.opacity(0.5))
                     }
                 }
@@ -295,7 +295,7 @@ struct AmenOptionRow: View {
 
                 if action.showsChevron {
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(Color.black.opacity(0.35))
                 }
             }
@@ -322,7 +322,7 @@ struct AmenOptionRow: View {
             .frame(width: 36, height: 36)
             .overlay(
                 Image(systemName: action.systemImage)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(action.isDestructive ? Color.red.opacity(0.85) : Color.black.opacity(0.85))
             )
             .overlay(

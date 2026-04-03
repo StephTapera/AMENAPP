@@ -153,7 +153,7 @@ struct SignInView: View {
         VStack(spacing: 24) {
             // Icon at top (matching design)
             Image(systemName: "person.circle.fill")
-                .font(.system(size: 36))
+                .font(.systemScaled(36))
                 .foregroundStyle(.white.opacity(0.8))
                 .padding(.top, 32)
 
@@ -365,7 +365,7 @@ struct SignInView: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .top, spacing: 8) {
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .padding(.top, 1)
                     Text(errorMessage)
                         .font(AMENFont.regular(12))
@@ -468,7 +468,7 @@ struct SignInView: View {
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: "g.circle.fill")
-                    .font(.system(size: 18))
+                    .font(.systemScaled(18))
                 Text("Continue with Google")
                     .font(AMENFont.semiBold(14))
             }
@@ -494,7 +494,7 @@ struct SignInView: View {
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: "apple.logo")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.systemScaled(18, weight: .semibold))
                 Text("Continue with Apple")
                     .font(AMENFont.semiBold(14))
             }
@@ -530,7 +530,7 @@ struct SignInView: View {
                 } label: {
                     HStack(spacing: 12) {
                         Image(systemName: BiometricAuthService.shared.biometricType.icon)
-                            .font(.system(size: 18))
+                            .font(.systemScaled(18))
                         Text("Sign in with \(BiometricAuthService.shared.biometricType.displayName)")
                             .font(AMENFont.semiBold(14))
                     }
@@ -561,7 +561,7 @@ struct SignInView: View {
             } label: {
                 HStack(spacing: 12) {
                     Image(systemName: "envelope.arrow.triangle.branch")
-                        .font(.system(size: 16))
+                        .font(.systemScaled(16))
                     Text("Sign in with Email Link")
                         .font(AMENFont.semiBold(14))
                 }
@@ -1742,7 +1742,7 @@ struct PasswordResetSheet: View {
                         .frame(width: 80, height: 80)
 
                     Image(systemName: "envelope.fill")
-                        .font(.system(size: 36))
+                        .font(.systemScaled(36))
                         .foregroundStyle(
                             LinearGradient(
                                 colors: [
@@ -1821,7 +1821,7 @@ struct PasswordResetSheet: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 24))
+                            .font(.systemScaled(24))
                             .foregroundStyle(.secondary)
                     }
                     .accessibilityLabel("Close")
@@ -1884,7 +1884,7 @@ struct PasswordlessSignInSheet: View {
                         .frame(width: 80, height: 80)
                     
                     Image(systemName: "envelope.arrow.triangle.branch")
-                        .font(.system(size: 32))
+                        .font(.systemScaled(32))
                         .foregroundStyle(
                             LinearGradient(
                                 colors: [
@@ -1950,7 +1950,7 @@ struct PasswordlessSignInSheet: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 24))
+                            .font(.systemScaled(24))
                             .foregroundStyle(.secondary)
                     }
                     .accessibilityLabel("Close")
@@ -2038,7 +2038,7 @@ private struct DarkGlassmorphicPasswordField: View {
                 }
             } label: {
                 Image(systemName: showPassword ? "eye.slash.fill" : "eye.fill")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(.white.opacity(0.5))
             }
             .accessibilityLabel(showPassword ? "Hide password" : "Show password")
@@ -2081,7 +2081,7 @@ private struct DarkGlassmorphicUsernameField: View {
                         .scaleEffect(0.8)
                 } else if let available = isAvailable {
                     Image(systemName: available ? "checkmark.circle.fill" : "xmark.circle.fill")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(available ? .green : .red)
                 }
             }
@@ -2225,7 +2225,7 @@ struct OTPVerificationView: View {
                 // Header
                 VStack(spacing: 12) {
                     Image(systemName: "lock.shield.fill")
-                        .font(.system(size: 60))
+                        .font(.systemScaled(60))
                         .foregroundStyle(.white.opacity(0.9))
                     
                     Text("Verify Your Phone")
@@ -2286,7 +2286,7 @@ struct OTPVerificationView: View {
                 if let errorMessage = viewModel.errorMessage, viewModel.showError {
                     HStack(spacing: 8) {
                         Image(systemName: "exclamationmark.triangle.fill")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                         Text(errorMessage)
                             .font(AMENFont.regular(12))
                     }
@@ -2352,7 +2352,7 @@ struct OTPVerificationView: View {
                                         .tint(.white)
                                 } else {
                                     Image(systemName: "arrow.clockwise")
-                                        .font(.system(size: 13))
+                                        .font(.systemScaled(13))
                                     Text("Resend Code")
                                         .font(AMENFont.semiBold(14))
                                 }
@@ -2370,7 +2370,7 @@ struct OTPVerificationView: View {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "phone.badge.waveform.fill")
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                         Text("Change Phone Number")
                             .font(AMENFont.regular(13))
                     }

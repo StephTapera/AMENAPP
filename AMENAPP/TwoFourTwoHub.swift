@@ -37,9 +37,9 @@ struct TwoFourTwoHub: View {
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: "chevron.left")
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.systemScaled(16, weight: .semibold))
                             Text("Back")
-                                .font(.system(size: 16, weight: .medium))
+                                .font(.systemScaled(16, weight: .medium))
                         }
                         .foregroundColor(.white.opacity(0.7))
                         .padding(.horizontal, 12)
@@ -74,11 +74,11 @@ struct TwoFourTwoHub: View {
                 }
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 6) {
-                    Text("242").font(.system(size: 32, weight: .bold, design: .rounded)).foregroundColor(.white)
-                    Text("resources").font(.system(size: 32, weight: .light, design: .rounded)).foregroundColor(.white.opacity(0.45))
+                    Text("242").font(.systemScaled(32, weight: .bold, design: .rounded)).foregroundColor(.white)
+                    Text("resources").font(.systemScaled(32, weight: .light, design: .rounded)).foregroundColor(.white.opacity(0.45))
                 }
                 Text("Acts 2:42 · teaching · fellowship · table · prayer")
-                    .font(.system(size: 12, design: .rounded)).foregroundColor(.white.opacity(0.35)).lineSpacing(2)
+                    .font(.systemScaled(12, design: .rounded)).foregroundColor(.white.opacity(0.35)).lineSpacing(2)
             }
             Spacer()
         }
@@ -158,8 +158,8 @@ private struct PillarTab: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 5) {
-                Image(systemName: icon).font(.system(size: 11, weight: .medium))
-                Text(label).font(.system(size: 12, weight: .medium, design: .rounded))
+                Image(systemName: icon).font(.systemScaled(11, weight: .medium))
+                Text(label).font(.systemScaled(12, weight: .medium, design: .rounded))
             }
             .foregroundColor(isSelected ? .black : .white.opacity(0.55))
             .padding(.horizontal, 13).padding(.vertical, 8)
@@ -182,20 +182,20 @@ struct FeatureRow: View {
             HStack(spacing: 14) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 10, style: .continuous).fill(feature.iconColor.opacity(isLocked ? 0.35 : 1.0))
-                    Image(systemName: feature.iconName).font(.system(size: 16, weight: .medium)).foregroundColor(.white.opacity(isLocked ? 0.5 : 1.0))
+                    Image(systemName: feature.iconName).font(.systemScaled(16, weight: .medium)).foregroundColor(.white.opacity(isLocked ? 0.5 : 1.0))
                 }
                 .frame(width: 40, height: 40)
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 7) {
-                        Text(feature.name).font(.system(size: 15, weight: .medium, design: .rounded)).foregroundColor(isLocked ? .white.opacity(0.40) : .white)
+                        Text(feature.name).font(.systemScaled(15, weight: .medium, design: .rounded)).foregroundColor(isLocked ? .white.opacity(0.40) : .white)
                         if feature.isComingSoon { comingSoonBadge } else if isLocked { tierBadge }
                     }
-                    Text(feature.tagline).font(.system(size: 12, design: .rounded)).foregroundColor(.white.opacity(isLocked ? 0.22 : 0.45))
+                    Text(feature.tagline).font(.systemScaled(12, design: .rounded)).foregroundColor(.white.opacity(isLocked ? 0.22 : 0.45))
                 }
                 Spacer()
-                if feature.isComingSoon { Image(systemName: "clock").font(.system(size: 13)).foregroundColor(.white.opacity(0.20)) }
-                else if isLocked { Image(systemName: "lock.fill").font(.system(size: 12)).foregroundColor(.white.opacity(0.22)) }
-                else { Image(systemName: "chevron.right").font(.system(size: 11, weight: .medium)).foregroundColor(.white.opacity(0.25)) }
+                if feature.isComingSoon { Image(systemName: "clock").font(.systemScaled(13)).foregroundColor(.white.opacity(0.20)) }
+                else if isLocked { Image(systemName: "lock.fill").font(.systemScaled(12)).foregroundColor(.white.opacity(0.22)) }
+                else { Image(systemName: "chevron.right").font(.systemScaled(11, weight: .medium)).foregroundColor(.white.opacity(0.25)) }
             }
             .padding(.horizontal, 16).padding(.vertical, 14)
         }
@@ -205,12 +205,12 @@ struct FeatureRow: View {
     }
 
     private var comingSoonBadge: some View {
-        Text("soon").font(.system(size: 9, weight: .semibold, design: .rounded)).foregroundColor(Color(white: 0.55))
+        Text("soon").font(.systemScaled(9, weight: .semibold, design: .rounded)).foregroundColor(Color(white: 0.55))
             .padding(.horizontal, 6).padding(.vertical, 2)
             .background(Capsule().fill(Color.white.opacity(0.07)).overlay(Capsule().strokeBorder(Color.white.opacity(0.12), lineWidth: 0.5)))
     }
     private var tierBadge: some View {
-        Text(feature.requiredTier.displayName).font(.system(size: 9, weight: .semibold, design: .rounded)).foregroundColor(feature.requiredTier.badgeColor.opacity(0.85))
+        Text(feature.requiredTier.displayName).font(.systemScaled(9, weight: .semibold, design: .rounded)).foregroundColor(feature.requiredTier.badgeColor.opacity(0.85))
             .padding(.horizontal, 6).padding(.vertical, 2)
             .background(Capsule().fill(feature.requiredTier.badgeColor.opacity(0.12)).overlay(Capsule().strokeBorder(feature.requiredTier.badgeColor.opacity(0.25), lineWidth: 0.5)))
     }
@@ -232,15 +232,15 @@ struct FeatureDetailSheet: View {
                         HStack(spacing: 16) {
                             ZStack {
                                 RoundedRectangle(cornerRadius: 18, style: .continuous).fill(feature.iconColor).frame(width: 64, height: 64).shadow(color: feature.iconColor.opacity(0.35), radius: 14, x: 0, y: 6)
-                                Image(systemName: feature.iconName).font(.system(size: 28, weight: .medium)).foregroundColor(.white)
+                                Image(systemName: feature.iconName).font(.systemScaled(28, weight: .medium)).foregroundColor(.white)
                             }
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(feature.name).font(.system(size: 22, weight: .semibold, design: .rounded)).foregroundColor(.white)
-                                Text(feature.pillar.rawValue.uppercased()).font(.system(size: 10, weight: .medium, design: .rounded)).foregroundColor(feature.pillar.color).tracking(1.2)
+                                Text(feature.name).font(.systemScaled(22, weight: .semibold, design: .rounded)).foregroundColor(.white)
+                                Text(feature.pillar.rawValue.uppercased()).font(.systemScaled(10, weight: .medium, design: .rounded)).foregroundColor(feature.pillar.color).tracking(1.2)
                             }
                         }
                         .padding(.horizontal, 24)
-                        Text(feature.description).font(.system(size: 16, weight: .regular, design: .serif)).foregroundColor(.white.opacity(0.80)).lineSpacing(6).padding(.horizontal, 24)
+                        Text(feature.description).font(.systemScaled(16, weight: .regular, design: .serif)).foregroundColor(.white.opacity(0.80)).lineSpacing(6).padding(.horizontal, 24)
                         tierInfoCard.padding(.horizontal, 24)
                         ctaButton.padding(.horizontal, 24).padding(.bottom, 40)
                     }
@@ -253,10 +253,10 @@ struct FeatureDetailSheet: View {
 
     private var tierInfoCard: some View {
         HStack(spacing: 12) {
-            Image(systemName: feature.requiredTier == .free ? "checkmark.circle.fill" : "lock.fill").font(.system(size: 14)).foregroundColor(feature.requiredTier.badgeColor)
+            Image(systemName: feature.requiredTier == .free ? "checkmark.circle.fill" : "lock.fill").font(.systemScaled(14)).foregroundColor(feature.requiredTier.badgeColor)
             VStack(alignment: .leading, spacing: 2) {
-                Text("requires \(feature.requiredTier.displayName)").font(.system(size: 13, weight: .medium, design: .rounded)).foregroundColor(.white.opacity(0.75))
-                Text(feature.requiredTier.price).font(.system(size: 12, design: .rounded)).foregroundColor(.white.opacity(0.40))
+                Text("requires \(feature.requiredTier.displayName)").font(.systemScaled(13, weight: .medium, design: .rounded)).foregroundColor(.white.opacity(0.75))
+                Text(feature.requiredTier.price).font(.systemScaled(12, design: .rounded)).foregroundColor(.white.opacity(0.40))
             }
             Spacer()
         }
@@ -279,8 +279,8 @@ struct FeatureDetailSheet: View {
 
     private func ctaLabel(_ title: String, icon: String) -> some View {
         HStack(spacing: 8) {
-            Image(systemName: icon).font(.system(size: 14, weight: .medium))
-            Text(title).font(.system(size: 15, weight: .semibold, design: .rounded))
+            Image(systemName: icon).font(.systemScaled(14, weight: .medium))
+            Text(title).font(.systemScaled(15, weight: .semibold, design: .rounded))
         }
         .foregroundColor(.white).frame(maxWidth: .infinity).padding(.vertical, 16)
         .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(feature.iconColor).shadow(color: feature.iconColor.opacity(0.30), radius: 14, x: 0, y: 6))

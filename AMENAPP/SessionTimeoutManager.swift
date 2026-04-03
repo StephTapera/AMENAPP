@@ -503,7 +503,7 @@ struct SessionTimeoutWarningView: View {
                         .shadow(color: .white.opacity(0.08), radius: 12, y: 4)
 
                     Image(systemName: "clock.badge.exclamationmark.fill")
-                        .font(.system(size: 36, weight: .semibold))
+                        .font(.systemScaled(36, weight: .semibold))
                         .foregroundStyle(.white)
                         .symbolEffect(.pulse)
                 }
@@ -520,7 +520,7 @@ struct SessionTimeoutWarningView: View {
 
                 // MARK: Countdown
                 Text(formatTime(sessionManager.secondsUntilLogout))
-                    .font(.system(size: 52, weight: .bold, design: .rounded))
+                    .font(.systemScaled(52, weight: .bold, design: .rounded))
                     .monospacedDigit()
                     .foregroundStyle(
                         sessionManager.secondsUntilLogout < 60
@@ -557,7 +557,7 @@ struct SessionTimeoutWarningView: View {
                     } label: {
                         HStack(spacing: 8) {
                             Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.systemScaled(16, weight: .semibold))
                             Text("Stay Signed In")
                                 .font(.custom("OpenSans-Bold", size: 15))
                         }
@@ -580,7 +580,7 @@ struct SessionTimeoutWarningView: View {
                     } label: {
                         HStack(spacing: 8) {
                             Image(systemName: "rectangle.portrait.and.arrow.right")
-                                .font(.system(size: 15, weight: .medium))
+                                .font(.systemScaled(15, weight: .medium))
                             Text("Sign Out Now")
                                 .font(.custom("OpenSans-SemiBold", size: 14))
                         }
@@ -872,7 +872,7 @@ struct AppLoadingScreen: View {
 
                 // Tagline
                 Text("Social Media, Re-ordered")
-                    .font(.system(size: 13, weight: .light))
+                    .font(.systemScaled(13, weight: .light))
                     .tracking(2)
                     .foregroundColor(.black.opacity(0.35))
                     .padding(.top, 16)
@@ -885,7 +885,7 @@ struct AppLoadingScreen: View {
                     AMENLoadingIndicator(color: .black.opacity(0.3), dotSize: 8, spacing: 7, bounceHeight: 10)
 
                     Text("Loading your feed...")
-                        .font(.system(size: 12, weight: .regular))
+                        .font(.systemScaled(12, weight: .regular))
                         .foregroundColor(.black.opacity(0.25))
                 }
                 .opacity(dotsOpacity)

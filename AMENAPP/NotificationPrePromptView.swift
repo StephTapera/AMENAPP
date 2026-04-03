@@ -19,7 +19,7 @@ struct NotificationPrePromptView: View {
 
             // Icon
             Image(systemName: "bell.badge.fill")
-                .font(.system(size: 56))
+                .font(.systemScaled(56))
                 .foregroundStyle(
                     LinearGradient(
                         colors: [Color.blue, Color.purple],
@@ -30,7 +30,7 @@ struct NotificationPrePromptView: View {
 
             // Title
             Text("Stay in the loop")
-                .font(.system(size: 26, weight: .bold))
+                .font(.systemScaled(26, weight: .bold))
                 .multilineTextAlignment(.center)
 
             // Value props
@@ -69,7 +69,7 @@ struct NotificationPrePromptView: View {
                 requestPermission()
             } label: {
                 Text("Enable Notifications")
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.systemScaled(17, weight: .semibold))
                     .foregroundStyle(.white)
                     .lineLimit(1)
                     .minimumScaleFactor(0.85)
@@ -83,7 +83,7 @@ struct NotificationPrePromptView: View {
                 isPresented = false
             } label: {
                 Text("Not now")
-                    .font(.system(size: 15, weight: .regular))
+                    .font(.systemScaled(15, weight: .regular))
                     .foregroundStyle(.secondary)
             }
         }
@@ -93,16 +93,16 @@ struct NotificationPrePromptView: View {
     private func notificationBenefit(icon: String, color: Color, title: String, subtitle: String) -> some View {
         HStack(spacing: 14) {
             Image(systemName: icon)
-                .font(.system(size: 20))
+                .font(.systemScaled(20))
                 .foregroundStyle(color)
                 .frame(width: 36, height: 36)
                 .background(color.opacity(0.12), in: Circle())
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                 Text(subtitle)
-                    .font(.system(size: 13, weight: .regular))
+                    .font(.systemScaled(13, weight: .regular))
                     .foregroundStyle(.secondary)
             }
         }

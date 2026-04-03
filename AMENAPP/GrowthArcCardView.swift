@@ -33,7 +33,7 @@ struct GrowthArcCardView: View {
 
                 // SF Symbol icon
                 Image(systemName: arc.sfSymbol)
-                    .font(.system(size: 28, weight: .medium))
+                    .font(.systemScaled(28, weight: .medium))
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(Color.purple)
                     .padding(.bottom, 14)
@@ -47,7 +47,7 @@ struct GrowthArcCardView: View {
                         .lineLimit(1)
 
                     Image(systemName: "arrow.right")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(Color.purple)
 
                     Text(arc.toState)

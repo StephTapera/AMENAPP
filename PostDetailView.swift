@@ -186,8 +186,8 @@ struct PostDetailView: View {
 
                     // ── Berean Insight Card ─────────────────────────────────
                     // Tap to open Berean AI pre-seeded with the post content.
-                    let insightText = "Help me reflect on: \(post.content.prefix(200))"
                     Button {
+                        let insightText = "Help me reflect on: \(post.content.prefix(200))"
                         activeDetailSheet = .berean(insightText)
                     } label: {
                         HStack(spacing: 12) {

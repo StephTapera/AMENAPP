@@ -77,7 +77,7 @@ struct FirstVisitGuideView: View {
                     VStack(spacing: 16) {
                         ProgressView()
                         Text("Preparing your guide…")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundStyle(Color(.secondaryLabel))
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -86,7 +86,7 @@ struct FirstVisitGuideView: View {
                 } else if let err = service.error {
                     VStack(spacing: 12) {
                         Text(err)
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundStyle(Color(.secondaryLabel))
                         Button("Retry") { Task { await service.load(church: church) } }
                     }
@@ -135,7 +135,7 @@ struct FirstVisitGuideView: View {
                     VStack(spacing: 0) {
                         ForEach(Array(g.serviceFlow.enumerated()), id: \.offset) { index, moment in
                             Text(moment)
-                                .font(.system(size: 15))
+                                .font(.systemScaled(15))
                                 .foregroundStyle(Color(.label))
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .padding(.horizontal, 16)
@@ -164,7 +164,7 @@ struct FirstVisitGuideView: View {
                     VStack(spacing: 0) {
                         ForEach(Array(g.conversationStarters.enumerated()), id: \.offset) { index, starter in
                             Text("\"\(starter)\"")
-                                .font(.system(size: 15))
+                                .font(.systemScaled(15))
                                 .foregroundStyle(Color(.secondaryLabel))
                                 .italic()
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -189,7 +189,7 @@ struct FirstVisitGuideView: View {
                         HStack {
                             Image(systemName: savedToNotes ? "checkmark.circle.fill" : "note.text.badge.plus")
                             Text(savedToNotes ? "Saved to Notes" : "Save to Notes")
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(.systemScaled(15, weight: .semibold))
                         }
                         .foregroundStyle(savedToNotes ? .green : Color(.label))
                         .frame(maxWidth: .infinity, alignment: .center)
@@ -223,7 +223,7 @@ struct FirstVisitGuideView: View {
 
         VStack(spacing: 0) {
             Text(body)
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .foregroundStyle(Color(.label))
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 16)
@@ -274,7 +274,7 @@ struct FirstVisitGuideButton: View {
             showGuide = true
         } label: {
             Text("Plan my first visit")
-                .font(.system(size: 15, weight: .semibold))
+                .font(.systemScaled(15, weight: .semibold))
                 .foregroundStyle(Color(.secondaryLabel))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)

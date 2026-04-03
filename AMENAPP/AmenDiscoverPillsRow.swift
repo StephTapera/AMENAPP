@@ -33,11 +33,11 @@ struct AmenDiscoverPillsRow: View {
                 Button(action: onSearchTap) {
                     HStack(spacing: 10) {
                         Image(systemName: "magnifyingglass")
-                            .font(.system(size: 18, weight: .medium))
+                            .font(.systemScaled(18, weight: .medium))
                             .foregroundStyle(Color.black.opacity(0.35))
 
                         Text(searchPlaceholder)
-                            .font(.system(size: 17, weight: .regular))
+                            .font(.systemScaled(17, weight: .regular))
                             .foregroundStyle(Color.black.opacity(0.32))
                             .lineLimit(1)
 
@@ -52,11 +52,11 @@ struct AmenDiscoverPillsRow: View {
                 Button(action: onAskBereanTap) {
                     HStack(spacing: 8) {
                         Image(systemName: "sparkles")
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(.systemScaled(15, weight: .semibold))
                             .foregroundStyle(Color.purple)
 
                         Text("Ask Berean")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .foregroundStyle(Color.purple)
                             .lineLimit(1)
                     }
@@ -95,11 +95,11 @@ struct AmenTopicPill: View {
             HStack(spacing: 8) {
                 if let systemImage = item.systemImage {
                     Image(systemName: systemImage)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                 }
 
                 Text(item.title)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .lineLimit(1)
             }
             .foregroundStyle(item.isActive ? Color.white : Color.black.opacity(0.82))
@@ -176,7 +176,7 @@ struct AmenDiscoverCategoryPillsRow: View {
                 ForEach(categories, id: \.self) { cat in
                     Button(action: { selected = cat }) {
                         Text(cat)
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                             .foregroundColor(selected == cat ? .black : Color(white: 0.45))
                             .padding(.horizontal, 16)
                             .padding(.vertical, 10)
@@ -237,7 +237,7 @@ struct AmenDiscoverFilterPillsRow: View {
         var body: some View {
             Button(action: action) {
                 Text(title)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(isSelected ? Color.white : Color.black.opacity(0.80))
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)

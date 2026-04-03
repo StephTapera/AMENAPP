@@ -238,7 +238,7 @@ struct LegacyStudioView: View {
         HStack {
             Button { dismiss() } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(.secondary)
                     .padding(10)
                     .background(Circle().fill(.ultraThinMaterial))
@@ -249,9 +249,9 @@ struct LegacyStudioView: View {
 
             VStack(spacing: 2) {
                 Text("Legacy Studio")
-                    .font(.system(size: 16, weight: .bold))
+                    .font(.systemScaled(16, weight: .bold))
                 Text("Your story. For generations.")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.secondary)
             }
 
@@ -275,9 +275,9 @@ struct LegacyStudioView: View {
                 } label: {
                     VStack(spacing: 3) {
                         Image(systemName: tab.icon)
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                         Text(tab.rawValue)
-                            .font(.system(size: 10, weight: .medium))
+                            .font(.systemScaled(10, weight: .medium))
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
@@ -326,7 +326,7 @@ private struct InterviewTab: View {
                 TextField("Your answer…", text: $input, axis: .vertical)
                     .focused($inputFocused)
                     .lineLimit(4)
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .padding(11)
                     .background(RoundedRectangle(cornerRadius: 12).fill(Color(.secondarySystemBackground)))
 
@@ -339,7 +339,7 @@ private struct InterviewTab: View {
                     HapticManager.impact(style: .light)
                 } label: {
                     Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 32))
+                        .font(.systemScaled(32))
                         .foregroundStyle(input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Color(.tertiaryLabel) : .orange)
                 }
                 .buttonStyle(.plain)
@@ -363,7 +363,7 @@ private struct InterviewBubble: View {
                     .frame(width: 28, height: 28)
                     .overlay(
                         Image(systemName: "flame.fill")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(.orange)
                     )
             } else {
@@ -371,7 +371,7 @@ private struct InterviewBubble: View {
             }
 
             Text(message.text)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(message.isAI ? Color.primary : Color.white)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
@@ -423,7 +423,7 @@ private struct TimelineTab: View {
             if !vm.timeline.isEmpty {
                 Button { showNew = true } label: {
                     Image(systemName: "plus")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.systemScaled(18, weight: .semibold))
                         .foregroundStyle(.white)
                         .frame(width: 52, height: 52)
                         .background(Circle().fill(Color.blue))
@@ -464,15 +464,15 @@ private struct TimelineRow: View {
                 VStack(alignment: .leading, spacing: 4) {
                     if let year = entry.eventYear {
                         Text(String(year))
-                            .font(.system(size: 11, weight: .bold))
+                            .font(.systemScaled(11, weight: .bold))
                             .foregroundStyle(.blue)
                     }
                     Text(entry.title.isEmpty ? "Untitled Memory" : entry.title)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(.primary)
                     if !entry.body.isEmpty {
                         Text(entry.body)
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundStyle(.secondary)
                             .lineLimit(2)
                     }
@@ -518,7 +518,7 @@ private struct CapsulesTab: View {
             if !vm.capsules.isEmpty {
                 Button { showNew = true } label: {
                     Image(systemName: "plus")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.systemScaled(18, weight: .semibold))
                         .foregroundStyle(.white)
                         .frame(width: 52, height: 52)
                         .background(Circle().fill(Color.purple))
@@ -551,13 +551,13 @@ private struct CapsuleCard: View {
                         .fill(Color.purple.opacity(0.12))
                         .frame(width: 44, height: 44)
                     Image(systemName: isSealed ? "lock.fill" : "lock.open.fill")
-                        .font(.system(size: 18))
+                        .font(.systemScaled(18))
                         .foregroundStyle(.purple)
                 }
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(entry.title.isEmpty ? "Untitled Capsule" : entry.title)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(.primary)
                     if let seal = entry.sealUntil {
                         Text(isSealed ? "Sealed until \(seal.formatted(date: .abbreviated, time: .omitted))"
@@ -622,7 +622,7 @@ private struct MemorialTab: View {
             if !vm.memorials.isEmpty {
                 Button { showNew = true } label: {
                     Image(systemName: "plus")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.systemScaled(18, weight: .semibold))
                         .foregroundStyle(.white)
                         .frame(width: 52, height: 52)
                         .background(Circle().fill(Color.pink))
@@ -650,12 +650,12 @@ private struct MemorialCard: View {
                         .fill(Color.pink.opacity(0.10))
                         .frame(width: 44, height: 44)
                     Image(systemName: "flame.fill")
-                        .font(.system(size: 18))
+                        .font(.systemScaled(18))
                         .foregroundStyle(.pink)
                 }
                 VStack(alignment: .leading, spacing: 3) {
                     Text(entry.title.isEmpty ? "Untitled Memorial" : entry.title)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(.primary)
                     if !entry.body.isEmpty {
                         Text(entry.body)
@@ -697,20 +697,20 @@ private struct LegacyEmptyState: View {
         VStack(spacing: 16) {
             Spacer()
             Image(systemName: icon)
-                .font(.system(size: 44))
+                .font(.systemScaled(44))
                 .foregroundStyle(color.opacity(0.5))
             VStack(spacing: 6) {
                 Text(title)
-                    .font(.system(size: 20, weight: .bold))
+                    .font(.systemScaled(20, weight: .bold))
                 Text(subtitle)
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
             }
             Button(action: action) {
                 Label(buttonLabel, systemImage: "plus")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 22)
                     .padding(.vertical, 12)
@@ -757,9 +757,9 @@ struct LegacyEntryEditorView: View {
                     // Type badge
                     HStack(spacing: 8) {
                         Image(systemName: type.icon)
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                         Text(type.rawValue)
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                     }
                     .foregroundStyle(type.accentColor)
                     .padding(.horizontal, 14)
@@ -768,7 +768,7 @@ struct LegacyEntryEditorView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                     TextField("Title", text: $title)
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.systemScaled(18, weight: .semibold))
                         .padding(14)
                         .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemBackground)))
 
@@ -776,13 +776,13 @@ struct LegacyEntryEditorView: View {
                         TextEditor(text: $entryBody)
                             .focused($bodyFocused)
                             .frame(minHeight: 180)
-                            .font(.system(size: 15))
+                            .font(.systemScaled(15))
                             .scrollContentBackground(.hidden)
                             .padding(12)
                             .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemBackground)))
                         if entryBody.isEmpty {
                             Text(type == .timeCapsule ? "Write your letter…" : "Write your story…")
-                                .font(.system(size: 15))
+                                .font(.systemScaled(15))
                                 .foregroundStyle(Color(.placeholderText))
                                 .padding(.top, 19)
                                 .padding(.leading, 16)
@@ -793,7 +793,7 @@ struct LegacyEntryEditorView: View {
                     if type == .memory {
                         TextField("Year (e.g. 1998)", text: $eventYear)
                             .keyboardType(.numberPad)
-                            .font(.system(size: 15))
+                            .font(.systemScaled(15))
                             .padding(12)
                             .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemBackground)))
                     }
@@ -801,7 +801,7 @@ struct LegacyEntryEditorView: View {
                     if type == .timeCapsule {
                         VStack(alignment: .leading, spacing: 10) {
                             Toggle("Seal this letter", isOn: $useSealDate)
-                                .font(.system(size: 15, weight: .medium))
+                                .font(.systemScaled(15, weight: .medium))
                             if useSealDate {
                                 DatePicker("Open on", selection: $sealUntil, displayedComponents: .date)
                                     .datePickerStyle(.compact)
@@ -823,7 +823,7 @@ struct LegacyEntryEditorView: View {
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Save") { saveAndDismiss() }
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(type.accentColor)
                         .disabled(entryBody.isEmpty)
                 }

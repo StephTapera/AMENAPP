@@ -43,7 +43,7 @@ struct FollowBadgeView: View {
                     ZStack {
                         // Plus (un-followed state)
                         Image(systemName: "plus")
-                            .font(.system(size: 9, weight: .bold))
+                            .font(.systemScaled(9, weight: .bold))
                             .foregroundStyle(.white)
                             .rotationEffect(.degrees(isFollowed ? 45 : 0))
                             .opacity(isFollowed ? 0 : 1)
@@ -51,7 +51,7 @@ struct FollowBadgeView: View {
 
                         // Checkmark (followed state)
                         Image(systemName: "checkmark")
-                            .font(.system(size: 9, weight: .bold))
+                            .font(.systemScaled(9, weight: .bold))
                             .foregroundStyle(.white)
                             .opacity(isFollowed ? 1 : 0)
                             .scaleEffect(isFollowed ? 1 : 0.4)
@@ -65,7 +65,7 @@ struct FollowBadgeView: View {
         .overlay(alignment: .top) {
             if !openMenuMode && showToast {
                 Text("Following")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.systemScaled(10, weight: .semibold))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 3)

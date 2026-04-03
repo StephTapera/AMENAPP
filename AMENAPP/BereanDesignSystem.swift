@@ -135,7 +135,7 @@ struct BereanPersonalityPill: View {
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: mode.icon)
-                .font(.system(size: compact ? 9 : 11, weight: .medium))
+                .font(.systemScaled(compact ? 9 : 11, weight: .medium))
             if !compact {
                 Text(mode.rawValue)
                     .font(BereanType.caption())
@@ -165,7 +165,7 @@ struct BereanSuggestionChip: View {
         Button(action: onTap) {
             HStack(spacing: 5) {
                 Image(systemName: icon)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                     .foregroundColor(BereanColor.textSecondary)
                 Text(text)
                     .font(BereanType.caption())
@@ -231,7 +231,7 @@ struct BereanMessageBubble: View {
                 .shadow(color: .black.opacity(0.06), radius: 5, x: 0, y: 2)
                 .frame(width: 26, height: 26)
             Text("B")
-                .font(.system(size: 10, weight: .bold))
+                .font(.systemScaled(10, weight: .bold))
                 .foregroundColor(Color(red: 0.788, green: 0.659, blue: 0.298))
         }
     }
@@ -282,7 +282,7 @@ struct BereanThinkingIndicator: View {
                     .shadow(color: .black.opacity(0.06), radius: 5, x: 0, y: 2)
                     .frame(width: 26, height: 26)
                 Text("B")
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.systemScaled(10, weight: .bold))
                     .foregroundColor(Color(red: 0.788, green: 0.659, blue: 0.298))
             }
 
@@ -346,7 +346,7 @@ struct BereanInputComposer: View {
             if let attachAction = onAttach {
                 Button(action: attachAction) {
                     Image(systemName: "plus.circle")
-                        .font(.system(size: 20, weight: .light))
+                        .font(.systemScaled(20, weight: .light))
                         .foregroundColor(BereanColor.textSecondary)
                 }
                 .padding(.bottom, 10)
@@ -374,7 +374,7 @@ struct BereanInputComposer: View {
                 if let voiceAction = onVoice, text.isEmpty {
                     Button(action: voiceAction) {
                         Image(systemName: "mic")
-                            .font(.system(size: 16, weight: .medium))
+                            .font(.systemScaled(16, weight: .medium))
                             .foregroundColor(BereanColor.textSecondary)
                     }
                 }
@@ -390,7 +390,7 @@ struct BereanInputComposer: View {
                                   ? Color(white: 0.85) : Color.black)
                             .frame(width: 34, height: 34)
                         Image(systemName: isStreaming ? "stop.fill" : "arrow.up")
-                            .font(.system(size: 13, weight: .bold))
+                            .font(.systemScaled(13, weight: .bold))
                             .foregroundColor(.white)
                     }
                 }

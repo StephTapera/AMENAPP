@@ -148,7 +148,7 @@ struct RestrictionBannerView: View {
         VStack(spacing: 0) {
             HStack(spacing: 12) {
                 Image(systemName: icon)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(tint)
 
                 VStack(alignment: .leading, spacing: 2) {

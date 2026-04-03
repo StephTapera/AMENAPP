@@ -135,7 +135,7 @@ struct StudioJournalView: View {
             .overlay(alignment: .topLeading) {
                 Button { dismiss() } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(.secondary)
                         .padding(10)
                         .background(Circle().fill(.ultraThinMaterial))
@@ -147,7 +147,7 @@ struct StudioJournalView: View {
             .overlay(alignment: .topTrailing) {
                 Button { showNewEntry = true } label: {
                     Image(systemName: "square.and.pencil")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(.green)
                         .padding(10)
                         .background(Circle().fill(.ultraThinMaterial))
@@ -169,19 +169,19 @@ struct StudioJournalView: View {
         VStack(spacing: 16) {
             Spacer()
             Image(systemName: "brain.head.profile")
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(.green.opacity(0.5))
             VStack(spacing: 6) {
                 Text("Think Tank")
-                    .font(.system(size: 22, weight: .bold))
+                    .font(.systemScaled(22, weight: .bold))
                 Text("Your private space for reflection,\nspiritual wrestling, and growth.")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
             Button { showNewEntry = true } label: {
                 Label("Start Your First Entry", systemImage: "plus")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 24)
                     .padding(.vertical, 13)
@@ -200,7 +200,7 @@ struct StudioJournalView: View {
                 // Title area
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Think Tank")
-                        .font(.system(size: 26, weight: .bold))
+                        .font(.systemScaled(26, weight: .bold))
                     Text("\(vm.entries.count) private \(vm.entries.count == 1 ? "entry" : "entries")")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -234,14 +234,14 @@ private struct JournalEntryCard: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 10) {
                     Image(systemName: entry.mood.icon)
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(entry.mood.color)
                         .frame(width: 28, height: 28)
                         .background(Circle().fill(entry.mood.color.opacity(0.1)))
 
                     VStack(alignment: .leading, spacing: 1) {
                         Text(entry.title.isEmpty ? "Untitled Entry" : entry.title)
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(.systemScaled(15, weight: .semibold))
                             .foregroundStyle(.primary)
                             .lineLimit(1)
                         Text(entry.date.formatted(date: .abbreviated, time: .omitted))
@@ -251,14 +251,14 @@ private struct JournalEntryCard: View {
                     Spacer()
                     if entry.aiReflection != nil {
                         Image(systemName: "sparkles")
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                             .foregroundStyle(.green.opacity(0.7))
                     }
                 }
 
                 if !entry.body.isEmpty {
                     Text(entry.body)
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
                 }
@@ -266,9 +266,9 @@ private struct JournalEntryCard: View {
                 if !entry.scripture.isEmpty {
                     HStack(spacing: 4) {
                         Image(systemName: "book.closed.fill")
-                            .font(.system(size: 9))
+                            .font(.systemScaled(9))
                         Text(entry.scripture)
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.systemScaled(11, weight: .medium))
                     }
                     .foregroundStyle(.green.opacity(0.8))
                 }
@@ -324,9 +324,9 @@ struct JournalEntryEditorView: View {
                                 Button { mood = m } label: {
                                     HStack(spacing: 5) {
                                         Image(systemName: m.icon)
-                                            .font(.system(size: 12))
+                                            .font(.systemScaled(12))
                                         Text(m.rawValue.capitalized)
-                                            .font(.system(size: 12, weight: .medium))
+                                            .font(.systemScaled(12, weight: .medium))
                                     }
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 7)
@@ -347,7 +347,7 @@ struct JournalEntryEditorView: View {
 
                     VStack(spacing: 12) {
                         TextField("Entry title (optional)", text: $title)
-                            .font(.system(size: 18, weight: .semibold))
+                            .font(.systemScaled(18, weight: .semibold))
                             .padding(14)
                             .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemBackground)))
 
@@ -355,13 +355,13 @@ struct JournalEntryEditorView: View {
                             TextEditor(text: $entryBody)
                                 .focused($bodyFocused)
                                 .frame(minHeight: 180)
-                                .font(.system(size: 15))
+                                .font(.systemScaled(15))
                                 .scrollContentBackground(.hidden)
                                 .padding(12)
                                 .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemBackground)))
                             if entryBody.isEmpty {
                                 Text("What's on your heart…")
-                                    .font(.system(size: 15))
+                                    .font(.systemScaled(15))
                                     .foregroundStyle(Color(.placeholderText))
                                     .padding(.top, 19)
                                     .padding(.leading, 16)
@@ -370,7 +370,7 @@ struct JournalEntryEditorView: View {
                         }
 
                         TextField("Scripture (optional)", text: $scripture)
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .padding(12)
                             .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemBackground)))
                     }
@@ -381,21 +381,21 @@ struct JournalEntryEditorView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             HStack(spacing: 6) {
                                 Image(systemName: "sparkles")
-                                    .font(.system(size: 12))
+                                    .font(.systemScaled(12))
                                     .foregroundStyle(.green)
                                 Text("AI Reflection")
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .font(.systemScaled(13, weight: .semibold))
                                     .foregroundStyle(.green)
                                 Spacer()
                                 Button { aiReflection = nil } label: {
                                     Image(systemName: "xmark")
-                                        .font(.system(size: 11))
+                                        .font(.systemScaled(11))
                                         .foregroundStyle(.secondary)
                                 }
                                 .buttonStyle(.plain)
                             }
                             Text(reflection)
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                                 .foregroundStyle(.primary)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
@@ -430,7 +430,7 @@ struct JournalEntryEditorView: View {
                                 Label("Ask AI to Reflect", systemImage: "sparkles")
                             }
                         }
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.systemScaled(14, weight: .medium))
                         .foregroundStyle(.green)
                         .padding(.horizontal, 20)
                         .disabled(entryBody.isEmpty || vm.isLoadingReflection)
@@ -448,7 +448,7 @@ struct JournalEntryEditorView: View {
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Save") { saveAndDismiss() }
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(.green)
                         .disabled(entryBody.isEmpty)
                 }

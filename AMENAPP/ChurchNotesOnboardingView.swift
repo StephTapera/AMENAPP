@@ -97,7 +97,7 @@ struct ChurchNotesOnboardingView: View {
 
                                 // Main icon
                                 Image(systemName: "note.text")
-                                    .font(.system(size: 44, weight: .semibold))
+                                    .font(.systemScaled(44, weight: .semibold))
                                     .foregroundStyle(.black)
                             }
                             .padding(.top, 40)
@@ -146,7 +146,7 @@ struct ChurchNotesOnboardingView: View {
                                         .font(.custom("OpenSans-Bold", size: 17))
 
                                     Image(systemName: "arrow.right")
-                                        .font(.system(size: 16, weight: .semibold))
+                                        .font(.systemScaled(16, weight: .semibold))
                                 }
                                 .foregroundStyle(.white)
                                 .frame(maxWidth: .infinity)
@@ -227,7 +227,7 @@ private struct FeatureCard: View {
                     .frame(width: 52, height: 52)
 
                 Image(systemName: feature.icon)
-                    .font(.system(size: 24, weight: .semibold))
+                    .font(.systemScaled(24, weight: .semibold))
                     .foregroundStyle(.black)
             }
 

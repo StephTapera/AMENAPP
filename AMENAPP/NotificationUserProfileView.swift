@@ -47,7 +47,7 @@ struct NotificationUserProfileView: View {
     private var errorView: some View {
         VStack(spacing: 16) {
             Image(systemName: "person.crop.circle.badge.exclamationmark")
-                .font(.system(size: 60))
+                .font(.systemScaled(60))
                 .foregroundStyle(.secondary)
             
             Text("Unable to load profile")

@@ -84,7 +84,7 @@ struct DraftsView: View {
                             }
                         } label: {
                             Image(systemName: "ellipsis.circle")
-                                .font(.system(size: 17))
+                                .font(.systemScaled(17))
                         }
                     }
                 }
@@ -123,7 +123,7 @@ struct DraftsView: View {
                     .frame(width: 80, height: 80)
 
                 Image(systemName: "doc.text")
-                    .font(.system(size: 34, weight: .medium))
+                    .font(.systemScaled(34, weight: .medium))
                     .foregroundStyle(.secondary)
             }
 
@@ -154,7 +154,7 @@ struct DraftsView: View {
     private var infoBar: some View {
         HStack(spacing: 8) {
             Image(systemName: "clock")
-                .font(.system(size: 12, weight: .medium))
+                .font(.systemScaled(12, weight: .medium))
                 .foregroundStyle(.secondary)
 
             Text("Drafts are saved locally · auto-deleted after 7 days")
@@ -196,7 +196,7 @@ struct DraftCard: View {
                             .frame(width: 44, height: 44)
 
                         Image(systemName: draft.categoryIcon)
-                            .font(.system(size: 18, weight: .semibold))
+                            .font(.systemScaled(18, weight: .semibold))
                             .foregroundStyle(draft.categoryColor)
                     }
 
@@ -305,7 +305,7 @@ struct DraftCard: View {
         let isExpiring = draft.daysRemaining == 0
         HStack(spacing: 3) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 9))
+                .font(.systemScaled(9))
             Text(isExpiring ? "Expires today" : "\(draft.daysRemaining)d left")
                 .font(AMENFont.bold(10))
         }
@@ -321,7 +321,7 @@ struct DraftCard: View {
     private func metadataPill(icon: String, label: String, color: Color) -> some View {
         HStack(spacing: 4) {
             Image(systemName: icon)
-                .font(.system(size: 10, weight: .medium))
+                .font(.systemScaled(10, weight: .medium))
             Text(label)
                 .font(AMENFont.semiBold(11))
         }
@@ -385,7 +385,7 @@ struct EditDraftView: View {
                                     .frame(width: 44, height: 44)
 
                                 Image(systemName: draft.categoryIcon)
-                                    .font(.system(size: 18, weight: .semibold))
+                                    .font(.systemScaled(18, weight: .semibold))
                                     .foregroundStyle(draft.categoryColor)
                             }
 
@@ -445,7 +445,7 @@ struct EditDraftView: View {
 
                             HStack(spacing: 10) {
                                 Image(systemName: "link")
-                                    .font(.system(size: 14, weight: .medium))
+                                    .font(.systemScaled(14, weight: .medium))
                                     .foregroundStyle(.blue)
                                 Text(link)
                                     .font(AMENFont.regular(13))
@@ -464,7 +464,7 @@ struct EditDraftView: View {
 
                         HStack(spacing: 8) {
                             Image(systemName: visibilityIcon(draft.visibility))
-                                .font(.system(size: 13, weight: .medium))
+                                .font(.systemScaled(13, weight: .medium))
                                 .foregroundStyle(.secondary)
                             Text(draft.visibility)
                                 .font(AMENFont.regular(13))
@@ -503,7 +503,7 @@ struct EditDraftView: View {
                         showDeleteConfirmation = true
                     } label: {
                         Image(systemName: "trash")
-                            .font(.system(size: 15))
+                            .font(.systemScaled(15))
                             .foregroundStyle(.red)
                     }
                 }
@@ -541,7 +541,7 @@ struct EditDraftView: View {
                             .tint(.primary)
                     } else {
                         Image(systemName: "square.and.arrow.down")
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.systemScaled(14, weight: .medium))
                     }
                     Text(isSaving ? "Saving…" : "Save")
                         .font(AMENFont.semiBold(15))
@@ -567,7 +567,7 @@ struct EditDraftView: View {
                             .tint(.white)
                     } else {
                         Image(systemName: "paperplane.fill")
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.systemScaled(14, weight: .medium))
                     }
                     Text(isPublishing ? "Publishing…" : "Publish")
                         .font(AMENFont.bold(15))

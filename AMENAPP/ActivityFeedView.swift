@@ -161,7 +161,7 @@ struct ActivityFeedView: View {
     private var communityNochurchState: some View {
         VStack(spacing: 16) {
             Image(systemName: "building.2")
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(.secondary)
 
             Text("No Church Connected")
@@ -180,7 +180,7 @@ struct ActivityFeedView: View {
     private var communityEmptyState: some View {
         VStack(spacing: 16) {
             Image(systemName: "person.3")
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(.secondary)
 
             Text("No Community Activity Yet")
@@ -199,7 +199,7 @@ struct ActivityFeedView: View {
     private var emptyState: some View {
         VStack(spacing: 16) {
             Image(systemName: "bell.slash")
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(.secondary)
             
             Text("No Recent Activity")
@@ -218,7 +218,7 @@ struct ActivityFeedView: View {
     private func feedErrorState(message: String) -> some View {
         VStack(spacing: 16) {
             Image(systemName: "wifi.exclamationmark")
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(.secondary)
 
             Text("Could Not Load Activity")
@@ -261,7 +261,7 @@ struct ActivityRow: View {
                     .frame(width: 40, height: 40)
                 
                 Image(systemName: activity.icon)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(iconForegroundColor)
             }
             

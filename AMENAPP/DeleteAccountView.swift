@@ -28,6 +28,7 @@ struct DeleteAccountView: View {
     @State private var isDeleting = false
     @State private var deletionError: String?
     @State private var showError = false
+    @State private var deletionSucceeded = false
     @FocusState private var confirmFieldFocused: Bool
 
     var body: some View {
@@ -36,7 +37,7 @@ struct DeleteAccountView: View {
                 // Warning icon
                 VStack(spacing: 12) {
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.system(size: 52))
+                        .font(.systemScaled(52))
                         .foregroundStyle(.red)
                         .padding(.top, 32)
 
@@ -154,6 +155,9 @@ struct DeleteAccountView: View {
         } message: {
             Text(deletionError ?? "An unexpected error occurred. Please try again.")
         }
+        .fullScreenCover(isPresented: $deletionSucceeded) {
+            AccountDeletedConfirmationView()
+        }
     }
 
     // MARK: - Helpers
@@ -168,13 +172,64 @@ struct DeleteAccountView: View {
         isDeleting = true
         do {
             try await AccountDeletionService.shared.deleteAccount(userId: uid)
-            // Sign out and return to root
-            authViewModel.signOut()
+            // Show confirmation screen before signing out
+            deletionSucceeded = true
         } catch {
             deletionError = error.localizedDescription
             showError = true
         }
         isDeleting = false
+    }
+}
+
+// MARK: - Account Deleted Confirmation
+
+struct AccountDeletedConfirmationView: View {
+    var body: some View {
+        VStack(spacing: 28) {
+            Spacer()
+
+            Image(systemName: "checkmark.seal.fill")
+                .font(.systemScaled(64))
+                .foregroundStyle(.green)
+
+            VStack(spacing: 10) {
+                Text("Account Deleted")
+                    .font(.title2.bold())
+                Text("Your account and all associated data have been permanently removed from AMEN.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
+            }
+
+            Text("We're sorry to see you go. You're always welcome back.")
+                .font(.footnote)
+                .foregroundStyle(.tertiary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+
+            Spacer()
+
+            Button {
+                // Sign out navigates to the welcome screen
+                Task { @MainActor in
+                    try? Auth.auth().signOut()
+                }
+            } label: {
+                Text("Done")
+                    .font(.body.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .foregroundStyle(.white)
+                    .background(Color.accentColor, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            }
+            .padding(.horizontal, 24)
+            .padding(.bottom, 40)
+        }
+        .background(Color(.systemBackground).ignoresSafeArea())
+        // Prevent dismiss by swipe so the user must tap Done (which signs them out)
+        .interactiveDismissDisabled(true)
     }
 }
 
@@ -211,7 +266,7 @@ private struct ReauthenticationSheet: View {
             VStack(spacing: 24) {
                 VStack(spacing: 8) {
                     Image(systemName: "lock.shield")
-                        .font(.system(size: 40))
+                        .font(.systemScaled(40))
                         .foregroundStyle(.primary)
                         .padding(.top, 32)
                     Text("Confirm Your Identity")

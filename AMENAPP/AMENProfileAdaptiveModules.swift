@@ -193,7 +193,7 @@ struct ChurchAffiliationBadgeView: View {
             GlassCapsule {
                 HStack(spacing: 8) {
                     Image(systemName: "building.columns.fill")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                         .foregroundStyle(.black.opacity(0.65))
 
                     Text("\(relationshipLabel) \(churchName)")
@@ -207,7 +207,7 @@ struct ChurchAffiliationBadgeView: View {
                         .foregroundStyle(.black.opacity(0.45))
 
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.systemScaled(10, weight: .semibold))
                         .foregroundStyle(.black.opacity(0.35))
                 }
                 .padding(.horizontal, 14)
@@ -365,7 +365,7 @@ struct ChurchMutualSignalView: View {
                 } else {
                     HStack(spacing: 6) {
                         Image(systemName: "person.3.fill")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundStyle(.black.opacity(0.5))
                         Text(areaDescription.map { "Many in \($0) connect here" } ?? "Many in your area connect here")
                             .font(AMENFont.semiBold(13))
@@ -411,7 +411,7 @@ struct ChurchVerificationBadgeView: View {
                             .fill(.black)
                             .frame(width: 30, height: 30)
                         Image(systemName: "checkmark")
-                            .font(.system(size: 13, weight: .bold))
+                            .font(.systemScaled(13, weight: .bold))
                             .foregroundStyle(.white)
                     }
 
@@ -431,7 +431,7 @@ struct ChurchVerificationBadgeView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(spacing: 8) {
                         Image(systemName: "shield.lefthalf.filled")
-                            .font(.system(size: 16))
+                            .font(.systemScaled(16))
                             .foregroundStyle(.black.opacity(0.45))
                         Text("Verify this church account")
                             .font(AMENFont.semiBold(14))
@@ -484,7 +484,7 @@ struct PersonalFaithJourneyModuleView: View {
                     Spacer()
                     Button(action: onEdit) {
                         Image(systemName: "pencil")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.systemScaled(13, weight: .medium))
                             .foregroundStyle(.black.opacity(0.4))
                     }
                     .buttonStyle(.plain)
@@ -493,7 +493,7 @@ struct PersonalFaithJourneyModuleView: View {
                 if isEmpty {
                     HStack(spacing: 8) {
                         Image(systemName: "leaf.fill")
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundStyle(.black.opacity(0.3))
                         Text("Share what you're growing through")
                             .font(AMENFont.regular(13))
@@ -559,7 +559,7 @@ struct PersonalPrayerFocusModuleView: View {
             if let focus = prayerFocus {
                 HStack(alignment: .top, spacing: 12) {
                     Image(systemName: "hands.and.sparkles.fill")
-                        .font(.system(size: 18))
+                        .font(.systemScaled(18))
                         .foregroundStyle(.black.opacity(0.45))
                         .frame(width: 26, height: 26)
 
@@ -581,7 +581,7 @@ struct PersonalPrayerFocusModuleView: View {
                 Button(action: onAdd) {
                     HStack(spacing: 10) {
                         Image(systemName: "plus.circle")
-                            .font(.system(size: 16))
+                            .font(.systemScaled(16))
                             .foregroundStyle(.black.opacity(0.35))
                         Text("Add a prayer focus")
                             .font(AMENFont.regular(13))
@@ -632,7 +632,7 @@ struct PersonalTestimonyModuleView: View {
                     Button(action: onView) {
                         HStack(spacing: 8) {
                             Image(systemName: "text.book.closed")
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                                 .foregroundStyle(.black.opacity(0.3))
                             Text("Share your story")
                                 .font(AMENFont.regular(13))
@@ -725,7 +725,7 @@ struct BusinessLinksModuleView: View {
                 ForEach(Array(links.prefix(4).enumerated()), id: \.offset) { index, link in
                     HStack(spacing: 12) {
                         Image(systemName: link.icon)
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.systemScaled(14, weight: .medium))
                             .foregroundStyle(.black.opacity(0.55))
                             .frame(width: 20)
 
@@ -736,7 +736,7 @@ struct BusinessLinksModuleView: View {
                         Spacer()
 
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.systemScaled(11, weight: .semibold))
                             .foregroundStyle(.black.opacity(0.3))
                     }
                     .padding(.horizontal, 16)
@@ -796,7 +796,7 @@ struct BusinessFeaturedOfferingModuleView: View {
                     Button(action: onView) {
                         HStack(spacing: 8) {
                             Image(systemName: "plus.circle")
-                                .font(.system(size: 15))
+                                .font(.systemScaled(15))
                                 .foregroundStyle(.black.opacity(0.35))
                             Text("Add your featured offering")
                                 .font(AMENFont.regular(13))

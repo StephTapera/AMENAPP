@@ -162,10 +162,10 @@ struct StudyGuideView: View {
         VStack(spacing: 16) {
             ProgressView()
             Text("Generating study guide…")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(Color(.secondaryLabel))
             Text("This may take a moment.")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(Color(.tertiaryLabel))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -174,17 +174,17 @@ struct StudyGuideView: View {
     private var promptState: some View {
         VStack(spacing: 16) {
             Image(systemName: "person.3.fill")
-                .font(.system(size: 44))
+                .font(.systemScaled(44))
                 .foregroundStyle(Color(.tertiaryLabel))
             Text("Tap Generate to create a small group study guide from this sermon note.")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(Color(.secondaryLabel))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
             Button("Generate Guide") {
                 Task { await service.generate(from: sourceNote) }
             }
-            .font(.system(size: 15, weight: .semibold))
+            .font(.systemScaled(15, weight: .semibold))
             .padding(.horizontal, 24)
             .padding(.vertical, 12)
             .background(Color(.label), in: RoundedRectangle(cornerRadius: 12))
@@ -195,7 +195,7 @@ struct StudyGuideView: View {
 
     private func errorState(_ msg: String) -> some View {
         VStack(spacing: 12) {
-            Text(msg).foregroundStyle(.red).font(.system(size: 14))
+            Text(msg).foregroundStyle(.red).font(.systemScaled(14))
             Button("Retry") { Task { await service.generate(from: sourceNote) } }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -213,7 +213,7 @@ struct StudyGuideView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             sectionHeader("Big Idea")
                             Text(g.bigIdea)
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.systemScaled(16, weight: .semibold))
                                 .foregroundStyle(Color(.label))
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
@@ -226,7 +226,7 @@ struct StudyGuideView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             sectionHeader("Background")
                             Text(g.context)
-                                .font(.system(size: 15))
+                                .font(.systemScaled(15))
                                 .foregroundStyle(Color(.secondaryLabel))
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
@@ -244,11 +244,11 @@ struct StudyGuideView: View {
                                     ForEach(Array(qs.enumerated()), id: \.element.id) { idx, q in
                                         HStack(alignment: .top, spacing: 10) {
                                             Text("Q")
-                                                .font(.system(size: 11, weight: .bold))
+                                                .font(.systemScaled(11, weight: .bold))
                                                 .foregroundStyle(Color(.tertiaryLabel))
                                                 .padding(.top, 2)
                                             Text(q.question)
-                                                .font(.system(size: 15))
+                                                .font(.systemScaled(15))
                                                 .foregroundStyle(Color(.label))
                                                 .frame(maxWidth: .infinity, alignment: .leading)
                                         }
@@ -271,7 +271,7 @@ struct StudyGuideView: View {
                             VStack(spacing: 0) {
                                 ForEach(Array(g.scriptureDeep.enumerated()), id: \.offset) { idx, ref in
                                     Text(ref)
-                                        .font(.system(size: 15))
+                                        .font(.systemScaled(15))
                                         .foregroundStyle(.purple)
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                         .padding(.vertical, 14)
@@ -293,11 +293,11 @@ struct StudyGuideView: View {
                                 ForEach(Array(g.actionSteps.enumerated()), id: \.offset) { idx, step in
                                     HStack(alignment: .top, spacing: 8) {
                                         Image(systemName: "checkmark.circle")
-                                            .font(.system(size: 14))
+                                            .font(.systemScaled(14))
                                             .foregroundStyle(Color(.secondaryLabel))
                                             .padding(.top, 2)
                                         Text(step)
-                                            .font(.system(size: 15))
+                                            .font(.systemScaled(15))
                                             .frame(maxWidth: .infinity, alignment: .leading)
                                     }
                                     .padding(.vertical, 14)
@@ -316,7 +316,7 @@ struct StudyGuideView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             sectionHeader("Closing Prayer")
                             Text(g.closingPrayer)
-                                .font(.system(size: 15))
+                                .font(.systemScaled(15))
                                 .foregroundStyle(Color(.secondaryLabel))
                                 .italic()
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -347,7 +347,7 @@ struct StudyGuideView: View {
 
     private func sectionHeader(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 13, weight: .semibold))
+            .font(.systemScaled(13, weight: .semibold))
             .foregroundStyle(Color(.secondaryLabel))
     }
 
@@ -406,7 +406,7 @@ struct StudyGuideButton: View {
             showGuide = true
         } label: {
             Label("Study Guide", systemImage: "person.3.fill")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
         }
         .sheet(isPresented: $showGuide) {
             StudyGuideView(sourceNote: note)

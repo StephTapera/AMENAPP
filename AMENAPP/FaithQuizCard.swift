@@ -24,13 +24,13 @@ struct FaithQuizCard: View {
                             .fill(iconBgColor)
                             .frame(width: 36, height: 36)
                         Image(systemName: icon)
-                            .font(.system(size: 16, weight: .medium))
+                            .font(.systemScaled(16, weight: .medium))
                             .foregroundStyle(.white)
                     }
                     Spacer()
                     // Completion badge
                     Text(isCompleted ? "✓ Done" : "New")
-                        .font(.system(size: 9, weight: .bold))
+                        .font(.systemScaled(9, weight: .bold))
                         .foregroundStyle(isCompleted ? Color(red: 0.09, green: 0.64, blue: 0.29) : Color(red: 0.85, green: 0.47, blue: 0.02))
                         .padding(.horizontal, 7)
                         .padding(.vertical, 3)
@@ -38,10 +38,10 @@ struct FaithQuizCard: View {
                         .clipShape(Capsule())
                 }
                 Text(title)
-                    .font(.system(size: 13, weight: .bold))
+                    .font(.systemScaled(13, weight: .bold))
                     .foregroundStyle(.primary)
                 Text(subtitle)
-                    .font(.system(size: 10))
+                    .font(.systemScaled(10))
                     .foregroundStyle(.secondary)
             }
             .padding(14)

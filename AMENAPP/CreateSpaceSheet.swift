@@ -70,7 +70,7 @@ struct CreateSpaceSheet: View {
                         } label: {
                             HStack(spacing: 4) {
                                 Image(systemName: "chevron.left")
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .font(.systemScaled(13, weight: .semibold))
                                 Text("Back")
                             }
                             .font(AMENFont.regular(16))
@@ -141,7 +141,7 @@ struct CreateSpaceSheet: View {
                 HStack(spacing: 8) {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundStyle(.orange)
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                     Text(error)
                         .font(AMENFont.regular(13))
                         .foregroundStyle(.orange)
@@ -168,7 +168,7 @@ struct CreateSpaceSheet: View {
                             .scaleEffect(0.85)
                     } else {
                         Image(systemName: "sparkles")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                     }
                     Text(isGenerating ? "Generating…" : "Generate with AI")
                         .font(AMENFont.semiBold(16))
@@ -294,7 +294,7 @@ struct CreateSpaceSheet: View {
                 HStack(spacing: 8) {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundStyle(.orange)
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                     Text(error)
                         .font(AMENFont.regular(13))
                         .foregroundStyle(.orange)
@@ -312,7 +312,7 @@ struct CreateSpaceSheet: View {
                             .scaleEffect(0.85)
                     } else {
                         Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                     }
                     Text(isCreating ? "Creating…" : "Create Community")
                         .font(AMENFont.semiBold(16))

@@ -133,21 +133,21 @@ struct TestimonyViralSheet: View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
                 Text("VIRAL GENERATOR")
-                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                    .font(.systemScaled(10, weight: .semibold, design: .monospaced))
                     .foregroundColor(Color(hex: "C9A84C"))
                     .kerning(2)
                 Text("Make It Shareable")
-                    .font(.system(size: 22, weight: .bold))
+                    .font(.systemScaled(22, weight: .bold))
                     .foregroundColor(.white)
             }
             Spacer()
             Button { showPlatformPicker = true } label: {
                 HStack(spacing: 5) {
                     Text(vm.selectedPlatform.rawValue)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundColor(.white)
                     Image(systemName: "chevron.down")
-                        .font(.system(size: 10))
+                        .font(.systemScaled(10))
                         .foregroundColor(Color.white.opacity(0.4))
                 }
                 .padding(.horizontal, 12)
@@ -172,7 +172,7 @@ struct TestimonyViralSheet: View {
                 .tint(Color(hex: "C9A84C"))
                 .scaleEffect(1.5)
             Text("Berean AI is crafting your content...")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundColor(Color.white.opacity(0.5))
             Spacer(minLength: 60)
         }
@@ -182,12 +182,12 @@ struct TestimonyViralSheet: View {
         VStack(spacing: 16) {
             if let err = vm.errorMessage {
                 Text(err)
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundColor(Color(hex: "F09595"))
                     .multilineTextAlignment(.center)
             }
             Button("Generate Content") { vm.generate(testimony: testimony) }
-                .font(.system(size: 15, weight: .semibold))
+                .font(.systemScaled(15, weight: .semibold))
                 .foregroundColor(.black)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
@@ -211,18 +211,18 @@ struct TestimonyViralSheet: View {
                 // Scripture
                 VStack(alignment: .leading, spacing: 8) {
                     Text("SCRIPTURE")
-                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                        .font(.systemScaled(10, weight: .semibold, design: .monospaced))
                         .foregroundColor(Color(hex: "C9A84C").opacity(0.7))
                         .kerning(1.5)
                     Text(r.scripture.reference)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundColor(Color(hex: "C9A84C"))
                     Text(r.scripture.verse)
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundColor(.white)
                         .lineSpacing(4)
                     Text(r.scripture.why)
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundColor(Color.white.opacity(0.4))
                         .lineSpacing(3)
                 }
@@ -236,20 +236,20 @@ struct TestimonyViralSheet: View {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {
                         Text("HASHTAGS")
-                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                            .font(.systemScaled(10, weight: .semibold, design: .monospaced))
                             .foregroundColor(Color.white.opacity(0.4))
                             .kerning(1.5)
                         Spacer()
                         Button { vm.copy(r.hashtags.joined(separator: " "), field: "hashtags") } label: {
                             Text(vm.copiedField == "hashtags" ? "Copied!" : "Copy All")
-                                .font(.system(size: 12, weight: .medium))
+                                .font(.systemScaled(12, weight: .medium))
                                 .foregroundColor(Color.white.opacity(0.5))
                         }
                     }
                     FlowLayout(spacing: 6) {
                         ForEach(r.hashtags, id: \.self) { tag in
                             Text(tag)
-                                .font(.system(size: 12, weight: .medium))
+                                .font(.systemScaled(12, weight: .medium))
                                 .foregroundColor(Color(hex: "378ADD"))
                                 .padding(.horizontal, 10).padding(.vertical, 5)
                                 .background(Color(hex: "378ADD").opacity(0.1))
@@ -266,8 +266,8 @@ struct TestimonyViralSheet: View {
                 // Regenerate
                 Button { vm.generate(testimony: testimony) } label: {
                     HStack(spacing: 6) {
-                        Image(systemName: "arrow.clockwise").font(.system(size: 13, weight: .semibold))
-                        Text("Regenerate").font(.system(size: 14, weight: .semibold))
+                        Image(systemName: "arrow.clockwise").font(.systemScaled(13, weight: .semibold))
+                        Text("Regenerate").font(.systemScaled(14, weight: .semibold))
                     }
                     .foregroundColor(Color(hex: "C9A84C"))
                     .frame(maxWidth: .infinity)
@@ -286,21 +286,21 @@ struct TestimonyViralSheet: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
                     Text("CAPTION")
-                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                        .font(.systemScaled(10, weight: .semibold, design: .monospaced))
                         .foregroundColor(Color.white.opacity(0.4))
                         .kerning(1.5)
                     Spacer()
                     captionLengthPicker
                 }
                 Text(vm.activeCaption)
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundColor(.white)
                     .lineSpacing(5)
                 Button { vm.copy(vm.activeCaption, field: "caption") } label: {
                     HStack(spacing: 4) {
-                        Image(systemName: "doc.on.doc").font(.system(size: 11))
+                        Image(systemName: "doc.on.doc").font(.systemScaled(11))
                         Text(vm.copiedField == "caption" ? "Copied!" : "Copy Caption")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.systemScaled(12, weight: .medium))
                     }
                     .foregroundColor(Color.white.opacity(0.5))
                 }
@@ -327,7 +327,7 @@ struct TestimonyViralSheet: View {
         return Button(len.rawValue) {
             vm.selectedCaption = len
         }
-        .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
+        .font(.systemScaled(11, weight: isSelected ? .semibold : .regular))
         .foregroundColor(isSelected ? .black : Color.white.opacity(0.5))
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
@@ -338,16 +338,16 @@ struct TestimonyViralSheet: View {
     private func viralCard(label: String, content: String, onCopy: @escaping () -> Void) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(label)
-                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                .font(.systemScaled(10, weight: .semibold, design: .monospaced))
                 .foregroundColor(Color.white.opacity(0.4))
                 .kerning(1.5)
             Text(content)
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
                 .foregroundColor(.white)
             Button(action: onCopy) {
                 HStack(spacing: 4) {
-                    Image(systemName: "doc.on.doc").font(.system(size: 11))
-                    Text("Copy").font(.system(size: 12, weight: .medium))
+                    Image(systemName: "doc.on.doc").font(.systemScaled(11))
+                    Text("Copy").font(.systemScaled(12, weight: .medium))
                 }
                 .foregroundColor(Color.white.opacity(0.5))
             }

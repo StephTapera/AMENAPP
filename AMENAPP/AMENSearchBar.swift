@@ -143,7 +143,7 @@ struct AMENSearchBar: View {
         HStack(spacing: 10) {
             // Magnifier — scales slightly on focus
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 16, weight: .medium))
+                .font(.systemScaled(16, weight: .medium))
                 .foregroundStyle(.secondary)
                 .scaleEffect(isFocused ? 1.06 : 1.0)
                 .animation(expandSpring, value: isFocused)
@@ -166,7 +166,7 @@ struct AMENSearchBar: View {
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                         .foregroundStyle(Color(.tertiaryLabel))
                 }
                 .transition(.opacity.combined(with: .scale(scale: 0.7)))
@@ -252,7 +252,7 @@ struct AMENSearchBar: View {
                                 }
                                 Spacer()
                                 Image(systemName: "arrow.right")
-                                    .font(.system(size: 13, weight: .medium))
+                                    .font(.systemScaled(13, weight: .medium))
                                     .foregroundStyle(Color(.tertiaryLabel))
                             }
                             .padding(.horizontal, 16)
@@ -347,7 +347,7 @@ struct AMENCompactSearchField: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 14, weight: .medium))
+                .font(.systemScaled(14, weight: .medium))
                 .foregroundStyle(.secondary)
 
             TextField(placeholder, text: $query)
@@ -364,7 +364,7 @@ struct AMENCompactSearchField: View {
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { query = "" }
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(Color(.tertiaryLabel))
                 }
                 .transition(.opacity)

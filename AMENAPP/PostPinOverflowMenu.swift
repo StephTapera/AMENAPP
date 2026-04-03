@@ -42,7 +42,7 @@ struct PostPinOverflowMenu: View {
                 // MARK: Section Header
                 HStack {
                     Text("Post options")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                         .foregroundColor(.gray)
                         .textCase(.uppercase)
                         .tracking(0.5)
@@ -81,7 +81,7 @@ struct PostPinOverflowMenu: View {
                     onDismiss()
                 } label: {
                     Text("Cancel")
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(.systemScaled(17, weight: .semibold))
                         .foregroundColor(.primary)
                         .frame(maxWidth: .infinity)
                         .frame(height: 52)
@@ -287,7 +287,7 @@ private struct MenuRow: View {
                         )
 
                     Image(systemName: icon)
-                        .font(.system(size: 17, weight: .medium))
+                        .font(.systemScaled(17, weight: .medium))
                         .foregroundColor(
                             isDestructive ? Color.red.opacity(0.85) :
                             isMuted ? Color.gray : .primary
@@ -297,7 +297,7 @@ private struct MenuRow: View {
                 // Text
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.systemScaled(16, weight: .medium))
                         .foregroundColor(
                             isDestructive ? Color.red.opacity(0.85) :
                             isMuted ? Color.gray : .primary
@@ -305,7 +305,7 @@ private struct MenuRow: View {
 
                     if let subtitle = subtitle {
                         Text(subtitle)
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundColor(.gray)
                     }
                 }
@@ -313,7 +313,7 @@ private struct MenuRow: View {
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundColor(Color.gray.opacity(0.6))
             }
             .padding(.horizontal, 16)
@@ -366,9 +366,9 @@ struct PinTypePickerView: View {
             } label: {
                 HStack(spacing: 6) {
                     Text("Pin to profile")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                     Image(systemName: "arrow.right")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                 }
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
@@ -395,11 +395,11 @@ private struct PinTypeChip: View {
         Button(action: action) {
             HStack(spacing: 8) {
                 Image(systemName: icon)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundColor(isSelected ? .black : .primary)
 
                 Text(label)
-                    .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                    .font(.systemScaled(13, weight: isSelected ? .semibold : .regular))
                     .foregroundColor(isSelected ? .black : .primary)
                     .lineLimit(2)
                     .minimumScaleFactor(0.85)
@@ -407,7 +407,7 @@ private struct PinTypeChip: View {
                 if isSelected {
                     Spacer()
                     Image(systemName: "checkmark")
-                        .font(.system(size: 11, weight: .bold))
+                        .font(.systemScaled(11, weight: .bold))
                         .foregroundColor(.black)
                 }
             }

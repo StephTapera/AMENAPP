@@ -464,7 +464,7 @@ struct NotificationTestRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 24))
+                .font(.systemScaled(24))
                 .foregroundStyle(.purple)
                 .frame(width: 40)
             

@@ -102,7 +102,7 @@ struct CoCreationSummaryView: View {
                         Image(systemName: "xmark.circle.fill")
                             .symbolRenderingMode(.hierarchical)
                             .foregroundStyle(.white.opacity(0.7))
-                            .font(.system(size: 22))
+                            .font(.systemScaled(22))
                     }
                 }
             }
@@ -120,7 +120,7 @@ struct CoCreationSummaryView: View {
     private var headerSection: some View {
         VStack(spacing: 10) {
             Image(systemName: "sparkles")
-                .font(.system(size: 48, weight: .semibold))
+                .font(.systemScaled(48, weight: .semibold))
                 .symbolRenderingMode(.multicolor)
                 .foregroundStyle(amenGold)
 
@@ -166,7 +166,7 @@ struct CoCreationSummaryView: View {
     private func statCard(value: String, label: String, icon: String, color: Color) -> some View {
         VStack(spacing: 8) {
             Image(systemName: icon)
-                .font(.system(size: 18, weight: .semibold))
+                .font(.systemScaled(18, weight: .semibold))
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(color)
             Text(value)
@@ -195,7 +195,7 @@ struct CoCreationSummaryView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 7) {
                 Image(systemName: "sparkles")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(amenPurple)
                 Text("Highlight from this session")
@@ -226,7 +226,7 @@ struct CoCreationSummaryView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 7) {
                 Image(systemName: "doc.text.fill")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(.white.opacity(0.55))
                 Text("Full Canvas")
@@ -236,7 +236,7 @@ struct CoCreationSummaryView: View {
 
             ScrollView(showsIndicators: false) {
                 Text(vm.canvasText.isEmpty ? "No content was written." : vm.canvasText)
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .foregroundStyle(.white.opacity(vm.canvasText.isEmpty ? 0.3 : 0.85))
                     .lineSpacing(5)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -316,7 +316,7 @@ struct CoCreationSummaryView: View {
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: didPost ? "checkmark.circle.fill" : "square.and.arrow.up.fill")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .symbolRenderingMode(.hierarchical)
                     Text(didPost ? "Posted!" : "Post to Feed")
                         .font(AMENFont.bold(16))
@@ -362,7 +362,7 @@ struct CoCreationSummaryView: View {
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "square.and.arrow.up")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .symbolRenderingMode(.hierarchical)
                     Text("Share Session")
                         .font(AMENFont.semiBold(15))
@@ -385,7 +385,7 @@ private struct ToastBanner: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 18, weight: .semibold))
+                .font(.systemScaled(18, weight: .semibold))
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(.green)
             Text(message)

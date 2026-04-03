@@ -608,7 +608,7 @@ struct ChurchNoteAIAssistantView: View {
         ScrollView {
             VStack(spacing: 16) {
                 Text("What would you like help with?")
-                    .font(.system(size: 20, weight: .semibold))
+                    .font(.systemScaled(20, weight: .semibold))
                     .foregroundStyle(.black)
                     .padding(.top, 24)
                 
@@ -630,17 +630,17 @@ struct ChurchNoteAIAssistantView: View {
                     Button { showUpgradeSheet = true } label: {
                         HStack(spacing: 10) {
                             Image(systemName: "sparkles")
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(.systemScaled(15, weight: .semibold))
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Unlock AI Church Notes")
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(.systemScaled(14, weight: .semibold))
                                 Text("Summarize sermons, create prayers & more with Berean Pro")
-                                    .font(.system(size: 12))
+                                    .font(.systemScaled(12))
                                     .foregroundStyle(.secondary)
                             }
                             Spacer()
                             Image(systemName: "chevron.right")
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.systemScaled(12, weight: .semibold))
                                 .foregroundStyle(.secondary)
                         }
                         .foregroundStyle(.primary)
@@ -667,9 +667,9 @@ struct ChurchNoteAIAssistantView: View {
                     } label: {
                         HStack(spacing: 6) {
                             Image(systemName: "chevron.left")
-                                .font(.system(size: 14, weight: .medium))
+                                .font(.systemScaled(14, weight: .medium))
                             Text("Back")
-                                .font(.system(size: 16))
+                                .font(.systemScaled(16))
                         }
                         .foregroundStyle(.black.opacity(0.7))
                     }
@@ -683,9 +683,9 @@ struct ChurchNoteAIAssistantView: View {
                     } label: {
                         HStack(spacing: 6) {
                             Image(systemName: "doc.on.doc")
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                             Text("Copy")
-                                .font(.system(size: 16))
+                                .font(.systemScaled(16))
                         }
                         .padding(.horizontal, 14)
                         .padding(.vertical, 8)
@@ -698,7 +698,7 @@ struct ChurchNoteAIAssistantView: View {
                 .padding(.top, 20)
                 
                 Text(text)
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(.black)
                     .padding(20)
                     .background(Color.white)
@@ -774,7 +774,7 @@ struct AIFeatureButton: View {
             HStack(spacing: 16) {
                 ZStack {
                     Image(systemName: feature.icon)
-                        .font(.system(size: 22))
+                        .font(.systemScaled(22))
                         .foregroundStyle(isLocked ? Color(uiColor: .tertiaryLabel) : .blue)
                         .frame(width: 40)
                 }
@@ -782,17 +782,17 @@ struct AIFeatureButton: View {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 6) {
                         Text(feature.rawValue)
-                            .font(.system(size: 17, weight: .semibold))
+                            .font(.systemScaled(17, weight: .semibold))
                             .foregroundStyle(isLocked ? Color(uiColor: .secondaryLabel) : Color(uiColor: .label))
                         if isLocked {
                             Image(systemName: "lock.fill")
-                                .font(.system(size: 11))
+                                .font(.systemScaled(11))
                                 .foregroundStyle(Color(uiColor: .tertiaryLabel))
                         }
                     }
 
                     Text(isLocked ? "Requires Berean Pro" : feature.description)
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(Color(uiColor: .secondaryLabel))
                 }
 
@@ -803,11 +803,11 @@ struct AIFeatureButton: View {
                         .tint(Color(uiColor: .label))
                 } else if isLocked {
                     Image(systemName: "lock.fill")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                         .foregroundStyle(Color(uiColor: .tertiaryLabel))
                 } else {
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.systemScaled(14, weight: .medium))
                         .foregroundStyle(Color(uiColor: .tertiaryLabel))
                 }
             }

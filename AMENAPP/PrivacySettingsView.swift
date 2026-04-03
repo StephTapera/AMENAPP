@@ -62,6 +62,7 @@ struct PrivacySettingsView: View {
     // Content preferences
     @State private var personalizedRecommendations = true
     @State private var sensitiveContentLevel: String = "standard"
+    @State private var analyticsOptOut = AMENAnalyticsService.shared.isUserOptedOut
 
     // Followers / Following visibility
     @State private var showFollowerCount = true
@@ -545,6 +546,47 @@ struct PrivacySettingsView: View {
                     .padding(.horizontal, 20)
                     .padding(.top, 8)
 
+                // MARK: ANALYTICS OPT-OUT
+                Text("DATA & ANALYTICS")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+
+                VStack(spacing: 0) {
+                    Toggle(isOn: Binding(
+                        get: { analyticsOptOut },
+                        set: { newValue in
+                            analyticsOptOut = newValue
+                            AMENAnalyticsService.shared.setAnalyticsOptOut(newValue)
+                        }
+                    )) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Opt Out of Analytics")
+                                .font(AMENFont.semiBold(15))
+                            Text("Disable usage analytics collection for your account")
+                                .font(AMENFont.regular(13))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .tint(.blue)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
+                Text("You can opt out of analytics collection at any time. This does not affect your experience.")
+                    .font(AMENFont.regular(12))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+
                 // MARK: BLOCKED ACCOUNTS
                 Text("BLOCKED ACCOUNTS")
                     .font(AMENFont.bold(11))
@@ -728,7 +770,7 @@ struct AddHiddenWordSheet: View {
             VStack(spacing: 24) {
                 VStack(spacing: 12) {
                     Image(systemName: "eye.slash.fill")
-                        .font(.system(size: 50))
+                        .font(.systemScaled(50))
                         .foregroundStyle(.blue)
                         .padding(.top, 20)
 

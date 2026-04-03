@@ -262,7 +262,7 @@ struct AIBibleStudyView: View {
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: "chevron.left")
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(.systemScaled(15, weight: .semibold))
                             Text("Back")
                                 .font(AMENFont.semiBold(15))
                         }
@@ -289,12 +289,12 @@ struct AIBibleStudyView: View {
                                 .overlay(Circle().stroke(Color(white: 0.85), lineWidth: 0.5))
 
                             Text("B")
-                                .font(.system(size: 15, weight: .light, design: .serif))
+                                .font(.systemScaled(15, weight: .light, design: .serif))
                                 .foregroundStyle(Color(white: 0.2))
                         }
 
                         Text("Berean")
-                            .font(.system(size: 17, weight: .semibold, design: .default))
+                            .font(.systemScaled(17, weight: .semibold, design: .default))
                             .foregroundStyle(Color(white: 0.12))
                     }
                 }
@@ -306,7 +306,7 @@ struct AIBibleStudyView: View {
                             showHistory = true
                         } label: {
                             Image(systemName: "clock.arrow.circlepath")
-                                .font(.system(size: 17))
+                                .font(.systemScaled(17))
                                 .foregroundStyle(Color(white: 0.35))
                         }
 
@@ -315,7 +315,7 @@ struct AIBibleStudyView: View {
                             showSettings = true
                         } label: {
                             Image(systemName: "gearshape.fill")
-                                .font(.system(size: 17))
+                                .font(.systemScaled(17))
                                 .foregroundStyle(Color(white: 0.35))
                         }
                     }
@@ -391,14 +391,14 @@ struct AIBibleStudyView: View {
                     } label: {
                         HStack(spacing: 6) {
                             Image(systemName: tab.icon)
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.systemScaled(12, weight: .semibold))
 
                             Text(tab.rawValue)
                                 .font(AMENFont.semiBold(13))
 
                             if tab.requiresPro && !hasProAccess {
                                 Image(systemName: "lock.fill")
-                                    .font(.system(size: 9))
+                                    .font(.systemScaled(9))
                                     .foregroundStyle(Color(red: 1.0, green: 0.45, blue: 0.25))
                             }
                         }
@@ -668,13 +668,13 @@ struct BereanEmptyState: View {
                         .overlay(Circle().stroke(Color(white: 0.88), lineWidth: 0.5))
 
                     Text("B")
-                        .font(.system(size: 40, weight: .ultraLight, design: .serif))
+                        .font(.systemScaled(40, weight: .ultraLight, design: .serif))
                         .foregroundStyle(Color(white: 0.22))
                 }
 
                 VStack(spacing: 10) {
                     Text("Ask Berean")
-                        .font(.system(size: 34, weight: .light, design: .serif))
+                        .font(.systemScaled(34, weight: .light, design: .serif))
                         .foregroundStyle(Color(white: 0.10))
                         .multilineTextAlignment(.center)
 
@@ -762,7 +762,7 @@ struct LightChatContent: View {
                             .overlay(Circle().stroke(Color(white: 0.88), lineWidth: 0.5))
 
                         Text("B")
-                            .font(.system(size: 16, weight: .light, design: .serif))
+                            .font(.systemScaled(16, weight: .light, design: .serif))
                             .foregroundStyle(Color(white: 0.25))
                     }
 
@@ -827,7 +827,7 @@ struct LightMessageBubble: View {
                         .overlay(Circle().stroke(Color(white: 0.88), lineWidth: 0.5))
 
                     Text("B")
-                        .font(.system(size: 15, weight: .light, design: .serif))
+                        .font(.systemScaled(15, weight: .light, design: .serif))
                         .foregroundStyle(Color(white: 0.25))
                 }
                 .scaleEffect(appeared ? 1.0 : 0.6)
@@ -949,7 +949,7 @@ struct LightGlassmorphicChatInput: View {
                             .shadow(color: Color.black.opacity(0.07), radius: 5, y: 2)
 
                         Image(systemName: isListening ? "waveform" : "mic.fill")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .foregroundStyle(
                                 isListening
                                     ? Color.red
@@ -1057,7 +1057,7 @@ struct LightGlassmorphicChatInput: View {
                             )
 
                         Image(systemName: isProcessing ? "stop.fill" : "arrow.up")
-                            .font(.system(size: 16, weight: .bold))
+                            .font(.systemScaled(16, weight: .bold))
                             .foregroundStyle(userInput.isEmpty ? Color(white: 0.55) : .white)
                             .symbolEffect(.bounce, value: !userInput.isEmpty)
                     }
@@ -1087,7 +1087,7 @@ struct LightUsageLimitBanner: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: "sparkles")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(Color(red: 1.0, green: 0.45, blue: 0.25))
 
             Text("\(messagesRemaining) of \(totalMessages) free messages remaining today")
@@ -1152,7 +1152,7 @@ struct AIInsightCard: View {
                             .frame(width: 48, height: 48)
 
                         Image(systemName: insight.icon)
-                            .font(.system(size: 20))
+                            .font(.systemScaled(20))
                             .foregroundStyle(insight.color)
                     }
 
@@ -1169,7 +1169,7 @@ struct AIInsightCard: View {
                     Spacer()
 
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(Color(white: 0.45))
                 }
 
@@ -1224,7 +1224,7 @@ struct QuestionCard: View {
         } label: {
             HStack {
                 Image(systemName: "questionmark.circle.fill")
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
                     .foregroundStyle(Color(red: 0.30, green: 0.60, blue: 0.95))
 
                 Text(question)
@@ -1235,7 +1235,7 @@ struct QuestionCard: View {
                 Spacer()
 
                 Image(systemName: "arrow.right")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(Color(white: 0.50))
             }
             .padding()

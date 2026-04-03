@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Combine
 
 // MARK: - AI Search Suggestions Panel
 
@@ -41,7 +42,7 @@ struct AISearchSuggestionsPanel: View {
                         } label: {
                             HStack {
                                 Image(systemName: "magnifyingglass")
-                                    .font(.system(size: 12))
+                                    .font(.systemScaled(12))
                                     .foregroundStyle(.purple)
                                 
                                 Text(suggestion)
@@ -51,7 +52,7 @@ struct AISearchSuggestionsPanel: View {
                                 Spacer()
                                 
                                 Image(systemName: "arrow.right")
-                                    .font(.system(size: 10))
+                                    .font(.systemScaled(10))
                                     .foregroundStyle(.secondary)
                             }
                             .padding(.horizontal, 12)
@@ -125,7 +126,7 @@ struct BiblicalSearchCard: View {
                 
                 Image(systemName: "sparkles")
                     .foregroundStyle(.blue.opacity(0.6))
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
             }
             
             // Summary
@@ -172,7 +173,7 @@ struct BiblicalSearchCard: View {
                     HStack {
                         Image(systemName: "lightbulb.fill")
                             .foregroundStyle(.orange)
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                         
                         Text("Did You Know?")
                             .font(.custom("OpenSans-Bold", size: 14))
@@ -182,7 +183,7 @@ struct BiblicalSearchCard: View {
                     ForEach(Array(result.funFacts.enumerated()), id: \.offset) { index, fact in
                         HStack(alignment: .top, spacing: 8) {
                             Text("•")
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                                 .foregroundStyle(.orange)
                             
                             Text(fact)
@@ -236,7 +237,7 @@ struct SmartFilterBanner: View {
                     }
                 } label: {
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -303,7 +304,7 @@ struct VerseChip: View {
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: "book.closed.fill")
-                .font(.system(size: 10))
+                .font(.systemScaled(10))
             
             Text(reference)
                 .font(.custom("OpenSans-SemiBold", size: 12))
@@ -324,7 +325,7 @@ struct PersonChip: View {
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: "person.fill")
-                .font(.system(size: 10))
+                .font(.systemScaled(10))
             
             Text(name)
                 .font(.custom("OpenSans-SemiBold", size: 12))

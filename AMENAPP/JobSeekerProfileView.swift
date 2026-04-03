@@ -96,7 +96,7 @@ struct JobSeekerProfileView: View {
         VStack(spacing: 32) {
             Spacer()
             Image(systemName: "briefcase.circle")
-                .font(.system(size: 64))
+                .font(.systemScaled(64))
                 .foregroundStyle(.secondary)
 
             VStack(spacing: 12) {
@@ -814,7 +814,7 @@ struct FlowTagView: View {
                             onRemove(tag)
                         } label: {
                             Image(systemName: "xmark")
-                                .font(.system(size: 9, weight: .bold))
+                                .font(.systemScaled(9, weight: .bold))
                         }
                     }
                 }

@@ -157,23 +157,23 @@ struct ChurchChemistryView: View {
             } else if let s = service.score {
                 HStack(spacing: 0) {
                     Text("Chemistry estimate: ")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(Color(.secondaryLabel))
                     Text("\(s.total)/100")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(Color(.label))
                 }
 
                 if s.mutualCount > 0 {
                     Text("\(s.mutualCount) \(s.mutualCount == 1 ? "person" : "people") you may know attend here")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(Color(.tertiaryLabel))
                 }
             } else if CNContactStore.authorizationStatus(for: .contacts) != .authorized {
                 Button("Check if you know anyone here →") {
                     service.showPermissionPrompt = true
                 }
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(Color(.secondaryLabel))
             }
         }

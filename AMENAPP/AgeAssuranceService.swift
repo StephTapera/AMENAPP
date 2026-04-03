@@ -268,7 +268,7 @@ struct AgeGateBlockedView: View {
     var body: some View {
         VStack(spacing: 20) {
             Image(systemName: "hand.raised.fill")
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(.secondary)
             Text("\(featureName) Unavailable")
                 .font(.title3)
@@ -297,7 +297,7 @@ struct AccountLockedView: View {
                 Spacer()
 
                 Image(systemName: "lock.shield.fill")
-                    .font(.system(size: 64))
+                    .font(.systemScaled(64))
                     .foregroundStyle(.red.opacity(0.85))
                     .symbolEffect(.pulse)
 

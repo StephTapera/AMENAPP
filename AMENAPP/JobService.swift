@@ -133,6 +133,8 @@ final class JobService: ObservableObject {
         // Job alerts listener
         let alertsListener = db.collection(JobCollections.jobAlerts)
             .whereField("userId", isEqualTo: userId)
+            .order(by: "createdAt", descending: true)
+            .limit(to: 50)  // ✅ FIX CR-4: Add pagination limit
             .addSnapshotListener { [weak self] snap, _ in
                 self?.myJobAlerts = snap?.documents.compactMap {
                     try? $0.data(as: JobAlert.self)

@@ -53,7 +53,7 @@ struct SundayShabbatPromptView: View {
                     .shadow(color: .black.opacity(0.15), radius: 20, y: 10)
                 
                 Image(systemName: "book.closed.fill")
-                    .font(.system(size: 48, weight: .medium))
+                    .font(.systemScaled(48, weight: .medium))
                     .foregroundStyle(
                         LinearGradient(
                             colors: [.blue, .purple],

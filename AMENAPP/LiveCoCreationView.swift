@@ -93,7 +93,7 @@ struct LiveCoCreationView: View {
                 // Timer
                 HStack(spacing: 5) {
                     Image(systemName: "clock")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .symbolRenderingMode(.hierarchical)
                         .foregroundStyle(.white.opacity(0.6))
                     Text(vm.elapsedFormatted)
@@ -184,7 +184,7 @@ struct LiveCoCreationView: View {
         Button(action: action) {
             VStack(spacing: 3) {
                 Image(systemName: icon)
-                    .font(.system(size: 19, weight: .semibold))
+                    .font(.systemScaled(19, weight: .semibold))
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(tint)
                 Text(label)

@@ -600,10 +600,10 @@ struct BereanAIAssistantView: View {
                 // with an AI assistant. Must remain visible and non-dismissible.
                 HStack(spacing: 4) {
                     Image(systemName: "cpu")
-                        .font(.system(size: 9, weight: .medium))
+                        .font(.systemScaled(9, weight: .medium))
                         .foregroundStyle(.secondary)
                     Text("Berean is an AI assistant. Responses may contain errors — verify with Scripture.")
-                        .font(.system(size: 10))
+                        .font(.systemScaled(10))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                 }
@@ -1149,7 +1149,7 @@ struct BereanAIAssistantView: View {
                     withAnimation(.easeOut(duration: 0.2)) { dismiss() }
                 } label: {
                     Image(systemName: "chevron.left")
-                        .font(.system(size: 18, weight: .medium))
+                        .font(.systemScaled(18, weight: .medium))
                         .foregroundStyle(Color(white: 0.20))
                         .frame(width: 44, height: 44)
                         .contentShape(Rectangle())
@@ -1160,7 +1160,7 @@ struct BereanAIAssistantView: View {
 
                 // Center: Clean title - always visible like ChatGPT
                 Text("Berean")
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.systemScaled(17, weight: .semibold))
                     .foregroundStyle(Color(white: 0.12))
 
                 Spacer()
@@ -1173,7 +1173,7 @@ struct BereanAIAssistantView: View {
                     }
                 } label: {
                     Image(systemName: "ellipsis.circle")
-                        .font(.system(size: 22, weight: .regular))
+                        .font(.systemScaled(22, weight: .regular))
                         .foregroundStyle(Color(white: 0.20))
                         .frame(width: 44, height: 44)
                         .contentShape(Rectangle())
@@ -1207,7 +1207,7 @@ struct BereanAIAssistantView: View {
             }
         } label: {
             Image(systemName: "xmark")
-                .font(.system(size: 14, weight: .medium))
+                .font(.systemScaled(14, weight: .medium))
                 .foregroundStyle(Color(white: 0.20))
                 .frame(width: 36, height: 36)
                 .background(
@@ -1242,7 +1242,7 @@ struct BereanAIAssistantView: View {
                 
                 // Sparkle icon
                 Image(systemName: "sparkles")
-                    .font(.system(size: 18, weight: .light))
+                    .font(.systemScaled(18, weight: .light))
                     .foregroundStyle(
                         LinearGradient(
                             colors: [
@@ -1283,7 +1283,7 @@ struct BereanAIAssistantView: View {
             }
         } label: {
             Image(systemName: showSmartFeatures ? "star.circle.fill" : "star.circle")
-                .font(.system(size: 20, weight: .light))
+                .font(.systemScaled(20, weight: .light))
                 .foregroundStyle(
                     showSmartFeatures ?
                         LinearGradient(
@@ -1315,16 +1315,16 @@ struct BereanAIAssistantView: View {
                 if premiumManager.hasProAccess {
                     // Pro badge for premium users
                     Image(systemName: "crown.fill")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.systemScaled(11, weight: .medium))
                     Text("Pro")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .tracking(0.5)
                 } else {
                     // Usage indicator for free tier
                     Image(systemName: premiumManager.freeMessagesRemaining > 3 ? "sparkles" : "exclamationmark.triangle.fill")
-                        .font(.system(size: 10, weight: .medium))
+                        .font(.systemScaled(10, weight: .medium))
                     Text("\(premiumManager.freeMessagesRemaining)")
-                        .font(.system(size: 11, weight: .bold))
+                        .font(.systemScaled(11, weight: .bold))
                         .monospacedDigit()
                 }
             }
@@ -1367,7 +1367,7 @@ struct BereanAIAssistantView: View {
                 showProjectsSheet = true
             } label: {
                 Image(systemName: "folder.badge.plus")
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.systemScaled(15, weight: .medium))
                     .foregroundStyle(Color(white: 0.22))
                     .frame(width: 36, height: 36)
                     .background(
@@ -1387,7 +1387,7 @@ struct BereanAIAssistantView: View {
                 activeModal = .bereanChats
             } label: {
                 Image(systemName: "clock")
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.systemScaled(15, weight: .medium))
                     .foregroundStyle(Color(white: 0.22))
                     .frame(width: 36, height: 36)
                     .background(
@@ -1416,7 +1416,7 @@ struct BereanAIAssistantView: View {
         } label: {
             ZStack(alignment: .topTrailing) {
                 Image(systemName: "folder")
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.systemScaled(16, weight: .medium))
                     .foregroundStyle(Color(white: 0.22))
                     .frame(width: 36, height: 36)
                     .background(
@@ -1470,16 +1470,16 @@ struct BereanAIAssistantView: View {
                         .overlay(Circle().strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5))
                         .frame(width: 56, height: 56)
                     Image(systemName: "sparkles")
-                        .font(.system(size: 20, weight: .light))
+                        .font(.systemScaled(20, weight: .light))
                         .foregroundStyle(Color(white: 0.25))
                 }
 
                 Text("Berean")
-                    .font(.system(size: 28, weight: .semibold))
+                    .font(.systemScaled(28, weight: .semibold))
                     .foregroundStyle(Color(white: 0.12))
 
                 Text("Your AI Bible study companion")
-                    .font(.system(size: 16, weight: .regular))
+                    .font(.systemScaled(16, weight: .regular))
                     .foregroundStyle(Color(white: 0.45))
             }
             .padding(.bottom, 26)
@@ -1506,17 +1506,17 @@ struct BereanAIAssistantView: View {
         } label: {
             HStack(spacing: 14) {
                 Image(systemName: icon)
-                    .font(.system(size: 20, weight: .medium))
+                    .font(.systemScaled(20, weight: .medium))
                     .foregroundStyle(Color(white: 0.30))
                     .frame(width: 32, height: 32)
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.systemScaled(15, weight: .medium))
                         .foregroundStyle(Color(white: 0.12))
                     
                     Text(prompt)
-                        .font(.system(size: 13, weight: .regular))
+                        .font(.systemScaled(13, weight: .regular))
                         .foregroundStyle(Color(white: 0.45))
                         .lineLimit(1)
                 }
@@ -1524,7 +1524,7 @@ struct BereanAIAssistantView: View {
                 Spacer()
                 
                 Image(systemName: "arrow.up.right")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(Color(white: 0.35))
             }
             .padding(.horizontal, 18)
@@ -1552,11 +1552,11 @@ struct BereanAIAssistantView: View {
     private var memoryStatusBanner: some View {
         HStack(spacing: 6) {
             Image(systemName: "brain")
-                .font(.system(size: 11, weight: .medium))
+                .font(.systemScaled(11, weight: .medium))
                 .foregroundStyle(Color(white: 0.4))
 
             Text("\(viewModel.messages.count) message\(viewModel.messages.count == 1 ? "" : "s") in session")
-                .font(.system(size: 12, weight: .medium))
+                .font(.systemScaled(12, weight: .medium))
                 .foregroundStyle(Color(white: 0.3))
 
             Spacer()
@@ -1567,7 +1567,7 @@ struct BereanAIAssistantView: View {
                 showClearSessionConfirm = true
             } label: {
                 Text("Clear")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(Color(white: 0.35))
                     .padding(.horizontal, 10)
                     .padding(.vertical, 4)
@@ -1627,9 +1627,9 @@ struct BereanAIAssistantView: View {
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: mode.icon)
-                                .font(.system(size: 10, weight: .medium))
+                                .font(.systemScaled(10, weight: .medium))
                             Text(mode.rawValue)
-                                .font(.system(size: 11, weight: .semibold))
+                                .font(.systemScaled(11, weight: .semibold))
                         }
                         .foregroundStyle(personalityMode == mode ? .white : Color(white: 0.20))
                         .padding(.horizontal, 11)
@@ -1748,9 +1748,9 @@ struct BereanAIAssistantView: View {
                     Button { applySessionMode(mode) } label: {
                         HStack(spacing: 5) {
                             Image(systemName: mode.icon)
-                                .font(.system(size: 11, weight: .semibold))
+                                .font(.systemScaled(11, weight: .semibold))
                             Text(mode.rawValue)
-                                .font(.system(size: 12, weight: active ? .semibold : .regular))
+                                .font(.systemScaled(12, weight: active ? .semibold : .regular))
                         }
                         .foregroundStyle(active ? .white : Color(white: 0.4))
                         .padding(.horizontal, 12)
@@ -1864,7 +1864,7 @@ struct BereanAIAssistantView: View {
                 handlePlusButtonTap()
             } label: {
                 Image(systemName: "plus.circle.fill")
-                    .font(.system(size: 24, weight: .regular))
+                    .font(.systemScaled(24, weight: .regular))
                     .foregroundStyle(Color(white: 0.40))
                     .frame(width: 40, height: 40)
                     .contentShape(Rectangle())
@@ -1948,9 +1948,9 @@ struct BereanAIAssistantView: View {
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: mode.icon)
-                            .font(.system(size: 10, weight: .medium))
+                            .font(.systemScaled(10, weight: .medium))
                         Text(mode.rawValue)
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.systemScaled(11, weight: .medium))
                     }
                     .foregroundStyle(responseMode == mode ? .white : .black.opacity(0.55))
                     .padding(.horizontal, 11)
@@ -1980,14 +1980,14 @@ struct BereanAIAssistantView: View {
         ZStack(alignment: .leading) {
             if messageText.isEmpty {
                 Text(placeholderOptions[placeholderIndex])
-                    .font(.system(size: 16, weight: .regular))
+                    .font(.systemScaled(16, weight: .regular))
                     .foregroundStyle(Color(white: 0.55))
                     .padding(.leading, 2)
                     .transition(.opacity)
             }
 
             TextField("", text: $messageText, axis: .vertical)
-                .font(.system(size: 16, weight: .regular))
+                .font(.systemScaled(16, weight: .regular))
                 .foregroundStyle(Color(white: 0.08))
                 .lineLimit(1...6)
                 .focused($isInputFocused)
@@ -2051,18 +2051,18 @@ struct BereanAIAssistantView: View {
                 } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "sparkles")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.systemScaled(12, weight: .medium))
                             .foregroundStyle(Color(white: 0.35))
 
                         Text(suggestion)
-                            .font(.system(size: 13, weight: .regular))
+                            .font(.systemScaled(13, weight: .regular))
                             .foregroundStyle(Color(white: 0.12))
                             .multilineTextAlignment(.leading)
 
                         Spacer()
 
                         Image(systemName: "arrow.up.forward")
-                            .font(.system(size: 10, weight: .medium))
+                            .font(.systemScaled(10, weight: .medium))
                             .foregroundStyle(Color(white: 0.45))
                     }
                     .padding(.horizontal, 14)
@@ -2115,7 +2115,7 @@ struct BereanAIAssistantView: View {
                 }
 
                 Image(systemName: isVoiceListening ? "waveform" : "mic")
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.systemScaled(15, weight: .medium))
                     .foregroundStyle(.white)
                     .symbolEffect(.variableColor, options: .repeating, isActive: isVoiceListening)
             }
@@ -2156,7 +2156,7 @@ struct BereanAIAssistantView: View {
                     .frame(width: 72, height: 36)
 
                 Image(systemName: "arrow.up")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(.white)
             }
         }
@@ -2966,10 +2966,10 @@ struct BereanQuickChip: View {
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: icon)
-                    .font(.system(size: 13, weight: .regular))
+                    .font(.systemScaled(13, weight: .regular))
                     .foregroundStyle(Color(white: 0.22))
                 Text(label)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(Color(white: 0.12))
             }
             .padding(.horizontal, 14)
@@ -3006,13 +3006,13 @@ struct BereanLightActionCard: View {
         }) {
             VStack(alignment: .leading, spacing: 10) {
                 Image(systemName: icon)
-                    .font(.system(size: 18, weight: .light))
+                    .font(.systemScaled(18, weight: .light))
                     .foregroundStyle(accentColor.opacity(0.85))
                 
                 Spacer()
                 
                 Text(title)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(Color(white: 0.22))
                     .multilineTextAlignment(.leading)
                     .lineLimit(2)
@@ -3085,13 +3085,13 @@ struct BereanQuickActionCard: View {
                         .frame(width: 48, height: 48)
 
                     Image(systemName: icon)
-                        .font(.system(size: 20, weight: .light))
+                        .font(.systemScaled(20, weight: .light))
                         .foregroundStyle(color)
                         .symbolEffect(.bounce, value: isPressed)
                 }
                 
                 Text(title)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(Color(white: 0.3))
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
@@ -3138,7 +3138,7 @@ struct SquareActionCard: View {
             VStack(spacing: 8) {
                 // Icon with subtle shadow
                 Image(systemName: icon)
-                    .font(.system(size: 32, weight: .light))
+                    .font(.systemScaled(32, weight: .light))
                     .foregroundStyle(textColor)
                     .shadow(color: textColor.opacity(0.3), radius: 4, y: 2)
                 
@@ -3146,7 +3146,7 @@ struct SquareActionCard: View {
                 
                 // Title with elegant typography
                 Text(title)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(textColor)
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
@@ -3203,14 +3203,14 @@ struct SuggestedPromptCard: View {
         } label: {
             HStack(spacing: 12) {
                 Text(prompt)
-                    .font(.system(size: 14, weight: .regular))
+                    .font(.systemScaled(14, weight: .regular))
                     .foregroundStyle(Color(white: 0.25))
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                 Image(systemName: "arrow.up.right")
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.systemScaled(10, weight: .medium))
                     .foregroundStyle(Color(white: 0.45))
             }
             .padding(.horizontal, 16)
@@ -3347,7 +3347,7 @@ struct BereanMessageBubbleView: View {
             VStack(alignment: .trailing, spacing: 4) {
                 // Label
                 Text("You")
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.systemScaled(10, weight: .medium))
                     .foregroundStyle(Color(white: 0.55))
                     .textCase(.uppercase)
                     .tracking(1.2)
@@ -3355,7 +3355,7 @@ struct BereanMessageBubbleView: View {
 
                 // Bubble — black fill + white text per Liquid Glass spec
                 Text(message.content)
-                    .font(.system(size: 15, weight: .regular))
+                    .font(.systemScaled(15, weight: .regular))
                     .foregroundStyle(Color.white)
                     .lineSpacing(6)
                     .padding(.horizontal, 16)
@@ -3368,7 +3368,7 @@ struct BereanMessageBubbleView: View {
 
                 // Timestamp
                 Text(message.timestamp, style: .time)
-                    .font(.system(size: 10, weight: .regular))
+                    .font(.systemScaled(10, weight: .regular))
                     .foregroundStyle(Color(white: 0.52))
                     .padding(.trailing, 2)
             }
@@ -3407,10 +3407,10 @@ struct BereanMessageBubbleView: View {
             HStack(spacing: 8) {
                 HStack(spacing: 5) {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 11, weight: .light))
+                        .font(.systemScaled(11, weight: .light))
                         .foregroundStyle(Color(white: 0.35))
                     Text("Berean")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.systemScaled(10, weight: .semibold))
                         .foregroundStyle(Color(white: 0.42))
                         .textCase(.uppercase)
                         .tracking(1.4)
@@ -3487,7 +3487,7 @@ struct BereanMessageBubbleView: View {
             }
 
             Text(message.timestamp, style: .time)
-                .font(.system(size: 10, weight: .regular))
+                .font(.systemScaled(10, weight: .regular))
                 .foregroundStyle(Color(white: 0.52))
                 .padding(.top, 4)
 
@@ -3598,7 +3598,7 @@ struct BereanMessageBubbleView: View {
                 withAnimation(.easeOut(duration: 0.2)) { lightbulbPressed.toggle() }
             } label: {
                 Image(systemName: lightbulbPressed ? "lightbulb.fill" : "lightbulb")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(lightbulbPressed ? Color(white: 0.15) : Color(white: 0.6))
                     .frame(width: 28, height: 28)
             }
@@ -3608,7 +3608,7 @@ struct BereanMessageBubbleView: View {
                 withAnimation(.easeOut(duration: 0.2)) { praisePressed.toggle() }
             } label: {
                 Image(systemName: praisePressed ? "hands.clap.fill" : "hands.clap")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(praisePressed ? Color(white: 0.15) : Color(white: 0.6))
                     .frame(width: 28, height: 28)
             }
@@ -3626,7 +3626,7 @@ struct BereanMessageBubbleView: View {
                             .frame(width: 12, height: 12)
                             .blendMode(.multiply)
                         Text("Selah")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                     }
                     .foregroundStyle(Color(white: 0.15))
                     .padding(.horizontal, 10)
@@ -3649,7 +3649,7 @@ struct BereanMessageBubbleView: View {
                 }
             } label: {
                 Image(systemName: showSearch ? "magnifyingglass.circle.fill" : "magnifyingglass")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(Color(white: 0.45))
                     .frame(width: 28, height: 28)
             }
@@ -3663,7 +3663,7 @@ struct BereanMessageBubbleView: View {
                 }
             } label: {
                 Image(systemName: copied ? "checkmark" : "doc.on.doc")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundStyle(copied ? Color(red: 0.3, green: 0.75, blue: 0.5) : Color(white: 0.5))
                     .frame(width: 28, height: 28)
             }
@@ -3674,7 +3674,7 @@ struct BereanMessageBubbleView: View {
                     onRegenerate()
                 } label: {
                     Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundStyle(Color(white: 0.5))
                         .frame(width: 28, height: 28)
                 }
@@ -3690,7 +3690,7 @@ struct BereanMessageBubbleView: View {
                 }
             } label: {
                 Image(systemName: "ellipsis")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundStyle(Color(white: 0.5))
                     .frame(width: 28, height: 28)
             }
@@ -3700,10 +3700,10 @@ struct BereanMessageBubbleView: View {
     private var memoryContextPill: some View {
         HStack(spacing: 6) {
             Image(systemName: "brain")
-                .font(.system(size: 11, weight: .medium))
+                .font(.systemScaled(11, weight: .medium))
                 .foregroundStyle(Color(white: 0.4))
             Text("Based on your previous question")
-                .font(.system(size: 11, weight: .medium))
+                .font(.systemScaled(11, weight: .medium))
                 .foregroundStyle(Color(white: 0.45))
         }
         .padding(.horizontal, 10)
@@ -3718,17 +3718,17 @@ struct BereanMessageBubbleView: View {
     private var messageSearchBar: some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 12, weight: .medium))
+                .font(.systemScaled(12, weight: .medium))
                 .foregroundStyle(Color(white: 0.45))
             TextField("Search in response", text: $searchQuery)
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(Color(white: 0.2))
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
             if !searchQuery.isEmpty {
                 Button { searchQuery = "" } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(Color(white: 0.5))
                 }
                 .buttonStyle(.plain)
@@ -3918,7 +3918,7 @@ struct BereanMessageBubbleView: View {
             VStack(alignment: .leading, spacing: 8) {
                 if let title = section.title {
                     Text(title)
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(intentStyle.titleColor)
                         .textCase(.uppercase)
                         .tracking(1.2)
@@ -3938,7 +3938,7 @@ struct BereanMessageBubbleView: View {
                         }
                     } label: {
                         Text(isExpanded ? "Show less" : "Show more")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                             .foregroundStyle(intentStyle.accentColor)
                     }
                     .buttonStyle(.plain)
@@ -4088,7 +4088,7 @@ struct SmartReactionButton: View {
             action()
         }) {
             Image(systemName: icon)
-                .font(.system(size: 13, weight: .medium))
+                .font(.systemScaled(13, weight: .medium))
                 .foregroundStyle(isActive ? activeColor : Color(white: 0.5))
                 .frame(width: 32, height: 32)
                 .background(
@@ -4139,10 +4139,10 @@ struct VerseReferenceChip: View {
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: "book.closed.fill")
-                    .font(.system(size: 9, weight: .medium))
+                    .font(.systemScaled(9, weight: .medium))
                 
                 Text(reference)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
             }
             .foregroundStyle(Color(red: 0.5, green: 0.6, blue: 0.9))
             .padding(.horizontal, 12)
@@ -4329,11 +4329,11 @@ struct BereanVoiceListeningOverlay: View {
                 VStack(spacing: 8) {
                     if recognizer.transcribedText.isEmpty {
                         Text("Listening…")
-                            .font(.system(size: 22, weight: .light, design: .serif))
+                            .font(.systemScaled(22, weight: .light, design: .serif))
                             .foregroundStyle(Color(white: 0.18))
                     } else {
                         Text(recognizer.transcribedText)
-                            .font(.system(size: 18, weight: .regular))
+                            .font(.systemScaled(18, weight: .regular))
                             .foregroundStyle(Color(white: 0.15))
                             .multilineTextAlignment(.center)
                             .lineLimit(4)
@@ -4342,7 +4342,7 @@ struct BereanVoiceListeningOverlay: View {
                     }
 
                     Text("Speak your question")
-                        .font(.system(size: 13, weight: .regular))
+                        .font(.systemScaled(13, weight: .regular))
                         .foregroundStyle(Color(white: 0.55))
                         .opacity(recognizer.transcribedText.isEmpty ? 1 : 0)
                 }
@@ -4354,7 +4354,7 @@ struct BereanVoiceListeningOverlay: View {
                     // Cancel
                     Button(action: onCancel) {
                         Text("Cancel")
-                            .font(.system(size: 15, weight: .regular))
+                            .font(.systemScaled(15, weight: .regular))
                             .foregroundStyle(Color(white: 0.45))
                             .padding(.horizontal, 28)
                             .padding(.vertical, 13)
@@ -4368,9 +4368,9 @@ struct BereanVoiceListeningOverlay: View {
                     Button(action: onStop) {
                         HStack(spacing: 6) {
                             Image(systemName: recognizer.transcribedText.isEmpty ? "stop.circle" : "checkmark")
-                                .font(.system(size: 14, weight: .medium))
+                                .font(.systemScaled(14, weight: .medium))
                             Text(recognizer.transcribedText.isEmpty ? "Stop" : "Use")
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(.systemScaled(15, weight: .semibold))
                         }
                         .foregroundStyle(.white)
                         .padding(.horizontal, 28)
@@ -4447,7 +4447,7 @@ struct BereanSendButton: View {
                 
                 // Icon
                 Image(systemName: "arrow.up")
-                    .font(.system(size: 18, weight: .bold))
+                    .font(.systemScaled(18, weight: .bold))
                     .foregroundStyle(.black)
                     .scaleEffect(isAnimating ? 0.85 : 1.0)
                     .offset(y: isAnimating ? -2 : 0)
@@ -4591,7 +4591,7 @@ struct SmartFeaturesPanel: View {
                         .padding(.bottom, 8)
                     
                     Text("AI-powered Bible study tools")
-                        .font(.system(size: 13, weight: .regular))
+                        .font(.systemScaled(13, weight: .regular))
                         .foregroundStyle(Color(white: 0.5))
                         .padding(.bottom, 24)
                     
@@ -4672,13 +4672,13 @@ struct SmartFeatureButton: View {
                         .frame(width: 48, height: 48)
 
                     Image(systemName: feature.icon)
-                        .font(.system(size: 20, weight: .light))
+                        .font(.systemScaled(20, weight: .light))
                         .foregroundStyle(feature.color)
                         .symbolEffect(.bounce, value: isPressed)
                 }
                 
                 Text(feature.rawValue)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                     .foregroundStyle(Color(white: 0.3))
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
@@ -5752,7 +5752,7 @@ struct ShareToFeedSheet: View {
                 }
             } label: {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 24))
+                    .font(.systemScaled(24))
                     .foregroundStyle(.white.opacity(0.5))
             }
         }
@@ -5805,7 +5805,7 @@ struct ShareToFeedSheet: View {
     private var messagePreviewHeader: some View {
         HStack {
             Image(systemName: "sparkles")
-                .font(.system(size: 14, weight: .medium))
+                .font(.systemScaled(14, weight: .medium))
                 .foregroundStyle(Color(red: 0.4, green: 0.7, blue: 1.0))
             
             Text("Berean AI Insight")
@@ -5849,7 +5849,7 @@ struct ShareToFeedSheet: View {
         } label: {
             HStack {
                 Image(systemName: addPersonalNote ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
                     .foregroundStyle(addPersonalNote ? Color(red: 0.4, green: 0.85, blue: 0.7) : .white.opacity(0.5))
                 
                 Text("Add personal note")
@@ -5915,7 +5915,7 @@ struct ShareToFeedSheet: View {
         } label: {
             HStack(spacing: 8) {
                 Image(systemName: "paperplane.fill")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                 
                 Text("Share to Feed")
                     .font(AMENFont.bold(16))
@@ -6000,7 +6000,7 @@ struct BereanPremiumUpgradeView: View {
                 }
             } label: {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 32))
+                    .font(.systemScaled(32))
                     .foregroundStyle(.white.opacity(0.6))
             }
             .padding(.trailing, 20)
@@ -6013,7 +6013,7 @@ struct BereanPremiumUpgradeView: View {
             // Premium badge
             HStack(spacing: 8) {
                 Image(systemName: "crown.fill")
-                    .font(.system(size: 28))
+                    .font(.systemScaled(28))
                 Text("Berean Pro")
                     .font(AMENFont.bold(32))
             }
@@ -6084,7 +6084,7 @@ struct BereanPremiumUpgradeView: View {
             VStack(spacing: 8) {
                 HStack(spacing: 8) {
                     Image(systemName: "crown.fill")
-                        .font(.system(size: 18, weight: .bold))
+                        .font(.systemScaled(18, weight: .bold))
                     
                     Text("Upgrade to Pro")
                         .font(AMENFont.bold(18))
@@ -6180,7 +6180,7 @@ struct PremiumFeatureCard: View {
                     .frame(width: 44, height: 44)
                 
                 Image(systemName: icon)
-                    .font(.system(size: 20, weight: .medium))
+                    .font(.systemScaled(20, weight: .medium))
                     .foregroundStyle(color)
             }
             
@@ -6458,7 +6458,7 @@ struct TranslationRow: View {
                         
                         if isSelected {
                             Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 18))
+                                .font(.systemScaled(18))
                                 .foregroundStyle(Color(red: 0.4, green: 0.85, blue: 0.7))
                         }
                     }
@@ -6536,7 +6536,7 @@ struct ConversationHistoryView: View {
     private var emptyStateView: some View {
         VStack(spacing: 20) {
             Image(systemName: "clock")
-                .font(.system(size: 60))
+                .font(.systemScaled(60))
                 .foregroundStyle(.white.opacity(0.3))
             
             Text("No Saved Conversations")
@@ -6566,7 +6566,7 @@ struct ConversationHistoryRow: View {
                     Spacer()
                     
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.white.opacity(0.4))
                 }
                 
@@ -6699,24 +6699,24 @@ struct QuickActionButton: View {
                         .frame(width: 44, height: 44)
                     
                     Image(systemName: icon)
-                        .font(.system(size: 18, weight: .medium))
+                        .font(.systemScaled(18, weight: .medium))
                         .foregroundStyle(gradient)
                 }
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(.primary)
                     
                     Text(subtitle)
-                        .font(.system(size: 12, weight: .regular))
+                        .font(.systemScaled(12, weight: .regular))
                         .foregroundStyle(.secondary)
                 }
                 
                 Spacer()
                 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(.tertiary)
             }
             .padding(.horizontal, 16)
@@ -7011,11 +7011,11 @@ struct BereanStatusChip: View {
                     .onAppear { pulse = true }
             } else {
                 Image(systemName: style.icon)
-                    .font(.system(size: 8, weight: .semibold))
+                    .font(.systemScaled(8, weight: .semibold))
                     .foregroundStyle(style.color)
             }
             Text(style.label)
-                .font(.system(size: 10, weight: .semibold))
+                .font(.systemScaled(10, weight: .semibold))
                 .foregroundStyle(style.color)
                 .tracking(0.2)
         }
@@ -7049,12 +7049,12 @@ struct BereanSectionHeader: View {
             }
             VStack(alignment: .leading, spacing: 1) {
                 Text(title)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(BereanDesign.textPrimary)
                     .tracking(0.1)
                 if let sub = subtitle {
                     Text(sub)
-                        .font(.system(size: 10, weight: .regular))
+                        .font(.systemScaled(10, weight: .regular))
                         .foregroundStyle(BereanDesign.textTertiary)
                 }
             }
@@ -7110,10 +7110,10 @@ struct BereanPillButton: View {
             HStack(spacing: icon != nil ? 5 : 0) {
                 if let icon {
                     Image(systemName: icon)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                 }
                 Text(label)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
             }
             .foregroundStyle(style.foreground)
             .padding(.horizontal, 16)
@@ -7193,9 +7193,9 @@ struct BereanFollowUpActionsRow: View {
                             } label: {
                                 HStack(spacing: 5) {
                                     Image(systemName: icon)
-                                        .font(.system(size: 11, weight: .medium))
+                                        .font(.systemScaled(11, weight: .medium))
                                     Text(label)
-                                        .font(.system(size: 12, weight: .medium))
+                                        .font(.systemScaled(12, weight: .medium))
                                 }
                                 .foregroundStyle(Color(white: 0.55))
                             }
@@ -7384,15 +7384,15 @@ struct BereanConversationDrawer: View {
                     .fill(Color(white: 0.92))
                     .frame(width: 36, height: 36)
                 Image(systemName: showFolderView ? "folder.fill" : "bubble.left.and.bubble.right.fill")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(Color(white: 0.2))
             }
             VStack(alignment: .leading, spacing: 2) {
                 Text(showFolderView ? "Folders" : "Conversations")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(Color(white: 0.14))
                 Text("\(conversations.count) saved")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(Color(white: 0.5))
             }
             Spacer()
@@ -7404,7 +7404,7 @@ struct BereanConversationDrawer: View {
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
             } label: {
                 Image(systemName: showFolderView ? "list.bullet" : "folder")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(showFolderView ? Color(white: 0.2) : Color(white: 0.5))
                     .frame(width: 30, height: 30)
                     .background(
@@ -7418,7 +7418,7 @@ struct BereanConversationDrawer: View {
                 }
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(Color(white: 0.4))
                     .frame(width: 30, height: 30)
                     .background(Circle().fill(Color.black.opacity(0.06)))
@@ -7435,17 +7435,17 @@ struct BereanConversationDrawer: View {
     private var searchBar: some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 13, weight: .medium))
+                .font(.systemScaled(13, weight: .medium))
                 .foregroundStyle(Color(white: 0.5))
             TextField("Search conversations...", text: $searchText)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(Color(white: 0.2))
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
             if !searchText.isEmpty {
                 Button { searchText = "" } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(Color(white: 0.5))
                 }
                 .buttonStyle(.plain)
@@ -7483,15 +7483,15 @@ struct BereanConversationDrawer: View {
                         )
                         .frame(width: 32, height: 32)
                     Image(systemName: "plus")
-                        .font(.system(size: 14, weight: .bold))
+                        .font(.systemScaled(14, weight: .bold))
                         .foregroundStyle(.white)
                 }
                 Text("New Conversation")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(Color(white: 0.14))
                 Spacer()
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                     .foregroundStyle(Color(white: 0.55))
             }
             .padding(.horizontal, 16)
@@ -7535,7 +7535,7 @@ struct BereanConversationDrawer: View {
             // Pinned section
             if !pinnedConversations.isEmpty {
                 Text("Pinned")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(Color(white: 0.45))
                     .textCase(.uppercase)
                     .tracking(0.8)
@@ -7553,7 +7553,7 @@ struct BereanConversationDrawer: View {
             // Recent section
             if !unpinnedConversations.isEmpty {
                 Text("Recent")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(Color(white: 0.5))
                     .textCase(.uppercase)
                     .tracking(0.8)
@@ -7610,19 +7610,19 @@ struct BereanConversationDrawer: View {
                             .fill(tag.isEmpty ? Color(white: 0.92) : BereanDesign.coral.opacity(0.12))
                             .frame(width: 30, height: 30)
                         Image(systemName: tag.isEmpty ? "tray" : "folder.fill")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.systemScaled(12, weight: .medium))
                             .foregroundStyle(tag.isEmpty ? Color(white: 0.5) : BereanDesign.coral)
                     }
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text(displayName)
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                             .foregroundStyle(tag.isEmpty ? Color(white: 0.45) : Color(white: 0.16))
 
                         HStack(spacing: 6) {
                             // Conversation count badge
                             Text("\(conversations.count) thread\(conversations.count == 1 ? "" : "s")")
-                                .font(.system(size: 10, weight: .medium))
+                                .font(.systemScaled(10, weight: .medium))
                                 .foregroundStyle(BereanDesign.coral.opacity(0.85))
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
@@ -7630,13 +7630,13 @@ struct BereanConversationDrawer: View {
 
                             // Message count
                             Text("\(msgCount) msg\(msgCount == 1 ? "" : "s")")
-                                .font(.system(size: 10))
+                                .font(.systemScaled(10))
                                 .foregroundStyle(Color(white: 0.55))
 
                             // Most recent date
                             if let date = mostRecent {
                                 Text("· \(relativeDate(date))")
-                                    .font(.system(size: 10))
+                                    .font(.systemScaled(10))
                                     .foregroundStyle(Color(white: 0.55))
                             }
                         }
@@ -7645,7 +7645,7 @@ struct BereanConversationDrawer: View {
                     Spacer()
 
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 10, weight: .medium))
+                        .font(.systemScaled(10, weight: .medium))
                         .foregroundStyle(Color(white: 0.55))
                 }
                 .padding(.horizontal, 14)
@@ -7686,24 +7686,24 @@ struct BereanConversationDrawer: View {
                         .fill(conversation.isPinned ? BereanDesign.coral.opacity(0.12) : Color(white: 0.94))
                         .frame(width: 32, height: 32)
                     Image(systemName: conversation.isPinned ? "pin.fill" : "bubble.left.and.bubble.right")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundStyle(conversation.isPinned ? BereanDesign.coral : Color(white: 0.45))
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 4) {
                         Text(conversation.title)
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.systemScaled(13, weight: .medium))
                             .foregroundStyle(Color(white: 0.18))
                             .lineLimit(1)
                         if conversation.isStarred {
                             Image(systemName: "star.fill")
-                                .font(.system(size: 9))
+                                .font(.systemScaled(9))
                                 .foregroundStyle(Color(red: 1.0, green: 0.78, blue: 0.2))
                         }
                     }
                     HStack(spacing: 4) {
                         Text(conversation.translation)
-                            .font(.system(size: 10, weight: .medium))
+                            .font(.systemScaled(10, weight: .medium))
                             .foregroundStyle(BereanDesign.coral.opacity(0.8))
                             .padding(.horizontal, 5)
                             .padding(.vertical, 1.5)
@@ -7711,7 +7711,7 @@ struct BereanConversationDrawer: View {
                                 Capsule().fill(BereanDesign.coral.opacity(0.10))
                             )
                         Text(relativeDate(conversation.date))
-                            .font(.system(size: 10))
+                            .font(.systemScaled(10))
                             .foregroundStyle(Color(white: 0.55))
                     }
                 }
@@ -7763,10 +7763,10 @@ struct BereanConversationDrawer: View {
     private var emptySearchState: some View {
         VStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 28))
+                .font(.systemScaled(28))
                 .foregroundStyle(Color(white: 0.7))
             Text("No results for \"\(searchText)\"")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(Color(white: 0.5))
         }
         .frame(maxWidth: .infinity)
@@ -7776,13 +7776,13 @@ struct BereanConversationDrawer: View {
     private var emptyConversationsState: some View {
         VStack(spacing: 10) {
             Image(systemName: "bubble.left.and.bubble.right")
-                .font(.system(size: 30))
+                .font(.systemScaled(30))
                 .foregroundStyle(Color(white: 0.72))
             Text("No saved conversations yet")
-                .font(.system(size: 13, weight: .medium))
+                .font(.systemScaled(13, weight: .medium))
                 .foregroundStyle(Color(white: 0.45))
             Text("Start a chat to begin exploring Scripture")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(Color(white: 0.6))
                 .multilineTextAlignment(.center)
         }
@@ -7796,7 +7796,7 @@ struct BereanConversationDrawer: View {
     private var utilitySection: some View {
         VStack(spacing: 4) {
             Text("Tools")
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
                 .foregroundStyle(Color(white: 0.5))
                 .textCase(.uppercase)
                 .tracking(0.8)
@@ -7822,11 +7822,11 @@ struct BereanConversationDrawer: View {
                             .fill(Color(white: 0.92))
                             .frame(width: 32, height: 32)
                         Image(systemName: "leaf")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.systemScaled(13, weight: .medium))
                             .foregroundStyle(Color(white: 0.2))
                     }
                     Text("Calm Mode")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.systemScaled(14, weight: .medium))
                         .foregroundStyle(Color(white: 0.22))
                 }
             }
@@ -7850,11 +7850,11 @@ struct BereanConversationDrawer: View {
                                 .fill(Color.red.opacity(0.08))
                                 .frame(width: 32, height: 32)
                             Image(systemName: "trash")
-                                .font(.system(size: 13, weight: .medium))
+                                .font(.systemScaled(13, weight: .medium))
                                 .foregroundStyle(Color.red.opacity(0.7))
                         }
                         Text("Clear All Conversations")
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.systemScaled(14, weight: .medium))
                             .foregroundStyle(Color.red.opacity(0.75))
                         Spacer()
                     }
@@ -7880,15 +7880,15 @@ struct BereanConversationDrawer: View {
                         .fill(Color(white: 0.92))
                         .frame(width: 32, height: 32)
                     Image(systemName: icon)
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                         .foregroundStyle(Color(white: 0.2))
                 }
                 Text(label)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(Color(white: 0.22))
                 Spacer()
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                     .foregroundStyle(Color(white: 0.6))
             }
             .padding(.horizontal, 12)
@@ -7984,7 +7984,7 @@ struct BereanFolderPickerSheet: View {
                             HStack(spacing: 10) {
                                 Image(systemName: "folder.badge.plus")
                                     .foregroundStyle(Color(red: 0.93, green: 0.4, blue: 0.3))
-                                    .font(.system(size: 15))
+                                    .font(.systemScaled(15))
                                 TextField("Folder name…", text: $customFolderName)
                                     .font(.subheadline)
                                     .focused($isCustomInputFocused)
@@ -8061,7 +8061,7 @@ struct BereanFolderPickerSheet: View {
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: isSelected ? "folder.fill" : "folder")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                 Text(name)
                     .font(.caption)
                     .fontWeight(isSelected ? .semibold : .regular)
@@ -8197,7 +8197,7 @@ struct BereanTypographyHero: View {
             // Primary greeting — typewriter
             HStack(alignment: .lastTextBaseline, spacing: 0) {
                 Text(greetingText)
-                    .font(.system(size: 34, weight: .bold, design: .default))
+                    .font(.systemScaled(34, weight: .bold, design: .default))
                     .foregroundStyle(Color(white: 0.08))
                     .tracking(-0.8)
                     .lineLimit(1)
@@ -8221,7 +8221,7 @@ struct BereanTypographyHero: View {
             // Follow-up line — fades/types in after greeting finishes
             if showFollowUp {
                 Text(followUpText)
-                    .font(.system(size: 22, weight: .regular, design: .default))
+                    .font(.systemScaled(22, weight: .regular, design: .default))
                     .foregroundStyle(Color(white: 0.38))
                     .tracking(-0.3)
                     .lineLimit(2)
@@ -8549,12 +8549,12 @@ struct BereanLandingActionCard: View {
                         .fill(tint.opacity(0.13))
                         .frame(width: 36, height: 36)
                     Image(systemName: icon)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(tint)
                 }
 
                 Text(label)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(Color(white: 0.12))
                     .lineLimit(2)
                     .minimumScaleFactor(0.85)
@@ -8602,7 +8602,7 @@ struct BereanLandingSuggestedPrompts: View {
 
             // Section label
             Text("Try asking")
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
                 .foregroundStyle(Color(white: 0.50))
                 .tracking(1.0)
                 .textCase(.uppercase)
@@ -8650,19 +8650,19 @@ struct BereanLandingPromptRow: View {
         }) {
             HStack(spacing: 12) {
                 Image(systemName: icon)
-                    .font(.system(size: 13, weight: .regular))
+                    .font(.systemScaled(13, weight: .regular))
                     .foregroundStyle(BereanDesign.coral.opacity(0.75))
                     .frame(width: 18)
 
                 Text(text)
-                    .font(.system(size: 14, weight: .regular))
+                    .font(.systemScaled(14, weight: .regular))
                     .foregroundStyle(Color(white: 0.14))
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .lineLimit(2)
 
                 Image(systemName: "arrow.up.right")
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.systemScaled(10, weight: .medium))
                     .foregroundStyle(Color(white: 0.48))
             }
             .padding(.horizontal, 16)
@@ -8715,7 +8715,7 @@ struct BereanHeroWelcomeSection: View {
                         // Large coral title — mirrors "Auto-Do" treatment
                         VStack(alignment: .leading, spacing: 3) {
                             Text("Ask Berean")
-                                .font(.system(size: 30, weight: .semibold, design: .serif))
+                                .font(.systemScaled(30, weight: .semibold, design: .serif))
                                 .foregroundStyle(
                                     LinearGradient(
                                         colors: [
@@ -8729,7 +8729,7 @@ struct BereanHeroWelcomeSection: View {
                                 .tracking(-0.5)
 
                             Text("Scripture, wisdom & guidance")
-                                .font(.system(size: 12, weight: .regular))
+                                .font(.systemScaled(12, weight: .regular))
                                 .foregroundStyle(BereanDesign.textSecond)
                         }
 
@@ -8756,7 +8756,7 @@ struct BereanHeroWelcomeSection: View {
 
                     // ── Rotating subtitle ────────────────────────────────────
                     Text(welcomeText)
-                        .font(.system(size: 13, weight: .regular))
+                        .font(.systemScaled(13, weight: .regular))
                         .foregroundStyle(BereanDesign.textSecond)
                         .multilineTextAlignment(.leading)
                         .transition(.opacity.animation(.easeInOut(duration: 0.40)))
@@ -8791,7 +8791,7 @@ struct BereanHeroWelcomeSection: View {
                         )
                         .frame(width: 8, height: 8)
                     Text("Berean · \(personalityMode.rawValue)")
-                        .font(.system(size: 13, weight: .medium, design: .serif))
+                        .font(.systemScaled(13, weight: .medium, design: .serif))
                         .foregroundStyle(BereanDesign.textPrimary)
                 }
                 .padding(.horizontal, 14)
@@ -8935,7 +8935,7 @@ struct BereanModeCapsule: View {
 
                 // Mode icon — warm coral/gold, matches reference's gold person icon
                 Image(systemName: personalityMode.icon)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(
                         LinearGradient(
                             colors: [
@@ -8973,11 +8973,11 @@ struct BereanHeroScriptureChip: View {
     var body: some View {
         HStack(spacing: 5) {
             Image(systemName: "book.closed.fill")
-                .font(.system(size: 10, weight: .medium))
+                .font(.systemScaled(10, weight: .medium))
                 .foregroundStyle(BereanDesign.coral)
 
             Text("Scripture-grounded · Theologically aware")
-                .font(.system(size: 12, weight: .medium))
+                .font(.systemScaled(12, weight: .medium))
                 .foregroundStyle(Color(white: 0.30))
                 .tracking(0.1)
         }
@@ -9051,11 +9051,11 @@ struct BereanQuickPill: View {
                         .fill(tint.opacity(0.14))
                         .frame(width: 36, height: 36)
                     Image(systemName: icon)
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(tint)
                 }
                 Text(label)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(Color(white: 0.13))
                     .lineLimit(1)
                     .minimumScaleFactor(0.85)
@@ -9098,7 +9098,7 @@ struct BereanGroundedPromptsSection: View {
             // Section header
             HStack {
                 Text("Try asking")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(Color(white: 0.50))
                     .tracking(1.0)
                     .textCase(.uppercase)
@@ -9106,9 +9106,9 @@ struct BereanGroundedPromptsSection: View {
                 Button(action: onNewPrompt) {
                     HStack(spacing: 4) {
                         Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.systemScaled(10, weight: .semibold))
                         Text("Refresh")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.systemScaled(12, weight: .medium))
                     }
                     .foregroundStyle(BereanDesign.coral)
                 }
@@ -9163,14 +9163,14 @@ struct BereanGroundedPromptRow: View {
                     .frame(width: 5, height: 5)
 
                 Text(prompt)
-                    .font(.system(size: 14, weight: .regular))
+                    .font(.systemScaled(14, weight: .regular))
                     .foregroundStyle(Color(white: 0.16))
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .lineLimit(2)
 
                 Image(systemName: "arrow.up.right")
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.systemScaled(10, weight: .medium))
                     .foregroundStyle(Color(white: 0.50))
             }
             .padding(.horizontal, 16)
@@ -9208,9 +9208,9 @@ struct BereanFeaturePill: View {
         Button(action: action) {
             HStack(spacing: 5) {
                 Image(systemName: icon)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                 Text(label)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
             }
             .foregroundStyle(Color(white: 0.35))
             .padding(.horizontal, 12)

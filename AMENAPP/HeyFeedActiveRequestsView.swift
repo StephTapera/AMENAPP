@@ -47,7 +47,7 @@ struct HeyFeedActiveRequestsView: View {
         VStack(spacing: 2) {
             HStack(spacing: 10) {
                 Image(systemName: "waveform.path.ecg.rectangle")
-                    .font(.system(size: 22, weight: .semibold))
+                    .font(.systemScaled(22, weight: .semibold))
                     .foregroundStyle(.primary)
                 Text("Hey Feed")
                     .font(.title2.weight(.bold))
@@ -91,7 +91,7 @@ struct HeyFeedActiveRequestsView: View {
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: icon)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                 Text(label)
                     .font(.footnote.weight(.medium))
             }
@@ -144,7 +144,7 @@ struct HeyFeedActiveRequestsView: View {
                     .fill(Color.black.opacity(0.06))
                     .frame(width: 72, height: 72)
                 Image(systemName: "hands.sparkles")
-                    .font(.system(size: 28, weight: .medium))
+                    .font(.systemScaled(28, weight: .medium))
                     .foregroundStyle(.secondary)
             }
             VStack(spacing: 6) {
@@ -248,7 +248,7 @@ struct HeyFeedActiveRequestRow: View {
                 .fill(Color.black.opacity(0.08))
                 .frame(width: 36, height: 36)
             Image(systemName: request.requestType.icon)
-                .font(.system(size: 15, weight: .medium))
+                .font(.systemScaled(15, weight: .medium))
                 .foregroundStyle(.primary)
         }
     }
@@ -267,7 +267,7 @@ struct HeyFeedActiveRequestRow: View {
     private var resonanceScoreRow: some View {
         HStack(spacing: 6) {
             Image(systemName: "waveform")
-                .font(.system(size: 10, weight: .medium))
+                .font(.systemScaled(10, weight: .medium))
                 .foregroundStyle(.secondary)
             Text("\(resonanceCount) resonances")
                 .font(.caption.weight(.medium))
@@ -293,7 +293,7 @@ struct HeyFeedActiveRequestRow: View {
                         .frame(width: 24, height: 24)
                         .shadow(color: .black.opacity(0.06), radius: 2, x: 0, y: 1)
                     Image(systemName: resonanceType.icon)
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.systemScaled(11, weight: .medium))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -329,7 +329,7 @@ struct HeyFeedActiveRequestRow: View {
 
         return HStack(spacing: 4) {
             Image(systemName: type.icon)
-                .font(.system(size: 11, weight: .medium))
+                .font(.systemScaled(11, weight: .medium))
             if count > 0 {
                 Text("\(count)")
                     .font(.caption2.weight(.medium))
@@ -354,7 +354,7 @@ struct HeyFeedActiveRequestRow: View {
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: "hands.sparkles")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                 Text("Resonate")
                     .font(.caption.weight(.semibold))
             }

@@ -131,7 +131,7 @@ struct PrivacySettingsOnboardingPage: View {
                                     HStack(alignment: .top, spacing: 12) {
                                         Image(systemName: "info.circle.fill")
                                             .foregroundStyle(ONB.accent)
-                                            .font(.system(size: 16))
+                                            .font(.systemScaled(16))
 
                                         VStack(alignment: .leading, spacing: 8) {
                                             Text("With a private account:")
@@ -244,7 +244,7 @@ struct PrivacySettingsOnboardingPage: View {
                             HStack(alignment: .top, spacing: 12) {
                                 Image(systemName: "cpu.fill")
                                     .foregroundStyle(ONB.accent)
-                                    .font(.system(size: 16))
+                                    .font(.systemScaled(16))
 
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text("AI-Assisted Safety")
@@ -267,7 +267,7 @@ struct PrivacySettingsOnboardingPage: View {
                             HStack(alignment: .top, spacing: 12) {
                                 Image(systemName: "hand.raised.fill")
                                     .foregroundStyle(ONB.accentGold)
-                                    .font(.system(size: 16))
+                                    .font(.systemScaled(16))
 
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text("You're Always in Control")
@@ -378,9 +378,9 @@ private struct OnboardingNavigationButtons: View {
                 Button(action: onBack) {
                     HStack(spacing: 6) {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                         Text("Back")
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.systemScaled(15, weight: .medium))
                     }
                     .foregroundStyle(ONB.inkSecondary)
                     .frame(height: 52)
@@ -392,7 +392,7 @@ private struct OnboardingNavigationButtons: View {
 
             Button(action: onSkip) {
                 Text("Skip")
-                    .font(.system(size: 14, weight: .regular))
+                    .font(.systemScaled(14, weight: .regular))
                     .foregroundStyle(ONB.inkTertiary)
             }
             .buttonStyle(.plain)
@@ -400,9 +400,9 @@ private struct OnboardingNavigationButtons: View {
             Button(action: onNext) {
                 HStack(spacing: 6) {
                     Text(currentPage == totalPages - 1 ? "Finish" : "Next")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                 }
                 .foregroundStyle(.white)
                 .frame(height: 52)

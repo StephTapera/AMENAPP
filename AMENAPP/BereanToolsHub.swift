@@ -138,7 +138,7 @@ struct BereanToolsHub: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { dismiss() } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.systemScaled(14, weight: .medium))
                             .foregroundStyle(Color(white: 0.50))
                     }
                 }
@@ -154,7 +154,7 @@ struct BereanToolsHub: View {
         let tools = BereanToolItem.catalog.filter { $0.cluster == cluster }
         VStack(alignment: .leading, spacing: 10) {
             Text(cluster.uppercased())
-                .font(.system(size: 11, weight: .semibold)).kerning(0.8)
+                .font(.systemScaled(11, weight: .semibold)).kerning(0.8)
                 .foregroundStyle(Color(white: 0.60))
                 .padding(.horizontal, 20)
 
@@ -177,16 +177,16 @@ struct BereanToolsHub: View {
                         .fill(tool.accent.opacity(0.10))
                         .frame(width: 36, height: 36)
                     Image(systemName: tool.icon)
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.systemScaled(16, weight: .medium))
                         .foregroundStyle(tool.accent)
                 }
                 VStack(alignment: .leading, spacing: 3) {
                     Text(tool.name)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(Color(white: 0.10))
                         .lineLimit(2)
                     Text(tool.description)
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(Color(white: 0.52))
                         .lineLimit(2)
                 }
@@ -215,7 +215,7 @@ struct BereanToolsButton: View {
     var body: some View {
         Button { showHub = true } label: {
             Image(systemName: "square.grid.2x2")
-                .font(.system(size: 16, weight: .medium))
+                .font(.systemScaled(16, weight: .medium))
                 .foregroundStyle(Color(white: 0.45))
         }
         .buttonStyle(.plain)

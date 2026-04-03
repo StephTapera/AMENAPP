@@ -129,7 +129,7 @@ struct HelixRootView: View {
             Spacer()
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundColor(.white.opacity(0.4))
         }
         .padding(16)
@@ -234,7 +234,7 @@ struct HelixRootView: View {
     private var emptyWorkflowState: some View {
         VStack(spacing: 16) {
             Image(systemName: "wand.and.stars")
-                .font(.system(size: 40))
+                .font(.systemScaled(40))
                 .foregroundStyle(
                     LinearGradient(
                         colors: [Color(hex: "10B981"), Color(hex: "0EA5E9")],
@@ -276,7 +276,7 @@ struct HelixRootView: View {
                     .shadow(color: Color(hex: "10B981").opacity(0.4), radius: 12, y: 4)
 
                 Image(systemName: "plus")
-                    .font(.system(size: 22, weight: .semibold))
+                    .font(.systemScaled(22, weight: .semibold))
                     .foregroundColor(.white)
             }
         }
@@ -301,7 +301,7 @@ struct WorkflowRowView: View {
                     .fill(Color(hex: "6B48FF").opacity(0.18))
                     .frame(width: 40, height: 40)
                 Image(systemName: workflow.triggerType.icon)
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundColor(Color(hex: "6B48FF"))
             }
 

@@ -53,7 +53,7 @@ struct PostCommentControlsSheet: View {
                                     if tempSelection == level {
                                         Image(systemName: "checkmark.circle.fill")
                                             .foregroundStyle(.blue)
-                                            .font(.system(size: 20))
+                                            .font(.systemScaled(20))
                                     }
                                 }
                                 .padding(.horizontal, 16)

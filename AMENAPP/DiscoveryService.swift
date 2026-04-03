@@ -192,6 +192,7 @@ final class DiscoveryService: ObservableObject {
         defer { isFollowSuggestionsLoading = false }
 
         let followingSet = FollowService.shared.following
+        let blockedSet = BlockService.shared.blockedUsers
         var candidates: [FollowSuggestion] = []
 
         // 1. Interest-based candidates
@@ -210,6 +211,7 @@ final class DiscoveryService: ObservableObject {
                     let userId = doc.documentID
                     guard userId != uid,
                           !followingSet.contains(userId),
+                          !blockedSet.contains(userId),
                           !(d["isDeactivated"] as? Bool ?? false),
                           let displayName = d["displayName"] as? String,
                           let username = d["username"] as? String else { return nil }
@@ -257,6 +259,7 @@ final class DiscoveryService: ObservableObject {
                     guard userId != uid,
                           !followingSet.contains(userId),
                           !existingIds.contains(userId),
+                          !blockedSet.contains(userId),
                           !(d["isDeactivated"] as? Bool ?? false),
                           let displayName = d["displayName"] as? String,
                           let username = d["username"] as? String else { return nil }
@@ -690,8 +693,9 @@ final class DiscoveryService: ObservableObject {
         if let algoliaUsers = try? await algolia.searchUsers(query: query, limit: 20) {
             let currentUser = Auth.auth().currentUser?.uid ?? ""
             let followingSet = FollowService.shared.following
+            let blockedSet = BlockService.shared.blockedUsers
             let mapped = algoliaUsers
-                .filter { $0.objectID != currentUser }
+                .filter { $0.objectID != currentUser && !blockedSet.contains($0.objectID) }
                 .map { u -> DiscoveryPerson in
                     DiscoveryPerson(
                         id: u.objectID,
@@ -726,10 +730,12 @@ final class DiscoveryService: ObservableObject {
 
             let followingSet = FollowService.shared.following
             let currentUser = Auth.auth().currentUser?.uid ?? ""
+            let blockedSet = BlockService.shared.blockedUsers
 
             return snapshot.documents.compactMap { doc in
                 let d = doc.data()
                 guard doc.documentID != currentUser,
+                      !blockedSet.contains(doc.documentID),
                       let displayName = d["displayName"] as? String,
                       let username = d["username"] as? String else { return nil }
                 return DiscoveryPerson(
@@ -753,8 +759,11 @@ final class DiscoveryService: ObservableObject {
     }
 
     private func searchPosts(query: String) async -> [DiscoveryPost] {
+        let blockedSet = BlockService.shared.blockedUsers
         if let algoliaResults = try? await algolia.searchPosts(query: query, category: nil, limit: 20) {
-            return algoliaResults.map { p in
+            return algoliaResults
+                .filter { !blockedSet.contains($0.authorId ?? "") }
+                .map { p in
                 DiscoveryPost(
                     id: p.objectID,
                     authorId: p.authorId ?? "",

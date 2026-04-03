@@ -791,19 +791,19 @@ struct WalkWithChristView: View {
             VStack(alignment: .leading, spacing: 6) {
                 // Eyebrow
                 Text("DISCIPLESHIP")
-                    .font(.system(size: 10, weight: .semibold, design: .default))
+                    .font(.systemScaled(10, weight: .semibold, design: .default))
                     .kerning(3.0)
                     .foregroundStyle(Color.white.opacity(0.60))
 
                 // Large editorial title
                 Text("Walk With Christ")
-                    .font(.system(size: 36, weight: .bold, design: .serif))
+                    .font(.systemScaled(36, weight: .bold, design: .serif))
                     .foregroundStyle(.white)
                     .tracking(-0.5)
 
                 // Subtitle
                 Text("Personalized guidance for every stage of your faith journey")
-                    .font(.system(size: 14, weight: .regular, design: .default))
+                    .font(.systemScaled(14, weight: .regular, design: .default))
                     .foregroundStyle(Color.white.opacity(0.75))
                     .lineSpacing(3)
                     .fixedSize(horizontal: false, vertical: true)
@@ -826,7 +826,7 @@ struct WalkWithChristView: View {
                             .fill(.ultraThinMaterial)
                             .frame(width: 36, height: 36)
                         Image(systemName: "xmark")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                             .foregroundStyle(.white)
                     }
                 }
@@ -856,7 +856,7 @@ struct WalkWithChristView: View {
 
             // Subtle cross silhouette — centered, very faint
             Image(systemName: "cross")
-                .font(.system(size: 180, weight: .ultraLight))
+                .font(.systemScaled(180, weight: .ultraLight))
                 .foregroundStyle(Color.white.opacity(0.05))
                 .offset(x: 60, y: -20)
         }
@@ -866,10 +866,10 @@ struct WalkWithChristView: View {
         let path = store.profile.pathAssigned
         return HStack(spacing: 6) {
             Image(systemName: path.icon)
-                .font(.system(size: 10, weight: .semibold))
+                .font(.systemScaled(10, weight: .semibold))
                 .foregroundStyle(path.accentColor)
             Text(path.rawValue)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
                 .foregroundStyle(Color.white.opacity(0.90))
         }
         .padding(.horizontal, 10)
@@ -927,28 +927,28 @@ struct WalkWithChristView: View {
                 // Returning user — show path summary
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Your path")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .kerning(1.5)
                         .foregroundStyle(slate)
                         .textCase(.uppercase)
 
                     Text(store.profile.pathAssigned.rawValue)
-                        .font(.system(size: 22, weight: .bold, design: .serif))
+                        .font(.systemScaled(22, weight: .bold, design: .serif))
                         .foregroundStyle(ink)
 
                     Text(store.profile.pathAssigned.subtitle)
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(slate)
                 }
             } else {
                 // First-time — invitation block
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Walk With Christ")
-                        .font(.system(size: 22, weight: .bold, design: .serif))
+                        .font(.systemScaled(22, weight: .bold, design: .serif))
                         .foregroundStyle(ink)
 
                     Text("Tell us where you are in your faith, and we'll guide you into the right path — whether you're just starting, returning, or ready to go deeper.")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(slate)
                         .lineSpacing(4)
                         .fixedSize(horizontal: false, vertical: true)
@@ -1004,19 +1004,19 @@ struct WalkWithChristView: View {
                     .fill(store.profile.pathAssigned.accentColor.opacity(0.12))
                     .frame(width: 28, height: 28)
                 Text("\(index)")
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.systemScaled(11, weight: .bold))
                     .foregroundStyle(store.profile.pathAssigned.accentColor)
             }
 
             Text(text)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(ink)
                 .lineLimit(2)
 
             Spacer()
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 11, weight: .medium))
+                .font(.systemScaled(11, weight: .medium))
                 .foregroundStyle(slate.opacity(0.4))
         }
         .padding(.horizontal, 14)
@@ -1039,7 +1039,7 @@ struct WalkWithChristView: View {
                 Spacer()
                 Button { showPath = true } label: {
                     Text("See all")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                         .foregroundStyle(warm)
                 }
             }
@@ -1070,18 +1070,18 @@ struct WalkWithChristView: View {
                     .fill(done ? accent.opacity(0.14) : Color(red: 0.94, green: 0.92, blue: 0.87))
                     .frame(width: 40, height: 40)
                 Image(systemName: done ? "checkmark" : module.icon)
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.systemScaled(16, weight: .medium))
                     .foregroundStyle(done ? accent : warm)
             }
 
             Text(module.title)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(ink)
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
 
             Text("\(module.estimatedMinutes) min")
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(slate)
 
             Spacer()
@@ -1133,11 +1133,11 @@ struct WalkWithChristView: View {
         } label: {
             VStack(alignment: .leading, spacing: 8) {
                 Image(systemName: icon)
-                    .font(.system(size: 22))
+                    .font(.systemScaled(22))
                     .foregroundStyle(color)
 
                 Text(title)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(ink)
                     .lineLimit(3)
                     .multilineTextAlignment(.leading)
@@ -1188,7 +1188,7 @@ struct WalkWithChristView: View {
                     .frame(width: 3, height: 36)
 
                 Text(prompt)
-                    .font(.system(size: 13, design: .serif))
+                    .font(.systemScaled(13, design: .serif))
                     .italic()
                     .foregroundStyle(ink.opacity(0.75))
                     .lineSpacing(3)
@@ -1197,7 +1197,7 @@ struct WalkWithChristView: View {
                 Spacer()
 
                 Image(systemName: "sparkles")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(warm.opacity(0.6))
             }
             .padding(.vertical, 4)
@@ -1213,7 +1213,7 @@ struct WalkWithChristView: View {
 
             HStack(spacing: 14) {
                 Image(systemName: "bell.fill")
-                    .font(.system(size: 18))
+                    .font(.systemScaled(18))
                     .foregroundStyle(warm)
                     .frame(width: 40, height: 40)
                     .background(
@@ -1223,12 +1223,12 @@ struct WalkWithChristView: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(store.profile.reminderEnabled ? "Reminders on" : "Turn on reminders")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(ink)
                     Text(store.profile.reminderEnabled
                          ? "Daily at \(reminderTimeLabel)"
                          : "Gentle daily nudges for prayer and reading")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(slate)
                 }
 
@@ -1262,7 +1262,7 @@ struct WalkWithChristView: View {
             if store.profile.reminderEnabled {
                 HStack(spacing: 10) {
                     Text("Reminder time")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(slate)
                     Spacer()
                     Picker("Hour", selection: Binding(
@@ -1290,7 +1290,7 @@ struct WalkWithChristView: View {
                 Calendar.current.component(.weekday, from: Date()) % WalkWithChristData.reminderMessages.count
             ]
             Text("\u{201C}\(quote)\u{201D}")
-                .font(.system(size: 12, design: .serif))
+                .font(.systemScaled(12, design: .serif))
                 .italic()
                 .foregroundStyle(slate)
                 .padding(.horizontal, 4)
@@ -1323,11 +1323,11 @@ struct WalkWithChristView: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
                     Text("\(done) of \(total) completed")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(ink)
                     Spacer()
                     Text("\(Int(pct * 100))%")
-                        .font(.system(size: 13, weight: .bold))
+                        .font(.systemScaled(13, weight: .bold))
                         .foregroundStyle(store.profile.pathAssigned.accentColor)
                 }
 
@@ -1347,7 +1347,7 @@ struct WalkWithChristView: View {
 
                 if store.profile.checkInCount > 0 {
                     Text("Check-ins completed: \(store.profile.checkInCount)")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(slate)
                 }
             }
@@ -1375,7 +1375,7 @@ struct WalkWithChristView: View {
                     // Primary — continue path
                     Button { showPath = true } label: {
                         Label("Continue", systemImage: "arrow.right")
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(.systemScaled(15, weight: .semibold))
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
                             .frame(height: 52)
@@ -1389,7 +1389,7 @@ struct WalkWithChristView: View {
                     // Secondary — check-in
                     Button { showCheckIn = true } label: {
                         Image(systemName: "calendar.badge.checkmark")
-                            .font(.system(size: 18))
+                            .font(.systemScaled(18))
                             .foregroundStyle(ink)
                             .frame(width: 52, height: 52)
                             .background(
@@ -1403,7 +1403,7 @@ struct WalkWithChristView: View {
                     // Tertiary — switch path
                     Button { showPathPicker = true } label: {
                         Image(systemName: "map.fill")
-                            .font(.system(size: 16))
+                            .font(.systemScaled(16))
                             .foregroundStyle(warm)
                             .frame(width: 52, height: 52)
                             .background(
@@ -1418,9 +1418,9 @@ struct WalkWithChristView: View {
                     Button { showOnboarding = true } label: {
                         HStack(spacing: 8) {
                             Image(systemName: "figure.walk")
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(.systemScaled(15, weight: .semibold))
                             Text("Start Your Path")
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(.systemScaled(15, weight: .semibold))
                         }
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
@@ -1445,7 +1445,7 @@ struct WalkWithChristView: View {
 
     private func sectionLabel(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 11, weight: .semibold))
+            .font(.systemScaled(11, weight: .semibold))
             .kerning(1.5)
             .foregroundStyle(slate)
             .textCase(.uppercase)
@@ -1459,12 +1459,12 @@ struct WalkWithChristView: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(text)
-                    .font(.system(size: 13, design: .serif))
+                    .font(.systemScaled(13, design: .serif))
                     .italic()
                     .foregroundStyle(ink.opacity(0.75))
                     .lineSpacing(3)
                 Text(reference)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(warm)
                     .kerning(0.5)
             }
@@ -1529,12 +1529,12 @@ struct WalkWithChristOnboarding: View {
         VStack(spacing: 0) {
             HStack {
                 Text("Walk With Christ")
-                    .font(.system(size: 14, weight: .semibold, design: .serif))
+                    .font(.systemScaled(14, weight: .semibold, design: .serif))
                     .foregroundStyle(ink)
                 Spacer()
                 Button { dismiss() } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                         .foregroundStyle(slate)
                         .frame(width: 30, height: 30)
                         .background(Circle().fill(Color(white: 0.92)))
@@ -1554,7 +1554,7 @@ struct WalkWithChristOnboarding: View {
                 }
                 Spacer()
                 Text("\(step + 1) of \(totalSteps)")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(slate)
             }
             .padding(.horizontal, 24)
@@ -1665,7 +1665,7 @@ struct WalkWithChristOnboarding: View {
                     withAnimation(.easeOut(duration: 0.25)) { step -= 1 }
                 } label: {
                     Image(systemName: "arrow.left")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(ink)
                         .frame(width: 50, height: 50)
                         .background(
@@ -1684,7 +1684,7 @@ struct WalkWithChristOnboarding: View {
                 }
             } label: {
                 Text(step < totalSteps - 1 ? "Continue" : "Show My Path")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .frame(height: 50)
@@ -1735,13 +1735,13 @@ struct WalkWithChristOnboarding: View {
             VStack(alignment: .leading, spacing: 20) {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(question)
-                        .font(.system(size: 22, weight: .bold, design: .serif))
+                        .font(.systemScaled(22, weight: .bold, design: .serif))
                         .foregroundStyle(ink)
                         .lineSpacing(4)
                         .fixedSize(horizontal: false, vertical: true)
 
                     Text(subtext)
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(slate)
                         .lineSpacing(3)
                 }
@@ -1772,7 +1772,7 @@ struct WalkWithChristOnboarding: View {
                 }
 
                 Text(label)
-                    .font(.system(size: 14, weight: isSelected ? .semibold : .regular))
+                    .font(.systemScaled(14, weight: isSelected ? .semibold : .regular))
                     .foregroundStyle(ink)
 
                 Spacer()
@@ -1818,20 +1818,20 @@ struct WalkWithChristPathView: View {
                         VStack(alignment: .leading, spacing: 6) {
                             HStack(spacing: 8) {
                                 Image(systemName: store.profile.pathAssigned.icon)
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(.systemScaled(14, weight: .semibold))
                                     .foregroundStyle(store.profile.pathAssigned.accentColor)
                                 Text(store.profile.pathAssigned.rawValue.uppercased())
-                                    .font(.system(size: 10, weight: .semibold))
+                                    .font(.systemScaled(10, weight: .semibold))
                                     .kerning(2.0)
                                     .foregroundStyle(slate)
                             }
 
                             Text("Your Discipleship Path")
-                                .font(.system(size: 26, weight: .bold, design: .serif))
+                                .font(.systemScaled(26, weight: .bold, design: .serif))
                                 .foregroundStyle(ink)
 
                             Text(store.profile.pathAssigned.subtitle)
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                                 .foregroundStyle(slate)
                         }
                         .padding(.horizontal, 24)
@@ -1850,7 +1850,7 @@ struct WalkWithChristPathView: View {
                         // ── Explore Other Paths ──────────────────────────────
                         VStack(alignment: .leading, spacing: 12) {
                             Text("EXPLORE OTHER PATHS")
-                                .font(.system(size: 10, weight: .semibold))
+                                .font(.systemScaled(10, weight: .semibold))
                                 .kerning(2.0)
                                 .foregroundStyle(slate)
                                 .padding(.horizontal, 24)
@@ -1864,20 +1864,20 @@ struct WalkWithChristPathView: View {
                                             .fill(warm.opacity(0.12))
                                             .frame(width: 40, height: 40)
                                         Image(systemName: "map.fill")
-                                            .font(.system(size: 16, weight: .medium))
+                                            .font(.systemScaled(16, weight: .medium))
                                             .foregroundStyle(warm)
                                     }
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text("Try a Different Path")
-                                            .font(.system(size: 14, weight: .semibold))
+                                            .font(.systemScaled(14, weight: .semibold))
                                             .foregroundStyle(ink)
                                         Text("Browse all \(WalkPath.allCases.count) discipleship tracks")
-                                            .font(.system(size: 12))
+                                            .font(.systemScaled(12))
                                             .foregroundStyle(slate)
                                     }
                                     Spacer()
                                     Image(systemName: "chevron.right")
-                                        .font(.system(size: 12, weight: .medium))
+                                        .font(.systemScaled(12, weight: .medium))
                                         .foregroundStyle(slate.opacity(0.5))
                                 }
                                 .padding(.horizontal, 16)
@@ -1901,7 +1901,7 @@ struct WalkWithChristPathView: View {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button { dismiss() } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.systemScaled(13, weight: .medium))
                             .foregroundStyle(slate)
                     }
                 }
@@ -1927,33 +1927,33 @@ struct WalkWithChristPathView: View {
                     .frame(width: 36, height: 36)
                 if done {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 13, weight: .bold))
+                        .font(.systemScaled(13, weight: .bold))
                         .foregroundStyle(accent)
                 } else {
                     Text("\(index)")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(slate)
                 }
             }
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(module.title)
-                    .font(.system(size: 14, weight: done ? .regular : .semibold))
+                    .font(.systemScaled(14, weight: done ? .regular : .semibold))
                     .foregroundStyle(done ? slate : ink)
                     .strikethrough(done, color: slate.opacity(0.5))
                 Text(module.subtitle)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(slate)
             }
 
             Spacer()
 
             Text("\(module.estimatedMinutes) min")
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(slate.opacity(0.7))
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 11, weight: .medium))
+                .font(.systemScaled(11, weight: .medium))
                 .foregroundStyle(slate.opacity(0.35))
         }
         .padding(.horizontal, 16)
@@ -1988,14 +1988,14 @@ struct PathPickerSheet: View {
                         // Header
                         VStack(alignment: .leading, spacing: 6) {
                             Text("CHOOSE YOUR PATH")
-                                .font(.system(size: 10, weight: .semibold))
+                                .font(.systemScaled(10, weight: .semibold))
                                 .kerning(2.0)
                                 .foregroundStyle(slate)
                             Text("All Discipleship Tracks")
-                                .font(.system(size: 26, weight: .bold, design: .serif))
+                                .font(.systemScaled(26, weight: .bold, design: .serif))
                                 .foregroundStyle(ink)
                             Text("Each path is designed to meet you where you are and help you grow.")
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                                 .foregroundStyle(slate)
                         }
                         .padding(.horizontal, 24)
@@ -2018,7 +2018,7 @@ struct PathPickerSheet: View {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button { dismiss() } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.systemScaled(13, weight: .medium))
                             .foregroundStyle(slate)
                     }
                 }
@@ -2043,18 +2043,18 @@ struct PathPickerSheet: View {
                         .fill(path.accentColor.opacity(isActive ? 0.18 : 0.10))
                         .frame(width: 48, height: 48)
                     Image(systemName: path.icon)
-                        .font(.system(size: 20, weight: .medium))
+                        .font(.systemScaled(20, weight: .medium))
                         .foregroundStyle(path.accentColor)
                 }
 
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 6) {
                         Text(path.rawValue)
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(.systemScaled(15, weight: .semibold))
                             .foregroundStyle(ink)
                         if isActive {
                             Text("CURRENT")
-                                .font(.system(size: 9, weight: .bold))
+                                .font(.systemScaled(9, weight: .bold))
                                 .kerning(1.0)
                                 .foregroundStyle(path.accentColor)
                                 .padding(.horizontal, 6)
@@ -2066,10 +2066,10 @@ struct PathPickerSheet: View {
                         }
                     }
                     Text(path.subtitle)
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(slate)
                     Text("\(WalkWithChristData.modules(for: path).count) modules")
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(slate.opacity(0.7))
                 }
 
@@ -2077,11 +2077,11 @@ struct PathPickerSheet: View {
 
                 if isActive {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 20))
+                        .font(.systemScaled(20))
                         .foregroundStyle(path.accentColor)
                 } else {
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                         .foregroundStyle(slate.opacity(0.4))
                 }
             }
@@ -2126,7 +2126,7 @@ struct WalkModuleDetailView: View {
                     // Scripture
                     VStack(alignment: .leading, spacing: 10) {
                         Text("SCRIPTURE")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.systemScaled(10, weight: .semibold))
                             .kerning(2.0)
                             .foregroundStyle(slate)
 
@@ -2137,12 +2137,12 @@ struct WalkModuleDetailView: View {
 
                             VStack(alignment: .leading, spacing: 3) {
                                 Text("\u{201C}\(module.scripture)\u{201D}")
-                                    .font(.system(size: 15, design: .serif))
+                                    .font(.systemScaled(15, design: .serif))
                                     .italic()
                                     .foregroundStyle(ink.opacity(0.80))
                                     .lineSpacing(4)
                                 Text(module.scriptureRef)
-                                    .font(.system(size: 11, weight: .semibold))
+                                    .font(.systemScaled(11, weight: .semibold))
                                     .foregroundStyle(warm)
                                     .kerning(0.5)
                             }
@@ -2158,12 +2158,12 @@ struct WalkModuleDetailView: View {
                     // Reflection
                     VStack(alignment: .leading, spacing: 10) {
                         Text("REFLECT")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.systemScaled(10, weight: .semibold))
                             .kerning(2.0)
                             .foregroundStyle(slate)
 
                         Text(module.reflection)
-                            .font(.system(size: 14, design: .serif))
+                            .font(.systemScaled(14, design: .serif))
                             .italic()
                             .foregroundStyle(ink.opacity(0.75))
                             .lineSpacing(5)
@@ -2178,7 +2178,7 @@ struct WalkModuleDetailView: View {
                     // Ask Berean
                     VStack(alignment: .leading, spacing: 10) {
                         Text("ASK BEREAN")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.systemScaled(10, weight: .semibold))
                             .kerning(2.0)
                             .foregroundStyle(slate)
 
@@ -2188,15 +2188,15 @@ struct WalkModuleDetailView: View {
                         } label: {
                             HStack(spacing: 12) {
                                 Image(systemName: "sparkles")
-                                    .font(.system(size: 16))
+                                    .font(.systemScaled(16))
                                     .foregroundStyle(Color(red: 0.38, green: 0.28, blue: 0.72))
 
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("Ask Berean")
-                                        .font(.system(size: 13, weight: .semibold))
+                                        .font(.systemScaled(13, weight: .semibold))
                                         .foregroundStyle(ink)
                                     Text(module.bereanPrompt)
-                                        .font(.system(size: 12))
+                                        .font(.systemScaled(12))
                                         .foregroundStyle(slate)
                                         .lineLimit(2)
                                 }
@@ -2204,7 +2204,7 @@ struct WalkModuleDetailView: View {
                                 Spacer()
 
                                 Image(systemName: "chevron.right")
-                                    .font(.system(size: 11))
+                                    .font(.systemScaled(11))
                                     .foregroundStyle(slate.opacity(0.4))
                             }
                             .padding(16)
@@ -2231,7 +2231,7 @@ struct WalkModuleDetailView: View {
                 HStack(spacing: 12) {
                     Button { dismiss() } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.systemScaled(15, weight: .medium))
                             .foregroundStyle(ink)
                             .frame(width: 50, height: 50)
                             .background(
@@ -2247,9 +2247,9 @@ struct WalkModuleDetailView: View {
                     } label: {
                         HStack(spacing: 8) {
                             Image(systemName: store.isComplete(module.id) ? "checkmark.circle.fill" : "checkmark.circle")
-                                .font(.system(size: 15))
+                                .font(.systemScaled(15))
                             Text(store.isComplete(module.id) ? "Completed" : "Mark Complete")
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(.systemScaled(15, weight: .semibold))
                         }
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
@@ -2279,24 +2279,24 @@ struct WalkModuleDetailView: View {
                         .fill(store.profile.pathAssigned.accentColor.opacity(0.12))
                         .frame(width: 44, height: 44)
                     Image(systemName: module.icon)
-                        .font(.system(size: 18, weight: .medium))
+                        .font(.systemScaled(18, weight: .medium))
                         .foregroundStyle(store.profile.pathAssigned.accentColor)
                 }
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(module.subtitle)
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .kerning(1.0)
                         .foregroundStyle(slate)
                         .textCase(.uppercase)
                     Text("\(module.estimatedMinutes) min")
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(slate)
                 }
             }
 
             Text(module.title)
-                .font(.system(size: 28, weight: .bold, design: .serif))
+                .font(.systemScaled(28, weight: .bold, design: .serif))
                 .foregroundStyle(ink)
                 .lineSpacing(3)
         }
@@ -2334,16 +2334,16 @@ struct WalkWithChristCheckIn: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Weekly Check-In")
-                                .font(.system(size: 17, weight: .bold, design: .serif))
+                                .font(.systemScaled(17, weight: .bold, design: .serif))
                                 .foregroundStyle(ink)
                             Text("A few honest questions")
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                                 .foregroundStyle(slate)
                         }
                         Spacer()
                         Button { dismiss() } label: {
                             Image(systemName: "xmark")
-                                .font(.system(size: 13, weight: .medium))
+                                .font(.systemScaled(13, weight: .medium))
                                 .foregroundStyle(slate)
                                 .frame(width: 30, height: 30)
                                 .background(Circle().fill(Color(white: 0.92)))
@@ -2356,7 +2356,7 @@ struct WalkWithChristCheckIn: View {
                     // Question
                     VStack(alignment: .leading, spacing: 16) {
                         Text(WalkWithChristData.checkInQuestions[questionIndex])
-                            .font(.system(size: 20, weight: .bold, design: .serif))
+                            .font(.systemScaled(20, weight: .bold, design: .serif))
                             .foregroundStyle(ink)
                             .lineSpacing(4)
                             .fixedSize(horizontal: false, vertical: true)
@@ -2379,7 +2379,7 @@ struct WalkWithChristCheckIn: View {
                                 withAnimation(.easeOut(duration: 0.2)) { questionIndex -= 1 }
                             } label: {
                                 Image(systemName: "arrow.left")
-                                    .font(.system(size: 15, weight: .semibold))
+                                    .font(.systemScaled(15, weight: .semibold))
                                     .foregroundStyle(ink)
                                     .frame(width: 50, height: 50)
                                     .background(
@@ -2399,7 +2399,7 @@ struct WalkWithChristCheckIn: View {
                             }
                         } label: {
                             Text(questionIndex < WalkWithChristData.checkInQuestions.count - 1 ? "Next" : "Finish")
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(.systemScaled(15, weight: .semibold))
                                 .foregroundStyle(.white)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 50)
@@ -2428,7 +2428,7 @@ struct WalkWithChristCheckIn: View {
                     }
                 } label: {
                     Text(option)
-                        .font(.system(size: 14, weight: isSelected ? .semibold : .regular))
+                        .font(.systemScaled(14, weight: isSelected ? .semibold : .regular))
                         .foregroundStyle(isSelected ? .white : ink)
                         .frame(maxWidth: .infinity)
                         .frame(height: 44)
@@ -2456,10 +2456,10 @@ struct WalkWithChristCheckIn: View {
                 } label: {
                     VStack(spacing: 6) {
                         Image(systemName: icon)
-                            .font(.system(size: 18))
+                            .font(.systemScaled(18))
                             .foregroundStyle(isSelected ? warm : slate)
                         Text(mood)
-                            .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
+                            .font(.systemScaled(11, weight: isSelected ? .semibold : .regular))
                             .foregroundStyle(isSelected ? ink : slate)
                     }
                     .frame(maxWidth: .infinity)
@@ -2484,15 +2484,15 @@ struct WalkWithChristCheckIn: View {
             Spacer()
 
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 52))
+                .font(.systemScaled(52))
                 .foregroundStyle(warm)
 
             Text("Check-in complete")
-                .font(.system(size: 24, weight: .bold, design: .serif))
+                .font(.systemScaled(24, weight: .bold, design: .serif))
                 .foregroundStyle(ink)
 
             Text("God meets you in honesty. Thank you for checking in.")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(slate)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
@@ -2501,7 +2501,7 @@ struct WalkWithChristCheckIn: View {
                 store.profile.checkInCount % WalkWithChristData.reminderMessages.count
             ]
             Text("\u{201C}\(quote)\u{201D}")
-                .font(.system(size: 13, design: .serif))
+                .font(.systemScaled(13, design: .serif))
                 .italic()
                 .foregroundStyle(warm)
                 .multilineTextAlignment(.center)
@@ -2511,7 +2511,7 @@ struct WalkWithChristCheckIn: View {
 
             Button { dismiss() } label: {
                 Text("Done")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .frame(height: 50)

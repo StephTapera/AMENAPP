@@ -140,7 +140,7 @@ struct BereanOnboardingView: View {
                 }
             } label: {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(.black.opacity(0.7))
                     .frame(width: 40, height: 40)
                     .background(.ultraThinMaterial)
@@ -173,7 +173,7 @@ struct BereanOnboardingView: View {
 
             // Step counter
             Text("\(currentStep + 1) / 4")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(.black.opacity(0.4))
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
@@ -214,13 +214,13 @@ struct BereanOnboardingView: View {
 
                 // Eyebrow
                 Text(data.eyebrow)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(.black.opacity(0.4))
                     .kerning(1.0)
 
                 // Title
                 Text(data.title)
-                    .font(.system(size: 24, weight: .bold))
+                    .font(.systemScaled(24, weight: .bold))
                     .foregroundStyle(.black)
                     .multilineTextAlignment(.leading)
                     .lineSpacing(2)
@@ -244,7 +244,7 @@ struct BereanOnboardingView: View {
 
     private func floatingIcon(systemName: String) -> some View {
         Image(systemName: systemName)
-            .font(.system(size: 28, weight: .medium))
+            .font(.systemScaled(28, weight: .medium))
             .foregroundStyle(.black.opacity(0.72))
             .frame(width: 64, height: 64)
             .background(.ultraThinMaterial)
@@ -272,7 +272,7 @@ struct BereanOnboardingView: View {
                 .fill(Color.white.opacity(0.6))
 
             Text(text)
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .foregroundStyle(.black.opacity(0.72))
                 .lineSpacing(4)
                 .multilineTextAlignment(.leading)
@@ -286,7 +286,7 @@ struct BereanOnboardingView: View {
         HStack(spacing: 8) {
             ForEach(Array(chips.enumerated()), id: \.offset) { index, chip in
                 Text(chip)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(.black.opacity(0.8))
                     .padding(.horizontal, 12)
                     .padding(.vertical, 7)
@@ -317,11 +317,11 @@ struct BereanOnboardingView: View {
                 } label: {
                     HStack(spacing: 8) {
                         Image(systemName: option.icon)
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.systemScaled(14, weight: .medium))
                             .foregroundStyle(.black.opacity(isSelected ? 0.85 : 0.5))
 
                         Text(option.label)
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.systemScaled(13, weight: .medium))
                             .foregroundStyle(.black.opacity(isSelected ? 0.85 : 0.65))
                             .multilineTextAlignment(.leading)
 
@@ -329,7 +329,7 @@ struct BereanOnboardingView: View {
 
                         if isSelected {
                             Image(systemName: "checkmark")
-                                .font(.system(size: 11, weight: .semibold))
+                                .font(.systemScaled(11, weight: .semibold))
                                 .foregroundStyle(.black.opacity(0.6))
                         }
                     }
@@ -370,13 +370,13 @@ struct BereanOnboardingView: View {
                 }
 
             Text("Gentle animations · High clarity · Built for AMEN")
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(.black.opacity(0.4))
 
             Spacer()
 
             Text("Berean · AMEN")
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(.black.opacity(0.4))
         }
     }
@@ -391,7 +391,7 @@ struct BereanOnboardingView: View {
                 completeOnboarding()
             } label: {
                 Text(currentStep == 3 ? "Set up later" : "Skip")
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.systemScaled(15, weight: .medium))
                     .foregroundStyle(.black.opacity(0.7))
                     .frame(maxWidth: .infinity)
                     .frame(height: 54)
@@ -419,7 +419,7 @@ struct BereanOnboardingView: View {
                 }
             } label: {
                 Text(currentStep == 3 ? "Get Started" : "Next")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(.white)
                     .frame(width: 130, height: 54)
                     .background(Color.black)

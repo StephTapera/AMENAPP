@@ -430,7 +430,7 @@ struct BereanHeroGreetingView: View {
         VStack(spacing: 10) {
             // — Brand label —
             Text("BEREAN AI")
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
                 .kerning(2.0)
                 .foregroundColor(Color(white: 0.60))
                 .opacity(shouldAnimate ? (brandLabelVisible ? 1 : 0) : 1)
@@ -459,7 +459,7 @@ struct BereanHeroGreetingView: View {
 
             // — Follow-up / tagline —
             Text(greeting.followUp)
-                .font(.system(size: 17, weight: .regular))
+                .font(.systemScaled(17, weight: .regular))
                 .foregroundColor(Color(white: 0.52))
                 .multilineTextAlignment(.center)
                 .opacity(shouldAnimate ? (followUpVisible ? 1 : 0) : 1)

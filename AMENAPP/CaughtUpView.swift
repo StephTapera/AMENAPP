@@ -61,7 +61,7 @@ struct CaughtUpCard: View {
                 .multilineTextAlignment(.center)
 
                 Text("You've seen all new posts from the past 3 days.")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .lineSpacing(3)
@@ -80,7 +80,7 @@ struct CaughtUpCard: View {
                     NotificationCenter.default.post(name: .caughtUpOpenPrayer, object: nil)
                 } label: {
                     Label("Pray", systemImage: "hands.sparkles.fill")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(Color(red: 0.35, green: 0.50, blue: 0.95))
                         .padding(.horizontal, 16)
                         .padding(.vertical, 9)
@@ -96,7 +96,7 @@ struct CaughtUpCard: View {
                     NotificationCenter.default.post(name: .caughtUpOpenBerean, object: nil)
                 } label: {
                     Label("Ask Berean", systemImage: "sparkles")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(Color(red: 0.55, green: 0.30, blue: 0.90))
                         .padding(.horizontal, 16)
                         .padding(.vertical, 9)
@@ -112,7 +112,7 @@ struct CaughtUpCard: View {
             // CTA
             Button(action: onViewOlder) {
                 Text("View older posts")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 20)
                     .padding(.vertical, 10)
@@ -155,11 +155,11 @@ struct CaughtUpCard: View {
     private func reflectionCard(_ prompt: String) -> some View {
         HStack(spacing: 12) {
             Image(systemName: "leaf.fill")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(Color(red: 0.22, green: 0.62, blue: 0.42))
 
             Text(prompt)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.primary)
                 .lineSpacing(3)
                 .fixedSize(horizontal: false, vertical: true)
@@ -215,7 +215,7 @@ struct AnimatedCheckRing: View {
 
             // Checkmark
             Image(systemName: "checkmark")
-                .font(.system(size: 22, weight: .bold))
+                .font(.systemScaled(22, weight: .bold))
                 .foregroundStyle(
                     LinearGradient(
                         colors: [Color(red: 0.28, green: 0.72, blue: 0.50),
@@ -290,15 +290,15 @@ private func nudgeBanner(
 ) -> some View {
     HStack(spacing: 12) {
         Image(systemName: icon)
-            .font(.system(size: 14, weight: .semibold))
+            .font(.systemScaled(14, weight: .semibold))
             .foregroundStyle(.secondary)
 
         VStack(alignment: .leading, spacing: 1) {
             Text(title)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(.primary)
             Text(subtitle)
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(.secondary)
         }
 
@@ -307,7 +307,7 @@ private func nudgeBanner(
         if let dismiss = onDismiss {
             Button(action: dismiss) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(.secondary)
                     .frame(width: 24, height: 24)
                     .background(Color(.tertiarySystemFill), in: Circle())

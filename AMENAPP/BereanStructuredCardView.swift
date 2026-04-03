@@ -111,12 +111,12 @@ struct BereanStructuredCard: View {
                     .fill(cardType.accentColor.opacity(0.15))
                     .frame(width: 34, height: 34)
                 Image(systemName: cardType.icon)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(cardType.accentColor)
             }
 
             Text(title.isEmpty ? cardType.defaultTitle : title)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(cardType.accentColor)
 
             Spacer()
@@ -138,7 +138,7 @@ struct BereanStructuredCard: View {
 
     private var contentBody: some View {
         Text(content)
-            .font(.system(size: 15, weight: .regular))
+            .font(.systemScaled(15, weight: .regular))
             .foregroundStyle(Color(.label).opacity(0.88))
             .lineSpacing(5)
             .fixedSize(horizontal: false, vertical: true)
@@ -160,9 +160,9 @@ struct BereanStructuredCard: View {
                 } label: {
                     HStack(spacing: 5) {
                         Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.systemScaled(13, weight: .medium))
                         Text(isSaved ? "Saved" : "Save")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.systemScaled(13, weight: .medium))
                     }
                     .foregroundStyle(isSaved ? cardType.accentColor : Color(.secondaryLabel))
                     .frame(maxWidth: .infinity)
@@ -183,9 +183,9 @@ struct BereanStructuredCard: View {
                 } label: {
                     HStack(spacing: 5) {
                         Image(systemName: "square.and.arrow.up")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.systemScaled(13, weight: .medium))
                         Text("Share")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.systemScaled(13, weight: .medium))
                     }
                     .foregroundStyle(Color(.secondaryLabel))
                     .frame(maxWidth: .infinity)

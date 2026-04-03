@@ -100,7 +100,7 @@ struct VergeRoomView: View {
                     }
                     HStack(spacing: 4) {
                         Image(systemName: "person.2.fill")
-                            .font(.system(size: 10, weight: .medium))
+                            .font(.systemScaled(10, weight: .medium))
                             .symbolRenderingMode(.hierarchical)
                             .foregroundStyle(.white.opacity(0.5))
                         Text("\(room.participantCount)")
@@ -215,7 +215,7 @@ struct VergeRoomView: View {
     private var aiInsightsBar: some View {
         HStack(spacing: 10) {
             Image(systemName: "sparkles")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(amenViolet)
             Text(latestAIInsight)
@@ -229,7 +229,7 @@ struct VergeRoomView: View {
                 }
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                     .foregroundStyle(.white.opacity(0.4))
             }
         }
@@ -306,7 +306,7 @@ struct VergeRoomView: View {
                     }
                 } label: {
                     Image(systemName: "questionmark.circle.fill")
-                        .font(.system(size: 22, weight: .medium))
+                        .font(.systemScaled(22, weight: .medium))
                         .symbolRenderingMode(.hierarchical)
                         .foregroundStyle(messageType == .question ? Color(hex: "06B6D4") : .white.opacity(0.35))
                 }
@@ -318,14 +318,14 @@ struct VergeRoomView: View {
                     }
                 } label: {
                     Image(systemName: "face.smiling.inverse")
-                        .font(.system(size: 22, weight: .medium))
+                        .font(.systemScaled(22, weight: .medium))
                         .foregroundStyle(.white.opacity(0.35))
                 }
 
                 // Tip button
                 Button { showTipSheet = true } label: {
                     Image(systemName: "gift.fill")
-                        .font(.system(size: 20, weight: .medium))
+                        .font(.systemScaled(20, weight: .medium))
                         .symbolRenderingMode(.hierarchical)
                         .foregroundStyle(amenGold.opacity(0.8))
                 }
@@ -333,7 +333,7 @@ struct VergeRoomView: View {
                 // Send
                 Button { sendMessage() } label: {
                     Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 28, weight: .semibold))
+                        .font(.systemScaled(28, weight: .semibold))
                         .symbolRenderingMode(.hierarchical)
                         .foregroundStyle(messageText.isEmpty ? .white.opacity(0.2) : amenViolet)
                 }
@@ -355,7 +355,7 @@ struct VergeRoomView: View {
                     withAnimation { showEmojiPicker = false }
                 } label: {
                     Text(emoji)
-                        .font(.system(size: 28))
+                        .font(.systemScaled(28))
                 }
                 .buttonStyle(CoCreationPressStyle())
             }

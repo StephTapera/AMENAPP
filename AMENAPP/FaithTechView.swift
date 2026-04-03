@@ -59,7 +59,7 @@ struct FaithTechView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         HStack {
                             Image(systemName: "lightbulb.fill")
-                                .font(.system(size: 28))
+                                .font(.systemScaled(28))
                                 .foregroundStyle(.orange)
                                 .symbolEffect(.pulse, options: .repeating.speed(0.5))
                             
@@ -126,7 +126,7 @@ struct FeaturedTechArticle: View {
                         .frame(height: 200)
                     
                     Image(systemName: "cpu.fill")
-                        .font(.system(size: 60))
+                        .font(.systemScaled(60))
                         .foregroundStyle(.white.opacity(0.3))
                     
                     // Featured badge
@@ -163,7 +163,7 @@ struct FeaturedTechArticle: View {
                     HStack {
                         HStack(spacing: 4) {
                             Image(systemName: "clock")
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                             Text("5 min read")
                                 .font(.custom("OpenSans-Regular", size: 12))
                         }
@@ -178,7 +178,7 @@ struct FeaturedTechArticle: View {
                                 Text("Read More")
                                     .font(.custom("OpenSans-Bold", size: 14))
                                 Image(systemName: "arrow.right")
-                                    .font(.system(size: 12, weight: .bold))
+                                    .font(.systemScaled(12, weight: .bold))
                             }
                             .foregroundStyle(.orange)
                         }
@@ -221,7 +221,7 @@ struct TechArticleCard: View {
                         .frame(width: 80, height: 80)
                     
                     Image(systemName: article.icon)
-                        .font(.system(size: 28))
+                        .font(.systemScaled(28))
                         .foregroundStyle(.white)
                 }
                 
@@ -239,7 +239,7 @@ struct TechArticleCard: View {
                     HStack(spacing: 8) {
                         HStack(spacing: 4) {
                             Image(systemName: "clock")
-                                .font(.system(size: 10))
+                                .font(.systemScaled(10))
                             Text(article.readTime)
                                 .font(.custom("OpenSans-Regular", size: 11))
                         }
@@ -265,7 +265,7 @@ struct TechArticleCard: View {
                     }
                 } label: {
                     Image(systemName: isBookmarked ? "bookmark.fill" : "bookmark")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.systemScaled(18, weight: .semibold))
                         .foregroundStyle(isBookmarked ? .orange : .secondary)
                 }
             }
@@ -792,7 +792,7 @@ struct ArticleDetailView: View {
                             .frame(height: 250)
                         
                         Image(systemName: article.icon)
-                            .font(.system(size: 100))
+                            .font(.systemScaled(100))
                             .foregroundStyle(.white.opacity(0.2))
                             .frame(maxWidth: .infinity, alignment: .trailing)
                             .padding(.trailing, 40)
@@ -819,7 +819,7 @@ struct ArticleDetailView: View {
                     HStack(spacing: 16) {
                         HStack(spacing: 6) {
                             Image(systemName: "clock")
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                             Text(article.readTime)
                                 .font(.custom("OpenSans-Regular", size: 14))
                         }
@@ -827,7 +827,7 @@ struct ArticleDetailView: View {
                         
                         HStack(spacing: 6) {
                             Image(systemName: "calendar")
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                             Text("Today")
                                 .font(.custom("OpenSans-Regular", size: 14))
                         }
@@ -874,7 +874,7 @@ struct ArticleDetailView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 28))
+                            .font(.systemScaled(28))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -889,7 +889,7 @@ struct ArticleDetailView: View {
                             }
                         } label: {
                             Image(systemName: isBookmarked ? "bookmark.fill" : "bookmark")
-                                .font(.system(size: 20))
+                                .font(.systemScaled(20))
                                 .foregroundStyle(isBookmarked ? .orange : .secondary)
                         }
                         
@@ -897,7 +897,7 @@ struct ArticleDetailView: View {
                             showShareSheet = true
                         } label: {
                             Image(systemName: "square.and.arrow.up")
-                                .font(.system(size: 20))
+                                .font(.systemScaled(20))
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -933,7 +933,7 @@ struct RelatedArticleCard: View {
                         .frame(width: 200, height: 120)
                     
                     Image(systemName: article.icon)
-                        .font(.system(size: 40))
+                        .font(.systemScaled(40))
                         .foregroundStyle(.white.opacity(0.7))
                 }
                 

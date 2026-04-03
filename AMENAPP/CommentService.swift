@@ -72,16 +72,18 @@ class CommentService: ObservableObject {
     }
 
     deinit {
-        // Guard: if listenerPaths is empty or _rootRef was never cached,
-        // the lazy `database` was never accessed, so skip to avoid triggering
-        // lazy init from a nonisolated context during teardown.
-        guard !listenerPaths.isEmpty, let dbRef = _rootRef else { return }
-
-        // Remove all Realtime DB handles synchronously.
-        // Firebase DatabaseReference.removeObserver(withHandle:) is thread-safe.
-        for (postId, handle) in listenerPaths {
-            dbRef.child("postInteractions").child(postId).child("comments").removeObserver(withHandle: handle)
+        // ✅ FIX CR-14: Don't call Firebase methods from deinit - causes crashes
+        // Listeners should be cleaned up explicitly via stopListening() before deallocation
+        // This safety check just logs if cleanup was missed
+        #if DEBUG
+        if !listenerPaths.isEmpty {
+            print("⚠️ [CommentService] Deallocating with \(listenerPaths.count) active listeners. Call stopListening() before release.")
         }
+        #endif
+        
+        // Note: Can't clear @MainActor-isolated dictionaries from deinit (not async)
+        // Memory will be released automatically when the object deallocates
+        // Explicit cleanup should happen via stopListening() before deallocation
     }
     
     // MARK: - Helper Types
@@ -982,29 +984,39 @@ class CommentService: ObservableObject {
             throw NSError(domain: "CommentService", code: -4, userInfo: [NSLocalizedDescriptionKey: "You can only delete your own comments"])
         }
         
-        // P2-2 FIX: Check for replies directly in RTDB — never rely on the local cache,
-        // which may be stale or not yet populated.
-        let allCommentsSnapshot = try await ref
-            .child("postInteractions").child(postId).child("comments")
-            .getData()
-        var replyCount = 0
-        if allCommentsSnapshot.exists() {
-            for child in allCommentsSnapshot.children.allObjects as? [DataSnapshot] ?? [] {
-                if let data = child.value as? [String: Any],
+        // ✅ FIX CR-5: Use transaction to atomically check replies and delete
+        // This prevents race condition where reply is added between check and delete
+        let commentsRef = ref.child("postInteractions").child(postId).child("comments")
+        
+        try await commentsRef.runTransactionBlock { currentData in
+            guard let commentsDict = currentData.value as? [String: Any] else {
+                // No comments exist, nothing to delete
+                return TransactionResult.abort()
+            }
+            
+            // Check if any comment has this as parent
+            var replyCount = 0
+            for (_, commentData) in commentsDict {
+                if let data = commentData as? [String: Any],
                    let parentId = data["parentCommentId"] as? String,
                    parentId == commentId {
                     replyCount += 1
                 }
             }
-        }
-        if replyCount > 0 {
-            dlog("⚠️ [P2-2] Cannot delete comment with \(replyCount) replies (from DB)")
-            throw NSError(domain: "CommentService", code: -5,
-                         userInfo: [NSLocalizedDescriptionKey: "Cannot delete a comment that has replies. Delete the replies first."])
+            
+            if replyCount > 0 {
+                dlog("⚠️ [CR-5] Cannot delete comment with \(replyCount) replies")
+                return TransactionResult.abort()
+            }
+            
+            // No replies found - safe to delete
+            var updatedComments = commentsDict
+            updatedComments.removeValue(forKey: commentId)
+            currentData.value = updatedComments
+            return TransactionResult.success(withValue: currentData)
         }
         
-        // Remove the comment
-        try await commentRef.removeValue()
+        dlog("✅ Comment deleted atomically (no replies)")
         
         // Decrement comment count on the post
         let countRef = ref.child("postInteractions").child(postId).child("commentCount")
@@ -1049,42 +1061,34 @@ class CommentService: ObservableObject {
         let userLikeRef = commentRef.child("likedBy").child(userId)
         let likesCountRef = commentRef.child("likes")
         
-        // Use the caller-supplied state (derived from amenUserIds populated by the RTDB listener)
-        // instead of calling getData() which can return stale offline-cached values.
-        let hasLiked = currentlyAmened
-        
-        // Toggle like status
-        if hasLiked {
-            // Remove like
-            try await userLikeRef.removeValue()
-            
-            // Decrement count (use transaction for accuracy)
-            try await likesCountRef.runTransactionBlock { currentData in
-                if let currentCount = currentData.value as? Int {
-                    currentData.value = max(0, currentCount - 1)
-                } else {
-                    currentData.value = 0
-                }
-                return TransactionResult.success(withValue: currentData)
+        // ✅ FIX CR-10: Use single transaction to atomically update both likedBy and count
+        // This prevents race condition where two simultaneous likes can cause desync
+        try await commentRef.runTransactionBlock { currentData in
+            guard var commentDict = currentData.value as? [String: Any] else {
+                return TransactionResult.abort()
             }
             
-            dlog("✅ Removed amen from comment")
-        } else {
-            // Add like
-            try await userLikeRef.setValue(true)
+            var likedByDict = commentDict["likedBy"] as? [String: Any] ?? [:]
+            var currentCount = commentDict["likes"] as? Int ?? 0
             
-            // Increment count (use transaction for accuracy)
-            try await likesCountRef.runTransactionBlock { currentData in
-                if let currentCount = currentData.value as? Int {
-                    currentData.value = currentCount + 1
-                } else {
-                    currentData.value = 1
-                }
-                return TransactionResult.success(withValue: currentData)
+            if currentlyAmened {
+                // Remove like
+                likedByDict.removeValue(forKey: userId)
+                currentCount = max(0, currentCount - 1)
+            } else {
+                // Add like
+                likedByDict[userId] = true
+                currentCount += 1
             }
             
-            dlog("✅ Added amen to comment")
+            commentDict["likedBy"] = likedByDict
+            commentDict["likes"] = currentCount
+            currentData.value = commentDict
+            
+            return TransactionResult.success(withValue: currentData)
         }
+        
+        dlog("✅ Toggled amen atomically (liked: \(!currentlyAmened))")
         
         // Haptic feedback
         await MainActor.run {
@@ -1158,6 +1162,11 @@ class CommentService: ObservableObject {
                           let authorInitials = commentData["authorInitials"] as? String,
                           let content = commentData["content"] as? String,
                           let timestamp = commentData["timestamp"] as? Int64 else {
+                        continue
+                    }
+                    
+                    // ✅ FIX CR-6: Filter out blocked users
+                    if await BlockService.shared.blockedUsers.contains(authorId) {
                         continue
                     }
 

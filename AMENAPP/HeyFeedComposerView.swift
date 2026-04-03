@@ -132,7 +132,7 @@ struct HeyFeedComposerView: View {
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: type.icon)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                 Text(type.displayName)
                     .font(.subheadline.weight(.medium))
             }
@@ -181,7 +181,7 @@ struct HeyFeedComposerView: View {
                 } else {
                     HStack(spacing: 8) {
                         Image(systemName: "arrow.up.circle.fill")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                         Text("Submit to Hey Feed")
                             .font(.subheadline.weight(.semibold))
                     }
@@ -208,7 +208,7 @@ struct HeyFeedComposerView: View {
                         .fill(Color.black)
                         .frame(width: 64, height: 64)
                     Image(systemName: "checkmark")
-                        .font(.system(size: 26, weight: .bold))
+                        .font(.systemScaled(26, weight: .bold))
                         .foregroundStyle(.white)
                 }
 

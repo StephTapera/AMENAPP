@@ -61,15 +61,15 @@ struct ConnectForYouView: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 Text("FOR YOU")
-                    .font(.system(size: 10, weight: .semibold)).kerning(3)
+                    .font(.systemScaled(10, weight: .semibold)).kerning(3)
                     .foregroundStyle(Color.white.opacity(0.55))
 
                 Text("Your Connect Hub")
-                    .font(.system(size: 26, weight: .black))
+                    .font(.systemScaled(26, weight: .black))
                     .foregroundStyle(.white)
 
                 Text("Jobs, events, mentorship, and community — curated for you.")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(Color.white.opacity(0.7))
             }
             .padding(.horizontal, 20)
@@ -102,10 +102,10 @@ struct ConnectForYouView: View {
     private func quickCard(icon: String, title: String, color: Color) -> some View {
         VStack(spacing: 10) {
             Image(systemName: icon)
-                .font(.system(size: 24))
+                .font(.systemScaled(24))
                 .foregroundStyle(color)
             Text(title)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(.primary)
         }
         .frame(maxWidth: .infinity)
@@ -126,13 +126,13 @@ struct ConnectForYouView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Upcoming Events")
-                    .font(.system(size: 18, weight: .bold))
+                    .font(.systemScaled(18, weight: .bold))
                     .foregroundStyle(.primary)
                 Spacer()
                 NavigationLink("See All") {
                     EventsView()
                 }
-                .font(.system(size: 13, weight: .medium))
+                .font(.systemScaled(13, weight: .medium))
                 .foregroundStyle(accentBlue)
             }
             .padding(.horizontal, 20)
@@ -143,7 +143,7 @@ struct ConnectForYouView: View {
                     .padding(.vertical, 20)
             } else if recentEvents.isEmpty {
                 Text("No upcoming events yet. Check back soon!")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 20)
             } else {
@@ -163,18 +163,18 @@ struct ConnectForYouView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
                 Image(systemName: event.category.icon)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(event.category.color)
                 Text(event.category.rawValue.uppercased())
-                    .font(.system(size: 9, weight: .bold)).kerning(1)
+                    .font(.systemScaled(9, weight: .bold)).kerning(1)
                     .foregroundStyle(event.category.color)
             }
             Text(event.title)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(.primary)
                 .lineLimit(2)
             Text(shortDate(event.startDate))
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(.secondary)
         }
         .padding(14)
@@ -191,20 +191,20 @@ struct ConnectForYouView: View {
         NavigationLink(destination: MentorshipView()) {
             HStack(spacing: 14) {
                 Image(systemName: "person.crop.circle.badge.checkmark")
-                    .font(.system(size: 28))
+                    .font(.systemScaled(28))
                     .foregroundStyle(Color(red: 0.18, green: 0.62, blue: 0.36))
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Find a Mentor")
-                        .font(.system(size: 16, weight: .bold))
+                        .font(.systemScaled(16, weight: .bold))
                         .foregroundStyle(.primary)
                     Text("Get matched with experienced believers for guidance and growth.")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
                 }
                 Spacer()
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.tertiary)
             }
             .padding(16)

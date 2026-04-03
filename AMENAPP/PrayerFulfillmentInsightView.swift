@@ -13,10 +13,10 @@ struct PrayerFulfillmentInsightView: View {
             if let text = insightText {
                 HStack(spacing: 8) {
                     Image(systemName: "chart.bar.fill")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(Color.secondary)
                     Text(text)
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(Color.secondary)
                         .lineLimit(1)
                     Spacer(minLength: 0)

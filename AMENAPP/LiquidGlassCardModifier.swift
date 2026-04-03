@@ -13,9 +13,3 @@ struct LiquidGlassCardModifier: ViewModifier {
             .shadow(color: .black.opacity(0.08), radius: 18, x: 0, y: 8)
     }
 }
-
-extension View {
-    func liquidGlassCard() -> some View {
-        modifier(LiquidGlassCardModifier())
-    }
-}

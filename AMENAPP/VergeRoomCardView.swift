@@ -105,7 +105,7 @@ struct VergeRoomCardView: View {
     private var participantChip: some View {
         HStack(spacing: 4) {
             Image(systemName: "person.2.fill")
-                .font(.system(size: 10, weight: .medium))
+                .font(.systemScaled(10, weight: .medium))
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(.white.opacity(0.5))
             Text("\(room.participantCount)")
@@ -119,7 +119,7 @@ struct VergeRoomCardView: View {
     private var typeBadge: some View {
         HStack(spacing: 4) {
             Image(systemName: room.type.icon)
-                .font(.system(size: 9, weight: .medium))
+                .font(.systemScaled(9, weight: .medium))
                 .foregroundStyle(amenViolet.opacity(0.8))
             Text(room.type.label)
                 .font(AMENFont.regular(10))

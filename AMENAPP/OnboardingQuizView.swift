@@ -188,12 +188,12 @@ struct OnboardingQuizView: View {
                     let q = quizQuestions[max(0, vm.currentStep)]
                     VStack(spacing: 6) {
                         Text(q.title)
-                            .font(.system(size: 22, weight: .bold))
+                            .font(.systemScaled(22, weight: .bold))
                             .foregroundColor(.white)
                             .multilineTextAlignment(.center)
                             .fixedSize(horizontal: false, vertical: true)
                         Text(q.subtitle)
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundColor(Color.white.opacity(0.4))
                     }
                     .padding(.horizontal, 24)
@@ -219,9 +219,9 @@ struct OnboardingQuizView: View {
                 Button(action: vm.advance) {
                     HStack(spacing: 8) {
                         Text(vm.isOnLastQuestion ? "Personalize My Experience" : "Continue")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                         Image(systemName: vm.isOnLastQuestion ? "sparkles" : "arrow.right")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                     }
                     .foregroundColor(.black)
                     .frame(maxWidth: .infinity)
@@ -264,11 +264,11 @@ struct OnboardingQuizView: View {
         if vm.currentStep == 0 {
             VStack(spacing: 8) {
                 Text("First, what should we call you?")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundColor(Color.white.opacity(0.4))
                 TextField("", text: $vm.userName,
                           prompt: Text("Your name").foregroundColor(Color.white.opacity(0.25)))
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.systemScaled(16, weight: .medium))
                     .foregroundColor(.white)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 16).padding(.vertical, 12)
@@ -292,13 +292,13 @@ struct QuizOptionCard: View {
         Button(action: action) {
             HStack(spacing: 14) {
                 Text(option.emoji)
-                    .font(.system(size: 24))
+                    .font(.systemScaled(24))
                     .frame(width: 44, height: 44)
                     .background(isSelected ? Color(hex: "C9A84C").opacity(0.15) : Color.white.opacity(0.05))
                     .cornerRadius(12)
 
                 Text(option.label)
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.systemScaled(15, weight: .medium))
                     .foregroundColor(isSelected ? .white : Color.white.opacity(0.7))
 
                 Spacer()
@@ -347,7 +347,7 @@ struct QuizPersonalizingView: View {
                     .fill(LinearGradient(colors: [Color(hex: "C9A84C"), Color(hex: "F0D080")],
                                          startPoint: .topLeading, endPoint: .bottomTrailing))
                     .frame(width: 64, height: 64)
-                Text("✦").font(.system(size: 28)).foregroundColor(.black)
+                Text("✦").font(.systemScaled(28)).foregroundColor(.black)
             }
             .onAppear {
                 withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
@@ -357,10 +357,10 @@ struct QuizPersonalizingView: View {
 
             VStack(spacing: 8) {
                 Text("Berean AI is learning you...")
-                    .font(.system(size: 20, weight: .bold))
+                    .font(.systemScaled(20, weight: .bold))
                     .foregroundColor(.white)
                 Text(steps[stepIndex])
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundColor(Color.white.opacity(0.45))
                     .animation(.easeInOut, value: stepIndex)
             }
@@ -382,14 +382,14 @@ struct WelcomeResultView: View {
         ScrollView {
             VStack(spacing: 20) {
                 VStack(spacing: 12) {
-                    Text("✦").font(.system(size: 36)).foregroundColor(Color(hex: "C9A84C"))
+                    Text("✦").font(.systemScaled(36)).foregroundColor(Color(hex: "C9A84C"))
 
                     Text("Welcome\(userName.isEmpty ? "" : ", \(userName)")")
-                        .font(.system(size: 26, weight: .bold))
+                        .font(.systemScaled(26, weight: .bold))
                         .foregroundColor(.white)
 
                     Text(result.welcomeMessage)
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                         .foregroundColor(Color.white.opacity(0.7))
                         .multilineTextAlignment(.center)
                         .lineSpacing(5)
@@ -403,18 +403,18 @@ struct WelcomeResultView: View {
                 // First verse
                 VStack(alignment: .leading, spacing: 10) {
                     Text("YOUR FIRST WORD")
-                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                        .font(.systemScaled(10, weight: .semibold, design: .monospaced))
                         .foregroundColor(Color(hex: "C9A84C").opacity(0.7))
                         .kerning(2)
                     Text(result.firstVerse.reference)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundColor(Color(hex: "C9A84C"))
                     Text("\"\(result.firstVerse.verse)\"")
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.systemScaled(16, weight: .medium))
                         .foregroundColor(.white)
                         .lineSpacing(6)
                     Text(result.firstVerse.personalNote)
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundColor(Color.white.opacity(0.5))
                         .lineSpacing(4)
                 }
@@ -431,22 +431,22 @@ struct WelcomeResultView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
                         Text("YOUR FIRST CHALLENGE")
-                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                            .font(.systemScaled(10, weight: .semibold, design: .monospaced))
                             .foregroundColor(Color(hex: "22C55E").opacity(0.7))
                             .kerning(2)
                         Spacer()
                         Text("24 HRS")
-                            .font(.system(size: 9, weight: .bold, design: .monospaced))
+                            .font(.systemScaled(9, weight: .bold, design: .monospaced))
                             .foregroundColor(Color(hex: "22C55E"))
                             .padding(.horizontal, 8).padding(.vertical, 3)
                             .background(Color(hex: "22C55E").opacity(0.12))
                             .cornerRadius(8)
                     }
-                    Text(result.firstChallenge.title).font(.system(size: 16, weight: .bold)).foregroundColor(.white)
+                    Text(result.firstChallenge.title).font(.systemScaled(16, weight: .bold)).foregroundColor(.white)
                     Text(result.firstChallenge.description)
-                        .font(.system(size: 14)).foregroundColor(Color.white.opacity(0.65)).lineSpacing(4)
+                        .font(.systemScaled(14)).foregroundColor(Color.white.opacity(0.65)).lineSpacing(4)
                     Text(result.firstChallenge.why)
-                        .font(.system(size: 12)).foregroundColor(Color.white.opacity(0.35)).lineSpacing(3)
+                        .font(.systemScaled(12)).foregroundColor(Color.white.opacity(0.35)).lineSpacing(3)
                 }
                 .padding(20)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -457,8 +457,8 @@ struct WelcomeResultView: View {
 
                 Button(action: onComplete) {
                     HStack(spacing: 8) {
-                        Text("Enter AMEN").font(.system(size: 16, weight: .bold))
-                        Image(systemName: "arrow.right").font(.system(size: 14, weight: .bold))
+                        Text("Enter AMEN").font(.systemScaled(16, weight: .bold))
+                        Image(systemName: "arrow.right").font(.systemScaled(14, weight: .bold))
                     }
                     .foregroundColor(.black)
                     .frame(maxWidth: .infinity)

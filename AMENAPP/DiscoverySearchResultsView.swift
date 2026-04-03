@@ -285,7 +285,7 @@ struct DiscoverySearchResultsView: View {
         VStack(spacing: 16) {
             Spacer()
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 36))
+                .font(.systemScaled(36))
                 .foregroundStyle(.tertiary)
             Text("No \(tab.rawValue.lowercased()) found for \"\(query)\"")
                 .font(.custom("OpenSans-Regular", size: 15))
@@ -353,7 +353,7 @@ struct SearchPersonRow: View {
                                 .foregroundStyle(.primary)
                             if person.isVerified {
                                 Image(systemName: "checkmark.seal.fill")
-                                    .font(.system(size: 12))
+                                    .font(.systemScaled(12))
                                     .foregroundStyle(.blue)
                             }
                         }
@@ -497,7 +497,7 @@ struct DiscoveryTopicRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: topic.icon)
-                .font(.system(size: 18))
+                .font(.systemScaled(18))
                 .foregroundStyle(topic.iconColor)
                 .frame(width: 44, height: 44)
                 .background(topic.backgroundColor)
@@ -531,7 +531,7 @@ struct DiscoveryTopicRow: View {
             Spacer()
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(.tertiary)
         }
         .padding(.horizontal, 16)
@@ -572,7 +572,7 @@ struct SearchChurchRow: View {
                         .foregroundStyle(.primary)
                     if church.isVerified {
                         Image(systemName: "checkmark.seal.fill")
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                             .foregroundStyle(.blue)
                     }
                 }
@@ -631,7 +631,7 @@ struct DiscoveryNoteRow: View {
             Spacer()
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(.tertiary)
         }
         .padding(.horizontal, 16)

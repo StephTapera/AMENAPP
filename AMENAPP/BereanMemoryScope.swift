@@ -84,7 +84,7 @@ struct BereanMemoryScopeSheet: View {
                 VStack(spacing: 0) {
                     // Blurb
                     Text("Control how much Berean remembers about you and your conversations.")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(Color(white: 0.52))
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 28)
@@ -114,7 +114,7 @@ struct BereanMemoryScopeSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }.font(.system(size: 15, weight: .semibold))
+                    Button("Done") { dismiss() }.font(.systemScaled(15, weight: .semibold))
                 }
             }
         }
@@ -135,16 +135,16 @@ struct BereanMemoryScopeSheet: View {
         } label: {
             HStack(spacing: 14) {
                 Image(systemName: scopeOption.icon)
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.systemScaled(16, weight: .medium))
                     .foregroundStyle(isSelected ? accent : Color(white: 0.52))
                     .frame(width: 28)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(scopeOption.label)
-                        .font(.system(size: 15, weight: isSelected ? .semibold : .regular))
+                        .font(.systemScaled(15, weight: isSelected ? .semibold : .regular))
                         .foregroundStyle(Color(white: 0.10))
                     Text(scopeOption.description)
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(Color(white: 0.50))
                 }
 
@@ -152,7 +152,7 @@ struct BereanMemoryScopeSheet: View {
 
                 if isSelected {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(accent)
                         .transition(.scale.combined(with: .opacity))
                 }
@@ -176,9 +176,9 @@ struct BereanMemoryScopeChip: View {
         Button { showSheet = true } label: {
             HStack(spacing: 4) {
                 Image(systemName: store.scope.icon)
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.systemScaled(10, weight: .medium))
                 Text(store.scope.label)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
             }
             .foregroundStyle(store.scope.accent)
             .padding(.horizontal, 10).padding(.vertical, 5)

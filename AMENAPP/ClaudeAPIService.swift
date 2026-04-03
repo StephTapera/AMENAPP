@@ -1,14 +1,28 @@
 // ClaudeAPIService.swift
 // AMEN App — Shared Claude API Service
-// Handles streaming + standard requests for all Berean AI features
+// All requests are proxied through bereanChatProxy (Cloud Function).
+// The Claude API key NEVER touches the client binary.
 
 import Foundation
+import FirebaseFunctions
 
 // ─── MARK: Response Models ───────────────────────────────────────
 
 struct ClaudeMessage: Codable {
     let role: String
     let content: String
+}
+
+/// Full response from bereanChatProxy, including scripture validation metadata.
+struct BereanProxyResponse {
+    let text: String
+    /// Scripture references extracted from the response (e.g. "John 3:16").
+    let scriptureReferences: [String]
+    /// True if any scripture references were found — client should show a
+    /// "Verify in your Bible app" footer to guard against AI hallucinations.
+    let hasUnverifiedReferences: Bool
+    /// True if any extracted reference used an unrecognized book name.
+    let hasUnrecognizedBook: Bool
 }
 
 struct ClaudeRequest: Codable {
@@ -72,14 +86,10 @@ actor ClaudeAPIService {
 
     static let shared = ClaudeAPIService()
 
-    // ⚠️ Store in Info.plist or Secrets.xcconfig — never hardcode in production
-    private let apiKey: String = {
-        Bundle.main.object(forInfoDictionaryKey: "CLAUDE_API_KEY") as? String ?? ""
-    }()
-
-    private let endpoint = "https://api.anthropic.com/v1/messages"
-    private let model    = "claude-opus-4-5"
-    private let version  = "2023-06-01"
+    // ✅ SECURITY FIX: API key removed from client. All requests route through
+    // bereanChatProxy (Cloud Function) which holds ANTHROPIC_API_KEY in
+    // Firebase Secret Manager. The key never touches the binary.
+    private let functions = Functions.functions(region: "us-central1")
 
     // ─── Standard (non-streaming) ────────────────────────────────
     func complete(
@@ -87,75 +97,70 @@ actor ClaudeAPIService {
         userMessage: String,
         maxTokens: Int = 1024
     ) async throws -> String {
-        guard !apiKey.isEmpty else { throw ClaudeError.noAPIKey }
-        guard let url = URL(string: endpoint) else { throw ClaudeError.invalidURL }
-
-        let requestBody = ClaudeRequest(
-            model: model,
-            maxTokens: maxTokens,
-            system: system,
-            messages: [ClaudeMessage(role: "user", content: userMessage)],
-            stream: false
-        )
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json",   forHTTPHeaderField: "Content-Type")
-        request.setValue(apiKey,               forHTTPHeaderField: "x-api-key")
-        request.setValue(version,              forHTTPHeaderField: "anthropic-version")
-        request.httpBody = try JSONEncoder().encode(requestBody)
-
-        let (data, response) = try await URLSession.shared.data(for: request)
-
-        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
-            let body = String(data: data, encoding: .utf8) ?? "unknown"
-            throw ClaudeError.networkError(body)
-        }
-
-        let decoded = try JSONDecoder().decode(ClaudeResponse.self, from: data)
-        guard let text = decoded.content.first?.text else { throw ClaudeError.emptyResponse }
-        return text
+        try await completeWithValidation(system: system, userMessage: userMessage, maxTokens: maxTokens).text
     }
 
-    // ─── Streaming ───────────────────────────────────────────────
+    /// Full response including scripture validation metadata.
+    /// Use this in Berean chat views to conditionally show a "Verify references" footer.
+    func completeWithValidation(
+        system: String,
+        userMessage: String,
+        maxTokens: Int = 1024
+    ) async throws -> BereanProxyResponse {
+        let data: [String: Any] = [
+            "systemPrompt": system,
+            "userMessage": userMessage,
+            "maxTokens": maxTokens
+        ]
+        let result = try await functions.httpsCallable("bereanChatProxy").call(data)
+        guard let dict = result.data as? [String: Any],
+              let text = dict["text"] as? String else {
+            throw ClaudeError.emptyResponse
+        }
+
+        // Parse scripture validation metadata returned by the proxy
+        let refs = (dict["scriptureReferences"] as? [[String: Any]] ?? [])
+            .compactMap { $0["reference"] as? String }
+        let hasUnverified = dict["hasUnverifiedReferences"] as? Bool ?? false
+        let hasUnrecognized = dict["hasUnrecognizedBook"] as? Bool ?? false
+
+        return BereanProxyResponse(
+            text: text,
+            scriptureReferences: refs,
+            hasUnverifiedReferences: hasUnverified,
+            hasUnrecognizedBook: hasUnrecognized
+        )
+    }
+
+    // ─── Streaming (simulated via proxy) ─────────────────────────
+    // Firebase Callable Functions don't support server-sent events, so we
+    // fetch the full response and emit it word-by-word to preserve the
+    // streaming UX that callers expect.
     func stream(
         system: String,
         messages: [ClaudeMessage],
         maxTokens: Int = 1024
     ) -> AsyncThrowingStream<String, Error> {
-        AsyncThrowingStream { continuation in
+        // Build a single concatenated prompt from the message history
+        let userMessage = messages
+            .filter { $0.role == "user" }
+            .map { $0.content }
+            .joined(separator: "\n")
+
+        return AsyncThrowingStream { continuation in
             Task {
                 do {
-                    guard !apiKey.isEmpty else { throw ClaudeError.noAPIKey }
-                    guard let url = URL(string: endpoint) else { throw ClaudeError.invalidURL }
-
-                    let requestBody = ClaudeRequest(
-                        model: model,
-                        maxTokens: maxTokens,
+                    let fullText = try await self.complete(
                         system: system,
-                        messages: messages,
-                        stream: true
+                        userMessage: userMessage,
+                        maxTokens: maxTokens
                     )
-
-                    var request = URLRequest(url: url)
-                    request.httpMethod = "POST"
-                    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-                    request.setValue(apiKey,             forHTTPHeaderField: "x-api-key")
-                    request.setValue(version,            forHTTPHeaderField: "anthropic-version")
-                    request.httpBody = try JSONEncoder().encode(requestBody)
-
-                    let (bytes, _) = try await URLSession.shared.bytes(for: request)
-
-                    for try await line in bytes.lines {
-                        guard line.hasPrefix("data: ") else { continue }
-                        let json = String(line.dropFirst(6))
-                        guard json != "[DONE]" else { break }
-                        guard let data = json.data(using: .utf8),
-                              let event = try? JSONDecoder().decode(StreamEvent.self, from: data),
-                              event.type == "content_block_delta",
-                              let text = event.delta?.text
-                        else { continue }
-                        continuation.yield(text)
+                    // Emit word by word to simulate streaming
+                    let words = fullText.components(separatedBy: " ")
+                    for (i, word) in words.enumerated() {
+                        let token = i == 0 ? word : " " + word
+                        continuation.yield(token)
+                        try await Task.sleep(nanoseconds: 15_000_000) // ~15ms per word
                     }
                     continuation.finish()
                 } catch {

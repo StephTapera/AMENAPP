@@ -74,7 +74,7 @@ struct SpacesDiscoveryView: View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(.white.opacity(0.45))
-                .font(.system(size: 15, weight: .medium))
+                .font(.systemScaled(15, weight: .medium))
 
             TextField("", text: $vm.searchText)
                 .font(AMENFont.regular(15))
@@ -94,7 +94,7 @@ struct SpacesDiscoveryView: View {
                 } label: {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundStyle(.white.opacity(0.4))
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                 }
             }
         }
@@ -221,7 +221,7 @@ struct SpacesDiscoveryView: View {
     private var emptyState: some View {
         VStack(spacing: 16) {
             Image(systemName: "sparkles")
-                .font(.system(size: 44, weight: .light))
+                .font(.systemScaled(44, weight: .light))
                 .foregroundStyle(
                     LinearGradient(
                         colors: [Color(red: 0.6, green: 0.4, blue: 1.0), Color(red: 0.4, green: 0.2, blue: 0.8)],
@@ -264,7 +264,7 @@ struct SpacesDiscoveryView: View {
                     .shadow(color: Color(red: 0.5, green: 0.2, blue: 0.9).opacity(0.5), radius: 12, y: 4)
 
                 Image(systemName: "plus")
-                    .font(.system(size: 22, weight: .semibold))
+                    .font(.systemScaled(22, weight: .semibold))
                     .foregroundStyle(.white)
             }
         }

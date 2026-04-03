@@ -28,7 +28,7 @@ struct SocialFollowButton: View {
                         .scaleEffect(0.8)
                 } else {
                     Image(systemName: isFollowing ? "person.fill.checkmark" : "person.fill.badge.plus")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                 }
                 
                 Text(isFollowing ? "Following" : "Follow")
@@ -171,7 +171,7 @@ struct AnimatedFollowButton: View {
                             .strokeBorder(isFollowing ? Color.black.opacity(0.5) : .clear, lineWidth: 1.5)
                             .frame(width: 16, height: 16)
                         Image(systemName: "checkmark")
-                            .font(.system(size: 8, weight: .bold))
+                            .font(.systemScaled(8, weight: .bold))
                             .foregroundStyle(.black.opacity(0.6))
                     }
                     .scaleEffect(checkScale)
@@ -183,7 +183,7 @@ struct AnimatedFollowButton: View {
                             .tint(isFollowing ? Color.primary : Color.white)
                     } else {
                         Text(isFollowing ? "Following" : "Follow")
-                            .font(.system(size: 14, weight: .bold))
+                            .font(.systemScaled(14, weight: .bold))
                             .foregroundStyle(isFollowing ? Color.primary : Color.white)
                             .opacity(labelOpacity)
                             .offset(y: labelOffset)

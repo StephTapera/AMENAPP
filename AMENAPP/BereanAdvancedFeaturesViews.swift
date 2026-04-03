@@ -37,7 +37,7 @@ struct DevotionalGeneratorView: View {
                         // Header
                         VStack(alignment: .leading, spacing: 12) {
                             Image(systemName: "book.pages.fill")
-                                .font(.system(size: 44))
+                                .font(.systemScaled(44))
                                 .foregroundStyle(
                                     LinearGradient(
                                         colors: [Color.purple, Color.blue],
@@ -47,11 +47,11 @@ struct DevotionalGeneratorView: View {
                                 )
                             
                             Text("Daily Devotional")
-                                .font(.system(size: 32, weight: .light))
+                                .font(.systemScaled(32, weight: .light))
                                 .foregroundStyle(Color(white: 0.2))
                             
                             Text("Generate personalized daily devotionals powered by AI")
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                                 .foregroundStyle(Color(white: 0.4))
                                 .lineSpacing(4)
                         }
@@ -61,13 +61,13 @@ struct DevotionalGeneratorView: View {
                             // Input form
                             VStack(alignment: .leading, spacing: 16) {
                                 Text("Topic (Optional)")
-                                    .font(.system(size: 12, weight: .semibold))
+                                    .font(.systemScaled(12, weight: .semibold))
                                     .foregroundStyle(Color(white: 0.4))
                                     .textCase(.uppercase)
                                     .tracking(1)
                                 
                                 TextField("e.g., Faith, Hope, Love", text: $topic)
-                                    .font(.system(size: 16))
+                                    .font(.systemScaled(16))
                                     .foregroundStyle(Color(white: 0.3))
                                     .padding()
                                     .background(
@@ -81,7 +81,7 @@ struct DevotionalGeneratorView: View {
                                     .disabled(isGenerating)
                                 
                                 Text("Leave blank for a random devotional")
-                                    .font(.system(size: 12))
+                                    .font(.systemScaled(12))
                                     .foregroundStyle(Color(white: 0.5))
                             }
                             
@@ -95,7 +95,7 @@ struct DevotionalGeneratorView: View {
                                     } else {
                                         Image(systemName: "sparkles")
                                         Text("Generate Devotional")
-                                            .font(.system(size: 16, weight: .semibold))
+                                            .font(.systemScaled(16, weight: .semibold))
                                     }
                                 }
                                 .foregroundStyle(.white)
@@ -118,7 +118,7 @@ struct DevotionalGeneratorView: View {
                             
                             if let error = errorMessage {
                                 Text(error)
-                                    .font(.system(size: 13, weight: .medium))
+                                    .font(.systemScaled(13, weight: .medium))
                                     .foregroundStyle(.red)
                                     .padding()
                                     .frame(maxWidth: .infinity)
@@ -149,7 +149,7 @@ struct DevotionalGeneratorView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.systemScaled(15, weight: .medium))
                             .foregroundStyle(Color(white: 0.3))
                     }
                 }
@@ -197,13 +197,13 @@ struct DevotionalDisplay: View {
         VStack(alignment: .leading, spacing: 20) {
             // Title
             Text(devotional.title)
-                .font(.system(size: 24, weight: .semibold))
+                .font(.systemScaled(24, weight: .semibold))
                 .foregroundStyle(Color(white: 0.2))
             
             // Scripture
             VStack(alignment: .leading, spacing: 8) {
                 Text("Scripture")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(Color(white: 0.45))
                     .textCase(.uppercase)
                     .tracking(1.5)
@@ -221,14 +221,14 @@ struct DevotionalDisplay: View {
             
             // Content
             Text(devotional.content)
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .foregroundStyle(Color(white: 0.3))
                 .lineSpacing(6)
             
             // Prayer
             VStack(alignment: .leading, spacing: 8) {
                 Text("Prayer")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(Color(white: 0.45))
                     .textCase(.uppercase)
                     .tracking(1.5)
@@ -253,7 +253,7 @@ struct DevotionalDisplay: View {
                         Image(systemName: "square.and.arrow.up")
                         Text("Share")
                     }
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
@@ -270,7 +270,7 @@ struct DevotionalDisplay: View {
                         Image(systemName: "arrow.clockwise")
                         Text("New Devotional")
                     }
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
@@ -348,7 +348,7 @@ struct StudyPlanGeneratorView: View {
                         // Header
                         VStack(alignment: .leading, spacing: 12) {
                             Image(systemName: "calendar.badge.plus")
-                                .font(.system(size: 44))
+                                .font(.systemScaled(44))
                                 .foregroundStyle(
                                     LinearGradient(
                                         colors: [Color.green, Color.blue],
@@ -358,11 +358,11 @@ struct StudyPlanGeneratorView: View {
                                 )
                             
                             Text("Study Plan Generator")
-                                .font(.system(size: 32, weight: .light))
+                                .font(.systemScaled(32, weight: .light))
                                 .foregroundStyle(Color(white: 0.2))
                             
                             Text("Create personalized Bible study plans")
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                                 .foregroundStyle(Color(white: 0.4))
                         }
                         .padding(.top, 20)
@@ -372,13 +372,13 @@ struct StudyPlanGeneratorView: View {
                             VStack(alignment: .leading, spacing: 20) {
                                 VStack(alignment: .leading, spacing: 12) {
                                     Text("Study Topic")
-                                        .font(.system(size: 12, weight: .semibold))
+                                        .font(.systemScaled(12, weight: .semibold))
                                         .foregroundStyle(Color(white: 0.4))
                                         .textCase(.uppercase)
                                         .tracking(1)
                                     
                                     TextField("e.g., The Gospel of John", text: $topic)
-                                        .font(.system(size: 16))
+                                        .font(.systemScaled(16))
                                         .foregroundStyle(Color(white: 0.3))
                                         .padding()
                                         .background(
@@ -394,7 +394,7 @@ struct StudyPlanGeneratorView: View {
                                 
                                 VStack(alignment: .leading, spacing: 12) {
                                     Text("Duration")
-                                        .font(.system(size: 12, weight: .semibold))
+                                        .font(.systemScaled(12, weight: .semibold))
                                         .foregroundStyle(Color(white: 0.4))
                                         .textCase(.uppercase)
                                         .tracking(1)
@@ -424,7 +424,7 @@ struct StudyPlanGeneratorView: View {
                                     } else {
                                         Image(systemName: "sparkles")
                                         Text("Generate Plan")
-                                            .font(.system(size: 16, weight: .semibold))
+                                            .font(.systemScaled(16, weight: .semibold))
                                     }
                                 }
                                 .foregroundStyle(.white)
@@ -447,7 +447,7 @@ struct StudyPlanGeneratorView: View {
                             
                             if let error = errorMessage {
                                 Text(error)
-                                    .font(.system(size: 13, weight: .medium))
+                                    .font(.systemScaled(13, weight: .medium))
                                     .foregroundStyle(.red)
                                     .padding()
                                     .frame(maxWidth: .infinity)
@@ -478,7 +478,7 @@ struct StudyPlanGeneratorView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.systemScaled(15, weight: .medium))
                             .foregroundStyle(Color(white: 0.3))
                     }
                 }
@@ -528,9 +528,9 @@ struct DurationButton: View {
         Button(action: action) {
             VStack(spacing: 4) {
                 Text("\(days)")
-                    .font(.system(size: 20, weight: .bold))
+                    .font(.systemScaled(20, weight: .bold))
                 Text("days")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
             }
             .foregroundStyle(isSelected ? .white : Color(white: 0.4))
             .frame(maxWidth: .infinity)
@@ -563,16 +563,16 @@ struct StudyPlanDisplay: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             Text(plan.title)
-                .font(.system(size: 24, weight: .semibold))
+                .font(.systemScaled(24, weight: .semibold))
                 .foregroundStyle(Color(white: 0.2))
             
             Text(plan.description)
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .foregroundStyle(Color(white: 0.3))
                 .lineSpacing(6)
             
             Text("\(plan.duration) • \(Int(plan.progress * 100))% Complete")
-                .font(.system(size: 13, weight: .medium))
+                .font(.systemScaled(13, weight: .medium))
                 .foregroundStyle(Color(white: 0.5))
             
             HStack(spacing: 12) {
@@ -583,7 +583,7 @@ struct StudyPlanDisplay: View {
                         Image(systemName: "square.and.arrow.up")
                         Text("Share")
                     }
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
@@ -600,7 +600,7 @@ struct StudyPlanDisplay: View {
                         Image(systemName: "arrow.clockwise")
                         Text("New Plan")
                     }
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
@@ -650,7 +650,7 @@ struct ScriptureAnalyzerView: View {
                         // Header
                         VStack(alignment: .leading, spacing: 12) {
                             Image(systemName: "text.magnifyingglass")
-                                .font(.system(size: 44))
+                                .font(.systemScaled(44))
                                 .foregroundStyle(
                                     LinearGradient(
                                         colors: [Color.blue, Color.purple],
@@ -660,11 +660,11 @@ struct ScriptureAnalyzerView: View {
                                 )
                             
                             Text("Scripture Analyzer")
-                                .font(.system(size: 32, weight: .light))
+                                .font(.systemScaled(32, weight: .light))
                                 .foregroundStyle(Color(white: 0.2))
                             
                             Text("Deep dive into Scripture with AI analysis")
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                                 .foregroundStyle(Color(white: 0.4))
                         }
                         .padding(.top, 20)
@@ -674,13 +674,13 @@ struct ScriptureAnalyzerView: View {
                             VStack(alignment: .leading, spacing: 20) {
                                 VStack(alignment: .leading, spacing: 12) {
                                     Text("Scripture Reference")
-                                        .font(.system(size: 12, weight: .semibold))
+                                        .font(.systemScaled(12, weight: .semibold))
                                         .foregroundStyle(Color(white: 0.4))
                                         .textCase(.uppercase)
                                         .tracking(1)
                                     
                                     TextField("e.g., John 3:16", text: $reference)
-                                        .font(.system(size: 16))
+                                        .font(.systemScaled(16))
                                         .foregroundStyle(Color(white: 0.3))
                                         .padding()
                                         .background(
@@ -696,7 +696,7 @@ struct ScriptureAnalyzerView: View {
                                 
                                 VStack(alignment: .leading, spacing: 12) {
                                     Text("Analysis Type")
-                                        .font(.system(size: 12, weight: .semibold))
+                                        .font(.systemScaled(12, weight: .semibold))
                                         .foregroundStyle(Color(white: 0.4))
                                         .textCase(.uppercase)
                                         .tracking(1)
@@ -726,7 +726,7 @@ struct ScriptureAnalyzerView: View {
                                     } else {
                                         Image(systemName: "sparkles")
                                         Text("Analyze Scripture")
-                                            .font(.system(size: 16, weight: .semibold))
+                                            .font(.systemScaled(16, weight: .semibold))
                                     }
                                 }
                                 .foregroundStyle(.white)
@@ -749,7 +749,7 @@ struct ScriptureAnalyzerView: View {
                             
                             if let error = errorMessage {
                                 Text(error)
-                                    .font(.system(size: 13, weight: .medium))
+                                    .font(.systemScaled(13, weight: .medium))
                                     .foregroundStyle(.red)
                                     .padding()
                                     .frame(maxWidth: .infinity)
@@ -762,11 +762,11 @@ struct ScriptureAnalyzerView: View {
                             // Display analysis
                             VStack(alignment: .leading, spacing: 16) {
                                 Text(reference)
-                                    .font(.system(size: 20, weight: .semibold))
+                                    .font(.systemScaled(20, weight: .semibold))
                                     .foregroundStyle(Color(white: 0.2))
                                 
                                 Text(analysisType.rawValue)
-                                    .font(.system(size: 13, weight: .medium))
+                                    .font(.systemScaled(13, weight: .medium))
                                     .foregroundStyle(Color.blue)
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 6)
@@ -776,7 +776,7 @@ struct ScriptureAnalyzerView: View {
                                     )
                                 
                                 Text(analysis!)
-                                    .font(.system(size: 15))
+                                    .font(.systemScaled(15))
                                     .foregroundStyle(Color(white: 0.3))
                                     .lineSpacing(6)
                                 
@@ -791,7 +791,7 @@ struct ScriptureAnalyzerView: View {
                                         Image(systemName: "arrow.clockwise")
                                         Text("New Analysis")
                                     }
-                                    .font(.system(size: 14, weight: .medium))
+                                    .font(.systemScaled(14, weight: .medium))
                                     .foregroundStyle(.white)
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 12)
@@ -820,7 +820,7 @@ struct ScriptureAnalyzerView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.systemScaled(15, weight: .medium))
                             .foregroundStyle(Color(white: 0.3))
                     }
                 }
@@ -870,7 +870,7 @@ struct AnalysisTypeButton: View {
         Button(action: action) {
             HStack {
                 Text(type.rawValue)
-                    .font(.system(size: 15, weight: isSelected ? .semibold : .regular))
+                    .font(.systemScaled(15, weight: isSelected ? .semibold : .regular))
                     .foregroundStyle(isSelected ? Color(white: 0.2) : Color(white: 0.4))
                 
                 Spacer()

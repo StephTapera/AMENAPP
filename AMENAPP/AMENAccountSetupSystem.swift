@@ -244,7 +244,7 @@ struct AccountSetupChecklistView: View {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: onDismiss) {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 22))
+                            .font(.systemScaled(22))
                             .foregroundStyle(Color(white: 0.80))
                     }
                 }
@@ -321,7 +321,7 @@ struct SetupChecklistRow: View {
 
                     if isComplete {
                         Image(systemName: "checkmark")
-                            .font(.system(size: 13, weight: .bold))
+                            .font(.systemScaled(13, weight: .bold))
                             .foregroundStyle(.white)
                             .scaleEffect(isComplete ? 1 : 0.1)
                             .animation(.spring(response: 0.22, dampingFraction: 0.70), value: isComplete)
@@ -360,7 +360,7 @@ struct SetupChecklistRow: View {
                         )
 
                     Image(systemName: isComplete ? "checkmark.circle.fill" : "chevron.right")
-                        .font(.system(size: 12, weight: isComplete ? .medium : .semibold))
+                        .font(.systemScaled(12, weight: isComplete ? .medium : .semibold))
                         .foregroundStyle(.black.opacity(isComplete ? 0.4 : 0.3))
                 }
             }
@@ -413,7 +413,7 @@ struct SetupCompletionCard: View {
             .overlay(
                 VStack(spacing: 14) {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 32, weight: .medium))
+                        .font(.systemScaled(32, weight: .medium))
                         .foregroundStyle(.black.opacity(0.75))
                         .scaleEffect(appeared ? 1 : 0.5)
                         .animation(.spring(response: 0.45, dampingFraction: 0.65), value: appeared)
@@ -489,7 +489,7 @@ struct AccountSetupContinuationCard: View {
                                 onDismiss()
                             }) {
                                 Image(systemName: "xmark")
-                                    .font(.system(size: 12, weight: .semibold))
+                                    .font(.systemScaled(12, weight: .semibold))
                                     .foregroundStyle(.black.opacity(0.35))
                                     .padding(6)
                                     .background(Circle().fill(Color(white: 0.93)))
@@ -516,7 +516,7 @@ struct AccountSetupContinuationCard: View {
                                     .font(AMENFont.semiBold(13))
                                     .foregroundStyle(.black)
                                 Image(systemName: "arrow.right")
-                                    .font(.system(size: 12, weight: .semibold))
+                                    .font(.systemScaled(12, weight: .semibold))
                                     .foregroundStyle(.black.opacity(0.6))
                             }
                         }

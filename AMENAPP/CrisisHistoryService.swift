@@ -153,7 +153,7 @@ struct CrisisHistorySheet: View {
                     Section {
                         VStack(spacing: 12) {
                             Image(systemName: "lock.shield.fill")
-                                .font(.system(size: 32))
+                                .font(.systemScaled(32))
                                 .foregroundStyle(.tertiary)
                             Text("No history recorded yet")
                                 .font(.custom("OpenSans-SemiBold", size: 15))

@@ -129,7 +129,7 @@ struct EnhancedCommentRow: View {
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: userReaction != nil ? "heart.fill" : "heart")
-                                .font(.system(size: 13, weight: .medium))
+                                .font(.systemScaled(13, weight: .medium))
 
                             Text(userReaction?.rawValue ?? "React")
                                 .font(AMENFont.medium(12))
@@ -145,7 +145,7 @@ struct EnhancedCommentRow: View {
                         } label: {
                             HStack(spacing: 4) {
                                 Image(systemName: "arrowshape.turn.up.left")
-                                    .font(.system(size: 12))
+                                    .font(.systemScaled(12))
 
                                 if comment.replyCount > 0 {
                                     Text("\(comment.replyCount)")
@@ -164,7 +164,7 @@ struct EnhancedCommentRow: View {
                             showOptions = true
                         } label: {
                             Image(systemName: "ellipsis")
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                                 .foregroundStyle(.black.opacity(0.6))
                         }
                         .confirmationDialog("Comment Options", isPresented: $showOptions) {
@@ -340,7 +340,7 @@ struct ReactionPicker: View {
                 } label: {
                     VStack(spacing: 4) {
                         Text(reaction.rawValue)
-                            .font(.system(size: 28))
+                            .font(.systemScaled(28))
                             .scaleEffect(appearedReactions.contains(reaction) ? 1.0 : 0.5)
                             .opacity(appearedReactions.contains(reaction) ? 1.0 : 0.0)
 
@@ -399,7 +399,7 @@ struct ReactionBubble: View {
     var body: some View {
         HStack(spacing: 4) {
             Text(reaction.rawValue)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
 
             if count > 1 {
                 Text("\(count)")
@@ -448,7 +448,7 @@ struct ReactionDetailsSheet: View {
                         ForEach(Array(sortedReactions.enumerated()), id: \.element.key) { index, item in
                             HStack(spacing: 12) {
                                 Text(item.key.rawValue)
-                                    .font(.system(size: 24))
+                                    .font(.systemScaled(24))
 
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(item.key.displayName)

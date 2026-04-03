@@ -26,6 +26,7 @@ struct AMENAPPApp: App {
     @State private var currentUser: UserModel? = nil  // Store user for personalized welcome
     @State private var hasCompletedOnboarding = true  // ✅ FIX: Default to true to prevent showing onboarding on every launch
     @State private var showNotifOnboarding = false
+    @StateObject private var killSwitch = RemoteKillSwitch.shared
 
     // PERFORMANCE: Store auth listener handle for cleanup
     @State private var authStateHandle: AuthStateDidChangeListenerHandle?
@@ -185,6 +186,20 @@ struct AMENAPPApp: App {
 
                 // Age verification is collected but no longer blocks any users
                 // All ages have full access to the app
+            }
+            // Forced upgrade alert — shown when Remote Config minimum_app_version
+            // is higher than the installed binary. Users must update before continuing.
+            .alert("Update Required", isPresented: Binding(
+                get: { !killSwitch.isAppVersionValid },
+                set: { _ in }
+            )) {
+                Button("Update Now") {
+                    if let url = URL(string: "https://apps.apple.com/app/id6740238684") {
+                        UIApplication.shared.open(url)
+                    }
+                }
+            } message: {
+                Text("This version of AMEN is no longer supported. Please update to the latest version to continue.")
             }
             .onAppear {
                     // Attach passive touch observer for session-timeout activity tracking.

@@ -73,7 +73,7 @@ struct MessagingUserSearchView: View {
                     .shadow(color: .white.opacity(0.8), radius: 8, x: -4, y: -4)
                 
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(
                         LinearGradient(
                             colors: [Color.black.opacity(0.5), Color.black.opacity(0.7)],
@@ -107,7 +107,7 @@ struct MessagingUserSearchView: View {
                             .frame(width: 24, height: 24)
                         
                         Image(systemName: "xmark")
-                            .font(.system(size: 10, weight: .bold))
+                            .font(.systemScaled(10, weight: .bold))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -172,7 +172,7 @@ struct MessagingUserSearchView: View {
                     .shadow(color: .black.opacity(0.1), radius: 20, x: 0, y: 10)
                 
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 40))
+                    .font(.systemScaled(40))
                     .foregroundStyle(
                         LinearGradient(
                             colors: [.blue, .blue.opacity(0.7)],
@@ -210,7 +210,7 @@ struct MessagingUserSearchView: View {
                     .shadow(color: .black.opacity(0.1), radius: 20, x: 0, y: 10)
                 
                 Image(systemName: "person.crop.circle.badge.questionmark")
-                    .font(.system(size: 40))
+                    .font(.systemScaled(40))
                     .foregroundStyle(
                         LinearGradient(
                             colors: [.gray, .gray.opacity(0.6)],
@@ -242,7 +242,7 @@ struct MessagingUserSearchView: View {
             Spacer()
             
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 50))
+                .font(.systemScaled(50))
                 .foregroundStyle(.red)
             
             Text(message)
@@ -391,7 +391,7 @@ struct MessagingUserRow: View {
             
             // Message indicator
             Image(systemName: "chevron.right")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(.secondary)
         }
         .padding(.horizontal, 20)

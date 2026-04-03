@@ -28,7 +28,7 @@ struct ReportContentView: View {
                     // Header
                     VStack(alignment: .leading, spacing: 8) {
                         Image(systemName: "flag.fill")
-                            .font(.system(size: 40))
+                            .font(.systemScaled(40))
                             .foregroundStyle(.red)
                         
                         Text("Report Content")
@@ -188,11 +188,11 @@ struct ReportReasonButton: View {
         Button(action: action) {
             HStack(spacing: 12) {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
                     .foregroundStyle(isSelected ? .blue : .gray)
                 
                 Image(systemName: reason.icon)
-                    .font(.system(size: 18))
+                    .font(.systemScaled(18))
                     .foregroundStyle(isSelected ? .blue : .gray)
                     .frame(width: 24)
                 

@@ -127,14 +127,14 @@ struct ChurchNeighborhoodMapView: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Text("Community Map")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(Color(.label))
                     Spacer()
                     Button {
                         showPrivacyInfo = true
                     } label: {
                         Image(systemName: "questionmark.circle")
-                            .font(.system(size: 16))
+                            .font(.systemScaled(16))
                             .foregroundStyle(Color(.secondaryLabel))
                     }
                 }
@@ -158,7 +158,7 @@ struct ChurchNeighborhoodMapView: View {
                 if !service.zipData.isEmpty {
                     let neighborhood = service.topNeighborhoodName ?? "nearby areas"
                     Text("Members live across \(service.zipData.count) neighborhoods · Most concentrated in \(neighborhood)")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(Color(.secondaryLabel))
                         .padding(.horizontal, 20)
                 }

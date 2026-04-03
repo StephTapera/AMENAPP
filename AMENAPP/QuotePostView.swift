@@ -91,7 +91,7 @@ struct QuotePostView: View {
                         UIImpactFeedbackGenerator(style: .light).impactOccurred()
                         dismiss()
                     }
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .disabled(composerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
@@ -111,12 +111,12 @@ struct QuotePostView: View {
                 .frame(width: 36, height: 36)
                 .overlay(
                     Image(systemName: "person.fill")
-                        .font(.system(size: 16))
+                        .font(.systemScaled(16))
                         .foregroundStyle(.secondary)
                 )
 
             TextEditor(text: $composerText)
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
                 .frame(minHeight: 80, maxHeight: 160)
                 .scrollContentBackground(.hidden)
                 .background(Color.clear)
@@ -128,7 +128,7 @@ struct QuotePostView: View {
                 .overlay(alignment: .topLeading) {
                     if composerText.isEmpty {
                         Text("Add your thoughts…")
-                            .font(.system(size: 16))
+                            .font(.systemScaled(16))
                             .foregroundStyle(.tertiary)
                             .padding(.top, 8)
                             .padding(.leading, 4)
@@ -185,12 +185,12 @@ struct QuotePostView: View {
                 .clipShape(Circle())
 
                 Text(quotedPost.authorName)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.primary)
 
                 if !selectedReaction.isEmpty {
                     Text(selectedReaction)
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .transition(.scale.combined(with: .opacity))
                 }
 
@@ -198,7 +198,7 @@ struct QuotePostView: View {
 
                 if let tag = quotedPost.topicTag, !tag.isEmpty {
                     Text("#\(tag)")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundStyle(.orange)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 3)
@@ -206,13 +206,13 @@ struct QuotePostView: View {
                 }
 
                 Text(quotedPost.timeAgo)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.tertiary)
             }
 
             // Content
             Text(quotedPost.content)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.primary)
                 .lineLimit(4)
         }
@@ -276,7 +276,7 @@ struct QuotePostView: View {
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
                 } label: {
                     Text(emoji)
-                        .font(.system(size: 20))
+                        .font(.systemScaled(20))
                         .frame(width: 36, height: 36)
                         .background(Circle().fill(Color.white))
                         .clipShape(Circle())
@@ -452,7 +452,7 @@ struct QuotePostView: View {
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
             } label: {
                 Image(systemName: "at")
-                    .font(.system(size: 18))
+                    .font(.systemScaled(18))
                     .foregroundStyle(.secondary)
                     .frame(width: 44, height: 44)
                     .scaleEffect(atIconScale)
@@ -467,7 +467,7 @@ struct QuotePostView: View {
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
             } label: {
                 Image(systemName: "number")
-                    .font(.system(size: 18))
+                    .font(.systemScaled(18))
                     .foregroundStyle(.secondary)
                     .frame(width: 44, height: 44)
                     .scaleEffect(hashIconScale)

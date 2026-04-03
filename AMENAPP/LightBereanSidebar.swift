@@ -78,16 +78,16 @@ struct LightBereanSidebar: View {
             // Header
             HStack {
                 Image(systemName: "text.magnifyingglass")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundColor(Color(red: 0.20, green: 0.42, blue: 0.98))
                 Text("Berean")
-                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .font(.systemScaled(14, weight: .semibold, design: .rounded))
                     .foregroundColor(Color(white: 0.15))
                 Spacer()
                 if let onClose {
                     Button(action: onClose) {
                         Image(systemName: "xmark")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.systemScaled(12, weight: .medium))
                             .foregroundColor(Color(.tertiaryLabel))
                             .padding(6)
                             .background(Circle().fill(Color(.quaternarySystemFill)))
@@ -123,11 +123,11 @@ struct LightBereanSidebar: View {
     private var idlePrompt: some View {
         VStack(spacing: 10) {
             Image(systemName: "pencil.and.scribble")
-                .font(.system(size: 28))
+                .font(.systemScaled(28))
                 .foregroundColor(Color(.tertiaryLabel))
                 .padding(.top, 24)
             Text("Start writing and Berean will search Scripture alongside you.")
-                .font(.system(size: 13, design: .rounded))
+                .font(.systemScaled(13, design: .rounded))
                 .foregroundColor(Color(.secondaryLabel))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 12)
@@ -220,7 +220,7 @@ struct LightBereanSidebar: View {
 
     private func sectionHeader(_ text: String) -> some View {
         Text(text.uppercased())
-            .font(.system(size: 10, weight: .semibold, design: .rounded))
+            .font(.systemScaled(10, weight: .semibold, design: .rounded))
             .foregroundColor(Color(.tertiaryLabel))
             .tracking(0.8)
     }
@@ -238,11 +238,11 @@ private struct ScriptureMatchCard: View {
             Button(action: onTap) {
                 HStack {
                     Text(match.reference)
-                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .font(.systemScaled(13, weight: .semibold, design: .rounded))
                         .foregroundColor(Color(red: 0.20, green: 0.42, blue: 0.98))
                     Spacer()
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 10, weight: .medium))
+                        .font(.systemScaled(10, weight: .medium))
                         .foregroundColor(Color(.tertiaryLabel))
                 }
                 .padding(12)
@@ -251,13 +251,13 @@ private struct ScriptureMatchCard: View {
             if isExpanded {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(match.text)
-                        .font(.system(size: 12, design: .serif))
+                        .font(.systemScaled(12, design: .serif))
                         .foregroundColor(Color(white: 0.25))
                         .italic()
                         .lineSpacing(4)
 
                     Text(match.relevance)
-                        .font(.system(size: 11, design: .rounded))
+                        .font(.systemScaled(11, design: .rounded))
                         .foregroundColor(Color(.secondaryLabel))
                         .lineSpacing(3)
                 }
@@ -290,14 +290,14 @@ private struct FlagCard: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
                 Image(systemName: flag.severity == .caution ? "exclamationmark.triangle.fill" : "info.circle.fill")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundColor(flagColor)
                 Text(flag.claim)
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .font(.systemScaled(12, weight: .medium, design: .rounded))
                     .foregroundColor(Color(white: 0.20))
             }
             Text(flag.context)
-                .font(.system(size: 11, design: .rounded))
+                .font(.systemScaled(11, design: .rounded))
                 .foregroundColor(Color(.secondaryLabel))
                 .lineSpacing(3)
         }
@@ -320,10 +320,10 @@ private struct DeeperVerseRow: View {
                 .padding(.top, 5)
             VStack(alignment: .leading, spacing: 3) {
                 Text(verse.reference)
-                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .font(.systemScaled(12, weight: .semibold, design: .rounded))
                     .foregroundColor(Color(red: 0.20, green: 0.42, blue: 0.98))
                 Text(verse.why)
-                    .font(.system(size: 11, design: .rounded))
+                    .font(.systemScaled(11, design: .rounded))
                     .foregroundColor(Color(.secondaryLabel))
                     .lineSpacing(2)
             }
@@ -339,14 +339,14 @@ private struct ParallelCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(parallel.figure)
-                .font(.system(size: 13, weight: .semibold, design: .serif))
+                .font(.systemScaled(13, weight: .semibold, design: .serif))
                 .foregroundColor(Color(white: 0.15))
             Text(parallel.story)
-                .font(.system(size: 11, design: .rounded))
+                .font(.systemScaled(11, design: .rounded))
                 .foregroundColor(Color(.secondaryLabel))
                 .lineSpacing(3)
             Text(parallel.connection)
-                .font(.system(size: 11, design: .rounded))
+                .font(.systemScaled(11, design: .rounded))
                 .foregroundColor(Color(red: 0.55, green: 0.28, blue: 0.95))
                 .lineSpacing(3)
         }

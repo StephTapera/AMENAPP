@@ -166,7 +166,7 @@ struct MonetizationToolsView: View {
                         // Add benefit placeholder
                     } label: {
                         Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 18))
+                            .font(.systemScaled(18))
                             .symbolRenderingMode(.hierarchical)
                             .foregroundStyle(amenGold)
                     }
@@ -181,7 +181,7 @@ struct MonetizationToolsView: View {
                     ForEach(vm.profile.subscriptionBenefits, id: \.self) { benefit in
                         HStack(spacing: 8) {
                             Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                                 .symbolRenderingMode(.hierarchical)
                                 .foregroundStyle(amenGold)
                             Text(benefit)
@@ -248,7 +248,7 @@ struct MonetizationToolsView: View {
 
             HStack(spacing: 12) {
                 Image(systemName: "info.circle.fill")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(.white.opacity(0.4))
                 Text("Total tips received this month: $0")
@@ -266,7 +266,7 @@ struct MonetizationToolsView: View {
             if vm.profile.digitalGoods.isEmpty {
                 VStack(spacing: 10) {
                     Image(systemName: "bag.badge.plus")
-                        .font(.system(size: 32, weight: .semibold))
+                        .font(.systemScaled(32, weight: .semibold))
                         .symbolRenderingMode(.hierarchical)
                         .foregroundStyle(amenGreen)
                     Text("No digital goods yet")
@@ -288,7 +288,7 @@ struct MonetizationToolsView: View {
                                     .fill(amenGreen.opacity(0.15))
                                     .frame(width: 38, height: 38)
                                 Image(systemName: good.type.icon)
-                                    .font(.system(size: 16, weight: .semibold))
+                                    .font(.systemScaled(16, weight: .semibold))
                                     .symbolRenderingMode(.hierarchical)
                                     .foregroundStyle(amenGreen)
                             }
@@ -328,7 +328,7 @@ struct MonetizationToolsView: View {
             } label: {
                 HStack(spacing: 7) {
                     Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 16))
+                        .font(.systemScaled(16))
                         .symbolRenderingMode(.hierarchical)
                     Text("Add New Good")
                         .font(AMENFont.semiBold(15))
@@ -374,7 +374,7 @@ private struct MonetizationSection<Content: View>: View {
                             .fill(accentColor.opacity(0.15))
                             .frame(width: 44, height: 44)
                         Image(systemName: icon)
-                            .font(.system(size: 20, weight: .semibold))
+                            .font(.systemScaled(20, weight: .semibold))
                             .symbolRenderingMode(.hierarchical)
                             .foregroundStyle(accentColor)
                     }
@@ -388,7 +388,7 @@ private struct MonetizationSection<Content: View>: View {
                     }
                     Spacer()
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(.white.opacity(0.35))
                         .rotationEffect(.degrees(isExpanded ? 0 : 0))
                 }
@@ -469,7 +469,7 @@ private struct AddDigitalGoodSheet: View {
                                         } label: {
                                             HStack(spacing: 6) {
                                                 Image(systemName: type.icon)
-                                                    .font(.system(size: 13, weight: .semibold))
+                                                    .font(.systemScaled(13, weight: .semibold))
                                                     .symbolRenderingMode(.hierarchical)
                                                 Text(type.label)
                                                     .font(AMENFont.semiBold(13))
@@ -528,7 +528,7 @@ private struct AddDigitalGoodSheet: View {
                         Image(systemName: "xmark.circle.fill")
                             .symbolRenderingMode(.hierarchical)
                             .foregroundStyle(.white.opacity(0.7))
-                            .font(.system(size: 22))
+                            .font(.systemScaled(22))
                     }
                 }
             }

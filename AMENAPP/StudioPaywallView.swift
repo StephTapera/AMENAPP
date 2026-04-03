@@ -57,7 +57,7 @@ struct StudioPaywallView: View {
                             .fill(.ultraThinMaterial)
                             .frame(width: 30, height: 30)
                         Image(systemName: "xmark")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.systemScaled(11, weight: .semibold))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -80,16 +80,16 @@ struct StudioPaywallView: View {
                     ))
                     .frame(width: 72, height: 72)
                 Image(systemName: "sparkles")
-                    .font(.system(size: 30, weight: .medium))
+                    .font(.systemScaled(30, weight: .medium))
                     .foregroundStyle(.purple)
             }
 
             Text("Unlock AMEN Studio")
-                .font(.system(size: 24, weight: .bold))
+                .font(.systemScaled(24, weight: .bold))
                 .foregroundStyle(.primary)
 
             Text("Create freely. Your faith, your story, preserved forever.")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
@@ -110,9 +110,9 @@ struct StudioPaywallView: View {
         Button { withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { selectedTier = tier } } label: {
             VStack(spacing: 2) {
                 Text(tier.displayName)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                 Text(tier.priceLabel)
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .opacity(0.7)
             }
             .frame(maxWidth: .infinity)
@@ -137,13 +137,13 @@ struct StudioPaywallView: View {
             ForEach(featureRows, id: \.title) { row in
                 HStack(spacing: 14) {
                     Image(systemName: row.icon)
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                         .foregroundStyle(row.available(selectedTier) ? selectedTier.accent : Color(.tertiaryLabel))
                         .frame(width: 22)
 
                     VStack(alignment: .leading, spacing: 1) {
                         Text(row.title)
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.systemScaled(14, weight: .medium))
                             .foregroundStyle(row.available(selectedTier) ? .primary : .secondary)
                         if let detail = row.detail {
                             Text(detail)
@@ -155,7 +155,7 @@ struct StudioPaywallView: View {
                     Spacer()
 
                     Image(systemName: row.available(selectedTier) ? "checkmark.circle.fill" : "circle")
-                        .font(.system(size: 16))
+                        .font(.systemScaled(16))
                         .foregroundStyle(row.available(selectedTier) ? selectedTier.accent : Color(.tertiaryLabel))
                 }
                 .padding(.vertical, 13)
@@ -223,7 +223,7 @@ struct StudioPaywallView: View {
                 } else {
                     VStack(spacing: 2) {
                         Text("Start 7-Day Free Trial")
-                            .font(.system(size: 16, weight: .bold))
+                            .font(.systemScaled(16, weight: .bold))
                         Text("then \(product?.storeProduct.localizedPriceString ?? selectedTier.priceLabel) / month")
                             .font(.caption)
                             .opacity(0.8)
@@ -266,7 +266,7 @@ struct StudioPaywallView: View {
             #endif
         } label: {
             Text("Restore Purchases")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.secondary)
         }
         .buttonStyle(.plain)
@@ -274,7 +274,7 @@ struct StudioPaywallView: View {
 
     private var legalFooter: some View {
         Text("Subscription auto-renews. Cancel anytime in Settings. Payment charged to your Apple ID. See our Terms and Privacy Policy.")
-            .font(.system(size: 11))
+            .font(.systemScaled(11))
             .foregroundStyle(Color(.tertiaryLabel))
             .multilineTextAlignment(.center)
     }

@@ -23,12 +23,12 @@ struct EnhancedLoginView: View {
                 // Logo Section
                 VStack(spacing: 16) {
                     Text("AMEN")
-                        .font(.system(size: 56, weight: .thin, design: .serif))
+                        .font(.systemScaled(56, weight: .thin, design: .serif))
                         .tracking(10)
                         .foregroundColor(.white)
                     
                     Text("Social Media, Reorded")
-                        .font(.system(size: 13, weight: .light))
+                        .font(.systemScaled(13, weight: .light))
                         .tracking(2.5)
                         .foregroundColor(.white.opacity(0.7))
                 }
@@ -59,7 +59,7 @@ struct EnhancedLoginView: View {
                         // Forgot password
                     } label: {
                         Text("Forgot Password?")
-                            .font(.system(size: 13, weight: .light))
+                            .font(.systemScaled(13, weight: .light))
                             .tracking(1)
                             .foregroundColor(.white.opacity(0.6))
                     }
@@ -105,7 +105,7 @@ struct EnhancedProfileHeader: View {
                     .frame(width: 100, height: 100)
                 
                 Text(String(username.prefix(2)).uppercased())
-                    .font(.system(size: 36, weight: .light))
+                    .font(.systemScaled(36, weight: .light))
                     .foregroundColor(.white)
             }
             .overlay(
@@ -116,13 +116,13 @@ struct EnhancedProfileHeader: View {
             
             // Username
             Text(username)
-                .font(.system(size: 24, weight: .light))
+                .font(.systemScaled(24, weight: .light))
                 .tracking(2)
                 .foregroundColor(.white)
             
             // Bio
             Text(bio)
-                .font(.system(size: 13, weight: .light))
+                .font(.systemScaled(13, weight: .light))
                 .foregroundColor(.white.opacity(0.7))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
@@ -131,11 +131,11 @@ struct EnhancedProfileHeader: View {
             HStack(spacing: 40) {
                 VStack(spacing: 4) {
                     Text("\(followers)")
-                        .font(.system(size: 20, weight: .light))
+                        .font(.systemScaled(20, weight: .light))
                         .foregroundColor(.white)
                     
                     Text("FOLLOWERS")
-                        .font(.system(size: 10, weight: .light))
+                        .font(.systemScaled(10, weight: .light))
                         .tracking(1.5)
                         .foregroundColor(.white.opacity(0.6))
                 }
@@ -146,11 +146,11 @@ struct EnhancedProfileHeader: View {
                 
                 VStack(spacing: 4) {
                     Text("\(following)")
-                        .font(.system(size: 20, weight: .light))
+                        .font(.systemScaled(20, weight: .light))
                         .foregroundColor(.white)
                     
                     Text("FOLLOWING")
-                        .font(.system(size: 10, weight: .light))
+                        .font(.systemScaled(10, weight: .light))
                         .tracking(1.5)
                         .foregroundColor(.white.opacity(0.6))
                 }
@@ -202,24 +202,24 @@ struct ExamplePostCard: View {
                     .frame(width: 44, height: 44)
                     .overlay(
                         Text(String(authorName.prefix(2)).uppercased())
-                            .font(.system(size: 14, weight: .light))
+                            .font(.systemScaled(14, weight: .light))
                             .foregroundColor(.white)
                     )
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(authorName)
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.systemScaled(15, weight: .medium))
                         .foregroundColor(.white)
                     
                     Text(postTime)
-                        .font(.system(size: 12, weight: .light))
+                        .font(.systemScaled(12, weight: .light))
                         .foregroundColor(.white.opacity(0.6))
                 }
                 
                 Spacer()
                 
                 Text(category)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                     .tracking(1)
                     .foregroundColor(.amenGold)
                     .padding(.horizontal, 12)
@@ -232,7 +232,7 @@ struct ExamplePostCard: View {
             
             // Content
             Text(content)
-                .font(.system(size: 15, weight: .light))
+                .font(.systemScaled(15, weight: .light))
                 .foregroundColor(.white.opacity(0.9))
                 .lineSpacing(4)
             
@@ -246,12 +246,12 @@ struct ExamplePostCard: View {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: isLiked ? "heart.fill" : "heart")
-                            .font(.system(size: 18))
+                            .font(.systemScaled(18))
                             .foregroundColor(isLiked ? .red : .white.opacity(0.7))
                             .scaleEffect(isLiked ? 1.2 : 1.0)
                         
                         Text("\(likes + (isLiked ? 1 : 0))")
-                            .font(.system(size: 13, weight: .light))
+                            .font(.systemScaled(13, weight: .light))
                             .foregroundColor(.white.opacity(0.7))
                     }
                 }
@@ -261,11 +261,11 @@ struct ExamplePostCard: View {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "message")
-                            .font(.system(size: 18))
+                            .font(.systemScaled(18))
                             .foregroundColor(.white.opacity(0.7))
                         
                         Text("\(comments)")
-                            .font(.system(size: 13, weight: .light))
+                            .font(.systemScaled(13, weight: .light))
                             .foregroundColor(.white.opacity(0.7))
                     }
                 }
@@ -274,7 +274,7 @@ struct ExamplePostCard: View {
                     HapticFeedback.selection()
                 } label: {
                     Image(systemName: "arrow.triangle.2.circlepath")
-                        .font(.system(size: 18))
+                        .font(.systemScaled(18))
                         .foregroundColor(.white.opacity(0.7))
                 }
                 
@@ -287,7 +287,7 @@ struct ExamplePostCard: View {
                     }
                 } label: {
                     Image(systemName: isBookmarked ? "bookmark.fill" : "bookmark")
-                        .font(.system(size: 18))
+                        .font(.systemScaled(18))
                         .foregroundColor(isBookmarked ? .amenGold : .white.opacity(0.7))
                 }
             }
@@ -307,14 +307,14 @@ struct EnhancedSearchBar: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 16, weight: .light))
+                .font(.systemScaled(16, weight: .light))
                 .foregroundColor(.white.opacity(0.5))
             
             TextField("", text: $searchText, prompt:
                 Text("Search AMEN...")
                     .foregroundColor(.white.opacity(0.4))
             )
-            .font(.system(size: 15, weight: .light))
+            .font(.systemScaled(15, weight: .light))
             .foregroundColor(.white)
             .focused($isFocused)
             
@@ -324,7 +324,7 @@ struct EnhancedSearchBar: View {
                     HapticFeedback.selection()
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 16))
+                        .font(.systemScaled(16))
                         .foregroundColor(.white.opacity(0.5))
                 }
             }
@@ -357,17 +357,17 @@ struct EnhancedEmptyState: View {
     var body: some View {
         VStack(spacing: 24) {
             Image(systemName: icon)
-                .font(.system(size: 64, weight: .ultraLight))
+                .font(.systemScaled(64, weight: .ultraLight))
                 .foregroundColor(.white.opacity(0.3))
             
             VStack(spacing: 8) {
                 Text(title)
-                    .font(.system(size: 20, weight: .light))
+                    .font(.systemScaled(20, weight: .light))
                     .tracking(2)
                     .foregroundColor(.white)
                 
                 Text(subtitle)
-                    .font(.system(size: 14, weight: .light))
+                    .font(.systemScaled(14, weight: .light))
                     .foregroundColor(.white.opacity(0.6))
                     .multilineTextAlignment(.center)
             }
@@ -400,11 +400,11 @@ struct EnhancedCategoryPill: View {
             HStack(spacing: 6) {
                 if let icon = icon {
                     Image(systemName: icon)
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                 }
                 
                 Text(title)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .tracking(1)
             }
             .foregroundColor(isSelected ? .black : .white.opacity(0.8))

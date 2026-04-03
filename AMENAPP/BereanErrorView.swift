@@ -100,18 +100,18 @@ struct BereanErrorBanner: View {
             HStack(spacing: 12) {
                 // Icon
                 Image(systemName: error.icon)
-                    .font(.system(size: 18, weight: .medium))
+                    .font(.systemScaled(18, weight: .medium))
                     .foregroundStyle(error.iconColor)
                 
                 // Error text
                 VStack(alignment: .leading, spacing: 4) {
                     Text(error.localizedDescription)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(Color(white: 0.2))
                     
                     if let suggestion = error.recoverySuggestion {
                         Text(suggestion)
-                            .font(.system(size: 12, weight: .regular))
+                            .font(.systemScaled(12, weight: .regular))
                             .foregroundStyle(Color(white: 0.4))
                             .lineLimit(2)
                     }
@@ -128,7 +128,7 @@ struct BereanErrorBanner: View {
                             onRetry()
                         } label: {
                             Text("Retry")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.systemScaled(13, weight: .semibold))
                                 .foregroundStyle(error.iconColor)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 6)
@@ -145,7 +145,7 @@ struct BereanErrorBanner: View {
                         }
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.systemScaled(12, weight: .medium))
                             .foregroundStyle(Color(white: 0.5))
                             .frame(width: 24, height: 24)
                     }
@@ -210,7 +210,7 @@ struct BereanFullScreenError: View {
                     )
                 
                 Image(systemName: error.icon)
-                    .font(.system(size: 40, weight: .light))
+                    .font(.systemScaled(40, weight: .light))
                     .foregroundStyle(error.iconColor)
             }
             
@@ -224,7 +224,7 @@ struct BereanFullScreenError: View {
                 
                 if let suggestion = error.recoverySuggestion {
                     Text(suggestion)
-                        .font(.system(size: 15, weight: .regular))
+                        .font(.systemScaled(15, weight: .regular))
                         .foregroundStyle(Color(white: 0.4))
                         .multilineTextAlignment(.center)
                         .lineSpacing(4)
@@ -243,10 +243,10 @@ struct BereanFullScreenError: View {
                 } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                         
                         Text("Try Again")
-                            .font(.system(size: 16, weight: .bold))
+                            .font(.systemScaled(16, weight: .bold))
                     }
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
@@ -262,7 +262,7 @@ struct BereanFullScreenError: View {
                     onDismiss()
                 } label: {
                     Text("Dismiss")
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.systemScaled(15, weight: .medium))
                         .foregroundStyle(Color(white: 0.4))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
@@ -294,15 +294,15 @@ struct OfflineModeBanner: View {
         if !isOnline {
             HStack(spacing: 8) {
                 Image(systemName: "wifi.slash")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                 
                 Text("Offline Mode")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                 
                 Spacer()
                 
                 Text("Limited features")
-                    .font(.system(size: 11, weight: .regular))
+                    .font(.systemScaled(11, weight: .regular))
                     .opacity(0.7)
             }
             .foregroundStyle(.white)

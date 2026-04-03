@@ -416,7 +416,7 @@ struct LiquidGlassHeader: View {
                         
                         // Icon
                         Image(systemName: "plus")
-                            .font(.system(size: 20, weight: .semibold))
+                            .font(.systemScaled(20, weight: .semibold))
                             .foregroundStyle(.white)
                         
                         // Border with warm glow
@@ -461,7 +461,7 @@ struct LiquidGlassHeader: View {
                             )
                         
                         Image(systemName: "plus")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .foregroundStyle(.white.opacity(0.9))
                     }
                     .frame(width: 40, height: 40)
@@ -477,7 +477,7 @@ struct LiquidGlassHeader: View {
                 // Search field
                 HStack(spacing: 10) {
                     Image(systemName: "magnifyingglass")
-                        .font(.system(size: 16, weight: .regular))
+                        .font(.systemScaled(16, weight: .regular))
                         .foregroundStyle(.white.opacity(0.6))
                     
                     TextField("", text: $searchText, prompt: Text("Search notes, sermons, scriptures...").foregroundStyle(.white.opacity(0.4)))
@@ -513,7 +513,7 @@ struct LiquidGlassHeader: View {
                             haptic.impactOccurred()
                         } label: {
                             Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 16))
+                                .font(.systemScaled(16))
                                 .foregroundStyle(.white.opacity(0.5))
                         }
                         .transition(.scale.combined(with: .opacity))
@@ -592,7 +592,7 @@ struct LiquidGlassHeader: View {
                             )
                         
                         Image(systemName: "waveform")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .foregroundStyle(.white.opacity(0.9))
                     }
                     .frame(width: 40, height: 40)
@@ -625,7 +625,7 @@ struct FilterPill: View {
         Button(action: action) {
             HStack(spacing: 8) {
                 Image(systemName: filter.icon)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                 
                 Text(filter.rawValue)
                     .font(AMENFont.semiBold(15))
@@ -731,7 +731,7 @@ struct LoadingGlassView: View {
                         )
                     
                     Image(systemName: "note.text")
-                        .font(.system(size: 32))
+                        .font(.systemScaled(32))
                         .foregroundStyle(.white)
                         .rotationEffect(.degrees(rotationAngle))
                     
@@ -798,7 +798,7 @@ struct EmptyStateGlassView: View {
                         )
                     
                     Image(systemName: hasSearch ? "magnifyingglass" : "note.text")
-                        .font(.system(size: 64, weight: .light))
+                        .font(.systemScaled(64, weight: .light))
                         .foregroundStyle(.white.opacity(0.9))
                         .frame(width: 140, height: 140)
                         .glassEffect(GlassEffectStyle.regular, in: Circle())
@@ -827,7 +827,7 @@ struct EmptyStateGlassView: View {
                     } label: {
                         HStack(spacing: 12) {
                             Image(systemName: "plus.circle.fill")
-                                .font(.system(size: 20))
+                                .font(.systemScaled(20))
                             Text("Create Your First Note")
                                 .font(AMENFont.bold(17))
                         }
@@ -1023,7 +1023,7 @@ struct LiquidGlassNoteCard: View {
                         if let sermonTitle = note.sermonTitle, !sermonTitle.isEmpty {
                             HStack(spacing: 6) {
                                 Image(systemName: "quote.bubble.fill")
-                                    .font(.system(size: 12))
+                                    .font(.systemScaled(12))
                                     .foregroundStyle(.purple.opacity(0.8))
                                 Text(sermonTitle)
                                     .font(AMENFont.semiBold(14))
@@ -1082,7 +1082,7 @@ struct LiquidGlassNoteCard: View {
                             }
                             
                             Image(systemName: note.isFavorite ? "star.fill" : "star")
-                                .font(.system(size: 20))
+                                .font(.systemScaled(20))
                                 .foregroundStyle(
                                     note.isFavorite 
                                         ? LinearGradient(
@@ -1140,7 +1140,7 @@ struct LiquidGlassNoteCard: View {
                 if let scripture = note.scripture, !scripture.isEmpty {
                     HStack(spacing: 8) {
                         Image(systemName: "book.fill")
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                         Text(scripture)
                             .font(AMENFont.semiBold(14))
                     }
@@ -1190,7 +1190,7 @@ struct LiquidGlassNoteCard: View {
                     // Date
                     HStack(spacing: 6) {
                         Image(systemName: "calendar")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                         Text(note.date, style: .date)
                             .font(AMENFont.regular(13))
                     }
@@ -1202,7 +1202,7 @@ struct LiquidGlassNoteCard: View {
                         
                         HStack(spacing: 6) {
                             Image(systemName: "building.2")
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                             Text(churchName)
                                 .font(AMENFont.regular(13))
                         }
@@ -1270,7 +1270,7 @@ struct LiquidGlassNoteCard: View {
                                 )
 
                             Image(systemName: "square.and.arrow.up")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.systemScaled(14, weight: .semibold))
                                 .foregroundStyle(
                                     LinearGradient(
                                         colors: [
@@ -1610,7 +1610,7 @@ struct NewChurchNoteView: View {
                                     .tint(.white)
                             } else {
                                 Image(systemName: "checkmark")
-                                    .font(.system(size: 18, weight: .semibold))
+                                    .font(.systemScaled(18, weight: .semibold))
                                     .foregroundStyle(canSave ? .white : .white.opacity(0.4))
                             }
                         }
@@ -1668,7 +1668,7 @@ struct NewChurchNoteView: View {
                                 HStack {
                                     HStack(spacing: 10) {
                                         Image(systemName: "calendar")
-                                            .font(.system(size: 16, weight: .medium))
+                                            .font(.systemScaled(16, weight: .medium))
                                             .foregroundStyle(.white.opacity(0.7))
                                         
                                         DatePicker("", selection: $selectedDate, displayedComponents: .date)
@@ -1775,7 +1775,7 @@ struct NewChurchNoteView: View {
                                     addTag()
                                 } label: {
                                     Image(systemName: "plus.circle.fill")
-                                        .font(.system(size: 32))
+                                        .font(.systemScaled(32))
                                         .foregroundStyle(.cyan.opacity(0.9))
                                 }
                                 .disabled(newTag.isEmpty)
@@ -1800,7 +1800,7 @@ struct NewChurchNoteView: View {
                                         Image(systemName: "plus.circle.fill")
                                         Text("Add Song")
                                     }
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(.systemScaled(14, weight: .semibold))
                                     .foregroundStyle(.purple)
                                     .padding(.horizontal, 14)
                                     .padding(.vertical, 7)
@@ -1816,7 +1816,7 @@ struct NewChurchNoteView: View {
                                     Image(systemName: "music.note")
                                         .foregroundStyle(.white.opacity(0.3))
                                     Text("Tap \u{201C}Add Song\u{201D} to attach worship music to this note")
-                                        .font(.system(size: 13))
+                                        .font(.systemScaled(13))
                                         .foregroundStyle(.white.opacity(0.4))
                                 }
                                 .padding(.vertical, 4)
@@ -1825,15 +1825,15 @@ struct NewChurchNoteView: View {
                                     ForEach(worshipSongs) { song in
                                         HStack(spacing: 10) {
                                             Image(systemName: "music.note")
-                                                .font(.system(size: 14))
+                                                .font(.systemScaled(14))
                                                 .foregroundStyle(.purple)
                                             VStack(alignment: .leading, spacing: 1) {
                                                 Text(song.title)
-                                                    .font(.system(size: 14, weight: .semibold))
+                                                    .font(.systemScaled(14, weight: .semibold))
                                                     .foregroundStyle(.white)
                                                     .lineLimit(1)
                                                 Text(song.artist)
-                                                    .font(.system(size: 12))
+                                                    .font(.systemScaled(12))
                                                     .foregroundStyle(.white.opacity(0.55))
                                                     .lineLimit(1)
                                             }
@@ -1911,7 +1911,7 @@ struct NewChurchNoteView: View {
                                 .frame(width: 64, height: 64)
                             
                             Image(systemName: "checkmark")
-                                .font(.system(size: 32, weight: .semibold))
+                                .font(.systemScaled(32, weight: .semibold))
                                 .foregroundStyle(.white)
                         }
                         .scaleEffect(saveConfirmationScale)
@@ -2043,7 +2043,7 @@ struct GlassTextField: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: isLarge ? 18 : 16))
+                .font(.systemScaled(isLarge ? 18 : 16))
                 .foregroundStyle(tintColor.opacity(0.6))
                 .frame(width: 24)
             
@@ -2074,7 +2074,7 @@ struct TagPill: View {
             
             Button(action: onDelete) {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
             }
         }
         .foregroundStyle(.cyan.opacity(0.9))
@@ -2134,7 +2134,7 @@ struct ChurchNoteDetailView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 20, weight: .semibold))
+                            .font(.systemScaled(20, weight: .semibold))
                             .foregroundStyle(.white)
                             .frame(width: 44, height: 44)
                             .glassEffect(GlassEffectStyle.regular.interactive(), in: Circle())
@@ -2151,7 +2151,7 @@ struct ChurchNoteDetailView: View {
                         }
                     } label: {
                         Image(systemName: note.isFavorite ? "star.fill" : "star")
-                            .font(.system(size: 20))
+                            .font(.systemScaled(20))
                             .foregroundStyle(note.isFavorite ? .yellow : .white)
                             .frame(width: 44, height: 44)
                             .glassEffect(GlassEffectStyle.regular.interactive(), in: Circle())
@@ -2194,7 +2194,7 @@ struct ChurchNoteDetailView: View {
                         }
                     } label: {
                         Image(systemName: "ellipsis")
-                            .font(.system(size: 20, weight: .semibold))
+                            .font(.systemScaled(20, weight: .semibold))
                             .foregroundStyle(.white)
                             .frame(width: 44, height: 44)
                             .glassEffect(GlassEffectStyle.regular.interactive(), in: Circle())
@@ -2215,7 +2215,7 @@ struct ChurchNoteDetailView: View {
                             if let sermonTitle = note.sermonTitle, !sermonTitle.isEmpty {
                                 HStack(spacing: 8) {
                                     Image(systemName: "quote.bubble.fill")
-                                        .font(.system(size: 16))
+                                        .font(.systemScaled(16))
                                     Text(sermonTitle)
                                         .font(AMENFont.semiBold(18))
                                 }
@@ -2242,7 +2242,7 @@ struct ChurchNoteDetailView: View {
                         if let scripture = note.scripture, !scripture.isEmpty {
                             HStack(spacing: 12) {
                                 Image(systemName: "book.fill")
-                                    .font(.system(size: 20))
+                                    .font(.systemScaled(20))
                                     .foregroundStyle(.purple)
                                 
                                 Text(scripture)
@@ -2336,7 +2336,7 @@ struct ChurchNoteDetailView: View {
             // Toast notification for copy confirmation
             if showCopiedToast {
                 Text("Link copied to clipboard")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 20)
                     .padding(.vertical, 12)
@@ -2429,7 +2429,7 @@ struct MetadataPill: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: icon)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
             Text(text)
                 .font(AMENFont.semiBold(14))
         }
@@ -2462,7 +2462,7 @@ struct ThreadsStyleHeader: View {
             // Title and Add Button
             HStack {
                 Text("Notes")
-                    .font(.system(size: isScrolled ? 28 : 34, weight: .bold, design: .rounded))
+                    .font(.systemScaled(isScrolled ? 28 : 34, weight: .bold, design: .rounded))
                     .foregroundStyle(.black)
                 
                 Spacer()
@@ -2505,7 +2505,7 @@ struct ThreadsStyleHeader: View {
                                 .frame(width: 50, height: 40)
                                 .overlay(
                                     Image(systemName: "plus")
-                                        .font(.system(size: 18, weight: .semibold))
+                                        .font(.systemScaled(18, weight: .semibold))
                                         .foregroundStyle(.white)
                                 )
                             
@@ -2540,11 +2540,11 @@ struct ThreadsStyleHeader: View {
             if !isScrolled {
                 HStack(spacing: 12) {
                     Image(systemName: "magnifyingglass")
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.systemScaled(16, weight: .medium))
                         .foregroundStyle(.black.opacity(0.6))
                     
                     TextField("", text: $searchText, prompt: Text("Search notes...").foregroundStyle(.black.opacity(0.4)))
-                        .font(.system(size: 16, weight: .regular, design: .rounded))
+                        .font(.systemScaled(16, weight: .regular, design: .rounded))
                         .foregroundStyle(.black)
                         .tint(.blue)
                         .onTapGesture {
@@ -2561,7 +2561,7 @@ struct ThreadsStyleHeader: View {
                             }
                         } label: {
                             Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 16))
+                                .font(.systemScaled(16))
                                 .foregroundStyle(.black.opacity(0.4))
                         }
                         .transition(.scale.combined(with: .opacity))
@@ -2651,10 +2651,10 @@ struct MonochromeFilterPill: View {
         Button(action: action) {
             HStack(spacing: 6) {
                 Image(systemName: filter.icon)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                 
                 Text(filter.rawValue)
-                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .font(.systemScaled(14, weight: .semibold, design: .rounded))
             }
             .foregroundStyle(isSelected ? .white : .black.opacity(0.7))
             .padding(.horizontal, 16)
@@ -2774,7 +2774,7 @@ struct ThreadsStyleNoteCard: View {
                 VStack(alignment: .leading, spacing: 12) {
                     // Title
                     Text(note.title)
-                        .font(.system(size: 20, weight: .bold, design: .rounded))
+                        .font(.systemScaled(20, weight: .bold, design: .rounded))
                         .foregroundStyle(.black)
                         .multilineTextAlignment(.leading)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -2783,9 +2783,9 @@ struct ThreadsStyleNoteCard: View {
                     if let sermonTitle = note.sermonTitle, !sermonTitle.isEmpty {
                         HStack(spacing: 6) {
                             Image(systemName: "quote.bubble")
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                             Text(sermonTitle)
-                                .font(.system(size: 14, weight: .medium, design: .rounded))
+                                .font(.systemScaled(14, weight: .medium, design: .rounded))
                         }
                         .foregroundStyle(.black.opacity(0.6))
                         .transition(.opacity.combined(with: .move(edge: .top)))
@@ -2794,7 +2794,7 @@ struct ThreadsStyleNoteCard: View {
                     // Content preview
                     if !note.content.isEmpty {
                         Text(note.content)
-                            .font(.system(size: 15, weight: .regular, design: .rounded))
+                            .font(.systemScaled(15, weight: .regular, design: .rounded))
                             .foregroundStyle(.black.opacity(0.7))
                             .lineLimit(3)
                             .multilineTextAlignment(.leading)
@@ -2804,15 +2804,15 @@ struct ThreadsStyleNoteCard: View {
                     HStack(spacing: 12) {
                         HStack(spacing: 4) {
                             Image(systemName: "calendar")
-                                .font(.system(size: 11))
+                                .font(.systemScaled(11))
                             Text(note.date, style: .date)
-                                .font(.system(size: 12, weight: .medium, design: .rounded))
+                                .font(.systemScaled(12, weight: .medium, design: .rounded))
                         }
                         
                         if let churchName = note.churchName, !churchName.isEmpty {
                             Text("•")
                             Text(churchName)
-                                .font(.system(size: 12, weight: .medium, design: .rounded))
+                                .font(.systemScaled(12, weight: .medium, design: .rounded))
                                 .lineLimit(1)
                         }
                         
@@ -2827,7 +2827,7 @@ struct ThreadsStyleNoteCard: View {
                             }
                         } label: {
                             Image(systemName: note.isFavorite ? "star.fill" : "star")
-                                .font(.system(size: 16))
+                                .font(.systemScaled(16))
                                 .foregroundStyle(note.isFavorite ? .orange : .black.opacity(0.4))
                         }
                         .buttonStyle(PlainButtonStyle())
@@ -2924,14 +2924,14 @@ struct MonochromeLoadingView: View {
                 }
                 
                 Image(systemName: "note.text")
-                    .font(.system(size: 24, weight: .semibold))
+                    .font(.systemScaled(24, weight: .semibold))
                     .foregroundStyle(.blue)
                     .rotationEffect(.degrees(rotation))
             }
             .frame(width: 80, height: 80)
             
             Text("Loading Notes...")
-                .font(.system(size: 16, weight: .medium, design: .rounded))
+                .font(.systemScaled(16, weight: .medium, design: .rounded))
                 .foregroundStyle(.black.opacity(0.6))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -2962,18 +2962,18 @@ struct MonochromeEmptyState: View {
                     .scaleEffect(bounce ? 1.1 : 1.0)
                 
                 Image(systemName: hasSearch ? "magnifyingglass" : "note.text")
-                    .font(.system(size: 48, weight: .light))
+                    .font(.systemScaled(48, weight: .light))
                     .foregroundStyle(.blue.opacity(0.6))
             }
             .animation(.easeInOut(duration: 2.0).repeatForever(autoreverses: true), value: bounce)
             
             VStack(spacing: 12) {
                 Text(emptyTitle)
-                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                    .font(.systemScaled(24, weight: .bold, design: .rounded))
                     .foregroundStyle(.black)
                 
                 Text(emptySubtitle)
-                    .font(.system(size: 15, weight: .regular, design: .rounded))
+                    .font(.systemScaled(15, weight: .regular, design: .rounded))
                     .foregroundStyle(.black.opacity(0.6))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 40)
@@ -2983,9 +2983,9 @@ struct MonochromeEmptyState: View {
                 Button(action: onCreateNote) {
                     HStack(spacing: 10) {
                         Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 18))
+                            .font(.systemScaled(18))
                         Text("Create Note")
-                            .font(.system(size: 16, weight: .semibold, design: .rounded))
+                            .font(.systemScaled(16, weight: .semibold, design: .rounded))
                     }
                     .foregroundStyle(.white)
                     .padding(.horizontal, 24)
@@ -3089,7 +3089,7 @@ struct MonochromeNewNoteView: View {
                         dismiss()
                     } label: {
                         Text("Cancel")
-                            .font(.system(size: 17, weight: .medium, design: .rounded))
+                            .font(.systemScaled(17, weight: .medium, design: .rounded))
                             .foregroundStyle(.black.opacity(0.7))
                     }
                     
@@ -3098,12 +3098,12 @@ struct MonochromeNewNoteView: View {
                     // Writer stats in center
                     VStack(spacing: 2) {
                         Text("New Note")
-                            .font(.system(size: 17, weight: .semibold, design: .rounded))
+                            .font(.systemScaled(17, weight: .semibold, design: .rounded))
                             .foregroundStyle(.black)
                         
                         if wordCount > 0 {
                             Text("\(wordCount) words")
-                                .font(.system(size: 11, weight: .medium, design: .rounded))
+                                .font(.systemScaled(11, weight: .medium, design: .rounded))
                                 .foregroundStyle(.black.opacity(0.5))
                         }
                     }
@@ -3159,7 +3159,7 @@ struct MonochromeNewNoteView: View {
                             
                             // Text
                             Text(isSaving ? "Saving..." : "Save")
-                                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                                .font(.systemScaled(15, weight: .semibold, design: .rounded))
                                 .foregroundStyle(canSave ? .white : .black.opacity(0.4))
                             
                             // Border
@@ -3208,12 +3208,12 @@ struct MonochromeNewNoteView: View {
                         // Empowering Title Section
                         VStack(alignment: .leading, spacing: 12) {
                             Text("✨ Your Story Matters")
-                                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                .font(.systemScaled(13, weight: .semibold, design: .rounded))
                                 .foregroundStyle(.blue.opacity(0.8))
                                 .padding(.horizontal, 4)
                             
                             TextField("", text: $title, prompt: Text("Give your note a powerful title...").foregroundStyle(.black.opacity(0.4)))
-                                .font(.system(size: 28, weight: .bold, design: .rounded))
+                                .font(.systemScaled(28, weight: .bold, design: .rounded))
                                 .foregroundStyle(.black)
                                 .tint(.blue)
                                 .focused($focusedField, equals: .title)
@@ -3259,13 +3259,13 @@ struct MonochromeNewNoteView: View {
                         VStack(alignment: .leading, spacing: 16) {
                             HStack {
                                 Label("Sermon Context", systemImage: "quote.bubble")
-                                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                                    .font(.systemScaled(15, weight: .semibold, design: .rounded))
                                     .foregroundStyle(.white.opacity(0.9))
                                 
                                 Spacer()
                                 
                                 Text("Optional")
-                                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                                    .font(.systemScaled(12, weight: .medium, design: .rounded))
                                     .foregroundStyle(.white.opacity(0.5))
                                     .padding(.horizontal, 8)
                                     .padding(.vertical, 4)
@@ -3305,7 +3305,7 @@ struct MonochromeNewNoteView: View {
                                 // Date Picker
                                 HStack(spacing: 12) {
                                     Image(systemName: "calendar")
-                                        .font(.system(size: 16, weight: .medium))
+                                        .font(.systemScaled(16, weight: .medium))
                                         .foregroundStyle(.white.opacity(0.7))
                                         .frame(width: 24)
                                     
@@ -3386,7 +3386,7 @@ struct MonochromeNewNoteView: View {
                         // Scripture Reference
                         VStack(alignment: .leading, spacing: 8) {
                             Label("Scripture Reference", systemImage: "book.closed")
-                                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                .font(.systemScaled(13, weight: .semibold, design: .rounded))
                                 .foregroundStyle(.purple.opacity(0.9))
                                 .padding(.horizontal, 4)
                             
@@ -3404,14 +3404,14 @@ struct MonochromeNewNoteView: View {
                         VStack(alignment: .leading, spacing: 12) {
                             HStack {
                                 Label("Your Notes", systemImage: "pencil.line")
-                                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                                    .font(.systemScaled(15, weight: .semibold, design: .rounded))
                                     .foregroundStyle(.white.opacity(0.9))
                                 
                                 Spacer()
                                 
                                 if !content.isEmpty {
                                     Text("\(wordCount) words")
-                                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                                        .font(.systemScaled(12, weight: .medium, design: .rounded))
                                         .foregroundStyle(.blue.opacity(0.8))
                                         .padding(.horizontal, 10)
                                         .padding(.vertical, 4)
@@ -3426,18 +3426,18 @@ struct MonochromeNewNoteView: View {
                                 if content.isEmpty {
                                     VStack(alignment: .leading, spacing: 8) {
                                         Text("Write your thoughts, insights, and reflections...")
-                                            .font(.system(size: 17, weight: .regular, design: .rounded))
+                                            .font(.systemScaled(17, weight: .regular, design: .rounded))
                                             .foregroundStyle(.white.opacity(0.4))
                                         
                                         Text("💡 Tip: Don't worry about perfection—just write!")
-                                            .font(.system(size: 14, weight: .medium, design: .rounded))
+                                            .font(.systemScaled(14, weight: .medium, design: .rounded))
                                             .foregroundStyle(.blue.opacity(0.5))
                                     }
                                     .padding(20)
                                 }
                                 
                                 TextEditor(text: $content)
-                                    .font(.system(size: 17, weight: .regular, design: .rounded))
+                                    .font(.systemScaled(17, weight: .regular, design: .rounded))
                                     .foregroundStyle(.white)
                                     .scrollContentBackground(.hidden)
                                     .background(Color.clear)
@@ -3489,11 +3489,11 @@ struct MonochromeNewNoteView: View {
                         if !title.isEmpty && !content.isEmpty {
                             HStack(spacing: 12) {
                                 Image(systemName: "checkmark.circle.fill")
-                                    .font(.system(size: 16))
+                                    .font(.systemScaled(16))
                                     .foregroundStyle(.green)
                                 
                                 Text("Ready to save! Your note looks great.")
-                                    .font(.system(size: 14, weight: .medium, design: .rounded))
+                                    .font(.systemScaled(14, weight: .medium, design: .rounded))
                                     .foregroundStyle(.white.opacity(0.8))
                                 
                                 Spacer()
@@ -3572,12 +3572,12 @@ struct MonochromeTextField: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 16, weight: .medium))
+                .font(.systemScaled(16, weight: .medium))
                 .foregroundStyle(.white.opacity(0.6))
                 .frame(width: 24)
             
             TextField("", text: $text, prompt: Text(placeholder).foregroundStyle(.white.opacity(0.5)))
-                .font(.system(size: 16, weight: .regular, design: .rounded))
+                .font(.systemScaled(16, weight: .regular, design: .rounded))
                 .foregroundStyle(.white)
                 .tint(.white)
         }
@@ -3645,7 +3645,7 @@ struct MonochromeNoteDetailView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 20, weight: .semibold))
+                            .font(.systemScaled(20, weight: .semibold))
                             .foregroundStyle(.white)
                             .frame(width: 44, height: 44)
                             .background(
@@ -3673,7 +3673,7 @@ struct MonochromeNoteDetailView: View {
                         }
                     } label: {
                         Image(systemName: note.isFavorite ? "star.fill" : "star")
-                            .font(.system(size: 20))
+                            .font(.systemScaled(20))
                             .foregroundStyle(note.isFavorite ? .yellow : .white)
                             .frame(width: 44, height: 44)
                             .background(
@@ -3705,7 +3705,7 @@ struct MonochromeNoteDetailView: View {
                         }
                     } label: {
                         Image(systemName: "ellipsis")
-                            .font(.system(size: 20, weight: .semibold))
+                            .font(.systemScaled(20, weight: .semibold))
                             .foregroundStyle(.white)
                             .frame(width: 44, height: 44)
                             .background(
@@ -3741,7 +3741,7 @@ struct MonochromeNoteDetailView: View {
                     VStack(alignment: .leading, spacing: 24) {
                         // Title
                         Text(note.title)
-                            .font(.system(size: 32, weight: .bold, design: .rounded))
+                            .font(.systemScaled(32, weight: .bold, design: .rounded))
                             .foregroundStyle(.white)
                             .shadow(color: .black.opacity(0.3), radius: 2, y: 1)
                         
@@ -3767,7 +3767,7 @@ struct MonochromeNoteDetailView: View {
                         
                         // Content
                         Text(note.content)
-                            .font(.system(size: 17, weight: .regular, design: .rounded))
+                            .font(.systemScaled(17, weight: .regular, design: .rounded))
                             .foregroundStyle(.white.opacity(0.9))
                             .lineSpacing(6)
                     }
@@ -3793,12 +3793,12 @@ struct MetadataRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 14, weight: .medium))
+                .font(.systemScaled(14, weight: .medium))
                 .foregroundStyle(.white.opacity(0.6))
                 .frame(width: 20)
             
             Text(text)
-                .font(.system(size: 15, weight: .regular, design: .rounded))
+                .font(.systemScaled(15, weight: .regular, design: .rounded))
                 .foregroundStyle(.white.opacity(0.85))
         }
     }
@@ -3853,12 +3853,12 @@ struct EnhancedTextField: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 16, weight: .medium))
+                .font(.systemScaled(16, weight: .medium))
                 .foregroundStyle(.black.opacity(0.6))
                 .frame(width: 24)
             
             TextField("", text: $text, prompt: Text(placeholder).foregroundStyle(.black.opacity(0.4)))
-                .font(.system(size: 16, weight: .regular, design: .rounded))
+                .font(.systemScaled(16, weight: .regular, design: .rounded))
                 .foregroundStyle(.black)
                 .tint(tintColor)
                 .focused(focusedField, equals: field)
@@ -3900,13 +3900,13 @@ struct ShareNoteToOpenTableSheet: View {
                     Button("Cancel") {
                         dismiss()
                     }
-                    .font(.system(size: 17, weight: .regular))
+                    .font(.systemScaled(17, weight: .regular))
                     .foregroundStyle(.black.opacity(0.6))
                     
                     Spacer()
                     
                     Text("Share to #OPENTABLE")
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(.systemScaled(17, weight: .semibold))
                         .foregroundStyle(.black)
                     
                     Spacer()
@@ -3919,7 +3919,7 @@ struct ShareNoteToOpenTableSheet: View {
                                 .tint(.black)
                         } else {
                             Text("Post")
-                                .font(.system(size: 17, weight: .semibold))
+                                .font(.systemScaled(17, weight: .semibold))
                                 .foregroundStyle(.black)
                         }
                     }
@@ -3938,13 +3938,13 @@ struct ShareNoteToOpenTableSheet: View {
                         // Text editor for post content
                         VStack(alignment: .leading, spacing: 12) {
                             Text("Your Thoughts")
-                                .font(.system(size: 13, weight: .medium))
+                                .font(.systemScaled(13, weight: .medium))
                                 .foregroundStyle(.black.opacity(0.5))
                                 .textCase(.uppercase)
                                 .tracking(1)
                             
                             TextEditor(text: $postContent)
-                                .font(.system(size: 17, weight: .regular))
+                                .font(.systemScaled(17, weight: .regular))
                                 .foregroundStyle(.primary)
                                 .frame(minHeight: 120)
                                 .padding(12)
@@ -3960,7 +3960,7 @@ struct ShareNoteToOpenTableSheet: View {
                         // Note Preview
                         VStack(alignment: .leading, spacing: 16) {
                             Text("Note Preview")
-                                .font(.system(size: 13, weight: .medium))
+                                .font(.systemScaled(13, weight: .medium))
                                 .foregroundStyle(.black.opacity(0.5))
                                 .textCase(.uppercase)
                                 .tracking(1)
@@ -3968,16 +3968,16 @@ struct ShareNoteToOpenTableSheet: View {
                             VStack(alignment: .leading, spacing: 12) {
                                 // Title
                                 Text(note.title)
-                                    .font(.system(size: 20, weight: .bold))
+                                    .font(.systemScaled(20, weight: .bold))
                                     .foregroundStyle(.black)
                                 
                                 // Sermon info
                                 if let sermon = note.sermonTitle {
                                     HStack(spacing: 6) {
                                         Image(systemName: "mic.fill")
-                                            .font(.system(size: 12))
+                                            .font(.systemScaled(12))
                                         Text(sermon)
-                                            .font(.system(size: 14))
+                                            .font(.systemScaled(14))
                                     }
                                     .foregroundStyle(.black.opacity(0.6))
                                 }
@@ -3986,16 +3986,16 @@ struct ShareNoteToOpenTableSheet: View {
                                 if let scripture = note.scripture {
                                     HStack(spacing: 6) {
                                         Image(systemName: "book.fill")
-                                            .font(.system(size: 12))
+                                            .font(.systemScaled(12))
                                         Text(scripture)
-                                            .font(.system(size: 14, weight: .medium))
+                                            .font(.systemScaled(14, weight: .medium))
                                     }
                                     .foregroundStyle(.purple)
                                 }
                                 
                                 // Content preview
                                 Text(note.content)
-                                    .font(.system(size: 15))
+                                    .font(.systemScaled(15))
                                     .foregroundStyle(.black.opacity(0.8))
                                     .lineLimit(4)
                             }
@@ -4095,7 +4095,7 @@ struct ElegantChurchNotesFeedForChurchNotesView: View {
                 // Elegant header
                 VStack(spacing: 20) {
                     Text("SHARED NOTES")
-                        .font(.system(size: 11, weight: .semibold, design: .default))
+                        .font(.systemScaled(11, weight: .semibold, design: .default))
                         .tracking(2.5)
                         .foregroundStyle(Color.black.opacity(0.5))
                         .padding(.top, 32)
@@ -4108,7 +4108,7 @@ struct ElegantChurchNotesFeedForChurchNotesView: View {
                         .padding(.horizontal, 32)
                     
                     Text("Discover sermon insights, biblical teachings, and spiritual reflections shared by believers in our community.")
-                        .font(.system(size: 15, weight: .regular, design: .default))
+                        .font(.systemScaled(15, weight: .regular, design: .default))
                         .multilineTextAlignment(.center)
                         .lineSpacing(5)
                         .foregroundStyle(Color.black.opacity(0.55))
@@ -4126,18 +4126,18 @@ struct ElegantChurchNotesFeedForChurchNotesView: View {
                                 .frame(width: 120, height: 120)
                             
                             Image(systemName: "book.closed")
-                                .font(.system(size: 48, weight: .light))
+                                .font(.systemScaled(48, weight: .light))
                                 .foregroundStyle(Color.black.opacity(0.25))
                         }
                         .padding(.top, 80)
                         
                         VStack(spacing: 8) {
                             Text("No Shared Notes Yet")
-                                .font(.system(size: 22, weight: .medium, design: .default))
+                                .font(.systemScaled(22, weight: .medium, design: .default))
                                 .foregroundStyle(Color.black.opacity(0.7))
                             
                             Text("Be the first to share your sermon notes\nwith the community")
-                                .font(.system(size: 15, weight: .regular, design: .default))
+                                .font(.systemScaled(15, weight: .regular, design: .default))
                                 .foregroundStyle(Color.black.opacity(0.45))
                                 .multilineTextAlignment(.center)
                                 .lineSpacing(3)
@@ -4235,7 +4235,7 @@ struct ElegantChurchNoteCardForChurchNotesView: View {
                     .frame(width: 36, height: 36)
                 
                 Image(systemName: "note.text")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(.black.opacity(0.7))
             }
             
@@ -4254,7 +4254,7 @@ struct ElegantChurchNoteCardForChurchNotesView: View {
                         
                         if let churchName = note.churchName, !churchName.isEmpty {
                             Text("•")
-                                .font(.system(size: 11, weight: .medium))
+                                .font(.systemScaled(11, weight: .medium))
                                 .foregroundStyle(.black.opacity(0.3))
                             
                             Text(churchName)
@@ -4277,7 +4277,7 @@ struct ElegantChurchNoteCardForChurchNotesView: View {
             Spacer()
             
             Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(.black.opacity(0.25))
         }
         .padding(.horizontal, 16)
@@ -4377,7 +4377,7 @@ struct ElegantChurchNoteReadView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 17, weight: .medium))
+                            .font(.systemScaled(17, weight: .medium))
                             .foregroundStyle(Color.black.opacity(0.6))
                             .frame(width: 32, height: 32)
                     }
@@ -4388,7 +4388,7 @@ struct ElegantChurchNoteReadView: View {
                         showShareSheet = true
                     } label: {
                         Image(systemName: "square.and.arrow.up")
-                            .font(.system(size: 17, weight: .medium))
+                            .font(.systemScaled(17, weight: .medium))
                             .foregroundStyle(Color.black.opacity(0.6))
                             .frame(width: 32, height: 32)
                     }
@@ -4419,18 +4419,18 @@ struct ElegantChurchNoteReadView: View {
                                     .frame(width: 44, height: 44)
                                     .overlay(
                                         Text(post.authorInitials)
-                                            .font(.system(size: 15, weight: .medium))
+                                            .font(.systemScaled(15, weight: .medium))
                                             .foregroundStyle(Color.black.opacity(0.6))
                                     )
                             }
                             
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(post.authorName)
-                                    .font(.system(size: 15, weight: .medium))
+                                    .font(.systemScaled(15, weight: .medium))
                                     .foregroundStyle(Color.black.opacity(0.85))
                                 
                                 Text("Shared \(post.timeAgo)")
-                                    .font(.system(size: 13, weight: .regular))
+                                    .font(.systemScaled(13, weight: .regular))
                                     .foregroundStyle(Color.black.opacity(0.45))
                             }
                         }
@@ -4478,7 +4478,7 @@ struct ElegantChurchNoteReadView: View {
                         
                         // Content
                         Text(churchNote.content)
-                            .font(.system(size: 17, weight: .regular))
+                            .font(.systemScaled(17, weight: .regular))
                             .foregroundStyle(Color.black.opacity(0.8))
                             .lineSpacing(8)
                         
@@ -4487,7 +4487,7 @@ struct ElegantChurchNoteReadView: View {
                             FlowLayout(spacing: 8) {
                                 ForEach(churchNote.tags, id: \.self) { tag in
                                     Text("#\(tag)")
-                                        .font(.system(size: 14, weight: .medium))
+                                        .font(.systemScaled(14, weight: .medium))
                                         .foregroundStyle(Color.black.opacity(0.5))
                                         .padding(.horizontal, 12)
                                         .padding(.vertical, 6)
@@ -4521,7 +4521,7 @@ struct ElegantChurchNoteReadView: View {
                         } label: {
                             HStack(spacing: 6) {
                                 Image(systemName: hasAmenned ? "hands.clap.fill" : "hands.clap")
-                                    .font(.system(size: 16, weight: .semibold))
+                                    .font(.systemScaled(16, weight: .semibold))
                                     .foregroundStyle(hasAmenned ? .orange : .black.opacity(0.6))
                                 
                                 Text("AMEN")
@@ -4542,7 +4542,7 @@ struct ElegantChurchNoteReadView: View {
                         } label: {
                             HStack(spacing: 6) {
                                 Image(systemName: commentCount > 0 ? "bubble.left.fill" : "bubble.left")
-                                    .font(.system(size: 16, weight: .semibold))
+                                    .font(.systemScaled(16, weight: .semibold))
                                     .foregroundStyle(commentCount > 0 ? .blue : .black.opacity(0.6))
                                 
                                 Text("Comment")
@@ -4666,9 +4666,9 @@ struct ElegantWorshipSongsSection: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 5) {
                 Image(systemName: "music.note")
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.systemScaled(10, weight: .medium))
                 Text("WORSHIP")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.systemScaled(10, weight: .semibold))
                     .tracking(1.2)
             }
             .foregroundStyle(Color.black.opacity(0.35))
@@ -4717,7 +4717,7 @@ private struct ElegantWorshipSongRow: View {
                     .frame(width: 10, height: 10)
                     .overlay(
                         Text(isSpotify ? "S" : "♪")
-                            .font(.system(size: 5.5, weight: .black))
+                            .font(.systemScaled(5.5, weight: .black))
                             .foregroundStyle(.white)
                     )
                     .offset(x: 3, y: 3)
@@ -4725,11 +4725,11 @@ private struct ElegantWorshipSongRow: View {
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(song.title)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(Color.black.opacity(0.8))
                     .lineLimit(1)
                 Text(song.artist)
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(Color.black.opacity(0.4))
                     .lineLimit(1)
             }
@@ -4742,11 +4742,11 @@ private struct ElegantWorshipSongRow: View {
                         ProgressView().scaleEffect(0.6)
                     } else if isSpotify {
                         Image(systemName: "arrow.up.right")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.systemScaled(11, weight: .semibold))
                             .foregroundStyle(spotifyGreen)
                     } else {
                         Image(systemName: isPlaying ? "pause.fill" : "play.fill")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.systemScaled(11, weight: .semibold))
                             .foregroundStyle(isCurrentSong ? Color.purple : Color.black.opacity(0.5))
                     }
                 }
@@ -4776,7 +4776,7 @@ private struct ElegantWorshipSongRow: View {
             .fill(isSpotify ? spotifyGreen.opacity(0.1) : Color.purple.opacity(0.1))
             .overlay(
                 Image(systemName: isPlaying ? "waveform" : "music.note")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(isSpotify ? spotifyGreen : Color.purple.opacity(0.7))
                     .symbolEffect(.variableColor.iterative, isActive: isPlaying)
             )
@@ -4815,18 +4815,18 @@ struct ElegantMetadataRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 13, weight: .medium))
+                .font(.systemScaled(13, weight: .medium))
                 .foregroundStyle(Color.black.opacity(0.4))
                 .frame(width: 20)
             
             VStack(alignment: .leading, spacing: 2) {
                 Text(label.uppercased())
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .tracking(0.8)
                     .foregroundStyle(Color.black.opacity(0.4))
                 
                 Text(value)
-                    .font(.system(size: 15, weight: .regular))
+                    .font(.systemScaled(15, weight: .regular))
                     .foregroundStyle(Color.black.opacity(0.75))
             }
             
@@ -4912,7 +4912,7 @@ struct ShareWithFriendsSheet: View {
                     // Search Bar
                     HStack(spacing: 12) {
                         Image(systemName: "magnifyingglass")
-                            .font(.system(size: 16, weight: .medium))
+                            .font(.systemScaled(16, weight: .medium))
                             .foregroundStyle(.white.opacity(0.5))
                         
                         TextField("Search friends...", text: $searchText)
@@ -4926,7 +4926,7 @@ struct ShareWithFriendsSheet: View {
                                 searchText = ""
                             } label: {
                                 Image(systemName: "xmark.circle.fill")
-                                    .font(.system(size: 16))
+                                    .font(.systemScaled(16))
                                     .foregroundStyle(.white.opacity(0.5))
                             }
                         }
@@ -4965,7 +4965,7 @@ struct ShareWithFriendsSheet: View {
                     if followService.followingList.isEmpty {
                         VStack(spacing: 16) {
                             Image(systemName: "person.2.slash")
-                                .font(.system(size: 48))
+                                .font(.systemScaled(48))
                                 .foregroundStyle(.white.opacity(0.3))
                             
                             Text("No Friends Yet")
@@ -4982,7 +4982,7 @@ struct ShareWithFriendsSheet: View {
                     } else if filteredFriends.isEmpty {
                         VStack(spacing: 16) {
                             Image(systemName: "magnifyingglass")
-                                .font(.system(size: 48))
+                                .font(.systemScaled(48))
                                 .foregroundStyle(.white.opacity(0.3))
                             
                             Text("No Results")
@@ -5022,7 +5022,7 @@ struct ShareWithFriendsSheet: View {
                     
                     HStack(spacing: 12) {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 20))
+                            .font(.systemScaled(20))
                             .foregroundStyle(.green)
                         
                         Text("Note shared with \(selectedFriends.count) friend\(selectedFriends.count == 1 ? "" : "s")")
@@ -5167,7 +5167,7 @@ struct FriendSelectionRow: View {
                             .frame(width: 28, height: 28)
                         
                         Image(systemName: "checkmark")
-                            .font(.system(size: 14, weight: .bold))
+                            .font(.systemScaled(14, weight: .bold))
                             .foregroundStyle(.white)
                     }
                 }
@@ -5209,7 +5209,7 @@ struct MinimalTypographyHeader: View {
             // ── Title row ──────────────────────────────────────────────
             HStack(alignment: .firstTextBaseline) {
                 Text("Church Notes")
-                    .font(.system(size: isScrolled ? 22 : 34, weight: .semibold))
+                    .font(.systemScaled(isScrolled ? 22 : 34, weight: .semibold))
                     .foregroundStyle(.primary)
                     .tracking(-0.5)
                     .animation(.spring(response: 0.36, dampingFraction: 0.82), value: isScrolled)
@@ -5225,7 +5225,7 @@ struct MinimalTypographyHeader: View {
                     UISelectionFeedbackGenerator().selectionChanged()
                 } label: {
                     Image(systemName: isSearching ? "xmark" : "magnifyingglass")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(.primary)
                         .frame(width: 34, height: 34)
                         .background(
@@ -5244,7 +5244,7 @@ struct MinimalTypographyHeader: View {
                     showSemanticSearch = true
                 } label: {
                     Image(systemName: "sparkle.magnifyingglass")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(.purple)
                         .frame(width: 34, height: 34)
                         .background(
@@ -5273,7 +5273,7 @@ struct MinimalTypographyHeader: View {
                 // New note
                 Button(action: onNewNote) {
                     Image(systemName: "plus")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(.primary)
                         .frame(width: 34, height: 34)
                         .background(
@@ -5293,7 +5293,7 @@ struct MinimalTypographyHeader: View {
             // ── Subtitle (collapses on scroll) ─────────────────────────
             if !isScrolled {
                 Text("Capture sermon insights, reflections, and scriptures.")
-                    .font(.system(size: 15, weight: .regular))
+                    .font(.systemScaled(15, weight: .regular))
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 20)
@@ -5305,11 +5305,11 @@ struct MinimalTypographyHeader: View {
             if isSearching || !searchText.isEmpty {
                 HStack(spacing: 10) {
                     Image(systemName: "magnifyingglass")
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.systemScaled(15, weight: .medium))
                         .foregroundStyle(.secondary)
 
                     TextField("Search notes, scriptures…", text: $searchText)
-                        .font(.system(size: 16))
+                        .font(.systemScaled(16))
                         .foregroundStyle(.primary)
                         .tint(.primary)
 
@@ -5318,7 +5318,7 @@ struct MinimalTypographyHeader: View {
                             searchText = ""
                         } label: {
                             Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 16))
+                                .font(.systemScaled(16))
                                 .foregroundStyle(.secondary)
                         }
                         .transition(.scale.combined(with: .opacity))
@@ -5350,7 +5350,7 @@ struct MinimalTypographyHeader: View {
                             UISelectionFeedbackGenerator().selectionChanged()
                         } label: {
                             Text(filter.rawValue)
-                                .font(.system(size: 13, weight: isActive ? .semibold : .regular))
+                                .font(.systemScaled(13, weight: isActive ? .semibold : .regular))
                                 .foregroundStyle(isActive ? Color.primary : Color.secondary)
                                 .padding(.horizontal, 14)
                                 .padding(.vertical, 8)
@@ -5448,14 +5448,14 @@ struct MinimalNoteRow: View {
                 // ── Left: title + sermon context
                 VStack(alignment: .leading, spacing: 6) {
                     Text(note.title)
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(.systemScaled(17, weight: .semibold))
                         .foregroundStyle(.primary)
                         .multilineTextAlignment(.leading)
                         .frame(maxWidth: .infinity, alignment: .leading)
 
                     if let sermonTitle = note.sermonTitle, !sermonTitle.isEmpty {
                         Text(sermonTitle)
-                            .font(.system(size: 14, weight: .regular))
+                            .font(.systemScaled(14, weight: .regular))
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
@@ -5465,7 +5465,7 @@ struct MinimalNoteRow: View {
                         HStack(spacing: 4) {
                             ForEach(note.tags.prefix(3), id: \.self) { tag in
                                 Text(tag)
-                                    .font(.system(size: 11, weight: .medium))
+                                    .font(.systemScaled(11, weight: .medium))
                                     .foregroundStyle(.secondary)
                                     .padding(.horizontal, 8)
                                     .padding(.vertical, 3)
@@ -5488,19 +5488,19 @@ struct MinimalNoteRow: View {
                         showShareSheet = true
                     } label: {
                         Image(systemName: "square.and.arrow.up")
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.systemScaled(14, weight: .medium))
                             .foregroundStyle(.secondary)
                             .frame(width: 28, height: 28)
                     }
                     .buttonStyle(PlainButtonStyle())
 
                     Text(note.date.formatted(.dateTime.month(.abbreviated).day()))
-                        .font(.system(size: 13, weight: .regular))
+                        .font(.systemScaled(13, weight: .regular))
                         .foregroundStyle(.secondary)
 
                     if note.isFavorite {
                         Image(systemName: "star.fill")
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                             .foregroundStyle(Color.cnGold)
                     }
                 }
@@ -5559,7 +5559,7 @@ struct MinimalLoadingView: View {
                 .scaleEffect(1.1)
 
             Text("Loading notes…")
-                .font(.system(size: 15, weight: .regular))
+                .font(.systemScaled(15, weight: .regular))
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -5588,7 +5588,7 @@ struct MinimalEmptyState: View {
                     .shadow(color: .black.opacity(0.05), radius: 12, y: 4)
 
                 Image(systemName: hasSearch ? "magnifyingglass" : "note.text")
-                    .font(.system(size: 32, weight: .light))
+                    .font(.systemScaled(32, weight: .light))
                     .foregroundStyle(.secondary)
             }
             .scaleEffect(appeared ? 1.0 : 0.82)
@@ -5596,12 +5596,12 @@ struct MinimalEmptyState: View {
 
             VStack(spacing: 10) {
                 Text(emptyTitle)
-                    .font(.system(size: 24, weight: .semibold))
+                    .font(.systemScaled(24, weight: .semibold))
                     .foregroundStyle(.primary)
                     .tracking(-0.3)
 
                 Text(emptySubtitle)
-                    .font(.system(size: 16, weight: .regular))
+                    .font(.systemScaled(16, weight: .regular))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .lineSpacing(3)
@@ -5613,7 +5613,7 @@ struct MinimalEmptyState: View {
             if !hasSearch && filterType == .all {
                 Button(action: onCreateNote) {
                     Text("Create First Note")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(.primary)
                         .padding(.horizontal, 28)
                         .padding(.vertical, 14)
@@ -5702,13 +5702,13 @@ struct MinimalNewNoteSheet: View {
                     Button("Cancel") {
                         dismiss()
                     }
-                    .font(.system(size: 17, weight: .regular))
+                    .font(.systemScaled(17, weight: .regular))
                     .foregroundStyle(.secondary)
 
                     Spacer()
 
                     Text("New Note")
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(.systemScaled(17, weight: .semibold))
                         .foregroundStyle(.primary)
 
                     Spacer()
@@ -5721,7 +5721,7 @@ struct MinimalNewNoteSheet: View {
                                 .tint(.primary)
                         } else {
                             Text("Save")
-                                .font(.system(size: 17, weight: .semibold))
+                                .font(.systemScaled(17, weight: .semibold))
                                 .foregroundStyle(canSave ? .primary : Color.primary.opacity(0.3))
                         }
                     }
@@ -5739,7 +5739,7 @@ struct MinimalNewNoteSheet: View {
                     VStack(alignment: .leading, spacing: 24) {
                         // Title field (large)
                         TextField("Note Title", text: $title)
-                            .font(.system(size: 32, weight: .medium))
+                            .font(.systemScaled(32, weight: .medium))
                             .foregroundStyle(.black)
                             .tint(.black)
                             .padding(.horizontal, 20)
@@ -5748,7 +5748,7 @@ struct MinimalNewNoteSheet: View {
                         // Sermon context (collapsible section)
                         VStack(alignment: .leading, spacing: 16) {
                             Text("Sermon Context")
-                                .font(.system(size: 13, weight: .medium))
+                                .font(.systemScaled(13, weight: .medium))
                                 .foregroundStyle(.black.opacity(0.5))
                                 .textCase(.uppercase)
                                 .tracking(1)
@@ -5762,7 +5762,7 @@ struct MinimalNewNoteSheet: View {
                                 // Date picker
                                 HStack {
                                     Image(systemName: "calendar")
-                                        .font(.system(size: 16))
+                                        .font(.systemScaled(16))
                                         .foregroundStyle(.black.opacity(0.4))
                                         .frame(width: 24)
                                     
@@ -5787,7 +5787,7 @@ struct MinimalNewNoteSheet: View {
                         // Scripture
                         VStack(alignment: .leading, spacing: 12) {
                             Text("Scripture Reference")
-                                .font(.system(size: 13, weight: .medium))
+                                .font(.systemScaled(13, weight: .medium))
                                 .foregroundStyle(.black.opacity(0.5))
                                 .textCase(.uppercase)
                                 .tracking(1)
@@ -5800,7 +5800,7 @@ struct MinimalNewNoteSheet: View {
                         VStack(alignment: .leading, spacing: 12) {
                             HStack {
                                 Text("Your Notes")
-                                    .font(.system(size: 13, weight: .medium))
+                                    .font(.systemScaled(13, weight: .medium))
                                     .foregroundStyle(.black.opacity(0.5))
                                     .textCase(.uppercase)
                                     .tracking(1)
@@ -5817,9 +5817,9 @@ struct MinimalNewNoteSheet: View {
                                 } label: {
                                     HStack(spacing: 6) {
                                         Image(systemName: showingToolbar ? "textformat" : "textformat")
-                                            .font(.system(size: 12, weight: .medium))
+                                            .font(.systemScaled(12, weight: .medium))
                                         Text(showingToolbar ? "Hide" : "Format")
-                                            .font(.system(size: 12, weight: .medium))
+                                            .font(.systemScaled(12, weight: .medium))
                                     }
                                     .foregroundStyle(.black.opacity(0.5))
                                     .padding(.horizontal, 10)
@@ -5856,7 +5856,7 @@ struct MinimalNewNoteSheet: View {
                             ZStack(alignment: .topLeading) {
                                 if content.isEmpty {
                                     Text("Start writing…")
-                                        .font(.system(size: 17, weight: .regular))
+                                        .font(.systemScaled(17, weight: .regular))
                                         .foregroundStyle(.tertiary)
                                         .padding(.horizontal, 36)
                                         .padding(.vertical, 30)
@@ -5892,7 +5892,7 @@ struct MinimalNewNoteSheet: View {
                         VStack(alignment: .leading, spacing: 12) {
                             HStack {
                                 Text("Worship Music")
-                                    .font(.system(size: 13, weight: .medium))
+                                    .font(.systemScaled(13, weight: .medium))
                                     .foregroundStyle(.black.opacity(0.5))
                                     .textCase(.uppercase)
                                     .tracking(1)
@@ -5902,9 +5902,9 @@ struct MinimalNewNoteSheet: View {
                                 } label: {
                                     HStack(spacing: 4) {
                                         Image(systemName: "plus")
-                                            .font(.system(size: 12, weight: .semibold))
+                                            .font(.systemScaled(12, weight: .semibold))
                                         Text("Add Song")
-                                            .font(.system(size: 12, weight: .medium))
+                                            .font(.systemScaled(12, weight: .medium))
                                     }
                                     .foregroundStyle(.black.opacity(0.6))
                                     .padding(.horizontal, 10)
@@ -5918,10 +5918,10 @@ struct MinimalNewNoteSheet: View {
                             if worshipSongs.isEmpty {
                                 HStack(spacing: 8) {
                                     Image(systemName: "music.note")
-                                        .font(.system(size: 14))
+                                        .font(.systemScaled(14))
                                         .foregroundStyle(.secondary)
                                     Text("Add worship songs from this sermon")
-                                        .font(.system(size: 14))
+                                        .font(.systemScaled(14))
                                         .foregroundStyle(.secondary)
                                 }
                                 .frame(maxWidth: .infinity)
@@ -5938,18 +5938,18 @@ struct MinimalNewNoteSheet: View {
                                     ForEach(worshipSongs) { song in
                                         HStack(spacing: 12) {
                                             Image(systemName: "music.note")
-                                                .font(.system(size: 14))
+                                                .font(.systemScaled(14))
                                                 .foregroundStyle(.secondary)
                                                 .frame(width: 32, height: 32)
                                                 .background(Color.black.opacity(0.05))
                                                 .clipShape(RoundedRectangle(cornerRadius: 6))
                                             VStack(alignment: .leading, spacing: 2) {
                                                 Text(song.title)
-                                                    .font(.system(size: 14, weight: .medium))
+                                                    .font(.systemScaled(14, weight: .medium))
                                                     .foregroundStyle(.primary)
                                                     .lineLimit(1)
                                                 Text(song.artist)
-                                                    .font(.system(size: 12))
+                                                    .font(.systemScaled(12))
                                                     .foregroundStyle(.secondary)
                                                     .lineLimit(1)
                                             }
@@ -5958,7 +5958,7 @@ struct MinimalNewNoteSheet: View {
                                                 worshipSongs.removeAll { $0.id == song.id }
                                             } label: {
                                                 Image(systemName: "xmark")
-                                                    .font(.system(size: 12, weight: .medium))
+                                                    .font(.systemScaled(12, weight: .medium))
                                                     .foregroundStyle(.secondary)
                                                     .frame(width: 28, height: 28)
                                                     .background(Color.black.opacity(0.05))
@@ -6125,12 +6125,12 @@ struct MinimalTextField: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .foregroundStyle(.secondary)
                 .frame(width: 22)
 
             TextField(placeholder, text: $text)
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
                 .foregroundStyle(.primary)
                 .tint(.primary)
         }
@@ -6176,7 +6176,7 @@ struct MinimalNoteDetailSheet: View {
                         dismiss()
                     } label: {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 20, weight: .medium))
+                            .font(.systemScaled(20, weight: .medium))
                             .foregroundStyle(.black)
                     }
                     
@@ -6189,7 +6189,7 @@ struct MinimalNoteDetailSheet: View {
                             }
                         } label: {
                             Image(systemName: note.isFavorite ? "star.fill" : "star")
-                                .font(.system(size: 20))
+                                .font(.systemScaled(20))
                                 .foregroundStyle(.black)
                         }
                         
@@ -6213,7 +6213,7 @@ struct MinimalNoteDetailSheet: View {
                             }
                         } label: {
                             Image(systemName: "ellipsis")
-                                .font(.system(size: 20, weight: .medium))
+                                .font(.systemScaled(20, weight: .medium))
                                 .foregroundStyle(.black)
                         }
                     }
@@ -6230,7 +6230,7 @@ struct MinimalNoteDetailSheet: View {
                     VStack(alignment: .leading, spacing: 24) {
                         // Title
                         Text(note.title)
-                            .font(.system(size: 38, weight: .medium))
+                            .font(.systemScaled(38, weight: .medium))
                             .foregroundStyle(.black)
                             .tracking(-1)
                             .padding(.horizontal, 20)
@@ -6276,15 +6276,15 @@ struct MinimalNoteDetailSheet: View {
                             } label: {
                                 HStack(spacing: 12) {
                                     Image(systemName: "sparkles")
-                                        .font(.system(size: 16, weight: .semibold))
+                                        .font(.systemScaled(16, weight: .semibold))
                                     
                                     Text("AI Insights")
-                                        .font(.system(size: 16, weight: .semibold))
+                                        .font(.systemScaled(16, weight: .semibold))
                                     
                                     Spacer()
                                     
                                     Image(systemName: showAISection ? "chevron.up" : "chevron.down")
-                                        .font(.system(size: 14, weight: .medium))
+                                        .font(.systemScaled(14, weight: .medium))
                                 }
                                 .foregroundStyle(.purple)
                                 .padding(16)
@@ -6303,9 +6303,9 @@ struct MinimalNoteDetailSheet: View {
                                 VStack(alignment: .leading, spacing: 12) {
                                     HStack {
                                         Image(systemName: "brain.head.profile")
-                                            .font(.system(size: 14, weight: .semibold))
+                                            .font(.systemScaled(14, weight: .semibold))
                                         Text("AI Summary")
-                                            .font(.system(size: 15, weight: .semibold))
+                                            .font(.systemScaled(15, weight: .semibold))
                                         
                                         if isGeneratingSummary {
                                             Spacer()
@@ -6320,10 +6320,10 @@ struct MinimalNoteDetailSheet: View {
                                             // Main Theme
                                             VStack(alignment: .leading, spacing: 4) {
                                                 Text("Main Theme")
-                                                    .font(.system(size: 13, weight: .medium))
+                                                    .font(.systemScaled(13, weight: .medium))
                                                     .foregroundStyle(.black.opacity(0.5))
                                                 Text(summary.mainTheme)
-                                                    .font(.system(size: 15, weight: .regular))
+                                                    .font(.systemScaled(15, weight: .regular))
                                                     .foregroundStyle(.black)
                                             }
                                             
@@ -6331,14 +6331,14 @@ struct MinimalNoteDetailSheet: View {
                                             if !summary.keyPoints.isEmpty {
                                                 VStack(alignment: .leading, spacing: 6) {
                                                     Text("Key Points")
-                                                        .font(.system(size: 13, weight: .medium))
+                                                        .font(.systemScaled(13, weight: .medium))
                                                         .foregroundStyle(.black.opacity(0.5))
                                                     ForEach(summary.keyPoints, id: \.self) { point in
                                                         HStack(alignment: .top, spacing: 8) {
                                                             Text("•")
-                                                                .font(.system(size: 15, weight: .bold))
+                                                                .font(.systemScaled(15, weight: .bold))
                                                             Text(point)
-                                                                .font(.system(size: 14, weight: .regular))
+                                                                .font(.systemScaled(14, weight: .regular))
                                                         }
                                                         .foregroundStyle(.black)
                                                     }
@@ -6349,15 +6349,15 @@ struct MinimalNoteDetailSheet: View {
                                             if !summary.actionSteps.isEmpty {
                                                 VStack(alignment: .leading, spacing: 6) {
                                                     Text("Action Steps")
-                                                        .font(.system(size: 13, weight: .medium))
+                                                        .font(.systemScaled(13, weight: .medium))
                                                         .foregroundStyle(.black.opacity(0.5))
                                                     ForEach(summary.actionSteps, id: \.self) { step in
                                                         HStack(alignment: .top, spacing: 8) {
                                                             Image(systemName: "checkmark.circle.fill")
-                                                                .font(.system(size: 12))
+                                                                .font(.systemScaled(12))
                                                                 .foregroundStyle(.green)
                                                             Text(step)
-                                                                .font(.system(size: 14, weight: .regular))
+                                                                .font(.systemScaled(14, weight: .regular))
                                                                 .foregroundStyle(.black)
                                                         }
                                                     }
@@ -6375,7 +6375,7 @@ struct MinimalNoteDetailSheet: View {
                                         )
                                     } else if !isGeneratingSummary {
                                         Text("Failed to generate summary")
-                                            .font(.system(size: 14, weight: .regular))
+                                            .font(.systemScaled(14, weight: .regular))
                                             .foregroundStyle(.black.opacity(0.5))
                                             .italic()
                                     }
@@ -6386,9 +6386,9 @@ struct MinimalNoteDetailSheet: View {
                                     VStack(alignment: .leading, spacing: 12) {
                                         HStack {
                                             Image(systemName: "book.closed.fill")
-                                                .font(.system(size: 14, weight: .semibold))
+                                                .font(.systemScaled(14, weight: .semibold))
                                             Text("Related Scripture")
-                                                .font(.system(size: 15, weight: .semibold))
+                                                .font(.systemScaled(15, weight: .semibold))
                                         }
                                         .foregroundStyle(.black.opacity(0.8))
                                         
@@ -6396,10 +6396,10 @@ struct MinimalNoteDetailSheet: View {
                                             ForEach(scriptureReferences.prefix(5)) { reference in
                                                 VStack(alignment: .leading, spacing: 4) {
                                                     Text(reference.verse)
-                                                        .font(.system(size: 14, weight: .semibold))
+                                                        .font(.systemScaled(14, weight: .semibold))
                                                         .foregroundStyle(.blue)
                                                     Text(reference.description)
-                                                        .font(.system(size: 13, weight: .regular))
+                                                        .font(.systemScaled(13, weight: .regular))
                                                         .foregroundStyle(.black.opacity(0.7))
                                                 }
                                                 .padding(10)
@@ -6418,9 +6418,9 @@ struct MinimalNoteDetailSheet: View {
                                 } else if isLoadingScripture {
                                     HStack {
                                         Image(systemName: "book.closed.fill")
-                                            .font(.system(size: 14, weight: .semibold))
+                                            .font(.systemScaled(14, weight: .semibold))
                                         Text("Loading related scripture...")
-                                            .font(.system(size: 15, weight: .semibold))
+                                            .font(.systemScaled(15, weight: .semibold))
                                         Spacer()
                                         ProgressView()
                                             .scaleEffect(0.8)
@@ -6435,7 +6435,7 @@ struct MinimalNoteDetailSheet: View {
                         
                         // Content
                         Text(note.content)
-                            .font(.system(size: 17, weight: .regular))
+                            .font(.systemScaled(17, weight: .regular))
                             .foregroundStyle(.black)
                             .lineSpacing(6)
                             .padding(.horizontal, 20)
@@ -6646,12 +6646,12 @@ struct MinimalMetadataRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Text(label)
-                .font(.system(size: 15, weight: .regular))
+                .font(.systemScaled(15, weight: .regular))
                 .foregroundStyle(.black.opacity(0.5))
                 .frame(width: 80, alignment: .leading)
             
             Text(value)
-                .font(.system(size: 15, weight: .regular))
+                .font(.systemScaled(15, weight: .regular))
                 .foregroundStyle(.black)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -6786,7 +6786,7 @@ struct FormattingButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: option.icon)
-                .font(.system(size: 16, weight: .medium))
+                .font(.systemScaled(16, weight: .medium))
                 .foregroundStyle(isSelected ? .white : .black.opacity(0.6))
                 .frame(width: 36, height: 36)
                 .background(

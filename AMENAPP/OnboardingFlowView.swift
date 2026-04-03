@@ -104,10 +104,12 @@ struct OnboardingFlowView: View {
     private func saveOnboardingData() {
         guard let uid = Auth.auth().currentUser?.uid else { return }
         var data: [String: Any] = [
-            "hasCompletedOnboarding": true,  // Use consistent field name
-            "onboardingCompleted": true,      // Keep legacy field for backwards compatibility
+            "hasCompletedOnboarding": true,  // Primary flag — checked by checkOnboardingStatus()
+            "onboardingCompleted": true,      // Legacy field — some older code reads this
+            "onboardingComplete": true,       // Third variant present in some paths — set all three
             "onboardingCompletedAt": Timestamp(date: Date()),
             "notificationsOptedIn": notificationsOptedIn,
+            "schemaVersion": 1,
         ]
         if !selectedInterests.isEmpty { data["interests"] = Array(selectedInterests) }
         if !selectedFaithStage.isEmpty { data["faithStage"] = selectedFaithStage }
@@ -268,7 +270,7 @@ private struct OnboardingAgeSlide: View {
         ZStack {
             // Subtle AMEN watermark
             Text("AMEN")
-                .font(.system(size: 200, weight: .black))
+                .font(.systemScaled(200, weight: .black))
                 .tracking(24)
                 .foregroundStyle(Color.black.opacity(0.03))
                 .offset(y: 40)
@@ -284,7 +286,7 @@ private struct OnboardingAgeSlide: View {
                             .fill(Color.black.opacity(0.06))
                             .frame(width: 80, height: 80)
                         Image(systemName: "person.badge.shield.checkmark.fill")
-                            .font(.system(size: 34, weight: .medium))
+                            .font(.systemScaled(34, weight: .medium))
                             .foregroundStyle(Color.black.opacity(0.75))
                     }
                     .scaleEffect(appeared ? 1 : 0.7)
@@ -323,7 +325,7 @@ private struct OnboardingAgeSlide: View {
                                     .foregroundStyle(hasSelectedDate ? Color.black.opacity(0.85) : Color.black.opacity(0.45))
                                 Spacer()
                                 Image(systemName: showPicker ? "chevron.up" : "chevron.down")
-                                    .font(.system(size: 13, weight: .medium))
+                                    .font(.systemScaled(13, weight: .medium))
                                     .foregroundStyle(Color.black.opacity(0.4))
                                     .animation(.easeInOut(duration: 0.2), value: showPicker)
                             }
@@ -410,7 +412,7 @@ private struct OnboardingTermsSlide: View {
         ZStack {
             // Watermark
             Text("AMEN")
-                .font(.system(size: 200, weight: .black))
+                .font(.systemScaled(200, weight: .black))
                 .tracking(24)
                 .foregroundStyle(Color.black.opacity(0.03))
                 .offset(y: 40)
@@ -424,7 +426,7 @@ private struct OnboardingTermsSlide: View {
                             .fill(Color.black.opacity(0.06))
                             .frame(width: 64, height: 64)
                         Image(systemName: "doc.text.fill")
-                            .font(.system(size: 28, weight: .medium))
+                            .font(.systemScaled(28, weight: .medium))
                             .foregroundStyle(Color.black.opacity(0.7))
                     }
                     .scaleEffect(appeared ? 1 : 0.7)
@@ -456,16 +458,16 @@ private struct OnboardingTermsSlide: View {
                                         .fill(Color.black.opacity(0.07))
                                         .frame(width: 40, height: 40)
                                     Image(systemName: term.icon)
-                                        .font(.system(size: 17, weight: .medium))
+                                        .font(.systemScaled(17, weight: .medium))
                                         .foregroundStyle(Color.black.opacity(0.65))
                                 }
 
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text(term.title)
-                                        .font(.system(size: 14, weight: .semibold))
+                                        .font(.systemScaled(14, weight: .semibold))
                                         .foregroundStyle(Color.black.opacity(0.82))
                                     Text(term.detail)
-                                        .font(.system(size: 12, weight: .regular))
+                                        .font(.systemScaled(12, weight: .regular))
                                         .foregroundStyle(Color.black.opacity(0.5))
                                         .fixedSize(horizontal: false, vertical: true)
                                         .lineSpacing(2)
@@ -537,13 +539,13 @@ private struct OnboardingTermsSlide: View {
                                     )
                                 if agreed {
                                     Image(systemName: "checkmark")
-                                        .font(.system(size: 13, weight: .bold))
+                                        .font(.systemScaled(13, weight: .bold))
                                         .foregroundStyle(.white)
                                         .transition(.scale.combined(with: .opacity))
                                 }
                             }
                             Text("I agree to the Community Standards & Terms of Service")
-                                .font(.system(size: 13, weight: .medium))
+                                .font(.systemScaled(13, weight: .medium))
                                 .foregroundStyle(Color.black.opacity(0.7))
                                 .multilineTextAlignment(.leading)
                             Spacer()
@@ -623,7 +625,7 @@ private struct OnboardingPrivacySlide: View {
         ZStack {
             // Watermark
             Text("AMEN")
-                .font(.system(size: 200, weight: .black))
+                .font(.systemScaled(200, weight: .black))
                 .tracking(24)
                 .foregroundStyle(Color.black.opacity(0.03))
                 .offset(y: 40)
@@ -637,7 +639,7 @@ private struct OnboardingPrivacySlide: View {
                             .fill(Color.black.opacity(0.06))
                             .frame(width: 64, height: 64)
                         Image(systemName: "lock.shield.fill")
-                            .font(.system(size: 28, weight: .medium))
+                            .font(.systemScaled(28, weight: .medium))
                             .foregroundStyle(Color.black.opacity(0.7))
                     }
                     .scaleEffect(appeared ? 1 : 0.7)
@@ -655,8 +657,8 @@ private struct OnboardingPrivacySlide: View {
                     HStack(spacing: 8) {
                         ForEach([("lock.fill", "Encrypted"), ("eye.slash.fill", "Not sold"), ("hand.raised.fill", "Minimal")], id: \.1) { icon, label in
                             HStack(spacing: 4) {
-                                Image(systemName: icon).font(.system(size: 9, weight: .semibold))
-                                Text(label).font(.system(size: 10, weight: .semibold))
+                                Image(systemName: icon).font(.systemScaled(9, weight: .semibold))
+                                Text(label).font(.systemScaled(10, weight: .semibold))
                             }
                             .foregroundStyle(Color.black.opacity(0.6))
                             .padding(.horizontal, 9)
@@ -679,19 +681,19 @@ private struct OnboardingPrivacySlide: View {
                                         .fill(point.color.opacity(0.10))
                                         .frame(width: 40, height: 40)
                                     Image(systemName: point.icon)
-                                        .font(.system(size: 17, weight: .medium))
+                                        .font(.systemScaled(17, weight: .medium))
                                         .foregroundStyle(point.color)
                                 }
 
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text(point.category)
-                                        .font(.system(size: 13, weight: .bold))
+                                        .font(.systemScaled(13, weight: .bold))
                                         .foregroundStyle(Color.black.opacity(0.82))
                                     Text(point.what)
-                                        .font(.system(size: 11, weight: .medium))
+                                        .font(.systemScaled(11, weight: .medium))
                                         .foregroundStyle(point.color.opacity(0.8))
                                     Text(point.why)
-                                        .font(.system(size: 11, weight: .regular))
+                                        .font(.systemScaled(11, weight: .regular))
                                         .foregroundStyle(Color.black.opacity(0.48))
                                         .fixedSize(horizontal: false, vertical: true)
                                         .lineSpacing(2)
@@ -744,13 +746,13 @@ private struct OnboardingPrivacySlide: View {
                                     )
                                 if acknowledged {
                                     Image(systemName: "checkmark")
-                                        .font(.system(size: 13, weight: .bold))
+                                        .font(.systemScaled(13, weight: .bold))
                                         .foregroundStyle(.white)
                                         .transition(.scale.combined(with: .opacity))
                                 }
                             }
                             Text("I understand how AMEN uses my data")
-                                .font(.system(size: 13, weight: .medium))
+                                .font(.systemScaled(13, weight: .medium))
                                 .foregroundStyle(Color.black.opacity(0.7))
                             Spacer()
                         }
@@ -871,7 +873,7 @@ private struct OnboardingSlide2: View {
                         ForEach(Array(sections.enumerated()), id: \.element.title) { sIdx, section in
                             VStack(alignment: .leading, spacing: 10) {
                                 Text(section.title.uppercased())
-                                    .font(.system(size: 10, weight: .semibold))
+                                    .font(.systemScaled(10, weight: .semibold))
                                     .tracking(1.2)
                                     .foregroundStyle(Color.black.opacity(0.42))
                                     .padding(.leading, 4)
@@ -958,7 +960,7 @@ private struct OnboardingSlide3: View {
                             } label: {
                                 HStack(spacing: 14) {
                                     Image(systemName: stage.icon)
-                                        .font(.system(size: 20, weight: .medium))
+                                        .font(.systemScaled(20, weight: .medium))
                                         .foregroundStyle(selectedFaithStage == stage.value ? Color.white : Color.black.opacity(0.56))
                                         .frame(width: 28)
 
@@ -1041,7 +1043,7 @@ private struct OnboardingSlide4: View {
                             .shadow(color: .black.opacity(0.08), radius: 24, x: 0, y: 10)
 
                         Image(systemName: "bell.fill")
-                            .font(.system(size: 52, weight: .medium))
+                            .font(.systemScaled(52, weight: .medium))
                             .foregroundColor(Color.black.opacity(0.82))
                             .rotationEffect(.degrees(bellWiggle))
                     }
@@ -1133,7 +1135,7 @@ private struct OnboardingUsernameSlide: View {
         ZStack {
             // Subtle AMEN watermark
             Text("AMEN")
-                .font(.system(size: 200, weight: .black))
+                .font(.systemScaled(200, weight: .black))
                 .tracking(24)
                 .foregroundStyle(Color.black.opacity(0.03))
                 .offset(y: 40)
@@ -1149,7 +1151,7 @@ private struct OnboardingUsernameSlide: View {
                             .fill(Color.black.opacity(0.06))
                             .frame(width: 80, height: 80)
                         Image(systemName: "at.circle.fill")
-                            .font(.system(size: 34, weight: .medium))
+                            .font(.systemScaled(34, weight: .medium))
                             .foregroundStyle(Color.black.opacity(0.75))
                     }
                     .scaleEffect(appeared ? 1 : 0.7)
@@ -1208,21 +1210,21 @@ private struct OnboardingUsernameSlide: View {
                                     .foregroundStyle(Color.black.opacity(0.5))
                             } else if let error = usernameError {
                                 Image(systemName: "exclamationmark.triangle.fill")
-                                    .font(.system(size: 12))
+                                    .font(.systemScaled(12))
                                     .foregroundStyle(.orange)
                                 Text(error)
                                     .font(.caption)
                                     .foregroundStyle(.orange)
                             } else if usernameAvailable == true {
                                 Image(systemName: "checkmark.circle.fill")
-                                    .font(.system(size: 12))
+                                    .font(.systemScaled(12))
                                     .foregroundStyle(.green)
                                 Text("Username available")
                                     .font(.caption)
                                     .foregroundStyle(.green)
                             } else if !username.isEmpty && usernameAvailable == false {
                                 Image(systemName: "xmark.circle.fill")
-                                    .font(.system(size: 12))
+                                    .font(.systemScaled(12))
                                     .foregroundStyle(.red)
                                 Text("Username taken")
                                     .font(.caption)
@@ -1383,7 +1385,7 @@ private struct OnboardingSlide5: View {
                     Spacer()
                     VStack(spacing: 12) {
                         Image(systemName: "person.3")
-                            .font(.system(size: 44))
+                            .font(.systemScaled(44))
                             .foregroundStyle(Color.black.opacity(0.22))
                         Text("Your community is on its way")
                             .font(.subheadline.weight(.medium))
@@ -1482,7 +1484,7 @@ private struct OnboardingWatermarkBackground: View {
     var body: some View {
         ZStack {
             Text("AMEN")
-                .font(.system(size: 200, weight: .black))
+                .font(.systemScaled(200, weight: .black))
                 .tracking(24)
                 .foregroundStyle(Color.black.opacity(0.03))
                 .offset(y: 40)
@@ -1583,10 +1585,10 @@ private struct OnboardingInterestChip: View {
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: icon)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(isSelected ? Color.white : Color.black.opacity(isDisabled ? 0.22 : 0.70))
                 Text(text)
-                    .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                    .font(.systemScaled(13, weight: isSelected ? .semibold : .regular))
                     .foregroundStyle(isSelected ? Color.white : Color.black.opacity(isDisabled ? 0.28 : 0.84))
                     .lineLimit(1)
             }

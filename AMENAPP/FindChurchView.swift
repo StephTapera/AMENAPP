@@ -1206,24 +1206,24 @@ struct FindChurchView: View {
                                                             .frame(width: 44, height: 44)
                                                         
                                                         Image(systemName: "sparkles")
-                                                            .font(.system(size: 20, weight: .semibold))
+                                                            .font(.systemScaled(20, weight: .semibold))
                                                             .foregroundStyle(.white)
                                                     }
                                                     
                                                     VStack(alignment: .leading, spacing: 3) {
                                                         Text("AI Recommendations")
-                                                            .font(.system(size: 16, weight: .semibold))
+                                                            .font(.systemScaled(16, weight: .semibold))
                                                             .foregroundStyle(Color(red: 0.2, green: 0.2, blue: 0.2))
                                                         
                                                         Text("Personalized matches for you")
-                                                            .font(.system(size: 13, weight: .regular))
+                                                            .font(.systemScaled(13, weight: .regular))
                                                             .foregroundStyle(Color(red: 0.5, green: 0.5, blue: 0.5))
                                                     }
                                                     
                                                     Spacer()
                                                     
                                                     Image(systemName: showAIRecommendations ? "chevron.up" : "chevron.down")
-                                                        .font(.system(size: 14, weight: .medium))
+                                                        .font(.systemScaled(14, weight: .medium))
                                                         .foregroundStyle(Color(red: 0.4, green: 0.4, blue: 0.4))
                                                 }
                                                 .padding(16)
@@ -1270,7 +1270,7 @@ struct FindChurchView: View {
                                                     .transition(.opacity.combined(with: .move(edge: .top)))
                                                 } else {
                                                     Text("No AI recommendations available")
-                                                        .font(.system(size: 14, weight: .regular))
+                                                        .font(.systemScaled(14, weight: .regular))
                                                         .foregroundStyle(Color(red: 0.5, green: 0.5, blue: 0.5))
                                                         .italic()
                                                         .padding(.vertical, 16)
@@ -2190,12 +2190,12 @@ struct FindChurchHeader: View {
                         } label: {
                             HStack(spacing: 6) {
                                 Image(systemName: "location.fill")
-                                    .font(.system(size: 11, weight: .semibold))
+                                    .font(.systemScaled(11, weight: .semibold))
                                 Text(locationStatus)
                                     .font(AMENFont.semiBold(13))
                                     .lineLimit(1)
                                 Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                                    .font(.system(size: 10, weight: .bold))
+                                    .font(.systemScaled(10, weight: .bold))
                             }
                             .foregroundStyle(
                                 LinearGradient(
@@ -2242,7 +2242,7 @@ struct FindChurchHeader: View {
                                     .scaleEffect(0.7)
                             } else {
                                 Image(systemName: "arrow.clockwise")
-                                    .font(.system(size: isCollapsed ? 13 : 14, weight: .semibold))
+                                    .font(.systemScaled(isCollapsed ? 13 : 14, weight: .semibold))
                                     .foregroundStyle(
                                         LinearGradient(
                                             colors: [
@@ -2310,7 +2310,7 @@ struct FindChurchHeader: View {
                 // Text field area
                 HStack(spacing: 10) {
                     Image(systemName: isSearchFocused ? "magnifyingglass.circle.fill" : "magnifyingglass")
-                        .font(.system(size: isSearchFocused ? 16 : 14))
+                        .font(.systemScaled(isSearchFocused ? 16 : 14))
                         .foregroundStyle(isSearchFocused ? .blue : .gray.opacity(0.6))
                         .padding(.leading, 4)
                         .animation(.easeInOut(duration: 0.2), value: isSearchFocused)
@@ -2339,7 +2339,7 @@ struct FindChurchHeader: View {
                         } label: {
                             Image(systemName: "xmark.circle.fill")
                                 .foregroundStyle(.gray.opacity(0.5))
-                                .font(.system(size: 16))
+                                .font(.systemScaled(16))
                         }
                         .transition(.scale.combined(with: .opacity))
                     } else if isSearchFocused {
@@ -2397,7 +2397,7 @@ struct EnhancedLocationPermissionBanner: View {
                     .frame(width: 56, height: 56)
                 
                 Image(systemName: "location.fill.viewfinder")
-                    .font(.system(size: 26))
+                    .font(.systemScaled(26))
                     .foregroundStyle(.white)
                     .scaleEffect(isAnimating ? 1.1 : 1.0)
                     .animation(
@@ -2427,7 +2427,7 @@ struct EnhancedLocationPermissionBanner: View {
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 13, weight: .bold))
+                        .font(.systemScaled(13, weight: .bold))
                     Text("Enable")
                         .font(AMENFont.bold(15))
                 }
@@ -2513,7 +2513,7 @@ struct EnhancedChurchCard: View {
                             // Distance
                             HStack(spacing: 5) {
                                 Image(systemName: "location.fill")
-                                    .font(.system(size: 11))
+                                    .font(.systemScaled(11))
                                 Text(church.distance)
                                     .font(AMENFont.semiBold(13))
                             }
@@ -2532,7 +2532,7 @@ struct EnhancedChurchCard: View {
                         }
                     } label: {
                         Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
-                            .font(.system(size: 20, weight: .semibold))
+                            .font(.systemScaled(20, weight: .semibold))
                             .foregroundStyle(isSaved ? .pink : .white)
                             .frame(width: 48, height: 48)
                             .background(
@@ -2585,7 +2585,7 @@ struct EnhancedChurchCard: View {
                                     .scaleEffect(0.8)
                             } else {
                                 Image(systemName: "phone.fill")
-                                    .font(.system(size: 16))
+                                    .font(.systemScaled(16))
                             }
                             Text("Call")
                                 .font(AMENFont.bold(15))
@@ -2621,7 +2621,7 @@ struct EnhancedChurchCard: View {
                                     .scaleEffect(0.8)
                             } else {
                                 Image(systemName: "arrow.triangle.turn.up.right.circle.fill")
-                                    .font(.system(size: 16))
+                                    .font(.systemScaled(16))
                             }
                             Text("Directions")
                                 .font(AMENFont.bold(15))
@@ -2656,7 +2656,7 @@ struct EnhancedChurchCard: View {
                                 Link(destination: websiteURL) {
                                     HStack(spacing: 12) {
                                         Image(systemName: "globe")
-                                            .font(.system(size: 16))
+                                            .font(.systemScaled(16))
                                             .foregroundStyle(.purple)
                                             .frame(width: 24)
                                         
@@ -2668,7 +2668,7 @@ struct EnhancedChurchCard: View {
                                         Spacer()
                                         
                                         Image(systemName: "arrow.up.right")
-                                            .font(.system(size: 12))
+                                            .font(.systemScaled(12))
                                             .foregroundStyle(.purple)
                                     }
                                 }
@@ -2693,7 +2693,7 @@ struct EnhancedChurchCard: View {
                         Text(isExpanded ? "Show Less" : "Show More")
                             .font(AMENFont.semiBold(14))
                         Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                     }
                     .foregroundStyle(.gray)
                     .frame(maxWidth: .infinity)
@@ -2740,7 +2740,7 @@ struct ModernQuickInfoTile: View {
     var body: some View {
         VStack(spacing: 8) {
             Image(systemName: icon)
-                .font(.system(size: 20))
+                .font(.systemScaled(20))
                 .foregroundStyle(color)
             
             Text(title)
@@ -2775,7 +2775,7 @@ struct ModernDetailRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
                 .foregroundStyle(color)
                 .frame(width: 24)
             
@@ -2795,7 +2795,7 @@ struct LocationPermissionBanner: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "location.fill.viewfinder")
-                .font(.system(size: 24))
+                .font(.systemScaled(24))
                 .foregroundStyle(.blue)
             
             VStack(alignment: .leading, spacing: 4) {
@@ -2842,7 +2842,7 @@ struct NotificationPermissionBanner: View {
             if showBanner {
                 HStack(spacing: 12) {
                     Image(systemName: "bell.badge.fill")
-                        .font(.system(size: 24))
+                        .font(.systemScaled(24))
                         .foregroundStyle(.orange)
                     
                     VStack(alignment: .leading, spacing: 4) {
@@ -2928,7 +2928,7 @@ struct QuickStatsBanner: View {
                         .frame(width: 48, height: 48)
                     
                     Image(systemName: "building.2.fill")
-                        .font(.system(size: 22))
+                        .font(.systemScaled(22))
                         .foregroundStyle(.white)
                 }
                 
@@ -2961,7 +2961,7 @@ struct QuickStatsBanner: View {
                         .frame(width: 48, height: 48)
                     
                     Image(systemName: "location.fill")
-                        .font(.system(size: 22))
+                        .font(.systemScaled(22))
                         .foregroundStyle(.white)
                 }
                 
@@ -2997,7 +2997,7 @@ struct EmptyChurchesView: View {
     var body: some View {
         VStack(spacing: 16) {
             Image(systemName: "building.2")
-                .font(.system(size: 64))
+                .font(.systemScaled(64))
                 .foregroundStyle(.secondary)
             
             Text(isFiltered ? "No Churches Found" : "No Churches Nearby")
@@ -3100,7 +3100,7 @@ struct ChurchMapAnnotation: View {
                     .frame(width: 32, height: 32)
                 
                 Image(systemName: isSaved ? "bookmark.fill" : "building.2.fill")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(.white)
             }
             
@@ -3136,7 +3136,7 @@ struct ChurchCard: View {
                         .frame(width: 56, height: 56)
 
                     Image(systemName: "building.2.fill")
-                        .font(.system(size: 24))
+                        .font(.systemScaled(24))
                         .foregroundStyle(.blue)
                         .frame(width: 56, height: 56)
 
@@ -3160,7 +3160,7 @@ struct ChurchCard: View {
 
                     HStack(spacing: 4) {
                         Image(systemName: "mappin.circle.fill")
-                            .font(.system(size: 10))
+                            .font(.systemScaled(10))
                             .foregroundStyle(.secondary)
 
                         Text(church.distance)
@@ -3182,7 +3182,7 @@ struct ChurchCard: View {
                         onSave()
                     } label: {
                         Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
-                            .font(.system(size: 18, weight: .semibold))
+                            .font(.systemScaled(18, weight: .semibold))
                             .foregroundStyle(isSaved ? .pink : .secondary)
                     }
                     
@@ -3192,7 +3192,7 @@ struct ChurchCard: View {
                         }
                     } label: {
                         Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -3204,7 +3204,7 @@ struct ChurchCard: View {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(spacing: 8) {
                         Image(systemName: "location.fill")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundStyle(.blue)
                         
                         Text(church.address)
@@ -3214,7 +3214,7 @@ struct ChurchCard: View {
                     
                     HStack(spacing: 8) {
                         Image(systemName: "clock.fill")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundStyle(.blue)
                         
                         VStack(alignment: .leading, spacing: 2) {
@@ -3232,7 +3232,7 @@ struct ChurchCard: View {
                     
                     HStack(spacing: 8) {
                         Image(systemName: "phone.fill")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundStyle(.blue)
                         
                         Text(church.phone)
@@ -3243,7 +3243,7 @@ struct ChurchCard: View {
                     if let website = church.website {
                         HStack(spacing: 8) {
                             Image(systemName: "globe")
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                                 .foregroundStyle(.blue)
                             
                             if let websiteURL = URL(string: website.hasPrefix("http://") || website.hasPrefix("https://") ? website : "https://\(website)") {
@@ -3325,7 +3325,7 @@ struct SmartFeaturesBanner: View {
                         .frame(width: 40, height: 40)
                     
                     Image(systemName: "sparkles")
-                        .font(.system(size: 18))
+                        .font(.systemScaled(18))
                         .foregroundStyle(.white)
                 }
                 
@@ -3349,7 +3349,7 @@ struct SmartFeaturesBanner: View {
                     }
                 } label: {
                     Image(systemName: isExpanded ? "chevron.up.circle.fill" : "info.circle.fill")
-                        .font(.system(size: 24))
+                        .font(.systemScaled(24))
                         .foregroundStyle(.orange)
                 }
             }
@@ -3418,7 +3418,7 @@ struct SmartFeatureRow: View {
                     .frame(width: 36, height: 36)
                 
                 Image(systemName: icon)
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(color)
             }
             
@@ -3456,7 +3456,7 @@ struct LiveSearchBanner: View {
                     .frame(width: 44, height: 44)
                 
                 Image(systemName: "mappin.and.ellipse")
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
                     .foregroundStyle(.white)
             }
             
@@ -3478,7 +3478,7 @@ struct LiveSearchBanner: View {
                 onRefresh()
             } label: {
                 Image(systemName: "arrow.clockwise")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(.green)
                     .padding(10)
                     .background(
@@ -3528,7 +3528,7 @@ struct SearchResultsBanner: View {
                     .frame(width: 44, height: 44)
                 
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
                     .foregroundStyle(.white)
             }
             
@@ -3551,7 +3551,7 @@ struct SearchResultsBanner: View {
                 onClearSearch()
             } label: {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 24))
+                    .font(.systemScaled(24))
                     .foregroundStyle(.gray.opacity(0.7))
             }
         }
@@ -3656,7 +3656,7 @@ struct ChurchComparisonView: View {
                 if churches.isEmpty {
                     VStack(spacing: 20) {
                         Image(systemName: "chart.bar.xaxis")
-                            .font(.system(size: 64))
+                            .font(.systemScaled(64))
                             .foregroundStyle(.secondary)
                         
                         Text("No Churches Selected")
@@ -3721,7 +3721,7 @@ struct ChurchComparisonView: View {
                                     Link(destination: telURL) {
                                         HStack {
                                             Image(systemName: "phone.fill")
-                                                .font(.system(size: 12))
+                                                .font(.systemScaled(12))
                                             Text(church.phone)
                                                 .font(AMENFont.regular(13))
                                         }
@@ -3744,7 +3744,7 @@ struct ChurchComparisonView: View {
                         onClose()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 24))
+                            .font(.systemScaled(24))
                             .foregroundStyle(.gray)
                     }
                 }
@@ -3763,7 +3763,7 @@ struct ComparisonSection<Content: View>: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 10) {
                 Image(systemName: icon)
-                    .font(.system(size: 18))
+                    .font(.systemScaled(18))
                     .foregroundStyle(color)
                 
                 Text(title)
@@ -3805,7 +3805,7 @@ struct ComparisonRow: View {
             
             if highlight {
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(.green)
             }
         }
@@ -3840,23 +3840,23 @@ struct MinimalChurchHeader: View {
                 // Back button
                 Button(action: onBack) {
                     Image(systemName: "chevron.left")
-                        .font(.system(size: 20, weight: .semibold))
+                        .font(.systemScaled(20, weight: .semibold))
                         .foregroundStyle(Color(red: 0.3, green: 0.3, blue: 0.3))
                         .frame(width: 32, height: 32)
                 }
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Find Church")
-                        .font(.system(size: 32, weight: .bold, design: .default))
+                        .font(.systemScaled(32, weight: .bold, design: .default))
                         .foregroundStyle(Color(red: 0.15, green: 0.15, blue: 0.15))
                     
                     // Show current location
                     if isLocationAuthorized {
                         HStack(spacing: 6) {
                             Image(systemName: "location.fill")
-                                .font(.system(size: 11, weight: .medium))
+                                .font(.systemScaled(11, weight: .medium))
                             Text(locationText)
-                                .font(.system(size: 13, weight: .medium))
+                                .font(.systemScaled(13, weight: .medium))
                                 .lineLimit(1)
                         }
                         .foregroundStyle(Color(red: 0.5, green: 0.5, blue: 0.5))
@@ -3870,7 +3870,7 @@ struct MinimalChurchHeader: View {
                     if let refresh = onRefresh, isLocationAuthorized {
                         Button(action: refresh) {
                             Image(systemName: "arrow.clockwise")
-                                .font(.system(size: 18, weight: .medium))
+                                .font(.systemScaled(18, weight: .medium))
                                 .foregroundStyle(Color(red: 0.3, green: 0.3, blue: 0.3))
                         }
                     }
@@ -3878,14 +3878,14 @@ struct MinimalChurchHeader: View {
                     // Map toggle button
                     Button(action: onMapToggle) {
                         Image(systemName: isMapMode ? "list.bullet" : "map")
-                            .font(.system(size: 20, weight: .medium))
+                            .font(.systemScaled(20, weight: .medium))
                             .foregroundStyle(Color(red: 0.3, green: 0.3, blue: 0.3))
                     }
 
                     // Filter button
                     Button(action: onFilterTap) {
                         Image(systemName: "line.3.horizontal.decrease.circle")
-                            .font(.system(size: 24, weight: .regular))
+                            .font(.systemScaled(24, weight: .regular))
                             .foregroundStyle(Color(red: 0.3, green: 0.3, blue: 0.3))
                     }
                 }
@@ -3894,11 +3894,11 @@ struct MinimalChurchHeader: View {
             // Clean search bar
             HStack(spacing: 12) {
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.systemScaled(16, weight: .medium))
                     .foregroundStyle(Color(red: 0.5, green: 0.5, blue: 0.5))
                 
                 TextField("Search churches...", text: $searchText)
-                    .font(.system(size: 16, weight: .regular))
+                    .font(.systemScaled(16, weight: .regular))
                     .foregroundStyle(Color(red: 0.2, green: 0.2, blue: 0.2))
                     .focused($isSearchFocused)
                     .submitLabel(.search)
@@ -3911,7 +3911,7 @@ struct MinimalChurchHeader: View {
                         }
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 16))
+                            .font(.systemScaled(16))
                             .foregroundStyle(Color(red: 0.5, green: 0.5, blue: 0.5))
                     }
                     .transition(.scale.combined(with: .opacity))
@@ -3961,9 +3961,9 @@ struct MinimalFilterRow: View {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: showSavedOnly ? "bookmark.fill" : "bookmark")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.systemScaled(12, weight: .medium))
                         Text("Saved")
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.systemScaled(14, weight: .medium))
                     }
                     .foregroundStyle(showSavedOnly ? Color.white : Color(red: 0.3, green: 0.3, blue: 0.3))
                     .padding(.horizontal, 14)
@@ -3993,11 +3993,11 @@ struct MinimalFilterRow: View {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "arrow.up.arrow.down")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.systemScaled(12, weight: .medium))
                         Text(sortMode.rawValue)
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.systemScaled(14, weight: .medium))
                         Image(systemName: "chevron.down")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.systemScaled(10, weight: .semibold))
                     }
                     .foregroundStyle(Color(red: 0.3, green: 0.3, blue: 0.3))
                     .padding(.horizontal, 14)
@@ -4029,11 +4029,11 @@ struct MinimalFilterRow: View {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "location.circle")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.systemScaled(12, weight: .medium))
                         Text("\(Int(searchRadius / 1609.34)) mi")
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.systemScaled(14, weight: .medium))
                         Image(systemName: "chevron.down")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.systemScaled(10, weight: .semibold))
                     }
                     .foregroundStyle(Color(red: 0.3, green: 0.3, blue: 0.3))
                     .padding(.horizontal, 14)
@@ -4053,7 +4053,7 @@ struct MinimalFilterRow: View {
                             }
                         } label: {
                             Text(denomination.rawValue)
-                                .font(.system(size: 14, weight: .medium))
+                                .font(.systemScaled(14, weight: .medium))
                                 .foregroundStyle(selectedDenomination == denomination ? Color.white : Color(red: 0.3, green: 0.3, blue: 0.3))
                                 .padding(.horizontal, 14)
                                 .padding(.vertical, 8)
@@ -4069,7 +4069,7 @@ struct MinimalFilterRow: View {
                                 showDenominationInfo = denomination
                             } label: {
                                 Image(systemName: "info.circle")
-                                    .font(.system(size: 14, weight: .medium))
+                                    .font(.systemScaled(14, weight: .medium))
                                     .foregroundStyle(Color(red: 0.4, green: 0.4, blue: 0.4))
                             }
                         }
@@ -4097,13 +4097,13 @@ struct MinimalChurchCard: View {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 6) {
                         Text(church.name)
-                            .font(.system(size: 20, weight: .semibold))
+                            .font(.systemScaled(20, weight: .semibold))
                             .foregroundStyle(Color(red: 0.15, green: 0.15, blue: 0.15))
                             .lineLimit(2)
                             .multilineTextAlignment(.leading)
                         
                         Text(church.denomination)
-                            .font(.system(size: 14, weight: .regular))
+                            .font(.systemScaled(14, weight: .regular))
                             .foregroundStyle(Color(red: 0.5, green: 0.5, blue: 0.5))
                     }
                     
@@ -4111,7 +4111,7 @@ struct MinimalChurchCard: View {
                     
                     Button(action: onSave) {
                         Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
-                            .font(.system(size: 20, weight: .medium))
+                            .font(.systemScaled(20, weight: .medium))
                             .foregroundStyle(Color(red: 0.2, green: 0.2, blue: 0.2))
                     }
                     .buttonStyle(.plain)
@@ -4121,24 +4121,24 @@ struct MinimalChurchCard: View {
                 HStack(spacing: 16) {
                     HStack(spacing: 6) {
                         Image(systemName: "location.fill")
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.systemScaled(11, weight: .medium))
                         Text(church.distance)
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.systemScaled(13, weight: .medium))
                     }
                     .foregroundStyle(Color(red: 0.5, green: 0.5, blue: 0.5))
                     
                     HStack(spacing: 6) {
                         Image(systemName: "clock.fill")
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.systemScaled(11, weight: .medium))
                         Text(church.shortServiceTime)
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.systemScaled(13, weight: .medium))
                     }
                     .foregroundStyle(Color(red: 0.5, green: 0.5, blue: 0.5))
                 }
                 
                 // Subtle address
                 Text(church.address)
-                    .font(.system(size: 13, weight: .regular))
+                    .font(.systemScaled(13, weight: .regular))
                     .foregroundStyle(Color(red: 0.6, green: 0.6, blue: 0.6))
                     .lineLimit(1)
             }
@@ -4180,16 +4180,16 @@ struct FindChurchEmptyState: View {
     var body: some View {
         VStack(spacing: 16) {
             Image(systemName: icon)
-                .font(.system(size: 56, weight: .thin))
+                .font(.systemScaled(56, weight: .thin))
                 .foregroundStyle(Color(red: 0.7, green: 0.7, blue: 0.7))
             
             VStack(spacing: 8) {
                 Text(title)
-                    .font(.system(size: 22, weight: .semibold))
+                    .font(.systemScaled(22, weight: .semibold))
                     .foregroundStyle(Color(red: 0.2, green: 0.2, blue: 0.2))
                 
                 Text(subtitle)
-                    .font(.system(size: 15, weight: .regular))
+                    .font(.systemScaled(15, weight: .regular))
                     .foregroundStyle(Color(red: 0.5, green: 0.5, blue: 0.5))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 40)
@@ -4198,7 +4198,7 @@ struct FindChurchEmptyState: View {
             if showAction, let action = onAction {
                 Button(action: action) {
                     Text(actionTitle)
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 28)
                         .padding(.vertical, 14)
@@ -4272,16 +4272,16 @@ struct MinimalPermissionBanner: View {
     var body: some View {
         HStack(spacing: 14) {
             Image(systemName: icon)
-                .font(.system(size: 22, weight: .medium))
+                .font(.systemScaled(22, weight: .medium))
                 .foregroundStyle(accentColor)
             
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(Color(red: 0.2, green: 0.2, blue: 0.2))
                 
                 Text(message)
-                    .font(.system(size: 13, weight: .regular))
+                    .font(.systemScaled(13, weight: .regular))
                     .foregroundStyle(Color(red: 0.5, green: 0.5, blue: 0.5))
             }
             
@@ -4289,7 +4289,7 @@ struct MinimalPermissionBanner: View {
             
             Button(action: onEnable) {
                 Text("Enable")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
@@ -4318,11 +4318,11 @@ struct MinimalStatsRow: View {
         HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 4) {
                 Text("\(count)")
-                    .font(.system(size: 28, weight: .bold))
+                    .font(.systemScaled(28, weight: .bold))
                     .foregroundStyle(Color(red: 0.2, green: 0.2, blue: 0.2))
                 
                 Text("Churches")
-                    .font(.system(size: 13, weight: .regular))
+                    .font(.systemScaled(13, weight: .regular))
                     .foregroundStyle(Color(red: 0.5, green: 0.5, blue: 0.5))
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -4333,11 +4333,11 @@ struct MinimalStatsRow: View {
             
             VStack(alignment: .leading, spacing: 4) {
                 Text(nearest.replacingOccurrences(of: " away", with: ""))
-                    .font(.system(size: 20, weight: .bold))
+                    .font(.systemScaled(20, weight: .bold))
                     .foregroundStyle(Color(red: 0.2, green: 0.2, blue: 0.2))
                 
                 Text("Nearest")
-                    .font(.system(size: 13, weight: .regular))
+                    .font(.systemScaled(13, weight: .regular))
                     .foregroundStyle(Color(red: 0.5, green: 0.5, blue: 0.5))
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -4367,11 +4367,11 @@ struct ChurchDetailSheet: View {
                     // Hero section
                     VStack(alignment: .leading, spacing: 12) {
                         Text(church.name)
-                            .font(.system(size: 28, weight: .bold))
+                            .font(.systemScaled(28, weight: .bold))
                             .foregroundStyle(Color(red: 0.15, green: 0.15, blue: 0.15))
                         
                         Text(church.denomination)
-                            .font(.system(size: 16, weight: .medium))
+                            .font(.systemScaled(16, weight: .medium))
                             .foregroundStyle(Color(red: 0.5, green: 0.5, blue: 0.5))
                     }
                     
@@ -4380,9 +4380,9 @@ struct ChurchDetailSheet: View {
                         Button(action: onGetDirections) {
                             HStack(spacing: 8) {
                                 Image(systemName: "arrow.triangle.turn.up.right.circle.fill")
-                                    .font(.system(size: 18))
+                                    .font(.systemScaled(18))
                                 Text("Directions")
-                                    .font(.system(size: 16, weight: .semibold))
+                                    .font(.systemScaled(16, weight: .semibold))
                             }
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
@@ -4396,9 +4396,9 @@ struct ChurchDetailSheet: View {
                         Button(action: onCall) {
                             HStack(spacing: 8) {
                                 Image(systemName: "phone.fill")
-                                    .font(.system(size: 18))
+                                    .font(.systemScaled(18))
                                 Text("Call")
-                                    .font(.system(size: 16, weight: .semibold))
+                                    .font(.systemScaled(16, weight: .semibold))
                             }
                             .foregroundStyle(Color(red: 0.2, green: 0.2, blue: 0.2))
                             .frame(maxWidth: .infinity)
@@ -4425,21 +4425,21 @@ struct ChurchDetailSheet: View {
                                     VStack(alignment: .leading, spacing: 4) {
                                         HStack(spacing: 8) {
                                             Image(systemName: "globe")
-                                                .font(.system(size: 14, weight: .medium))
+                                                .font(.systemScaled(14, weight: .medium))
                                             Text("Website")
-                                                .font(.system(size: 13, weight: .medium))
+                                                .font(.systemScaled(13, weight: .medium))
                                         }
                                         .foregroundStyle(Color(red: 0.5, green: 0.5, blue: 0.5))
                                         
                                         Text(website)
-                                            .font(.system(size: 16, weight: .regular))
+                                            .font(.systemScaled(16, weight: .regular))
                                             .foregroundStyle(Color(red: 0.2, green: 0.2, blue: 0.2))
                                     }
                                     
                                     Spacer()
                                     
                                     Image(systemName: "arrow.up.right")
-                                        .font(.system(size: 14, weight: .medium))
+                                        .font(.systemScaled(14, weight: .medium))
                                         .foregroundStyle(Color(red: 0.4, green: 0.4, blue: 0.4))
                                 }
                             }
@@ -4458,7 +4458,7 @@ struct ChurchDetailSheet: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 28))
+                            .font(.systemScaled(28))
                             .foregroundStyle(Color(red: 0.7, green: 0.7, blue: 0.7))
                     }
                 }
@@ -4466,7 +4466,7 @@ struct ChurchDetailSheet: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(action: onSave) {
                         Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
-                            .font(.system(size: 20, weight: .medium))
+                            .font(.systemScaled(20, weight: .medium))
                             .foregroundStyle(Color(red: 0.2, green: 0.2, blue: 0.2))
                     }
                 }
@@ -4484,14 +4484,14 @@ struct DetailRow: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 8) {
                 Image(systemName: icon)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                 Text(title)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
             }
             .foregroundStyle(Color(red: 0.5, green: 0.5, blue: 0.5))
             
             Text(value)
-                .font(.system(size: 16, weight: .regular))
+                .font(.systemScaled(16, weight: .regular))
                 .foregroundStyle(Color(red: 0.2, green: 0.2, blue: 0.2))
         }
     }
@@ -4515,9 +4515,9 @@ struct QuickFilterBar: View {
                     } label: {
                         HStack(spacing: 6) {
                             Image(systemName: iconForFilter(filter))
-                                .font(.system(size: 12, weight: .medium))
+                                .font(.systemScaled(12, weight: .medium))
                             Text(filter.rawValue)
-                                .font(.system(size: 14, weight: .medium))
+                                .font(.systemScaled(14, weight: .medium))
                         }
                         .foregroundStyle(selectedFilter == filter ? Color.white : Color(red: 0.3, green: 0.3, blue: 0.3))
                         .padding(.horizontal, 14)
@@ -4578,17 +4578,17 @@ struct SmartSuggestionsBanner: View {
                             .frame(width: 44, height: 44)
                         
                         Image(systemName: "sparkles")
-                            .font(.system(size: 20))
+                            .font(.systemScaled(20))
                             .foregroundStyle(.white)
                     }
                     
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Suggested For You")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                             .foregroundStyle(Color(red: 0.4, green: 0.4, blue: 0.4))
                         
                         Text(church.name)
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .foregroundStyle(Color(red: 0.2, green: 0.2, blue: 0.2))
                             .lineLimit(1)
                     }
@@ -4596,7 +4596,7 @@ struct SmartSuggestionsBanner: View {
                     Spacer()
                     
                     Image(systemName: "arrow.right")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(Color(red: 0.4, green: 0.4, blue: 0.4))
                 }
                 .padding(16)
@@ -4657,7 +4657,7 @@ struct EnhancedMinimalChurchCard: View {
                         VStack(alignment: .leading, spacing: 6) {
                             HStack(spacing: 8) {
                                 Text(church.name)
-                                    .font(.system(size: 20, weight: .semibold))
+                                    .font(.systemScaled(20, weight: .semibold))
                                     .foregroundStyle(Color(red: 0.15, green: 0.15, blue: 0.15))
                                     .lineLimit(2)
                                     .multilineTextAlignment(.leading)
@@ -4665,19 +4665,19 @@ struct EnhancedMinimalChurchCard: View {
                                     HStack(spacing: 4) {
                                         LivePulsingDot()
                                         Text("Live")
-                                            .font(.system(size: 11, weight: .semibold))
+                                            .font(.systemScaled(11, weight: .semibold))
                                             .foregroundStyle(liveRed)
                                     }
                                 }
                             }
                             HStack(spacing: 8) {
                                 Text(church.denomination)
-                                    .font(.system(size: 14, weight: .regular))
+                                    .font(.systemScaled(14, weight: .regular))
                                     .foregroundStyle(Color(red: 0.5, green: 0.5, blue: 0.5))
                                 if isVisited {
                                     HStack(spacing: 4) {
-                                        Image(systemName: "checkmark.circle.fill").font(.system(size: 10))
-                                        Text("Visited").font(.system(size: 11, weight: .medium))
+                                        Image(systemName: "checkmark.circle.fill").font(.systemScaled(10))
+                                        Text("Visited").font(.systemScaled(11, weight: .medium))
                                     }
                                     .foregroundStyle(.green)
                                     .padding(.horizontal, 8).padding(.vertical, 4)
@@ -4685,8 +4685,8 @@ struct EnhancedMinimalChurchCard: View {
                                 }
                                 if isVerified {
                                     HStack(spacing: 4) {
-                                        Image(systemName: "checkmark.seal.fill").font(.system(size: 10))
-                                        Text("Verified").font(.system(size: 11, weight: .medium))
+                                        Image(systemName: "checkmark.seal.fill").font(.systemScaled(10))
+                                        Text("Verified").font(.systemScaled(11, weight: .medium))
                                     }
                                     .foregroundStyle(.blue)
                                     .padding(.horizontal, 8).padding(.vertical, 4)
@@ -4701,12 +4701,12 @@ struct EnhancedMinimalChurchCard: View {
                         HStack(spacing: 12) {
                             Button(action: onSave) {
                                 Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
-                                    .font(.system(size: 20, weight: .medium))
+                                    .font(.systemScaled(20, weight: .medium))
                                     .foregroundStyle(Color(red: 0.2, green: 0.2, blue: 0.2))
                             }
                             .buttonStyle(.plain)
                             Image(systemName: "chevron.down")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.systemScaled(14, weight: .semibold))
                                 .foregroundStyle(Color(.systemGray3))
                                 .rotationEffect(.degrees(isExpanded ? 180 : 0))
                                 .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isExpanded)
@@ -4714,30 +4714,30 @@ struct EnhancedMinimalChurchCard: View {
                     }
                     HStack(spacing: 16) {
                         HStack(spacing: 6) {
-                            Image(systemName: "location.fill").font(.system(size: 11, weight: .medium))
-                            Text(church.distance).font(.system(size: 13, weight: .medium))
+                            Image(systemName: "location.fill").font(.systemScaled(11, weight: .medium))
+                            Text(church.distance).font(.systemScaled(13, weight: .medium))
                         }
                         .foregroundStyle(Color(red: 0.5, green: 0.5, blue: 0.5))
                         HStack(spacing: 6) {
                             if isServiceLive {
                                 LivePulsingDot()
-                                Text("Service Live Now").font(.system(size: 13, weight: .medium)).foregroundStyle(liveRed)
+                                Text("Service Live Now").font(.systemScaled(13, weight: .medium)).foregroundStyle(liveRed)
                             } else {
-                                Image(systemName: "clock.fill").font(.system(size: 11, weight: .medium))
-                                Text(church.shortServiceTime).font(.system(size: 13, weight: .medium))
+                                Image(systemName: "clock.fill").font(.systemScaled(11, weight: .medium))
+                                Text(church.shortServiceTime).font(.systemScaled(13, weight: .medium))
                                     .foregroundStyle(Color(red: 0.5, green: 0.5, blue: 0.5))
                             }
                         }
                     }
                     Text(church.address)
-                        .font(.system(size: 13, weight: .regular))
+                        .font(.systemScaled(13, weight: .regular))
                         .foregroundStyle(Color(red: 0.6, green: 0.6, blue: 0.6))
                         .lineLimit(1)
                     HStack(spacing: 8) {
                         Button(action: onCheckIn) {
                             HStack(spacing: 4) {
-                                Image(systemName: "mappin.circle").font(.system(size: 11))
-                                Text("Check In").font(.system(size: 12, weight: .medium))
+                                Image(systemName: "mappin.circle").font(.systemScaled(11))
+                                Text("Check In").font(.systemScaled(12, weight: .medium))
                             }
                             .foregroundStyle(Color(red: 0.4, green: 0.4, blue: 0.4))
                             .padding(.horizontal, 10).padding(.vertical, 6)
@@ -4747,8 +4747,8 @@ struct EnhancedMinimalChurchCard: View {
                         .buttonStyle(.plain)
                         Button(action: onShare) {
                             HStack(spacing: 4) {
-                                Image(systemName: "square.and.arrow.up").font(.system(size: 11))
-                                Text("Share").font(.system(size: 12, weight: .medium))
+                                Image(systemName: "square.and.arrow.up").font(.systemScaled(11))
+                                Text("Share").font(.systemScaled(12, weight: .medium))
                             }
                             .foregroundStyle(Color(red: 0.4, green: 0.4, blue: 0.4))
                             .padding(.horizontal, 10).padding(.vertical, 6)
@@ -4768,12 +4768,12 @@ struct EnhancedMinimalChurchCard: View {
                 VStack(alignment: .leading, spacing: 16) {
                     // Service schedule chips
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Service Times").font(.system(size: 13, weight: .semibold)).foregroundStyle(.secondary)
+                        Text("Service Times").font(.systemScaled(13, weight: .semibold)).foregroundStyle(.secondary)
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 8) {
                                 ForEach(serviceChips, id: \.self) { chip in
                                     Text(chip)
-                                        .font(.system(size: 12, weight: .medium))
+                                        .font(.systemScaled(12, weight: .medium))
                                         .padding(.horizontal, 12).padding(.vertical, 6)
                                         .background(Capsule().fill(isServiceLive ? liveRed.opacity(0.12) : Color(.systemGray6)))
                                         .foregroundStyle(isServiceLive ? liveRed : Color.primary)
@@ -4794,14 +4794,14 @@ struct EnhancedMinimalChurchCard: View {
                             }
                         }
                         Text("Members attend here")
-                            .font(.system(size: 13)).foregroundStyle(.secondary)
+                            .font(.systemScaled(13)).foregroundStyle(.secondary)
                     }
 
                     // Details row
                     HStack(spacing: 16) {
                         if !church.denomination.isEmpty {
                             Label(church.denomination, systemImage: "cross.circle")
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -4813,7 +4813,7 @@ struct EnhancedMinimalChurchCard: View {
                         }
                     } label: {
                         Label("Get Directions", systemImage: "arrow.triangle.turn.up.right.circle.fill")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity).padding(.vertical, 12)
                             .background(RoundedRectangle(cornerRadius: 12).fill(Color(red: 0.15, green: 0.15, blue: 0.15)))
@@ -4824,7 +4824,7 @@ struct EnhancedMinimalChurchCard: View {
                     Button(action: onPlanAttendance) {
                         Label(isPlanned ? "Planning to Attend ✓" : "I'm going here Sunday",
                               systemImage: isPlanned ? "calendar.badge.checkmark" : "calendar.badge.plus")
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.systemScaled(14, weight: .medium))
                             .foregroundStyle(isPlanned ? Color.green : Color.primary)
                             .frame(maxWidth: .infinity).padding(.vertical, 12)
                             .background(RoundedRectangle(cornerRadius: 12).fill(isPlanned ? Color.green.opacity(0.1) : Color(.systemGray6)))
@@ -4903,20 +4903,20 @@ struct EnhancedChurchDetailSheet: View {
                     // Hero section with badges
                     VStack(alignment: .leading, spacing: 12) {
                         Text(church.name)
-                            .font(.system(size: 28, weight: .bold))
+                            .font(.systemScaled(28, weight: .bold))
                             .foregroundStyle(Color(red: 0.15, green: 0.15, blue: 0.15))
                         
                         HStack(spacing: 8) {
                             Text(church.denomination)
-                                .font(.system(size: 16, weight: .medium))
+                                .font(.systemScaled(16, weight: .medium))
                                 .foregroundStyle(Color(red: 0.5, green: 0.5, blue: 0.5))
                             
                             if isVisited {
                                 HStack(spacing: 4) {
                                     Image(systemName: "checkmark.circle.fill")
-                                        .font(.system(size: 12))
+                                        .font(.systemScaled(12))
                                     Text("Visited")
-                                        .font(.system(size: 12, weight: .medium))
+                                        .font(.systemScaled(12, weight: .medium))
                                 }
                                 .foregroundStyle(.green)
                                 .padding(.horizontal, 10)
@@ -4934,9 +4934,9 @@ struct EnhancedChurchDetailSheet: View {
                         Button(action: onGetDirections) {
                             HStack(spacing: 8) {
                                 Image(systemName: "arrow.triangle.turn.up.right.circle.fill")
-                                    .font(.system(size: 18))
+                                    .font(.systemScaled(18))
                                 Text("Directions")
-                                    .font(.system(size: 16, weight: .semibold))
+                                    .font(.systemScaled(16, weight: .semibold))
                             }
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
@@ -4950,9 +4950,9 @@ struct EnhancedChurchDetailSheet: View {
                         Button(action: onCall) {
                             HStack(spacing: 8) {
                                 Image(systemName: "phone.fill")
-                                    .font(.system(size: 18))
+                                    .font(.systemScaled(18))
                                 Text("Call")
-                                    .font(.system(size: 16, weight: .semibold))
+                                    .font(.systemScaled(16, weight: .semibold))
                             }
                             .foregroundStyle(Color(red: 0.2, green: 0.2, blue: 0.2))
                             .frame(maxWidth: .infinity)
@@ -4970,7 +4970,7 @@ struct EnhancedChurchDetailSheet: View {
                             HStack(spacing: 6) {
                                 Image(systemName: "mappin.circle")
                                 Text("Check In")
-                                    .font(.system(size: 15, weight: .medium))
+                                    .font(.systemScaled(15, weight: .medium))
                             }
                             .foregroundStyle(Color(red: 0.3, green: 0.3, blue: 0.3))
                             .frame(maxWidth: .infinity)
@@ -4985,7 +4985,7 @@ struct EnhancedChurchDetailSheet: View {
                             HStack(spacing: 6) {
                                 Image(systemName: "square.and.arrow.up")
                                 Text("Share")
-                                    .font(.system(size: 15, weight: .medium))
+                                    .font(.systemScaled(15, weight: .medium))
                             }
                             .foregroundStyle(Color(red: 0.3, green: 0.3, blue: 0.3))
                             .frame(maxWidth: .infinity)
@@ -5000,7 +5000,7 @@ struct EnhancedChurchDetailSheet: View {
                             HStack(spacing: 6) {
                                 Image(systemName: "calendar.badge.plus")
                                 Text("Schedule")
-                                    .font(.system(size: 15, weight: .medium))
+                                    .font(.systemScaled(15, weight: .medium))
                             }
                             .foregroundStyle(Color(red: 0.3, green: 0.3, blue: 0.3))
                             .frame(maxWidth: .infinity)
@@ -5016,9 +5016,9 @@ struct EnhancedChurchDetailSheet: View {
                     Button(action: onPlanFirstVisit) {
                         HStack(spacing: 8) {
                             Image(systemName: "calendar.badge.plus")
-                                .font(.system(size: 18))
+                                .font(.systemScaled(18))
                             Text("Plan First Visit")
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.systemScaled(16, weight: .semibold))
                         }
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
@@ -5044,21 +5044,21 @@ struct EnhancedChurchDetailSheet: View {
                                     VStack(alignment: .leading, spacing: 4) {
                                         HStack(spacing: 8) {
                                             Image(systemName: "globe")
-                                                .font(.system(size: 14, weight: .medium))
+                                                .font(.systemScaled(14, weight: .medium))
                                             Text("Website")
-                                                .font(.system(size: 13, weight: .medium))
+                                                .font(.systemScaled(13, weight: .medium))
                                         }
                                         .foregroundStyle(Color(red: 0.5, green: 0.5, blue: 0.5))
                                         
                                         Text(website)
-                                            .font(.system(size: 16, weight: .regular))
+                                            .font(.systemScaled(16, weight: .regular))
                                             .foregroundStyle(Color(red: 0.2, green: 0.2, blue: 0.2))
                                     }
                                     
                                     Spacer()
                                     
                                     Image(systemName: "arrow.up.right")
-                                        .font(.system(size: 14, weight: .medium))
+                                        .font(.systemScaled(14, weight: .medium))
                                         .foregroundStyle(Color(red: 0.4, green: 0.4, blue: 0.4))
                                 }
                             }
@@ -5077,7 +5077,7 @@ struct EnhancedChurchDetailSheet: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 28))
+                            .font(.systemScaled(28))
                             .foregroundStyle(Color(red: 0.7, green: 0.7, blue: 0.7))
                     }
                 }
@@ -5085,7 +5085,7 @@ struct EnhancedChurchDetailSheet: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(action: onSave) {
                         Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
-                            .font(.system(size: 20, weight: .medium))
+                            .font(.systemScaled(20, weight: .medium))
                             .foregroundStyle(Color(red: 0.2, green: 0.2, blue: 0.2))
                     }
                 }
@@ -5126,15 +5126,15 @@ struct ChurchScheduleView: View {
                     if savedChurches.isEmpty {
                         VStack(spacing: 16) {
                             Image(systemName: "calendar")
-                                .font(.system(size: 56, weight: .thin))
+                                .font(.systemScaled(56, weight: .thin))
                                 .foregroundStyle(Color(red: 0.7, green: 0.7, blue: 0.7))
                             
                             Text("No Scheduled Churches")
-                                .font(.system(size: 22, weight: .semibold))
+                                .font(.systemScaled(22, weight: .semibold))
                                 .foregroundStyle(Color(red: 0.2, green: 0.2, blue: 0.2))
                             
                             Text("Save churches to see their service times here")
-                                .font(.system(size: 15, weight: .regular))
+                                .font(.systemScaled(15, weight: .regular))
                                 .foregroundStyle(Color(red: 0.5, green: 0.5, blue: 0.5))
                                 .multilineTextAlignment(.center)
                         }
@@ -5144,25 +5144,25 @@ struct ChurchScheduleView: View {
                         ForEach(savedChurches) { church in
                             VStack(alignment: .leading, spacing: 12) {
                                 Text(church.name)
-                                    .font(.system(size: 18, weight: .semibold))
+                                    .font(.systemScaled(18, weight: .semibold))
                                     .foregroundStyle(Color(red: 0.2, green: 0.2, blue: 0.2))
                                 
                                 HStack(spacing: 12) {
                                     Image(systemName: "clock.fill")
-                                        .font(.system(size: 14))
+                                        .font(.systemScaled(14))
                                         .foregroundStyle(.blue)
                                     Text(church.serviceTime)
-                                        .font(.system(size: 15, weight: .regular))
+                                        .font(.systemScaled(15, weight: .regular))
                                         .foregroundStyle(Color(red: 0.3, green: 0.3, blue: 0.3))
                                 }
                                 
                                 if let countdown = church.nextServiceCountdown {
                                     HStack(spacing: 12) {
                                         Image(systemName: "calendar")
-                                            .font(.system(size: 14))
+                                            .font(.systemScaled(14))
                                             .foregroundStyle(.green)
                                         Text(countdown)
-                                            .font(.system(size: 14, weight: .medium))
+                                            .font(.systemScaled(14, weight: .medium))
                                             .foregroundStyle(.green)
                                     }
                                 }
@@ -5188,7 +5188,7 @@ struct ChurchScheduleView: View {
                         onDismiss()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 28))
+                            .font(.systemScaled(28))
                             .foregroundStyle(Color(red: 0.7, green: 0.7, blue: 0.7))
                     }
                 }
@@ -5313,11 +5313,11 @@ struct DenominationInfoSheet: View {
                     // Header
                     VStack(alignment: .leading, spacing: 8) {
                         Text(denomination.rawValue)
-                            .font(.system(size: 32, weight: .bold))
+                            .font(.systemScaled(32, weight: .bold))
                             .foregroundStyle(Color(red: 0.15, green: 0.15, blue: 0.15))
                         
                         Text(denominationInfo.description)
-                            .font(.system(size: 16, weight: .regular))
+                            .font(.systemScaled(16, weight: .regular))
                             .foregroundStyle(Color(red: 0.4, green: 0.4, blue: 0.4))
                             .lineSpacing(4)
                     }
@@ -5328,10 +5328,10 @@ struct DenominationInfoSheet: View {
                     VStack(alignment: .leading, spacing: 16) {
                         HStack(spacing: 8) {
                             Image(systemName: "book.fill")
-                                .font(.system(size: 18, weight: .medium))
+                                .font(.systemScaled(18, weight: .medium))
                                 .foregroundStyle(Color(red: 0.2, green: 0.2, blue: 0.2))
                             Text("Core Beliefs")
-                                .font(.system(size: 20, weight: .semibold))
+                                .font(.systemScaled(20, weight: .semibold))
                                 .foregroundStyle(Color(red: 0.2, green: 0.2, blue: 0.2))
                         }
                         
@@ -5344,7 +5344,7 @@ struct DenominationInfoSheet: View {
                                         .padding(.top, 6)
                                     
                                     Text(belief)
-                                        .font(.system(size: 15, weight: .regular))
+                                        .font(.systemScaled(15, weight: .regular))
                                         .foregroundStyle(Color(red: 0.3, green: 0.3, blue: 0.3))
                                 }
                             }
@@ -5357,10 +5357,10 @@ struct DenominationInfoSheet: View {
                     VStack(alignment: .leading, spacing: 16) {
                         HStack(spacing: 8) {
                             Image(systemName: "hands.sparkles.fill")
-                                .font(.system(size: 18, weight: .medium))
+                                .font(.systemScaled(18, weight: .medium))
                                 .foregroundStyle(Color(red: 0.2, green: 0.2, blue: 0.2))
                             Text("Common Practices")
-                                .font(.system(size: 20, weight: .semibold))
+                                .font(.systemScaled(20, weight: .semibold))
                                 .foregroundStyle(Color(red: 0.2, green: 0.2, blue: 0.2))
                         }
                         
@@ -5373,7 +5373,7 @@ struct DenominationInfoSheet: View {
                                         .padding(.top, 6)
                                     
                                     Text(practice)
-                                        .font(.system(size: 15, weight: .regular))
+                                        .font(.systemScaled(15, weight: .regular))
                                         .foregroundStyle(Color(red: 0.3, green: 0.3, blue: 0.3))
                                 }
                             }
@@ -5382,7 +5382,7 @@ struct DenominationInfoSheet: View {
                     
                     // Disclaimer
                     Text("This information is provided for educational purposes. Each church within a denomination may have unique characteristics and practices.")
-                        .font(.system(size: 13, weight: .regular))
+                        .font(.systemScaled(13, weight: .regular))
                         .foregroundStyle(Color(red: 0.5, green: 0.5, blue: 0.5))
                         .padding(.top, 8)
                 }
@@ -5396,7 +5396,7 @@ struct DenominationInfoSheet: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 28))
+                            .font(.systemScaled(28))
                             .foregroundStyle(Color(red: 0.7, green: 0.7, blue: 0.7))
                     }
                 }
@@ -5425,7 +5425,7 @@ struct JourneyInsightCard: View {
                     .frame(width: 48, height: 48)
                 
                 Image(systemName: insight.icon)
-                    .font(.system(size: 22, weight: .semibold))
+                    .font(.systemScaled(22, weight: .semibold))
                     .foregroundStyle(.white)
             }
             
@@ -5433,19 +5433,19 @@ struct JourneyInsightCard: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     Text(insight.title)
-                        .font(.system(size: 15, weight: .bold))
+                        .font(.systemScaled(15, weight: .bold))
                         .foregroundStyle(Color(red: 0.2, green: 0.2, blue: 0.2))
                     
                     // Badge for milestone type
                     if insight.type == .milestone {
                         Image(systemName: "star.fill")
-                            .font(.system(size: 10))
+                            .font(.systemScaled(10))
                             .foregroundStyle(.yellow)
                     }
                 }
                 
                 Text(insight.description)
-                    .font(.system(size: 13, weight: .regular))
+                    .font(.systemScaled(13, weight: .regular))
                     .foregroundStyle(Color(red: 0.4, green: 0.4, blue: 0.4))
                     .lineSpacing(2)
             }
@@ -5485,14 +5485,14 @@ struct AIRecommendationCard: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(recommendation.churchName)
-                            .font(.system(size: 18, weight: .semibold))
+                            .font(.systemScaled(18, weight: .semibold))
                             .foregroundStyle(Color(red: 0.15, green: 0.15, blue: 0.15))
                             .lineLimit(2)
                             .multilineTextAlignment(.leading)
                         
                         if let denomination = recommendation.worshipStyle {
                             Text(denomination)
-                                .font(.system(size: 14, weight: .regular))
+                                .font(.systemScaled(14, weight: .regular))
                                 .foregroundStyle(Color(red: 0.5, green: 0.5, blue: 0.5))
                         }
                     }
@@ -5502,10 +5502,10 @@ struct AIRecommendationCard: View {
                     // Match score badge
                     VStack(spacing: 4) {
                         Text("\(Int(recommendation.matchScore))%")
-                            .font(.system(size: 20, weight: .bold))
+                            .font(.systemScaled(20, weight: .bold))
                             .foregroundStyle(.purple)
                         Text("Match")
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.systemScaled(11, weight: .medium))
                             .foregroundStyle(Color(red: 0.5, green: 0.5, blue: 0.5))
                     }
                     .padding(.horizontal, 12)
@@ -5521,9 +5521,9 @@ struct AIRecommendationCard: View {
                     VStack(alignment: .leading, spacing: 6) {
                         HStack(spacing: 6) {
                             Image(systemName: "lightbulb.fill")
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                             Text("Why recommended:")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.systemScaled(13, weight: .semibold))
                         }
                         .foregroundStyle(Color(red: 0.4, green: 0.4, blue: 0.4))
                         
@@ -5535,7 +5535,7 @@ struct AIRecommendationCard: View {
                                     .padding(.top, 6)
                                 
                                 Text(reason)
-                                    .font(.system(size: 13, weight: .regular))
+                                    .font(.systemScaled(13, weight: .regular))
                                     .foregroundStyle(Color(red: 0.3, green: 0.3, blue: 0.3))
                                     .lineLimit(2)
                             }
@@ -5548,7 +5548,7 @@ struct AIRecommendationCard: View {
                     HStack(spacing: 8) {
                         ForEach(recommendation.highlights.prefix(3), id: \.self) { highlight in
                             Text(highlight)
-                                .font(.system(size: 11, weight: .medium))
+                                .font(.systemScaled(11, weight: .medium))
                                 .foregroundStyle(.purple)
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 5)
@@ -5680,7 +5680,7 @@ struct ChurchMapPin: View {
                 .frame(width: 22, height: 22)
                 .overlay(
                     Image(systemName: "building.columns.fill")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.systemScaled(10, weight: .semibold))
                         .foregroundStyle(.white)
                 )
                 .shadow(radius: 4)
@@ -5702,21 +5702,21 @@ struct ChurchMapMiniSheet: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(church.name)
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                     HStack(spacing: 8) {
                         Text(church.distance)
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundStyle(.secondary)
                         if isLive {
                             HStack(spacing: 4) {
                                 Circle().fill(Color(red: 0.878, green: 0.227, blue: 0.227)).frame(width: 7, height: 7)
                                 Text("Service Live Now")
-                                    .font(.system(size: 12, weight: .medium))
+                                    .font(.systemScaled(12, weight: .medium))
                                     .foregroundStyle(Color(red: 0.878, green: 0.227, blue: 0.227))
                             }
                         } else {
                             Text(church.shortServiceTime)
-                                .font(.system(size: 13))
+                                .font(.systemScaled(13))
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -5724,14 +5724,14 @@ struct ChurchMapMiniSheet: View {
                 Spacer()
                 Button(action: onDismiss) {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 22))
+                        .font(.systemScaled(22))
                         .foregroundStyle(Color(.systemGray3))
                 }
             }
             HStack(spacing: 10) {
                 Button(action: onCheckIn) {
                     Label("Check In", systemImage: "mappin.circle.fill")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
@@ -5739,7 +5739,7 @@ struct ChurchMapMiniSheet: View {
                 }
                 Button(action: onGetDirections) {
                     Label("Directions", systemImage: "arrow.triangle.turn.up.right.circle.fill")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(Color.primary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
@@ -5781,7 +5781,7 @@ struct ChurchCheckInSheet: View {
                     .frame(width: 60, height: 60)
                     .overlay(
                         Image(systemName: "mappin.circle.fill")
-                            .font(.system(size: 28))
+                            .font(.systemScaled(28))
                             .foregroundStyle(.white)
                     )
             }
@@ -5793,13 +5793,13 @@ struct ChurchCheckInSheet: View {
 
             VStack(spacing: 6) {
                 Text("You checked in at")
-                    .font(.system(size: 14)).foregroundStyle(.secondary)
+                    .font(.systemScaled(14)).foregroundStyle(.secondary)
                 Text(church.name)
-                    .font(.system(size: 20, weight: .bold))
+                    .font(.systemScaled(20, weight: .bold))
             }
 
             TextField("Share a thought from today's service…", text: $thought, axis: .vertical)
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .lineLimit(3, reservesSpace: true)
                 .padding(14)
                 .background(RoundedRectangle(cornerRadius: 12).fill(Color(.systemGray6)))
@@ -5810,14 +5810,14 @@ struct ChurchCheckInSheet: View {
                     onPostToFeed(thought)
                 } label: {
                     Text("Post to Feed")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity).padding(.vertical, 14)
                         .background(RoundedRectangle(cornerRadius: 12).fill(Color(red: 0.878, green: 0.227, blue: 0.227)))
                 }
                 Button(action: onDone) {
                     Text("Done")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(Color.primary)
                         .frame(maxWidth: .infinity).padding(.vertical, 14)
                         .background(RoundedRectangle(cornerRadius: 12).fill(Color(.systemGray6)))

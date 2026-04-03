@@ -75,7 +75,7 @@ struct ContentGuardrailView: View {
     private var requireEditBanner: some View {
         HStack(spacing: 10) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(.orange)
             
             Text(result.violations.first?.message ?? "Please revise your content before posting.")
@@ -86,7 +86,7 @@ struct ContentGuardrailView: View {
             
             Button(action: onDismiss) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(.secondary)
             }
         }
@@ -112,7 +112,7 @@ struct ContentGuardrailView: View {
             } else {
                 HStack(spacing: 10) {
                     Image(systemName: "nosign")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(.red)
                     
                     Text(result.violations.first?.message ?? "This content can't be posted.")
@@ -142,7 +142,7 @@ struct ContentGuardrailView: View {
     private var piiRedactionRow: some View {
         HStack(spacing: 10) {
             Image(systemName: "eye.slash.fill")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(.blue)
             
             VStack(alignment: .leading, spacing: 2) {
@@ -174,7 +174,7 @@ struct ContentGuardrailView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
                 Image(systemName: "heart.circle.fill")
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .foregroundStyle(Color.pink)
                 
                 Text("We see you and care about you")
@@ -214,7 +214,7 @@ struct ContentGuardrailView: View {
     private func genericNudgeRow(message: String) -> some View {
         HStack(spacing: 10) {
             Image(systemName: "bubble.left.and.exclamationmark.bubble.right.fill")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(Color(red: 0.95, green: 0.75, blue: 0.1))
             
             Text(message)
@@ -226,7 +226,7 @@ struct ContentGuardrailView: View {
             
             Button(action: onDismiss) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(.secondary)
             }
         }

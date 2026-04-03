@@ -15,10 +15,12 @@ service cloud.firestore {
       return request.auth.uid == userId;
     }
     
+    // ✅ SECURITY FIX: Admin role checked via Firebase Custom Claims only.
+    // Previously checked a Firestore 'role' field — any user with write access
+    // to their own document could escalate to admin. Custom Claims are set
+    // server-side only via the Firebase Admin SDK and cannot be forged by clients.
     function isAdmin() {
-      return isSignedIn() && 
-             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') == 'admin';
+      return isSignedIn() && request.auth.token.get('admin', false) == true;
     }
     
     function isValidContent(text) {
@@ -26,12 +28,65 @@ service cloud.firestore {
     }
     
     // ========================================
+    // PRIVACY & SAFETY HELPER FUNCTIONS
+    // ========================================
+    
+    function canAccessPrivateContent(authorId) {
+      // Check if content from authorId is accessible to current user
+      // Returns true if:
+      // 1. Author account is public, OR
+      // 2. Current user is following the author, OR
+      // 3. Current user IS the author
+      
+      if (!isSignedIn()) {
+        return false; // Unauthenticated users see nothing
+      }
+      
+      if (request.auth.uid == authorId) {
+        return true; // Authors can always see their own content
+      }
+      
+      // Get author's privacy settings
+      let authorDoc = get(/databases/$(database)/documents/users/$(authorId));
+      let isPrivate = authorDoc.data.get('isPrivateAccount', false);
+      
+      if (!isPrivate) {
+        return true; // Public account - everyone can see
+      }
+      
+      // Private account - check if current user is following
+      return exists(/databases/$(database)/documents/follows/$(authorId + '_' + request.auth.uid));
+    }
+    
+    function isBlocked(userId, targetUserId) {
+      // Check if userId has blocked targetUserId OR vice versa
+      // Both directions must be checked for complete block enforcement
+      
+      let userBlockedTarget = exists(/databases/$(database)/documents/blockedUsers/$(userId + '_' + targetUserId));
+      let targetBlockedUser = exists(/databases/$(database)/documents/blockedUsers/$(targetUserId + '_' + userId));
+      
+      return userBlockedTarget || targetBlockedUser;
+    }
+    
+    function canCreateComment(postAuthorId) {
+      // Check if current user can comment on content from postAuthorId
+      // Blocked users cannot comment on each other's content
+      
+      if (!isSignedIn()) {
+        return false;
+      }
+      
+      return !isBlocked(request.auth.uid, postAuthorId);
+    }
+    
+    // ========================================
     // USERS COLLECTION - PRODUCTION READY
     // ========================================
     
     match /users/{userId} {
-      // ✅ ANYONE CAN READ USER PROFILES (required for follows, profiles, etc.)
-      allow read: if true;
+      // ✅ SECURITY FIX: Only signed-in users can read profiles.
+      // Previously `if true` exposed all user data to unauthenticated requests.
+      allow read: if isSignedIn();
       
       // ✅ Users can create their own profile during signup
       allow create: if isSignedIn() && 
@@ -51,8 +106,8 @@ service cloud.firestore {
     // ========================================
     
     match /follows/{followId} {
-      // ✅ ANYONE CAN READ FOLLOWS (required to show follower/following lists)
-      allow read: if true;
+      // ✅ SECURITY FIX: Only signed-in users can read follows.
+      allow read: if isSignedIn();
       
       // ✅ SIMPLIFIED: Any authenticated user can create a follow
       // Backend validation ensures correct followerId via Cloud Functions
@@ -67,6 +122,27 @@ service cloud.firestore {
                        resource.data.followerId == request.auth.uid;
       
       // ✅ No updates (delete and recreate instead)
+      allow update: if false;
+    }
+    
+    // ========================================
+    // BLOCKED USERS COLLECTION
+    // ========================================
+    
+    match /blockedUsers/{blockId} {
+      // Users can read blocks where they are the blocker
+      allow read: if isSignedIn() && 
+                     blockId.split('_')[0] == request.auth.uid;
+      
+      // Users can create blocks (format: blockerId_blockedId)
+      allow create: if isSignedIn() && 
+                       blockId.split('_')[0] == request.auth.uid &&
+                       request.resource.data.blockerId == request.auth.uid;
+      
+      // Users can delete their own blocks
+      allow delete: if isSignedIn() && 
+                       blockId.split('_')[0] == request.auth.uid;
+      
       allow update: if false;
     }
     
@@ -105,7 +181,8 @@ service cloud.firestore {
     // ========================================
     
     match /prayerRequests/{requestId} {
-      allow read: if true;
+      // ✅ PRIVACY ENFORCEMENT: Only accessible if author is public OR user is following
+      allow read: if canAccessPrivateContent(resource.data.userId);
       
       allow create: if isSignedIn() && 
                        request.resource.data.userId == request.auth.uid;
@@ -117,15 +194,16 @@ service cloud.firestore {
                        (resource.data.userId == request.auth.uid || isAdmin());
       
       match /comments/{commentId} {
-        allow read: if true;
+        allow read: if isSignedIn();
         allow create: if isSignedIn() && 
-                         request.resource.data.userId == request.auth.uid;
+                         request.resource.data.userId == request.auth.uid &&
+                         canCreateComment(get(/databases/$(database)/documents/prayerRequests/$(requestId)).data.userId);
         allow update, delete: if isSignedIn() && 
                                  (resource.data.userId == request.auth.uid || isAdmin());
       }
       
       match /reactions/{reactionId} {
-        allow read: if true;
+        allow read: if isSignedIn();
         allow create: if isSignedIn() && 
                          request.resource.data.userId == request.auth.uid;
         allow delete: if isSignedIn() && 
@@ -139,7 +217,8 @@ service cloud.firestore {
     // ========================================
     
     match /testimonies/{testimonyId} {
-      allow read: if true;
+      // ✅ PRIVACY ENFORCEMENT: Only accessible if author is public OR user is following
+      allow read: if canAccessPrivateContent(resource.data.userId);
       
       allow create: if isSignedIn() && 
                        request.resource.data.userId == request.auth.uid;
@@ -151,7 +230,7 @@ service cloud.firestore {
                        (resource.data.userId == request.auth.uid || isAdmin());
       
       match /reactions/{reactionId} {
-        allow read: if true;
+        allow read: if isSignedIn();
         allow create: if isSignedIn() && 
                          request.resource.data.userId == request.auth.uid;
         allow delete: if isSignedIn() && 
@@ -160,9 +239,10 @@ service cloud.firestore {
       }
       
       match /comments/{commentId} {
-        allow read: if true;
+        allow read: if isSignedIn();
         allow create: if isSignedIn() && 
-                         request.resource.data.userId == request.auth.uid;
+                         request.resource.data.userId == request.auth.uid &&
+                         canCreateComment(get(/databases/$(database)/documents/testimonies/$(testimonyId)).data.userId);
         allow update, delete: if isSignedIn() && 
                                  (resource.data.userId == request.auth.uid || isAdmin());
       }
@@ -173,7 +253,8 @@ service cloud.firestore {
     // ========================================
     
     match /openTablePosts/{postId} {
-      allow read: if true;
+      // ✅ PRIVACY ENFORCEMENT: Only accessible if author is public OR user is following
+      allow read: if canAccessPrivateContent(resource.data.userId);
       
       allow create: if isSignedIn() && 
                        request.resource.data.userId == request.auth.uid;
@@ -185,7 +266,7 @@ service cloud.firestore {
                        (resource.data.userId == request.auth.uid || isAdmin());
       
       match /reactions/{reactionId} {
-        allow read: if true;
+        allow read: if isSignedIn();
         allow create: if isSignedIn() && 
                          request.resource.data.userId == request.auth.uid;
         allow delete: if isSignedIn() && 
@@ -194,11 +275,68 @@ service cloud.firestore {
       }
       
       match /comments/{commentId} {
-        allow read: if true;
+        allow read: if isSignedIn();
         allow create: if isSignedIn() && 
-                         request.resource.data.userId == request.auth.uid;
+                         request.resource.data.userId == request.auth.uid &&
+                         canCreateComment(get(/databases/$(database)/documents/openTablePosts/$(postId)).data.userId);
         allow update, delete: if isSignedIn() && 
                                  (resource.data.userId == request.auth.uid || isAdmin());
+      }
+    }
+    
+    // ========================================
+    // POSTS COLLECTION (Main Feed)
+    // ========================================
+    
+    match /posts/{postId} {
+      // ✅ PRIVACY ENFORCEMENT: Only accessible if author is public OR user is following
+      allow read: if canAccessPrivateContent(resource.data.authorId);
+      
+      allow create: if isSignedIn() && 
+                       request.resource.data.authorId == request.auth.uid;
+      
+      allow update: if isSignedIn() && 
+                       (resource.data.authorId == request.auth.uid || isAdmin());
+      
+      allow delete: if isSignedIn() && 
+                       (resource.data.authorId == request.auth.uid || isAdmin());
+      
+      // Quote posts validation
+      match /quotes/{quoteId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn() && 
+                         request.resource.data.authorId == request.auth.uid &&
+                         // ✅ SECURITY: Verify quoted post exists and is accessible
+                         exists(/databases/$(database)/documents/posts/$(request.resource.data.quotedPostId)) &&
+                         canAccessPrivateContent(request.resource.data.quotedAuthorId);
+        allow update, delete: if isSignedIn() && 
+                                 resource.data.authorId == request.auth.uid;
+      }
+      
+      match /comments/{commentId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn() && 
+                         request.resource.data.authorId == request.auth.uid &&
+                         canCreateComment(get(/databases/$(database)/documents/posts/$(postId)).data.authorId);
+        allow update, delete: if isSignedIn() && 
+                                 (resource.data.authorId == request.auth.uid || isAdmin());
+        
+        match /replies/{replyId} {
+          allow read: if isSignedIn();
+          allow create: if isSignedIn() && 
+                           request.resource.data.authorId == request.auth.uid &&
+                           // ✅ VALIDATION: Verify parent comment exists
+                           exists(/databases/$(database)/documents/posts/$(postId)/comments/$(commentId));
+          allow update, delete: if isSignedIn() && 
+                                   resource.data.authorId == request.auth.uid;
+        }
+      }
+      
+      match /likes/{likeId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn() && likeId == request.auth.uid;
+        allow delete: if isSignedIn() && likeId == request.auth.uid;
+        allow update: if false;
       }
     }
     
@@ -245,7 +383,7 @@ service cloud.firestore {
     // ========================================
     
     match /communities/{communityId} {
-      allow read: if true;
+      allow read: if isSignedIn();
       
       allow create: if isSignedIn() && 
                        request.resource.data.creatorId == request.auth.uid;

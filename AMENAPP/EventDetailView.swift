@@ -133,9 +133,9 @@ struct EventDetailView: View {
             // Event type badge
             HStack(spacing: 6) {
                 Image(systemName: event.eventType.icon)
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                 Text(event.eventType.label)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
             }
             .foregroundStyle(.white)
             .padding(.horizontal, 12)
@@ -150,7 +150,7 @@ struct EventDetailView: View {
         ZStack {
             event.eventType.color.opacity(0.25)
             Image(systemName: event.eventType.icon)
-                .font(.system(size: 52))
+                .font(.systemScaled(52))
                 .foregroundStyle(event.eventType.color)
         }
     }
@@ -162,8 +162,8 @@ struct EventDetailView: View {
         VStack(alignment: .leading, spacing: 8) {
             if event.isFeatured {
                 HStack(spacing: 4) {
-                    Image(systemName: "star.fill").foregroundStyle(.yellow).font(.system(size: 11))
-                    Text("Featured Event").font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
+                    Image(systemName: "star.fill").foregroundStyle(.yellow).font(.systemScaled(11))
+                    Text("Featured Event").font(.systemScaled(11, weight: .semibold)).foregroundStyle(.secondary)
                 }
             }
 
@@ -173,7 +173,7 @@ struct EventDetailView: View {
 
             HStack(spacing: 8) {
                 Image(systemName: "person.fill")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
                 Text("By \(event.organizerName)")
                     .font(.custom("OpenSans-Regular", size: 14))
@@ -258,7 +258,7 @@ struct EventDetailView: View {
     private func currentRSVPView(_ rsvp: AMENEventRSVP) -> some View {
         HStack(spacing: 12) {
             Image(systemName: rsvp.status.icon)
-                .font(.system(size: 22))
+                .font(.systemScaled(22))
                 .foregroundStyle(rsvp.status.color)
 
             VStack(alignment: .leading, spacing: 2) {
@@ -266,7 +266,7 @@ struct EventDetailView: View {
                     .font(.custom("OpenSans-Bold", size: 16))
                     .foregroundStyle(rsvp.status.color)
                 Text("Tap to change your response")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
             }
 
@@ -276,7 +276,7 @@ struct EventDetailView: View {
                 showRSVPSheet = true
             } label: {
                 Text("Change")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(Color(red: 0.15, green: 0.45, blue: 0.90))
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
@@ -306,10 +306,10 @@ struct EventDetailView: View {
         } label: {
             VStack(spacing: 4) {
                 Image(systemName: status.icon)
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
                     .foregroundStyle(status.color)
                 Text(status.label)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(status.color)
             }
             .frame(maxWidth: .infinity)
@@ -333,14 +333,14 @@ struct EventDetailView: View {
             case .added:
                 HStack(spacing: 10) {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 22))
+                        .font(.systemScaled(22))
                         .foregroundStyle(Color(red: 0.18, green: 0.62, blue: 0.36))
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Added to Calendar")
                             .font(.custom("OpenSans-SemiBold", size: 15))
                             .foregroundStyle(Color(red: 0.18, green: 0.62, blue: 0.36))
                         Text("You'll find it in your calendar app")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
@@ -350,7 +350,7 @@ struct EventDetailView: View {
                         }
                     } label: {
                         Text("Undo")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -363,7 +363,7 @@ struct EventDetailView: View {
                         Text("Couldn't add to calendar")
                             .font(.custom("OpenSans-SemiBold", size: 15))
                         Text("Check calendar permissions in Settings.")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -401,16 +401,16 @@ struct EventDetailView: View {
                 addToCalendarWithPermission(useNativeEditor: true)
             } label: {
                 Label("Add with Calendar App", systemImage: "square.and.arrow.up")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(event.eventType.color)
             }
             .buttonStyle(.plain)
 
             // Privacy note
             HStack(spacing: 6) {
-                Image(systemName: "lock.fill").font(.system(size: 10)).foregroundStyle(.secondary)
+                Image(systemName: "lock.fill").font(.systemScaled(10)).foregroundStyle(.secondary)
                 Text("AMEN only adds this event — it never reads your other calendar events.")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.secondary)
             }
         }
@@ -426,7 +426,7 @@ struct EventDetailView: View {
                 Spacer()
                 if !reminderService.notificationPermissionGranted {
                     Text("Enable in Settings")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -458,7 +458,7 @@ struct EventDetailView: View {
                     Image(systemName: "bell.slash.fill")
                         .foregroundStyle(.secondary)
                     Text("Turn on notifications in Settings to receive event reminders.")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.secondary)
                 }
                 .padding(12)
@@ -473,7 +473,7 @@ struct EventDetailView: View {
     private func reminderToggleRow(offset: ReminderOffset) -> some View {
         HStack {
             Image(systemName: selectedReminderOffsets.contains(offset) ? "bell.fill" : "bell")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(selectedReminderOffsets.contains(offset) ? event.eventType.color : .secondary)
                 .frame(width: 24)
             Text(offset.label)
@@ -502,10 +502,10 @@ struct EventDetailView: View {
     private var safetyNote: some View {
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: "info.circle.fill")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.secondary)
             Text("This event is hosted by \(event.organizerName). AMEN doesn't verify every event detail. Use your judgment.")
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(.secondary)
         }
         .padding(12)
@@ -522,7 +522,7 @@ struct EventDetailView: View {
             message: Text("\(event.title) — \(formattedDateRange) on AMEN")
         ) {
             Image(systemName: "square.and.arrow.up")
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
         }
     }
 
@@ -619,7 +619,7 @@ struct EventDetailView: View {
     private func detailRow(icon: String, color: Color, title: String, subtitle: String?) -> some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 17))
+                .font(.systemScaled(17))
                 .foregroundStyle(color)
                 .frame(width: 26)
 
@@ -629,7 +629,7 @@ struct EventDetailView: View {
                     .foregroundStyle(.primary)
                 if let subtitle = subtitle {
                     Text(subtitle)
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.secondary)
                 }
             }

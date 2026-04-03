@@ -355,7 +355,7 @@ struct StudioAICreationView: View {
             HStack {
                 Button { dismiss() } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(.secondary)
                         .padding(10)
                         .background(Circle().fill(.ultraThinMaterial))
@@ -365,7 +365,7 @@ struct StudioAICreationView: View {
                 Spacer()
 
                 Text("AMEN Studio")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
 
                 Spacer()
 
@@ -395,9 +395,9 @@ struct StudioAICreationView: View {
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: tool.icon)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                 Text(tool.title)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
@@ -428,14 +428,14 @@ struct StudioAICreationView: View {
                             .fill(selectedTool.accentColor.opacity(0.12))
                             .frame(width: 38, height: 38)
                         Image(systemName: selectedTool.icon)
-                            .font(.system(size: 17, weight: .medium))
+                            .font(.systemScaled(17, weight: .medium))
                             .foregroundStyle(selectedTool.accentColor)
                     }
                     Text(selectedTool.title)
-                        .font(.system(size: 18, weight: .bold))
+                        .font(.systemScaled(18, weight: .bold))
                 }
                 Text(selectedTool.promptHint)
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -454,7 +454,7 @@ struct StudioAICreationView: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Text("Your Thoughts")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(.secondary)
                     Spacer()
                     if let uid = Auth.auth().currentUser?.uid {
@@ -470,7 +470,7 @@ struct StudioAICreationView: View {
                 TextEditor(text: $vm.userInput)
                     .focused($inputFocused)
                     .frame(minHeight: 140)
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .scrollContentBackground(.hidden)
                     .padding(12)
                     .background(
@@ -480,7 +480,7 @@ struct StudioAICreationView: View {
                     .overlay(alignment: .topLeading) {
                         if vm.userInput.isEmpty {
                             Text("Start writing here…")
-                                .font(.system(size: 15))
+                                .font(.systemScaled(15))
                                 .foregroundStyle(Color(.placeholderText))
                                 .padding(.top, 19)
                                 .padding(.leading, 16)
@@ -493,10 +493,10 @@ struct StudioAICreationView: View {
             if selectedTool == .devotional || selectedTool == .sermonPrep || selectedTool == .scriptureCanvas {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Scripture Reference (optional)")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(.secondary)
                     TextField("e.g. John 3:16, Psalm 23", text: $vm.scriptureRef)
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                         .padding(12)
                         .background(
                             RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -508,14 +508,14 @@ struct StudioAICreationView: View {
             // Tone picker
             VStack(alignment: .leading, spacing: 8) {
                 Text("Tone")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(.secondary)
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
                         ForEach(["reflective", "hopeful", "bold", "gentle", "celebratory"], id: \.self) { t in
                             Button { vm.tone = t } label: {
                                 Text(t.capitalized)
-                                    .font(.system(size: 13))
+                                    .font(.systemScaled(13))
                                     .padding(.horizontal, 14)
                                     .padding(.vertical, 7)
                                     .background(
@@ -550,18 +550,18 @@ struct StudioAICreationView: View {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                         Text("Edit")
                     }
                     .foregroundStyle(selectedTool.accentColor)
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                 }
                 .buttonStyle(.plain)
 
                 Spacer()
 
                 Text(selectedTool.outputLabel)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.secondary)
             }
             .padding(.horizontal, 20)
@@ -575,7 +575,7 @@ struct StudioAICreationView: View {
                 // Editable result
                 TextEditor(text: $vm.generatedText)
                     .frame(minHeight: 240)
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .scrollContentBackground(.hidden)
                     .padding(16)
                     .background(
@@ -600,7 +600,7 @@ struct StudioAICreationView: View {
                         vm.generate(tool: selectedTool)
                     } label: {
                         Label("Regenerate", systemImage: "arrow.clockwise")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.systemScaled(13, weight: .medium))
                             .foregroundStyle(selectedTool.accentColor)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 9)
@@ -619,7 +619,7 @@ struct StudioAICreationView: View {
                         HapticManager.impact(style: .light)
                     } label: {
                         Label("Copy", systemImage: "doc.on.doc")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.systemScaled(13, weight: .medium))
                             .foregroundStyle(.secondary)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 9)
@@ -634,7 +634,7 @@ struct StudioAICreationView: View {
                         showShareSheet = true
                     } label: {
                         Label("Share", systemImage: "square.and.arrow.up")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.systemScaled(13, weight: .medium))
                             .foregroundStyle(.white)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 9)
@@ -654,7 +654,7 @@ struct StudioAICreationView: View {
                                 .frame(width: 36, height: 36)
                         } else {
                             Image(systemName: "photo.badge.arrow.down")
-                                .font(.system(size: 16, weight: .medium))
+                                .font(.systemScaled(16, weight: .medium))
                                 .foregroundStyle(selectedTool.accentColor)
                                 .frame(width: 36, height: 36)
                         }
@@ -674,7 +674,7 @@ struct StudioAICreationView: View {
                                 .frame(width: 36, height: 36)
                         } else {
                             Image(systemName: "doc.badge.arrow.up")
-                                .font(.system(size: 16, weight: .medium))
+                                .font(.systemScaled(16, weight: .medium))
                                 .foregroundStyle(selectedTool.accentColor)
                                 .frame(width: 36, height: 36)
                         }
@@ -706,7 +706,7 @@ struct StudioAICreationView: View {
                 .progressViewStyle(.circular)
                 .tint(selectedTool.accentColor)
             Text("Crafting your \(selectedTool.outputLabel.lowercased())…")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
@@ -724,7 +724,7 @@ struct StudioAICreationView: View {
         HStack(spacing: 12) {
             Button { dismiss() } label: {
                 Text("Cancel")
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
@@ -737,9 +737,9 @@ struct StudioAICreationView: View {
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                     Text("Generate")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                 }
                 .padding(.horizontal, 24)
                 .padding(.vertical, 12)
@@ -778,10 +778,10 @@ private struct StudioImageGenerationPanel: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Image(systemName: "paintbrush.pointed.fill")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(accentColor)
                 Text("Generate Image")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(accentColor)
                 Spacer()
             }
@@ -792,7 +792,7 @@ private struct StudioImageGenerationPanel: View {
                     ForEach(styleOptions, id: \.self) { style in
                         Button { selectedStyle = style } label: {
                             Text(style.capitalized)
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 6)
                                 .background(
@@ -823,7 +823,7 @@ private struct StudioImageGenerationPanel: View {
                                     showImageShare = true
                                 } label: {
                                     Image(systemName: "square.and.arrow.up")
-                                        .font(.system(size: 13, weight: .semibold))
+                                        .font(.systemScaled(13, weight: .semibold))
                                         .foregroundStyle(.white)
                                         .padding(8)
                                         .background(Circle().fill(.ultraThinMaterial))
@@ -867,7 +867,7 @@ private struct StudioImageGenerationPanel: View {
                     vm.generateImage(prompt: prompt, style: selectedStyle)
                 } label: {
                     Label("Generate Image", systemImage: "sparkles")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
@@ -884,7 +884,7 @@ private struct StudioImageGenerationPanel: View {
                     vm.generateImage(prompt: prompt, style: selectedStyle)
                 } label: {
                     Label("New Image", systemImage: "arrow.clockwise")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(accentColor)
                 }
                 .buttonStyle(.plain)
@@ -912,7 +912,7 @@ private struct ErrorCard: View {
                 .foregroundStyle(.red)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Generation failed")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                 Text(message)
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -920,7 +920,7 @@ private struct ErrorCard: View {
             }
             Spacer()
             Button("Retry", action: onRetry)
-                .font(.system(size: 13, weight: .medium))
+                .font(.systemScaled(13, weight: .medium))
                 .foregroundStyle(.red)
         }
         .padding(14)

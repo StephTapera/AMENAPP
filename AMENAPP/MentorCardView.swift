@@ -34,24 +34,24 @@ struct MentorCardView: View {
                 // Name + verified badge
                 HStack(spacing: 5) {
                     Text(mentor.name)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(.primary)
                     if mentor.isVerified {
                         Image(systemName: "checkmark.seal.fill")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundStyle(Color(red: 0.15, green: 0.45, blue: 0.82))
                     }
                 }
 
                 // Role + church
                 Text("\(mentor.role) · \(mentor.church)")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
 
                 // Bio
                 Text(mentor.bio)
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.tertiary)
                     .lineLimit(2)
 
@@ -60,7 +60,7 @@ struct MentorCardView: View {
                     HStack(spacing: 5) {
                         ForEach(mentor.specialties, id: \.self) { spec in
                             Text(spec)
-                                .font(.system(size: 9, weight: .semibold))
+                                .font(.systemScaled(9, weight: .semibold))
                                 .padding(.horizontal, 7)
                                 .padding(.vertical, 3)
                                 .background(Capsule().fill(Color(.tertiarySystemBackground)))
@@ -75,12 +75,12 @@ struct MentorCardView: View {
                     HStack(spacing: 3) {
                         Image(systemName: "star.fill")
                             .foregroundStyle(.yellow)
-                            .font(.system(size: 10))
+                            .font(.systemScaled(10))
                         Text(String(format: "%.1f", mentor.rating))
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                     }
                     Text("~\(mentor.responseTimeHours)h reply")
-                        .font(.system(size: 10))
+                        .font(.systemScaled(10))
                         .foregroundStyle(.secondary)
                     Spacer()
                     HStack(spacing: 4) {
@@ -88,7 +88,7 @@ struct MentorCardView: View {
                             .fill(mentor.availabilityStatus.dotColor)
                             .frame(width: 7, height: 7)
                         Text(mentor.availabilityStatus.label)
-                            .font(.system(size: 10))
+                            .font(.systemScaled(10))
                             .foregroundStyle(mentor.availabilityStatus.color)
                     }
                 }
@@ -96,13 +96,13 @@ struct MentorCardView: View {
                 // Price + actions
                 HStack(spacing: 8) {
                     Text(mentor.plans.first?.priceLabel ?? "Free")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundStyle(.primary)
                     Spacer()
                     // Message button
                     Button(action: onMessage) {
                         Label("Message", systemImage: "message.fill")
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.systemScaled(11, weight: .medium))
                             .foregroundStyle(.primary)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 6)
@@ -111,7 +111,7 @@ struct MentorCardView: View {
                     // Request button
                     Button(action: onRequest) {
                         Text(hasRelationship ? "Active ✓" : "Request →")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.systemScaled(11, weight: .semibold))
                             .foregroundStyle(.white)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 6)

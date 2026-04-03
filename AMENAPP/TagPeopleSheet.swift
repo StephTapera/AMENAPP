@@ -68,7 +68,7 @@ struct TagPeopleSheet: View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(.secondary)
-                .font(.system(size: 16, weight: .medium))
+                .font(.systemScaled(16, weight: .medium))
             
             TextField("Search people to tag...", text: $searchText)
                 .font(.custom("OpenSans-Regular", size: 15))
@@ -134,7 +134,7 @@ struct TagPeopleSheet: View {
                 HapticManager.impact(style: .light)
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.systemScaled(10, weight: .bold))
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
@@ -197,7 +197,7 @@ struct TagPeopleSheet: View {
                         .foregroundStyle(.primary)
                     if user.isVerified {
                         Image(systemName: "checkmark.seal.fill")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(.blue)
                     }
                 }
@@ -210,7 +210,7 @@ struct TagPeopleSheet: View {
             
             // Checkmark
             Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                .font(.system(size: 22))
+                .font(.systemScaled(22))
                 .foregroundStyle(isSelected ? Color.purple : Color(.systemGray4))
                 .symbolEffect(.bounce, value: isSelected)
         }
@@ -226,7 +226,7 @@ struct TagPeopleSheet: View {
         VStack {
             VStack(spacing: 12) {
                 Image(systemName: "person.slash")
-                    .font(.system(size: 36))
+                    .font(.systemScaled(36))
                     .foregroundStyle(.secondary)
                 Text("No people found")
                     .font(.custom("OpenSans-SemiBold", size: 16))
@@ -244,7 +244,7 @@ struct TagPeopleSheet: View {
         VStack {
             VStack(spacing: 12) {
                 Image(systemName: "person.badge.plus")
-                    .font(.system(size: 40))
+                    .font(.systemScaled(40))
                     .foregroundStyle(Color.purple.opacity(0.6))
                 Text("Tag people in your post")
                     .font(.custom("OpenSans-SemiBold", size: 16))

@@ -313,9 +313,9 @@ struct ChurchToolsView: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .top, spacing: 0) {
                     Text("Church")
-                        .font(.system(size: 28, weight: .black)).foregroundStyle(.white)
+                        .font(.systemScaled(28, weight: .black)).foregroundStyle(.white)
                     Text(" Tools")
-                        .font(.system(size: 28, weight: .black))
+                        .font(.systemScaled(28, weight: .black))
                         .foregroundStyle(LinearGradient(colors: [Color(red: 0.65, green: 0.82, blue: 1.0), .white],
                                                         startPoint: .leading, endPoint: .trailing))
                     Circle().fill(Color(red: 0.45, green: 0.65, blue: 1.0)).frame(width: 7, height: 7)
@@ -406,7 +406,7 @@ struct ChurchToolsView: View {
             HStack(spacing: 10) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 10).fill(blue.opacity(0.12)).frame(width: 40, height: 40)
-                    Image(systemName: "mic.fill").font(.system(size: 16, weight: .semibold)).foregroundStyle(blue)
+                    Image(systemName: "mic.fill").font(.systemScaled(16, weight: .semibold)).foregroundStyle(blue)
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text("This Week's Message").font(AMENFont.regular(12)).foregroundStyle(.secondary)
@@ -428,7 +428,7 @@ struct ChurchToolsView: View {
     private func scriptureCard(text: String) -> some View {
         HStack(alignment: .top, spacing: 12) {
             Text("\"")
-                .font(.system(size: 40, weight: .black))
+                .font(.systemScaled(40, weight: .black))
                 .foregroundStyle(blue.opacity(0.3))
                 .offset(y: -8)
             Text(text)
@@ -446,7 +446,7 @@ struct ChurchToolsView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
                 Image(systemName: "envelope.open.fill")
-                    .font(.system(size: 13)).foregroundStyle(Color(red: 0.85, green: 0.47, blue: 0.10))
+                    .font(.systemScaled(13)).foregroundStyle(Color(red: 0.85, green: 0.47, blue: 0.10))
                 Text("A Note from Your Pastor")
                     .font(AMENFont.bold(14)).foregroundStyle(.primary)
             }
@@ -472,7 +472,7 @@ struct ChurchToolsView: View {
                     HStack {
                         if announcement.isPinned {
                             Image(systemName: "pin.fill")
-                                .font(.system(size: 11)).foregroundStyle(blue)
+                                .font(.systemScaled(11)).foregroundStyle(blue)
                         }
                         Text(announcement.title)
                             .font(AMENFont.bold(14)).foregroundStyle(.primary)
@@ -509,7 +509,7 @@ struct ChurchToolsView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 Image(systemName: "heart.circle.fill")
-                    .font(.system(size: 16)).foregroundStyle(Color(red: 0.15, green: 0.62, blue: 0.36))
+                    .font(.systemScaled(16)).foregroundStyle(Color(red: 0.15, green: 0.62, blue: 0.36))
                 Text("Give").font(AMENFont.bold(16)).foregroundStyle(.primary)
             }
             if !info.goalLabel.isEmpty {
@@ -542,7 +542,7 @@ struct ChurchToolsView: View {
 
     private func givingMethod(icon: String, label: String, color: Color) -> some View {
         HStack(spacing: 6) {
-            Image(systemName: icon).font(.system(size: 14)).foregroundStyle(color)
+            Image(systemName: icon).font(.systemScaled(14)).foregroundStyle(color)
             Text(label).font(AMENFont.regular(13)).foregroundStyle(.primary)
         }
         .padding(.horizontal, 12).padding(.vertical, 8)
@@ -639,7 +639,7 @@ struct ChurchToolsView: View {
                                 .font(AMENFont.bold(15)).foregroundStyle(.primary)
                             if !service.location.isEmpty {
                                 HStack(spacing: 4) {
-                                    Image(systemName: "mappin").font(.system(size: 11))
+                                    Image(systemName: "mappin").font(.systemScaled(11))
                                     Text(service.location)
                                         .font(AMENFont.regular(13))
                                 }
@@ -684,7 +684,7 @@ struct SmallGroupCard: View {
             HStack(spacing: 12) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 10).fill(accentColor.opacity(0.12)).frame(width: 44, height: 44)
-                    Image(systemName: "person.3.fill").font(.system(size: 18, weight: .semibold)).foregroundStyle(accentColor)
+                    Image(systemName: "person.3.fill").font(.systemScaled(18, weight: .semibold)).foregroundStyle(accentColor)
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(group.name).font(AMENFont.bold(15)).foregroundStyle(.primary)
@@ -732,7 +732,7 @@ struct SmallGroupCard: View {
                     .buttonStyle(ResourceCardPressStyle())
                 } else if isJoined {
                     HStack(spacing: 4) {
-                        Image(systemName: "checkmark.circle.fill").font(.system(size: 12)).foregroundStyle(accentColor)
+                        Image(systemName: "checkmark.circle.fill").font(.systemScaled(12)).foregroundStyle(accentColor)
                         Text("Joined").font(AMENFont.semiBold(12)).foregroundStyle(accentColor)
                     }
                 }
@@ -777,7 +777,7 @@ struct ServingRoleCard: View {
                     HStack(spacing: 6) {
                         if role.isUrgent {
                             Text("URGENT")
-                                .font(.system(size: 9, weight: .bold)).kerning(1)
+                                .font(.systemScaled(9, weight: .bold)).kerning(1)
                                 .foregroundStyle(.white)
                                 .padding(.horizontal, 7).padding(.vertical, 3)
                                 .background(Capsule().fill(Color(red: 0.85, green: 0.20, blue: 0.20)))
@@ -793,7 +793,7 @@ struct ServingRoleCard: View {
                 Spacer()
                 if role.openSpots > 0 {
                     VStack(alignment: .trailing, spacing: 1) {
-                        Text("\(role.openSpots)").font(.system(size: 18, weight: .black)).foregroundStyle(accentColor)
+                        Text("\(role.openSpots)").font(.systemScaled(18, weight: .black)).foregroundStyle(accentColor)
                         Text("open").font(AMENFont.regular(10)).foregroundStyle(.secondary)
                     }
                 }
@@ -818,7 +818,7 @@ struct ServingRoleCard: View {
             if !isSignedUp {
                 Button(action: onSignUp) {
                     HStack(spacing: 6) {
-                        Image(systemName: "hand.raised.fill").font(.system(size: 13, weight: .semibold))
+                        Image(systemName: "hand.raised.fill").font(.systemScaled(13, weight: .semibold))
                         Text("I Want to Serve").font(AMENFont.bold(14))
                     }
                     .foregroundStyle(.white)

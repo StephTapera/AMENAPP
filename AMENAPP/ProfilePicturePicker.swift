@@ -60,7 +60,7 @@ struct ProfilePicturePicker: View {
                                         .progressViewStyle(CircularProgressViewStyle(tint: .white))
                                 } else {
                                     Image(systemName: "arrow.up.circle.fill")
-                                        .font(.system(size: 20))
+                                        .font(.systemScaled(20))
                                 }
                                 
                                 Text(isUploading ? "Uploading..." : "Upload Photo")
@@ -95,7 +95,7 @@ struct ProfilePicturePicker: View {
                         // Photo Picker
                         VStack(spacing: 24) {
                             Image(systemName: "person.crop.circle.fill.badge.plus")
-                                .font(.system(size: 100))
+                                .font(.systemScaled(100))
                                 .foregroundStyle(
                                     LinearGradient(
                                         colors: [Color.orange, Color(red: 1.0, green: 0.6, blue: 0.2)],
@@ -118,7 +118,7 @@ struct ProfilePicturePicker: View {
                             PhotosPicker(selection: $selectedItem, matching: .images) {
                                 HStack(spacing: 12) {
                                     Image(systemName: "photo.on.rectangle")
-                                        .font(.system(size: 18))
+                                        .font(.systemScaled(18))
                                     
                                     Text("Choose Photo")
                                         .font(AMENFont.bold(16))
@@ -150,7 +150,7 @@ struct ProfilePicturePicker: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 28))
+                            .font(.systemScaled(28))
                             .foregroundStyle(.white.opacity(0.7))
                     }
                 }

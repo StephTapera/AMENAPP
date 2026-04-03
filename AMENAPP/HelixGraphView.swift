@@ -282,7 +282,7 @@ struct HelixGraphView: View {
                             } label: {
                                 HStack(spacing: 5) {
                                     Image(systemName: type.icon)
-                                        .font(.system(size: 12))
+                                        .font(.systemScaled(12))
                                     Text(type.label)
                                         .font(AMENFont.regular(13))
                                 }

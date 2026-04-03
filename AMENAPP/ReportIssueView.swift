@@ -47,7 +47,7 @@ struct ReportIssueView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.systemScaled(15, weight: .medium))
                             .foregroundStyle(Color(white: 0.3))
                     }
                 }
@@ -61,7 +61,7 @@ struct ReportIssueView: View {
                 // Header
                 VStack(alignment: .leading, spacing: 8) {
                     Image(systemName: "exclamationmark.bubble.fill")
-                        .font(.system(size: 40))
+                        .font(.systemScaled(40))
                         .foregroundStyle(
                             LinearGradient(
                                 colors: [Color.orange, Color.red],
@@ -71,11 +71,11 @@ struct ReportIssueView: View {
                         )
                     
                     Text("Help Us Improve")
-                        .font(.system(size: 28, weight: .light))
+                        .font(.systemScaled(28, weight: .light))
                         .foregroundStyle(Color(white: 0.2))
                     
                     Text("Your feedback helps Berean AI provide better responses for everyone.")
-                        .font(.system(size: 14, weight: .regular))
+                        .font(.systemScaled(14, weight: .regular))
                         .foregroundStyle(Color(white: 0.4))
                         .lineSpacing(4)
                 }
@@ -84,13 +84,13 @@ struct ReportIssueView: View {
                 // Message preview
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Reported Message")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(Color(white: 0.4))
                         .textCase(.uppercase)
                         .tracking(1)
                     
                     Text(message.content)
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(Color(white: 0.3))
                         .padding()
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -104,7 +104,7 @@ struct ReportIssueView: View {
                 // Issue type selection
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Issue Type")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(Color(white: 0.4))
                         .textCase(.uppercase)
                         .tracking(1)
@@ -129,13 +129,13 @@ struct ReportIssueView: View {
                 // Description
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Details (Optional)")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(Color(white: 0.4))
                         .textCase(.uppercase)
                         .tracking(1)
                     
                     TextEditor(text: $description)
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                         .foregroundStyle(Color(white: 0.3))
                         .frame(height: 120)
                         .padding(12)
@@ -150,7 +150,7 @@ struct ReportIssueView: View {
                         .scrollContentBackground(.hidden)
                     
                     Text("Help us understand the issue better")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(Color(white: 0.5))
                 }
                 
@@ -165,7 +165,7 @@ struct ReportIssueView: View {
                         } else {
                             Image(systemName: "paperplane.fill")
                             Text("Submit Report")
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.systemScaled(16, weight: .semibold))
                         }
                     }
                     .foregroundStyle(.white)
@@ -189,7 +189,7 @@ struct ReportIssueView: View {
                 // Error message
                 if let error = errorMessage {
                     Text(error)
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                         .foregroundStyle(.red)
                         .padding()
                         .frame(maxWidth: .infinity)
@@ -224,18 +224,18 @@ struct ReportIssueView: View {
                     .frame(width: 140, height: 140)
                 
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 70))
+                    .font(.systemScaled(70))
                     .foregroundStyle(Color.green)
                     .symbolEffect(.bounce)
             }
             
             VStack(spacing: 12) {
                 Text("Report Submitted")
-                    .font(.system(size: 28, weight: .light))
+                    .font(.systemScaled(28, weight: .light))
                     .foregroundStyle(Color(white: 0.2))
                 
                 Text("Thank you for helping us improve Berean AI. We'll review your feedback carefully.")
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .foregroundStyle(Color(white: 0.4))
                     .multilineTextAlignment(.center)
                     .lineSpacing(4)
@@ -248,7 +248,7 @@ struct ReportIssueView: View {
                 dismiss()
             } label: {
                 Text("Done")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
@@ -307,19 +307,19 @@ struct IssueTypeButton: View {
         Button(action: action) {
             HStack(spacing: 12) {
                 Image(systemName: type.icon)
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
                     .foregroundStyle(isSelected ? Color.orange : Color(white: 0.4))
                     .frame(width: 32)
                 
                 Text(type.rawValue)
-                    .font(.system(size: 15, weight: isSelected ? .semibold : .regular))
+                    .font(.systemScaled(15, weight: isSelected ? .semibold : .regular))
                     .foregroundStyle(isSelected ? Color(white: 0.2) : Color(white: 0.4))
                 
                 Spacer()
                 
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 18))
+                        .font(.systemScaled(18))
                         .foregroundStyle(Color.orange)
                 }
             }

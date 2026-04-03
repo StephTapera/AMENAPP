@@ -168,14 +168,14 @@ struct TwoFactorAuthView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Status")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(.secondary)
 
                     HStack {
                         Image(systemName: "checkmark.circle.fill")
                             .foregroundStyle(.green)
                         Text("Enabled")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                     }
                 }
                 Spacer()
@@ -189,11 +189,11 @@ struct TwoFactorAuthView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Phone Number")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(.secondary)
 
                     Text(twoFactorService.maskedPhone ?? "Not set")
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.systemScaled(16, weight: .medium))
                 }
                 Spacer()
             }
@@ -209,17 +209,17 @@ struct TwoFactorAuthView: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Recovery Backup Codes")
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.systemScaled(15, weight: .medium))
                             .foregroundStyle(.primary)
                         if let count = twoFactorService.backupCodesRemaining {
                             Text("\(count) of 6 codes remaining")
-                                .font(.system(size: 13))
+                                .font(.systemScaled(13))
                                 .foregroundStyle(count <= 2 ? .red : .secondary)
                         }
                     }
                     Spacer()
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(.secondary)
                 }
                 .padding(.horizontal, 16)
@@ -236,10 +236,10 @@ struct TwoFactorAuthView: View {
                         .foregroundStyle(.orange)
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Low on backup codes")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                             .foregroundStyle(.orange)
                         Text("Generate new codes before you run out.")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
@@ -258,7 +258,7 @@ struct TwoFactorAuthView: View {
                 showDisableConfirmation = true
             } label: {
                 Text("Disable Two-Factor Authentication")
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.systemScaled(15, weight: .medium))
                     .foregroundStyle(.red)
                     .frame(maxWidth: .infinity)
                     .padding(.horizontal, 16)
@@ -282,23 +282,23 @@ struct TwoFactorAuthView: View {
         } label: {
             HStack {
                 Image(systemName: "shield.lefthalf.filled")
-                    .font(.system(size: 18))
+                    .font(.systemScaled(18))
                     .foregroundStyle(.blue)
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Enable Two-Factor Authentication")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(.primary)
 
                     Text("Add an extra layer of security")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.secondary)
                 }
 
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(.secondary)
             }
             .padding(.horizontal, 16)
@@ -410,16 +410,16 @@ private struct TwoFAFeatureRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 20))
+                .font(.systemScaled(20))
                 .foregroundStyle(.blue)
                 .frame(width: 28)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
 
                 Text(description)
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.secondary)
             }
         }
@@ -437,16 +437,16 @@ struct SetupPhoneView: View {
         NavigationStack {
             VStack(spacing: 24) {
                 Image(systemName: "iphone.radiowaves.left.and.right")
-                    .font(.system(size: 60))
+                    .font(.systemScaled(60))
                     .foregroundStyle(.blue)
                     .padding(.top, 40)
 
                 VStack(spacing: 8) {
                     Text("Enter Your Phone Number")
-                        .font(.system(size: 24, weight: .bold))
+                        .font(.systemScaled(24, weight: .bold))
 
                     Text("We'll send you a verification code to confirm it's really you")
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal)
@@ -455,7 +455,7 @@ struct SetupPhoneView: View {
                 TextField("Phone Number", text: $phoneNumber)
                     .keyboardType(.phonePad)
                     .textContentType(.telephoneNumber)
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .padding()
                     .background(Color(.systemGray6))
                     .clipShape(RoundedRectangle(cornerRadius: 10))
@@ -466,7 +466,7 @@ struct SetupPhoneView: View {
                     dismiss()
                 } label: {
                     Text("Send Code")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .padding()
@@ -505,16 +505,16 @@ struct VerificationCodeView: View {
         NavigationStack {
             VStack(spacing: 24) {
                 Image(systemName: "envelope.badge.shield.half.filled")
-                    .font(.system(size: 60))
+                    .font(.systemScaled(60))
                     .foregroundStyle(.green)
                     .padding(.top, 40)
 
                 VStack(spacing: 8) {
                     Text("Enter Verification Code")
-                        .font(.system(size: 24, weight: .bold))
+                        .font(.systemScaled(24, weight: .bold))
 
                     Text("We sent a code to \(phoneNumber)")
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal)
@@ -523,7 +523,7 @@ struct VerificationCodeView: View {
                 TextField("6-Digit Code", text: $verificationCode)
                     .keyboardType(.numberPad)
                     .textContentType(.oneTimeCode)
-                    .font(.system(size: 24, weight: .medium, design: .monospaced))
+                    .font(.systemScaled(24, weight: .medium, design: .monospaced))
                     .multilineTextAlignment(.center)
                     .padding()
                     .background(Color(.systemGray6))
@@ -535,7 +535,7 @@ struct VerificationCodeView: View {
                     dismiss()
                 } label: {
                     Text("Verify & Enable")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .padding()
@@ -550,7 +550,7 @@ struct VerificationCodeView: View {
                     onResend()
                 } label: {
                     Text("Resend Code")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(.blue)
                 }
 
@@ -590,15 +590,15 @@ struct BackupCodesManagementView: View {
                     // Icon + heading
                     VStack(spacing: 12) {
                         Image(systemName: "key.fill")
-                            .font(.system(size: 48))
+                            .font(.systemScaled(48))
                             .foregroundStyle(.orange)
                             .padding(.top, 32)
 
                         Text("Recovery Backup Codes")
-                            .font(.system(size: 22, weight: .bold))
+                            .font(.systemScaled(22, weight: .bold))
 
                         Text("Use a backup code to sign in if you lose access to your phone. Each code can only be used once.")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 24)
@@ -611,7 +611,7 @@ struct BackupCodesManagementView: View {
                                 Image(systemName: "checkmark.circle.fill")
                                     .foregroundStyle(.green)
                                 Text("New codes generated — save these now")
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(.systemScaled(14, weight: .semibold))
                                     .foregroundStyle(.green)
                             }
 
@@ -633,7 +633,7 @@ struct BackupCodesManagementView: View {
                                 HStack(spacing: 8) {
                                     Image(systemName: copiedToClipboard ? "checkmark.circle.fill" : "doc.on.doc")
                                     Text(copiedToClipboard ? "Copied!" : "Copy All Codes")
-                                        .font(.system(size: 15, weight: .semibold))
+                                        .font(.systemScaled(15, weight: .semibold))
                                 }
                                 .foregroundStyle(copiedToClipboard ? .green : .white)
                                 .frame(maxWidth: .infinity)
@@ -654,7 +654,7 @@ struct BackupCodesManagementView: View {
                                     Image(systemName: count <= 2 ? "exclamationmark.triangle.fill" : "checkmark.shield.fill")
                                         .foregroundStyle(count <= 2 ? .orange : .green)
                                     Text("\(count) of 6 codes remaining")
-                                        .font(.system(size: 16, weight: .semibold))
+                                        .font(.systemScaled(16, weight: .semibold))
                                         .foregroundStyle(count <= 2 ? .orange : .primary)
                                     Spacer()
                                 }
@@ -664,7 +664,7 @@ struct BackupCodesManagementView: View {
                             }
 
                             Text("You cannot view existing codes — they are stored securely and never shown after creation. Generate new codes to replace them.")
-                                .font(.system(size: 13))
+                                .font(.systemScaled(13))
                                 .foregroundStyle(.secondary)
                                 .multilineTextAlignment(.center)
                         }
@@ -684,7 +684,7 @@ struct BackupCodesManagementView: View {
                                     Image(systemName: "arrow.clockwise")
                                 }
                                 Text(isRegenerating ? "Generating..." : "Generate New Codes")
-                                    .font(.system(size: 15, weight: .semibold))
+                                    .font(.systemScaled(15, weight: .semibold))
                             }
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)

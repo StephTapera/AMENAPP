@@ -54,7 +54,7 @@ struct SermonGlassCard: View {
             HStack(spacing: 12) {
                 // Waveform icon morphs into player waveform
                 Image(systemName: "waveform")
-                    .font(.system(size: 18, weight: .medium))
+                    .font(.systemScaled(18, weight: .medium))
                     .foregroundColor(Color(white: 0.45))
                     .matchedGeometryEffect(id: GlassMorphID.waveformCapsule, in: namespace)
 
@@ -72,7 +72,7 @@ struct SermonGlassCard: View {
                 Spacer()
 
                 Image(systemName: "chevron.up")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                     .foregroundColor(Color(white: 0.65))
             }
             .padding(.horizontal, 16)
@@ -180,7 +180,7 @@ struct SermonGlassPlayerSheet: View {
                 HStack(spacing: 40) {
                     Button { withAnimation(GlassMorphSpring.detail) { playbackProgress = max(0, playbackProgress - 0.1) } } label: {
                         Image(systemName: "gobackward.15")
-                            .font(.system(size: 22, weight: .light))
+                            .font(.systemScaled(22, weight: .light))
                             .foregroundColor(.black)
                     }
                     Button { withAnimation(GlassMorphSpring.detail) { isPlaying.toggle() } } label: {
@@ -189,13 +189,13 @@ struct SermonGlassPlayerSheet: View {
                                 .fill(Color.black)
                                 .frame(width: 58, height: 58)
                             Image(systemName: isPlaying ? "pause.fill" : "play.fill")
-                                .font(.system(size: 22, weight: .medium))
+                                .font(.systemScaled(22, weight: .medium))
                                 .foregroundColor(.white)
                         }
                     }
                     Button { withAnimation(GlassMorphSpring.detail) { playbackProgress = min(1, playbackProgress + 0.1) } } label: {
                         Image(systemName: "goforward.15")
-                            .font(.system(size: 22, weight: .light))
+                            .font(.systemScaled(22, weight: .light))
                             .foregroundColor(.black)
                     }
                 }
@@ -212,7 +212,7 @@ struct SermonGlassPlayerSheet: View {
                         .overlay(Circle().fill(Color.white.opacity(0.55)))
                         .frame(width: 30, height: 30)
                     Image(systemName: "xmark")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundColor(Color(white: 0.45))
                 }
             }
@@ -280,7 +280,7 @@ struct TranscriptLineMorphView: View {
                 Spacer()
 
                 Image(systemName: "pencil")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundColor(Color(white: 0.70))
             }
             .padding(.horizontal, 16)
@@ -408,7 +408,7 @@ struct WorshipPillMorph: View {
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: "music.note")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                     .foregroundColor(Color(white: 0.45))
                     .matchedGeometryEffect(id: GlassMorphID.worshipPill + "_icon", in: namespace)
                 Text(title)
@@ -417,7 +417,7 @@ struct WorshipPillMorph: View {
                     .lineLimit(1)
                     .matchedGeometryEffect(id: GlassMorphID.worshipPill + "_title", in: namespace)
                 Image(systemName: "chevron.up")
-                    .font(.system(size: 9))
+                    .font(.systemScaled(9))
                     .foregroundColor(Color(white: 0.65))
             }
             .padding(.horizontal, 12)
@@ -438,7 +438,7 @@ struct WorshipPillMorph: View {
             HStack {
                 HStack(spacing: 6) {
                     Image(systemName: "music.note")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.systemScaled(14, weight: .medium))
                         .foregroundColor(Color(white: 0.30))
                         .matchedGeometryEffect(id: GlassMorphID.worshipPill + "_icon", in: namespace)
                     Text(title)
@@ -451,7 +451,7 @@ struct WorshipPillMorph: View {
                     withAnimation(GlassMorphSpring.dismiss) { isExpanded = false }
                 } label: {
                     Image(systemName: "chevron.down")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundColor(Color(white: 0.55))
                 }
             }
@@ -472,20 +472,20 @@ struct WorshipPillMorph: View {
             HStack(spacing: 32) {
                 Button { withAnimation(GlassMorphSpring.detail) { progress = max(0, progress - 0.1) } } label: {
                     Image(systemName: "gobackward.15")
-                        .font(.system(size: 18, weight: .light))
+                        .font(.systemScaled(18, weight: .light))
                         .foregroundColor(.black)
                 }
                 Button { withAnimation(GlassMorphSpring.detail) { isPlaying.toggle() } } label: {
                     ZStack {
                         Circle().fill(Color.black).frame(width: 44, height: 44)
                         Image(systemName: isPlaying ? "pause.fill" : "play.fill")
-                            .font(.system(size: 16, weight: .medium))
+                            .font(.systemScaled(16, weight: .medium))
                             .foregroundColor(.white)
                     }
                 }
                 Button { withAnimation(GlassMorphSpring.detail) { progress = min(1, progress + 0.1) } } label: {
                     Image(systemName: "goforward.15")
-                        .font(.system(size: 18, weight: .light))
+                        .font(.systemScaled(18, weight: .light))
                         .foregroundColor(.black)
                 }
             }

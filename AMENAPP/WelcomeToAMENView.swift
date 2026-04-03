@@ -284,7 +284,7 @@ struct WelcomePackageView: View {
                     .accessibilityLabel("Welcome Package")
 
                 Text("Verses · Guidance · Safety")
-                    .font(.system(size: 8, weight: .medium))
+                    .font(.systemScaled(8, weight: .medium))
                     .foregroundStyle(.white.opacity(0.35))
                     .tracking(0.8)
                     .textCase(.uppercase)
@@ -303,7 +303,7 @@ struct WelcomePackageView: View {
                     .accessibilityLabel("Ready")
 
                 Text("Tap to Enter")
-                    .font(.system(size: 8, weight: .medium))
+                    .font(.systemScaled(8, weight: .medium))
                     .foregroundStyle(.white.opacity(0.35))
                     .tracking(0.8)
                     .textCase(.uppercase)
@@ -389,7 +389,7 @@ struct WelcomePackageView: View {
                     Text("Enter AMEN")
                         .font(.custom("OpenSans-Bold", size: 16))
                     Image(systemName: "arrow.right")
-                        .font(.system(size: 15, weight: .bold))
+                        .font(.systemScaled(15, weight: .bold))
                 }
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
@@ -637,7 +637,7 @@ private struct PrivacySummarySheet: View {
                                 WPGlassCard(breath: 1.0) {
                                     HStack(alignment: .top, spacing: 14) {
                                         Image(systemName: icon)
-                                            .font(.system(size: 20))
+                                            .font(.systemScaled(20))
                                             .foregroundStyle(.blue.opacity(0.85))
                                             .frame(width: 28)
                                         VStack(alignment: .leading, spacing: 5) {

@@ -21,16 +21,16 @@ struct PathProgressCard: View {
                         .fill(isLocked ? Color(.systemGray5) : iconBg)
                         .frame(width: 44, height: 44)
                     Image(systemName: isLocked ? "lock.fill" : icon)
-                        .font(.system(size: 18, weight: .medium))
+                        .font(.systemScaled(18, weight: .medium))
                         .foregroundStyle(isLocked ? Color.black.opacity(0.4) : .white)
                 }
                 // Info
                 VStack(alignment: .leading, spacing: 4) {
                     Text(title)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(isLocked ? .secondary : Color(red: 0.07, green: 0.07, blue: 0.07))
                     Text(subtitle)
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(.secondary)
                     // Progress bar
                     GeometryReader { geo in
@@ -47,7 +47,7 @@ struct PathProgressCard: View {
                 }
                 Spacer()
                 Image(systemName: isLocked ? "lock.fill" : "chevron.right")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundStyle(isLocked ? Color.black.opacity(0.4) : Color.secondary)
             }
             .padding(14)

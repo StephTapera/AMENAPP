@@ -50,14 +50,14 @@ struct CreatorTrustBadgeView: View {
             HStack(spacing: 5) {
                 ZStack {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 10, weight: .bold))
+                        .font(.systemScaled(10, weight: .bold))
                         .symbolRenderingMode(.hierarchical)
                         .foregroundStyle(amenGold)
                         .scaleEffect(sparkleScale)
                         .opacity(sparkleOpacity)
 
                     Image(systemName: "checkmark.seal.fill")
-                        .font(.system(size: showLabel ? 14 : 12, weight: .semibold))
+                        .font(.systemScaled(showLabel ? 14 : 12, weight: .semibold))
                         .symbolRenderingMode(.multicolor)
                         .foregroundStyle(amenGold)
                 }
@@ -106,7 +106,7 @@ struct CreatorTrustBadgeView: View {
         Button { showBadgeInfo = true } label: {
             HStack(spacing: 5) {
                 Image(systemName: "clock.fill")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(.white.opacity(0.45))
                 if showLabel {
@@ -136,7 +136,7 @@ struct CreatorTrustBadgeView: View {
     private var compactBadge: some View {
         HStack(spacing: 4) {
             Image(systemName: badgeIcon)
-                .font(.system(size: showLabel ? 13 : 12))
+                .font(.systemScaled(showLabel ? 13 : 12))
                 .foregroundStyle(badgeColor)
             if showLabel {
                 Text(badgeLabel)
@@ -188,7 +188,7 @@ struct CreatorSubscriptionBadge: View {
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: isSubscribed ? "star.fill" : "star")
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
             Text(isSubscribed ? "Subscribed" : "Subscribe")
                 .font(AMENFont.semiBold(11))
         }

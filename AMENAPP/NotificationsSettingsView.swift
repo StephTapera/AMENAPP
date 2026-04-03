@@ -492,7 +492,7 @@ struct NotificationsSettingsView: View {
                             .foregroundStyle(.primary)
                         Spacer()
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -613,7 +613,7 @@ struct NotificationsSettingsView: View {
                                 .font(AMENFont.regular(15))
                                 .foregroundStyle(.secondary)
                             Image(systemName: "chevron.right")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.systemScaled(13, weight: .semibold))
                                 .foregroundStyle(.secondary)
                         }
                     }

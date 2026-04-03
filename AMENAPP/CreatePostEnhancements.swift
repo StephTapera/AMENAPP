@@ -102,7 +102,7 @@ struct ImagePreviewWithAltText: View {
                 onRemove()
             } label: {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 24))
+                    .font(.systemScaled(24))
                     .foregroundStyle(.white)
                     .background(
                         Circle()
@@ -121,7 +121,7 @@ struct ImagePreviewWithAltText: View {
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: altText.isEmpty ? "text.bubble" : "checkmark.circle.fill")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.systemScaled(11, weight: .semibold))
                         Text(altText.isEmpty ? "ALT" : "ALT ✓")
                             .font(.custom("OpenSans-Bold", size: 10))
                     }
@@ -158,7 +158,7 @@ struct EngagementPrivacyRow: View {
                         .fill(Color.purple.opacity(0.12))
                         .frame(width: 40, height: 40)
                     Image(systemName: hideEngagementCounts ? "eye.slash.fill" : "eye.fill")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(.purple)
                 }
                 
@@ -209,7 +209,7 @@ struct ContentWarningRow: View {
                             .fill(Color.orange.opacity(0.12))
                             .frame(width: 40, height: 40)
                         Image(systemName: "exclamationmark.triangle.fill")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .foregroundStyle(.orange)
                     }
                     
@@ -348,7 +348,7 @@ struct VoiceToTextButton: View {
                 }
                 
                 Image(systemName: isRecording ? "stop.circle.fill" : "mic.circle.fill")
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
                     .foregroundStyle(isRecording ? .red : .secondary)
             }
         }

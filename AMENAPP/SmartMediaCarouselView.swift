@@ -139,7 +139,7 @@ struct SmartMediaCarouselView: View {
 
             // Media type icon watermark
             Image(systemName: items[currentIndex].type == .video ? "film" : "photo")
-                .font(.system(size: 36, weight: .ultraLight))
+                .font(.systemScaled(36, weight: .ultraLight))
                 .foregroundStyle(
                     items[currentIndex].type == .video
                         ? Color.white.opacity(0.12)
@@ -190,7 +190,7 @@ struct SmartMediaCarouselView: View {
                     .frame(width: 60, height: 60)
 
                 Image(systemName: isPlayingVideo ? "pause.fill" : "play.fill")
-                    .font(.system(size: 22, weight: .semibold))
+                    .font(.systemScaled(22, weight: .semibold))
                     .foregroundStyle(.black.opacity(0.75))
                     .offset(x: isPlayingVideo ? 0 : 2)
             }
@@ -223,7 +223,7 @@ struct SmartMediaCarouselView: View {
 
     private func contextTagPill(_ tag: String) -> some View {
         Text(tag)
-            .font(.system(size: 11, weight: .medium))
+            .font(.systemScaled(11, weight: .medium))
             .foregroundStyle(.black.opacity(0.75))
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
@@ -241,10 +241,10 @@ struct SmartMediaCarouselView: View {
     private func trustLabelPill(_ label: String) -> some View {
         HStack(spacing: 4) {
             Image(systemName: "checkmark.seal.fill")
-                .font(.system(size: 10, weight: .semibold))
+                .font(.systemScaled(10, weight: .semibold))
                 .foregroundStyle(.black.opacity(0.6))
             Text(label)
-                .font(.system(size: 11, weight: .medium))
+                .font(.systemScaled(11, weight: .medium))
                 .foregroundStyle(.black.opacity(0.75))
         }
         .padding(.horizontal, 10)
@@ -282,9 +282,9 @@ struct SmartMediaCarouselView: View {
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                     Text("Smart Actions")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                 }
                 .foregroundStyle(.black.opacity(0.80))
                 .padding(.horizontal, 14)
@@ -344,7 +344,7 @@ struct SmartMediaCarouselView: View {
                     .frame(width: 38, height: 38)
 
                 Image(systemName: systemName)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.black.opacity(enabled ? 0.70 : 0.20))
             }
         }

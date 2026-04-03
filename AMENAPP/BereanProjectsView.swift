@@ -168,7 +168,7 @@ struct BereanProjectsView: View {
                 ToolbarItem(placement: .topBarLeading) {
                     Button { dismiss() } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.systemScaled(14, weight: .medium))
                             .foregroundStyle(Color.bpSecondary)
                     }
                 }
@@ -176,9 +176,9 @@ struct BereanProjectsView: View {
                     Button { showNewProject = true } label: {
                         HStack(spacing: 4) {
                             Image(systemName: "plus")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.systemScaled(14, weight: .semibold))
                             Text("New Project")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.systemScaled(14, weight: .semibold))
                         }
                     }
                 }
@@ -200,18 +200,18 @@ struct BereanProjectsView: View {
     private var memoryBanner: some View {
         HStack(spacing: 10) {
             Image(systemName: "brain")
-                .font(.system(size: 13, weight: .medium))
+                .font(.systemScaled(13, weight: .medium))
                 .foregroundStyle(Color.bpSecondary)
 
             Text("Berean remembers your preferences")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(Color.bpSecondary)
 
             Spacer()
 
             Button { showMemorySettings = true } label: {
                 Image(systemName: "gearshape")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(Color.bpTertiary)
             }
         }
@@ -239,20 +239,20 @@ struct BereanProjectsView: View {
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
                             .fill(Color(white: 0.92)).frame(width: 44, height: 44)
                         Image(systemName: "bubble.left.and.bubble.right")
-                            .font(.system(size: 18, weight: .medium))
+                            .font(.systemScaled(18, weight: .medium))
                             .foregroundStyle(Color.bpPrimary)
                     }
                     VStack(alignment: .leading, spacing: 2) {
                         Text("My Conversations")
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(.systemScaled(15, weight: .semibold))
                             .foregroundStyle(Color.bpPrimary)
                         Text("All recent Berean chats")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(Color.bpSecondary)
                     }
                     Spacer()
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.systemScaled(11, weight: .medium))
                         .foregroundStyle(Color.bpTertiary)
                 }
                 .padding(.horizontal, 20)
@@ -298,24 +298,24 @@ struct BereanProjectsView: View {
                         .fill(accent.opacity(0.12))
                         .frame(width: 44, height: 44)
                     Image(systemName: project.iconSymbol)
-                        .font(.system(size: 18, weight: .medium))
+                        .font(.systemScaled(18, weight: .medium))
                         .foregroundStyle(accent)
                 }
 
                 // Name
                 Text(project.title)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(Color.bpPrimary)
                     .lineLimit(1)
 
                 // Stats
                 HStack(spacing: 4) {
                     Text("\(project.chatCount) chats")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(Color.bpSecondary)
                     Spacer()
                     Text(relativeDate(project.lastUpdated))
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(Color.bpTertiary)
                 }
             }
@@ -356,10 +356,10 @@ struct BereanProjectsView: View {
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: collection.icon)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundStyle(accent)
                 Text(collection.name)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(Color.bpPrimary)
             }
             .padding(.horizontal, 14)
@@ -378,7 +378,7 @@ struct BereanProjectsView: View {
 
     private func sectionHeader(_ label: String) -> some View {
         Text(label)
-            .font(.system(size: 11, weight: .semibold)).kerning(0.8)
+            .font(.systemScaled(11, weight: .semibold)).kerning(0.8)
             .foregroundStyle(Color.bpTertiary)
             .padding(.horizontal, 20).padding(.top, 20).padding(.bottom, 6)
     }
@@ -415,18 +415,18 @@ struct BereanProjectsView: View {
     private var emptyState: some View {
         VStack(spacing: 16) {
             Image(systemName: "folder.badge.plus")
-                .font(.system(size: 38))
+                .font(.systemScaled(38))
                 .foregroundStyle(Color.bpTertiary)
             Text("No projects yet")
-                .font(.system(size: 17, weight: .semibold))
+                .font(.systemScaled(17, weight: .semibold))
                 .foregroundStyle(Color.bpPrimary)
             Text("Organize Bible studies, prayers, church notes,\nand more into projects.")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(Color.bpSecondary)
                 .multilineTextAlignment(.center)
             Button { showNewProject = true } label: {
                 Text("Create your first project")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(Color.bereanProjectAccent("indigo"))
             }
         }
@@ -480,7 +480,7 @@ struct BereanProjectDetailView: View {
                                     }
                                 } label: {
                                     Text(tab.rawValue)
-                                        .font(.system(size: 13, weight: selectedTab == tab ? .semibold : .regular))
+                                        .font(.systemScaled(13, weight: selectedTab == tab ? .semibold : .regular))
                                         .foregroundStyle(selectedTab == tab ? accent : Color.bpSecondary)
                                         .padding(.horizontal, 14).padding(.vertical, 8)
                                         .background {
@@ -522,7 +522,7 @@ struct BereanProjectDetailView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { dismiss() } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.systemScaled(14, weight: .medium))
                             .foregroundStyle(Color.bpSecondary)
                     }
                 }
@@ -540,14 +540,14 @@ struct BereanProjectDetailView: View {
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
                             .fill(accent.opacity(0.12)).frame(width: 52, height: 52)
                         Image(systemName: project.iconSymbol)
-                            .font(.system(size: 22, weight: .medium)).foregroundStyle(accent)
+                            .font(.systemScaled(22, weight: .medium)).foregroundStyle(accent)
                     }
                     VStack(alignment: .leading, spacing: 3) {
                         Text(project.title)
-                            .font(.system(size: 18, weight: .bold)).foregroundStyle(Color.bpPrimary)
+                            .font(.systemScaled(18, weight: .bold)).foregroundStyle(Color.bpPrimary)
                         if !project.description.isEmpty {
                             Text(project.description)
-                                .font(.system(size: 13)).foregroundStyle(Color.bpSecondary)
+                                .font(.systemScaled(13)).foregroundStyle(Color.bpSecondary)
                         }
                     }
                 }
@@ -570,7 +570,7 @@ struct BereanProjectDetailView: View {
             .padding(.horizontal, 16)
 
             Text("QUICK ACTIONS")
-                .font(.system(size: 11, weight: .semibold)).kerning(0.8)
+                .font(.systemScaled(11, weight: .semibold)).kerning(0.8)
                 .foregroundStyle(Color.bpTertiary).padding(.horizontal, 20)
 
             LazyVGrid(
@@ -591,8 +591,8 @@ struct BereanProjectDetailView: View {
     @ViewBuilder
     private func statPill(_ value: String, _ label: String) -> some View {
         VStack(spacing: 2) {
-            Text(value).font(.system(size: 15, weight: .bold)).foregroundStyle(accent)
-            Text(label).font(.system(size: 11)).foregroundStyle(Color.bpTertiary)
+            Text(value).font(.systemScaled(15, weight: .bold)).foregroundStyle(accent)
+            Text(label).font(.systemScaled(11)).foregroundStyle(Color.bpTertiary)
         }
     }
 
@@ -600,9 +600,9 @@ struct BereanProjectDetailView: View {
     private func quickActionTile(_ title: String, icon: String) -> some View {
         HStack(spacing: 8) {
             Image(systemName: icon)
-                .font(.system(size: 14, weight: .medium)).foregroundStyle(accent)
+                .font(.systemScaled(14, weight: .medium)).foregroundStyle(accent)
             Text(title)
-                .font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.bpPrimary)
+                .font(.systemScaled(13, weight: .semibold)).foregroundStyle(Color.bpPrimary)
             Spacer()
         }
         .padding(.horizontal, 14).padding(.vertical, 12)
@@ -641,12 +641,12 @@ struct BereanProjectDetailView: View {
     private func conversationRow(_ conv: BereanConversation) -> some View {
         HStack(spacing: 12) {
             Image(systemName: "bubble.left")
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .foregroundStyle(accent.opacity(0.7))
                 .frame(width: 32)
             VStack(alignment: .leading, spacing: 2) {
                 Text(conv.title)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(Color.bpPrimary)
                     .lineLimit(1)
                 HStack(spacing: 4) {
@@ -654,18 +654,18 @@ struct BereanProjectDetailView: View {
                     Text("·")
                     Text(conv.relativeDate)
                 }
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(Color.bpSecondary)
                 if let preview = conv.lastMessagePreview {
                     Text(preview)
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(Color.bpTertiary)
                         .lineLimit(1)
                 }
             }
             Spacer()
             Image(systemName: "chevron.right")
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(Color.bpTertiary)
         }
         .padding(.horizontal, 20)
@@ -676,9 +676,9 @@ struct BereanProjectDetailView: View {
     @ViewBuilder
     private func emptyPlaceholder(icon: String, text: String) -> some View {
         VStack(spacing: 12) {
-            Image(systemName: icon).font(.system(size: 32)).foregroundStyle(Color.bpTertiary)
+            Image(systemName: icon).font(.systemScaled(32)).foregroundStyle(Color.bpTertiary)
             Text(text)
-                .font(.system(size: 14)).foregroundStyle(Color.bpSecondary).multilineTextAlignment(.center)
+                .font(.systemScaled(14)).foregroundStyle(Color.bpSecondary).multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity).padding(.top, 60).padding(.horizontal, 40)
     }
@@ -713,7 +713,7 @@ struct BereanNewProjectSheet: View {
                                 .fill(Color.bereanProjectAccent(selectedColorKey).opacity(0.14))
                                 .frame(width: 80, height: 80)
                             Image(systemName: icons[selectedIconIndex])
-                                .font(.system(size: 32, weight: .medium))
+                                .font(.systemScaled(32, weight: .medium))
                                 .foregroundStyle(Color.bereanProjectAccent(selectedColorKey))
                         }
                         .padding(.top, 12)
@@ -750,7 +750,7 @@ struct BereanNewProjectSheet: View {
                                               ? Color.bereanProjectAccent(selectedColorKey).opacity(0.14)
                                               : Color.bpCard)
                                     Image(systemName: icons[i])
-                                        .font(.system(size: 18, weight: .medium))
+                                        .font(.systemScaled(18, weight: .medium))
                                         .foregroundStyle(
                                             isSelected
                                             ? Color.bereanProjectAccent(selectedColorKey)
@@ -766,12 +766,12 @@ struct BereanNewProjectSheet: View {
 
                         fieldBlock(label: "PROJECT TITLE", placeholder: "e.g. Romans Study, Prayer Journal") {
                             TextField("", text: $title)
-                                .font(.system(size: 16)).focused($titleFocused)
+                                .font(.systemScaled(16)).focused($titleFocused)
                         }
 
                         fieldBlock(label: "DESCRIPTION (OPTIONAL)", placeholder: "What's this project about?") {
                             TextField("", text: $description, axis: .vertical)
-                                .font(.system(size: 15)).lineLimit(1...4)
+                                .font(.systemScaled(15)).lineLimit(1...4)
                         }
 
                         Spacer().frame(height: 60)
@@ -798,7 +798,7 @@ struct BereanNewProjectSheet: View {
                         onCreate(project)
                         dismiss()
                     }
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(
                         title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                         ? Color.bpTertiary
@@ -819,7 +819,7 @@ struct BereanNewProjectSheet: View {
     ) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(label)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
                 .kerning(0.8)
                 .foregroundStyle(Color.bpTertiary)
             field()

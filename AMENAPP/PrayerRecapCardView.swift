@@ -97,18 +97,18 @@ struct PrayerRecapCardView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 3) {
                             Text("WEEK IN FAITH")
-                                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                                .font(.systemScaled(10, weight: .semibold, design: .monospaced))
                                 .foregroundColor(Color(hex: "C9A84C").opacity(0.8))
                                 .kerning(2)
                             Text("Your Prayer Recap")
-                                .font(.system(size: 22, weight: .bold))
+                                .font(.systemScaled(22, weight: .bold))
                                 .foregroundColor(.white)
                         }
                         Spacer()
                         if vm.recap != nil {
                             Button { vm.generate() } label: {
                                 Image(systemName: "arrow.clockwise")
-                                    .font(.system(size: 14, weight: .medium))
+                                    .font(.systemScaled(14, weight: .medium))
                                     .foregroundColor(Color.white.opacity(0.4))
                             }
                         }
@@ -151,21 +151,21 @@ struct PrayerRecapCardView: View {
                     if let count = recap.prayerCount {
                         HStack(spacing: 6) {
                             Text("\(count) prayers this week")
-                                .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                                .font(.systemScaled(11, weight: .semibold, design: .monospaced))
                                 .foregroundColor(Color(hex: "C9A84C"))
                             Spacer()
                             Text(Date().formatted(.dateTime.month().day()))
-                                .font(.system(size: 11))
+                                .font(.systemScaled(11))
                                 .foregroundColor(Color.white.opacity(0.3))
                         }
                     }
-                    Text(recap.greeting).font(.system(size: 16, weight: .semibold)).foregroundColor(.white).lineSpacing(4)
-                    Text(recap.themesSummary).font(.system(size: 14)).foregroundColor(Color.white.opacity(0.65)).lineSpacing(5)
+                    Text(recap.greeting).font(.systemScaled(16, weight: .semibold)).foregroundColor(.white).lineSpacing(4)
+                    Text(recap.themesSummary).font(.systemScaled(14)).foregroundColor(Color.white.opacity(0.65)).lineSpacing(5)
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 6) {
                             ForEach(recap.themes, id: \.self) { theme in
                                 Text(theme)
-                                    .font(.system(size: 11, weight: .medium))
+                                    .font(.systemScaled(11, weight: .medium))
                                     .foregroundColor(Color(hex: "C9A84C"))
                                     .padding(.horizontal, 10).padding(.vertical, 5)
                                     .background(Color(hex: "C9A84C").opacity(0.1))
@@ -180,45 +180,45 @@ struct PrayerRecapCardView: View {
             recapSection(accent: Color(hex: "22C55E")) {
                 VStack(alignment: .leading, spacing: 6) {
                     Label("Answered Prayers", systemImage: "checkmark.seal.fill")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundColor(Color(hex: "22C55E"))
-                    Text(recap.answeredPrayers).font(.system(size: 14)).foregroundColor(Color.white.opacity(0.7)).lineSpacing(5)
+                    Text(recap.answeredPrayers).font(.systemScaled(14)).foregroundColor(Color.white.opacity(0.7)).lineSpacing(5)
                 }
             }
 
             recapSection(accent: Color(hex: "7F77DD")) {
                 VStack(alignment: .leading, spacing: 6) {
                     Label("What You Carried", systemImage: "heart.fill")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundColor(Color(hex: "7F77DD"))
-                    Text(recap.burden).font(.system(size: 14)).foregroundColor(Color.white.opacity(0.7)).lineSpacing(5)
+                    Text(recap.burden).font(.systemScaled(14)).foregroundColor(Color.white.opacity(0.7)).lineSpacing(5)
                 }
             }
 
             recapSection(accent: Color(hex: "378ADD")) {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(recap.scripture.reference).font(.system(size: 12, weight: .bold)).foregroundColor(Color(hex: "378ADD"))
-                    Text("\"\(recap.scripture.verse)\"").font(.system(size: 15, weight: .medium)).foregroundColor(.white).lineSpacing(6).italic()
-                    Text(recap.scripture.connection).font(.system(size: 12)).foregroundColor(Color.white.opacity(0.4)).lineSpacing(4)
+                    Text(recap.scripture.reference).font(.systemScaled(12, weight: .bold)).foregroundColor(Color(hex: "378ADD"))
+                    Text("\"\(recap.scripture.verse)\"").font(.systemScaled(15, weight: .medium)).foregroundColor(.white).lineSpacing(6).italic()
+                    Text(recap.scripture.connection).font(.systemScaled(12)).foregroundColor(Color.white.opacity(0.4)).lineSpacing(4)
                 }
             }
 
             recapSection(accent: Color(hex: "C9A84C")) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("WORD FOR THE WEEK AHEAD")
-                        .font(.system(size: 9, weight: .bold, design: .monospaced))
+                        .font(.systemScaled(9, weight: .bold, design: .monospaced))
                         .foregroundColor(Color(hex: "C9A84C").opacity(0.6))
                         .kerning(2)
-                    Text(recap.word).font(.system(size: 15, weight: .semibold)).foregroundColor(.white).lineSpacing(6)
+                    Text(recap.word).font(.systemScaled(15, weight: .semibold)).foregroundColor(.white).lineSpacing(6)
                 }
             }
 
             recapSection(accent: Color.white.opacity(0.15)) {
                 VStack(alignment: .leading, spacing: 6) {
                     Label("Closing Prayer", systemImage: "hands.and.sparkles.fill")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundColor(Color.white.opacity(0.4))
-                    Text(recap.closingPrayer).font(.system(size: 14)).foregroundColor(Color.white.opacity(0.65)).lineSpacing(6).italic()
+                    Text(recap.closingPrayer).font(.systemScaled(14)).foregroundColor(Color.white.opacity(0.65)).lineSpacing(6).italic()
                 }
             }
 
@@ -226,8 +226,8 @@ struct PrayerRecapCardView: View {
                 // Share sheet
             } label: {
                 HStack(spacing: 8) {
-                    Image(systemName: "square.and.arrow.up").font(.system(size: 14, weight: .semibold))
-                    Text("Share This Week").font(.system(size: 15, weight: .semibold))
+                    Image(systemName: "square.and.arrow.up").font(.systemScaled(14, weight: .semibold))
+                    Text("Share This Week").font(.systemScaled(15, weight: .semibold))
                 }
                 .foregroundColor(.black)
                 .frame(maxWidth: .infinity)
@@ -252,12 +252,12 @@ struct PrayerRecapCardView: View {
 
     private var emptyCard: some View {
         VStack(spacing: 14) {
-            Text("📖").font(.system(size: 44))
+            Text("📖").font(.systemScaled(44))
             Text("No prayers logged this week")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
                 .foregroundColor(.white)
             Text("Start logging your prayers and come back Sunday for your personalized weekly recap.")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundColor(Color.white.opacity(0.45))
                 .multilineTextAlignment(.center)
                 .lineSpacing(4)
@@ -271,9 +271,9 @@ struct PrayerRecapCardView: View {
 
     private func errorCard(_ message: String) -> some View {
         VStack(spacing: 12) {
-            Text(message).font(.system(size: 14)).foregroundColor(Color.white.opacity(0.5)).multilineTextAlignment(.center)
+            Text(message).font(.systemScaled(14)).foregroundColor(Color.white.opacity(0.5)).multilineTextAlignment(.center)
             Button("Try Again") { vm.generate() }
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundColor(Color(hex: "C9A84C"))
         }
         .padding(24)

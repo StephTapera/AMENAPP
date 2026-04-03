@@ -67,7 +67,7 @@ struct RepliesView: View {
             if let error = viewModel.error {
                 VStack(spacing: 16) {
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.system(size: 48))
+                        .font(.systemScaled(48))
                         .foregroundStyle(.red.opacity(0.8))
                     
                     Text(error)
@@ -109,7 +109,7 @@ struct RepliesView: View {
     private var emptyState: some View {
         VStack(spacing: 20) {
             Image(systemName: "bubble.left.and.bubble.right")
-                .font(.system(size: 56, weight: .light))
+                .font(.systemScaled(56, weight: .light))
                 .foregroundStyle(.secondary.opacity(0.5))
             
             Text("No Replies Yet")

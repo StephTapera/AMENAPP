@@ -31,7 +31,7 @@ struct NotificationGroupingDebugView: View {
                     // Header
                     VStack(spacing: 8) {
                         Image(systemName: "bell.badge.fill")
-                            .font(.system(size: 48))
+                            .font(.systemScaled(48))
                             .foregroundStyle(.blue)
                         
                         Text("Notification Grouping Test")

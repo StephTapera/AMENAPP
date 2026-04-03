@@ -10,7 +10,7 @@ struct RepostBylineStrip: View {
     var body: some View {
         HStack(spacing: 6) {
             Image(systemName: "arrow.2.squarepath")
-                .font(.system(size: 9, weight: .semibold))
+                .font(.systemScaled(9, weight: .semibold))
                 .foregroundStyle(.secondary.opacity(0.55))
 
             // Reposter avatar
@@ -30,7 +30,7 @@ struct RepostBylineStrip: View {
             .clipShape(Circle())
 
             Text("\(reposterName) reposted")
-                .font(.system(size: 8.5))
+                .font(.systemScaled(8.5))
                 .foregroundStyle(.secondary)
 
             Spacer(minLength: 0)
@@ -56,7 +56,7 @@ struct RepostBylineStrip: View {
             .fill(Color.orange.opacity(0.7))
             .overlay(
                 Text(String(reposterName.prefix(1)).uppercased())
-                    .font(.system(size: 7, weight: .semibold))
+                    .font(.systemScaled(7, weight: .semibold))
                     .foregroundStyle(.white)
             )
     }
@@ -83,7 +83,7 @@ private struct RepostNewBadge: View {
                 }
             }
             Text("New")
-                .font(.system(size: 8, weight: .bold))
+                .font(.systemScaled(8, weight: .bold))
                 .foregroundStyle(Color.orange)
         }
         .padding(.horizontal, 7)

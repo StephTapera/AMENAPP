@@ -60,7 +60,7 @@ struct CreatorSubscriptionGateView: View {
                 )
                 VStack(spacing: 8) {
                     Image(systemName: "lock.fill")
-                        .font(.system(size: 28, weight: .semibold))
+                        .font(.systemScaled(28, weight: .semibold))
                         .symbolRenderingMode(.hierarchical)
                         .foregroundStyle(.white.opacity(0.85))
                     Text(creatorName)
@@ -92,7 +92,7 @@ struct CreatorSubscriptionGateView: View {
                         ForEach(benefits, id: \.self) { benefit in
                             HStack(spacing: 10) {
                                 Image(systemName: "checkmark.circle.fill")
-                                    .font(.system(size: 16, weight: .semibold))
+                                    .font(.systemScaled(16, weight: .semibold))
                                     .symbolRenderingMode(.hierarchical)
                                     .foregroundStyle(amenPurple)
                                 Text(benefit)
@@ -248,7 +248,7 @@ struct CreatorSubscriptionGateLegacyView: View {
             ], id: \.0) { icon, text in
                 HStack(spacing: 12) {
                     Image(systemName: icon)
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(amenGold)
                         .frame(width: 20)
                     Text(text)

@@ -50,8 +50,10 @@ enum EngagementAction: String, CaseIterable {
 
 // MARK: - Smart Engagement Signals
 
-struct SmartEngagementSignals {
-    static func publicLabels(for postIntent: String) -> [String] {
+extension SmartEngagementSignals {
+    /// Returns qualitative signal labels for a given post intent.
+    /// Named `signalLabels(for:)` to avoid colliding with the instance property `publicLabels`.
+    static func signalLabels(for postIntent: String) -> [String] {
         switch postIntent {
         case "reflection", "testimony":
             return ["Many were encouraged", "Saved to notes", "Active discussion"]
@@ -83,9 +85,9 @@ private struct EngagementChip: View {
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: action.icon)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                 Text(action.label)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
             }
             .foregroundStyle(Color.black.opacity(0.75))
             .padding(.horizontal, 13)
@@ -125,7 +127,7 @@ struct PostSmartSignalStrip: View {
                 HStack(spacing: 6) {
                     ForEach(visibleSignals, id: \.self) { signal in
                         Text(signal)
-                            .font(.system(size: 12, weight: .regular))
+                            .font(.systemScaled(12, weight: .regular))
                             .foregroundStyle(Color.black.opacity(0.5))
                             .padding(.horizontal, 10)
                             .padding(.vertical, 5)
@@ -217,7 +219,7 @@ struct PostEngagementView: View {
                     postId: "post-001",
                     postIntent: "reflection",
                     accountType: "personal",
-                    signals: SmartEngagementSignals.publicLabels(for: "reflection"),
+                    signals: SmartEngagementSignals.signalLabels(for: "reflection"),
                     onAction: { action in
                         print("Tapped: \(action.label)")
                     }
@@ -242,7 +244,7 @@ struct PostEngagementView: View {
                     postId: "post-002",
                     postIntent: "sermonClip",
                     accountType: "minister",
-                    signals: SmartEngagementSignals.publicLabels(for: "sermonClip"),
+                    signals: SmartEngagementSignals.signalLabels(for: "sermonClip"),
                     onAction: { action in
                         print("Tapped: \(action.label)")
                     }
@@ -267,7 +269,7 @@ struct PostEngagementView: View {
                     postId: "post-003",
                     postIntent: "announcement",
                     accountType: "church",
-                    signals: SmartEngagementSignals.publicLabels(for: "announcement"),
+                    signals: SmartEngagementSignals.signalLabels(for: "announcement"),
                     onAction: { action in
                         print("Tapped: \(action.label)")
                     }

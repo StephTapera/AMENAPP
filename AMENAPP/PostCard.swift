@@ -8,6 +8,7 @@
 //
 
 import SwiftUI
+import UIKit
 import FirebaseAuth
 import FirebaseDatabase
 import FirebaseFirestore
@@ -40,9 +41,10 @@ struct PostCard: View {
     // ⚡️ Local state driven by targeted .onReceive — avoids @ObservedObject render storm on ALL cards
     @State private var isActionMenuActive_state: Bool = false
     @State private var localIsFollowing: Bool = false
-    @State private var showOptionsSheet = false
-    @State private var showingEditSheet = false
-    @State private var showingDeleteAlert = false
+    // ✅ Consolidated sheet presentation state to prevent SwiftUI presentation conflicts
+    @State private var activeSheet: PostCardSheet? = nil
+    // ✅ Removed: Consolidated into PostCardAlert enum to prevent EXC_BAD_ACCESS from stacked alerts
+    // @State private var showingDeleteAlert = false
     @State private var showingRepostConfirmation = false
     @State private var showRepostActionSheet = false
     @State private var showQuoteComposer = false
@@ -52,19 +54,9 @@ struct PostCard: View {
     @State private var cardAppeared = false
     @State private var hasSaidAmen = false
     @State private var isLightbulbAnimating = false
-    @State private var showShareSheet = false
-    @State private var showPostDetail = false  // ✅ Show PostDetailView (for tapping header/content)
-    @State private var showCommentsSheet = false  // ✅ Show CommentsView (for comment button and swipe)
     // ❌ REMOVED: @State private var isFollowing = false  // P0 FIX: Replaced with computed property
-    @State private var showReportSheet = false
-    @State private var showUserProfile = false
     @State private var lastProfileNavDate: Date = .distantPast
-    @State private var tappedMentionUserId: String? = nil
-    @State private var showMentionedUserProfile = false
     @State private var isSaved = false
-    @State private var showBereanSheet = false  // AI sparkle → Berean AI
-    @State private var showReasoningThread = false
-    @State private var showTipView = false
     @State private var hasReposted = false
     @State private var hasCommented = false  // illuminates comment button after user comments
     @State private var isSaveInFlight = false
@@ -100,16 +92,103 @@ struct PostCard: View {
     private let springDamping: Double = 0.75
     
     // Moderation confirmations
-    @State private var showMuteConfirmation = false
-    @State private var showBlockConfirmation = false
-    @State private var showMuteSuccess = false
-    @State private var showBlockSuccess = false
-    @State private var showNotInterestedConfirmation = false
-    @State private var showNotInterestedSuccess = false
+    // ✅ Removed: Consolidated into PostCardAlert enum to prevent EXC_BAD_ACCESS from stacked alerts
+    // @State private var showMuteConfirmation = false
+    // @State private var showBlockConfirmation = false
+    // @State private var showMuteSuccess = false
+    // @State private var showBlockSuccess = false
+    // @State private var showNotInterestedConfirmation = false
+    // @State private var showNotInterestedSuccess = false
     
     // Error handling
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
+    
+    // ✅ Consolidated alert state to prevent SwiftUI presentation conflicts
+    enum PostCardAlert: Identifiable {
+        case notInterested
+        case feedbackReceived
+        case error(String)
+        case muteConfirmation(String)
+        case blockConfirmation(String)
+        case muteSuccess(String)
+        case blockSuccess(String)
+        case deleteConfirmation
+        
+        var id: String {
+            switch self {
+            case .notInterested: return "notInterested"
+            case .feedbackReceived: return "feedbackReceived"
+            case .error(let msg): return "error-\(msg.hashValue)"
+            case .muteConfirmation(let name): return "muteConfirmation-\(name.hashValue)"
+            case .blockConfirmation(let name): return "blockConfirmation-\(name.hashValue)"
+            case .muteSuccess(let name): return "muteSuccess-\(name.hashValue)"
+            case .blockSuccess(let name): return "blockSuccess-\(name.hashValue)"
+            case .deleteConfirmation: return "deleteConfirmation"
+            }
+        }
+    }
+    @State private var activeAlert: PostCardAlert?
+    
+    // ✅ Single source of truth for sheet presentation
+    fileprivate enum PostCardSheet: Identifiable {
+        case options
+        case userProfile(userId: String)
+        case mentionedProfile(userId: String)
+        case edit(post: Post)
+        case share(post: Post, churchNote: ChurchNote?)
+        case postDetail(post: Post)
+        case comments(post: Post)
+        case report(post: Post)
+        case churchNoteDetail(note: ChurchNote)
+        case reasoningThread(postId: String, postText: String, authorName: String)
+        case tip(creatorId: String, creatorName: String)
+        case berean(initialQuery: String)
+        case quoteComposer(context: QuoteComposerContext)
+        case commentsWithQuote(post: Post, prefill: String)
+        case shareExcerpt(text: String, attribution: String)
+        
+        var id: String {
+            switch self {
+            case .options:
+                return "options"
+            case .userProfile(let userId):
+                return "profile-\(userId)"
+            case .mentionedProfile(let userId):
+                return "mention-profile-\(userId)"
+            case .edit(let post):
+                return "edit-\(Self.stablePostId(post))"
+            case .share(let post, _):
+                return "share-\(Self.stablePostId(post))"
+            case .postDetail(let post):
+                return "detail-\(Self.stablePostId(post))"
+            case .comments(let post):
+                return "comments-\(Self.stablePostId(post))"
+            case .report(let post):
+                return "report-\(Self.stablePostId(post))"
+            case .churchNoteDetail(let note):
+                return "church-note-\(note.id ?? "unknown")"
+            case .reasoningThread(let postId, _, _):
+                return "reasoning-\(postId)"
+            case .tip(let creatorId, _):
+                return "tip-\(creatorId)"
+            case .berean(let initialQuery):
+                return "berean-\(initialQuery.hashValue)"
+            case .quoteComposer(let context):
+                return "quote-\(context.id.uuidString)"
+            case .commentsWithQuote(let post, _):
+                return "comments-quote-\(Self.stablePostId(post))"
+            case .shareExcerpt(let text, let attribution):
+                return "share-excerpt-\(text.hashValue)-\(attribution.hashValue)"
+            }
+        }
+        
+        private static func stablePostId(_ post: Post) -> String {
+            if !post.firestoreId.isEmpty { return post.firestoreId }
+            if let firebaseId = post.firebaseId, !firebaseId.isEmpty { return firebaseId }
+            return post.id.uuidString
+        }
+    }
     
     // Real-time interaction counts
     @State private var lightbulbCount = 0
@@ -118,7 +197,6 @@ struct PostCard: View {
     @State private var repostCount = 0
 
     // Church Note
-    @State private var showChurchNoteDetail = false
     @State private var churchNote: ChurchNote?
     
     // ✅ Real-time profile image
@@ -133,9 +211,20 @@ struct PostCard: View {
     @State private var translationUIState: TranslationUIState = .available
     @State private var showTranslationInfoSheet = false
     @State private var isTranslating = false
+
+    // Highlight-to-quote selection state
+    @State private var textSelection: PostTextSelection?
+    @State private var isTextSelecting = false
     // PERF: Legacy translationService kept for backward compat; new service is action-only (not observed)
-    private let translationService = PostTranslationService.shared
-    private let newTranslationService = TranslationService.shared
+    // Use computed properties to defer access until actually needed (avoids initialization crash)
+    @MainActor
+    private var translationService: PostTranslationService {
+        PostTranslationService.shared
+    }
+    @MainActor
+    private var newTranslationService: TranslationService {
+        TranslationService.shared
+    }
     
     // P1-B FIX: Content expansion state now lives in PostInteractionsService
     // (keyed by stablePostId) so it survives SwiftUI view recycling during scroll.
@@ -294,7 +383,7 @@ struct PostCard: View {
                 let now = Date()
                 guard now.timeIntervalSince(lastProfileNavDate) > 0.35 else { return }
                 lastProfileNavDate = now
-                showUserProfile = true
+                presentSheet(.userProfile(userId: post.authorId))
                 HapticManager.impact(style: .light)
             } label: {
                 avatarContent
@@ -384,6 +473,39 @@ struct PostCard: View {
             colors: [Color.white, Color(.systemGray6)],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
+        )
+    }
+
+    private func quoteSnippetView(_ quote: PostQuoteMetadata) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Text(quote.sourceAuthorName)
+                    .font(AMENFont.semiBold(12))
+                    .foregroundStyle(.primary)
+                if let username = quote.sourceAuthorUsername, !username.isEmpty {
+                    Text("@\(username)")
+                        .font(AMENFont.regular(11))
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Text(quote.sourceExcerpt)
+                .font(AMENFont.regular(14))
+                .foregroundStyle(.primary)
+                .padding(8)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color(red: 1.0, green: 0.95, blue: 0.75))
+                )
+        }
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color(.systemBackground))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.black.opacity(0.06), lineWidth: 1)
+                )
         )
     }
     
@@ -521,6 +643,109 @@ struct PostCard: View {
     }
 
     @MainActor
+    private func presentSheet(_ sheet: PostCardSheet) {
+        guard activeSheet == nil else { return }
+        activeSheet = sheet
+    }
+
+    @MainActor
+    private func dismissSheet() {
+        activeSheet = nil
+    }
+
+    private func clearTextSelection() {
+        textSelection = nil
+        isTextSelecting = false
+    }
+
+    private func actionCapsulePosition(for rect: CGRect, in size: CGSize) -> CGPoint {
+        guard !rect.isNull, !rect.isEmpty else {
+            return CGPoint(x: size.width * 0.5, y: 24)
+        }
+        let padding: CGFloat = 16
+        let midX = min(max(rect.midX, padding), size.width - padding)
+        var y = rect.minY - 26
+        if y < padding {
+            y = rect.maxY + 26
+        }
+        y = min(max(y, padding), size.height - padding)
+        return CGPoint(x: midX, y: y)
+    }
+
+    private func handleQuoteSelection(_ selection: PostTextSelection) {
+        guard let post = post else { return }
+        guard canQuote(post) else {
+            HapticManager.notification(type: .warning)
+            ToastManager.shared.info("Quoting is not allowed for this post")
+            clearTextSelection()
+            return
+        }
+        let context = QuoteComposerContext(
+            sourcePost: post,
+            sourceAuthorId: post.authorId,
+            sourceAuthorName: post.authorName,
+            sourceAuthorUsername: post.authorUsername,
+            selection: selection
+        )
+        presentSheet(.quoteComposer(context: context))
+        clearTextSelection()
+    }
+
+    private func handleReplyWithQuote(_ selection: PostTextSelection) {
+        guard let post = post else { return }
+        guard canQuote(post) else {
+            HapticManager.notification(type: .warning)
+            ToastManager.shared.info("Quoting is not allowed for this post")
+            clearTextSelection()
+            return
+        }
+        let excerpt = "“\(selection.text)” — \(authorName)"
+        presentSheet(.commentsWithQuote(post: post, prefill: excerpt))
+        clearTextSelection()
+    }
+
+    private func handleSaveSelection(_ selection: PostTextSelection) {
+        guard let post = post else { return }
+        let excerpt = SavedExcerpt(postId: post.firestoreId, authorId: post.authorId, authorName: authorName, excerpt: selection.text)
+        ExcerptStore.shared.save(excerpt)
+        HapticManager.notification(type: .success)
+        ToastManager.shared.success("Excerpt saved")
+        clearTextSelection()
+    }
+
+    private func handleShareSelection(_ selection: PostTextSelection) {
+        let attribution = "— \(authorName)"
+        presentSheet(.shareExcerpt(text: selection.text, attribution: attribution))
+        clearTextSelection()
+    }
+
+    private func handleBereanSelection(_ selection: PostTextSelection) {
+        let query = bereanQuery(for: selection)
+        presentSheet(.berean(initialQuery: query))
+        clearTextSelection()
+    }
+
+    private func bereanQuery(for selection: PostTextSelection) -> String {
+        let excerpt = selection.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if selection.suggestedQuoteType == .verse {
+            return "Reflect on this verse: \"\(excerpt)\"\n\nPlease ground your response in Scripture and provide cross-references."
+        }
+        return "Reflect on this highlighted excerpt: \"\(excerpt)\"\n\nWhat does Scripture say about this, and how should I respond?"
+    }
+
+    private func canQuote(_ post: Post) -> Bool {
+        let permission = post.quotesAllowed ?? .everyone
+        switch permission {
+        case .none:
+            return false
+        case .followers:
+            return isFollowing || isUserPost
+        case .everyone:
+            return true
+        }
+    }
+
+    @MainActor
     private func handleActionMenuFollowTap() {
         guard !isUserPost else { return }
         closeActionMenu()
@@ -541,16 +766,16 @@ struct PostCard: View {
         lastProfileNavDate = now
         closeActionMenu()
         HapticManager.impact(style: .light)
-        showUserProfile = true
+        presentSheet(.userProfile(userId: post.authorId))
         dlog("👤 Opening action menu profile for: \(authorName) (ID: \(post.authorId))")
     }
 
     @MainActor
     private func presentOptionsSheet() {
-        guard !showOptionsSheet else { return }
+        guard activeSheet == nil else { return }
         closeActionMenu(animated: false)
         HapticManager.impact(style: .light)
-        showOptionsSheet = true
+        presentSheet(.options)
     }
     
     @ViewBuilder
@@ -589,7 +814,10 @@ struct PostCard: View {
             title: "Sequence",
             systemImage: "sparkles"
         ) {
-            performOption { showReasoningThread = true }
+            performOption {
+                guard let post = post else { return }
+                presentSheet(.reasoningThread(postId: post.firestoreId, postText: post.content, authorName: authorName))
+            }
         }
 
         return [saveAction, repostAction, sequenceAction]
@@ -634,7 +862,9 @@ struct PostCard: View {
                         systemImage: "pencil",
                         showsChevron: true
                     ) {
-                        performOption { showingEditSheet = true }
+                        performOption {
+                            presentSheet(.edit(post: post))
+                        }
                     }
                 )
             }
@@ -646,7 +876,7 @@ struct PostCard: View {
                     systemImage: "trash",
                     isDestructive: true
                 ) {
-                    performOption { showingDeleteAlert = true }
+                    performOption { activeAlert = .deleteConfirmation }
                 }
             )
 
@@ -695,7 +925,10 @@ struct PostCard: View {
                 subtitle: "Open the discussion",
                 systemImage: "bubble.left.and.text.bubble.right"
             ) {
-                performOption { showReasoningThread = true }
+                performOption {
+                    guard let post = post else { return }
+                    presentSheet(.reasoningThread(postId: post.firestoreId, postText: post.content, authorName: authorName))
+                }
             }
         )
 
@@ -707,7 +940,10 @@ struct PostCard: View {
                     systemImage: "gift.fill",
                     showsChevron: true
                 ) {
-                    performOption { showTipView = true }
+                    performOption {
+                        guard let post = post, !post.authorId.isEmpty else { return }
+                        presentSheet(.tip(creatorId: post.authorId, creatorName: authorName))
+                    }
                 }
             )
         }
@@ -773,7 +1009,7 @@ struct PostCard: View {
                     subtitle: "Help shape your feed",
                     systemImage: "eye.slash"
                 ) {
-                    performOption { showNotInterestedConfirmation = true }
+                    performOption { activeAlert = .notInterested }
                 }
             )
 
@@ -784,7 +1020,10 @@ struct PostCard: View {
                     systemImage: "exclamationmark.triangle",
                     isDestructive: true
                 ) {
-                    performOption { showReportSheet = true }
+                    performOption {
+                        guard let post = post else { return }
+                        presentSheet(.report(post: post))
+                    }
                 }
             )
 
@@ -795,7 +1034,10 @@ struct PostCard: View {
                     systemImage: "speaker.slash",
                     isDestructive: true
                 ) {
-                    performOption { showMuteConfirmation = true }
+                    performOption { 
+                        let safeName = authorName.isEmpty ? "this user" : authorName
+                        activeAlert = .muteConfirmation(safeName)
+                    }
                 }
             )
 
@@ -826,7 +1068,10 @@ struct PostCard: View {
                     systemImage: "hand.raised",
                     isDestructive: true
                 ) {
-                    performOption { showBlockConfirmation = true }
+                    performOption { 
+                        let safeName = authorName.isEmpty ? "this user" : authorName
+                        activeAlert = .blockConfirmation(safeName)
+                    }
                 }
             )
 
@@ -837,7 +1082,7 @@ struct PostCard: View {
     }
 
     private func performOption(_ action: @escaping () -> Void) {
-        showOptionsSheet = false
+        dismissSheet()
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: 120_000_000)
             action()
@@ -892,7 +1137,7 @@ struct PostCard: View {
         // Check if post is within 30-minute edit window
         if let post = post, canEditPost(post) {
             Button {
-                showingEditSheet = true
+                presentSheet(.edit(post: post))
             } label: {
                 Label("Edit Post", systemImage: "pencil")
             }
@@ -900,7 +1145,7 @@ struct PostCard: View {
         
         // Users can always delete their posts
         Button(role: .destructive) {
-            showingDeleteAlert = true
+            activeAlert = .deleteConfirmation
         } label: {
             Label("Delete Post", systemImage: "trash")
         }
@@ -934,7 +1179,8 @@ struct PostCard: View {
 
         // Discuss — opens Reasoning Thread for this post
         Button {
-            showReasoningThread = true
+            guard let post = post else { return }
+            presentSheet(.reasoningThread(postId: post.firestoreId, postText: post.content, authorName: authorName))
         } label: {
             Label("Discuss", systemImage: "bubble.left.and.text.bubble.right.fill")
         }
@@ -942,7 +1188,8 @@ struct PostCard: View {
         // Tip — only show for other people's posts
         if !isUserPost {
             Button {
-                showTipView = true
+                guard let post = post, !post.authorId.isEmpty else { return }
+                presentSheet(.tip(creatorId: post.authorId, creatorName: authorName))
             } label: {
                 Label("Send Tip", systemImage: "gift.fill")
             }
@@ -990,19 +1237,21 @@ struct PostCard: View {
     @ViewBuilder
     private var moderationMenuOptions: some View {
         Button {
-            showNotInterestedConfirmation = true
+            activeAlert = .notInterested
         } label: {
             Label("Not Interested", systemImage: "eye.slash")
         }
         
         Button(role: .destructive) {
-            showReportSheet = true
+            guard let post = post else { return }
+            presentSheet(.report(post: post))
         } label: {
             Label("Report Post", systemImage: "exclamationmark.triangle")
         }
         
         Button(role: .destructive) {
-            showMuteConfirmation = true
+            let safeName = authorName.isEmpty ? "this user" : authorName
+            activeAlert = .muteConfirmation(safeName)
         } label: {
             Label("Mute \(authorName)", systemImage: "speaker.slash")
         }
@@ -1022,7 +1271,8 @@ struct PostCard: View {
         }
         
         Button(role: .destructive) {
-            showBlockConfirmation = true
+            let safeName = authorName.isEmpty ? "this user" : authorName
+            activeAlert = .blockConfirmation(safeName)
         } label: {
             Label("Block \(authorName)", systemImage: "hand.raised")
         }
@@ -1084,7 +1334,7 @@ struct PostCard: View {
     // Simple icon with minimal styling performs 10x better during scroll
     private var lightbulbMainIcon: some View {
         Image(systemName: hasLitLightbulb ? "lightbulb.fill" : "lightbulb")
-            .font(.system(size: 20, weight: .semibold))
+            .font(.systemScaled(20, weight: .semibold))
             .foregroundStyle(hasLitLightbulb ? Self.lightbulbGradientActive : Self.lightbulbGradientInactive)
     }
     
@@ -1125,7 +1375,7 @@ struct PostCard: View {
     private var amenButtonLabel: some View {
         HStack(spacing: 6) {
             Image(systemName: hasSaidAmen ? "hands.clap.fill" : "hands.clap")
-                .font(.system(size: 20, weight: .semibold))
+                .font(.systemScaled(20, weight: .semibold))
                 .foregroundStyle(hasSaidAmen ? Color.blue : Color.secondary)
             
             // Amen count is private — not shown publicly.
@@ -1173,7 +1423,7 @@ struct PostCard: View {
             let now = Date()
             guard now.timeIntervalSince(lastProfileNavDate) > 0.35 else { return }
             lastProfileNavDate = now
-            showUserProfile = true
+            presentSheet(.userProfile(userId: post.authorId))
             HapticManager.impact(style: .light)
         } label: {
             authorInfoContent
@@ -1214,7 +1464,7 @@ struct PostCard: View {
             if let post = post, pinnedPostService.isPostPinned(post.firestoreId) {
                 HStack(spacing: 3) {
                     Image(systemName: "pin.fill")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.systemScaled(10, weight: .semibold))
                     Text("Pinned")
                         .font(AMENFont.bold(11))
                 }
@@ -1239,9 +1489,9 @@ struct PostCard: View {
             if let post = post, let source = post.contentSource, !source.isEmpty {
                 HStack(spacing: 3) {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 9, weight: .semibold))
+                        .font(.systemScaled(9, weight: .semibold))
                     Text("via \(source)")
-                        .font(.system(size: 10, weight: .medium))
+                        .font(.systemScaled(10, weight: .medium))
                         .lineLimit(1)
                 }
                 .foregroundStyle(.purple.opacity(0.8))
@@ -1258,7 +1508,7 @@ struct PostCard: View {
             if !category.displayName.isEmpty {
                 HStack(spacing: 4) {
                     Image(systemName: category.icon)
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.systemScaled(10, weight: .semibold))
                     Text(category.displayName)
                         .font(AMENFont.bold(11))
                 }
@@ -1280,7 +1530,7 @@ struct PostCard: View {
                 // Pulsing loading chip — matches AMEN design language
                 HStack(spacing: 5) {
                     Image(systemName: "globe")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.systemScaled(11, weight: .medium))
                     Text("Translating…")
                         .font(AMENFont.semiBold(12))
                 }
@@ -1295,7 +1545,7 @@ struct PostCard: View {
                     // Source language label
                     HStack(spacing: 4) {
                         Image(systemName: "globe")
-                            .font(.system(size: 10, weight: .medium))
+                            .font(.systemScaled(10, weight: .medium))
                         Text("Translated from \(SupportedLanguage.displayName(for: variant.sourceLanguage))")
                             .font(AMENFont.regular(11))
                     }
@@ -1328,7 +1578,7 @@ struct PostCard: View {
                 } label: {
                     HStack(spacing: 5) {
                         Image(systemName: "globe")
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.systemScaled(11, weight: .medium))
                         Text("See translation")
                             .font(AMENFont.semiBold(12))
                     }
@@ -1396,7 +1646,7 @@ struct PostCard: View {
                     .foregroundStyle(.secondary)
                 HStack(spacing: 4) {
                     Image(systemName: "info.circle")
-                        .font(.system(size: 9, weight: .semibold))
+                        .font(.systemScaled(9, weight: .semibold))
                     Text("via \(source)")
                         .font(AMENFont.semiBold(10))
                 }
@@ -1449,7 +1699,7 @@ struct PostCard: View {
             presentOptionsSheet()
         } label: {
             Image(systemName: "ellipsis")
-                .font(.system(size: 15, weight: .semibold))
+                .font(.systemScaled(15, weight: .semibold))
                 .foregroundStyle(Color.secondary)
                 .padding(.leading, 4)
         }
@@ -1521,27 +1771,18 @@ struct PostCard: View {
     private var cardWithSheets: some View {
         cardContent
             .onLongPressGesture(minimumDuration: 0.35) {
+                guard !isTextSelecting else { return }
                 closeActionMenu(animated: false)
                 HapticManager.impact(style: .light)
-                showOptionsSheet = true
+                presentSheet(.options)
             }
             .modifier(PostCardSheetsModifier(
-                showUserProfile: $showUserProfile,
-                showingEditSheet: $showingEditSheet,
-                showShareSheet: $showShareSheet,
-                showPostDetail: $showPostDetail,
-                showCommentsSheet: $showCommentsSheet,
-                showingDeleteAlert: $showingDeleteAlert,
-                showReportSheet: $showReportSheet,
-                showChurchNoteDetail: $showChurchNoteDetail,
-                churchNote: $churchNote,
-                showMentionedUserProfile: $showMentionedUserProfile,
-                tappedMentionUserId: $tappedMentionUserId,
+                activeSheet: $activeSheet,
                 hasCommented: $hasCommented,
-                post: post,
+                optionsQuickActions: optionsQuickActions,
+                optionsSections: optionsSections,
                 authorName: authorName,
-                category: category,
-                deleteAction: deletePost
+                category: category
             ))
             .modifier(PostCardInteractionsModifier(
                 post: post,
@@ -1565,85 +1806,79 @@ struct PostCard: View {
                 hasCommented: $hasCommented
             ))
     }
-
+    
     private var cardWithAlerts: some View {
         cardWithMuteBlockAlerts
-            .alert("Not Interested?", isPresented: $showNotInterestedConfirmation) {
-                Button("Cancel", role: .cancel) { }
-                Button("Confirm") { markNotInterested() }
-            } message: {
-                Text("You'll see fewer posts like this. This helps us personalize your feed.")
-            }
-            .alert("Feedback Received", isPresented: $showNotInterestedSuccess) {
-                Button("OK") { }
-            } message: {
-                Text("We'll show you fewer posts like this.")
-            }
-            .alert("Error", isPresented: $showErrorAlert) {
-                Button("OK") { errorMessage = "" }
-            } message: {
-                Text(errorMessage)
-            }
-            .sheet(isPresented: $showOptionsSheet) {
-                AmenOptionsSheet(
-                    isPresented: $showOptionsSheet,
-                    title: "Post Options",
-                    subtitle: "Steward your feed with clarity",
-                    quickActions: optionsQuickActions,
-                    sections: optionsSections
-                )
-                .presentationDetents([.medium, .large])
-                .presentationDragIndicator(.visible)
-                .presentationCornerRadius(24)
-                .presentationBackground(.regularMaterial)
+            .alert(item: $activeAlert) { alert in
+                switch alert {
+                case .notInterested:
+                    return Alert(
+                        title: Text("Not Interested?"),
+                        message: Text("You'll see fewer posts like this. This helps us personalize your feed."),
+                        primaryButton: .cancel(),
+                        secondaryButton: .default(Text("Confirm")) {
+                            markNotInterested()
+                        }
+                    )
+                case .feedbackReceived:
+                    return Alert(
+                        title: Text("Feedback Received"),
+                        message: Text("We'll show you fewer posts like this."),
+                        dismissButton: .default(Text("OK"))
+                    )
+                case .error(let message):
+                    return Alert(
+                        title: Text("Error"),
+                        message: Text(message),
+                        dismissButton: .default(Text("OK")) {
+                            errorMessage = ""
+                        }
+                    )
+                case .muteConfirmation(let name):
+                    return Alert(
+                        title: Text("Mute \(name)?"),
+                        message: Text("You won't see posts from \(name) in your feed anymore. You can unmute them from your settings."),
+                        primaryButton: .cancel(),
+                        secondaryButton: .destructive(Text("Mute")) {
+                            muteAuthor()
+                        }
+                    )
+                case .blockConfirmation(let name):
+                    return Alert(
+                        title: Text("Block \(name)?"),
+                        message: Text("\(name) won't be able to see your posts or interact with you. You can unblock them from your settings."),
+                        primaryButton: .cancel(),
+                        secondaryButton: .destructive(Text("Block")) {
+                            blockAuthor()
+                        }
+                    )
+                case .muteSuccess(let name):
+                    return Alert(
+                        title: Text("User Muted"),
+                        message: Text("\(name) has been muted."),
+                        dismissButton: .default(Text("OK"))
+                    )
+                case .blockSuccess(let name):
+                    return Alert(
+                        title: Text("User Blocked"),
+                        message: Text("\(name) has been blocked."),
+                        dismissButton: .default(Text("OK"))
+                    )
+                case .deleteConfirmation:
+                    return Alert(
+                        title: Text("Delete Post"),
+                        message: Text("Are you sure you want to delete this post? This action cannot be undone."),
+                        primaryButton: .cancel(),
+                        secondaryButton: .destructive(Text("Delete")) {
+                            deletePost()
+                        }
+                    )
+                }
             }
     }
     
     private var cardWithMuteBlockAlerts: some View {
-        // ✅ P0 CRASH FIX: Safely build alert strings only when needed
-        // String interpolation with authorName during view deallocation can cause EXC_BAD_ACCESS
-        // Defer string creation to alert closures where post/authorName are guaranteed valid
-        let safeName = authorName.isEmpty ? "this user" : authorName
-        
-        return cardWithSheets
-            .alert("Mute \(safeName)?", isPresented: $showMuteConfirmation) {
-                Button("Cancel", role: .cancel) { }
-                Button("Mute", role: .destructive) { muteAuthor() }
-            } message: {
-                Text("You won't see posts from \(safeName) in your feed anymore. You can unmute them from your settings.")
-            }
-            .alert("Block \(safeName)?", isPresented: $showBlockConfirmation) {
-                Button("Cancel", role: .cancel) { }
-                Button("Block", role: .destructive) { blockAuthor() }
-            } message: {
-                Text("\(safeName) won't be able to see your posts or interact with you. You can unblock them from your settings.")
-            }
-            .alert("User Muted", isPresented: $showMuteSuccess) {
-                Button("OK") { }
-            } message: {
-                Text("\(safeName) has been muted.")
-            }
-            .alert("User Blocked", isPresented: $showBlockSuccess) {
-                Button("OK") { }
-            } message: {
-                Text("\(safeName) has been blocked.")
-            }
-            // Reasoning / Discuss thread
-            .sheet(isPresented: $showReasoningThread) {
-                if let p = post {
-                    NavigationStack {
-                        ReasoningThreadView(postId: p.firestoreId, postText: p.content, postAuthorName: authorName)
-                    }
-                }
-            }
-            // Tip sheet — send a tip to the post author
-            .sheet(isPresented: $showTipView) {
-                if let p = post, !p.authorId.isEmpty {
-                    TipView(creatorId: p.authorId, creatorName: authorName, onSuccess: {})
-                        .presentationDetents([.medium])
-                        .presentationDragIndicator(.visible)
-                }
-            }
+        cardWithSheets
     }
 
     var body: some View {
@@ -1676,55 +1911,39 @@ struct PostCard: View {
             }
             // Targeted re-render: only update when THIS card's menu state changes
             .onReceive(AmenPostCardActionMenuCoordinator.shared.$activePostId) { newId in
-                let newState = (newId == actionMenuCardID)
-                if newState != isActionMenuActive_state {
-                    isActionMenuActive_state = newState
+                Task { @MainActor in
+                    let newState = (newId == actionMenuCardID)
+                    if newState != isActionMenuActive_state {
+                        isActionMenuActive_state = newState
+                    }
                 }
             }
             // Targeted re-render: only update when THIS author's follow state changes
             .onReceive(FollowService.shared.$following) { newFollowing in
-                guard let post = post else { return }
-                let newState = newFollowing.contains(post.authorId)
-                if newState != localIsFollowing {
-                    localIsFollowing = newState
+                Task { @MainActor in
+                    guard let post = post else { return }
+                    let newState = newFollowing.contains(post.authorId)
+                    if newState != localIsFollowing {
+                        localIsFollowing = newState
+                    }
                 }
             }
             // Targeted re-render: sync expansion state without full PostCard body re-evaluation
             .onReceive(interactionsService.$expandedPostIds.map { [stablePostId] ids in
                 ids.contains(stablePostId)
             }.removeDuplicates()) { expanded in
-                isPostExpanded = expanded
+                Task { @MainActor in
+                    isPostExpanded = expanded
+                }
             }
             .onDisappear {
                 closeActionMenu(animated: false)
+                clearTextSelection()
             }
-            .onChange(of: showUserProfile) { _, newValue in
-                if newValue {
+            .onChange(of: activeSheet?.id) { _, newValue in
+                if newValue != nil {
                     closeActionMenu(animated: false)
                 }
-            }
-            .onChange(of: showPostDetail) { _, newValue in
-                if newValue {
-                    closeActionMenu(animated: false)
-                }
-            }
-            .onChange(of: showCommentsSheet) { _, newValue in
-                if newValue {
-                    closeActionMenu(animated: false)
-                }
-            }
-            .onChange(of: showShareSheet) { _, newValue in
-                if newValue {
-                    closeActionMenu(animated: false)
-                }
-            }
-            .onChange(of: showOptionsSheet) { _, newValue in
-                if newValue {
-                    closeActionMenu(animated: false)
-                }
-            }
-            .sheet(isPresented: $showBereanSheet) {
-                BereanAIAssistantView(initialQuery: bereanInitialQuery)
             }
             .sheet(isPresented: Binding(
                 get: { BereanLiveActivityService.shared.showFallbackSheet },
@@ -1854,7 +2073,7 @@ struct PostCard: View {
                             .font(.caption2.bold())
                         ForEach(debugLog.suffix(10).reversed(), id: \.self) { log in
                             Text(log)
-                                .font(.system(size: 8, design: .monospaced))
+                                .font(.systemScaled(8, design: .monospaced))
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -1901,7 +2120,7 @@ struct PostCard: View {
                 if post.flaggedForReview {
                     HStack(spacing: 8) {
                         Image(systemName: "clock.badge.exclamationmark")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                             .foregroundStyle(.orange)
                         Text("Under review")
                             .font(AMENFont.semiBold(12))
@@ -1914,7 +2133,7 @@ struct PostCard: View {
                 } else if post.removed {
                     HStack(spacing: 8) {
                         Image(systemName: "exclamationmark.circle")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                             .foregroundStyle(.red)
                         Text("Removed — violated community guidelines")
                             .font(AMENFont.semiBold(12))
@@ -1935,34 +2154,55 @@ struct PostCard: View {
                 .onTapGesture {
                     // Tap on header opens post detail — C) tap-guard
                     guard NavigationGuard.shared.shouldNavigate() else { return }
-                    showPostDetail = true
+                    guard let post = post else { return }
+                    presentSheet(.postDetail(post: post))
                 }
             
-            // Post content with mention support
+            // Post content with mention + highlight-to-quote support
             VStack(alignment: .leading, spacing: 4) {
-                MentionTextView(
-                    text: showTranslatedContent ? (translatedContent ?? content) : content,
-                    mentions: post?.mentions,
-                    font: .custom("OpenSans-Regular", size: 16),
-                    fontSize: 16,
-                    lineSpacing: 4
-                ) { mention in
-                    guard NavigationGuard.shared.shouldNavigate() else { return }
-                    tappedMentionUserId = mention.userId
-                    showMentionedUserProfile = true
-                    HapticManager.impact(style: .light)
+                ZStack(alignment: .topLeading) {
+                    SelectablePostTextView(
+                        text: showTranslatedContent ? (translatedContent ?? content) : content,
+                        mentions: post?.mentions,
+                        font: UIFont(name: "OpenSans-Regular", size: 16) ?? .systemFont(ofSize: 16),
+                        lineSpacing: 4,
+                        lineLimit: isPostExpanded ? nil : 10,
+                        onMentionTap: { mention in
+                            guard NavigationGuard.shared.shouldNavigate() else { return }
+                            presentSheet(.mentionedProfile(userId: mention.userId))
+                            HapticManager.impact(style: .light)
+                        },
+                        onTextTap: {
+                            guard NavigationGuard.shared.shouldNavigate() else { return }
+                            guard let post = post else { return }
+                            presentSheet(.postDetail(post: post))
+                        },
+                        selection: $textSelection,
+                        isSelecting: $isTextSelecting
+                    )
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(maxHeight: isPostExpanded ? nil : 400)
+
+                    if let selection = textSelection {
+                        GeometryReader { proxy in
+                            HighlightActionCapsule(
+                                onQuote: { handleQuoteSelection(selection) },
+                                onReply: { handleReplyWithQuote(selection) },
+                                onSave: { handleSaveSelection(selection) },
+                                onShare: { handleShareSelection(selection) },
+                                onBerean: { handleBereanSelection(selection) }
+                            )
+                            .position(actionCapsulePosition(for: selection.rect, in: proxy.size))
+                            .transition(.opacity.combined(with: .scale))
+                        }
+                    }
                 }
-                .foregroundStyle(.primary)
-                // Fix: Constrain text to available width so long unbreakable words don't overflow
-                .frame(maxWidth: .infinity, alignment: .leading)
-                // P1-B FIX: Read expansion state from local @State (synced via onReceive)
-                .lineLimit(isPostExpanded ? nil : 10)
-                .frame(maxHeight: isPostExpanded ? nil : 400)
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    // Tap on content opens post detail — C) tap-guard
-                    guard NavigationGuard.shared.shouldNavigate() else { return }
-                    showPostDetail = true
+
+                if !isTextSelecting && content.count > 80 {
+                    Text("Select a thought to quote")
+                        .font(AMENFont.regular(12))
+                        .foregroundStyle(.secondary)
+                        .padding(.top, 2)
                 }
 
                 // Show More button for long content
@@ -1981,6 +2221,13 @@ struct PostCard: View {
             }
             .padding(.horizontal, 12)
             .padding(.top, 2)
+
+            // Quote snippet (if this post is a quote)
+            if let quote = post?.quote {
+                quoteSnippetView(quote)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+            }
 
             // Translation affordance — driven by translationUIState state machine
             // Shows: "See Translation" | loading chip | "Translated from X / View original" | error
@@ -2078,9 +2325,9 @@ struct PostCard: View {
             if let post = post, let replyPerm = post.replyPermission, replyPerm != .everyone {
                 HStack(spacing: 4) {
                     Image(systemName: replyPerm.icon)
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.systemScaled(10, weight: .semibold))
                     Text("\(replyPerm.displayName) can reply")
-                        .font(.system(size: 12, weight: .regular))
+                        .font(.systemScaled(12, weight: .regular))
                 }
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 16)
@@ -2090,14 +2337,14 @@ struct PostCard: View {
             // Feature 6 — Community context chip
             if let post = post, post.hasContext {
                 Button {
-                    // Context detail is shown in PostDetailView (navigated via showPostDetail)
-                    showPostDetail = true
+                    // Context detail is shown in PostDetailView
+                    presentSheet(.postDetail(post: post))
                 } label: {
                     HStack(spacing: 5) {
                         Image(systemName: "info.circle.fill")
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                         Text("Community context added")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.systemScaled(12, weight: .medium))
                     }
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 10)
@@ -2139,7 +2386,7 @@ struct PostCard: View {
             if showTestimonyResonance && !testimonyResonanceCopy.isEmpty {
                 HStack(spacing: 5) {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.systemScaled(10, weight: .semibold))
                         .foregroundStyle(Color.indigo.opacity(0.7))
                     Text(testimonyResonanceCopy)
                         .font(AMENFont.regular(12))
@@ -2298,7 +2545,7 @@ struct PostCard: View {
     private func swipeIndicator(icon: String, color: Color, text: String) -> some View {
         VStack(spacing: 8) {
             Image(systemName: icon)
-                .font(.system(size: 28, weight: .medium))
+                .font(.systemScaled(28, weight: .medium))
                 .foregroundColor(color)
             Text(text)
                 .font(AMENFont.semiBold(12))
@@ -2332,13 +2579,14 @@ struct PostCard: View {
     
     private func triggerSwipeCommentAction() {
         HapticManager.impact(style: .light)
-        showCommentsSheet = true
+        guard let post = post else { return }
+        presentSheet(.comments(post: post))
     }
     
     private func repostIndicator(originalAuthor: String) -> some View {
         HStack(spacing: 6) {
             Image(systemName: "arrow.triangle.2.circlepath")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
             Text("Reposted from \(originalAuthor)")
                 .font(AMENFont.semiBold(13))
         }
@@ -2358,7 +2606,9 @@ struct PostCard: View {
         if let note = churchNote {
             ChurchNotePreviewCard(note: note) {
                 HapticManager.impact(style: .light)
-                showChurchNoteDetail = true
+                if let note = churchNote {
+                    presentSheet(.churchNoteDetail(note: note))
+                }
             }
         } else {
             // Loading state
@@ -2436,7 +2686,8 @@ struct PostCard: View {
                 enableBounce: false,
                 accessibilityLabel: "Comment"
             ) {
-                showCommentsSheet = true
+                guard let post = post else { return }
+                presentSheet(.comments(post: post))
             }
 
             // 3. Repost (repeat — illuminates when active; tap opens Repost/Quote sheet)
@@ -2496,7 +2747,7 @@ struct PostCard: View {
                     if let post = post {
                         BereanLiveActivityService.shared.startActivity(for: post)
                     } else {
-                        showBereanSheet = true
+                        presentSheet(.berean(initialQuery: bereanInitialQuery))
                     }
                 }
                 // ✅ FIX: Removed .frame(width: 20, height: 20) - was too small to tap
@@ -2524,7 +2775,7 @@ struct PostCard: View {
         Button(action: action) {
             // Threads-style: small, uniform icons; filled/bold weight when active
             Image(systemName: icon)
-                .font(.system(size: 17, weight: isActive ? .semibold : .thin))
+                .font(.systemScaled(17, weight: isActive ? .semibold : .thin))
                 .foregroundStyle(isActive ? Color.black : Color.black.opacity(0.55))
                 .contentTransition(.identity)  // instant swap — spring handles the visual transition
                 // E) Reaction pop/dip on toggle — only when bounce is enabled
@@ -2542,9 +2793,9 @@ struct PostCard: View {
     private func insightItem(icon: String, count: Int, label: String) -> some View {
         HStack(spacing: 3) {
             Image(systemName: icon)
-                .font(.system(size: 10, weight: .semibold))
+                .font(.systemScaled(10, weight: .semibold))
             Text("\(count) \(label)")
-                .font(.system(size: 11, weight: .regular))
+                .font(.systemScaled(11, weight: .regular))
         }
         .foregroundStyle(.secondary)
     }
@@ -2559,14 +2810,14 @@ struct PostCard: View {
                     if isPraying {
                         // P1 FIX: Reduced blur for performance (6px -> 3px)
                         Image(systemName: "hands.sparkles.fill")
-                            .font(.system(size: 12, weight: .bold))
+                            .font(.systemScaled(12, weight: .bold))
                             .foregroundStyle(.blue)
                             .blur(radius: 3)
                             .opacity(0.6)
                     }
                     
                     Image(systemName: isPraying ? "hands.sparkles.fill" : "hands.sparkles")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(isPraying ? 
                             LinearGradient(
                                 colors: [.blue, .purple],
@@ -2631,7 +2882,8 @@ struct PostCard: View {
         guard now.timeIntervalSince(lastProfileNavDate) > 0.35 else { return }
         lastProfileNavDate = now
         HapticManager.impact(style: .light)
-        showUserProfile = true
+        guard !post.authorId.isEmpty else { return }
+        presentSheet(.userProfile(userId: post.authorId))
         dlog("👤 Opening profile for: \(authorName) (ID: \(post.authorId))")
     }
     
@@ -2919,7 +3171,7 @@ struct PostCard: View {
                     }
                     repostShakeError.toggle()
                     errorMessage = "Failed to toggle repost. Please try again."
-                    showErrorAlert = true
+                    activeAlert = .error(errorMessage)
                 }
                 HapticManager.notification(type: .error)
 
@@ -2931,7 +3183,9 @@ struct PostCard: View {
 
     private func sharePost() {
         HapticManager.impact(style: .light)
-        showShareSheet = true
+        if let post = post {
+            presentSheet(.share(post: post, churchNote: churchNote))
+        }
         
         // Record share engagement for ML training
         if let post = post, let userId = Auth.auth().currentUser?.uid {
@@ -2972,21 +3226,22 @@ struct PostCard: View {
     private func muteAuthor() {
         guard let post = post else { return }
         let authorId = post.authorId
+        let safeName = authorName.isEmpty ? "this user" : authorName  // ✅ Capture before async context
         
         Task {
             do {
                 try await moderationService.muteUser(userId: authorId)
-                dlog("🔇 Muted \(authorName)")
+                dlog("🔇 Muted \(safeName)")
                 
                 await MainActor.run {
-                    showMuteSuccess = true
+                    activeAlert = .muteSuccess(safeName)
                     HapticManager.notification(type: .success)
                 }
             } catch {
                 dlog("❌ Failed to mute: \(error)")
                 await MainActor.run {
                     errorMessage = "Failed to mute user. Please try again."
-                    showErrorAlert = true
+                    activeAlert = .error(errorMessage)
                     HapticManager.notification(type: .error)
                 }
             }
@@ -2996,21 +3251,22 @@ struct PostCard: View {
     private func blockAuthor() {
         guard let post = post else { return }
         let authorId = post.authorId
+        let safeName = authorName.isEmpty ? "this user" : authorName  // ✅ Capture before async context
         
         Task {
             do {
                 try await moderationService.blockUser(userId: authorId)
-                dlog("🚫 Blocked \(authorName)")
+                dlog("🚫 Blocked \(safeName)")
                 
                 await MainActor.run {
-                    showBlockSuccess = true
+                    activeAlert = .blockSuccess(safeName)
                     HapticManager.notification(type: .success)
                 }
             } catch {
                 dlog("❌ Failed to block: \(error)")
                 await MainActor.run {
                     errorMessage = "Failed to block user. Please try again."
-                    showErrorAlert = true
+                    activeAlert = .error(errorMessage)
                     HapticManager.notification(type: .error)
                 }
             }
@@ -3040,14 +3296,14 @@ struct PostCard: View {
                 dlog("👎 Marked post as not interested: \(post.firestoreId)")
                 
                 await MainActor.run {
-                    showNotInterestedSuccess = true
+                    activeAlert = .feedbackReceived
                     HapticManager.notification(type: .success)
                 }
             } catch {
                 dlog("❌ Failed to mark not interested: \(error)")
                 await MainActor.run {
                     errorMessage = "Failed to save feedback. Please try again."
-                    showErrorAlert = true
+                    activeAlert = .error(errorMessage)
                     HapticManager.notification(type: .error)
                 }
             }
@@ -3126,7 +3382,7 @@ struct PostCard: View {
             logDebug("📱 Offline - cannot save/unsave posts", category: "SAVE")
             dlog("📱 [SAVE-GUARD-5] Offline - save blocked")
             errorMessage = "You're offline. Please check your connection and try again."
-            showErrorAlert = true
+            activeAlert = .error(errorMessage)
             
             HapticManager.notification(type: .warning)
             return
@@ -3250,7 +3506,7 @@ struct PostCard: View {
                         errorMessage = "Failed to save post. Please try again."
                     }
                     
-                    showErrorAlert = true
+                    activeAlert = .error(errorMessage)
                     saveShakeError.toggle() // H) Shake save/bookmark button
                     
                     let haptic = UINotificationFeedbackGenerator()
@@ -3431,7 +3687,7 @@ private struct AmenPostCardPlusButton: View {
                     )
 
                 Image(systemName: "plus")
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.systemScaled(17, weight: .semibold))
                     .foregroundStyle(Color.black.opacity(0.88))
                     .rotationEffect(.degrees(isExpanded ? 45 : 0))
             }
@@ -3480,7 +3736,7 @@ private struct AmenPostCardOverflowButton: View {
                     )
 
                 Image(systemName: "ellipsis")
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.systemScaled(17, weight: .semibold))
                     .foregroundStyle(Color.black.opacity(0.82))
             }
             .frame(width: 40, height: 40)
@@ -3667,12 +3923,12 @@ private struct AmenGlassRow: View {
                     .frame(width: 56, height: 56)
                     .overlay(
                         Image(systemName: icon)
-                            .font(.system(size: 24, weight: .medium))
+                            .font(.systemScaled(24, weight: .medium))
                             .foregroundStyle(Color.black.opacity(0.88))
                     )
 
                 Text(title)
-                    .font(.system(size: 25, weight: .medium, design: .rounded))
+                    .font(.systemScaled(25, weight: .medium, design: .rounded))
                     .foregroundStyle(Color.black.opacity(isDisabled ? 0.35 : 0.92))
 
                 Spacer(minLength: 0)
@@ -3834,7 +4090,7 @@ struct ReportPostSheet: View {
                     VStack(alignment: .leading, spacing: 8) {
                         HStack(spacing: 8) {
                             Image(systemName: "shield.checkered")
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                                 .foregroundStyle(.blue)
                             
                             Text("Your report is confidential")
@@ -3873,7 +4129,7 @@ struct ReportPostSheet: View {
                 } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 18))
+                            .font(.systemScaled(18))
                         Text("Submit Report")
                             .font(AMENFont.bold(16))
                     }
@@ -3961,7 +4217,7 @@ struct ReportReasonCard: View {
                         .frame(width: 48, height: 48)
                     
                     Image(systemName: reason.icon)
-                        .font(.system(size: 20, weight: .semibold))
+                        .font(.systemScaled(20, weight: .semibold))
                         .foregroundStyle(isSelected ? Color.red : Color.secondary)
                 }
                 
@@ -3981,7 +4237,7 @@ struct ReportReasonCard: View {
                 
                 // Checkmark
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 24))
+                    .font(.systemScaled(24))
                     .foregroundStyle(isSelected ? Color.red : Color(.systemGray4))
                     .symbolEffect(.bounce, value: isSelected)
             }
@@ -4006,150 +4262,130 @@ struct ReportReasonCard: View {
 
 /// Handles all sheet presentations and alerts
 private struct PostCardSheetsModifier: ViewModifier {
-    @Binding var showUserProfile: Bool
-    @Binding var showingEditSheet: Bool
-    @Binding var showShareSheet: Bool
-    @Binding var showPostDetail: Bool  // ✅ Shows full post detail view
-    @Binding var showCommentsSheet: Bool  // ✅ Shows dedicated comments UI
-    @Binding var showingDeleteAlert: Bool
-    @Binding var showReportSheet: Bool
-    @Binding var showChurchNoteDetail: Bool
-    @Binding var churchNote: ChurchNote?
-    @Binding var showMentionedUserProfile: Bool
-    @Binding var tappedMentionUserId: String?
-
+    @Binding var activeSheet: PostCard.PostCardSheet?
     @Binding var hasCommented: Bool
 
-    let post: Post?
+    let optionsQuickActions: [AmenQuickAction]
+    let optionsSections: [AmenOptionsSectionModel]
     let authorName: String
     let category: PostCard.PostCardCategory
-    let deleteAction: () -> Void
-    
+
+    @State private var commentsRefreshTask: Task<Void, Never>?
+
     func body(content: Content) -> some View {
         content
-            // User Profile Sheet - Opens when tapping avatar or author name
-            .sheet(isPresented: $showUserProfile) {
-                if let post = post, !post.authorId.isEmpty {
-                    UserProfileView(userId: post.authorId, showsDismissButton: true)
-                } else {
-                    // Fallback if no post data or invalid authorId
-                    VStack(spacing: 16) {
-                        Image(systemName: "person.crop.circle.badge.exclamationmark")
-                            .font(.system(size: 48))
-                            .foregroundStyle(.secondary)
-                        Text("Unable to load profile")
-                            .font(AMENFont.semiBold(16))
-                            .foregroundStyle(.primary)
-                        Text("The user information is not available")
-                            .font(AMENFont.regular(14))
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding()
-                }
-            }
-            // ✅ Mentioned user profile — tapping @username in post text
-            .sheet(isPresented: $showMentionedUserProfile, onDismiss: {
-                tappedMentionUserId = nil
-            }) {
-                if let uid = tappedMentionUserId {
-                    UserProfileView(userId: uid, showsDismissButton: true)
-                }
-            }
-            .sheet(isPresented: $showingEditSheet) {
-                if let post = post {
-                    EditPostSheet(post: post)
-                }
-            }
-            .sheet(isPresented: $showShareSheet) {
-                if let post = post {
-                    if post.churchNoteId != nil, let note = churchNote {
-                        ChurchNoteShareOptionsSheet(note: note)
-                            .presentationDetents([.medium])
-                            .presentationDragIndicator(.visible)
-                            .presentationCornerRadius(28)
-                    } else if post.isChurchShare, let churchName = post.sharedChurchName {
-                        FindChurchShareOptionsSheet(church: Church(
-                            name: churchName,
-                            denomination: post.sharedChurchDenomination ?? "",
-                            address: "",
-                            distance: "",
-                            serviceTime: post.sharedChurchServiceTime ?? "",
-                            phone: "",
-                            coordinate: .init()
-                        ))
-                        .presentationDetents([.medium])
-                        .presentationDragIndicator(.visible)
-                        .presentationCornerRadius(28)
-                    } else {
-                        PostShareOptionsSheet(post: post)
-                    }
-                }
-            }
-            // ✅ Full PostDetailView - shown when tapping header/content
-            .sheet(isPresented: $showPostDetail) {
-                if let post = post {
-                    PostDetailView(post: post)
-                }
-            }
-            // ✅ CommentsView - shown for comment button tap and swipe-to-comment
-            .sheet(isPresented: $showCommentsSheet, onDismiss: {
-                // Re-check if user has commented after dismissing the sheet
-                if let post = post, let userId = Auth.auth().currentUser?.uid {
-                    let postId = post.firestoreId
-                    Task {
-                        let ref = Database.database().reference()
-                            .child("user_comments").child(userId)
-                        let snapshot = try? await ref.getData()
-                        if let children = snapshot?.children.allObjects as? [DataSnapshot] {
-                            let didComment = children.contains {
-                                ($0.childSnapshot(forPath: "postId").value as? String) == postId
-                            }
-                            await MainActor.run {
-                                withAnimation(.spring(response: 0.12, dampingFraction: 0.75)) {
-                                    hasCommented = didComment
-                                }
-                            }
-                        }
-                    }
-                }
-            }) {
-                if let post = post {
-                    CommentsView(post: post)
-                }
-            }
-            .sheet(isPresented: $showReportSheet) {
-                if let post = post {
-                    ReportPostSheet(
-                        post: post,
-                        postAuthor: authorName,
-                        category: category
-                    )
-                }
-            }
-            .sheet(isPresented: $showChurchNoteDetail) {
-                if let note = churchNote {
-                    ChurchNoteDetailModal(note: note)
-                }
-            }
-            .alert("Delete Post", isPresented: $showingDeleteAlert) {
-                Button("Cancel", role: .cancel) { }
-                Button("Delete", role: .destructive) {
-                    deleteAction()
-                }
-            } message: {
-                Text("Are you sure you want to delete this post? This action cannot be undone.")
+            .sheet(item: $activeSheet) { sheet in
+                sheetView(for: sheet)
             }
     }
-    
-    private func shareText(for post: Post) -> String {
-        """
-        \(category.displayName) by \(post.authorName)
-        
-        \(post.content)
-        
-        Join the conversation on AMEN APP!
-        https://amenapp.com/post/\(post.firestoreId)
-        """
+
+    @ViewBuilder
+    private func sheetView(for sheet: PostCard.PostCardSheet) -> some View {
+        switch sheet {
+        case .options:
+            AmenOptionsSheet(
+                isPresented: optionsBinding(),
+                title: "Post Options",
+                subtitle: "Steward your feed with clarity",
+                quickActions: optionsQuickActions,
+                sections: optionsSections
+            )
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+            .presentationCornerRadius(24)
+            .presentationBackground(.regularMaterial)
+        case .userProfile(let userId):
+            UserProfileView(userId: userId, showsDismissButton: true)
+        case .mentionedProfile(let userId):
+            UserProfileView(userId: userId, showsDismissButton: true)
+        case .edit(let post):
+            EditPostSheet(post: post)
+        case .share(let post, let note):
+            if post.churchNoteId != nil, let note {
+                ChurchNoteShareOptionsSheet(note: note)
+                    .presentationDetents([.medium])
+                    .presentationDragIndicator(.visible)
+                    .presentationCornerRadius(28)
+            } else if post.isChurchShare, let churchName = post.sharedChurchName {
+                FindChurchShareOptionsSheet(church: Church(
+                    name: churchName,
+                    denomination: post.sharedChurchDenomination ?? "",
+                    address: "",
+                    distance: "",
+                    serviceTime: post.sharedChurchServiceTime ?? "",
+                    phone: "",
+                    coordinate: .init()
+                ))
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
+                .presentationCornerRadius(28)
+            } else {
+                PostShareOptionsSheet(post: post)
+            }
+        case .postDetail(let post):
+            PostDetailView(post: post)
+        case .comments(let post):
+            CommentsView(post: post)
+                .onDisappear { refreshCommentedState(for: post) }
+        case .commentsWithQuote(let post, let prefill):
+            CommentsView(post: post, prefillText: prefill)
+                .onDisappear { refreshCommentedState(for: post) }
+        case .report(let post):
+            ReportPostSheet(
+                post: post,
+                postAuthor: authorName,
+                category: category
+            )
+        case .churchNoteDetail(let note):
+            ChurchNoteDetailModal(note: note)
+        case .reasoningThread(let postId, let postText, let authorName):
+            NavigationStack {
+                ReasoningThreadView(postId: postId, postText: postText, postAuthorName: authorName)
+            }
+        case .tip(let creatorId, let creatorName):
+            TipView(creatorId: creatorId, creatorName: creatorName, onSuccess: {})
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
+        case .berean(let initialQuery):
+            BereanAIAssistantView(initialQuery: initialQuery)
+        case .quoteComposer(let context):
+            QuoteComposerView(context: context)
+        case .shareExcerpt(let text, let attribution):
+            ShareSheet(items: ["\(text)\n\n\(attribution)"])
+        }
+    }
+
+    private func optionsBinding() -> Binding<Bool> {
+        Binding(
+            get: {
+                if case .options = activeSheet { return true }
+                return false
+            },
+            set: { newValue in
+                if !newValue { activeSheet = nil }
+            }
+        )
+    }
+
+    private func refreshCommentedState(for post: Post) {
+        commentsRefreshTask?.cancel()
+        commentsRefreshTask = Task {
+            guard let userId = Auth.auth().currentUser?.uid else { return }
+            let postId = post.firestoreId
+            let ref = Database.database().reference().child("user_comments").child(userId)
+            let snapshot = try? await ref.getData()
+            guard !Task.isCancelled else { return }
+            if let children = snapshot?.children.allObjects as? [DataSnapshot] {
+                let didComment = children.contains {
+                    ($0.childSnapshot(forPath: "postId").value as? String) == postId
+                }
+                await MainActor.run {
+                    withAnimation(.spring(response: 0.12, dampingFraction: 0.75)) {
+                        hasCommented = didComment
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -4607,7 +4843,7 @@ struct PostLinkButton: View {
                         .frame(width: 36, height: 36)
                     
                     Image(systemName: "link")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(.blue)
                 }
                 
@@ -4627,7 +4863,7 @@ struct PostLinkButton: View {
                 
                 // External link indicator
                 Image(systemName: "arrow.up.right")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.blue)
             }
             .padding(12)
@@ -4810,7 +5046,7 @@ struct PostPollView: View {
                         
                         if isThisOption {
                             Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 16))
+                                .font(.systemScaled(16))
                                 .foregroundStyle(.blue)
                         }
                     }

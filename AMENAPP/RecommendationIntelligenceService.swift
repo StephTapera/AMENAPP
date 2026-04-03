@@ -375,9 +375,9 @@ struct RelatedVersesStrip: View {
                             } label: {
                                 HStack(spacing: 4) {
                                     Image(systemName: "book.closed.fill")
-                                        .font(.system(size: 9, weight: .medium))
+                                        .font(.systemScaled(9, weight: .medium))
                                     Text(verse)
-                                        .font(.system(size: 12, weight: .medium))
+                                        .font(.systemScaled(12, weight: .medium))
                                 }
                                 .foregroundStyle(Color(red: 0.88, green: 0.38, blue: 0.28))
                                 .padding(.horizontal, 10)
@@ -423,10 +423,10 @@ struct AskBereanPromptSuggestions: View {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 5) {
                         Image(systemName: "sparkles")
-                            .font(.system(size: 10, weight: .medium))
+                            .font(.systemScaled(10, weight: .medium))
                             .foregroundStyle(Color(red: 0.88, green: 0.38, blue: 0.28))
                         Text("Ask Berean")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.systemScaled(11, weight: .semibold))
                             .foregroundStyle(Color(white: 0.40))
                             .tracking(0.3)
                     }
@@ -437,12 +437,12 @@ struct AskBereanPromptSuggestions: View {
                         } label: {
                             HStack {
                                 Text(prompt)
-                                    .font(.system(size: 13, weight: .regular))
+                                    .font(.systemScaled(13, weight: .regular))
                                     .foregroundStyle(Color(white: 0.18))
                                     .multilineTextAlignment(.leading)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                 Image(systemName: "arrow.up.right")
-                                    .font(.system(size: 10, weight: .medium))
+                                    .font(.systemScaled(10, weight: .medium))
                                     .foregroundStyle(Color(white: 0.55))
                             }
                             .padding(.horizontal, 12)

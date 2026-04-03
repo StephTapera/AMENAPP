@@ -73,7 +73,7 @@ struct KoraCheckInDetailView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 6) {
                 Image(systemName: "bubble.left.fill")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundColor(Color(hex: "F59E0B"))
                 Text("This week's question")
                     .font(AMENFont.semiBold(12))
@@ -147,7 +147,7 @@ struct KoraCheckInDetailView: View {
             Toggle(isOn: $isPrivateResponse) {
                 HStack(spacing: 6) {
                     Image(systemName: "lock.fill")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundColor(.white.opacity(0.5))
                     Text("Keep private")
                         .font(AMENFont.regular(14))
@@ -213,7 +213,7 @@ struct KoraCheckInDetailView: View {
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: mood.icon)
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                 Text(mood.label)
                     .font(AMENFont.semiBold(11))
             }
@@ -246,7 +246,7 @@ struct KoraCheckInDetailView: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 6) {
                 Image(systemName: "sparkles")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundColor(Color(hex: "6B48FF"))
                 Text("AI Summary")
                     .font(AMENFont.semiBold(14))
@@ -265,7 +265,7 @@ struct KoraCheckInDetailView: View {
                     ForEach(checkIn.aiInsights.prefix(3), id: \.self) { insight in
                         HStack(alignment: .top, spacing: 8) {
                             Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 13))
+                                .font(.systemScaled(13))
                                 .foregroundColor(Color(hex: "22C55E"))
                                 .padding(.top, 1)
                             Text(insight)
@@ -322,7 +322,7 @@ struct KoraCheckInDetailView: View {
                     if response.isPrivate {
                         HStack(spacing: 3) {
                             Image(systemName: "lock.fill")
-                                .font(.system(size: 9))
+                                .font(.systemScaled(9))
                             Text("Private")
                                 .font(AMENFont.regular(10))
                         }

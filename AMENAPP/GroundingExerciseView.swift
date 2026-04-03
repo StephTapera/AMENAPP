@@ -78,7 +78,7 @@ struct GroundingExerciseView: View {
             HStack {
                 Button { dismiss() } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.systemScaled(14, weight: .medium))
                         .foregroundStyle(.white.opacity(0.6))
                         .frame(width: 36, height: 36)
                         .background(Color.white.opacity(0.1), in: Circle())
@@ -99,7 +99,7 @@ struct GroundingExerciseView: View {
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
                 } label: {
                     Image(systemName: voiceEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.systemScaled(14, weight: .medium))
                         .foregroundStyle(.white.opacity(0.6))
                         .frame(width: 36, height: 36)
                         .background(Color.white.opacity(0.1), in: Circle())
@@ -113,13 +113,13 @@ struct GroundingExerciseView: View {
             // Big count + sense
             VStack(spacing: 8) {
                 Text("\(currentStep.0)")
-                    .font(.system(size: 80, weight: .thin, design: .rounded))
+                    .font(.systemScaled(80, weight: .thin, design: .rounded))
                     .foregroundStyle(accent)
                 Text("things you can \(currentStep.1)")
                     .font(.custom("OpenSans-SemiBold", size: 18))
                     .foregroundStyle(.white)
                 Image(systemName: currentStep.2)
-                    .font(.system(size: 28))
+                    .font(.systemScaled(28))
                     .foregroundStyle(accent.opacity(0.8))
                     .padding(.top, 4)
             }
@@ -151,7 +151,7 @@ struct GroundingExerciseView: View {
                                     .frame(width: 24, height: 24)
                                 if checked {
                                     Image(systemName: "checkmark")
-                                        .font(.system(size: 10, weight: .bold))
+                                        .font(.systemScaled(10, weight: .bold))
                                         .foregroundStyle(.white)
                                 }
                             }
@@ -191,7 +191,7 @@ struct GroundingExerciseView: View {
         VStack(spacing: 24) {
             Spacer()
             Image(systemName: "checkmark.seal.fill")
-                .font(.system(size: 64))
+                .font(.systemScaled(64))
                 .foregroundStyle(Color(red: 0.22, green: 0.52, blue: 0.50))
             VStack(spacing: 8) {
                 Text("You are grounded.")

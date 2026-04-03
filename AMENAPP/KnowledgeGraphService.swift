@@ -419,7 +419,7 @@ struct RelatedContentPill: View {
     var body: some View {
         HStack(spacing: 7) {
             Image(systemName: node.icon)
-                .font(.system(size: 12, weight: .medium))
+                .font(.systemScaled(12, weight: .medium))
                 .foregroundColor(node.iconColor)
 
             VStack(alignment: .leading, spacing: 1) {

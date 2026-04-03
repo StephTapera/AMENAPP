@@ -195,7 +195,7 @@ struct FaithInBusinessView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack(spacing: 8) {
                         Image(systemName: "quote.opening")
-                            .font(.system(size: 20))
+                            .font(.systemScaled(20))
                             .foregroundStyle(.brown.opacity(0.6))
                         
                         Text("Work as unto the Lord")
@@ -298,7 +298,7 @@ struct BusinessPrincipleCard: View {
                             .frame(width: 56, height: 56)
                         
                         Image(systemName: principle.icon)
-                            .font(.system(size: 24))
+                            .font(.systemScaled(24))
                             .foregroundStyle(principle.iconColor)
                     }
                     
@@ -316,7 +316,7 @@ struct BusinessPrincipleCard: View {
                     Spacer()
                     
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -369,7 +369,7 @@ struct ActionCard: View {
                     .frame(width: 50, height: 50)
                 
                 Image(systemName: icon)
-                    .font(.system(size: 22))
+                    .font(.systemScaled(22))
                     .foregroundStyle(iconColor)
             }
             

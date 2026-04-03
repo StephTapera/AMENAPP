@@ -75,7 +75,7 @@ struct JourneyTimelineCardView: View {
                     if let scripture = snapshot.scriptureOfYear {
                         HStack(alignment: .top, spacing: 5) {
                             Image(systemName: "quote.opening")
-                                .font(.system(size: 10, weight: .medium))
+                                .font(.systemScaled(10, weight: .medium))
                                 .foregroundStyle(.secondary)
                                 .offset(y: 1)
 

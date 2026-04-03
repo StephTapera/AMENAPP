@@ -36,7 +36,7 @@ struct CoCreationCanvasView: View {
                 // Placeholder
                 if vm.canvasText.isEmpty && !isFocused {
                     Text("Start writing together…")
-                        .font(.system(size: 17))
+                        .font(.systemScaled(17))
                         .foregroundStyle(Color.white.opacity(0.25))
                         .padding(.horizontal, 20)
                         .padding(.vertical, 20)
@@ -45,7 +45,7 @@ struct CoCreationCanvasView: View {
 
                 // TextEditor
                 TextEditor(text: $vm.canvasText)
-                    .font(.system(size: 17))
+                    .font(.systemScaled(17))
                     .foregroundStyle(Color.white)
                     .scrollContentBackground(.hidden)
                     .background(Color.clear)

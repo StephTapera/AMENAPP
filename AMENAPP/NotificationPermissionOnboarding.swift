@@ -101,15 +101,15 @@ struct NotificationPermissionOnboardingSheet: View {
     private var valuePropStep: some View {
         VStack(spacing: 28) {
             Image(systemName: "bell.badge.fill")
-                .font(.system(size: 56))
+                .font(.systemScaled(56))
                 .foregroundStyle(Color(.label))
 
             VStack(spacing: 10) {
                 Text("Stay Connected")
-                    .font(.system(size: 28, weight: .bold))
+                    .font(.systemScaled(28, weight: .bold))
                     .foregroundStyle(Color(.label))
                 Text("Get notified when your community prays for you, responds to your posts, and more.")
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(Color(.secondaryLabel))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 16)
@@ -123,11 +123,11 @@ struct NotificationPermissionOnboardingSheet: View {
                                 .fill(row.color.opacity(0.12))
                                 .frame(width: 40, height: 40)
                             Image(systemName: row.icon)
-                                .font(.system(size: 16))
+                                .font(.systemScaled(16))
                                 .foregroundStyle(row.color)
                         }
                         Text(row.label)
-                            .font(.system(size: 15))
+                            .font(.systemScaled(15))
                             .foregroundStyle(Color(.label))
                             .fixedSize(horizontal: false, vertical: true)
                             .lineLimit(nil)
@@ -163,18 +163,18 @@ struct NotificationPermissionOnboardingSheet: View {
                     .fill(Color(.secondarySystemBackground))
                     .frame(width: 100, height: 100)
                 Image(systemName: permissionStatus == .authorized ? "bell.badge.fill" : "bell.slash.fill")
-                    .font(.system(size: 44))
+                    .font(.systemScaled(44))
                     .foregroundStyle(permissionStatus == .authorized ? Color.green : Color(.label))
             }
 
             VStack(spacing: 10) {
                 Text(permissionStatus == .authorized ? "You're all set!" : "Enable Notifications")
-                    .font(.system(size: 28, weight: .bold))
+                    .font(.systemScaled(28, weight: .bold))
                     .foregroundStyle(Color(.label))
                 Text(permissionStatus == .authorized
                     ? "Notifications are enabled. You'll never miss a moment."
                     : "AMEN will ask for permission to send you notifications. You can always change this in Settings.")
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(Color(.secondaryLabel))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 24)
@@ -187,7 +187,7 @@ struct NotificationPermissionOnboardingSheet: View {
                     }
                 } label: {
                     Label("Open Settings", systemImage: "gear")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                 }
                 .foregroundStyle(Color(.label))
             }
@@ -199,15 +199,15 @@ struct NotificationPermissionOnboardingSheet: View {
     private var quietHoursStep: some View {
         VStack(spacing: 28) {
             Image(systemName: "moon.stars.fill")
-                .font(.system(size: 56))
+                .font(.systemScaled(56))
                 .foregroundStyle(Color(.label))
 
             VStack(spacing: 10) {
                 Text("Quiet Hours")
-                    .font(.system(size: 28, weight: .bold))
+                    .font(.systemScaled(28, weight: .bold))
                     .foregroundStyle(Color(.label))
                 Text("Choose when AMEN should pause notifications so you can rest without interruption.")
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(Color(.secondaryLabel))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 24)
@@ -219,28 +219,28 @@ struct NotificationPermissionOnboardingSheet: View {
                         Image(systemName: "sparkles")
                             .foregroundStyle(.orange)
                         Text("Smart Recommendation")
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(.systemScaled(15, weight: .semibold))
                             .foregroundStyle(Color(.label))
                         Spacer()
                         Text("\(Int(recommendation.confidence * 100))%")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                             .foregroundStyle(.orange)
                     }
 
                     HStack {
                         Text("\(recommendation.startTime) – \(recommendation.endTime)")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .foregroundStyle(Color(.label))
                         Spacer()
                         Button("Use Recommended") {
                             applySmartRecommendation(recommendation)
                         }
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(Color(.label))
                     }
 
                     Text(recommendation.sourceLabel)
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(Color(.secondaryLabel))
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -254,9 +254,9 @@ struct NotificationPermissionOnboardingSheet: View {
                 Toggle(isOn: $quietEnabled) {
                     HStack(spacing: 8) {
                         Image(systemName: "moon.fill")
-                            .font(.system(size: 15))
+                            .font(.systemScaled(15))
                         Text("Enable Quiet Hours")
-                            .font(.system(size: 15))
+                            .font(.systemScaled(15))
                             .lineLimit(1)
                             .minimumScaleFactor(0.85)
                             .layoutPriority(1)
@@ -271,9 +271,9 @@ struct NotificationPermissionOnboardingSheet: View {
                     HStack {
                         HStack(spacing: 8) {
                             Image(systemName: "bed.double.fill")
-                                .font(.system(size: 15))
+                                .font(.systemScaled(15))
                             Text("Start")
-                                .font(.system(size: 15))
+                                .font(.systemScaled(15))
                                 .foregroundStyle(Color(.label))
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.9)
@@ -291,9 +291,9 @@ struct NotificationPermissionOnboardingSheet: View {
                     HStack {
                         HStack(spacing: 8) {
                             Image(systemName: "sunrise.fill")
-                                .font(.system(size: 15))
+                                .font(.systemScaled(15))
                             Text("End")
-                                .font(.system(size: 15))
+                                .font(.systemScaled(15))
                                 .foregroundStyle(Color(.label))
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.9)
@@ -331,7 +331,7 @@ struct NotificationPermissionOnboardingSheet: View {
                     ProgressView().tint(.white)
                 } else {
                     Text(ctaLabel)
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(.systemScaled(17, weight: .semibold))
                 }
             }
             .frame(maxWidth: .infinity)

@@ -3,6 +3,7 @@
 // Uses TimelineView + Canvas for smooth, non-blocking animation
 
 import SwiftUI
+import Combine
 
 struct AmbientOrbBackground: View {
     // Slow sine-wave drift state

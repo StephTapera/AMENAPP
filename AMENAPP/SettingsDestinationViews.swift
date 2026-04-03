@@ -13,6 +13,7 @@
 import SwiftUI
 import FirebaseAuth
 import FirebaseFirestore
+import FirebaseFunctions
 import SafariServices
 
 // MARK: - Account Type Settings
@@ -47,7 +48,7 @@ struct AccountTypeSettingsView: View {
                         } label: {
                             HStack(spacing: 14) {
                                 Image(systemName: type.icon)
-                                    .font(.system(size: 18))
+                                    .font(.systemScaled(18))
                                     .foregroundStyle(accountType == type.id ? .blue : .secondary)
                                     .frame(width: 28)
 
@@ -143,7 +144,7 @@ struct MutedAccountsView: View {
                                     .frame(width: 44, height: 44)
                                     .overlay(
                                         Text(String(user.displayName.prefix(1)).uppercased())
-                                            .font(.system(size: 18, weight: .semibold))
+                                            .font(.systemScaled(18, weight: .semibold))
                                             .foregroundStyle(.white)
                                     )
 
@@ -710,8 +711,10 @@ struct QuietModeSettingsView: View {
 // MARK: - Download Your Data
 
 struct DownloadDataView: View {
-    @State private var isRequesting = false
-    @State private var requested = false
+    @State private var isExporting = false
+    @State private var exportError: String?
+    @State private var showError = false
+    @State private var shareItem: URL?
 
     var body: some View {
         ScrollView {
@@ -745,33 +748,23 @@ struct DownloadDataView: View {
 
                 VStack(spacing: 0) {
                     Button {
-                        guard !isRequesting else { return }
-                        isRequesting = true
-                        if let uid = Auth.auth().currentUser?.uid {
-                            Firestore.firestore().collection("dataExportRequests").document(uid).setData([
-                                "userId": uid,
-                                "requestedAt": FieldValue.serverTimestamp(),
-                                "status": "pending"
-                            ], merge: true) { _ in
-                                isRequesting = false
-                                requested = true
-                            }
-                        }
+                        guard !isExporting else { return }
+                        Task { await requestExport() }
                     } label: {
-                        if isRequesting {
-                            ProgressView().frame(maxWidth: .infinity, alignment: .center)
-                        } else if requested {
-                            Label("Request submitted", systemImage: "checkmark.circle.fill")
-                                .foregroundStyle(.green)
-                                .font(AMENFont.semiBold(15))
-                                .frame(maxWidth: .infinity, alignment: .center)
+                        if isExporting {
+                            HStack(spacing: 8) {
+                                ProgressView().tint(.primary)
+                                Text("Preparing export…")
+                                    .font(AMENFont.semiBold(15))
+                            }
+                            .frame(maxWidth: .infinity, alignment: .center)
                         } else {
-                            Text("Request Data Export")
+                            Label("Download My Data", systemImage: "arrow.down.circle")
                                 .font(AMENFont.semiBold(15))
                                 .frame(maxWidth: .infinity, alignment: .center)
                         }
                     }
-                    .disabled(isRequesting || requested)
+                    .disabled(isExporting)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 14)
                 }
@@ -781,7 +774,7 @@ struct DownloadDataView: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 24)
 
-                Text("You'll receive a secure download link by email within 72 hours.")
+                Text("Your data is exported immediately as a JSON file you can save or share.")
                     .font(AMENFont.regular(12))
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -794,7 +787,53 @@ struct DownloadDataView: View {
         .background(Color(.systemGroupedBackground).ignoresSafeArea())
         .navigationTitle("Download Your Data")
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(item: $shareItem) { url in
+            SettingsShareSheet(items: [url])
+        }
+        .alert("Export Failed", isPresented: $showError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(exportError ?? "An error occurred. Please try again.")
+        }
     }
+
+    private func requestExport() async {
+        isExporting = true
+        defer { isExporting = false }
+
+        do {
+            let functions = Functions.functions(region: "us-central1")
+            let result = try await functions.httpsCallable("exportUserData").call()
+
+            guard let dict = result.data as? [String: Any] else {
+                throw NSError(domain: "DataExport", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid response from server"])
+            }
+
+            let data = try JSONSerialization.data(withJSONObject: dict, options: .prettyPrinted)
+            let filename = "AMEN_data_export_\(Int(Date().timeIntervalSince1970)).json"
+            let url = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
+            try data.write(to: url)
+
+            await MainActor.run { shareItem = url }
+        } catch {
+            await MainActor.run {
+                exportError = error.localizedDescription
+                showError = true
+            }
+        }
+    }
+}
+
+extension URL: @retroactive Identifiable {
+    public var id: String { absoluteString }
+}
+
+private struct SettingsShareSheet: UIViewControllerRepresentable {
+    let items: [Any]
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+    func updateUIViewController(_ uvc: UIActivityViewController, context: Context) {}
 }
 
 // MARK: - Default Post Settings

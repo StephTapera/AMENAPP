@@ -133,16 +133,16 @@ struct LiquidGlassMessagesView: View {
                     // Back action
                 } label: {
                     Image(systemName: "chevron.left")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.systemScaled(18, weight: .semibold))
                         .foregroundStyle(.white)
                 }
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(conversationTitle)
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(.white)
                     Text(conversationSubtitle)
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.white.opacity(0.7))
                 }
 
@@ -152,7 +152,7 @@ struct LiquidGlassMessagesView: View {
                     // Video call
                 } label: {
                     Image(systemName: "video.fill")
-                        .font(.system(size: 18))
+                        .font(.systemScaled(18))
                         .foregroundStyle(.white)
                 }
 
@@ -160,7 +160,7 @@ struct LiquidGlassMessagesView: View {
                     // Info
                 } label: {
                     Image(systemName: "info.circle")
-                        .font(.system(size: 18))
+                        .font(.systemScaled(18))
                         .foregroundStyle(.white)
                 }
             }
@@ -287,7 +287,7 @@ struct MessageBubbleView: View {
                     )
                     .overlay(
                         Image(systemName: "person.fill")
-                            .font(.system(size: 16))
+                            .font(.systemScaled(16))
                             .foregroundStyle(.white.opacity(0.6))
                     )
                     .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
@@ -304,7 +304,7 @@ struct MessageBubbleView: View {
 
                 // Timestamp
                 Text(message.timestamp, style: .time)
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.white.opacity(0.5))
                     .opacity(appeared ? 1.0 : 0)
 
@@ -341,7 +341,7 @@ struct MessageBubbleView: View {
     @ViewBuilder
     private var messageBubbleContent: some View {
         let bubbleContent = Text(message.text)
-            .font(.system(size: 15))
+            .font(.systemScaled(15))
             .foregroundStyle(.white)
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
@@ -404,7 +404,7 @@ struct MessageBubbleView: View {
         content
             .overlay(alignment: .topTrailing) {
                 Image(systemName: "hands.and.sparkles.fill")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(Color.orange.opacity(0.8))
                     .padding(8)
             }
@@ -427,7 +427,7 @@ struct MessageBubbleView: View {
         content
             .overlay(alignment: .topTrailing) {
                 Image(systemName: "sparkles")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(
                         LinearGradient(
                             colors: [.yellow, .orange],
@@ -466,7 +466,7 @@ struct MessageBubbleView: View {
         }
         .background {
             Image(systemName: "cross.fill")
-                .font(.system(size: 60))
+                .font(.systemScaled(60))
                 .foregroundStyle(.white.opacity(0.05))
                 .offset(x: 20, y: 10)
         }
@@ -484,9 +484,9 @@ struct MessageBubbleView: View {
                     } label: {
                         HStack(spacing: 3) {
                             Text(emoji)
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                             Text("\(users.count)")
-                                .font(.system(size: 10, weight: .semibold))
+                                .font(.systemScaled(10, weight: .semibold))
                                 .foregroundStyle(.white.opacity(0.8))
                         }
                         .padding(.horizontal, 8)
@@ -522,7 +522,7 @@ struct ReactionBar: View {
                     onSelect(emoji)
                 } label: {
                     Text(emoji)
-                        .font(.system(size: 28))
+                        .font(.systemScaled(28))
                         .scaleEffect(appeared ? 1.0 : 0.3)
                         .opacity(appeared ? 1.0 : 0)
                 }
@@ -643,7 +643,7 @@ struct LiquidGlassInputBar: View {
                                 isFocused = false
                             } label: {
                                 Text(reply)
-                                    .font(.system(size: 13))
+                                    .font(.systemScaled(13))
                                     .foregroundStyle(.white)
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 6)
@@ -674,10 +674,10 @@ struct LiquidGlassInputBar: View {
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text(quoted.senderName)
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                             .foregroundStyle(.white.opacity(0.8))
                         Text(quoted.text)
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundStyle(.white.opacity(0.6))
                             .lineLimit(2)
                     }
@@ -688,7 +688,7 @@ struct LiquidGlassInputBar: View {
                         onClearQuote()
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                             .foregroundStyle(.white.opacity(0.6))
                     }
                     .buttonStyle(.plain)
@@ -709,7 +709,7 @@ struct LiquidGlassInputBar: View {
                     // Attachment action
                 } label: {
                     Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 28))
+                        .font(.systemScaled(28))
                         .foregroundStyle(
                             LinearGradient(
                                 colors: [.white.opacity(0.8), .white.opacity(0.5)],
@@ -722,7 +722,7 @@ struct LiquidGlassInputBar: View {
 
                 // Text field
                 TextField("Share, pray, encourage...", text: $text, axis: .vertical)
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .foregroundStyle(.white)
                     .lineLimit(1...5)
                     .focused($isFocused)
@@ -736,7 +736,7 @@ struct LiquidGlassInputBar: View {
                         onSend()
                     } label: {
                         Image(systemName: "arrow.up.circle.fill")
-                            .font(.system(size: 28))
+                            .font(.systemScaled(28))
                             .foregroundStyle(
                                 LinearGradient(
                                     colors: [Color.purple, Color.orange],
@@ -753,7 +753,7 @@ struct LiquidGlassInputBar: View {
                         // Voice recording
                     } label: {
                         Image(systemName: "mic.circle.fill")
-                            .font(.system(size: 28))
+                            .font(.systemScaled(28))
                             .foregroundStyle(
                                 LinearGradient(
                                     colors: [.white.opacity(0.8), .white.opacity(0.5)],

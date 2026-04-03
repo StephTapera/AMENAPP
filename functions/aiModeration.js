@@ -145,10 +145,19 @@ When in doubt about borderline content, use severity "review" and set isApproved
     } catch (error) {
         console.error(`❌ [MODERATION] AI error:`, error.message);
 
-        // Fallback to basic moderation on error
-        const fallback = performBasicModeration(content);
-        console.log(`⚠️ [MODERATION] Using keyword fallback: ${fallback.severityLevel}`);
-        return fallback;
+        // ✅ SECURITY FIX: Fail closed on AI error — hold for human review.
+        // Previously fell back to keyword-only which could auto-approve harmful
+        // content that passes keyword filters. During an outage, all content
+        // would be approved — unacceptable for a faith-community platform.
+        // Now we always hold for human review when AI is unavailable.
+        console.warn(`⚠️ [MODERATION] AI unavailable — holding content for human review`);
+        return {
+            isApproved: false,
+            flaggedReasons: ["AI moderation temporarily unavailable — held for human review"],
+            severityLevel: "review",
+            suggestedAction: "human_review",
+            confidence: 0.0,
+        };
     }
 }
 

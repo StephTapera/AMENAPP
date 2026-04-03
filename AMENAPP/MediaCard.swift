@@ -32,18 +32,18 @@ struct MediaCard: View {
             // MARK: Text content
             VStack(alignment: .leading, spacing: 5) {
                 Text(item.title)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(.primary)
                     .lineLimit(2)
 
                 Text("\(item.author) · \(item.channelOrShow)")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
 
                 if let scripture = item.scriptureRef {
                     Text(scripture)
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .italic()
                         .foregroundStyle(.tertiary)
                 }
@@ -56,9 +56,9 @@ struct MediaCard: View {
                     Button(action: onPlay) {
                         HStack(spacing: 5) {
                             Image(systemName: isCurrentlyPlaying ? "pause.fill" : "play.fill")
-                                .font(.system(size: 11, weight: .bold))
+                                .font(.systemScaled(11, weight: .bold))
                             Text(isCurrentlyPlaying ? "Playing" : "Play")
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.systemScaled(12, weight: .semibold))
                         }
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
@@ -71,9 +71,9 @@ struct MediaCard: View {
                         Button(action: bereanAction) {
                             HStack(spacing: 3) {
                                 Image(systemName: "sparkles")
-                                    .font(.system(size: 9, weight: .bold))
+                                    .font(.systemScaled(9, weight: .bold))
                                 Text("Berean")
-                                    .font(.system(size: 11, weight: .medium))
+                                    .font(.systemScaled(11, weight: .medium))
                             }
                             .foregroundStyle(accentPurple)
                             .padding(.horizontal, 8)
@@ -87,13 +87,13 @@ struct MediaCard: View {
 
                     Button(action: onBookmark) {
                         Image(systemName: item.isBookmarked ? "bookmark.fill" : "bookmark")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundStyle(item.isBookmarked ? accentPurple : .secondary)
                     }
 
                     Button(action: onShare) {
                         Image(systemName: "square.and.arrow.up")
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -158,15 +158,15 @@ struct MediaCard: View {
     private var typeBadge: some View {
         HStack(spacing: 4) {
             Image(systemName: item.type.icon)
-                .font(.system(size: 9, weight: .bold))
+                .font(.systemScaled(9, weight: .bold))
             Text(item.type.label.uppercased())
-                .font(.system(size: 9, weight: .bold))
+                .font(.systemScaled(9, weight: .bold))
                 .kerning(0.5)
             if !item.duration.isEmpty {
                 Text("·")
-                    .font(.system(size: 9))
+                    .font(.systemScaled(9))
                 Text(item.duration)
-                    .font(.system(size: 9))
+                    .font(.systemScaled(9))
             }
         }
         .foregroundStyle(.white)

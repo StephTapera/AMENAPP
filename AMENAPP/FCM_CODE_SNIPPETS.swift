@@ -336,7 +336,7 @@ struct NotificationPermissionBanner: View {
             VStack(spacing: 16) {
                 HStack {
                     Image(systemName: "bell.badge")
-                        .font(.system(size: 40))
+                        .font(.systemScaled(40))
                         .foregroundStyle(.blue)
                     
                     VStack(alignment: .leading, spacing: 4) {

@@ -101,7 +101,7 @@ struct SavedPostsView: View {
                         }
                     } label: {
                         Image(systemName: "ellipsis.circle")
-                            .font(.system(size: 20))
+                            .font(.systemScaled(20))
                     }
                 }
             }
@@ -140,7 +140,7 @@ struct SavedPostsView: View {
     private var emptyStateView: some View {
         VStack(spacing: 24) {
             Image(systemName: "bookmark.slash")
-                .font(.system(size: 64))
+                .font(.systemScaled(64))
                 .foregroundStyle(.secondary.opacity(0.5))
             
             VStack(spacing: 8) {
@@ -194,7 +194,7 @@ struct SavedPostsView: View {
                             } label: {
                                 HStack(spacing: 5) {
                                     Image(systemName: folder.icon)
-                                        .font(.system(size: 11, weight: .semibold))
+                                        .font(.systemScaled(11, weight: .semibold))
                                     Text(folder.rawValue)
                                         .font(AMENFont.semiBold(13))
                                 }
@@ -238,7 +238,7 @@ struct SavedPostsView: View {
                 if posts.isEmpty {
                     VStack(spacing: 12) {
                         Image(systemName: "bookmark.slash")
-                            .font(.system(size: 36))
+                            .font(.systemScaled(36))
                             .foregroundStyle(.secondary.opacity(0.4))
                         Text("No posts in \"\(selectedFolder.rawValue)\" yet")
                             .font(AMENFont.regular(14))
@@ -425,7 +425,7 @@ struct SavedPostsListCompact: View {
         } label: {
             HStack {
                 Image(systemName: "bookmark.fill")
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
                     .foregroundStyle(.blue)
                     .frame(width: 32)
                 
@@ -448,7 +448,7 @@ struct SavedPostsListCompact: View {
                 Spacer()
                 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(.secondary)
             }
             .padding(.horizontal)

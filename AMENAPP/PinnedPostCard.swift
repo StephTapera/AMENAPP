@@ -39,12 +39,12 @@ struct PinnedPostCard: View {
             // Pin header
             HStack(spacing: 6) {
                 Image(systemName: "pin.fill")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(.purple)
                     .rotationEffect(.degrees(isPinAnimating ? 15 : 0))
                 
                 Text("Pinned Post")
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.systemScaled(11, weight: .bold))
                     .foregroundStyle(.purple.opacity(0.8))
                     .tracking(0.5)
                 
@@ -53,7 +53,7 @@ struct PinnedPostCard: View {
                 if let expiresAt = post.pinnedExpiresAt {
                     if expiresAt > Date() {
                         Text(timeRemaining)
-                            .font(.system(size: 10, weight: .medium))
+                            .font(.systemScaled(10, weight: .medium))
                             .foregroundStyle(.white.opacity(0.4))
                             .padding(.horizontal, 6)
                             .padding(.vertical, 3)
@@ -68,7 +68,7 @@ struct PinnedPostCard: View {
                     showUnpinConfirmation = true
                 } label: {
                     Image(systemName: "pin.slash")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundStyle(.white.opacity(0.4))
                         .padding(6)
                         .background(Circle().fill(Color.white.opacity(0.05)))
@@ -95,16 +95,16 @@ struct PinnedPostCard: View {
             // Post content placeholder - integrate PostCard here based on your PostCard implementation
             VStack(alignment: .leading, spacing: 8) {
                 Text(post.authorName)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.white)
                 
                 Text(post.content)
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .foregroundStyle(.white.opacity(0.9))
                     .lineSpacing(4)
                 
                 Text(post.timeAgo)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.white.opacity(0.5))
             }
             .padding(16)
@@ -183,7 +183,7 @@ struct PinPostButton: View {
             onPin()
         } label: {
             Label("Pin to Profile", systemImage: "pin.fill")
-                .font(.system(size: 14, weight: .medium))
+                .font(.systemScaled(14, weight: .medium))
                 .foregroundStyle(.white)
         }
     }
@@ -197,7 +197,7 @@ struct PinDurationPicker: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Pin Duration")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
                 .foregroundStyle(.white)
             
             ForEach(PinDuration.allCases, id: \.self) { duration in
@@ -224,10 +224,10 @@ private struct DurationOptionButton: View {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(duration.label)
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.systemScaled(14, weight: .medium))
                         .foregroundStyle(.white)
                     Text(durationDescription(for: duration))
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.white.opacity(0.6))
                 }
                 
@@ -235,7 +235,7 @@ private struct DurationOptionButton: View {
                 
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 18))
+                        .font(.systemScaled(18))
                         .foregroundStyle(.purple)
                 } else {
                     Circle()

@@ -42,7 +42,6 @@ extension BereanResponseChip {
             return [
                 BereanResponseChip(icon: "hands.sparkles",         label: "Pray this now",   prompt: "Turn your response into a prayer I can pray right now."),
                 BereanResponseChip(icon: "book.pages",              label: "Add scripture",   prompt: "Add a supporting Bible verse to this."),
-                BereanResponseChip(icon: "heart",                   label: "More comfort",    prompt: "Give me a more comforting, encouraging version of this."),
                 BereanResponseChip(icon: "bookmark",                label: "Save",            prompt: ""),
             ]
         case "study":
@@ -50,28 +49,24 @@ extension BereanResponseChip {
                 BereanResponseChip(icon: "chevron.down.2",          label: "Go deeper",       prompt: "Go deeper into this — more detail and cross-references."),
                 BereanResponseChip(icon: "character.magnify",       label: "Orig. language",  prompt: "What does the original Greek or Hebrew say in this passage?"),
                 BereanResponseChip(icon: "list.bullet",             label: "Break it down",   prompt: "Break this into clear, practical steps I can apply."),
-                BereanResponseChip(icon: "arrow.counterclockwise",  label: "Simplify",        prompt: "Explain this in simpler, everyday language."),
             ]
         case "social", "rewrite", "creator":
             return [
                 BereanResponseChip(icon: "pencil.and.sparkles",     label: "Make shorter",    prompt: "Make this more concise while keeping the heart of it."),
                 BereanResponseChip(icon: "heart.text.square",        label: "More grace",      prompt: "Rewrite this with even more warmth and grace."),
                 BereanResponseChip(icon: "arrowshape.turn.up.left", label: "As a reply",      prompt: "Format this as a direct conversational reply."),
-                BereanResponseChip(icon: "square.and.pencil",        label: "Use as post",     prompt: ""),
             ]
         case "church":
             return [
                 BereanResponseChip(icon: "doc.plaintext",            label: "Add to notes",    prompt: "Format this as clean church notes."),
                 BereanResponseChip(icon: "book.pages",               label: "Add scripture",   prompt: "Add supporting scripture references."),
                 BereanResponseChip(icon: "person.2",                 label: "Share idea",      prompt: "Help me share this with my church community."),
-                BereanResponseChip(icon: "calendar",                 label: "Plan next steps", prompt: "Turn this into an action plan for the week."),
             ]
         case "safety":
             return [
                 BereanResponseChip(icon: "pencil.and.sparkles",     label: "Softer version",  prompt: "Write a softer, calmer version of this."),
                 BereanResponseChip(icon: "checkmark.shield",         label: "Send-ready",      prompt: "Make this safe and appropriate to send."),
                 BereanResponseChip(icon: "hand.raised",              label: "Remove edge",     prompt: "Remove any harsh or reactive language."),
-                BereanResponseChip(icon: "bookmark",                 label: "Save",            prompt: ""),
             ]
         default:
             // Standard — adapt to response keywords
@@ -91,7 +86,7 @@ extension BereanResponseChip {
                                    prompt: "Turn this into a faith-inspired post I can share on AMEN."),
                 BereanResponseChip(icon: "bookmark",                      label: "Save",        prompt: ""),
             ]
-            return Array(chips.prefix(4))
+            return Array(chips.prefix(3))
         }
     }
 }
@@ -137,9 +132,9 @@ struct BereanFollowUpChipRow: View {
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: chip.icon)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                 Text(chip.label)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
             }
             .foregroundStyle(Color(white: 0.20))
             .padding(.horizontal, 13).padding(.vertical, 8)
@@ -218,7 +213,7 @@ struct BereanThinkingStatus: View {
             }
 
             Text(phrases[phraseIndex])
-                .font(.system(size: 13, weight: .medium))
+                .font(.systemScaled(13, weight: .medium))
                 .foregroundStyle(Color.secondary)
                 .transition(.asymmetric(
                     insertion: .opacity.combined(with: .move(edge: .bottom)),
@@ -296,8 +291,8 @@ struct BereanResponseActionBar: View {
     private func actionButton(_ icon: String, label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             VStack(spacing: 2) {
-                Image(systemName: icon).font(.system(size: 13, weight: .medium))
-                Text(label).font(.system(size: 10, weight: .medium))
+                Image(systemName: icon).font(.systemScaled(13, weight: .medium))
+                Text(label).font(.systemScaled(10, weight: .medium))
             }
             .foregroundStyle(Color.secondary)
             .frame(maxWidth: .infinity)

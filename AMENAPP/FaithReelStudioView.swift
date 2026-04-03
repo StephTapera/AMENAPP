@@ -67,7 +67,7 @@ struct FaithReelStudioView: View {
                                 .frame(width: 34, height: 34)
                                 .overlay(Circle().strokeBorder(Color.white.opacity(0.12), lineWidth: 0.5))
                             Image(systemName: "xmark")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.systemScaled(13, weight: .semibold))
                                 .foregroundStyle(.white)
                         }
                     }
@@ -77,7 +77,7 @@ struct FaithReelStudioView: View {
 
                     VStack(spacing: 2) {
                         Text("Faith Reel Studio")
-                            .font(.system(size: 18, weight: .bold))
+                            .font(.systemScaled(18, weight: .bold))
                             .foregroundStyle(.white)
                         Text("Create. Witness. Inspire.")
                             .font(.caption)
@@ -198,13 +198,13 @@ private struct FaithReelMainCard: View {
                             .fill(iconColor.opacity(0.12))
                             .frame(width: 52, height: 52)
                         Image(systemName: icon)
-                            .font(.system(size: 22, weight: .medium))
+                            .font(.systemScaled(22, weight: .medium))
                             .foregroundStyle(iconColor)
                     }
 
                     VStack(alignment: .leading, spacing: 5) {
                         Text(title)
-                            .font(.system(size: 17, weight: .semibold))
+                            .font(.systemScaled(17, weight: .semibold))
                             .foregroundStyle(.white)
                         Text(subtitle)
                             .font(.caption)
@@ -217,7 +217,7 @@ private struct FaithReelMainCard: View {
 
                     if chevron {
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                             .foregroundStyle(Color.white.opacity(0.35))
                     }
                 }
@@ -318,7 +318,7 @@ struct FaithReelCreatorView: View {
                                 .frame(width: 34, height: 34)
                                 .overlay(Circle().strokeBorder(Color.white.opacity(0.12), lineWidth: 0.5))
                             Image(systemName: "xmark")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.systemScaled(13, weight: .semibold))
                                 .foregroundStyle(.white)
                         }
                     }
@@ -327,7 +327,7 @@ struct FaithReelCreatorView: View {
                     Spacer()
 
                     Text(stepTitle)
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(.white)
 
                     Spacer()
@@ -373,7 +373,7 @@ struct FaithReelCreatorView: View {
                             }
                         } label: {
                             Text("Back")
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.systemScaled(16, weight: .semibold))
                                 .foregroundStyle(Color.white.opacity(0.7))
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 16)
@@ -396,7 +396,7 @@ struct FaithReelCreatorView: View {
                             }
                         } label: {
                             Text("Next")
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.systemScaled(16, weight: .semibold))
                                 .foregroundStyle(.white)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 16)
@@ -411,7 +411,7 @@ struct FaithReelCreatorView: View {
                             startExport()
                         } label: {
                             Text("Export & Share")
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.systemScaled(16, weight: .semibold))
                                 .foregroundStyle(.white)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 16)
@@ -489,7 +489,7 @@ struct FaithReelCreatorView: View {
     private var step1MediaSource: some View {
         VStack(spacing: 16) {
             Text("How would you like to create your reel?")
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .foregroundStyle(Color.white.opacity(0.55))
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.bottom, 4)
@@ -545,7 +545,7 @@ struct FaithReelCreatorView: View {
                         .foregroundStyle(Color.white.opacity(0.4))
                     TextField("", text: $scriptureText, prompt: Text("Type a verse or reference...").foregroundColor(Color.white.opacity(0.25)))
                         .foregroundStyle(.white)
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                     Divider().background(Color.white.opacity(0.1))
                 }
                 .padding(16)
@@ -563,7 +563,7 @@ struct FaithReelCreatorView: View {
                                 selectedFont = font
                             } label: {
                                 Text(font.rawValue)
-                                    .font(.system(size: 13, weight: selectedFont == font ? .semibold : .regular))
+                                    .font(.systemScaled(13, weight: selectedFont == font ? .semibold : .regular))
                                     .foregroundStyle(selectedFont == font ? .white : Color.white.opacity(0.4))
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 10)
@@ -598,7 +598,7 @@ struct FaithReelCreatorView: View {
                                 overlayPosition = pos
                             } label: {
                                 Text(pos.rawValue)
-                                    .font(.system(size: 13, weight: overlayPosition == pos ? .semibold : .regular))
+                                    .font(.systemScaled(13, weight: overlayPosition == pos ? .semibold : .regular))
                                     .foregroundStyle(overlayPosition == pos ? .white : Color.white.opacity(0.4))
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 10)
@@ -659,7 +659,7 @@ struct FaithReelCreatorView: View {
     private var step3Music: some View {
         VStack(spacing: 12) {
             Text("Choose a worship track for your reel")
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .foregroundStyle(Color.white.opacity(0.55))
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.bottom, 4)
@@ -693,7 +693,7 @@ struct FaithReelCreatorView: View {
                         .foregroundStyle(Color.white.opacity(0.4))
                     TextField("", text: $caption, prompt: Text("Write a caption for your reel...").foregroundColor(Color.white.opacity(0.25)), axis: .vertical)
                         .foregroundStyle(.white)
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                         .lineLimit(4...)
                 }
                 .padding(16)
@@ -714,7 +714,7 @@ struct FaithReelCreatorView: View {
                                 }
                             } label: {
                                 Text(tag)
-                                    .font(.system(size: 13, weight: selectedTags.contains(tag) ? .semibold : .regular))
+                                    .font(.systemScaled(13, weight: selectedTags.contains(tag) ? .semibold : .regular))
                                     .foregroundStyle(selectedTags.contains(tag) ? .white : Color.white.opacity(0.45))
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 7)
@@ -741,7 +741,7 @@ struct FaithReelCreatorView: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Share to OpenTable Feed")
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.systemScaled(14, weight: .medium))
                             .foregroundStyle(.white)
                         Text("Your reel will appear in your followers' feeds")
                             .font(.caption)
@@ -765,10 +765,10 @@ struct FaithReelCreatorView: View {
                 darkGlassCard {
                     VStack(spacing: 16) {
                         Image(systemName: "film.stack")
-                            .font(.system(size: 40))
+                            .font(.systemScaled(40))
                             .foregroundStyle(Color.purple.opacity(0.7))
                         Text("Ready to Export")
-                            .font(.system(size: 18, weight: .semibold))
+                            .font(.systemScaled(18, weight: .semibold))
                             .foregroundStyle(.white)
                         Text("Tap Export & Share below to process your reel")
                             .font(.caption)
@@ -784,7 +784,7 @@ struct FaithReelCreatorView: View {
                         if !exportDone {
                             VStack(spacing: 12) {
                                 Text("Processing...")
-                                    .font(.system(size: 16, weight: .semibold))
+                                    .font(.systemScaled(16, weight: .semibold))
                                     .foregroundStyle(.white)
 
                                 GeometryReader { geo in
@@ -807,10 +807,10 @@ struct FaithReelCreatorView: View {
                         } else {
                             VStack(spacing: 16) {
                                 Image(systemName: "checkmark.circle.fill")
-                                    .font(.system(size: 40))
+                                    .font(.systemScaled(40))
                                     .foregroundStyle(.green)
                                 Text("Reel Ready!")
-                                    .font(.system(size: 18, weight: .semibold))
+                                    .font(.systemScaled(18, weight: .semibold))
                                     .foregroundStyle(.white)
                             }
                         }
@@ -947,7 +947,7 @@ struct FaithReelCreatorView: View {
     private func darkGlassInfoRow(icon: String, color: Color, text: String) -> some View {
         HStack(spacing: 8) {
             Image(systemName: icon)
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(color)
             Text(text)
                 .font(.caption)
@@ -969,10 +969,10 @@ struct FaithReelCreatorView: View {
         Button(action: action) {
             HStack(spacing: 12) {
                 Image(systemName: icon)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(color)
                 Text(title)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(.white)
                 Spacer()
                 Image(systemName: "chevron.right")
@@ -1013,12 +1013,12 @@ private struct MediaOptionCard: View {
                         .fill(iconColor.opacity(0.12))
                         .frame(width: 44, height: 44)
                     Image(systemName: icon)
-                        .font(.system(size: 18, weight: .medium))
+                        .font(.systemScaled(18, weight: .medium))
                         .foregroundStyle(iconColor)
                 }
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(.white)
                     Text(subtitle)
                         .font(.caption)
@@ -1078,7 +1078,7 @@ private struct TrackRow: View {
                             )
                         )
                     Image(systemName: isPlaying ? "pause.fill" : "play.fill")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(isPlaying ? .purple : Color.white.opacity(0.6))
                 }
             }
@@ -1088,7 +1088,7 @@ private struct TrackRow: View {
             Button(action: onSelect) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(track.name)
-                        .font(.system(size: 14, weight: isSelected ? .semibold : .regular))
+                        .font(.systemScaled(14, weight: isSelected ? .semibold : .regular))
                         .foregroundStyle(isSelected ? .white : Color.white.opacity(0.7))
                     Text(track.artist)
                         .font(.caption)
@@ -1098,7 +1098,7 @@ private struct TrackRow: View {
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundStyle(.purple)
-                        .font(.system(size: 16))
+                        .font(.systemScaled(16))
                 }
             }
             .buttonStyle(.plain)
@@ -1146,7 +1146,7 @@ struct FaithReelLibraryView: View {
                                 .frame(width: 34, height: 34)
                                 .overlay(Circle().strokeBorder(Color.white.opacity(0.12), lineWidth: 0.5))
                             Image(systemName: "xmark")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.systemScaled(13, weight: .semibold))
                                 .foregroundStyle(.white)
                         }
                     }
@@ -1155,7 +1155,7 @@ struct FaithReelLibraryView: View {
                     Spacer()
 
                     Text("My Reels")
-                        .font(.system(size: 18, weight: .bold))
+                        .font(.systemScaled(18, weight: .bold))
                         .foregroundStyle(.white)
 
                     Spacer()
@@ -1170,10 +1170,10 @@ struct FaithReelLibraryView: View {
                     Spacer()
                     VStack(spacing: 14) {
                         Image(systemName: "film.stack")
-                            .font(.system(size: 44))
+                            .font(.systemScaled(44))
                             .foregroundStyle(Color.white.opacity(0.15))
                         Text("Your reels will appear here")
-                            .font(.system(size: 16, weight: .medium))
+                            .font(.systemScaled(16, weight: .medium))
                             .foregroundStyle(Color.white.opacity(0.3))
                         Text("Create your first Faith Reel to get started")
                             .font(.caption)
@@ -1240,7 +1240,7 @@ private struct ReelCell: View {
                 .aspectRatio(9/16, contentMode: .fill)
 
             Image(systemName: "film.stack")
-                .font(.system(size: 22))
+                .font(.systemScaled(22))
                 .foregroundStyle(Color.white.opacity(0.12))
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
@@ -1254,11 +1254,11 @@ private struct ReelCell: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(reel.caption.isEmpty ? "No caption" : reel.caption)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                     .foregroundStyle(.white)
                     .lineLimit(1)
                 Text(Self.dateFormatter.string(from: reel.createdAt))
-                    .font(.system(size: 9))
+                    .font(.systemScaled(9))
                     .foregroundStyle(Color.white.opacity(0.5))
             }
             .padding(8)

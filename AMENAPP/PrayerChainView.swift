@@ -18,9 +18,9 @@ struct PrayerChainView: View {
                 // Header
                 VStack(spacing: 8) {
                     Text("Prayer Chains")
-                        .font(.system(size: 28, weight: .bold))
+                        .font(.systemScaled(28, weight: .bold))
                     Text("Join a chain of prayer or start one for your community")
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                 }
@@ -31,7 +31,7 @@ struct PrayerChainView: View {
                 if !service.myChains.isEmpty {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("My Chains")
-                            .font(.system(size: 18, weight: .bold))
+                            .font(.systemScaled(18, weight: .bold))
                             .padding(.horizontal, 20)
 
                         ForEach(service.myChains) { chain in
@@ -46,7 +46,7 @@ struct PrayerChainView: View {
                 if !service.activeChains.filter({ !service.myChains.map(\.id).contains($0.id) }).isEmpty {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Community Chains")
-                            .font(.system(size: 18, weight: .bold))
+                            .font(.systemScaled(18, weight: .bold))
                             .padding(.horizontal, 20)
 
                         ForEach(service.activeChains.filter { !service.myChains.map(\.id).contains($0.id) }) { chain in
@@ -60,13 +60,13 @@ struct PrayerChainView: View {
                 if service.activeChains.isEmpty && !service.isLoading {
                     VStack(spacing: 16) {
                         Image(systemName: "link.circle.fill")
-                            .font(.system(size: 48))
+                            .font(.systemScaled(48))
                             .foregroundStyle(.purple.opacity(0.5))
                         Text("No active prayer chains")
-                            .font(.system(size: 16, weight: .medium))
+                            .font(.systemScaled(16, weight: .medium))
                             .foregroundStyle(.secondary)
                         Text("Start a prayer chain and invite others to join in continuous intercession.")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundStyle(.tertiary)
                             .multilineTextAlignment(.center)
                     }
@@ -84,7 +84,7 @@ struct PrayerChainView: View {
                     Image(systemName: "plus")
                     Text("Start Prayer Chain")
                 }
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
                 .foregroundStyle(.white)
                 .padding(.horizontal, 24)
                 .padding(.vertical, 14)
@@ -115,15 +115,15 @@ struct PrayerChainCard: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 10) {
                 Image(systemName: chain.category.icon)
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(.purple)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(chain.title)
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .lineLimit(1)
                     Text("by \(chain.creatorName)")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.secondary)
                 }
 
@@ -133,7 +133,7 @@ struct PrayerChainCard: View {
             }
 
             Text(chain.description)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
 
@@ -149,7 +149,7 @@ struct PrayerChainCard: View {
                 .frame(height: 6)
 
                 Text("\(completedCount)/\(chain.participants.count)")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundStyle(.secondary)
             }
 
@@ -161,7 +161,7 @@ struct PrayerChainCard: View {
                         .frame(width: 28, height: 28)
                         .overlay(
                             Text(String(participant.name.prefix(1)))
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.systemScaled(12, weight: .semibold))
                                 .foregroundStyle(.white)
                         )
                 }
@@ -171,7 +171,7 @@ struct PrayerChainCard: View {
                         .frame(width: 28, height: 28)
                         .overlay(
                             Text("+\(chain.participants.count - 5)")
-                                .font(.system(size: 10, weight: .bold))
+                                .font(.systemScaled(10, weight: .bold))
                                 .foregroundStyle(.secondary)
                         )
                 }
@@ -192,7 +192,7 @@ struct PrayerChainCard: View {
 
     private var statusBadge: some View {
         Text(chain.status.rawValue.capitalized)
-            .font(.system(size: 11, weight: .semibold))
+            .font(.systemScaled(11, weight: .semibold))
             .foregroundStyle(chain.status == .active ? .green : .orange)
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
@@ -279,14 +279,14 @@ struct PrayerChainDetailSheet: View {
                     // Header
                     VStack(alignment: .leading, spacing: 8) {
                         Label(chain.category.rawValue, systemImage: chain.category.icon)
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.systemScaled(14, weight: .medium))
                             .foregroundStyle(.purple)
 
                         Text(chain.title)
-                            .font(.system(size: 24, weight: .bold))
+                            .font(.systemScaled(24, weight: .bold))
 
                         Text(chain.description)
-                            .font(.system(size: 15))
+                            .font(.systemScaled(15))
                             .foregroundStyle(.secondary)
                     }
                     .padding(.horizontal, 20)
@@ -295,7 +295,7 @@ struct PrayerChainDetailSheet: View {
                     // Chain timeline
                     VStack(alignment: .leading, spacing: 0) {
                         Text("Prayer Timeline")
-                            .font(.system(size: 16, weight: .bold))
+                            .font(.systemScaled(16, weight: .bold))
                             .padding(.horizontal, 20)
                             .padding(.bottom, 12)
 
@@ -320,15 +320,15 @@ struct PrayerChainDetailSheet: View {
 
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(participant.name)
-                                        .font(.system(size: 15, weight: .medium))
+                                        .font(.systemScaled(15, weight: .medium))
                                     if let note = participant.prayerNote {
                                         Text("\"\(note)\"")
-                                            .font(.system(size: 13))
+                                            .font(.systemScaled(13))
                                             .foregroundStyle(.secondary)
                                             .italic()
                                     }
                                     Text(statusText(participant.status))
-                                        .font(.system(size: 12))
+                                        .font(.systemScaled(12))
                                         .foregroundStyle(.tertiary)
                                 }
 
@@ -344,7 +344,7 @@ struct PrayerChainDetailSheet: View {
                             Task { try? await PrayerChainService.shared.joinChain(chain.id) }
                         } label: {
                             Text("Join This Chain")
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.systemScaled(16, weight: .semibold))
                                 .foregroundStyle(.white)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 14)

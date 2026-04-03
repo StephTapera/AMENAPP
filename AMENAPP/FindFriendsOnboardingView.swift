@@ -163,7 +163,7 @@ struct FindFriendsOnboardingView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 24))
+                            .font(.systemScaled(24))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -173,7 +173,7 @@ struct FindFriendsOnboardingView: View {
                         showSafetyGuidelines = true
                     } label: {
                         Image(systemName: "shield.checkmark.fill")
-                            .font(.system(size: 20))
+                            .font(.systemScaled(20))
                             .foregroundStyle(.blue)
                     }
                 }
@@ -216,7 +216,7 @@ struct FriendsSafetyStep: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 8) {
                     Image(systemName: "shield.checkmark.fill")
-                        .font(.system(size: 32))
+                        .font(.systemScaled(32))
                         .foregroundStyle(.blue)
                     
                     Text("Safe Connections")
@@ -328,7 +328,7 @@ struct FriendshipGoalsStep: View {
                             
                             if selectedFriendshipGoals.contains(goal) {
                                 Image(systemName: "checkmark.circle.fill")
-                                    .font(.system(size: 16))
+                                    .font(.systemScaled(16))
                                     .foregroundStyle(.white)
                             }
                         }
@@ -370,7 +370,7 @@ struct FriendsWelcomeStep: View {
                     .frame(width: 140, height: 140)
                 
                 Image(systemName: "person.2.fill")
-                    .font(.system(size: 64))
+                    .font(.systemScaled(64))
                     .foregroundStyle(
                         LinearGradient(
                             colors: [.blue, .cyan],
@@ -480,7 +480,7 @@ struct FriendsInfoStep: View {
                                 
                                 if selectedInterests.contains(interest) {
                                     Image(systemName: "checkmark.circle.fill")
-                                        .font(.system(size: 14))
+                                        .font(.systemScaled(14))
                                         .foregroundStyle(.white)
                                 }
                             }
@@ -551,7 +551,7 @@ struct FriendsActivitiesStep: View {
                             
                             if selectedActivities.contains(activity) {
                                 Image(systemName: "checkmark.circle.fill")
-                                    .font(.system(size: 16))
+                                    .font(.systemScaled(16))
                                     .foregroundStyle(.white)
                             }
                         }
@@ -599,7 +599,7 @@ struct FriendsVerificationStep: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 8) {
                     Image(systemName: "checkmark.seal.fill")
-                        .font(.system(size: 32))
+                        .font(.systemScaled(32))
                         .foregroundStyle(.green)
                     
                     Text("Verification")
@@ -673,7 +673,7 @@ struct FriendsChurchInfoStep: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 8) {
                     Image(systemName: "building.2.fill")
-                        .font(.system(size: 32))
+                        .font(.systemScaled(32))
                         .foregroundStyle(.blue)
                     
                     Text("Your Church Community")
@@ -778,7 +778,7 @@ struct FriendsMeetingSafetyStep: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 8) {
                     Image(systemName: "person.2.badge.gearshape.fill")
-                        .font(.system(size: 32))
+                        .font(.systemScaled(32))
                         .foregroundStyle(.orange)
                     
                     Text("Meeting Preferences")
@@ -800,7 +800,7 @@ struct FriendsMeetingSafetyStep: View {
                     } label: {
                         HStack {
                             Image(systemName: selectedMeetingPreference == preference ? "checkmark.circle.fill" : "circle")
-                                .font(.system(size: 20))
+                                .font(.systemScaled(20))
                                 .foregroundStyle(selectedMeetingPreference == preference ? .blue : .gray)
                             
                             Text(preference)
@@ -855,7 +855,7 @@ struct FriendSafetyTipRow: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "checkmark.shield.fill")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(.orange)
             
             Text(text)

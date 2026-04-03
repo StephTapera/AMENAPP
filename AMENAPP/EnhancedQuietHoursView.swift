@@ -107,7 +107,7 @@ struct EnhancedQuietHoursView: View {
                     .frame(width: 80, height: 80)
 
                 Image(systemName: quietHoursEnabled ? "moon.fill" : "moon")
-                    .font(.system(size: 36))
+                    .font(.systemScaled(36))
                     .foregroundStyle(.indigo)
                     .symbolEffect(.bounce, value: quietHoursEnabled)
             }
@@ -607,7 +607,7 @@ struct QuietStatusBanner: View {
     var body: some View {
         HStack(spacing: 12) {
             Text(feedback.emoji)
-                .font(.system(size: 28))
+                .font(.systemScaled(28))
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(feedback.level.displayName)

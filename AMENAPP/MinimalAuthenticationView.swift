@@ -203,13 +203,13 @@ struct MinimalAuthenticationView: View {
                     Spacer().frame(height: 22)
 
                     Text(landingTitle)
-                        .font(.system(size: 30, weight: .bold))
+                        .font(.systemScaled(30, weight: .bold))
                         .foregroundStyle(Color(white: 0.06))
 
                     Spacer().frame(height: 10)
 
                     Text(landingSubtitle)
-                        .font(.system(size: 14, weight: .regular))
+                        .font(.systemScaled(14, weight: .regular))
                         .foregroundStyle(Color(white: 0.50))
                         .lineSpacing(4)
                         .fixedSize(horizontal: false, vertical: true)
@@ -235,10 +235,10 @@ struct MinimalAuthenticationView: View {
                         Button { handleAppleSignIn() } label: {
                             HStack(spacing: 9) {
                                 Image(systemName: "apple.logo")
-                                    .font(.system(size: 16, weight: .semibold))
+                                    .font(.systemScaled(16, weight: .semibold))
                                     .foregroundStyle(.white)
                                 Text("Continue with Apple")
-                                    .font(.system(size: 15, weight: .semibold))
+                                    .font(.systemScaled(15, weight: .semibold))
                                     .foregroundStyle(.white)
                             }
                             .frame(maxWidth: .infinity)
@@ -251,10 +251,10 @@ struct MinimalAuthenticationView: View {
                         Button { handleGoogleSignIn() } label: {
                             HStack(spacing: 9) {
                                 Image(systemName: "g.circle.fill")
-                                    .font(.system(size: 16, weight: .regular))
+                                    .font(.systemScaled(16, weight: .regular))
                                     .foregroundStyle(Color(white: 0.15))
                                 Text("Continue with Google")
-                                    .font(.system(size: 15, weight: .medium))
+                                    .font(.systemScaled(15, weight: .medium))
                                     .foregroundStyle(Color(white: 0.10))
                             }
                             .frame(maxWidth: .infinity)
@@ -277,10 +277,10 @@ struct MinimalAuthenticationView: View {
                         } label: {
                             HStack(spacing: 9) {
                                 Image(systemName: isLogin ? "envelope.badge" : "envelope")
-                                    .font(.system(size: 15, weight: .regular))
+                                    .font(.systemScaled(15, weight: .regular))
                                     .foregroundStyle(Color(white: 0.15))
                                 Text(landingEmailCTA)
-                                    .font(.system(size: 15, weight: .medium))
+                                    .font(.systemScaled(15, weight: .medium))
                                     .foregroundStyle(Color(white: 0.10))
                             }
                             .frame(maxWidth: .infinity)
@@ -296,14 +296,14 @@ struct MinimalAuthenticationView: View {
                     HStack(spacing: 4) {
                         Spacer()
                         Text(isLogin ? "New to AMEN?" : "Already have an account?")
-                            .font(.system(size: 13, weight: .regular))
+                            .font(.systemScaled(13, weight: .regular))
                             .foregroundStyle(Color(white: 0.52))
                         Button {
                             errorMessage = nil
                             isLogin.toggle()
                         } label: {
                             Text(isLogin ? "Sign up" : "Sign in")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.systemScaled(13, weight: .semibold))
                                 .foregroundStyle(Color(white: 0.10))
                                 .underline()
                         }
@@ -358,16 +358,16 @@ struct MinimalAuthenticationView: View {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "arrow.left")
-                            .font(.system(size: 15, weight: .regular))
+                            .font(.systemScaled(15, weight: .regular))
                         Text("Back")
-                            .font(.system(size: 15, weight: .regular))
+                            .font(.systemScaled(15, weight: .regular))
                     }
                     .foregroundStyle(Color(white: 0.30))
                 }
                 Spacer()
                 Button { dismiss() } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 14, weight: .regular))
+                        .font(.systemScaled(14, weight: .regular))
                         .foregroundStyle(Color(white: 0.40))
                         .frame(width: 34, height: 34)
                         .background(Circle().fill(Color(white: 0.92)))
@@ -384,7 +384,7 @@ struct MinimalAuthenticationView: View {
                         Spacer().frame(height: 32)
 
                         Text("AMEN")
-                            .font(.system(size: 20, weight: .light))
+                            .font(.systemScaled(20, weight: .light))
                             .tracking(6)
                             .foregroundStyle(Color(white: 0.62))
 
@@ -397,7 +397,7 @@ struct MinimalAuthenticationView: View {
                         Spacer().frame(height: 22)
 
                         Text(formTitle)
-                            .font(.system(size: 40, weight: .light))
+                            .font(.systemScaled(40, weight: .light))
                             .lineSpacing(2)
                             .foregroundStyle(.black)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -407,7 +407,7 @@ struct MinimalAuthenticationView: View {
                         Spacer().frame(height: 8)
 
                         Text(formSubtitle)
-                            .font(.system(size: 15, weight: .regular))
+                            .font(.systemScaled(15, weight: .regular))
                             .foregroundStyle(Color(white: 0.48))
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.horizontal, 32)
@@ -468,7 +468,7 @@ struct MinimalAuthenticationView: View {
                                         keyboardType: .default
                                     )
                                     Text("You can sign in with your username or email address")
-                                        .font(.system(size: 11, weight: .regular))
+                                        .font(.systemScaled(11, weight: .regular))
                                         .foregroundStyle(Color(white: 0.52))
                                         .padding(.leading, 4)
                                 }
@@ -505,7 +505,7 @@ struct MinimalAuthenticationView: View {
                                 showPasswordResetAlert = true
                             } label: {
                                 Text("Forgot password?")
-                                    .font(.system(size: 13, weight: .regular))
+                                    .font(.systemScaled(13, weight: .regular))
                                     .foregroundStyle(Color(white: 0.48))
                                     .underline()
                             }
@@ -535,9 +535,9 @@ struct MinimalAuthenticationView: View {
                                 } else {
                                     HStack(spacing: 8) {
                                         Text(ctaLabel)
-                                            .font(.system(size: 15, weight: .semibold))
+                                            .font(.systemScaled(15, weight: .semibold))
                                         Image(systemName: isLogin || signUpStep == 2 ? "arrow.right" : "chevron.right")
-                                            .font(.system(size: 13, weight: .semibold))
+                                            .font(.systemScaled(13, weight: .semibold))
                                     }
                                     .foregroundStyle(.white)
                                 }
@@ -561,7 +561,7 @@ struct MinimalAuthenticationView: View {
                                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
                             } label: {
                                 Text("Back")
-                                    .font(.system(size: 14, weight: .regular))
+                                    .font(.systemScaled(14, weight: .regular))
                                     .foregroundStyle(Color(white: 0.48))
                             }
                             .padding(.top, 8)
@@ -573,7 +573,7 @@ struct MinimalAuthenticationView: View {
                         HStack(spacing: 12) {
                             Rectangle().fill(Color(white: 0.84)).frame(height: 1)
                             Text("or")
-                                .font(.system(size: 12, weight: .regular))
+                                .font(.systemScaled(12, weight: .regular))
                                 .foregroundStyle(Color(white: 0.56))
                             Rectangle().fill(Color(white: 0.84)).frame(height: 1)
                         }
@@ -596,7 +596,7 @@ struct MinimalAuthenticationView: View {
 
                         if !isLogin {
                             Text("By creating an account you agree to our\n**Terms of Service** and **Privacy Policy**.")
-                                .font(.system(size: 11, weight: .regular))
+                                .font(.systemScaled(11, weight: .regular))
                                 .foregroundStyle(Color(white: 0.52))
                                 .multilineTextAlignment(.center)
                                 .padding(.horizontal, 40)
@@ -616,7 +616,7 @@ struct MinimalAuthenticationView: View {
 
     private var authModePill: some View {
         Text(isLogin ? "SIGN IN" : "CREATE ACCOUNT")
-            .font(.system(size: 11, weight: .semibold))
+            .font(.systemScaled(11, weight: .semibold))
             .tracking(1.4)
             .foregroundStyle(Color.black.opacity(0.64))
             .padding(.horizontal, 12)
@@ -651,17 +651,17 @@ struct MinimalAuthenticationView: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(cachedDisplayName ?? "Welcome back")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(Color.black.opacity(0.88))
 
                 if let cachedUsernameHandle {
                     Text(cachedUsernameHandle)
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                         .foregroundStyle(Color.black.opacity(0.48))
                 }
 
                 Text("This device remembers your AMEN profile.")
-                    .font(.system(size: 12, weight: .regular))
+                    .font(.systemScaled(12, weight: .regular))
                     .foregroundStyle(Color.black.opacity(0.42))
             }
 
@@ -691,7 +691,7 @@ struct MinimalAuthenticationView: View {
                 )
 
             Text(cachedInitials)
-                .font(.system(size: 18, weight: .semibold))
+                .font(.systemScaled(18, weight: .semibold))
                 .foregroundStyle(Color.black.opacity(0.78))
         }
     }
@@ -699,7 +699,7 @@ struct MinimalAuthenticationView: View {
     private var signUpJourneyCard: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("A calm, three-step setup.")
-                .font(.system(size: 15, weight: .semibold))
+                .font(.systemScaled(15, weight: .semibold))
                 .foregroundStyle(Color.black.opacity(0.82))
 
             HStack(spacing: 10) {
@@ -723,12 +723,12 @@ struct MinimalAuthenticationView: View {
     private func authStepBadge(number: String, title: String) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(number)
-                .font(.system(size: 10, weight: .semibold))
+                .font(.systemScaled(10, weight: .semibold))
                 .tracking(1.1)
                 .foregroundStyle(Color.black.opacity(0.42))
 
             Text(title)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(Color.black.opacity(0.82))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -747,7 +747,7 @@ struct MinimalAuthenticationView: View {
         Button(action: action) {
             VStack(spacing: 10) {
                 Text(title)
-                    .font(.system(size: 15, weight: selected ? .semibold : .regular))
+                    .font(.systemScaled(15, weight: selected ? .semibold : .regular))
                     .foregroundStyle(selected ? .black : Color(white: 0.58))
                     .padding(.horizontal, 4)
 
@@ -1110,7 +1110,7 @@ private struct EditorialInputField: View {
         VStack(alignment: .leading, spacing: 6) {
             // Label
             Text(label)
-                .font(.system(size: 11, weight: .medium))
+                .font(.systemScaled(11, weight: .medium))
                 .foregroundStyle(Color(white: 0.42))
                 .tracking(0.5)
 
@@ -1127,7 +1127,7 @@ private struct EditorialInputField: View {
                             .focused($isFocused)
                     }
                 }
-                .font(.system(size: 16, weight: .regular))
+                .font(.systemScaled(16, weight: .regular))
                 .foregroundStyle(.black)
                 .autocorrectionDisabled()
 
@@ -1136,7 +1136,7 @@ private struct EditorialInputField: View {
                         showPassword.toggle()
                     } label: {
                         Image(systemName: showPassword ? "eye.slash" : "eye")
-                            .font(.system(size: 15, weight: .light))
+                            .font(.systemScaled(15, weight: .light))
                             .foregroundStyle(Color(white: 0.50))
                     }
                     .accessibilityLabel(showPassword ? "Hide password" : "Show password")
@@ -1182,7 +1182,7 @@ private struct EditorialDateField: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Date of Birth")
-                .font(.system(size: 11, weight: .medium))
+                .font(.systemScaled(11, weight: .medium))
                 .foregroundStyle(Color(white: 0.42))
                 .tracking(0.5)
 
@@ -1197,13 +1197,13 @@ private struct EditorialDateField: View {
                         Text(hasPicked
                              ? Self.formatter.string(from: birthDate)
                              : "Select your date of birth")
-                            .font(.system(size: 16, weight: .regular))
+                            .font(.systemScaled(16, weight: .regular))
                             .foregroundStyle(hasPicked ? .black : Color(white: 0.56))
 
                         Spacer()
 
                         Image(systemName: showPicker ? "chevron.up" : "chevron.down")
-                            .font(.system(size: 12, weight: .light))
+                            .font(.systemScaled(12, weight: .light))
                             .foregroundStyle(Color(white: 0.50))
                     }
                     .padding(.vertical, 14)
@@ -1243,7 +1243,7 @@ private struct EditorialDateField: View {
 
             // Age compliance note
             Text("You must be 13 or older to join.")
-                .font(.system(size: 11, weight: .regular))
+                .font(.systemScaled(11, weight: .regular))
                 .foregroundStyle(Color(white: 0.56))
                 .padding(.top, 2)
         }
@@ -1261,11 +1261,11 @@ private struct EditorialSocialButton: View {
         Button(action: action) {
             HStack(spacing: 10) {
                 Image(systemName: systemIcon)
-                    .font(.system(size: 16, weight: .regular))
+                    .font(.systemScaled(16, weight: .regular))
                     .foregroundStyle(.black)
 
                 Text(title)
-                    .font(.system(size: 14, weight: .regular))
+                    .font(.systemScaled(14, weight: .regular))
                     .foregroundStyle(.black)
             }
             .frame(maxWidth: .infinity)
@@ -1290,10 +1290,10 @@ private struct EditorialErrorBanner: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: "exclamationmark.circle")
-                .font(.system(size: 14, weight: .regular))
+                .font(.systemScaled(14, weight: .regular))
 
             Text(message)
-                .font(.system(size: 13, weight: .regular))
+                .font(.systemScaled(13, weight: .regular))
                 .multilineTextAlignment(.leading)
         }
         .foregroundStyle(Color(red: 0.78, green: 0.18, blue: 0.18))
@@ -1377,11 +1377,11 @@ private struct SignUpStepperCard: View {
 
                     if isComplete {
                         Image(systemName: "checkmark")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                             .foregroundStyle(.white)
                     } else {
                         Image(systemName: steps[index].icon)
-                            .font(.system(size: 15, weight: isActive ? .semibold : .regular))
+                            .font(.systemScaled(15, weight: isActive ? .semibold : .regular))
                             .foregroundStyle(isActive ? .white : Color(white: 0.62))
                     }
                 }
@@ -1389,7 +1389,7 @@ private struct SignUpStepperCard: View {
 
                 // Step label
                 Text(steps[index].label)
-                    .font(.system(size: isActive ? 20 : 16,
+                    .font(.systemScaled(isActive ? 20 : 16,
                                   weight: isActive ? .semibold : .regular))
                     .foregroundStyle(isActive ? Color.black : Color(white: 0.56))
                     .animation(.easeInOut(duration: 0.2), value: step)
@@ -1472,10 +1472,10 @@ private struct SignUpStepperCard: View {
                 if !password.isEmpty && !confirmPassword.isEmpty {
                     HStack(spacing: 5) {
                         Image(systemName: password == confirmPassword ? "checkmark.circle.fill" : "xmark.circle.fill")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(password == confirmPassword ? Color.green : Color.red)
                         Text(password == confirmPassword ? "Passwords match" : "Passwords don't match")
-                            .font(.system(size: 12, weight: .regular))
+                            .font(.systemScaled(12, weight: .regular))
                             .foregroundStyle(password == confirmPassword ? Color.green : Color.red)
                     }
                     .transition(.opacity)
@@ -1511,7 +1511,7 @@ private struct AMENIconMark: View {
                 .shadow(color: .black.opacity(0.22), radius: 8, x: 0, y: 4)
 
             Text("A")
-                .font(.system(size: 26, weight: .bold, design: .rounded))
+                .font(.systemScaled(26, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)
         }
     }

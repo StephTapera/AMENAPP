@@ -721,7 +721,58 @@ exports.bereanChatProxy = onCall(
       if (!response.ok) {
         throw new HttpsError("internal", json.error?.message ?? "Anthropic API error");
       }
-      return {text: json.content?.[0]?.text ?? ""};
+
+      const text = json.content?.[0]?.text ?? "";
+
+      // ── Scripture reference validation ────────────────────────────────────
+      // Extract all verse-pattern references (e.g. "John 3:16", "Ps. 23:1-6")
+      // and check them against the recognized canon. The iOS client shows a
+      // "verify references in your Bible app" footer when hasUnverifiedReferences=true.
+      const versePattern = /\b([1-3]\s)?([A-Za-z]+\.?)\s+(\d{1,3}):(\d{1,3})(?:-(\d{1,3}))?\b/g;
+      const canonicalBooks = new Set([
+        "genesis", "exodus", "leviticus", "numbers", "deuteronomy",
+        "joshua", "judges", "ruth", "samuel", "kings", "chronicles",
+        "ezra", "nehemiah", "esther", "job", "psalms", "psalm", "ps",
+        "proverbs", "ecclesiastes", "song", "isaiah", "jeremiah",
+        "lamentations", "ezekiel", "daniel", "hosea", "joel", "amos",
+        "obadiah", "jonah", "micah", "nahum", "habakkuk", "zephaniah",
+        "haggai", "zechariah", "malachi",
+        "matthew", "mark", "luke", "john", "acts", "romans",
+        "corinthians", "galatians", "ephesians", "philippians",
+        "colossians", "thessalonians", "timothy", "titus", "philemon",
+        "hebrews", "james", "peter", "jude", "revelation",
+        // Common abbreviations
+        "gen", "exo", "exod", "lev", "num", "deut", "deut",
+        "josh", "judg", "sam", "kgs", "chr", "neh", "est",
+        "prov", "ecc", "eccl", "eccles", "isa", "jer", "lam",
+        "ezek", "dan", "hos", "zech", "mal",
+        "matt", "mk", "lk", "jn", "rev", "rom", "gal", "eph",
+        "phil", "col", "thess", "tim", "tit", "phlm", "heb", "jas",
+        "pet", "jude",
+      ]);
+
+      const scriptureReferences = [];
+      let hasUnrecognizedBook = false;
+      let match;
+      while ((match = versePattern.exec(text)) !== null) {
+        const bookRaw = match[2].replace(/\.$/, "").toLowerCase();
+        const isRecognized = canonicalBooks.has(bookRaw);
+        scriptureReferences.push({
+          reference: match[0].trim(),
+          recognized: isRecognized,
+        });
+        if (!isRecognized) hasUnrecognizedBook = true;
+      }
+
+      // If the AI cited any scripture references, flag them for client-side display
+      const hasUnverifiedReferences = scriptureReferences.length > 0;
+
+      return {
+        text,
+        scriptureReferences,
+        hasUnverifiedReferences,
+        hasUnrecognizedBook,
+      };
     },
 );
 

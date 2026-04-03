@@ -197,11 +197,11 @@ struct ResonanceIndicatorView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 6) {
                         Image(systemName: score.icon)
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundStyle(score.color)
 
                         Text(score.label)
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.systemScaled(13, weight: .medium))
                             .foregroundStyle(score.color)
                             .contentTransition(.numericText())
                     }
@@ -209,7 +209,7 @@ struct ResonanceIndicatorView: View {
 
                     if let tip {
                         Text(tip)
-                            .font(.system(size: 11, weight: .regular))
+                            .font(.systemScaled(11, weight: .regular))
                             .foregroundStyle(.secondary)
                             .transition(.opacity)
                     }

@@ -391,7 +391,7 @@ struct BereanDynamicIsland: View {
 
             Button { vm.dismiss() } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.systemScaled(11, weight: .bold))
                     .foregroundStyle(.white.opacity(0.5))
                     .frame(width: 24, height: 24)
                     .background(Color.white.opacity(0.08), in: Circle())

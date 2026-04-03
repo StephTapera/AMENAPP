@@ -1276,7 +1276,8 @@ class AuthenticationViewModel: ObservableObject {
                     "hasCompletedOnboarding": false,
                     "authProvider": "phone",
                     "phoneVerified": true,
-                    "phoneVerifiedAt": Timestamp(date: Date())
+                    "phoneVerifiedAt": Timestamp(date: Date()),
+                    "schemaVersion": 1
                 ]
                 
                 try await firebaseManager.firestore.collection("users")
@@ -1596,7 +1597,10 @@ class AuthenticationViewModel: ObservableObject {
                 // which happens for social sign-in users whose doc was not yet created.
                 try await db.collection("users").document(userId).setData([
                     "hasCompletedOnboarding": true,
-                    "onboardingCompletedAt": Timestamp(date: Date())
+                    "onboardingCompleted": true,
+                    "onboardingComplete": true,
+                    "onboardingCompletedAt": Timestamp(date: Date()),
+                    "schemaVersion": 1
                 ], merge: true)
                 
                 dlog("✅ Onboarding completion saved to Firestore")

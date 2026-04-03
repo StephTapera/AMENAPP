@@ -145,16 +145,16 @@ struct PostTypeDetectionBanner: View {
                     .fill(detectedType.color.opacity(0.15))
                     .frame(width: 32, height: 32)
                 Image(systemName: detectedType.icon)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(detectedType.color)
             }
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(detectedType.description)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(.primary)
                 Text("Switch to \(detectedType.rawValue) format?")
-                    .font(.system(size: 11, weight: .regular))
+                    .font(.systemScaled(11, weight: .regular))
                     .foregroundStyle(.secondary)
             }
 
@@ -165,7 +165,7 @@ struct PostTypeDetectionBanner: View {
                 onSwitch()
             } label: {
                 Text("Switch")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(detectedType.color)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
@@ -178,7 +178,7 @@ struct PostTypeDetectionBanner: View {
                 onDismiss()
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.systemScaled(10, weight: .bold))
                     .foregroundStyle(.secondary)
                     .frame(width: 24, height: 24)
             }
@@ -239,7 +239,7 @@ struct ComposeQualityBar: View {
 
             if let label = milestoneLabel {
                 Text(label)
-                    .font(.system(size: 10, weight: .regular))
+                    .font(.systemScaled(10, weight: .regular))
                     .foregroundStyle(fillColor.opacity(0.7))
                     .transition(.opacity)
                     .animation(.easeOut(duration: 0.3), value: milestoneLabel)
@@ -270,7 +270,7 @@ struct BereanSuggestionsPanel: View {
                         .scaledToFit()
                         .frame(width: 14, height: 14)
                     Text("Berean is reading your post")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(.secondary)
                 }
 
@@ -281,7 +281,7 @@ struct BereanSuggestionsPanel: View {
                     onDismiss()
                 } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 10, weight: .bold))
+                        .font(.systemScaled(10, weight: .bold))
                         .foregroundStyle(.secondary)
                         .frame(width: 24, height: 24)
                 }
@@ -359,14 +359,14 @@ private struct BereanSuggestionRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             Text(suggestion.category.rawValue)
-                .font(.system(size: 10, weight: .semibold))
+                .font(.systemScaled(10, weight: .semibold))
                 .foregroundStyle(badgeColor)
                 .padding(.horizontal, 7)
                 .padding(.vertical, 3)
                 .background(badgeColor.opacity(0.12), in: Capsule())
 
             Text(suggestion.text)
-                .font(.system(size: 13, weight: .regular))
+                .font(.systemScaled(13, weight: .regular))
                 .foregroundStyle(.primary)
                 .fixedSize(horizontal: false, vertical: true)
                 .lineLimit(3)
@@ -375,7 +375,7 @@ private struct BereanSuggestionRow: View {
 
             Button(action: onApply) {
                 Text("Apply →")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(.purple)
             }
             .buttonStyle(.plain)
@@ -401,19 +401,19 @@ struct ScriptureCardAttachment: View {
             HStack(alignment: .top, spacing: 14) {
                 // Decorative quote mark
                 Text("\u{201C}")
-                    .font(.system(size: 52, weight: .bold, design: .serif))
+                    .font(.systemScaled(52, weight: .bold, design: .serif))
                     .foregroundStyle(Color.purple.opacity(0.15))
                     .offset(y: -8)
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text(verseText)
-                        .font(.system(size: 15, weight: .regular, design: .serif))
+                        .font(.systemScaled(15, weight: .regular, design: .serif))
                         .foregroundStyle(.primary)
                         .lineLimit(4)
                         .fixedSize(horizontal: false, vertical: true)
 
                     Text(reference)
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(Color(red: 0.85, green: 0.6, blue: 0.2))
                 }
 
@@ -432,7 +432,7 @@ struct ScriptureCardAttachment: View {
             // Remove button
             Button(action: onRemove) {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 18))
+                    .font(.systemScaled(18))
                     .foregroundStyle(Color.secondary)
                     .background(Circle().fill(Color(.systemBackground)))
             }
@@ -646,16 +646,16 @@ struct ComposeTemplateSheet: View {
                                                 .fill(template.color.opacity(0.15))
                                                 .frame(width: 36, height: 36)
                                             Image(systemName: template.icon)
-                                                .font(.system(size: 16, weight: .semibold))
+                                                .font(.systemScaled(16, weight: .semibold))
                                                 .foregroundStyle(template.color)
                                         }
 
                                         VStack(alignment: .leading, spacing: 2) {
                                             Text(template.name)
-                                                .font(.system(size: 15, weight: .semibold))
+                                                .font(.systemScaled(15, weight: .semibold))
                                                 .foregroundStyle(.primary)
                                             Text(template.structure)
-                                                .font(.system(size: 12, weight: .regular))
+                                                .font(.systemScaled(12, weight: .regular))
                                                 .foregroundStyle(.secondary)
                                                 .lineLimit(2)
                                         }
@@ -663,7 +663,7 @@ struct ComposeTemplateSheet: View {
                                         Spacer()
 
                                         Image(systemName: "chevron.right")
-                                            .font(.system(size: 11, weight: .semibold))
+                                            .font(.systemScaled(11, weight: .semibold))
                                             .foregroundStyle(.tertiary)
                                     }
                                     .padding(.horizontal, 16)
@@ -806,7 +806,7 @@ struct VoiceTranscribeButton: View {
                             .scaleEffect(0.6)
                     } else {
                         Image(systemName: isRecording ? "mic.fill" : "mic")
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.systemScaled(14, weight: .medium))
                             .foregroundStyle(isRecording ? .red : .secondary)
                     }
                 }
@@ -819,7 +819,7 @@ struct VoiceTranscribeButton: View {
             if !isRecording && !whisperVM.isTranscribing {
                 Button { showLanguagePicker = true } label: {
                     Text(selectedLocale.identifier.prefix(2).uppercased())
-                        .font(.system(size: 9, weight: .semibold))
+                        .font(.systemScaled(9, weight: .semibold))
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
@@ -997,15 +997,15 @@ struct SensitivityPrivacyNudge: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: "lock.circle.fill")
-                .font(.system(size: 20))
+                .font(.systemScaled(20))
                 .foregroundStyle(Color(red: 0.55, green: 0.35, blue: 0.92))
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(reason)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(.primary)
                 Text("Consider sharing with followers only")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.secondary)
             }
 
@@ -1016,7 +1016,7 @@ struct SensitivityPrivacyNudge: View {
                 onApply()
             } label: {
                 Text("Apply")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(Color(red: 0.55, green: 0.35, blue: 0.92))
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
@@ -1029,7 +1029,7 @@ struct SensitivityPrivacyNudge: View {
                 onDismiss()
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.systemScaled(10, weight: .bold))
                     .foregroundStyle(.secondary)
                     .frame(width: 24, height: 24)
             }
@@ -1067,7 +1067,7 @@ struct SmartTagSuggestions: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Suggested tags")
-                .font(.system(size: 11, weight: .medium))
+                .font(.systemScaled(11, weight: .medium))
                 .foregroundStyle(.secondary)
 
             ScrollView(.horizontal, showsIndicators: false) {
@@ -1078,7 +1078,7 @@ struct SmartTagSuggestions: View {
                             onSelectTag(tag)
                         } label: {
                             Text(tag)
-                                .font(.system(size: 12, weight: .medium))
+                                .font(.systemScaled(12, weight: .medium))
                                 .foregroundStyle(detectedType.color)
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 5)
@@ -1117,10 +1117,10 @@ struct ComposeIntelligenceCoachTooltip: View {
                 VStack(alignment: .leading, spacing: 14) {
                     HStack {
                         Image(systemName: "sparkles")
-                            .font(.system(size: 18, weight: .semibold))
+                            .font(.systemScaled(18, weight: .semibold))
                             .foregroundStyle(Color(red: 1.0, green: 0.75, blue: 0.2))
                         Text("AI Compose Assistant")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                         Spacer()
                     }
 
@@ -1146,7 +1146,7 @@ struct ComposeIntelligenceCoachTooltip: View {
                         UserDefaults.standard.set(true, forKey: "composeIntelligenceCoachShown")
                     } label: {
                         Text("Got it")
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(.systemScaled(15, weight: .semibold))
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 13)
@@ -1181,11 +1181,11 @@ private struct CoachRow: View {
         HStack(alignment: .top, spacing: 12) {
             ZStack {
                 Circle().fill(color.opacity(0.12)).frame(width: 28, height: 28)
-                Image(systemName: icon).font(.system(size: 12, weight: .semibold)).foregroundStyle(color)
+                Image(systemName: icon).font(.systemScaled(12, weight: .semibold)).foregroundStyle(color)
             }
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.system(size: 13, weight: .semibold)).foregroundStyle(.primary)
-                Text(message).font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                Text(title).font(.systemScaled(13, weight: .semibold)).foregroundStyle(.primary)
+                Text(message).font(.systemScaled(12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
         }
     }
@@ -1201,21 +1201,21 @@ struct PostQuicklyBereanNudge: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "sparkle")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(Color(red: 1.0, green: 0.75, blue: 0.2))
                 .scaleEffect(pulse ? 1.2 : 1.0)
                 .animation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true), value: pulse)
                 .onAppear { pulse = true }
 
             Text("AI insights are ready for your post")
-                .font(.system(size: 12, weight: .medium))
+                .font(.systemScaled(12, weight: .medium))
                 .foregroundStyle(.secondary)
 
             Spacer()
 
             Button(action: onDismiss) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.systemScaled(9, weight: .bold))
                     .foregroundStyle(.tertiary)
                     .frame(width: 20, height: 20)
             }
@@ -1281,15 +1281,15 @@ struct ComposeDraftRecoveryBanner: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: "doc.text.fill")
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
                 .foregroundStyle(Color.purple)
 
             VStack(alignment: .leading, spacing: 1) {
                 Text("Continue where you left off?")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(.primary)
                 Text("Draft from \(savedAt, style: .relative) ago")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.secondary)
             }
 
@@ -1300,7 +1300,7 @@ struct ComposeDraftRecoveryBanner: View {
                 onRecover()
             } label: {
                 Text("Recover")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
@@ -1310,7 +1310,7 @@ struct ComposeDraftRecoveryBanner: View {
 
             Button(action: onDiscard) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.systemScaled(10, weight: .bold))
                     .foregroundStyle(.secondary)
                     .frame(width: 24, height: 24)
             }

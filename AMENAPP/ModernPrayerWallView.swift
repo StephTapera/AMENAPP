@@ -95,7 +95,7 @@ struct ModernPrayerWallView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .foregroundStyle(.primary)
                     }
                 }
@@ -105,7 +105,7 @@ struct ModernPrayerWallView: View {
                         showNewPrayer = true
                     } label: {
                         Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 22))
+                            .font(.systemScaled(22))
                             .foregroundStyle(.blue)
                     }
                 }
@@ -144,7 +144,7 @@ private struct PrayerCategoryPill: View {
         Button(action: action) {
             HStack(spacing: 6) {
                 Image(systemName: category.icon)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                 
                 Text(category.rawValue)
                     .font(.custom("OpenSans-SemiBold", size: 13))
@@ -176,7 +176,7 @@ private struct StatCard: View {
     var body: some View {
         VStack(spacing: 8) {
             Image(systemName: icon)
-                .font(.system(size: 24, weight: .semibold))
+                .font(.systemScaled(24, weight: .semibold))
                 .foregroundStyle(color)
             
             Text("\(count)")
@@ -214,7 +214,7 @@ private struct ModernPrayerCard: View {
                         .frame(width: 40, height: 40)
                         .overlay(
                             Image(systemName: "person.fill.questionmark")
-                                .font(.system(size: 16))
+                                .font(.systemScaled(16))
                                 .foregroundStyle(prayer.category.color)
                         )
                 } else if let imageURL = prayer.authorProfileImage {
@@ -242,7 +242,7 @@ private struct ModernPrayerCard: View {
                 // Category badge
                 HStack(spacing: 4) {
                     Image(systemName: prayer.category.icon)
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.systemScaled(10, weight: .semibold))
                     Text(prayer.category.rawValue)
                         .font(.custom("OpenSans-SemiBold", size: 11))
                 }
@@ -272,7 +272,7 @@ private struct ModernPrayerCard: View {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: isPraying ? "hands.sparkles.fill" : "hands.sparkles")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                         
                         Text("\(prayer.prayerCount)")
                             .font(.custom("OpenSans-SemiBold", size: 14))
@@ -286,7 +286,7 @@ private struct ModernPrayerCard: View {
                 if prayer.isAnswered {
                     HStack(spacing: 4) {
                         Image(systemName: "checkmark.seal.fill")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                         Text("Answered!")
                             .font(.custom("OpenSans-SemiBold", size: 13))
                     }

@@ -124,7 +124,7 @@ struct BereanFullOnboardingView: View {
                     .frame(width: 110, height: 110)
 
                 Image(systemName: "cross")
-                    .font(.system(size: 38, weight: .light))
+                    .font(.systemScaled(38, weight: .light))
                     .foregroundColor(BereanColor.textPrimary)
             }
             .padding(.bottom, 36)
@@ -196,7 +196,7 @@ struct BereanFullOnboardingView: View {
                     )
                     .frame(width: 48, height: 48)
                 Image(systemName: icon)
-                    .font(.system(size: 20, weight: .light))
+                    .font(.systemScaled(20, weight: .light))
                     .foregroundColor(BereanColor.textPrimary)
             }
 
@@ -258,7 +258,7 @@ struct BereanFullOnboardingView: View {
         } label: {
             VStack(spacing: 6) {
                 Image(systemName: item.icon)
-                    .font(.system(size: 18, weight: .light))
+                    .font(.systemScaled(18, weight: .light))
                     .foregroundColor(isSelected ? Color.white : BereanColor.textPrimary)
                 Text(item.label)
                     .font(BereanType.caption())
@@ -315,7 +315,7 @@ struct BereanFullOnboardingView: View {
                     .frame(width: 110, height: 110)
 
                 Image(systemName: "checkmark")
-                    .font(.system(size: 32, weight: .light))
+                    .font(.systemScaled(32, weight: .light))
                     .foregroundColor(BereanColor.textPrimary)
             }
             .padding(.bottom, 36)

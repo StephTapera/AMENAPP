@@ -196,9 +196,9 @@ struct ChurchNoteDetailTabView: View {
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: tab.icon)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                 Text(tab.rawValue)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
@@ -246,11 +246,11 @@ struct ChurchNoteDetailTabView: View {
         glassCard {
             VStack(alignment: .leading, spacing: 12) {
                 Label("Your Notes", systemImage: "pencil")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundColor(.black.opacity(0.45))
 
                 Text(vm.note.content.isEmpty ? "No notes yet. Open the editor to start writing." : vm.note.content)
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .foregroundColor(vm.note.content.isEmpty ? .black.opacity(0.35) : .black)
                     .lineSpacing(5)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -264,19 +264,19 @@ struct ChurchNoteDetailTabView: View {
         glassCard {
             VStack(alignment: .leading, spacing: 12) {
                 Label("Sermon Transcript", systemImage: "text.alignleft")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundColor(.black.opacity(0.45))
 
                 if vm.transcriptText.isEmpty {
                     VStack(spacing: 8) {
                         Image(systemName: "waveform.slash")
-                            .font(.system(size: 32))
+                            .font(.systemScaled(32))
                             .foregroundColor(.black.opacity(0.2))
                         Text("No transcript yet.")
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.systemScaled(15, weight: .medium))
                             .foregroundColor(.black.opacity(0.5))
                         Text("Start recording to capture sermon audio.")
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundColor(.black.opacity(0.35))
                             .multilineTextAlignment(.center)
                     }
@@ -284,7 +284,7 @@ struct ChurchNoteDetailTabView: View {
                     .padding(.vertical, 20)
                 } else {
                     Text(vm.transcriptText)
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                         .foregroundColor(.black)
                         .lineSpacing(5)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -317,13 +317,13 @@ struct ChurchNoteDetailTabView: View {
                 glassCard {
                     VStack(spacing: 8) {
                         Image(systemName: "book.closed")
-                            .font(.system(size: 32))
+                            .font(.systemScaled(32))
                             .foregroundColor(.black.opacity(0.2))
                         Text("No scriptures detected yet.")
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.systemScaled(15, weight: .medium))
                             .foregroundColor(.black.opacity(0.5))
                         Text("Scripture references in your notes will appear here automatically.")
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundColor(.black.opacity(0.35))
                             .multilineTextAlignment(.center)
                     }
@@ -343,16 +343,16 @@ struct ChurchNoteDetailTabView: View {
                     glassCard {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("From Berean Summary")
-                                .font(.system(size: 11, weight: .semibold))
+                                .font(.systemScaled(11, weight: .semibold))
                                 .foregroundColor(.black.opacity(0.35))
                                 .padding(.bottom, 4)
                             ForEach(extra, id: \.self) { ref in
                                 HStack {
                                     Image(systemName: "book.fill")
-                                        .font(.system(size: 12))
+                                        .font(.systemScaled(12))
                                         .foregroundColor(.black.opacity(0.4))
                                     Text(ref)
-                                        .font(.system(size: 14, weight: .medium))
+                                        .font(.systemScaled(14, weight: .medium))
                                         .foregroundColor(.black)
                                     Spacer()
                                 }
@@ -380,10 +380,10 @@ struct ChurchNoteDetailTabView: View {
                 glassCard {
                     VStack(spacing: 8) {
                         Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 28))
+                            .font(.systemScaled(28))
                             .foregroundColor(.black.opacity(0.25))
                         Text("Generating reflection prompts...")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundColor(.black.opacity(0.45))
                     }
                     .frame(maxWidth: .infinity)
@@ -403,13 +403,13 @@ struct ChurchNoteDetailTabView: View {
                 } else {
                     VStack(spacing: 10) {
                         Image(systemName: "waveform")
-                            .font(.system(size: 36))
+                            .font(.systemScaled(36))
                             .foregroundColor(.black.opacity(0.18))
                         Text("No recording yet.")
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.systemScaled(15, weight: .medium))
                             .foregroundColor(.black.opacity(0.5))
                         Text("Start Sermon Capture to record audio while you take notes.")
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundColor(.black.opacity(0.35))
                             .multilineTextAlignment(.center)
                     }
@@ -428,15 +428,15 @@ struct ChurchNoteDetailTabView: View {
         glassCard {
             VStack(alignment: .leading, spacing: 4) {
                 Text(organized.title)
-                    .font(.system(size: 18, weight: .bold))
+                    .font(.systemScaled(18, weight: .bold))
                     .foregroundColor(.black)
                 if let subtitle = organized.subtitle {
                     Text(subtitle)
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                         .foregroundColor(.black.opacity(0.5))
                 }
                 Text(organized.mainMessage)
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundColor(.black.opacity(0.7))
                     .lineSpacing(4)
                     .padding(.top, 4)
@@ -451,12 +451,12 @@ struct ChurchNoteDetailTabView: View {
                     ForEach(Array(organized.keyPoints.enumerated()), id: \.offset) { index, point in
                         HStack(alignment: .top, spacing: 10) {
                             Text("\(index + 1)")
-                                .font(.system(size: 12, weight: .bold))
+                                .font(.systemScaled(12, weight: .bold))
                                 .foregroundColor(.black.opacity(0.4))
                                 .frame(width: 18, height: 18)
                                 .background(Circle().fill(Color.black.opacity(0.07)))
                             Text(point)
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                                 .foregroundColor(.black)
                                 .lineSpacing(3)
                         }
@@ -473,7 +473,7 @@ struct ChurchNoteDetailTabView: View {
                     ChurchNotesFlowLayout(spacing: 8) {
                         ForEach(organized.themes, id: \.self) { theme in
                             Text(theme.capitalized)
-                                .font(.system(size: 12, weight: .medium))
+                                .font(.systemScaled(12, weight: .medium))
                                 .foregroundColor(.black)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 5)
@@ -514,7 +514,7 @@ struct ChurchNoteDetailTabView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     sectionHeader("Prayer Response", icon: "hands.sparkles")
                     Text(organized.prayerResponse)
-                        .font(.system(size: 14).italic())
+                        .font(.systemScaled(14).italic())
                         .foregroundColor(.black.opacity(0.7))
                         .lineSpacing(4)
                 }
@@ -552,7 +552,7 @@ struct ChurchNoteDetailTabView: View {
             VStack(alignment: .leading, spacing: 8) {
                 sectionHeader("Growth Loop", icon: "arrow.triangle.2.circlepath")
                 Text("Come back to this note:")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundColor(.black.opacity(0.4))
                 growthLoopRow("24 hours", prompt: promptSet.growthLoopSchedule.day1Prompt)
                 growthLoopRow("3 days", prompt: promptSet.growthLoopSchedule.day3Prompt)
@@ -564,11 +564,11 @@ struct ChurchNoteDetailTabView: View {
     private func growthLoopRow(_ label: String, prompt: String) -> some View {
         HStack(alignment: .top, spacing: 8) {
             Text(label)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
                 .foregroundColor(.black.opacity(0.4))
                 .frame(width: 54, alignment: .leading)
             Text(prompt)
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundColor(.black.opacity(0.7))
                 .lineSpacing(3)
                 .fixedSize(horizontal: false, vertical: true)
@@ -579,17 +579,17 @@ struct ChurchNoteDetailTabView: View {
         glassCard {
             HStack {
                 Image(systemName: "book.fill")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundColor(.black.opacity(0.4))
                 Text(ref)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundColor(.black)
                 Spacer()
                 Button {
                     // "Study with Berean" — open Berean with this reference
                 } label: {
                     Text("Study")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundColor(.black.opacity(0.6))
                         .padding(.horizontal, 12)
                         .padding(.vertical, 5)
@@ -619,10 +619,10 @@ struct ChurchNoteDetailTabView: View {
             if let transcript = session.transcript, !transcript.isEmpty {
                 Divider().opacity(0.15)
                 Text("Transcript")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundColor(.black.opacity(0.4))
                 Text(transcript)
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundColor(.black.opacity(0.7))
                     .lineSpacing(3)
             }
@@ -633,14 +633,14 @@ struct ChurchNoteDetailTabView: View {
         glassCard {
             VStack(spacing: 14) {
                 Image(systemName: icon)
-                    .font(.system(size: 30))
+                    .font(.systemScaled(30))
                     .foregroundColor(.black.opacity(0.25))
                 VStack(spacing: 6) {
                     Text(title)
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundColor(.black)
                     Text(subtitle)
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundColor(.black.opacity(0.5))
                         .multilineTextAlignment(.center)
                         .lineSpacing(3)
@@ -663,7 +663,7 @@ struct ChurchNoteDetailTabView: View {
                             }
                         }
                     }
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundColor(.black)
                     .padding(.horizontal, 24)
                     .padding(.vertical, 12)
@@ -705,7 +705,7 @@ struct ChurchNoteDetailTabView: View {
 
     private func sectionHeader(_ title: String, icon: String) -> some View {
         Label(title, systemImage: icon)
-            .font(.system(size: 12, weight: .semibold))
+            .font(.systemScaled(12, weight: .semibold))
             .foregroundColor(.black.opacity(0.4))
     }
 
@@ -716,7 +716,7 @@ struct ChurchNoteDetailTabView: View {
                 .frame(width: 5, height: 5)
                 .padding(.top, 5)
             Text(text)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundColor(.black)
                 .lineSpacing(3)
                 .fixedSize(horizontal: false, vertical: true)
@@ -726,11 +726,11 @@ struct ChurchNoteDetailTabView: View {
     private func infoRow(_ label: String, value: String) -> some View {
         HStack {
             Text(label)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundColor(.black.opacity(0.4))
             Spacer()
             Text(value)
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundColor(.black.opacity(0.7))
         }
     }
@@ -758,12 +758,12 @@ private struct ChurchNotesReflectionPromptCard: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top, spacing: 8) {
                 Text("\(promptIndex + 1)")
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.systemScaled(11, weight: .bold))
                     .foregroundColor(.black.opacity(0.35))
                     .frame(width: 18, height: 18)
                     .background(Circle().fill(Color.black.opacity(0.07)))
                 Text(prompt)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundColor(.black)
                     .lineSpacing(3)
                     .fixedSize(horizontal: false, vertical: true)
@@ -771,7 +771,7 @@ private struct ChurchNotesReflectionPromptCard: View {
 
             if isEditing {
                 TextEditor(text: $answer)
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundColor(.black)
                     .frame(minHeight: 80)
                     .focused($isFocused)
@@ -786,7 +786,7 @@ private struct ChurchNotesReflectionPromptCard: View {
                         isEditing = false
                         isFocused = false
                     }
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundColor(.black)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 7)
@@ -805,7 +805,7 @@ private struct ChurchNotesReflectionPromptCard: View {
                 } label: {
                     if existingAnswer.isEmpty {
                         Text("Tap to answer...")
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundColor(.black.opacity(0.3))
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(10)
@@ -815,7 +815,7 @@ private struct ChurchNotesReflectionPromptCard: View {
                             )
                     } else {
                         Text(existingAnswer)
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundColor(.black.opacity(0.7))
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(10)

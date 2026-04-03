@@ -47,7 +47,7 @@ struct LongitudinalSelfView: View {
                             Task { await vm.requestAIAnalysis() }
                         } label: {
                             Image(systemName: "arrow.clockwise")
-                                .font(.system(size: 15, weight: .medium))
+                                .font(.systemScaled(15, weight: .medium))
                                 .foregroundStyle(.purple)
                         }
                         .disabled(vm.isAnalyzing || vm.isLoading)
@@ -122,7 +122,7 @@ struct LongitudinalSelfView: View {
                         .fill(Color(red: 0.76, green: 0.36, blue: 0.95).opacity(0.18))
                         .frame(width: 92, height: 92)
                     Image(systemName: "figure.walk.motion")
-                        .font(.system(size: 44, weight: .light))
+                        .font(.systemScaled(44, weight: .light))
                         .symbolRenderingMode(.hierarchical)
                         .foregroundStyle(Color(red: 0.80, green: 0.40, blue: 0.98))
                 }
@@ -178,7 +178,7 @@ struct LongitudinalSelfView: View {
     private var analyzingState: some View {
         VStack(spacing: 20) {
             Image(systemName: "sparkles")
-                .font(.system(size: 52, weight: .light))
+                .font(.systemScaled(52, weight: .light))
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(Color.purple)
                 .scaleEffect(sparkleScale)
@@ -258,7 +258,7 @@ struct LongitudinalSelfView: View {
                     Spacer(minLength: 12)
 
                     Image(systemName: "book.pages.fill")
-                        .font(.system(size: 28, weight: .light))
+                        .font(.systemScaled(28, weight: .light))
                         .symbolRenderingMode(.hierarchical)
                         .foregroundStyle(Color.purple.opacity(0.55))
                         .padding(.top, 2)
@@ -269,7 +269,7 @@ struct LongitudinalSelfView: View {
                 // Sharing toggle row
                 HStack {
                     Image(systemName: vm.profile.isSharedPublicly ? "globe" : "lock.fill")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.secondary)
 
                     Text(vm.profile.isSharedPublicly ? "Shared" : "Visible to me only")
@@ -325,7 +325,7 @@ struct LongitudinalSelfView: View {
             if let post = vm.thisDayPost {
                 HStack(alignment: .top, spacing: 14) {
                     Image(systemName: "calendar.badge.clock")
-                        .font(.system(size: 22, weight: .light))
+                        .font(.systemScaled(22, weight: .light))
                         .symbolRenderingMode(.hierarchical)
                         .foregroundStyle(Color.purple)
 
@@ -473,7 +473,7 @@ private struct MilestoneRowView: View {
                     .fill(Color.purple.opacity(0.15))
                     .frame(width: 36, height: 36)
                 Image(systemName: milestone.sfSymbol)
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.systemScaled(15, weight: .medium))
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(Color.purple)
             }

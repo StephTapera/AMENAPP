@@ -94,17 +94,17 @@ struct BereanSafetyShieldPill: View {
             HStack(spacing: 8) {
                 Image(systemName: symbolName)
                     .foregroundColor(accentColor)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
 
                 Text(intervention.message)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundColor(.primary)
                     .lineLimit(2)
 
                 Spacer(minLength: 4)
 
                 Image(systemName: "chevron.up")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundColor(.secondary)
             }
             .padding(.horizontal, 14)
@@ -151,16 +151,16 @@ struct BereanSafetySheet: View {
                 Image(systemName: intervention.level >= .elevated
                       ? "exclamationmark.shield.fill" : "shield.fill")
                     .foregroundColor(accentColor)
-                    .font(.system(size: 22, weight: .semibold))
+                    .font(.systemScaled(22, weight: .semibold))
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(intervention.message)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundColor(.primary)
 
                     if let scripture = intervention.scripture {
                         Text(scripture)
-                            .font(.system(size: 12, weight: .regular))
+                            .font(.systemScaled(12, weight: .regular))
                             .foregroundColor(.secondary)
                             .italic()
                     }
@@ -174,7 +174,7 @@ struct BereanSafetySheet: View {
                     }
                 } label: {
                     Image(systemName: "chevron.down")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundColor(.secondary)
                 }
                 .buttonStyle(.plain)
@@ -221,12 +221,12 @@ private struct SafetyOptionButton: View {
         } label: {
             HStack(spacing: 10) {
                 Image(systemName: option.icon)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundColor(.primary)
                     .frame(width: 20)
 
                 Text(option.title)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundColor(.primary)
 
                 Spacer()
@@ -310,7 +310,7 @@ struct BereanBoundaryMessagePicker: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Choose a boundary message")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundColor(.secondary)
                 .padding(.horizontal, 4)
 
@@ -357,7 +357,7 @@ private struct BoundaryPresetRow: View {
         } label: {
             HStack {
                 Text(preset.text)
-                    .font(.system(size: 13, weight: .regular))
+                    .font(.systemScaled(13, weight: .regular))
                     .foregroundColor(.primary)
                     .multilineTextAlignment(.leading)
 
@@ -368,7 +368,7 @@ private struct BoundaryPresetRow: View {
                         .scaleEffect(0.8)
                 } else {
                     Image(systemName: "paperplane")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                         .foregroundColor(.secondary)
                 }
             }
@@ -406,17 +406,17 @@ struct BereanConflictRewriteBar: View {
                 // Scripture header
                 HStack(spacing: 6) {
                     Image(systemName: "quote.opening")
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundColor(.secondary)
                     Text("A gentle answer turns away wrath. (Proverbs 15:1)")
-                        .font(.system(size: 12, weight: .regular))
+                        .font(.systemScaled(12, weight: .regular))
                         .foregroundColor(.secondary)
                         .italic()
                 }
 
                 // Rewrite suggestion
                 Text(rewrittenText)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundColor(.primary)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 7)
@@ -472,9 +472,9 @@ private struct ConflictRewriteActionButton: View {
         Button(action: action) {
             HStack(spacing: 4) {
                 Image(systemName: icon)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                 Text(title)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
             }
             .foregroundColor(.primary)
             .padding(.horizontal, 10)
@@ -506,10 +506,10 @@ struct BereanMediaConsentCard: View {
 
                 VStack(spacing: 4) {
                     Image(systemName: "photo.fill")
-                        .font(.system(size: 22))
+                        .font(.systemScaled(22))
                         .foregroundColor(.secondary)
                     Text("Sensitive image — tap to view")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundColor(.secondary)
                 }
             }
@@ -560,9 +560,9 @@ private struct MediaConsentButton: View {
         Button(action: action) {
             HStack(spacing: 4) {
                 Image(systemName: icon)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                 Text(title)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
             }
             .foregroundColor(style == .primary ? .white : .primary)
             .padding(.horizontal, 10)

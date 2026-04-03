@@ -80,7 +80,7 @@ struct PrayerStatusTrackView: View {
                         .fill(charcoal)
                         .frame(width: 22, height: 22)
                     Image(systemName: "checkmark")
-                        .font(.system(size: 9, weight: .bold))
+                        .font(.systemScaled(9, weight: .bold))
                         .foregroundStyle(.white)
                 } else if active {
                     Circle()
@@ -98,7 +98,7 @@ struct PrayerStatusTrackView: View {
                 }
             }
             Text(stageLabels[index])
-                .font(.system(size: 10, weight: active || completed ? .semibold : .regular))
+                .font(.systemScaled(10, weight: active || completed ? .semibold : .regular))
                 .foregroundStyle(completed || active ? Color.primary : Color.secondary)
         }
         .frame(maxWidth: .infinity)
@@ -122,7 +122,7 @@ struct PrayerStatusTrackView: View {
             advanceToStage(nextIndex)
         } label: {
             Text("Mark as \(nextLabel)")
-                .font(.system(size: 13, weight: .medium))
+                .font(.systemScaled(13, weight: .medium))
                 .foregroundStyle(charcoal)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 8)
@@ -144,10 +144,10 @@ struct PrayerStatusTrackView: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Write your testimony")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(Color.primary)
                     Text("Share what God did")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(Color.secondary)
                 }
                 .padding(.leading, 10)
@@ -156,7 +156,7 @@ struct PrayerStatusTrackView: View {
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(Color.secondary)
                     .padding(.trailing, 12)
             }

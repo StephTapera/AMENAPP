@@ -156,7 +156,7 @@ struct ShareToMessagesSheet: View {
                 }
             } label: {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
             }
         }
         .foregroundStyle(.white)
@@ -200,7 +200,7 @@ struct ShareToMessagesSheet: View {
             
             // Checkbox
             Image(systemName: (user.id.map { selectedUserIds.contains($0) } ?? false) ? "checkmark.circle.fill" : "circle")
-                .font(.system(size: 24))
+                .font(.systemScaled(24))
                 .foregroundStyle((user.id.map { selectedUserIds.contains($0) } ?? false) ? .black : .secondary)
         }
         .padding(.horizontal, 16)
@@ -226,7 +226,7 @@ struct ShareToMessagesSheet: View {
     private var emptyStateView: some View {
         VStack(spacing: 16) {
             Image(systemName: "person.2.slash")
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(.secondary)
             
             Text(searchText.isEmpty ? "No followers yet" : "No results")

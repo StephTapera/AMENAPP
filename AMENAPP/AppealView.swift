@@ -51,18 +51,18 @@ struct AppealView: View {
                     .strokeBorder(Color(red: 0.25, green: 0.88, blue: 0.56).opacity(0.25), lineWidth: 1.5)
                     .frame(width: 90, height: 90)
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 40))
+                    .font(.systemScaled(40))
                     .foregroundColor(Color(red: 0.25, green: 0.88, blue: 0.56))
             }
             .transition(.scale.combined(with: .opacity))
 
             VStack(spacing: 8) {
                 Text("Appeal Submitted")
-                    .font(.system(size: 22, weight: .bold))
+                    .font(.systemScaled(22, weight: .bold))
                     .foregroundColor(.white)
 
                 Text("We'll review this within 24 hours.\nYou'll be notified of the outcome.")
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .foregroundColor(.white.opacity(0.55))
                     .multilineTextAlignment(.center)
                     .lineSpacing(3)
@@ -75,7 +75,7 @@ struct AppealView: View {
                 dismiss()
             } label: {
                 Text("Done")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 15)
@@ -104,10 +104,10 @@ struct AppealView: View {
                     // Heading
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Tell us more")
-                            .font(.system(size: 22, weight: .bold))
+                            .font(.systemScaled(22, weight: .bold))
                             .foregroundColor(.white)
                         Text("Help us understand the context of your content so we can review your appeal fairly.")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundColor(.white.opacity(0.55))
                             .lineSpacing(3)
                     }
@@ -121,7 +121,7 @@ struct AppealView: View {
                     // Error message
                     if let error = submitError {
                         Text(error)
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundColor(Color(red: 0.96, green: 0.38, blue: 0.38))
                             .padding(.horizontal, 4)
                     }
@@ -133,7 +133,7 @@ struct AppealView: View {
                     HStack {
                         Spacer()
                         Text("Decision: \(originalDecision.capitalized)")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundColor(.white.opacity(0.25))
                         Spacer()
                     }
@@ -152,7 +152,7 @@ struct AppealView: View {
                     } label: {
                         Image(systemName: "xmark")
                             .foregroundColor(.white.opacity(0.7))
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.systemScaled(15, weight: .medium))
                     }
                 }
             }
@@ -165,15 +165,15 @@ struct AppealView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 6) {
                 Image(systemName: "sparkles")
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.systemScaled(11, weight: .bold))
                     .foregroundColor(Color(red: 0.96, green: 0.65, blue: 0.14))
                 Text("Original AI Assessment")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundColor(Color(red: 0.96, green: 0.65, blue: 0.14))
             }
 
             Text(aiReasoning.isEmpty ? "Flagged by automated safety systems." : aiReasoning)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundColor(.white.opacity(0.7))
                 .lineSpacing(3)
                 .fixedSize(horizontal: false, vertical: true)
@@ -195,13 +195,13 @@ struct AppealView: View {
     private var appealEditor: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Your Appeal")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundColor(.white.opacity(0.5))
 
             ZStack(alignment: .topLeading) {
                 if appealText.isEmpty {
                     Text("Explain the context of your content — why it was meant in a positive, faith-building way...")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundColor(.white.opacity(0.22))
                         .padding(.top, 12)
                         .padding(.leading, 14)
@@ -209,7 +209,7 @@ struct AppealView: View {
                 }
 
                 TextEditor(text: $appealText)
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .foregroundColor(.white.opacity(0.9))
                     .scrollContentBackground(.hidden)
                     .frame(minHeight: 120)
@@ -231,7 +231,7 @@ struct AppealView: View {
             )
 
             Text("\(appealText.count) characters")
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundColor(.white.opacity(0.25))
         }
     }
@@ -249,10 +249,10 @@ struct AppealView: View {
                         .scaleEffect(0.85)
                 } else {
                     Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 16))
+                        .font(.systemScaled(16))
                 }
                 Text(isSubmitting ? "Submitting..." : "Submit Appeal")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
             }
             .foregroundColor(.white)
             .frame(maxWidth: .infinity)

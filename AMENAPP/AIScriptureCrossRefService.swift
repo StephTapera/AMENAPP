@@ -8,6 +8,7 @@
 //
 
 import Foundation
+import Combine
 import FirebaseFirestore
 import FirebaseAuth
 
@@ -26,9 +27,13 @@ struct ScriptureReference: Identifiable, Codable {
 
 // MARK: - AI Scripture Cross-Reference Service
 
-class AIScriptureCrossRefService {
+@MainActor
+class AIScriptureCrossRefService: ObservableObject {
     static let shared = AIScriptureCrossRefService()
     private let db = Firestore.firestore()
+    
+    // ✅ FIX CR-12: Published error state for UI
+    @Published var lastError: String?
     
     // Cache to avoid repeated lookups
     private var cache: [String: [ScriptureReference]] = [:]
@@ -77,13 +82,23 @@ class AIScriptureCrossRefService {
             return references
             
         } catch let error as NSError where error.code == 408 {
-            // Timeout error - return empty array instead of throwing
-            dlog("⚠️ [AI SCRIPTURE] Timeout - Cloud Function may not be deployed. Returning empty results.")
-            return []
+            // ✅ FIX CR-12: Set error state and throw
+            dlog("⚠️ [AI SCRIPTURE] Timeout - Cloud Function may not be deployed.")
+            let timeoutError = NSError(
+                domain: "AIScripture",
+                code: 408,
+                userInfo: [NSLocalizedDescriptionKey: "Scripture cross-reference service timed out. The feature may be temporarily unavailable."]
+            )
+            await MainActor.run {
+                self.lastError = timeoutError.localizedDescription
+            }
+            throw timeoutError
         } catch {
             dlog("❌ [AI SCRIPTURE] Error: \(error)")
-            // Return empty array for other errors too (graceful degradation)
-            return []
+            await MainActor.run {
+                self.lastError = "Failed to find related verses: \(error.localizedDescription)"
+            }
+            throw error
         }
     }
     

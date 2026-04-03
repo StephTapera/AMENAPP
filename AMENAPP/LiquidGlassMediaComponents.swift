@@ -121,7 +121,7 @@ struct GlassImageView: View {
             .overlay(
                 VStack(spacing: 8) {
                     Image(systemName: "photo")
-                        .font(.system(size: 28, weight: .light))
+                        .font(.systemScaled(28, weight: .light))
                         .foregroundStyle(.secondary)
                     Text("Image unavailable")
                         .font(AMENFont.regular(13))
@@ -219,7 +219,7 @@ struct GlassVideoPlayerView: View {
                         .frame(width: 56, height: 56)
                     
                     Image(systemName: viewModel.isPlaying ? "pause.fill" : "play.fill")
-                        .font(.system(size: 22, weight: .medium))
+                        .font(.systemScaled(22, weight: .medium))
                         .foregroundStyle(.white)
                         .offset(x: viewModel.isPlaying ? 0 : 2) // Optical centering for play icon
                 }
@@ -255,7 +255,7 @@ struct GlassVideoPlayerView: View {
                     .frame(width: 36, height: 36)
                 
                 Image(systemName: viewModel.isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(.white)
             }
         }

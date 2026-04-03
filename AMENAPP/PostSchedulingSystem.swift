@@ -390,7 +390,7 @@ struct SmartScheduleSheet: View {
                                 )
                                 .frame(width: 30, height: 30)
                             Image(systemName: "xmark")
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.systemScaled(12, weight: .semibold))
                                 .foregroundColor(.black)
                         }
                     }
@@ -414,7 +414,7 @@ struct SmartScheduleSheet: View {
                     .fill(Color(white: 0.94))
                     .frame(width: 40, height: 40)
                 Image(systemName: contentTypeIcon(service.detectedContentType))
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundColor(.black)
             }
 
@@ -530,7 +530,7 @@ struct SmartScheduleSheet: View {
                 // Timezone row
                 HStack(spacing: 10) {
                     Image(systemName: "clock.fill")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                         .foregroundColor(Color(white: 0.45))
                     Text("Timezone: \(TimeZone.current.abbreviation() ?? "Local")")
                         .font(AMENFont.regular(14))
@@ -549,7 +549,7 @@ struct SmartScheduleSheet: View {
     private var audienceRow: some View {
         HStack(spacing: 12) {
             Image(systemName: "person.fill")
-                .font(.system(size: 14, weight: .medium))
+                .font(.systemScaled(14, weight: .medium))
                 .foregroundColor(Color(white: 0.45))
                 .frame(width: 20)
 
@@ -564,7 +564,7 @@ struct SmartScheduleSheet: View {
                 .foregroundColor(Color(white: 0.45))
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
                 .foregroundColor(Color(white: 0.65))
         }
         .padding(14)
@@ -576,7 +576,7 @@ struct SmartScheduleSheet: View {
     private var conflictWarning: some View {
         HStack(spacing: 10) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundColor(Color.orange)
 
             Text("You have another post scheduled within 2 hours. Consider spacing them out.")
@@ -647,7 +647,7 @@ struct SmartScheduleSheet: View {
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: icon)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundColor(Color(white: 0.45))
                     .frame(width: 22)
 
@@ -755,7 +755,7 @@ private struct SuggestionRowView: View {
         Button(action: onSelect) {
             HStack(spacing: 12) {
                 Image(systemName: suggestion.icon)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundColor(isSelected ? .black : Color(white: 0.45))
                     .frame(width: 24)
 
@@ -881,7 +881,7 @@ struct PublishPillView: View {
                     .frame(width: 18, height: 18)
             } else {
                 Image(systemName: pillIcon)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundColor(isEnabled ? .black : Color(white: 0.55))
             }
 
@@ -896,7 +896,7 @@ struct PublishPillView: View {
                 }
             } label: {
                 Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.systemScaled(10, weight: .bold))
                     .foregroundColor(Color(white: 0.45))
                     .padding(.leading, 2)
             }
@@ -987,7 +987,7 @@ struct PublishPillView: View {
         Button(action: action) {
             HStack(spacing: 12) {
                 Image(systemName: icon)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundColor(Color(white: 0.45))
                     .frame(width: 20)
                 Text(label)
@@ -1021,7 +1021,7 @@ struct ScheduledStatusChip: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "calendar.badge.clock")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundColor(Color(white: 0.45))
 
             Text("Scheduled · \(scheduledDate.chipLabel())")
@@ -1032,7 +1032,7 @@ struct ScheduledStatusChip: View {
                 onClear()
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.systemScaled(10, weight: .bold))
                     .foregroundColor(Color(white: 0.55))
                     .padding(4)
             }
@@ -1272,7 +1272,7 @@ struct ScheduledPostsHub: View {
     private func emptyState(message: String) -> some View {
         VStack(spacing: 12) {
             Image(systemName: "calendar.badge.clock")
-                .font(.system(size: 32, weight: .light))
+                .font(.systemScaled(32, weight: .light))
                 .foregroundColor(Color(white: 0.75))
             Text(message)
                 .font(AMENFont.regular(15))
@@ -1364,7 +1364,7 @@ struct ScheduledPostRow: View {
                     }
                 } label: {
                     Image(systemName: "ellipsis")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.systemScaled(14, weight: .medium))
                         .foregroundColor(Color(white: 0.45))
                         .padding(6)
                 }
@@ -1423,7 +1423,7 @@ struct ScheduledPostRow: View {
         Button(action: action) {
             VStack(spacing: 4) {
                 Image(systemName: icon)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundColor(Color(white: 0.45))
                 Text(label)
                     .font(AMENFont.regular(11))

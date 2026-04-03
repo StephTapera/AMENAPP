@@ -95,7 +95,7 @@ struct ArgumentNodeView: View {
 
                 // Claim text
                 Text(node.claim)
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .foregroundColor(.black.opacity(0.86))
                     .lineLimit(5)
                     .fixedSize(horizontal: false, vertical: true)
@@ -150,22 +150,22 @@ struct ArgumentNodeView: View {
                 .frame(width: 32, height: 32)
                 .overlay(
                     Text(String((node.authorName ?? "?").prefix(1)).uppercased())
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundColor(accentColor)
                 )
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(node.authorName ?? "Anonymous")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundColor(.black.opacity(0.9))
 
                 // Node type label
                 HStack(spacing: 4) {
                     Image(systemName: node.nodeType.icon)
-                        .font(.system(size: 9))
+                        .font(.systemScaled(9))
                         .foregroundColor(nodeTypeColor)
                     Text(node.nodeType.label)
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundColor(nodeTypeColor)
                 }
             }
@@ -174,7 +174,7 @@ struct ArgumentNodeView: View {
 
             if !timeAgo.isEmpty {
                 Text(timeAgo)
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundColor(.black.opacity(0.35))
             }
         }
@@ -187,10 +187,10 @@ struct ArgumentNodeView: View {
             ForEach(node.evidence, id: \.self) { item in
                 HStack(alignment: .top, spacing: 5) {
                     Text("•")
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundColor(.black.opacity(0.4))
                     Text(item)
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .italic()
                         .foregroundColor(.black.opacity(0.6))
                 }
@@ -206,9 +206,9 @@ struct ArgumentNodeView: View {
                 ForEach(node.aiManipulationFlags, id: \.self) { flag in
                     HStack(spacing: 4) {
                         Text("⚠")
-                            .font(.system(size: 10))
+                            .font(.systemScaled(10))
                         Text(flag.replacingOccurrences(of: "_", with: " ").capitalized)
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.systemScaled(11, weight: .medium))
                     }
                     .foregroundColor(Color(red: 0.96, green: 0.65, blue: 0.14))
                     .padding(.horizontal, 8)
@@ -233,9 +233,9 @@ struct ArgumentNodeView: View {
             } label: {
                 HStack(spacing: 4) {
                     Image(systemName: "arrow.up")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                     Text("\(node.votes)")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                 }
                 .foregroundColor(.black.opacity(0.55))
             }
@@ -249,9 +249,9 @@ struct ArgumentNodeView: View {
             } label: {
                 HStack(spacing: 4) {
                     Image(systemName: "arrowshape.turn.up.left")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                     Text("Reply")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                 }
                 .foregroundColor(.black.opacity(0.45))
             }
@@ -267,7 +267,7 @@ struct ArgumentNodeView: View {
                     }
                 } label: {
                     Text("I changed my view")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.systemScaled(11, weight: .medium))
                         .foregroundColor(Color(red: 0.25, green: 0.88, blue: 0.56).opacity(0.7))
                 }
                 .buttonStyle(.plain)

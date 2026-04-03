@@ -107,7 +107,7 @@ struct JobSearchView: View {
             showSavedAndApplied = true
         } label: {
             Image(systemName: "bookmark.fill")
-                .font(.system(size: 16, weight: .medium))
+                .font(.systemScaled(16, weight: .medium))
                 .foregroundStyle(.primary)
         }
     }
@@ -117,7 +117,7 @@ struct JobSearchView: View {
             showPostJob = true
         } label: {
             Image(systemName: "plus.circle.fill")
-                .font(.system(size: 18, weight: .medium))
+                .font(.systemScaled(18, weight: .medium))
                 .foregroundStyle(Color(red: 0.20, green: 0.55, blue: 0.95))
         }
     }
@@ -128,7 +128,7 @@ struct JobSearchView: View {
         HStack(spacing: 10) {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(.secondary)
 
                 TextField("Job title, keyword, or skill", text: $searchText)
@@ -140,7 +140,7 @@ struct JobSearchView: View {
                 if !searchText.isEmpty {
                     Button { searchText = ""; service.searchResults = [] } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -157,7 +157,7 @@ struct JobSearchView: View {
             } label: {
                 ZStack(alignment: .topTrailing) {
                     Image(systemName: "slider.horizontal.3")
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.systemScaled(16, weight: .medium))
                         .foregroundStyle(.primary)
                         .padding(10)
                         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -166,7 +166,7 @@ struct JobSearchView: View {
 
                     if filters.activeFilterCount > 0 {
                         Text("\(filters.activeFilterCount)")
-                            .font(.system(size: 9, weight: .bold))
+                            .font(.systemScaled(9, weight: .bold))
                             .foregroundStyle(.white)
                             .padding(3)
                             .background(Color(red: 0.20, green: 0.55, blue: 0.95), in: Circle())
@@ -324,7 +324,7 @@ struct JobSearchView: View {
     private var jobEmptySearchState: some View {
         VStack(spacing: 16) {
             Image(systemName: "briefcase")
-                .font(.system(size: 44))
+                .font(.systemScaled(44))
                 .foregroundStyle(.secondary.opacity(0.5))
             Text("No jobs found")
                 .font(AMENFont.semiBold(16))
@@ -349,7 +349,7 @@ struct JobSearchView: View {
                         .fill(Color(red: 0.20, green: 0.55, blue: 0.95).opacity(0.15))
                         .frame(width: 44, height: 44)
                     Image(systemName: "person.badge.key.fill")
-                        .font(.system(size: 20))
+                        .font(.systemScaled(20))
                         .foregroundStyle(Color(red: 0.20, green: 0.55, blue: 0.95))
                 }
                 VStack(alignment: .leading, spacing: 2) {
@@ -362,7 +362,7 @@ struct JobSearchView: View {
                 }
                 Spacer()
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(.secondary)
             }
             .padding(16)
@@ -432,7 +432,7 @@ struct JobListingCard: View {
                             .fill(job.category.color.opacity(0.15))
                             .frame(width: 40, height: 40)
                         Image(systemName: job.category.icon)
-                            .font(.system(size: 18))
+                            .font(.systemScaled(18))
                             .foregroundStyle(job.category.color)
                     }
 
@@ -444,7 +444,7 @@ struct JobListingCard: View {
                         if job.employerVerified {
                             HStack(spacing: 3) {
                                 Image(systemName: "checkmark.seal.fill")
-                                    .font(.system(size: 9))
+                                    .font(.systemScaled(9))
                                 Text("Verified")
                                     .font(AMENFont.regular(10))
                             }
@@ -456,7 +456,7 @@ struct JobListingCard: View {
                     // Save button
                     Button(action: onSave) {
                         Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
-                            .font(.system(size: 15))
+                            .font(.systemScaled(15))
                             .foregroundStyle(isSaved ? Color(red: 0.20, green: 0.55, blue: 0.95) : .secondary)
                     }
                     .buttonStyle(.plain)
@@ -534,7 +534,7 @@ struct FeaturedJobCard: View {
                             .fill(job.category.color.opacity(0.20))
                             .frame(width: 44, height: 44)
                         Image(systemName: job.category.icon)
-                            .font(.system(size: 20))
+                            .font(.systemScaled(20))
                             .foregroundStyle(job.category.color)
                     }
                     Spacer()
@@ -611,7 +611,7 @@ struct JobMatchRecommendationCard: View {
                             .fill(result.job.category.color.opacity(0.18))
                             .frame(width: 40, height: 40)
                         Image(systemName: result.job.category.icon)
-                            .font(.system(size: 18))
+                            .font(.systemScaled(18))
                             .foregroundStyle(result.job.category.color)
                     }
                     Spacer()
@@ -643,7 +643,7 @@ struct JobMatchRecommendationCard: View {
                 if let topReason = result.matchReasons.first {
                     HStack(spacing: 5) {
                         Image(systemName: topReason.icon)
-                            .font(.system(size: 10))
+                            .font(.systemScaled(10))
                             .foregroundStyle(Color(red: 0.35, green: 0.80, blue: 0.35))
                         Text(topReason.text)
                             .font(AMENFont.regular(11))
@@ -850,7 +850,7 @@ struct JobFilterSheet: View {
                                         Spacer()
                                         if filters.postedWithin == pw {
                                             Image(systemName: "checkmark")
-                                                .font(.system(size: 12, weight: .bold))
+                                                .font(.systemScaled(12, weight: .bold))
                                                 .foregroundStyle(Color(red: 0.20, green: 0.55, blue: 0.95))
                                         }
                                     }
@@ -925,12 +925,12 @@ struct JobActiveFilterChip: View {
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: icon)
-                .font(.system(size: 10))
+                .font(.systemScaled(10))
             Text(label)
                 .font(AMENFont.semiBold(11))
             Button(action: onRemove) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.systemScaled(9, weight: .bold))
             }
         }
         .foregroundStyle(.primary)
@@ -947,7 +947,7 @@ struct JobCategoryEmptyState: View {
     var body: some View {
         VStack(spacing: 10) {
             Image(systemName: icon)
-                .font(.system(size: 32))
+                .font(.systemScaled(32))
                 .foregroundStyle(.secondary.opacity(0.4))
             Text(message)
                 .font(AMENFont.regular(12))

@@ -83,7 +83,7 @@ struct BereanModesSheet: View {
                 ScrollView {
                     VStack(spacing: 0) {
                         Text("Choose how Berean responds to you")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundStyle(Color(white: 0.52))
                             .padding(.top, 6).padding(.bottom, 20)
 
@@ -113,7 +113,7 @@ struct BereanModesSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }.font(.system(size: 15, weight: .semibold))
+                    Button("Done") { dismiss() }.font(.systemScaled(15, weight: .semibold))
                 }
             }
         }
@@ -141,21 +141,21 @@ struct BereanModesSheet: View {
                         .fill(mode.chipColor.opacity(isSelected ? 0.15 : 0.07))
                         .frame(width: 40, height: 40)
                     Image(systemName: mode.icon)
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.systemScaled(16, weight: .medium))
                         .foregroundStyle(mode.chipColor)
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(mode.name)
-                        .font(.system(size: 15, weight: isSelected ? .semibold : .regular))
+                        .font(.systemScaled(15, weight: isSelected ? .semibold : .regular))
                         .foregroundStyle(Color(white: 0.10))
                     Text(mode.description)
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(Color(white: 0.50))
                 }
                 Spacer()
                 if isSelected {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(mode.chipColor)
                         .transition(.scale.combined(with: .opacity))
                 }
@@ -180,11 +180,11 @@ struct BereanModeChip: View {
         Button { showSheet = true } label: {
             HStack(spacing: 4) {
                 Image(systemName: modeStore.selectedMode.icon)
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.systemScaled(10, weight: .semibold))
                 Text(modeStore.selectedMode.name)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(.systemScaled(9, weight: .semibold))
             }
             .foregroundStyle(modeStore.selectedMode.chipColor)
             .padding(.horizontal, 10).padding(.vertical, 5)

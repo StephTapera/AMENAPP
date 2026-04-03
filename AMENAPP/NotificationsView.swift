@@ -273,7 +273,7 @@ struct NotificationsView: View {
                 .frame(width: 44, height: 44)
             
             Image(systemName: "person.badge.clock.fill")
-                .font(.system(size: 20, weight: .semibold))
+                .font(.systemScaled(20, weight: .semibold))
                 .foregroundStyle(.purple)
         }
     }
@@ -306,7 +306,7 @@ struct NotificationsView: View {
                 )
             
             Image(systemName: "chevron.right")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(.secondary)
         }
     }
@@ -681,7 +681,7 @@ struct NotificationsView: View {
             }
         } label: {
             Image(systemName: "chevron.left")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
                 .foregroundStyle(.primary)
                 .frame(width: 34, height: 34)
         }
@@ -701,7 +701,7 @@ struct NotificationsView: View {
     
     private var unreadBadgeSection: some View {
         Text("\(min(unreadCount, 99))\(unreadCount > 99 ? "+" : "")")
-            .font(.system(size: 12, weight: .bold))
+            .font(.systemScaled(12, weight: .bold))
             .foregroundStyle(.white)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
@@ -740,7 +740,7 @@ struct NotificationsView: View {
             }
         } label: {
             Image(systemName: "ellipsis")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(.primary)
                 .frame(width: 34, height: 34)
                 .background(
@@ -790,16 +790,16 @@ struct NotificationsView: View {
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: filter.icon)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .contentTransition(.symbolEffect(.replace.magic(fallback: .replace)))
                 
                 Text(filter.rawValue)
-                    .font(.system(size: 14, weight: isSelected ? .semibold : .regular))
+                    .font(.systemScaled(14, weight: isSelected ? .semibold : .regular))
                     .contentTransition(.interpolate)
                 
                 if count > 0 && filter != .all {
                     Text("\(min(count, 99))")
-                        .font(.system(size: 11, weight: .bold))
+                        .font(.systemScaled(11, weight: .bold))
                         .foregroundStyle(isSelected ? .white : Color(uiColor: .label))
                         .padding(.horizontal, 5)
                         .padding(.vertical, 1)
@@ -851,7 +851,7 @@ struct NotificationsView: View {
                     .shadow(color: .black.opacity(0.05), radius: 20, y: 10)
                 
                 Image(systemName: "bell.slash.fill")
-                    .font(.system(size: 48))
+                    .font(.systemScaled(48))
                     .foregroundStyle(.secondary.opacity(0.5))
             }
             
@@ -1060,7 +1060,7 @@ private struct NotificationSectionHeader: View {
     var body: some View {
         HStack {
             Text(label)
-                .font(.system(size: label == "New" ? 16 : 13, weight: label == "New" ? .bold : .semibold))
+                .font(.systemScaled(label == "New" ? 16 : 13, weight: label == "New" ? .bold : .semibold))
                 .foregroundStyle(label == "New" ? Color.primary : Color.primary.opacity(0.45))
                 .textCase(label == "New" ? nil : .uppercase)
                 .tracking(label == "New" ? 0 : 0.5)
@@ -1110,7 +1110,7 @@ struct GroupedNotificationRow: View {
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundColor(.blue)
                 Text("Marked as read")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundColor(.blue)
             }
             .padding(.leading, 20)
@@ -1141,7 +1141,7 @@ struct GroupedNotificationRow: View {
 
                         // Timestamp
                         Text(group.primaryNotification.timeAgo)
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundStyle(Color(uiColor: .tertiaryLabel))
                             .padding(.top, 2)
                     }
@@ -1235,19 +1235,19 @@ struct GroupedNotificationRow: View {
             // Line 1-2: "username liked your post · 4m"
             HStack(spacing: 0) {
                 notificationAttributedText
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .foregroundStyle(Color(uiColor: .label))
                     .lineLimit(2)
 
                 Text(" · \(group.timeAgo)")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(Color(uiColor: .tertiaryLabel))
             }
 
             // Line 3: comment preview (if comment/reply)
             if let preview = group.primaryNotification.commentText, !preview.isEmpty {
                 Text(preview)
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(Color(uiColor: .secondaryLabel))
                     .lineLimit(1)
             }
@@ -1323,7 +1323,7 @@ struct GroupedNotificationRow: View {
                 .frame(width: 44, height: 44)
                 .overlay(
                     Image(systemName: group.primaryNotification.icon)
-                        .font(.system(size: 16))
+                        .font(.systemScaled(16))
                         .foregroundStyle(group.primaryNotification.color)
                 )
         }
@@ -1351,7 +1351,7 @@ struct GroupedNotificationRow: View {
                 .frame(width: 18, height: 18)
                 .overlay(
                     Image(systemName: group.primaryNotification.icon)
-                        .font(.system(size: 9, weight: .bold))
+                        .font(.systemScaled(9, weight: .bold))
                         .foregroundStyle(.white)
                 )
                 .overlay(Circle().strokeBorder(Color(uiColor: .systemBackground), lineWidth: 1.5))
@@ -1446,7 +1446,7 @@ private struct FollowBackButton: View {
             }
         } label: {
             Text(isFollowingBack ? "Following" : "Follow back")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(isFollowingBack ? Color(uiColor: .label) : .white)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 7)
@@ -1508,7 +1508,7 @@ struct QuickActionsSheet: View {
                         onDismiss()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 24))
+                            .font(.systemScaled(24))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -1531,7 +1531,7 @@ struct QuickActionsSheet: View {
                                 onReply()
                             } label: {
                                 Image(systemName: "paperplane.fill")
-                                    .font(.system(size: 18, weight: .semibold))
+                                    .font(.systemScaled(18, weight: .semibold))
                                     .foregroundStyle(.white)
                                     .frame(width: 44, height: 44)
                                     .background(
@@ -1775,7 +1775,7 @@ struct NotificationProfileImage: View {
                             .foregroundStyle(fallbackColor)
                     } else {
                         Image(systemName: "person.fill")
-                            .font(.system(size: size * 0.4, weight: .semibold))
+                            .font(.systemScaled(size * 0.4, weight: .semibold))
                             .foregroundStyle(fallbackColor)
                     }
                 }

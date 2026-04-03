@@ -151,7 +151,8 @@ class FirebaseManager {
             "tosVersion": "1.0",
             "privacyPolicyVersion": "1.0",
             "tosAcceptedAt": now,
-            "privacyPolicyAcceptedAt": now
+            "privacyPolicyAcceptedAt": now,
+            "schemaVersion": 1
         ]
 
         // Merge birthYear if provided — the onUserDocCreated Cloud Function reads this

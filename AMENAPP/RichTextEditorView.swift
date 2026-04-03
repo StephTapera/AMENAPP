@@ -187,7 +187,7 @@ struct TextFormatButton: View {
                         .foregroundStyle(.white.opacity(0.8))
                 } else {
                     Image(systemName: icon)
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.systemScaled(16, weight: .medium))
                         .foregroundStyle(.white.opacity(0.8))
                 }
             }

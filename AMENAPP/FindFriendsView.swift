@@ -111,7 +111,7 @@ struct FindFriendsView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .foregroundStyle(.primary)
                     }
                 }
@@ -150,7 +150,7 @@ struct FriendCard: View {
                 
                 HStack(spacing: 4) {
                     Image(systemName: "building.2.fill")
-                        .font(.system(size: 10))
+                        .font(.systemScaled(10))
                         .foregroundStyle(.secondary)
                     
                     Text(friend.church)
@@ -184,7 +184,7 @@ struct FriendCard: View {
             } label: {
                 HStack(spacing: 4) {
                     Image(systemName: isSent ? "checkmark" : "person.badge.plus")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                     
                     if !isSent {
                         Text("Add")

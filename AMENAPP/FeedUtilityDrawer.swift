@@ -211,7 +211,7 @@ struct FeedUtilityDrawerView: View {
             Spacer()
             Button(action: onClose) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(.secondary)
                     .padding(8)
                     .background(.ultraThinMaterial, in: Circle())
@@ -251,7 +251,7 @@ struct FeedUtilityDrawerView: View {
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: mode.icon)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(isActive ? Color.white : Color.primary)
                     .frame(width: 32, height: 32)
                     .background(isActive ? Color.accentColor : Color.clear, in: Circle())
@@ -269,7 +269,7 @@ struct FeedUtilityDrawerView: View {
 
                 if isActive {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 11, weight: .bold))
+                        .font(.systemScaled(11, weight: .bold))
                         .foregroundStyle(Color.accentColor)
                 }
             }
@@ -314,7 +314,7 @@ struct FeedUtilityDrawerView: View {
                         .fill(.ultraThinMaterial)
                         .frame(width: 36, height: 36)
                     Image(systemName: community.icon)
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                         .foregroundStyle(.primary.opacity(0.8))
                 }
 
@@ -334,14 +334,14 @@ struct FeedUtilityDrawerView: View {
                 // Activity badge
                 if community.recentActivity > 0 {
                     Text("\(community.recentActivity)")
-                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .font(.systemScaled(11, weight: .bold, design: .rounded))
                         .foregroundStyle(Color.white)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
                         .background(Color.accentColor, in: Capsule())
                 } else {
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundStyle(.secondary.opacity(0.5))
                 }
             }
@@ -380,7 +380,7 @@ struct FeedUtilityDrawerView: View {
                     .fill(.ultraThinMaterial)
                     .frame(width: 36, height: 36)
                 Image(systemName: community.icon)
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .foregroundStyle(.secondary)
             }
 

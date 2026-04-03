@@ -155,7 +155,7 @@ struct DisasterAlertCard: View {
                         .foregroundStyle(disaster.urgencyLevel.color)
 
                     Text(disaster.urgencyLevel.label)
-                        .font(.system(size: 10, weight: .black, design: .rounded))
+                        .font(.systemScaled(10, weight: .black, design: .rounded))
                         .foregroundStyle(disaster.urgencyLevel.color)
                         .kerning(1.5)
                         .padding(.horizontal, 8)
@@ -166,23 +166,23 @@ struct DisasterAlertCard: View {
 
                     HStack(spacing: 4) {
                         Image(systemName: "location.fill")
-                            .font(.system(size: 9))
+                            .font(.systemScaled(9))
                         Text(disaster.location)
-                            .font(.system(size: 10, weight: .medium))
+                            .font(.systemScaled(10, weight: .medium))
                     }
                     .foregroundStyle(.white.opacity(0.6))
                 }
 
                 // Headline
                 Text(disaster.cardHeadline)
-                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .font(.systemScaled(20, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
                     .multilineTextAlignment(.leading)
                     .lineLimit(2)
 
                 // Subtitle
                 Text(disaster.cardSubtitle)
-                    .font(.system(size: 13, weight: .regular))
+                    .font(.systemScaled(13, weight: .regular))
                     .foregroundStyle(.white.opacity(0.75))
                     .lineLimit(2)
 
@@ -195,12 +195,12 @@ struct DisasterAlertCard: View {
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text("\"\(disaster.scripture.text)\"")
-                            .font(.system(size: 12, weight: .regular, design: .serif))
+                            .font(.systemScaled(12, weight: .regular, design: .serif))
                             .foregroundStyle(.white.opacity(0.85))
                             .lineLimit(2)
                             .italic()
                         Text("— \(disaster.scripture.reference)")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.systemScaled(10, weight: .semibold))
                             .foregroundStyle(disaster.urgencyLevel.color.opacity(0.9))
                     }
                 }
@@ -219,9 +219,9 @@ struct DisasterAlertCard: View {
                     } label: {
                         HStack(spacing: 6) {
                             Image(systemName: isPraying ? "hands.sparkles.fill" : "hands.sparkles")
-                                .font(.system(size: 13))
+                                .font(.systemScaled(13))
                             Text(isPraying ? "\(prayerCount) Praying" : disaster.callToAction.prayLabel)
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.systemScaled(12, weight: .semibold))
                         }
                         .foregroundStyle(isPraying ? disaster.urgencyLevel.color : .white)
                         .padding(.horizontal, 14)
@@ -246,9 +246,9 @@ struct DisasterAlertCard: View {
                     Button { showFullCard = true } label: {
                         HStack(spacing: 6) {
                             Image(systemName: "heart.fill")
-                                .font(.system(size: 13))
+                                .font(.systemScaled(13))
                             Text(disaster.callToAction.donateLabel)
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.systemScaled(12, weight: .semibold))
                         }
                         .foregroundStyle(.white)
                         .padding(.horizontal, 14)
@@ -284,22 +284,22 @@ struct PrayerIntentSheet: View {
                     VStack(spacing: 24) {
                         VStack(spacing: 8) {
                             Image(systemName: "hands.sparkles.fill")
-                                .font(.system(size: 40))
+                                .font(.systemScaled(40))
                                 .foregroundStyle(disaster.urgencyLevel.color)
                             Text("Pray for \(disaster.name)")
-                                .font(.system(size: 22, weight: .bold, design: .rounded))
+                                .font(.systemScaled(22, weight: .bold, design: .rounded))
                                 .foregroundStyle(.white)
                                 .multilineTextAlignment(.center)
                         }
 
                         VStack(alignment: .leading, spacing: 10) {
                             Text("GUIDED PRAYER")
-                                .font(.system(size: 11, weight: .semibold))
+                                .font(.systemScaled(11, weight: .semibold))
                                 .foregroundStyle(.white.opacity(0.4))
                                 .kerning(1.5)
 
                             Text(disaster.prayerPrompt)
-                                .font(.system(size: 15, weight: .regular, design: .serif))
+                                .font(.systemScaled(15, weight: .regular, design: .serif))
                                 .foregroundStyle(.white.opacity(0.9))
                                 .lineSpacing(4)
                                 .italic()
@@ -316,24 +316,24 @@ struct PrayerIntentSheet: View {
 
                         VStack(spacing: 6) {
                             Text("\"\(disaster.scripture.text)\"")
-                                .font(.system(size: 13, weight: .regular, design: .serif))
+                                .font(.systemScaled(13, weight: .regular, design: .serif))
                                 .foregroundStyle(.white.opacity(0.7))
                                 .italic()
                                 .multilineTextAlignment(.center)
                             Text(disaster.scripture.reference)
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.systemScaled(12, weight: .semibold))
                                 .foregroundStyle(disaster.urgencyLevel.color)
                         }
 
                         VStack(alignment: .leading, spacing: 6) {
                             Text("ADD YOUR PRAYER (OPTIONAL)")
-                                .font(.system(size: 11, weight: .semibold))
+                                .font(.systemScaled(11, weight: .semibold))
                                 .foregroundStyle(.white.opacity(0.4))
                                 .kerning(1.5)
 
                             TextEditor(text: $prayerNote)
                                 .frame(height: 80)
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                                 .foregroundStyle(.white)
                                 .scrollContentBackground(.hidden)
                                 .padding(10)
@@ -345,14 +345,14 @@ struct PrayerIntentSheet: View {
 
                         if submitted {
                             Label("Prayer submitted. 🙏", systemImage: "checkmark.circle.fill")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.systemScaled(14, weight: .semibold))
                                 .foregroundStyle(.green)
                         } else {
                             Button {
                                 submitPrayer()
                             } label: {
                                 Text("I'm Praying")
-                                    .font(.system(size: 16, weight: .bold))
+                                    .font(.systemScaled(16, weight: .bold))
                                     .foregroundStyle(.white)
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 16)
@@ -413,14 +413,14 @@ struct DisasterDetailSheet: View {
                                 urgencyBadge
                                 Spacer()
                                 Text(disaster.location)
-                                    .font(.system(size: 12))
+                                    .font(.systemScaled(12))
                                     .foregroundStyle(.white.opacity(0.5))
                             }
                             Text(disaster.cardHeadline)
-                                .font(.system(size: 26, weight: .bold, design: .rounded))
+                                .font(.systemScaled(26, weight: .bold, design: .rounded))
                                 .foregroundStyle(.white)
                             Text(disaster.cardSubtitle)
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                                 .foregroundStyle(.white.opacity(0.7))
                         }
 
@@ -429,7 +429,7 @@ struct DisasterDetailSheet: View {
                         VStack(alignment: .leading, spacing: 12) {
                             sectionLabel("🙏 Community Prayer")
                             Text(disaster.prayerPrompt)
-                                .font(.system(size: 15, design: .serif))
+                                .font(.systemScaled(15, design: .serif))
                                 .foregroundStyle(.white.opacity(0.85))
                                 .italic()
                                 .lineSpacing(5)
@@ -438,11 +438,11 @@ struct DisasterDetailSheet: View {
                         VStack(alignment: .leading, spacing: 8) {
                             sectionLabel("📖 Scripture")
                             Text("\"\(disaster.scripture.text)\"")
-                                .font(.system(size: 15, design: .serif))
+                                .font(.systemScaled(15, design: .serif))
                                 .foregroundStyle(.white.opacity(0.85))
                                 .italic()
                             Text("— \(disaster.scripture.reference)")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.systemScaled(13, weight: .semibold))
                                 .foregroundStyle(disaster.urgencyLevel.color)
                         }
 
@@ -458,14 +458,14 @@ struct DisasterDetailSheet: View {
                         VStack(alignment: .leading, spacing: 8) {
                             sectionLabel("✍️ Share in the Community")
                             Text(disaster.communityPrompt)
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                                 .foregroundStyle(.white.opacity(0.7))
 
                             Button {
                                 // Post with disaster tag — future deep link
                             } label: {
                                 Label("Post a Prayer or Update", systemImage: "plus.bubble")
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(.systemScaled(14, weight: .semibold))
                                     .foregroundStyle(.white)
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 14)
@@ -493,7 +493,7 @@ struct DisasterDetailSheet: View {
         HStack(spacing: 6) {
             Image(systemName: disaster.urgencyLevel.icon).font(.caption.bold())
             Text(disaster.urgencyLevel.label)
-                .font(.system(size: 10, weight: .black)).kerning(1.5)
+                .font(.systemScaled(10, weight: .black)).kerning(1.5)
         }
         .foregroundStyle(disaster.urgencyLevel.color)
         .padding(.horizontal, 10).padding(.vertical, 5)
@@ -502,7 +502,7 @@ struct DisasterDetailSheet: View {
 
     private func sectionLabel(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 13, weight: .bold))
+            .font(.systemScaled(13, weight: .bold))
             .foregroundStyle(.white.opacity(0.9))
             .kerning(0.5)
     }
@@ -533,10 +533,10 @@ struct DisasterResourceRow: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(resource.org)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.white)
                 Text(resource.description)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.white.opacity(0.6))
                     .lineLimit(2)
             }
@@ -576,11 +576,11 @@ struct DisasterResourcesSection: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("CRISIS RESPONSE")
-                                .font(.system(size: 10, weight: .black))
+                                .font(.systemScaled(10, weight: .black))
                                 .foregroundStyle(.secondary)
                                 .kerning(2)
                             Text("Active Disasters")
-                                .font(.system(size: 20, weight: .bold, design: .rounded))
+                                .font(.systemScaled(20, weight: .bold, design: .rounded))
                         }
                         Spacer()
                         // Live pulse dot
@@ -620,22 +620,22 @@ struct CompactDisasterCard: View {
                     Image(systemName: disaster.urgencyLevel.icon)
                         .foregroundStyle(disaster.urgencyLevel.color)
                     Text(disaster.urgencyLevel.label)
-                        .font(.system(size: 9, weight: .black))
+                        .font(.systemScaled(9, weight: .black))
                         .foregroundStyle(disaster.urgencyLevel.color)
                         .kerning(1.5)
                     Spacer()
                 }
                 Text(disaster.cardHeadline)
-                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .font(.systemScaled(14, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
                     .multilineTextAlignment(.leading)
                     .lineLimit(2)
                 HStack(spacing: 4) {
                     Image(systemName: "hands.sparkles.fill")
-                        .font(.system(size: 10))
+                        .font(.systemScaled(10))
                         .foregroundStyle(.white.opacity(0.5))
                     Text("\(disaster.prayerCount) praying")
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(.white.opacity(0.5))
                 }
             }

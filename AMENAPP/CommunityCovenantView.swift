@@ -158,7 +158,7 @@ struct CommunityCovenantView: View {
                     } label: {
                         HStack(spacing: 12) {
                             Image(systemName: hasAgreed ? "checkmark.square.fill" : "square")
-                                .font(.system(size: 24))
+                                .font(.systemScaled(24))
                                 .foregroundColor(hasAgreed ? ONB.accent : ONB.inkTertiary)
 
                             Text("I have read and agree to uphold these community standards")
@@ -241,7 +241,7 @@ struct CommunityCovenantView: View {
     private func notAllowedItem(_ text: String) -> some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: "xmark.circle.fill")
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
                 .foregroundColor(.red)
 
             Text(text)

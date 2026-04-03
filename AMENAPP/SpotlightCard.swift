@@ -34,7 +34,7 @@ struct SpotlightCard: View {
                 
                 // Content
                 Text(post.content)
-                    .font(.system(size: 16, weight: .regular))
+                    .font(.systemScaled(16, weight: .regular))
                     .foregroundColor(.white)
                     .lineLimit(8)
                     .multilineTextAlignment(.leading)
@@ -99,11 +99,11 @@ struct SpotlightCard: View {
             
             VStack(alignment: .leading, spacing: 3) {
                 Text(post.authorName)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundColor(.white)
                 
                 Text(post.timeAgo)
-                    .font(.system(size: 13, weight: .regular))
+                    .font(.systemScaled(13, weight: .regular))
                     .foregroundColor(.white.opacity(0.6))
             }
             
@@ -114,7 +114,7 @@ struct SpotlightCard: View {
                 // Show action menu
             }) {
                 Image(systemName: "ellipsis")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundColor(.white.opacity(0.6))
                     .frame(width: 32, height: 32)
             }
@@ -133,7 +133,7 @@ struct SpotlightCard: View {
             .frame(width: 40, height: 40)
             .overlay(
                 Text(post.authorInitials)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundColor(.white)
             )
     }
@@ -143,10 +143,10 @@ struct SpotlightCard: View {
     private var categoryBadge: some View {
         HStack(spacing: 6) {
             Image(systemName: categoryIcon)
-                .font(.system(size: 12, weight: .medium))
+                .font(.systemScaled(12, weight: .medium))
             
             Text(categoryName)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
         }
         .foregroundColor(categoryColor)
         .padding(.horizontal, 12)
@@ -214,12 +214,12 @@ struct SpotlightCard: View {
         HStack(spacing: 8) {
             // White lightbulb icon
             Image(systemName: "lightbulb.fill")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(.white)
             
             // Orange text
             Text(text)
-                .font(.system(size: 13, weight: .medium))
+                .font(.systemScaled(13, weight: .medium))
                 .foregroundStyle(.orange)
                 .lineLimit(1)
         }
@@ -294,7 +294,7 @@ struct SpotlightCard: View {
             // Bookmark
             Button(action: {}) {
                 Image(systemName: "bookmark")
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.systemScaled(16, weight: .medium))
                     .foregroundColor(.white.opacity(0.6))
             }
         }
@@ -362,12 +362,12 @@ struct InteractionButton: View {
         }) {
             HStack(spacing: 6) {
                 Image(systemName: icon)
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.systemScaled(16, weight: .medium))
                     .foregroundColor(color)
                 
                 if count > 0 {
                     Text("\(count)")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundColor(color)
                 }
             }

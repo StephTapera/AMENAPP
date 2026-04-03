@@ -55,6 +55,10 @@ struct AMENDiscoveryView: View {
     @State private var showAISearchHint = false
     @State private var isSearchDimmed = false
 
+    // Search bar visibility — separate from focus so the TextField enters the
+    // hierarchy before @FocusState is applied (avoids focus-on-transition failure)
+    @State private var searchBarVisible = false
+
     // Discover mode selector
     @Namespace private var tabNamespace
     @State private var selectedMode: DiscoverMode = .forYou
@@ -84,12 +88,12 @@ struct AMENDiscoveryView: View {
 
                 VStack(spacing: 0) {
                     // Header: pill UI on landing, real search bar while searching/on subpages
-                    if case .landing = service.searchState, !isSearchFocused, searchText.isEmpty {
+                    if case .landing = service.searchState, !searchBarVisible, !isSearchFocused, searchText.isEmpty {
                         // Premium header: eyebrow + search pill + Ask Berean + topic pills
                         VStack(spacing: 0) {
                             HStack {
                                 Text("AMEN DISCOVER")
-                                    .font(.system(size: 12, weight: .semibold))
+                                    .font(.systemScaled(12, weight: .semibold))
                                     .foregroundColor(Color(white: 0.45))
                                     .tracking(1.4)
                                 Spacer()
@@ -102,7 +106,12 @@ struct AMENDiscoveryView: View {
                                 searchPlaceholder: searchPlaceholder,
                                 onSearchTap: {
                                     HapticManager.impact(style: .light)
-                                    isSearchFocused = true
+                                    // Step 1: show the real search bar (TextField enters hierarchy)
+                                    searchBarVisible = true
+                                    // Step 2: apply focus on the next run-loop tick once TextField exists
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                                        isSearchFocused = true
+                                    }
                                 },
                                 onAskBereanTap: {
                                     HapticManager.impact(style: .light)
@@ -194,7 +203,7 @@ struct AMENDiscoveryView: View {
                     } label: {
                         HStack(spacing: 5) {
                             Image(systemName: mode.icon)
-                                .font(.system(size: 11, weight: .medium))
+                                .font(.systemScaled(11, weight: .medium))
                             Text(mode.rawValue)
                                 .font(AMENFont.semiBold(13))
                         }
@@ -237,10 +246,11 @@ struct AMENDiscoveryView: View {
                     HapticManager.impact(style: .light)
                     searchText = ""
                     isSearchFocused = false
+                    searchBarVisible = false
                     service.goBack()
                 } label: {
                     Image(systemName: "chevron.left")
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(.systemScaled(17, weight: .semibold))
                         .foregroundStyle(.primary)
                         .frame(width: 36, height: 36)
                         .contentShape(Rectangle())
@@ -252,7 +262,7 @@ struct AMENDiscoveryView: View {
             // Search field
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.systemScaled(15, weight: .medium))
                     .foregroundStyle(.secondary)
 
                 TextField(searchPlaceholder, text: $searchText)
@@ -282,7 +292,7 @@ struct AMENDiscoveryView: View {
                         isSearchFocused = false
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 15))
+                            .font(.systemScaled(15))
                             .foregroundStyle(.secondary)
                     }
                     .buttonStyle(.plain)
@@ -312,7 +322,7 @@ struct AMENDiscoveryView: View {
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "sparkles")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                         Text("Ask AI")
                             .font(AMENFont.semiBold(12))
                     }
@@ -360,6 +370,7 @@ struct AMENDiscoveryView: View {
                     service.clearSearch()
                     searchVM.scheduleSearch(query: "")
                     isSearchFocused = false
+                    searchBarVisible = false
                 }
                 .font(AMENFont.regular(15))
                 .foregroundStyle(.primary)
@@ -468,9 +479,6 @@ struct AMENDiscoveryView: View {
                     onAskBerean: { showBereanAI = true }
                 )
                 .padding(.top, 4)
-
-                // ── Premium Hero Discovery Cards row ──
-                amenHeroCardsSection
 
                 // ── Explore by type pills ──
                 exploreByTypeSection
@@ -747,7 +755,7 @@ struct AMENDiscoveryView: View {
                 // Empty state
                 VStack(spacing: 8) {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 32))
+                        .font(.systemScaled(32))
                         .foregroundStyle(.secondary.opacity(0.5))
                     Text("No trending posts yet")
                         .font(AMENFont.medium(14))
@@ -836,7 +844,7 @@ struct AMENDiscoveryView: View {
                         )
                         .frame(width: 44, height: 44)
                     Image(systemName: "sparkles")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.systemScaled(18, weight: .semibold))
                         .foregroundStyle(.white)
                 }
 
@@ -853,7 +861,7 @@ struct AMENDiscoveryView: View {
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(.tertiary)
             }
             .padding(.horizontal, 16)
@@ -877,10 +885,10 @@ struct AMENDiscoveryView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 7) {
                 Image(systemName: "sparkles")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundColor(Color(white: 0.45))
                 Text("Featured")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundColor(.black)
                 Spacer()
             }
@@ -918,7 +926,7 @@ struct AMENDiscoveryView: View {
     private var exploreByTypeSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Explore by type")
-                .font(.system(size: 15, weight: .semibold))
+                .font(.systemScaled(15, weight: .semibold))
                 .foregroundColor(.black)
                 .padding(.horizontal, 16)
 
@@ -932,10 +940,10 @@ struct AMENDiscoveryView: View {
                         } label: {
                             HStack(spacing: 6) {
                                 Image(systemName: item.icon)
-                                    .font(.system(size: 13, weight: .medium))
+                                    .font(.systemScaled(13, weight: .medium))
                                     .foregroundColor(Color(white: 0.45))
                                 Text(item.label)
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(.systemScaled(14, weight: .semibold))
                                     .foregroundColor(.black)
                             }
                             .padding(.horizontal, 14)
@@ -987,17 +995,17 @@ struct AMENDiscoveryView: View {
                         .overlay(Circle().strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5))
                         .frame(width: 48, height: 48)
                     Image(systemName: "sparkles")
-                        .font(.system(size: 20, weight: .semibold))
+                        .font(.systemScaled(20, weight: .semibold))
                         .foregroundColor(.black)
                 }
 
                 VStack(alignment: .leading, spacing: 5) {
                     Text("Ranked for meaning, not noise")
-                        .font(.system(size: 17, weight: .bold))
+                        .font(.systemScaled(17, weight: .bold))
                         .foregroundColor(.black)
 
                     Text("Scripture trails, prayer circles, and faith-forward discovery")
-                        .font(.system(size: 13, weight: .regular))
+                        .font(.systemScaled(13, weight: .regular))
                         .foregroundColor(Color(white: 0.45))
                         .lineLimit(3)
                 }
@@ -1010,7 +1018,7 @@ struct AMENDiscoveryView: View {
                 showBereanAI = true
             } label: {
                 Text("Explore")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
@@ -1095,7 +1103,7 @@ struct AMENDiscoveryView: View {
                     } label: {
                         HStack(spacing: 12) {
                             Image(systemName: "magnifyingglass")
-                                .font(.system(size: 15))
+                                .font(.systemScaled(15))
                                 .foregroundStyle(.secondary)
                                 .frame(width: 24)
                             Text("Search for \"\(searchText)\"")
@@ -1119,7 +1127,7 @@ struct AMENDiscoveryView: View {
                 } label: {
                     HStack(spacing: 12) {
                         Image(systemName: "sparkles")
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.systemScaled(15, weight: .medium))
                             .foregroundStyle(.purple)
                             .frame(width: 24)
                         VStack(alignment: .leading, spacing: 1) {
@@ -1138,7 +1146,7 @@ struct AMENDiscoveryView: View {
                         }
                         Spacer()
                         Image(systemName: "arrow.up.right")
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                             .foregroundStyle(.tertiary)
                     }
                     .padding(.horizontal, 16)
@@ -1217,7 +1225,7 @@ private struct DiscoverNearYouView: View {
 
                 HStack(spacing: 10) {
                     Image(systemName: "location.circle")
-                        .font(.system(size: 20, weight: .semibold))
+                        .font(.systemScaled(20, weight: .semibold))
                         .foregroundStyle(.primary)
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Location Access")
@@ -1308,7 +1316,7 @@ private struct DiscoverMediaViewer: View {
                         onAskBerean()
                     } label: {
                         Image(systemName: "sparkles")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                     }
                 }
             }
@@ -1362,7 +1370,7 @@ private struct DiscoverHeroStack: View {
                     Spacer()
                     HStack {
                         Image(systemName: "sparkles")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                         Text("Start a conversation")
                             .font(AMENFont.semiBold(14))
                     }
@@ -1383,7 +1391,7 @@ private struct DiscoverSectionHeader: View {
     var body: some View {
         HStack(spacing: 7) {
             Image(systemName: icon)
-                .font(.system(size: 15, weight: .semibold))
+                .font(.systemScaled(15, weight: .semibold))
                 .foregroundStyle(.primary.opacity(0.8))
             Text(title)
                 .font(AMENFont.semiBold(17))
@@ -1426,7 +1434,7 @@ struct TopicChipButton: View {
         Button(action: action) {
             HStack(spacing: 6) {
                 Image(systemName: topic.icon)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundStyle(topic.iconColor)
                 Text(topic.title)
                     .font(AMENFont.semiBold(13))
@@ -1456,7 +1464,7 @@ struct RecentSearchChip: View {
             Button(action: onTap) {
                 HStack(spacing: 5) {
                     Image(systemName: item.type == .person ? "person.circle" : "clock")
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(.secondary)
                     Text(item.query)
                         .font(AMENFont.regular(13))
@@ -1468,7 +1476,7 @@ struct RecentSearchChip: View {
 
             Button(action: onRemove) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(.systemScaled(9, weight: .semibold))
                     .foregroundStyle(.tertiary)
             }
             .buttonStyle(.plain)
@@ -1503,12 +1511,12 @@ struct TypeaheadRow: View {
                                 .clipShape(Circle())
                         } placeholder: {
                             Image(systemName: suggestion.icon)
-                                .font(.system(size: 13))
+                                .font(.systemScaled(13))
                                 .foregroundStyle(.secondary)
                         }
                     } else {
                         Image(systemName: suggestion.icon)
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -1529,7 +1537,7 @@ struct TypeaheadRow: View {
 
                 if suggestion.type == .recentSearch {
                     Image(systemName: "arrow.up.left")
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(.tertiary)
                 }
             }
@@ -1577,7 +1585,7 @@ struct DiscoveryTrendCard: View {
 
                     HStack(spacing: 4) {
                         Image(systemName: "bubble.left.and.bubble.right")
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                             .foregroundStyle(.tertiary)
                         Text("\(trend.discussionCount) discussions")
                             .font(AMENFont.regular(12))
@@ -1624,7 +1632,7 @@ struct TopicTrendRow: View {
         Button(action: action) {
             HStack(spacing: 12) {
                 Image(systemName: topic.icon)
-                    .font(.system(size: 18))
+                    .font(.systemScaled(18))
                     .foregroundStyle(topic.iconColor)
                     .frame(width: 40, height: 40)
                     .background(topic.backgroundColor)
@@ -1643,7 +1651,7 @@ struct TopicTrendRow: View {
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(.tertiary)
             }
             .padding(.vertical, 6)
@@ -1758,7 +1766,7 @@ struct DiscoveryTopicGridCard: View {
         Button(action: action) {
             HStack(spacing: 10) {
                 Image(systemName: topic.icon)
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.systemScaled(16, weight: .medium))
                     .foregroundStyle(topic.iconColor)
                     .frame(width: 36, height: 36)
                     .background(topic.backgroundColor)
@@ -1921,7 +1929,7 @@ struct VerseHeroCard: View {
                 HStack(spacing: 16) {
                     HStack(spacing: 4) {
                         Image(systemName: "bubble.left")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(.secondary)
                         Text("\(verse.discussionCount)")
                             .font(AMENFont.regular(12))
@@ -1929,7 +1937,7 @@ struct VerseHeroCard: View {
                     }
                     HStack(spacing: 4) {
                         Image(systemName: "bookmark")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(.secondary)
                         Text("\(verse.saveCount)")
                             .font(AMENFont.regular(12))
@@ -1941,7 +1949,7 @@ struct VerseHeroCard: View {
                         HapticManager.impact(style: .light)
                     } label: {
                         Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
-                            .font(.system(size: 16))
+                            .font(.systemScaled(16))
                             .foregroundStyle(isSaved ? .primary : .secondary)
                     }
                     .buttonStyle(.plain)
@@ -1950,7 +1958,7 @@ struct VerseHeroCard: View {
                         HapticManager.impact(style: .light)
                     } label: {
                         Image(systemName: "square.and.arrow.up")
-                            .font(.system(size: 16))
+                            .font(.systemScaled(16))
                             .foregroundStyle(.secondary)
                     }
                     .buttonStyle(.plain)
@@ -1998,7 +2006,7 @@ struct DiscoverVideoCard: View {
                         .shadow(color: .black.opacity(0.2), radius: 8, x: 0, y: 4)
                         .overlay(
                             Image(systemName: "play.fill")
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.systemScaled(16, weight: .semibold))
                                 .foregroundStyle(.black)
                                 .offset(x: 2)
                         )
@@ -2082,7 +2090,7 @@ struct DiscoverNewsCard: View {
                     .fill(Color.primary.opacity(0.06))
                     .frame(width: 40, height: 40)
                 Image(systemName: "newspaper")
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(.secondary)
             }
 
@@ -2145,7 +2153,7 @@ struct DiscoverBibleStudyCard: View {
                         .clipShape(RoundedRectangle(cornerRadius: 14))
                     )
                 Text(study.emoji)
-                    .font(.system(size: 28))
+                    .font(.systemScaled(28))
             }
 
             VStack(alignment: .leading, spacing: 6) {
@@ -2167,7 +2175,7 @@ struct DiscoverBibleStudyCard: View {
                 }
                 HStack(spacing: 4) {
                     Image(systemName: "star.fill")
-                        .font(.system(size: 10))
+                        .font(.systemScaled(10))
                         .foregroundStyle(.orange)
                     Text(String(format: "%.1f", study.rating))
                         .font(AMENFont.semiBold(11))
@@ -2179,7 +2187,7 @@ struct DiscoverBibleStudyCard: View {
             }
             Spacer()
             Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(.tertiary)
         }
         .padding(14)
@@ -2208,7 +2216,7 @@ struct DiscoverDiscussionCard: View {
                             .fill(Color.primary.opacity(0.06))
                             .frame(width: 38, height: 38)
                         Image(systemName: item.iconName)
-                            .font(.system(size: 16, weight: .medium))
+                            .font(.systemScaled(16, weight: .medium))
                             .foregroundStyle(.primary.opacity(0.7))
                     }
                     VStack(alignment: .leading, spacing: 2) {
@@ -2226,7 +2234,7 @@ struct DiscoverDiscussionCard: View {
                             .font(AMENFont.regular(12))
                             .foregroundStyle(.secondary)
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                             .foregroundStyle(.tertiary)
                     }
                 }
@@ -2602,10 +2610,10 @@ struct AmenHeroDiscoveryCard: View {
                 // Tag badge pill
                 HStack(spacing: 5) {
                     Image(systemName: tagIcon)
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.systemScaled(10, weight: .semibold))
                         .foregroundColor(.white)
                     Text(tagLabel.uppercased())
-                        .font(.system(size: 10, weight: .bold))
+                        .font(.systemScaled(10, weight: .bold))
                         .foregroundColor(.white)
                         .tracking(0.8)
                 }
@@ -2619,7 +2627,7 @@ struct AmenHeroDiscoveryCard: View {
                 )
 
                 Text(title)
-                    .font(.system(size: 18, weight: .bold))
+                    .font(.systemScaled(18, weight: .bold))
                     .foregroundColor(.white)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
@@ -2697,7 +2705,7 @@ struct AmenPremiumTopicGridCard: View {
                             .fill(topic.backgroundColor.opacity(0.5))
 
                         Image(systemName: topic.icon)
-                            .font(.system(size: isTall ? 42 : 32, weight: .medium))
+                            .font(.systemScaled(isTall ? 42 : 32, weight: .medium))
                             .foregroundColor(Color(white: 0.55))
                     }
                     .frame(maxWidth: .infinity)
@@ -2706,16 +2714,16 @@ struct AmenPremiumTopicGridCard: View {
                     // Glass info tray at bottom
                     VStack(alignment: .leading, spacing: 3) {
                         Text(topic.title)
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                             .foregroundColor(.black)
                             .lineLimit(1)
                         if topic.postCount > 0 {
                             Text("\(topic.postCount) posts")
-                                .font(.system(size: 11, weight: .regular))
+                                .font(.systemScaled(11, weight: .regular))
                                 .foregroundColor(Color(white: 0.45))
                         } else if let scripture = topic.relatedScripture {
                             Text(scripture)
-                                .font(.system(size: 10, weight: .regular))
+                                .font(.systemScaled(10, weight: .regular))
                                 .foregroundColor(Color(white: 0.45))
                                 .lineLimit(1)
                         }
@@ -2736,7 +2744,7 @@ struct AmenPremiumTopicGridCard: View {
                 // Trending badge top-left
                 if topic.isTrending {
                     Text("Trending")
-                        .font(.system(size: 9, weight: .bold))
+                        .font(.systemScaled(9, weight: .bold))
                         .foregroundColor(.white)
                         .tracking(0.5)
                         .padding(.horizontal, 8)
@@ -2755,7 +2763,7 @@ struct AmenPremiumTopicGridCard: View {
                         HapticManager.impact(style: .light)
                     } label: {
                         Image(systemName: isBookmarked ? "bookmark.fill" : "bookmark")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.systemScaled(12, weight: .medium))
                             .foregroundColor(.black)
                             .frame(width: 30, height: 30)
                             .background(
@@ -2772,7 +2780,7 @@ struct AmenPremiumTopicGridCard: View {
                         HapticManager.impact(style: .light)
                     } label: {
                         Image(systemName: isLiked ? "heart.fill" : "heart")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.systemScaled(12, weight: .medium))
                             .foregroundColor(isLiked ? .red : .black)
                             .frame(width: 30, height: 30)
                             .background(

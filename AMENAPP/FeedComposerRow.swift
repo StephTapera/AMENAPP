@@ -32,7 +32,7 @@ struct FeedComposerRow: View {
                 if isExpanded {
                     // ── Inline text field ──
                     TextField(placeholder, text: $text, axis: .vertical)
-                        .font(.system(size: 15, weight: .regular))
+                        .font(.systemScaled(15, weight: .regular))
                         .foregroundStyle(.primary)
                         .lineLimit(1...5)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -48,7 +48,7 @@ struct FeedComposerRow: View {
                         onTap()
                     } label: {
                         Image(systemName: "arrow.up.left.and.arrow.down.right")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.systemScaled(13, weight: .medium))
                             .foregroundStyle(.primary.opacity(0.4))
                             .padding(.trailing, 10)
                     }
@@ -69,7 +69,7 @@ struct FeedComposerRow: View {
                                 .padding(.vertical, 6)
                         } else {
                             Text("Post")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.systemScaled(13, weight: .semibold))
                                 .foregroundStyle(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                                     ? Color.primary.opacity(0.22)
                                     : Color.primary.opacity(0.85))
@@ -82,7 +82,7 @@ struct FeedComposerRow: View {
                 } else {
                     // ── Collapsed placeholder ──
                     Text(placeholder)
-                        .font(.system(size: 15, weight: .regular))
+                        .font(.systemScaled(15, weight: .regular))
                         .foregroundStyle(.primary.opacity(0.28))
                         .lineLimit(1)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -97,7 +97,7 @@ struct FeedComposerRow: View {
 
                     // ── Post label ──
                     Text("Post")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                         .foregroundStyle(.primary.opacity(0.22))
                         .padding(.horizontal, 16)
                         .padding(.vertical, 6)
@@ -185,7 +185,7 @@ struct FeedComposerRow: View {
             .fill(.ultraThinMaterial)
             .overlay(
                 Image(systemName: "person.fill")
-                    .font(.system(size: 14, weight: .regular))
+                    .font(.systemScaled(14, weight: .regular))
                     .foregroundStyle(.primary.opacity(0.35))
             )
     }

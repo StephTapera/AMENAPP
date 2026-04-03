@@ -209,7 +209,7 @@ struct BereanChatView: View {
             // Back button
             Button { dismiss() } label: {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundColor(BereanColor.textPrimary)
                     .frame(width: 36, height: 36)
                     .background(
@@ -334,7 +334,7 @@ struct BereanChatView: View {
                 dlog("Berean: attach tapped")
             } label: {
                 Image(systemName: "paperclip")
-                    .font(.system(size: 18, weight: .light))
+                    .font(.systemScaled(18, weight: .light))
                     .foregroundColor(BereanColor.textSecondary)
             }
             .padding(.bottom, 10)
@@ -364,7 +364,7 @@ struct BereanChatView: View {
                         dlog("Berean: mic tapped")
                     } label: {
                         Image(systemName: "mic")
-                            .font(.system(size: 16, weight: .medium))
+                            .font(.systemScaled(16, weight: .medium))
                             .foregroundColor(BereanColor.textSecondary)
                     }
                 }
@@ -385,7 +385,7 @@ struct BereanChatView: View {
                                      ? Color(white: 0.85) : Color.black))
                             .frame(width: 34, height: 34)
                         Image(systemName: vm.isThinking ? "stop.fill" : "arrow.up")
-                            .font(.system(size: 13, weight: .bold))
+                            .font(.systemScaled(13, weight: .bold))
                             .foregroundColor(.white)
                     }
                 }
@@ -402,7 +402,7 @@ struct BereanChatView: View {
     private var paywallBanner: some View {
         HStack(spacing: 10) {
             Image(systemName: "lock.fill")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundColor(Color(red: 0.788, green: 0.659, blue: 0.298))
             VStack(alignment: .leading, spacing: 1) {
                 Text("Free limit reached")
@@ -480,7 +480,7 @@ struct BereanChatBubble: View {
                 .shadow(color: .black.opacity(0.06), radius: 5, x: 0, y: 2)
                 .frame(width: 26, height: 26)
             Text("B")
-                .font(.system(size: 10, weight: .bold))
+                .font(.systemScaled(10, weight: .bold))
                 .foregroundColor(Color(red: 0.788, green: 0.659, blue: 0.298))
         }
         .alignmentGuide(.bottom) { $0[.bottom] }

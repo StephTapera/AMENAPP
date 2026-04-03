@@ -62,7 +62,7 @@ struct KoraCircleDetailView: View {
                             .frame(width: 52, height: 52)
                             .shadow(color: Color(hex: "6B48FF").opacity(0.4), radius: 10, x: 0, y: 4)
                         Image(systemName: "pencil")
-                            .font(.system(size: 18, weight: .semibold))
+                            .font(.systemScaled(18, weight: .semibold))
                             .foregroundColor(.white)
                     }
                 }
@@ -93,7 +93,7 @@ struct KoraCircleDetailView: View {
 
                 HStack(spacing: 4) {
                     Image(systemName: "person.2.fill")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundColor(.white.opacity(0.4))
                     Text("\(circle.memberCount) members")
                         .font(AMENFont.regular(13))
@@ -104,7 +104,7 @@ struct KoraCircleDetailView: View {
             // Next check-in label
             HStack(spacing: 6) {
                 Image(systemName: "calendar")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundColor(Color(hex: "F59E0B").opacity(0.7))
                 Text("Next: \(nextCheckInLabel)")
                     .font(AMENFont.regular(13))
@@ -124,7 +124,7 @@ struct KoraCircleDetailView: View {
     private var purposeBadge: some View {
         HStack(spacing: 5) {
             Image(systemName: circle.purpose.icon)
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
             Text(circle.purpose.label)
                 .font(AMENFont.semiBold(12))
         }
@@ -285,7 +285,7 @@ struct KoraCircleDetailView: View {
     private func emptyTabState(icon: String, message: String, subtitle: String) -> some View {
         VStack(spacing: 14) {
             Image(systemName: icon)
-                .font(.system(size: 36))
+                .font(.systemScaled(36))
                 .foregroundColor(.white.opacity(0.15))
             Text(message)
                 .font(AMENFont.semiBold(15))
@@ -353,7 +353,7 @@ struct KoraCheckInRowCard: View {
 
             if let summary = checkIn.aiSummary, !summary.isEmpty {
                 Text(summary)
-                    .font(.system(size: 12).italic())
+                    .font(.systemScaled(12).italic())
                     .foregroundColor(.white.opacity(0.4))
                     .lineLimit(1)
             }

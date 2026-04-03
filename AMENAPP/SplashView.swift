@@ -46,7 +46,7 @@ struct SplashView: View {
                     .opacity(logoOpacity)
 
                 Text("AMEN")
-                    .font(.system(size: 26, weight: .black, design: .default))
+                    .font(.systemScaled(26, weight: .black, design: .default))
                     .tracking(8)
                     .foregroundStyle(Color.black)
                     .opacity(wordmarkOpacity)

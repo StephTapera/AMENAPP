@@ -78,7 +78,7 @@ struct BereanGlassComposer: View {
                         .foregroundColor(AmenColor.titleText.opacity(AmenOpacity.placeholderText)),
                     axis: .vertical
                 )
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
                 .foregroundColor(AmenColor.titleText)
                 .lineLimit(1...6)
                 .focused($isFocused)
@@ -162,7 +162,7 @@ struct BereanGlassComposer: View {
                     .frame(width: 44, height: 44)
 
                 Image(systemName: isStreaming ? "stop.fill" : "arrow.up")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundColor(.white)
             }
         }

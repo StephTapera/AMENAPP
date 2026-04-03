@@ -77,19 +77,19 @@ struct SafetyCheckOverlayView: View {
                                 .strokeBorder(tintColor.opacity(0.25), lineWidth: 1.5)
                                 .frame(width: 80, height: 80)
                             Image(systemName: iconName)
-                                .font(.system(size: 34, weight: .semibold))
+                                .font(.systemScaled(34, weight: .semibold))
                                 .foregroundColor(tintColor)
                         }
                         .padding(.top, 32)
 
                         VStack(spacing: 6) {
                             Text(titleText)
-                                .font(.system(size: 20, weight: .bold))
+                                .font(.systemScaled(20, weight: .bold))
                                 .foregroundColor(.white)
                                 .multilineTextAlignment(.center)
 
                             Text(subtitleText)
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                                 .foregroundColor(.white.opacity(0.55))
                                 .multilineTextAlignment(.center)
                         }
@@ -132,15 +132,15 @@ struct SafetyCheckOverlayView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 6) {
                 Image(systemName: "sparkles")
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.systemScaled(11, weight: .bold))
                     .foregroundColor(tintColor)
                 Text("AI Assessment")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundColor(tintColor)
             }
 
             Text(aiReasoning.isEmpty ? "Content was flagged by automated safety systems." : aiReasoning)
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .foregroundColor(.white.opacity(0.8))
                 .lineSpacing(4)
                 .fixedSize(horizontal: false, vertical: true)
@@ -162,14 +162,14 @@ struct SafetyCheckOverlayView: View {
     private var flaggedCategoriesSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Flagged categories")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundColor(.white.opacity(0.4))
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             FlowRow(spacing: 6) {
                 ForEach(flaggedCategories, id: \.self) { category in
                     Text(category.replacingOccurrences(of: "_", with: " ").capitalized)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundColor(tintColor)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 5)
@@ -188,7 +188,7 @@ struct SafetyCheckOverlayView: View {
     private var scoreIndicator: some View {
         HStack(spacing: 10) {
             Text("Safety score")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundColor(.white.opacity(0.4))
 
             GeometryReader { geo in
@@ -202,7 +202,7 @@ struct SafetyCheckOverlayView: View {
             .frame(height: 6)
 
             Text(String(format: "%.0f%%", safetyScore * 100))
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundColor(tintColor)
                 .frame(width: 36, alignment: .trailing)
         }
@@ -261,9 +261,9 @@ struct SafetyCheckOverlayView: View {
         Button(action: action) {
             HStack(spacing: 8) {
                 Image(systemName: systemImage)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                 Text(label)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
             }
             .foregroundColor(.white)
             .frame(maxWidth: .infinity)
@@ -284,7 +284,7 @@ struct SafetyCheckOverlayView: View {
     ) -> some View {
         Button(action: action) {
             Text(label)
-                .font(.system(size: 15, weight: .medium))
+                .font(.systemScaled(15, weight: .medium))
                 .foregroundColor(textColor)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)

@@ -119,7 +119,7 @@ struct AmenInstagramStoryCard: View {
 
                 // Footer
                 Text("Shared from AMEN")
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .font(.systemScaled(11, weight: .medium, design: .rounded))
                     .foregroundStyle(.black.opacity(0.35))
                     .padding(.bottom, 42)
             }
@@ -154,7 +154,7 @@ struct AmenInstagramStoryCard: View {
         VStack(alignment: .leading, spacing: 0) {
             // Category label
             Text(content.label)
-                .font(.system(size: 10, weight: .semibold, design: .rounded))
+                .font(.systemScaled(10, weight: .semibold, design: .rounded))
                 .tracking(2.2)
                 .foregroundStyle(.black.opacity(0.48))
                 .padding(.bottom, 14)
@@ -177,7 +177,7 @@ struct AmenInstagramStoryCard: View {
 
             // Metadata
             Text(content.metadata)
-                .font(.system(size: 12, weight: .medium, design: .rounded))
+                .font(.systemScaled(12, weight: .medium, design: .rounded))
                 .foregroundStyle(.black.opacity(0.48))
                 .lineLimit(1)
         }
@@ -349,7 +349,7 @@ struct AmenStoryShareView: View {
                             if !InstagramStoryShareManager.shared.isInstagramInstalled {
                                 Label("Instagram not installed — you can still save to photos",
                                       systemImage: "info.circle")
-                                    .font(.system(size: 12, weight: .medium))
+                                    .font(.systemScaled(12, weight: .medium))
                                     .foregroundStyle(.secondary)
                                     .multilineTextAlignment(.center)
                                     .padding(.horizontal, 32)
@@ -357,7 +357,7 @@ struct AmenStoryShareView: View {
 
                             if let error = errorMessage {
                                 Text(error)
-                                    .font(.system(size: 13))
+                                    .font(.systemScaled(13))
                                     .foregroundStyle(.red)
                                     .multilineTextAlignment(.center)
                                     .padding(.horizontal, 32)
@@ -385,7 +385,7 @@ struct AmenStoryShareView: View {
         HStack {
             Button(action: { dismiss() }) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(.primary)
                     .frame(width: 34, height: 34)
                     .background(.ultraThinMaterial, in: Circle())
@@ -396,7 +396,7 @@ struct AmenStoryShareView: View {
             Spacer()
 
             Text("Instagram Story")
-                .font(.system(size: 17, weight: .semibold))
+                .font(.systemScaled(17, weight: .semibold))
 
             Spacer()
 
@@ -405,7 +405,7 @@ struct AmenStoryShareView: View {
                 withAnimation(.spring(response: 0.32, dampingFraction: 0.75)) { showLogo.toggle() }
             } label: {
                 Image(systemName: showLogo ? "a.circle.fill" : "a.circle")
-                    .font(.system(size: 21))
+                    .font(.systemScaled(21))
                     .foregroundStyle(showLogo ? Color.primary : Color.secondary)
                     .frame(width: 34, height: 34)
             }
@@ -470,9 +470,9 @@ struct AmenStoryShareView: View {
                     } label: {
                         HStack(spacing: 5) {
                             Image(systemName: style.icon)
-                                .font(.system(size: 11, weight: .medium))
+                                .font(.systemScaled(11, weight: .medium))
                             Text(style.displayName)
-                                .font(.system(size: 13, weight: selectedStyle == style ? .semibold : .regular))
+                                .font(.systemScaled(13, weight: selectedStyle == style ? .semibold : .regular))
                         }
                         .foregroundStyle(selectedStyle == style ? .white : .primary)
                         .padding(.horizontal, 14)
@@ -507,13 +507,13 @@ struct AmenStoryShareView: View {
                     if isSaving {
                         ProgressView().tint(.primary).scaleEffect(0.8)
                     } else if savedSuccess {
-                        Image(systemName: "checkmark").font(.system(size: 14, weight: .semibold))
+                        Image(systemName: "checkmark").font(.systemScaled(14, weight: .semibold))
                     } else {
-                        Image(systemName: "arrow.down.to.line").font(.system(size: 14, weight: .semibold))
+                        Image(systemName: "arrow.down.to.line").font(.systemScaled(14, weight: .semibold))
                     }
                 }
                 Text(savedSuccess ? "Saved!" : "Save")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
             }
             .foregroundStyle(.primary)
             .frame(maxWidth: .infinity)
@@ -540,10 +540,10 @@ struct AmenStoryShareView: View {
                     ProgressView().tint(.white).scaleEffect(0.8)
                 } else {
                     Image(systemName: igAvailable ? "camera.fill" : "square.and.arrow.up")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                 }
                 Text(igAvailable ? "Instagram Story" : "Share Image")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
             }
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity)

@@ -245,7 +245,7 @@ struct WorkflowConfigView: View {
                                 .scaleEffect(0.8)
                         } else {
                             Image(systemName: "sparkles")
-                                .font(.system(size: 13))
+                                .font(.systemScaled(13))
                         }
                         Text(isImprovingMessage ? "Improving..." : "AI Improve")
                             .font(AMENFont.semiBold(13))
@@ -331,7 +331,7 @@ struct WorkflowConfigView: View {
                         }
 
                         Image(systemName: step.type.icon)
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundColor(.white.opacity(0.6))
 
                         Text(step.type.label)

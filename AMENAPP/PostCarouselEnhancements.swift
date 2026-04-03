@@ -53,11 +53,11 @@ private struct ScriptureChip: View {
         Button(action: action) {
             HStack(spacing: 5) {
                 Image(systemName: "book.fill")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundColor(.primary.opacity(0.75))
 
                 Text(reference)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundColor(.primary)
                     .lineLimit(1)
             }
@@ -136,12 +136,12 @@ struct CarouselSaveToNotesButton: View {
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: isSaved ? "checkmark" : "note.text")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundColor(isSaved ? Color.green : .primary)
                     .contentTransition(.symbolEffect(.replace))
 
                 Text(isSaved ? "Saved" : "Save to Notes")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundColor(isSaved ? Color.green : .primary)
             }
             .padding(.horizontal, 14)
@@ -187,17 +187,17 @@ struct PostIntegrityBadge: View {
                 switch level {
                 case .authentic:
                     Image(systemName: "checkmark.seal.fill")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundColor(Color.green.opacity(0.8))
 
                 case .assisted:
                     Image(systemName: "info.circle.fill")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundColor(.gray)
 
                 case .reviewing:
                     Image(systemName: "clock.fill")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundColor(.gray)
                         .opacity(isAnimatingDots ? 0.4 : 1.0)
                         .animation(
@@ -208,7 +208,7 @@ struct PostIntegrityBadge: View {
             }
 
             Text(badgeLabel)
-                .font(.system(size: 12, weight: .medium))
+                .font(.systemScaled(12, weight: .medium))
                 .foregroundColor(labelColor)
         }
         .padding(.horizontal, 10)
@@ -265,11 +265,11 @@ struct PostPinnedBadge: View {
     var body: some View {
         HStack(spacing: 5) {
             Image(systemName: "pin.fill")
-                .font(.system(size: 11, weight: .medium))
+                .font(.systemScaled(11, weight: .medium))
                 .foregroundColor(.primary.opacity(0.7))
 
             Text(pinType.displayName)
-                .font(.system(size: 11, weight: .medium))
+                .font(.systemScaled(11, weight: .medium))
                 .foregroundColor(.primary.opacity(0.8))
         }
         .padding(.horizontal, 10)

@@ -86,16 +86,16 @@ struct SafetySettingsView: View {
                         .fill(trustTint.opacity(0.13))
                         .frame(width: 44, height: 44)
                     Image(systemName: trustIcon)
-                        .font(.system(size: 20, weight: .semibold))
+                        .font(.systemScaled(20, weight: .semibold))
                         .foregroundColor(trustTint)
                 }
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Your Trust Level")
-                        .font(.system(size: 16, weight: .bold))
+                        .font(.systemScaled(16, weight: .bold))
                         .foregroundColor(.white)
                     Text(trustLabel)
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundColor(.white.opacity(0.6))
                         .lineSpacing(2)
                         .fixedSize(horizontal: false, vertical: true)
@@ -108,11 +108,11 @@ struct SafetySettingsView: View {
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Text("Trust score")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundColor(.white.opacity(0.4))
                     Spacer()
                     Text(String(format: "%.0f%%", trustScore * 100))
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundColor(trustTint)
                 }
 
@@ -139,9 +139,9 @@ struct SafetySettingsView: View {
             } label: {
                 HStack(spacing: 4) {
                     Text("How is this calculated?")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 10))
+                        .font(.systemScaled(10))
                 }
                 .foregroundColor(trustTint.opacity(0.8))
             }
@@ -157,15 +157,15 @@ struct SafetySettingsView: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 10) {
                 Image(systemName: "slider.horizontal.3")
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.systemScaled(17, weight: .semibold))
                     .foregroundColor(Color(red: 0.55, green: 0.25, blue: 1.0))
                 Text("Content Filter")
-                    .font(.system(size: 16, weight: .bold))
+                    .font(.systemScaled(16, weight: .bold))
                     .foregroundColor(.white)
             }
 
             Text("Controls how strictly content is checked before posting.")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundColor(.white.opacity(0.5))
 
             HStack(spacing: 8) {
@@ -195,9 +195,9 @@ struct SafetySettingsView: View {
         } label: {
             VStack(spacing: 5) {
                 Image(systemName: icon)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                 Text(label)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
             }
@@ -231,7 +231,7 @@ struct SafetySettingsView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Past Reviews")
-                    .font(.system(size: 16, weight: .bold))
+                    .font(.systemScaled(16, weight: .bold))
                     .foregroundColor(.white)
                 Spacer()
                 if isLoading {
@@ -243,7 +243,7 @@ struct SafetySettingsView: View {
 
             if let error = loadError {
                 Text(error)
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundColor(Color(red: 0.96, green: 0.38, blue: 0.38))
             } else if !isLoading && safetyLogs.isEmpty {
                 emptyReviewsState
@@ -258,13 +258,13 @@ struct SafetySettingsView: View {
     private var emptyReviewsState: some View {
         VStack(spacing: 12) {
             Image(systemName: "checkmark.shield.fill")
-                .font(.system(size: 32))
+                .font(.systemScaled(32))
                 .foregroundColor(Color(red: 0.25, green: 0.88, blue: 0.56).opacity(0.5))
             Text("No past reviews")
-                .font(.system(size: 15, weight: .medium))
+                .font(.systemScaled(15, weight: .medium))
                 .foregroundColor(.white.opacity(0.5))
             Text("Your content hasn't required review. Keep it up!")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundColor(.white.opacity(0.35))
                 .multilineTextAlignment(.center)
         }
@@ -352,7 +352,7 @@ private struct SafetyLogRow: View {
             HStack(spacing: 10) {
                 // Decision badge
                 Text(decisionLabel)
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.systemScaled(11, weight: .bold))
                     .foregroundColor(decisionColor)
                     .padding(.horizontal, 9)
                     .padding(.vertical, 4)
@@ -366,13 +366,13 @@ private struct SafetyLogRow: View {
 
                 if !formattedDate.isEmpty {
                     Text(formattedDate)
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundColor(.white.opacity(0.35))
                 }
             }
 
             Text(log.aiReasoning.isEmpty ? "No reasoning provided." : log.aiReasoning)
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundColor(.white.opacity(0.65))
                 .lineLimit(2)
 
@@ -380,7 +380,7 @@ private struct SafetyLogRow: View {
                 HStack(spacing: 5) {
                     ForEach(log.flaggedCategories.prefix(3), id: \.self) { cat in
                         Text(cat.capitalized)
-                            .font(.system(size: 10))
+                            .font(.systemScaled(10))
                             .foregroundColor(.white.opacity(0.4))
                             .padding(.horizontal, 6)
                             .padding(.vertical, 3)
@@ -417,19 +417,19 @@ private struct TrustScoreExplainerSheet: View {
             VStack(alignment: .leading, spacing: 20) {
                 HStack {
                     Text("About Trust Score")
-                        .font(.system(size: 20, weight: .bold))
+                        .font(.systemScaled(20, weight: .bold))
                         .foregroundColor(.white)
                     Spacer()
                     Button { dismiss() } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 22))
+                            .font(.systemScaled(22))
                             .foregroundColor(.white.opacity(0.4))
                     }
                     .buttonStyle(.plain)
                 }
 
                 Text("Your trust score reflects your content history on AMEN. It's calculated from:")
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .foregroundColor(.white.opacity(0.7))
                     .lineSpacing(3)
 
@@ -443,7 +443,7 @@ private struct TrustScoreExplainerSheet: View {
                 }
 
                 Text("A higher score means more posting permissions and less friction. Trust is rebuilt over time with good content.")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundColor(.white.opacity(0.45))
                     .lineSpacing(3)
 
@@ -458,16 +458,16 @@ private struct TrustScoreExplainerSheet: View {
     private func explainerRow(icon: String, color: Color, title: String, subtitle: String) -> some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 18))
+                .font(.systemScaled(18))
                 .foregroundColor(color)
                 .frame(width: 24)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundColor(.white.opacity(0.9))
                 Text(subtitle)
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundColor(.white.opacity(0.5))
             }
         }
@@ -510,7 +510,7 @@ struct TrustScoreBadge: View {
             showExplainer = true
         } label: {
             Text(label)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundColor(foreground)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 4)

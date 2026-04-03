@@ -9,6 +9,7 @@
 
 #if DEBUG
 import SwiftUI
+import Combine
 
 /// Admin view for testing and managing Algolia sync
 /// Add this to your settings or debug menu

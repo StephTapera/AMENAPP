@@ -25,7 +25,7 @@ struct TwoFactorVerificationView: View {
                 // Header
                 VStack(spacing: 16) {
                     Image(systemName: deliveryMethod == "email" ? "envelope.fill" : "message.fill")
-                        .font(.system(size: 60))
+                        .font(.systemScaled(60))
                         .foregroundStyle(.green)
 
                     Text("Enter Verification Code")

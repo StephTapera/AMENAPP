@@ -17,16 +17,16 @@ struct EmailVerificationBanner: View {
             HStack(spacing: 12) {
                 // Warning icon
                 Image(systemName: "envelope.badge.fill")
-                    .font(.system(size: 18))
+                    .font(.systemScaled(18))
                     .foregroundStyle(.yellow)
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Verify Your Email")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(.primary)
                     
                     Text("Check your inbox for the verification link")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.secondary)
                 }
                 
@@ -41,7 +41,7 @@ struct EmailVerificationBanner: View {
                             .controlSize(.small)
                     } else {
                         Text("Resend")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.systemScaled(13, weight: .medium))
                             .foregroundStyle(.blue)
                     }
                 }

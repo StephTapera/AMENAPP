@@ -45,17 +45,17 @@ struct SermonNotePreviewSheet: View {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(source == .snap ? "Sermon Snap" : "Sermon Recording")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(Color(.tertiaryLabel))
                         .textCase(.uppercase)
                     Text("Review & Save")
-                        .font(.system(size: 20, weight: .bold))
+                        .font(.systemScaled(20, weight: .bold))
                         .foregroundStyle(Color(.label))
                 }
                 Spacer()
                 Button(action: onDiscard) {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 26))
+                        .font(.systemScaled(26))
                         .foregroundStyle(Color(.tertiaryLabel))
                 }
             }
@@ -72,11 +72,11 @@ struct SermonNotePreviewSheet: View {
                     // Editable title
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Title")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.systemScaled(11, weight: .semibold))
                             .foregroundStyle(Color(.tertiaryLabel))
                             .textCase(.uppercase)
                         TextField("Sermon title", text: $editedTitle)
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .padding(.horizontal, 12)
                             .padding(.vertical, 10)
                             .background(Color(.systemGray6), in: RoundedRectangle(cornerRadius: 10))
@@ -93,7 +93,7 @@ struct SermonNotePreviewSheet: View {
                                             .frame(width: 5, height: 5)
                                             .padding(.top, 6)
                                         Text(pt)
-                                            .font(.system(size: 14))
+                                            .font(.systemScaled(14))
                                             .foregroundStyle(Color(.label))
                                             .fixedSize(horizontal: false, vertical: true)
                                     }
@@ -107,7 +107,7 @@ struct SermonNotePreviewSheet: View {
                         sectionView(title: "Scriptures", icon: "book.fill") {
                             FlowLayoutPreview(items: draft.scriptureReferences) { ref in
                                 Text(ref)
-                                    .font(.system(size: 12, weight: .medium))
+                                    .font(.systemScaled(12, weight: .medium))
                                     .foregroundStyle(.purple)
                                     .padding(.horizontal, 10)
                                     .padding(.vertical, 5)
@@ -120,7 +120,7 @@ struct SermonNotePreviewSheet: View {
                     if !draft.content.isEmpty {
                         sectionView(title: "Summary", icon: "doc.text") {
                             Text(draft.content)
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                                 .foregroundStyle(Color(.secondaryLabel))
                                 .lineLimit(8)
                         }
@@ -129,9 +129,9 @@ struct SermonNotePreviewSheet: View {
                     // Source badge
                     HStack(spacing: 6) {
                         Image(systemName: source == .snap ? "camera.fill" : "mic.fill")
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                         Text(source == .snap ? "Generated from image" : "Generated from recording")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                     }
                     .foregroundStyle(Color(.tertiaryLabel))
                     .padding(.top, 4)
@@ -142,7 +142,7 @@ struct SermonNotePreviewSheet: View {
             // Error
             if let err = saveError {
                 Text(err)
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.red)
                     .padding(.horizontal, 20)
                     .padding(.bottom, 4)
@@ -154,7 +154,7 @@ struct SermonNotePreviewSheet: View {
             HStack(spacing: 12) {
                 Button(action: onDiscard) {
                     Text("Discard")
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                         .foregroundStyle(Color(.secondaryLabel))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
@@ -171,7 +171,7 @@ struct SermonNotePreviewSheet: View {
                                 .tint(.white)
                         } else {
                             Label("Save to Notes", systemImage: "checkmark.circle.fill")
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(.systemScaled(15, weight: .semibold))
                         }
                     }
                     .foregroundStyle(.white)
@@ -219,10 +219,10 @@ struct SermonNotePreviewSheet: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 5) {
                 Image(systemName: icon)
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(Color(.tertiaryLabel))
                 Text(title)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(Color(.tertiaryLabel))
                     .textCase(.uppercase)
             }

@@ -98,7 +98,7 @@ struct GivingInAppSheet: View {
                     .fill(accent.opacity(0.15))
                     .frame(width: 50, height: 50)
                 Image(systemName: nonprofit.icon)
-                    .font(.system(size: 22))
+                    .font(.systemScaled(22))
                     .foregroundStyle(accent)
             }
             VStack(alignment: .leading, spacing: 2) {
@@ -107,7 +107,7 @@ struct GivingInAppSheet: View {
                 if !nonprofit.verificationBadges.isEmpty {
                     HStack(spacing: 4) {
                         Image(systemName: "checkmark.seal.fill")
-                            .font(.system(size: 10))
+                            .font(.systemScaled(10))
                             .foregroundStyle(.green)
                         Text(nonprofit.verificationBadges.prefix(2).joined(separator: " · "))
                             .font(.custom("OpenSans-Regular", size: 11))
@@ -232,7 +232,7 @@ struct GivingInAppSheet: View {
             HStack {
                 HStack(spacing: 4) {
                     Image(systemName: "info.circle")
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(.secondary)
                     Text("AMEN platform (2%)")
                         .font(.custom("OpenSans-Regular", size: 14))
@@ -310,7 +310,7 @@ struct GivingInAppSheet: View {
         VStack(spacing: 28) {
             Spacer()
             Image(systemName: "checkmark.seal.fill")
-                .font(.system(size: 72))
+                .font(.systemScaled(72))
                 .foregroundStyle(accent)
             VStack(spacing: 8) {
                 Text("Thank you.")

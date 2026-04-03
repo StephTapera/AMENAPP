@@ -121,7 +121,7 @@ struct FeaturedResourceCard<HeroVisual: View>: View {
                     Spacer()
                     // Chevron hint
                     Image(systemName: "arrow.right")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(.white.opacity(0.45))
                 }
                 .padding(.top, 6)
@@ -163,7 +163,7 @@ private struct FeaturedCardMetaItem: View {
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: icon)
-                .font(.system(size: 10, weight: .medium))
+                .font(.systemScaled(10, weight: .medium))
                 .foregroundStyle(.white.opacity(0.55))
             Text(label)
                 .font(FeaturedCardTokens.metaFont)
@@ -204,13 +204,13 @@ struct GrowFeaturedCard: View {
             VStack(alignment: .leading, spacing: 6) {
                 // Category eyebrow
                 Text("GROW")
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(.systemScaled(9, weight: .semibold))
                     .kerning(2.0)
                     .foregroundStyle(amber)
 
                 // Title
                 Text("Walk With Christ")
-                    .font(.system(size: 17, weight: .bold))
+                    .font(.systemScaled(17, weight: .bold))
                     .foregroundStyle(.primary)
                     .lineLimit(2)
                     .minimumScaleFactor(0.85)
@@ -229,10 +229,10 @@ struct GrowFeaturedCard: View {
                 // CTA row
                 HStack(spacing: 4) {
                     Text("Start Your Path")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(amber)
                     Image(systemName: "arrow.right")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.systemScaled(10, weight: .semibold))
                         .foregroundStyle(amber)
                 }
             }
@@ -280,13 +280,13 @@ struct PlatformFeaturedCard: View {
             VStack(alignment: .leading, spacing: 6) {
                 // Category eyebrow
                 Text("PLATFORM")
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(.systemScaled(9, weight: .semibold))
                     .kerning(2.0)
                     .foregroundStyle(indigo)
 
                 // Title
                 Text("Build & Serve")
-                    .font(.system(size: 17, weight: .bold))
+                    .font(.systemScaled(17, weight: .bold))
                     .foregroundStyle(.primary)
                     .lineLimit(2)
                     .minimumScaleFactor(0.85)
@@ -305,10 +305,10 @@ struct PlatformFeaturedCard: View {
                 // CTA row
                 HStack(spacing: 4) {
                     Text("Explore Platform")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(indigo)
                     Image(systemName: "arrow.right")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.systemScaled(10, weight: .semibold))
                         .foregroundStyle(indigo)
                 }
             }
@@ -334,9 +334,9 @@ private struct SplitCardChip: View {
     var body: some View {
         HStack(spacing: 3) {
             Image(systemName: icon)
-                .font(.system(size: 9, weight: .medium))
+                .font(.systemScaled(9, weight: .medium))
             Text(label)
-                .font(.system(size: 10, weight: .medium))
+                .font(.systemScaled(10, weight: .medium))
         }
         .foregroundStyle(Color(.secondaryLabel))
         .padding(.horizontal, 8)

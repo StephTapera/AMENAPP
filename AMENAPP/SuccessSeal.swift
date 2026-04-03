@@ -26,10 +26,10 @@ struct SuccessSeal: View {
     var body: some View {
         HStack(spacing: 6) {
             Image(systemName: systemImage)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(.primary)
             Text(label)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(.primary)
         }
         .padding(.horizontal, 14)

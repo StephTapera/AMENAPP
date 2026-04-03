@@ -107,19 +107,26 @@ final class ChurchBusinessOnboardingViewModel: ObservableObject {
                 "category": profile.category,
                 "verificationStatus": "pending",
                 "createdAt": Timestamp(date: Date()),
-                "updatedAt": Timestamp(date: Date())
+                "updatedAt": Timestamp(date: Date()),
+                "schemaVersion": 1
             ]
             
             // Save to organizations collection
             try await db.collection("organizations").document(uid).setData(orgData)
             
-            // Update user document with organization reference
+            // Update user document with organization reference.
+            // Write ALL three onboarding flags so every code path that checks
+            // onboarding status considers this account fully onboarded.
             try await db.document("users/\(uid)").setData([
                 "organizationId": uid,
                 "organizationName": profile.organizationName,
                 "isOrganizationAccount": true,
                 "accountType": accountType.rawValue,
-                "churchBusinessOnboardingComplete": true
+                "churchBusinessOnboardingComplete": true,
+                "hasCompletedOnboarding": true,
+                "onboardingCompleted": true,
+                "onboardingComplete": true,
+                "schemaVersion": 1
             ], merge: true)
             
             // Track analytics (simplified)
@@ -202,7 +209,7 @@ struct AMENChurchBusinessOnboardingView: View {
                     if vm.currentStep > 0 {
                         Button(action: { vm.previousStep() }) {
                             Image(systemName: "chevron.left")
-                                .font(.system(size: 17, weight: .semibold))
+                                .font(.systemScaled(17, weight: .semibold))
                                 .foregroundColor(.black)
                         }
                     }
@@ -454,7 +461,7 @@ private struct InfoCard: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 20))
+                .font(.systemScaled(20))
                 .foregroundColor(Color(red: 0.30, green: 0.50, blue: 0.90))
                 .frame(width: 32, height: 32)
             
@@ -482,7 +489,7 @@ private struct VerificationNoticeCard: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 Image(systemName: accountType == .church ? "checkmark.seal.fill" : "star.fill")
-                    .font(.system(size: 18))
+                    .font(.systemScaled(18))
                     .foregroundColor(accountType == .church ? .black : Color(red: 0.85, green: 0.15, blue: 0.15))
                 
                 Text("Verification")

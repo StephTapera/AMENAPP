@@ -134,7 +134,7 @@ struct MutualSingleAvatar: View {
                     .fill(Color(.systemGray4))
                     .overlay(
                         Text(String(initials.prefix(1)))
-                            .font(.system(size: size * 0.38, weight: .semibold))
+                            .font(.systemScaled(size * 0.38, weight: .semibold))
                             .foregroundStyle(Color(.secondaryLabel))
                     )
             }

@@ -166,7 +166,7 @@ struct SampleDataGeneratorView: View {
             List {
                 Section {
                     Text("Generate realistic sample posts for App Store screenshots")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(.secondary)
                 } header: {
                     Text("Sample Data Generator")
@@ -218,7 +218,7 @@ struct SampleDataGeneratorView: View {
                         Label("5 Prayer requests", systemImage: "hands.sparkles")
                         Label("5 Testimonies", systemImage: "star.fill")
                     }
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.secondary)
                 } header: {
                     Text("What Gets Generated")

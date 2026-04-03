@@ -39,7 +39,7 @@ struct BereanGoalsSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done") { dismiss() }
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.systemScaled(15, weight: .medium))
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Button {
@@ -47,7 +47,7 @@ struct BereanGoalsSheet: View {
                         showAddGoal = true
                     } label: {
                         Image(systemName: "plus")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                     }
                 }
             }
@@ -102,12 +102,12 @@ struct BereanGoalsSheet: View {
     private func sectionHeader(_ title: String, count: Int) -> some View {
         HStack {
             Text(title)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(Color(white: 0.55))
                 .kerning(0.6)
                 .textCase(.uppercase)
             Text("(\(count))")
-                .font(.system(size: 12, weight: .medium))
+                .font(.systemScaled(12, weight: .medium))
                 .foregroundStyle(Color(white: 0.65))
         }
         .padding(.vertical, 8)
@@ -138,7 +138,7 @@ struct BereanGoalsSheet: View {
                             .fill(goal.goalCategory.swiftUIAccentColor)
                             .frame(width: 24, height: 24)
                         Image(systemName: "checkmark")
-                            .font(.system(size: 11, weight: .bold))
+                            .font(.systemScaled(11, weight: .bold))
                             .foregroundStyle(.white)
                     }
                 }
@@ -151,14 +151,14 @@ struct BereanGoalsSheet: View {
                     .fill(goal.goalCategory.swiftUIAccentColor.opacity(0.12))
                     .frame(width: 32, height: 32)
                 Image(systemName: goal.goalCategory.icon)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(goal.goalCategory.swiftUIAccentColor)
             }
 
             // Title + meta
             VStack(alignment: .leading, spacing: 2) {
                 Text(goal.title)
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.systemScaled(15, weight: .medium))
                     .foregroundStyle(
                         goal.isCompleted
                             ? Color(white: 0.60)
@@ -169,16 +169,16 @@ struct BereanGoalsSheet: View {
 
                 HStack(spacing: 4) {
                     Text(goal.goalCategory.displayName)
-                        .font(.system(size: 12, weight: .regular))
+                        .font(.systemScaled(12, weight: .regular))
                         .foregroundStyle(goal.goalCategory.swiftUIAccentColor)
 
                     if let completedAt = goal.completedAt {
                         Text("· Completed \(completedAt.bereanRelativeDate)")
-                            .font(.system(size: 12, weight: .regular))
+                            .font(.systemScaled(12, weight: .regular))
                             .foregroundStyle(Color(white: 0.55))
                     } else {
                         Text("· Added \(goal.createdAt.bereanRelativeDate)")
-                            .font(.system(size: 12, weight: .regular))
+                            .font(.systemScaled(12, weight: .regular))
                             .foregroundStyle(Color(white: 0.62))
                     }
                 }
@@ -217,16 +217,16 @@ struct BereanGoalsSheet: View {
                     .fill(Color(red: 0.48, green: 0.36, blue: 0.75).opacity(0.10))
                     .frame(width: 72, height: 72)
                 Image(systemName: "target")
-                    .font(.system(size: 30, weight: .light))
+                    .font(.systemScaled(30, weight: .light))
                     .foregroundStyle(Color(red: 0.48, green: 0.36, blue: 0.75))
             }
 
             VStack(spacing: 6) {
                 Text("Set your first goal")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.systemScaled(18, weight: .semibold))
                     .foregroundStyle(Color(white: 0.12))
                 Text("Track spiritual, health, work, and\nrelationship goals with Berean's help.")
-                    .font(.system(size: 14, weight: .regular))
+                    .font(.systemScaled(14, weight: .regular))
                     .foregroundStyle(Color(white: 0.50))
                     .multilineTextAlignment(.center)
                     .lineSpacing(3)
@@ -238,9 +238,9 @@ struct BereanGoalsSheet: View {
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "plus")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                     Text("Add Goal")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                 }
                 .foregroundStyle(.white)
                 .padding(.horizontal, 24)
@@ -290,13 +290,13 @@ struct BereanAddGoalSheet: View {
                     // Title field
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Goal")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                             .foregroundStyle(Color(white: 0.55))
                             .kerning(0.5)
                             .textCase(.uppercase)
 
                         TextField("e.g. Read the Bible in a year", text: $title)
-                            .font(.system(size: 16, weight: .regular))
+                            .font(.systemScaled(16, weight: .regular))
                             .focused($isTitleFocused)
                             .submitLabel(.done)
                             .onSubmit {
@@ -316,7 +316,7 @@ struct BereanAddGoalSheet: View {
                     // Category picker
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Category")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                             .foregroundStyle(Color(white: 0.55))
                             .kerning(0.5)
                             .textCase(.uppercase)
@@ -341,7 +341,7 @@ struct BereanAddGoalSheet: View {
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Button("Save") { saveAndDismiss() }
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .disabled(!canSave)
                 }
             }
@@ -373,11 +373,11 @@ struct BereanAddGoalSheet: View {
                                 )
                         )
                     Image(systemName: cat.icon)
-                        .font(.system(size: 18, weight: .medium))
+                        .font(.systemScaled(18, weight: .medium))
                         .foregroundStyle(isSelected ? cat.swiftUIAccentColor : Color(white: 0.50))
                 }
                 Text(cat.displayName)
-                    .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
+                    .font(.systemScaled(11, weight: isSelected ? .semibold : .regular))
                     .foregroundStyle(isSelected ? cat.swiftUIAccentColor : Color(white: 0.50))
             }
         }

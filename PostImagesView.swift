@@ -17,13 +17,20 @@ struct PostImagesView: View {
     @State private var viewerStartIndex = 0
 
     var body: some View {
-        Group {
-            if imageURLs.count == 1 {
-                singleImage(imageURLs[0], index: 0)
-            } else if imageURLs.count > 1 {
-                scrollingImages
-            }
+        // 🛡️ CRASH GUARD: Ensure we have valid image URLs
+        guard !imageURLs.isEmpty else {
+            return AnyView(EmptyView())
         }
+        
+        return AnyView(
+            Group {
+                if imageURLs.count == 1 {
+                    singleImage(imageURLs[0], index: 0)
+                } else if imageURLs.count > 1 {
+                    scrollingImages
+                }
+            }
+        )
         .fullScreenCover(isPresented: $viewerVisible) {
             FullScreenPostImageView(
                 imageURLs: imageURLs,

@@ -1072,3 +1072,18 @@ exports.friendReturned       = engagementNotifs.friendReturned;
 exports.gentleReengagement   = engagementNotifs.gentleReengagement;
 exports.onNewChurchMember    = engagementNotifs.onNewChurchMember;
 exports.prayerCheckin        = engagementNotifs.prayerCheckin;
+
+// ============================================================================
+// PROFILE PROPAGATION — syncs denormalized author fields on posts/comments
+// when a user changes their displayName, username, or profileImageURL.
+// ============================================================================
+const {onUserProfileUpdated} = require("./profilePropagation");
+exports.onUserProfileUpdated = onUserProfileUpdated;
+
+// ============================================================================
+// NOTIFICATION CLEANUP — daily scheduled job (3 AM UTC).
+// Deletes read notifications >90 days old, unread >180 days old,
+// and caps each user's notification subcollection at 500 documents.
+// ============================================================================
+const {cleanupStaleNotifications} = require("./notificationCleanup");
+exports.cleanupStaleNotifications = cleanupStaleNotifications;

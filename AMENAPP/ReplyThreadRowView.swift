@@ -225,7 +225,7 @@ struct ReplyThreadRowView: View {
             if thread.userReply.amenCount > 0 {
                 HStack(spacing: 4) {
                     Image(systemName: "hands.sparkles.fill")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.secondary.opacity(0.7))
                     
                     Text("\(thread.userReply.amenCount)")
@@ -238,7 +238,7 @@ struct ReplyThreadRowView: View {
             if thread.userReply.replyCount > 0 {
                 HStack(spacing: 4) {
                     Image(systemName: "bubble.left.fill")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.secondary.opacity(0.7))
                     
                     Text("\(thread.userReply.replyCount)")

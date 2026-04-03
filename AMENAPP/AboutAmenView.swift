@@ -30,7 +30,7 @@ struct AboutAmenViewAlt: View {
                 // MARK: App Identity Hero
                 VStack(spacing: 16) {
                     Image(systemName: "hands.sparkles.fill")
-                        .font(.system(size: 80))
+                        .font(.systemScaled(80))
                         .foregroundStyle(
                             LinearGradient(
                                 colors: [.blue, .purple, .pink],
@@ -97,7 +97,7 @@ struct AboutAmenViewAlt: View {
                     ForEach(Array(features.enumerated()), id: \.offset) { index, feature in
                         HStack(spacing: 16) {
                             Image(systemName: feature.0)
-                                .font(.system(size: 24))
+                                .font(.systemScaled(24))
                                 .foregroundStyle(.blue)
                                 .frame(width: 40)
 
@@ -175,7 +175,7 @@ struct AboutAmenViewAlt: View {
                     Link(destination: URL(string: "https://amenapp.com")!) {
                         HStack {
                             Image(systemName: "globe")
-                                .font(.system(size: 16))
+                                .font(.systemScaled(16))
                                 .foregroundStyle(.blue)
                                 .frame(width: 24)
                             Text("Visit Our Website")
@@ -183,7 +183,7 @@ struct AboutAmenViewAlt: View {
                                 .foregroundStyle(.primary)
                             Spacer()
                             Image(systemName: "chevron.right")
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.systemScaled(12, weight: .semibold))
                                 .foregroundStyle(.secondary)
                         }
                         .padding(.horizontal, 16)
@@ -196,7 +196,7 @@ struct AboutAmenViewAlt: View {
                     Link(destination: URL(string: "https://amenapp.com/privacy")!) {
                         HStack {
                             Image(systemName: "hand.raised.fill")
-                                .font(.system(size: 16))
+                                .font(.systemScaled(16))
                                 .foregroundStyle(.green)
                                 .frame(width: 24)
                             Text("Privacy Policy")
@@ -204,7 +204,7 @@ struct AboutAmenViewAlt: View {
                                 .foregroundStyle(.primary)
                             Spacer()
                             Image(systemName: "chevron.right")
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.systemScaled(12, weight: .semibold))
                                 .foregroundStyle(.secondary)
                         }
                         .padding(.horizontal, 16)
@@ -217,7 +217,7 @@ struct AboutAmenViewAlt: View {
                     Link(destination: URL(string: "https://amenapp.com/terms")!) {
                         HStack {
                             Image(systemName: "doc.text.fill")
-                                .font(.system(size: 16))
+                                .font(.systemScaled(16))
                                 .foregroundStyle(.orange)
                                 .frame(width: 24)
                             Text("Terms of Service")
@@ -225,7 +225,7 @@ struct AboutAmenViewAlt: View {
                                 .foregroundStyle(.primary)
                             Spacer()
                             Image(systemName: "chevron.right")
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.systemScaled(12, weight: .semibold))
                                 .foregroundStyle(.secondary)
                         }
                         .padding(.horizontal, 16)
@@ -240,7 +240,7 @@ struct AboutAmenViewAlt: View {
                     } label: {
                         HStack {
                             Image(systemName: "person.3.fill")
-                                .font(.system(size: 16))
+                                .font(.systemScaled(16))
                                 .foregroundStyle(.purple)
                                 .frame(width: 24)
                             Text("Credits")
@@ -248,7 +248,7 @@ struct AboutAmenViewAlt: View {
                                 .foregroundStyle(.primary)
                             Spacer()
                             Image(systemName: "chevron.right")
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.systemScaled(12, weight: .semibold))
                                 .foregroundStyle(.secondary)
                         }
                         .padding(.horizontal, 16)
@@ -263,7 +263,7 @@ struct AboutAmenViewAlt: View {
                     } label: {
                         HStack {
                             Image(systemName: "list.bullet.rectangle")
-                                .font(.system(size: 16))
+                                .font(.systemScaled(16))
                                 .foregroundStyle(.gray)
                                 .frame(width: 24)
                             Text("Open Source Licenses")
@@ -271,7 +271,7 @@ struct AboutAmenViewAlt: View {
                                 .foregroundStyle(.primary)
                             Spacer()
                             Image(systemName: "chevron.right")
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.systemScaled(12, weight: .semibold))
                                 .foregroundStyle(.secondary)
                         }
                         .padding(.horizontal, 16)
@@ -321,7 +321,7 @@ private struct ValueCardGlass: View {
     var body: some View {
         VStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 32))
+                .font(.systemScaled(32))
                 .foregroundStyle(
                     LinearGradient(
                         colors: [.blue, .purple],
@@ -358,7 +358,7 @@ struct AboutFeatureRow: View {
     var body: some View {
         HStack(spacing: 16) {
             Image(systemName: icon)
-                .font(.system(size: 24))
+                .font(.systemScaled(24))
                 .foregroundStyle(.blue)
                 .frame(width: 40)
 
@@ -389,7 +389,7 @@ struct ValueCard: View {
     var body: some View {
         VStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 32))
+                .font(.systemScaled(32))
                 .foregroundStyle(
                     LinearGradient(
                         colors: [.blue, .purple],
@@ -424,7 +424,7 @@ struct LinkButton: View {
     var body: some View {
         HStack {
             Image(systemName: icon)
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
                 .foregroundStyle(color)
                 .frame(width: 24)
 
@@ -435,7 +435,7 @@ struct LinkButton: View {
             Spacer()
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(.secondary)
         }
         .padding()
@@ -671,7 +671,7 @@ struct LicensesView: View {
                                     }
                                     Spacer()
                                     Image(systemName: "arrow.up.right")
-                                        .font(.system(size: 12, weight: .semibold))
+                                        .font(.systemScaled(12, weight: .semibold))
                                         .foregroundStyle(.secondary)
                                 }
                                 .padding(.horizontal, 16)
@@ -696,7 +696,7 @@ struct LicensesView: View {
                                     }
                                     Spacer()
                                     Image(systemName: "arrow.up.right")
-                                        .font(.system(size: 12, weight: .semibold))
+                                        .font(.systemScaled(12, weight: .semibold))
                                         .foregroundStyle(.secondary)
                                 }
                                 .padding(.horizontal, 16)

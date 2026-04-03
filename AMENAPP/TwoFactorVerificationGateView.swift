@@ -36,7 +36,7 @@ struct TwoFactorVerificationGateView: View {
                 VStack(spacing: 32) {
                     // Icon
                     Image(systemName: "lock.shield.fill")
-                        .font(.system(size: 80))
+                        .font(.systemScaled(80))
                         .foregroundStyle(.green.opacity(0.9))
                         .padding(.top, 60)
                     

@@ -42,6 +42,10 @@ struct AMENUserPreferences: Codable, Equatable {
     var prayerChainLiveActivityEnabled: Bool = true
     var liveEventActivityEnabled: Bool = true
 
+    // MARK: Messaging Features
+    var scheduleReplyEnabled: Bool = true   // "Send Later" in chat composer
+    var editMessageEnabled: Bool = true     // ability to edit sent messages
+
     // MARK: Siri & Shortcuts
     var siriIntegrationEnabled: Bool = true
     var siriSuggestionsEnabled: Bool = true

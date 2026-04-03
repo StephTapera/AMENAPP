@@ -41,18 +41,18 @@ struct BlockedMessageExplanationView: View {
                     .frame(width: 80, height: 80)
                 
                 Image(systemName: "hand.raised.fill")
-                    .font(.system(size: 36))
+                    .font(.systemScaled(36))
                     .foregroundStyle(Color.orange)
             }
             
             // Title
             Text("Message Not Sent")
-                .font(.system(size: 22, weight: .bold))
+                .font(.systemScaled(22, weight: .bold))
                 .foregroundStyle(.primary)
             
             // Grace-based explanation
             Text(reason)
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
@@ -65,16 +65,16 @@ struct BlockedMessageExplanationView: View {
                     
                     HStack(spacing: 6) {
                         Image(systemName: "book.closed.fill")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(.secondary)
                         
                         Text(ref)
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.systemScaled(13, weight: .medium))
                             .foregroundStyle(.secondary)
                     }
                     
                     Text(scriptureText(for: ref))
-                        .font(.system(size: 14, design: .serif))
+                        .font(.systemScaled(14, design: .serif))
                         .foregroundStyle(.primary)
                         .italic()
                         .multilineTextAlignment(.center)
@@ -93,7 +93,7 @@ struct BlockedMessageExplanationView: View {
                 onUnderstand()
             } label: {
                 Text("I Understand")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
@@ -145,19 +145,19 @@ struct HeldForReviewView: View {
                     .frame(width: 80, height: 80)
                 
                 Image(systemName: "clock.badge.checkmark.fill")
-                    .font(.system(size: 36))
+                    .font(.systemScaled(36))
                     .foregroundStyle(Color.blue)
             }
             
             // Title
             Text("Message Under Review")
-                .font(.system(size: 22, weight: .bold))
+                .font(.systemScaled(22, weight: .bold))
                 .foregroundStyle(.primary)
             
             // Explanation
             VStack(spacing: 12) {
                 Text("We're reviewing this message to ensure it aligns with our community standards.")
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 24)
@@ -165,11 +165,11 @@ struct HeldForReviewView: View {
                 // Time estimate
                 HStack(spacing: 8) {
                     Image(systemName: "clock")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(.secondary)
                     
                     Text("Usually takes \(estimatedTime)")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.systemScaled(14, weight: .medium))
                         .foregroundStyle(.secondary)
                 }
                 .padding(.horizontal, 20)
@@ -183,13 +183,13 @@ struct HeldForReviewView: View {
             // Grace-based reassurance
             VStack(spacing: 8) {
                 Text("Our Goal")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(.secondary)
                     .textCase(.uppercase)
                     .tracking(0.5)
                 
                 Text("We want everyone to feel safe and respected. If your message is approved, it will be delivered automatically.")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
@@ -206,7 +206,7 @@ struct HeldForReviewView: View {
                 onCancel()
             } label: {
                 Text("Got It")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
@@ -243,18 +243,18 @@ struct WarningDeliveredView: View {
                     .frame(width: 80, height: 80)
                 
                 Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 36))
+                    .font(.systemScaled(36))
                     .foregroundStyle(Color.yellow)
             }
             
             // Title
             Text("Message Delivered with Caution")
-                .font(.system(size: 22, weight: .bold))
+                .font(.systemScaled(22, weight: .bold))
                 .foregroundStyle(.primary)
             
             // Explanation
             Text("Your message was sent, but the recipient will see a gentle reminder to proceed with care.")
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
@@ -263,16 +263,16 @@ struct WarningDeliveredView: View {
             VStack(spacing: 12) {
                 HStack(spacing: 8) {
                     Image(systemName: "heart.circle.fill")
-                        .font(.system(size: 16))
+                        .font(.systemScaled(16))
                         .foregroundStyle(.pink)
                     
                     Text("Moving Forward with Grace")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(.primary)
                 }
                 
                 Text("Consider reviewing your message and continuing the conversation in a way that honors both you and the recipient.")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 20)
@@ -289,7 +289,7 @@ struct WarningDeliveredView: View {
                 onContinue()
             } label: {
                 Text("Continue")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
@@ -315,16 +315,16 @@ struct SafetyStrikeBanner: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: strikeCount >= 3 ? "exclamationmark.octagon.fill" : "info.circle.fill")
-                .font(.system(size: 20))
+                .font(.systemScaled(20))
                 .foregroundStyle(strikeCount >= 3 ? .red : .orange)
             
             VStack(alignment: .leading, spacing: 4) {
                 Text("Community Standard Notice")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.primary)
                 
                 Text(reason)
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
             }
@@ -335,7 +335,7 @@ struct SafetyStrikeBanner: View {
                 onLearnMore()
             } label: {
                 Text("Learn More")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(.blue)
             }
         }
@@ -366,15 +366,15 @@ struct SafetyEducationSheet: View {
                     // Header
                     VStack(spacing: 12) {
                         Image(systemName: "book.pages.fill")
-                            .font(.system(size: 48))
+                            .font(.systemScaled(48))
                             .foregroundStyle(.blue)
                         
                         Text("Community Standards")
-                            .font(.system(size: 26, weight: .bold))
+                            .font(.systemScaled(26, weight: .bold))
                             .foregroundStyle(.primary)
                         
                         Text("Building a safe and respectful community together")
-                            .font(.system(size: 15))
+                            .font(.systemScaled(15))
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
                     }
@@ -383,11 +383,11 @@ struct SafetyEducationSheet: View {
                     // Specific violation explanation
                     VStack(alignment: .leading, spacing: 16) {
                         Text("What Happened")
-                            .font(.system(size: 18, weight: .bold))
+                            .font(.systemScaled(18, weight: .bold))
                             .foregroundStyle(.primary)
                         
                         Text(violationExplanation(for: violation))
-                            .font(.system(size: 15))
+                            .font(.systemScaled(15))
                             .foregroundStyle(.secondary)
                     }
                     .padding(20)
@@ -400,11 +400,11 @@ struct SafetyEducationSheet: View {
                     // Grace-based guidance
                     VStack(alignment: .leading, spacing: 16) {
                         Text("Moving Forward")
-                            .font(.system(size: 18, weight: .bold))
+                            .font(.systemScaled(18, weight: .bold))
                             .foregroundStyle(.primary)
                         
                         Text("We believe in restoration and growth. Here's how you can continue building meaningful connections:")
-                            .font(.system(size: 15))
+                            .font(.systemScaled(15))
                             .foregroundStyle(.secondary)
                         
                         VStack(alignment: .leading, spacing: 12) {
@@ -439,7 +439,7 @@ struct SafetyEducationSheet: View {
                         dismiss()
                     } label: {
                         Text("Done")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                     }
                 }
             }
@@ -450,11 +450,11 @@ struct SafetyEducationSheet: View {
     private func guidanceBullet(icon: String, text: String) -> some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
                 .foregroundStyle(.green)
             
             Text(text)
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .foregroundStyle(.primary)
         }
     }

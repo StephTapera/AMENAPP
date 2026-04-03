@@ -25,18 +25,18 @@ struct AMENConnectBanner: View {
                     .frame(width: 52, height: 52)
 
                 Image(systemName: "person.2.wave.2.fill")
-                    .font(.system(size: 22, weight: .semibold))
+                    .font(.systemScaled(22, weight: .semibold))
                     .foregroundStyle(.black.opacity(0.75))
             }
 
             // Text + pills
             VStack(alignment: .leading, spacing: 6) {
                 Text("AMEN Connect")
-                    .font(.system(size: 17, weight: .bold))
+                    .font(.systemScaled(17, weight: .bold))
                     .foregroundStyle(.primary)
 
                 Text("Find your people, serve, and grow together.")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
 
@@ -44,7 +44,7 @@ struct AMENConnectBanner: View {
                 HStack(spacing: 6) {
                     ForEach(featurePills.prefix(3), id: \.self) { pill in
                         Text(pill)
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.systemScaled(11, weight: .medium))
                             .foregroundStyle(.black.opacity(0.55))
                             .padding(.horizontal, 8)
                             .padding(.vertical, 3)
@@ -54,7 +54,7 @@ struct AMENConnectBanner: View {
                             )
                     }
                     Text("+\(featurePills.count - 3)")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.systemScaled(11, weight: .medium))
                         .foregroundStyle(.black.opacity(0.35))
                 }
             }
@@ -62,7 +62,7 @@ struct AMENConnectBanner: View {
             Spacer(minLength: 0)
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(.secondary)
         }
         .padding(16)

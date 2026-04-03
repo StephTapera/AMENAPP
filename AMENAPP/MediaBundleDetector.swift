@@ -87,10 +87,10 @@ enum BundleType: String {
     }
 }
 
-// MARK: - MediaItem
+// MARK: - BundleMediaItem
 
 /// A single media item submitted to the bundle detector.
-struct MediaItem: Identifiable {
+struct BundleMediaItem: Identifiable {
     let id: String
     let type: MediaItemType
     /// When the media was captured, if available.
@@ -154,7 +154,7 @@ final class MediaBundleDetector {
     ///   - items: The media items the user has attached.
     ///   - accountType: `"personal"`, `"church"`, or `"business"`.
     /// - Returns: A `BundleDetectionResult` with suggestions.
-    func detect(items: [MediaItem], accountType: String) -> BundleDetectionResult {
+    func detect(items: [BundleMediaItem], accountType: String) -> BundleDetectionResult {
         guard !items.isEmpty else {
             return BundleDetectionResult(
                 suggestedType: .mixed,
@@ -349,7 +349,7 @@ final class MediaBundleDetector {
     /// - `mixed` / others: Videos first, then photos chronologically.
     ///
     /// Items without a `capturedAt` timestamp retain their original relative order.
-    func recommendedOrder(for items: [MediaItem], bundleType: BundleType) -> [MediaItem] {
+    func recommendedOrder(for items: [BundleMediaItem], bundleType: BundleType) -> [BundleMediaItem] {
         switch bundleType {
 
         case .storySequence, .eventRecap, .beforeAfter:

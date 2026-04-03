@@ -634,7 +634,7 @@ struct MuteSuggestionRow: View {
             HStack {
                 Image(systemName: iconName)
                     .foregroundColor(.orange)
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(suggestion.displayMessage)

@@ -80,7 +80,7 @@ struct AMENReactionButton: View {
                         )
 
                     Image(systemName: reaction.rawValue)
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.systemScaled(18, weight: .semibold))
                         .foregroundStyle(
                             isActive
                                 ? reaction.activeColor
@@ -92,7 +92,7 @@ struct AMENReactionButton: View {
 
                 // Count label
                 Text(count > 0 ? "\(count)" : reaction.label)
-                    .font(.system(size: 10, weight: count > 0 ? .bold : .regular))
+                    .font(.systemScaled(10, weight: count > 0 ? .bold : .regular))
                     .foregroundStyle(
                         isActive
                             ? reaction.activeColor
@@ -231,7 +231,7 @@ struct AMENMediaViewer: View {
                 HStack {
                     Button { dismiss() } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 14, weight: .bold))
+                            .font(.systemScaled(14, weight: .bold))
                             .foregroundStyle(.white)
                             .frame(width: 36, height: 36)
                             .background(Color.white.opacity(0.15), in: Circle())

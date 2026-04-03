@@ -50,7 +50,7 @@ struct StarRatingRow: View {
             onRatingChanged?(index)
         } label: {
             Image(systemName: index <= rating ? "star.fill" : "star")
-                .font(.system(size: starSize, weight: .medium))
+                .font(.systemScaled(starSize, weight: .medium))
                 .foregroundStyle(starColor)
                 .frame(width: starSize + 8, height: starSize + 8) // Larger tap target
                 .contentShape(Rectangle()) // Entire area tappable

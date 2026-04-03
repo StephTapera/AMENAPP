@@ -82,7 +82,7 @@ struct VergeCreateRoomSheet: View {
                         Image(systemName: "xmark.circle.fill")
                             .symbolRenderingMode(.hierarchical)
                             .foregroundStyle(.white.opacity(0.6))
-                            .font(.system(size: 22))
+                            .font(.systemScaled(22))
                     }
                 }
             }
@@ -129,7 +129,7 @@ struct VergeCreateRoomSheet: View {
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: type.icon)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                 Text(type.label)
                     .font(AMENFont.semiBold(13))
             }
@@ -248,7 +248,7 @@ struct VergeCreateRoomSheet: View {
     private func toggleRow(icon: String, label: String, binding: Binding<Bool>, color: Color) -> some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 17, weight: .semibold))
+                .font(.systemScaled(17, weight: .semibold))
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(color)
                 .frame(width: 24)
@@ -302,7 +302,7 @@ struct VergeCreateRoomSheet: View {
                 } else {
                     HStack(spacing: 8) {
                         Image(systemName: isScheduled ? "calendar.badge.plus" : "video.fill")
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(.systemScaled(15, weight: .semibold))
                         Text(isScheduled ? "Schedule Room" : "Go Live Now")
                             .font(AMENFont.bold(17))
                     }

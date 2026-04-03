@@ -7,6 +7,7 @@
 //
 
 import SwiftUI
+import Combine
 
 // MARK: - Ice Breaker Card
 
@@ -24,7 +25,7 @@ struct IceBreakerCard: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundColor(.blue)
 
                     Text("AI Suggestion")
@@ -34,7 +35,7 @@ struct IceBreakerCard: View {
                     Spacer()
 
                     Image(systemName: "arrow.right.circle.fill")
-                        .font(.system(size: 18))
+                        .font(.systemScaled(18))
                         .foregroundColor(.blue)
                 }
 
@@ -47,7 +48,7 @@ struct IceBreakerCard: View {
                 if let sharedInterest = iceBreaker.sharedInterest {
                     HStack(spacing: 4) {
                         Image(systemName: "heart.fill")
-                            .font(.system(size: 10))
+                            .font(.systemScaled(10))
                             .foregroundColor(.red.opacity(0.7))
 
                         Text("Shared: \(sharedInterest)")
@@ -117,7 +118,7 @@ struct SmartReplyChip: View {
         }) {
             HStack(spacing: 6) {
                 Image(systemName: icon)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
 
                 Text(suggestion.text)
                     .font(.custom("OpenSans-SemiBold", size: 14))
@@ -149,7 +150,7 @@ struct IceBreakersSection: View {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 6) {
                         Image(systemName: "sparkles")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .foregroundColor(.blue)
 
                         Text("Start the Conversation")
@@ -165,7 +166,7 @@ struct IceBreakersSection: View {
 
                 Button(action: onDismiss) {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 24))
+                        .font(.systemScaled(24))
                         .foregroundColor(.gray.opacity(0.5))
                 }
             }
@@ -198,7 +199,7 @@ struct SmartRepliesBar: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 4) {
                 Image(systemName: "sparkles")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundColor(.blue)
 
                 Text("Smart Replies")
@@ -250,7 +251,7 @@ struct ConversationInsightsCard: View {
             HStack {
                 HStack(spacing: 8) {
                     Image(systemName: "brain")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundColor(toneColor)
 
                     Text(insight.title)
@@ -265,7 +266,7 @@ struct ConversationInsightsCard: View {
                     }
                 }) {
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundColor(.gray)
                 }
             }
@@ -281,7 +282,7 @@ struct ConversationInsightsCard: View {
                 if let scripture = insight.scriptureReference {
                     HStack(spacing: 6) {
                         Image(systemName: "book.fill")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundColor(.purple)
 
                         Text(scripture)
@@ -305,7 +306,7 @@ struct ConversationInsightsCard: View {
                         ForEach(insight.actionItems, id: \.self) { action in
                             HStack(alignment: .top, spacing: 6) {
                                 Image(systemName: "checkmark.circle")
-                                    .font(.system(size: 12))
+                                    .font(.systemScaled(12))
                                     .foregroundColor(toneColor)
 
                                 Text(action)

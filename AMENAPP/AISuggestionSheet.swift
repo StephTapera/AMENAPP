@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Combine
 
 // MARK: - AI Preset Prompt Model
 
@@ -101,7 +102,7 @@ struct AISuggestionSheet: View {
                         } label: {
                             HStack(spacing: 8) {
                                 Image(systemName: "sparkles")
-                                    .font(.system(size: 16, weight: .semibold))
+                                    .font(.systemScaled(16, weight: .semibold))
                                     .symbolRenderingMode(.hierarchical)
                                 Text("Ask Berean AI")
                                     .font(AMENFont.bold(16))
@@ -170,7 +171,7 @@ struct AISuggestionSheet: View {
                         Image(systemName: "xmark.circle.fill")
                             .symbolRenderingMode(.hierarchical)
                             .foregroundStyle(.white.opacity(0.7))
-                            .font(.system(size: 22))
+                            .font(.systemScaled(22))
                     }
                 }
             }
@@ -193,7 +194,7 @@ private struct PresetButton: View {
         Button(action: action) {
             HStack(spacing: 10) {
                 Image(systemName: preset.icon)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(isSelected ? .white : amenPurple)
                     .frame(width: 22)
@@ -240,7 +241,7 @@ private struct SuggestionResultCard: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 8) {
                 Image(systemName: "sparkles")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(amenPurple)
                 Text("Berean's Suggestion")
@@ -258,7 +259,7 @@ private struct SuggestionResultCard: View {
                 Button(action: onInsert) {
                     HStack(spacing: 6) {
                         Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .symbolRenderingMode(.hierarchical)
                         Text("Insert into Canvas")
                             .font(AMENFont.semiBold(14))

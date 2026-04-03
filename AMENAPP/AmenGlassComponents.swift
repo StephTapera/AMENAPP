@@ -61,7 +61,7 @@ struct AmenGlassIconButton: View {
                     .frame(width: AmenSpacing.quickActionSize, height: AmenSpacing.quickActionSize)
 
                 Image(systemName: systemName)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundColor(AmenColor.titleText)
             }
         }
@@ -87,11 +87,11 @@ struct BereanActionChip: View {
         }) {
             HStack(spacing: 6) {
                 Image(systemName: icon)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundColor(isActive ? AmenColor.chipActiveText : AmenColor.titleText)
 
                 Text(title)
-                    .font(.system(size: 13.5, weight: .medium))
+                    .font(.systemScaled(13.5, weight: .medium))
                     .foregroundColor(isActive ? AmenColor.chipActiveText : AmenColor.titleText)
                     .lineLimit(1)
             }
@@ -137,15 +137,15 @@ struct BereanModePill: View {
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: selectedMode.icon)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                     .foregroundColor(AmenColor.titleText)
 
                 Text(selectedMode.label)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundColor(AmenColor.titleText)
 
                 Image(systemName: "chevron.up.chevron.down")
-                    .font(.system(size: 8, weight: .semibold))
+                    .font(.systemScaled(8, weight: .semibold))
                     .foregroundColor(AmenColor.mutedText)
             }
             .padding(.horizontal, 12)
@@ -205,7 +205,7 @@ private struct BereanModePickerView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text("Mode")
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
                 .foregroundColor(AmenColor.mutedText)
                 .padding(.horizontal, 16)
                 .padding(.top, 14)
@@ -220,16 +220,16 @@ private struct BereanModePickerView: View {
                 } label: {
                     HStack(spacing: 12) {
                         Image(systemName: mode.icon)
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.systemScaled(14, weight: .medium))
                             .foregroundColor(selectedMode == mode ? AmenColor.accent : AmenColor.bodyText)
                             .frame(width: 22)
                         Text(mode.label)
-                            .font(.system(size: 14, weight: selectedMode == mode ? .semibold : .regular))
+                            .font(.systemScaled(14, weight: selectedMode == mode ? .semibold : .regular))
                             .foregroundColor(AmenColor.titleText)
                         Spacer()
                         if selectedMode == mode {
                             Image(systemName: "checkmark")
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.systemScaled(12, weight: .semibold))
                                 .foregroundColor(AmenColor.accent)
                         }
                     }
@@ -293,7 +293,7 @@ struct BereanMicButton: View {
                         .frame(width: 44, height: 44)
 
                     Image(systemName: isRecording ? "stop.fill" : "mic")
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.systemScaled(16, weight: .medium))
                         .foregroundColor(isRecording ? .white : AmenColor.titleText)
                 }
             }

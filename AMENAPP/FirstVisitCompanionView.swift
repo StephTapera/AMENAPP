@@ -87,7 +87,7 @@ private struct OutlinePillButton: View {
             HStack(spacing: 6) {
                 if let icon {
                     Image(systemName: icon)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                 }
                 Text(label)
                     .font(PVTokens.pillFont)
@@ -134,7 +134,7 @@ private struct AccordionRow<Content: View>: View {
 
                     // Dash expander indicator (reference image uses "—" / "–" for expanded)
                     Text(isExpanded ? "—" : "+")
-                        .font(.system(size: 16, weight: .light, design: .monospaced))
+                        .font(.systemScaled(16, weight: .light, design: .monospaced))
                         .foregroundStyle(PVTokens.secondary)
                         .frame(width: 20, alignment: .trailing)
                 }
@@ -173,7 +173,7 @@ private struct MinimalCalendarView: View {
             HStack {
                 Button { shiftMonth(-1) } label: {
                     Image(systemName: "chevron.left")
-                        .font(.system(size: PVTokens.chevronSize, weight: .light))
+                        .font(.systemScaled(PVTokens.chevronSize, weight: .light))
                         .foregroundStyle(PVTokens.secondary)
                 }
                 .buttonStyle(.plain)
@@ -181,7 +181,7 @@ private struct MinimalCalendarView: View {
                 Spacer()
 
                 Text(monthLabel)
-                    .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                    .font(.systemScaled(14, weight: .semibold, design: .monospaced))
                     .foregroundStyle(PVTokens.primary)
                     .kerning(1)
 
@@ -189,7 +189,7 @@ private struct MinimalCalendarView: View {
 
                 Button { shiftMonth(1) } label: {
                     Image(systemName: "chevron.right")
-                        .font(.system(size: PVTokens.chevronSize, weight: .light))
+                        .font(.systemScaled(PVTokens.chevronSize, weight: .light))
                         .foregroundStyle(PVTokens.secondary)
                 }
                 .buttonStyle(.plain)
@@ -200,7 +200,7 @@ private struct MinimalCalendarView: View {
             HStack(spacing: 0) {
                 ForEach(Array(dayNames.enumerated()), id: \.offset) { _, d in
                     Text(d)
-                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .font(.systemScaled(10, weight: .medium, design: .monospaced))
                         .foregroundStyle(PVTokens.tertiary)
                         .frame(maxWidth: .infinity)
                 }
@@ -234,7 +234,7 @@ private struct MinimalCalendarView: View {
                                         .padding(4)
                                 }
                                 Text("\(cal.component(.day, from: date))")
-                                    .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                                    .font(.systemScaled(13, weight: isSelected ? .semibold : .regular))
                                     .foregroundStyle(
                                         isSelected ? PVTokens.accent :
                                         isPast ? PVTokens.tertiary.opacity(0.4) :
@@ -424,7 +424,7 @@ struct FirstVisitCompanionView: View {
                 dismiss()
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(PVTokens.secondary)
                     .frame(width: 32, height: 32)
                     .background(PVTokens.surface)
@@ -480,7 +480,7 @@ struct FirstVisitCompanionView: View {
                 if church.verified {
                     HStack(spacing: 4) {
                         Image(systemName: "checkmark.seal.fill")
-                            .font(.system(size: 10))
+                            .font(.systemScaled(10))
                             .foregroundStyle(PVTokens.accent)
                         Text("VERIFIED")
                             .font(PVTokens.rowMetaFont)
@@ -550,10 +550,10 @@ struct FirstVisitCompanionView: View {
             PVTokens.surface
             VStack(spacing: 8) {
                 Image(systemName: "building.2")
-                    .font(.system(size: 36, weight: .ultraLight))
+                    .font(.systemScaled(36, weight: .ultraLight))
                     .foregroundStyle(PVTokens.tertiary)
                 Text(church.name.prefix(1))
-                    .font(.system(size: 52, weight: .thin))
+                    .font(.systemScaled(52, weight: .thin))
                     .foregroundStyle(PVTokens.tertiary.opacity(0.4))
             }
         }
@@ -582,14 +582,14 @@ struct FirstVisitCompanionView: View {
                 ForEach(Array(items.enumerated()), id: \.offset) { idx, item in
                     HStack(alignment: .top, spacing: 16) {
                         Image(systemName: item.icon)
-                            .font(.system(size: 14, weight: .light))
+                            .font(.systemScaled(14, weight: .light))
                             .foregroundStyle(PVTokens.tertiary)
                             .frame(width: 20)
                             .padding(.top, 1)
 
                         VStack(alignment: .leading, spacing: 3) {
                             Text(item.title.uppercased())
-                                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                                .font(.systemScaled(10, weight: .semibold, design: .monospaced))
                                 .foregroundStyle(PVTokens.tertiary)
                                 .kerning(0.6)
                             Text(item.value)
@@ -617,7 +617,7 @@ struct FirstVisitCompanionView: View {
                         .tint(PVTokens.accent)
                         .scaleEffect(0.8)
                     Text("PREPARING YOUR VISIT GUIDE...")
-                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                        .font(.systemScaled(10, weight: .semibold, design: .monospaced))
                         .foregroundStyle(PVTokens.tertiary)
                         .kerning(0.6)
                 }
@@ -629,10 +629,10 @@ struct FirstVisitCompanionView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(spacing: 6) {
                         Image(systemName: "sparkles")
-                            .font(.system(size: 10, weight: .light))
+                            .font(.systemScaled(10, weight: .light))
                             .foregroundStyle(PVTokens.accent)
                         Text("AI VISIT GUIDE")
-                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                            .font(.systemScaled(10, weight: .semibold, design: .monospaced))
                             .foregroundStyle(PVTokens.accent)
                             .kerning(0.6)
                     }
@@ -651,7 +651,7 @@ struct FirstVisitCompanionView: View {
                 } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "sparkles")
-                            .font(.system(size: 13, weight: .light))
+                            .font(.systemScaled(13, weight: .light))
                         Text("Get AI Visit Guide")
                             .font(PVTokens.bodyFont)
                     }
@@ -685,7 +685,7 @@ struct FirstVisitCompanionView: View {
                         HStack(spacing: 0) {
                             VStack(alignment: .leading, spacing: 5) {
                                 Text(service.serviceType.uppercased())
-                                    .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                                    .font(.systemScaled(14, weight: .semibold, design: .monospaced))
                                     .foregroundStyle(
                                         viewModel.selectedService?.id == service.id ?
                                         PVTokens.primary : PVTokens.secondary
@@ -694,16 +694,16 @@ struct FirstVisitCompanionView: View {
 
                                 HStack(spacing: 8) {
                                     Text("\(service.dayOfWeek)  \(service.startTime)")
-                                        .font(.system(size: 12, weight: .light, design: .monospaced))
+                                        .font(.systemScaled(12, weight: .light, design: .monospaced))
                                         .foregroundStyle(PVTokens.tertiary)
                                     if let lang = service.language, lang != "English" {
                                         Text("·  \(lang)")
-                                            .font(.system(size: 12, weight: .light, design: .monospaced))
+                                            .font(.systemScaled(12, weight: .light, design: .monospaced))
                                             .foregroundStyle(PVTokens.tertiary)
                                     }
                                     if service.streamingAvailable {
                                         Text("·  STREAM")
-                                            .font(.system(size: 11, weight: .medium, design: .monospaced))
+                                            .font(.systemScaled(11, weight: .medium, design: .monospaced))
                                             .foregroundStyle(PVTokens.accent.opacity(0.7))
                                     }
                                 }
@@ -754,9 +754,9 @@ struct FirstVisitCompanionView: View {
             if !viewModel.isValidVisitDate() {
                 HStack(spacing: 8) {
                     Image(systemName: "exclamationmark.triangle")
-                        .font(.system(size: 12, weight: .light))
+                        .font(.systemScaled(12, weight: .light))
                     Text("Please select a future date")
-                        .font(.system(size: 12, weight: .light, design: .monospaced))
+                        .font(.systemScaled(12, weight: .light, design: .monospaced))
                 }
                 .foregroundStyle(Color.orange.opacity(0.85))
                 .padding(.horizontal, PVTokens.hPad)
@@ -798,7 +798,7 @@ struct FirstVisitCompanionView: View {
     private func reminderToggleRow(icon: String, label: String, binding: Binding<Bool>) -> some View {
         HStack(spacing: 16) {
             Image(systemName: icon)
-                .font(.system(size: 14, weight: .light))
+                .font(.systemScaled(14, weight: .light))
                 .foregroundStyle(PVTokens.tertiary)
                 .frame(width: 20)
 
@@ -853,7 +853,7 @@ struct FirstVisitCompanionView: View {
 
                     if !isReadyToCreate {
                         Text(readinessHint)
-                            .font(.system(size: 12, weight: .light, design: .monospaced))
+                            .font(.systemScaled(12, weight: .light, design: .monospaced))
                             .foregroundStyle(PVTokens.tertiary)
                             .multilineTextAlignment(.center)
                     }
@@ -864,7 +864,7 @@ struct FirstVisitCompanionView: View {
                 VStack(spacing: 14) {
                     HStack(spacing: 8) {
                         Image(systemName: "checkmark.circle")
-                            .font(.system(size: 14, weight: .light))
+                            .font(.systemScaled(14, weight: .light))
                             .foregroundStyle(PVTokens.accent)
                         Text("VISIT PLANNED")
                             .font(PVTokens.rowMetaFont)

@@ -398,20 +398,20 @@ struct CreatorView: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Creator Hub")
-                            .font(.system(size: 28, weight: .bold))
+                            .font(.systemScaled(28, weight: .bold))
                             .foregroundStyle(.white)
                         Text("Faith teachers, podcasters & worship leaders")
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundStyle(.white.opacity(0.75))
                     }
                     Spacer()
                     // Total creators badge
                     VStack(spacing: 2) {
                         Text("\(store.allCreators.count)")
-                            .font(.system(size: 20, weight: .black))
+                            .font(.systemScaled(20, weight: .black))
                             .foregroundStyle(.white)
                         Text("Creators")
-                            .font(.system(size: 10))
+                            .font(.systemScaled(10))
                             .foregroundStyle(.white.opacity(0.75))
                     }
                     .padding(.horizontal, 14)
@@ -437,7 +437,7 @@ struct CreatorView: View {
                     }
                 } label: {
                     Text(tab.rawValue)
-                        .font(.system(size: 14, weight: selectedTab == tab ? .semibold : .regular))
+                        .font(.systemScaled(14, weight: selectedTab == tab ? .semibold : .regular))
                         .foregroundStyle(selectedTab == tab ? .white : .primary)
                         .padding(.horizontal, 18)
                         .padding(.vertical, 9)
@@ -478,7 +478,7 @@ struct CreatorView: View {
                 Image(systemName: "magnifyingglass")
                     .foregroundStyle(.secondary)
                 TextField("Search creators...", text: $searchText)
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                 if !searchText.isEmpty {
                     Button { searchText = "" } label: {
                         Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
@@ -504,7 +504,7 @@ struct CreatorView: View {
             if searchText.isEmpty && selectedCategory == nil {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Featured")
-                        .font(.system(size: 18, weight: .bold))
+                        .font(.systemScaled(18, weight: .bold))
                         .padding(.horizontal, 20)
 
                     ScrollView(.horizontal, showsIndicators: false) {
@@ -530,10 +530,10 @@ struct CreatorView: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Text(searchText.isEmpty && selectedCategory == nil ? "All Creators" : "Results")
-                        .font(.system(size: 18, weight: .bold))
+                        .font(.systemScaled(18, weight: .bold))
                     Spacer()
                     Text("\(filteredCreators.count)")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 4)
@@ -578,9 +578,9 @@ struct CreatorView: View {
         } label: {
             HStack(spacing: 5) {
                 if let cat {
-                    Image(systemName: cat.icon).font(.system(size: 11))
+                    Image(systemName: cat.icon).font(.systemScaled(11))
                 }
-                Text(label).font(.system(size: 13, weight: .medium))
+                Text(label).font(.systemScaled(13, weight: .medium))
             }
             .foregroundStyle(selectedCategory == cat ? .white : .primary)
             .padding(.horizontal, 12)
@@ -603,14 +603,14 @@ struct CreatorView: View {
     private var seriesTab: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Teaching Series")
-                .font(.system(size: 20, weight: .bold))
+                .font(.systemScaled(20, weight: .bold))
                 .padding(.horizontal, 20)
                 .padding(.top, 4)
 
             // Latest posts
             VStack(alignment: .leading, spacing: 12) {
                 Text("Recent Content")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 20)
 
@@ -628,7 +628,7 @@ struct CreatorView: View {
             // Series grid
             VStack(alignment: .leading, spacing: 12) {
                 Text("Series")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 20)
 
@@ -653,7 +653,7 @@ struct CreatorView: View {
     private var followingTab: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Following")
-                .font(.system(size: 20, weight: .bold))
+                .font(.systemScaled(20, weight: .bold))
                 .padding(.horizontal, 20)
                 .padding(.top, 4)
 
@@ -662,19 +662,19 @@ struct CreatorView: View {
             if followed.isEmpty {
                 VStack(spacing: 16) {
                     Image(systemName: "person.crop.circle.badge.plus")
-                        .font(.system(size: 44))
+                        .font(.systemScaled(44))
                         .foregroundStyle(Color(red: 0.58, green: 0.15, blue: 0.75).opacity(0.5))
                     Text("You're not following anyone yet")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                     Text("Discover faith creators and follow them to see their content here.")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                     Button {
                         withAnimation { selectedTab = .discover }
                     } label: {
                         Text("Browse Creators")
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(.systemScaled(15, weight: .semibold))
                             .foregroundStyle(.white)
                             .padding(.horizontal, 24)
                             .padding(.vertical, 12)
@@ -728,13 +728,13 @@ struct FeaturedCreatorCard: View {
                 .clipShape(Circle())
                 .overlay(
                     Text(String(creator.displayName.prefix(1)))
-                        .font(.system(size: 22, weight: .bold))
+                        .font(.systemScaled(22, weight: .bold))
                         .foregroundStyle(.white)
                 )
 
                 if creator.isVerified {
                     Image(systemName: "checkmark.seal.fill")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(Color(red: 0.28, green: 0.52, blue: 0.90))
                         .background(Color.white, in: Circle())
                         .offset(x: 2, y: 2)
@@ -742,27 +742,27 @@ struct FeaturedCreatorCard: View {
             }
 
             Text(creator.displayName)
-                .font(.system(size: 15, weight: .bold))
+                .font(.systemScaled(15, weight: .bold))
                 .lineLimit(1)
 
             Text(creator.category.rawValue)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
                 .foregroundStyle(creator.category.color)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 3)
                 .background(creator.category.color.opacity(0.12), in: Capsule())
 
             Text(creator.bio)
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
 
             HStack {
                 Image(systemName: "person.2.fill")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.secondary)
                 Text("\(formatCount(creator.subscriberCount)) followers")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.secondary)
             }
         }
@@ -801,13 +801,13 @@ struct CreatorListCard: View {
                 .clipShape(Circle())
                 .overlay(
                     Text(String(creator.displayName.prefix(1)))
-                        .font(.system(size: 20, weight: .bold))
+                        .font(.systemScaled(20, weight: .bold))
                         .foregroundStyle(.white)
                 )
 
                 if creator.isVerified {
                     Image(systemName: "checkmark.seal.fill")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(Color(red: 0.28, green: 0.52, blue: 0.90))
                         .background(Color.white, in: Circle())
                         .offset(x: 2, y: 2)
@@ -817,20 +817,20 @@ struct CreatorListCard: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     Text(creator.displayName)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                     Text(creator.category.rawValue)
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.systemScaled(10, weight: .semibold))
                         .foregroundStyle(creator.category.color)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
                         .background(creator.category.color.opacity(0.1), in: Capsule())
                 }
                 Text(creator.bio)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
                 Text("\(formatCount(creator.subscriberCount)) followers · \(creator.totalContent) posts")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.secondary)
             }
 
@@ -846,7 +846,7 @@ struct CreatorListCard: View {
                         ProgressView().scaleEffect(0.7).frame(width: 60)
                     } else {
                         Text(isFollowed ? "Following" : "Follow")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                             .foregroundStyle(isFollowed ? Color(red: 0.58, green: 0.15, blue: 0.75) : .white)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 6)
@@ -868,7 +868,7 @@ struct CreatorListCard: View {
                         onTip()
                     } label: {
                         Image(systemName: "gift.fill")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(Color(red: 0.90, green: 0.47, blue: 0.10))
                     }
                 }
@@ -897,41 +897,41 @@ struct ContentPostCard: View {
                     .fill(typeColor.opacity(0.12))
                     .frame(width: 44, height: 44)
                 Image(systemName: typeIcon)
-                    .font(.system(size: 18))
+                    .font(.systemScaled(18))
                     .foregroundStyle(typeColor)
             }
 
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     Text(post.title)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .lineLimit(1)
                     if post.isSubscriberOnly {
                         Image(systemName: "lock.fill")
-                            .font(.system(size: 10))
+                            .font(.systemScaled(10))
                             .foregroundStyle(.secondary)
                     }
                 }
                 Text(post.excerpt)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
                 HStack(spacing: 10) {
                     if let creator {
                         Text(creator.displayName)
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.systemScaled(11, weight: .medium))
                             .foregroundStyle(creator.category.color)
                     }
                     Text("·")
                         .foregroundStyle(.secondary)
                     Text("\(post.durationMinutes) min")
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(.secondary)
                     if !post.scripture.isEmpty {
                         Text("·")
                             .foregroundStyle(.secondary)
                         Text(post.scripture)
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.systemScaled(11, weight: .medium))
                             .foregroundStyle(Color(red: 0.42, green: 0.24, blue: 0.82))
                     }
                 }
@@ -941,10 +941,10 @@ struct ContentPostCard: View {
 
             HStack(spacing: 4) {
                 Image(systemName: "heart")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.secondary)
                 Text("\(post.likeCount)")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.secondary)
             }
         }
@@ -992,13 +992,13 @@ struct SeriesCard: View {
                 .clipShape(RoundedRectangle(cornerRadius: 10))
                 .overlay(
                     Image(systemName: series.category.icon)
-                        .font(.system(size: 28))
+                        .font(.systemScaled(28))
                         .foregroundStyle(.white.opacity(0.3))
                 )
 
                 if series.isSubscriberOnly {
                     Image(systemName: "lock.fill")
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(.white)
                         .padding(6)
                         .background(.black.opacity(0.4), in: Circle())
@@ -1007,19 +1007,19 @@ struct SeriesCard: View {
             }
 
             Text(series.title)
-                .font(.system(size: 13, weight: .bold))
+                .font(.systemScaled(13, weight: .bold))
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
 
             if let creator {
                 Text(creator.displayName)
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(series.category.color)
             }
 
             HStack(spacing: 8) {
                 Label("\(series.episodeCount) episodes", systemImage: "play.circle")
-                    .font(.system(size: 10))
+                    .font(.systemScaled(10))
                     .foregroundStyle(.secondary)
             }
         }
@@ -1054,7 +1054,7 @@ struct CreatorProfileSheet: View {
                     .frame(height: 120)
                     .overlay(
                         Image(systemName: creator.category.icon)
-                            .font(.system(size: 50))
+                            .font(.systemScaled(50))
                             .foregroundStyle(.white.opacity(0.15))
                     )
 
@@ -1070,7 +1070,7 @@ struct CreatorProfileSheet: View {
                             .clipShape(Circle())
                             .overlay(
                                 Text(String(creator.displayName.prefix(1)))
-                                    .font(.system(size: 28, weight: .bold))
+                                    .font(.systemScaled(28, weight: .bold))
                                     .foregroundStyle(.white)
                             )
                             .overlay(Circle().stroke(.white, lineWidth: 3))
@@ -1078,7 +1078,7 @@ struct CreatorProfileSheet: View {
 
                             if creator.isVerified {
                                 Image(systemName: "checkmark.seal.fill")
-                                    .font(.system(size: 18))
+                                    .font(.systemScaled(18))
                                     .foregroundStyle(Color(red: 0.28, green: 0.52, blue: 0.90))
                                     .background(Color.white, in: Circle())
                                     .offset(x: 4, y: -32)
@@ -1086,14 +1086,14 @@ struct CreatorProfileSheet: View {
                         }
 
                         Text(creator.displayName)
-                            .font(.system(size: 20, weight: .bold))
+                            .font(.systemScaled(20, weight: .bold))
                             .offset(y: -28)
                         Text("@\(creator.handle)")
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundStyle(.secondary)
                             .offset(y: -28)
                         Text(creator.category.rawValue)
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                             .foregroundStyle(creator.category.color)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 4)
@@ -1120,19 +1120,19 @@ struct CreatorProfileSheet: View {
                     VStack(alignment: .leading, spacing: 20) {
                         // Bio
                         Text(creator.bio)
-                            .font(.system(size: 15))
+                            .font(.systemScaled(15))
                             .lineSpacing(4)
 
                         // Specialties
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Specialties")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.systemScaled(14, weight: .semibold))
                                 .foregroundStyle(.secondary)
                             ScrollView(.horizontal, showsIndicators: false) {
                                 HStack(spacing: 8) {
                                     ForEach(creator.specialties, id: \.self) { s in
                                         Text(s)
-                                            .font(.system(size: 12, weight: .medium))
+                                            .font(.systemScaled(12, weight: .medium))
                                             .foregroundStyle(creator.category.color)
                                             .padding(.horizontal, 10)
                                             .padding(.vertical, 5)
@@ -1146,7 +1146,7 @@ struct CreatorProfileSheet: View {
                         if !creator.featuredSeries.isEmpty {
                             VStack(alignment: .leading, spacing: 6) {
                                 Text("Featured Series")
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(.systemScaled(14, weight: .semibold))
                                     .foregroundStyle(.secondary)
                                 HStack(spacing: 12) {
                                     ZStack {
@@ -1154,11 +1154,11 @@ struct CreatorProfileSheet: View {
                                             .fill(creator.category.color.opacity(0.12))
                                             .frame(width: 44, height: 44)
                                         Image(systemName: "play.circle.fill")
-                                            .font(.system(size: 20))
+                                            .font(.systemScaled(20))
                                             .foregroundStyle(creator.category.color)
                                     }
                                     Text(creator.featuredSeries)
-                                        .font(.system(size: 14, weight: .semibold))
+                                        .font(.systemScaled(14, weight: .semibold))
                                 }
                                 .padding(12)
                                 .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
@@ -1178,7 +1178,7 @@ struct CreatorProfileSheet: View {
                             } label: {
                                 let followed = store.followedCreatorIDs.contains(creator.id)
                                 Text(followed ? "Following" : "Follow")
-                                    .font(.system(size: 16, weight: .semibold))
+                                    .font(.systemScaled(16, weight: .semibold))
                                     .foregroundStyle(followed ? Color(red: 0.58, green: 0.15, blue: 0.75) : .white)
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 14)
@@ -1204,7 +1204,7 @@ struct CreatorProfileSheet: View {
                                         Image(systemName: "gift.fill")
                                         Text("Tip")
                                     }
-                                    .font(.system(size: 16, weight: .semibold))
+                                    .font(.systemScaled(16, weight: .semibold))
                                     .foregroundStyle(Color(red: 0.90, green: 0.47, blue: 0.10))
                                     .padding(.horizontal, 20)
                                     .padding(.vertical, 14)
@@ -1232,9 +1232,9 @@ struct CreatorProfileSheet: View {
     private func statBlock(_ value: String, label: String) -> some View {
         VStack(spacing: 3) {
             Text(value)
-                .font(.system(size: 16, weight: .bold))
+                .font(.systemScaled(16, weight: .bold))
             Text(label)
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
@@ -1274,13 +1274,13 @@ struct TipJarSheet: View {
                         .frame(width: 64, height: 64)
                         .clipShape(Circle())
                         Text(String(creator.displayName.prefix(1)))
-                            .font(.system(size: 24, weight: .bold))
+                            .font(.systemScaled(24, weight: .bold))
                             .foregroundStyle(.white)
                     }
                     Text("Support \(creator.displayName)")
-                        .font(.system(size: 18, weight: .bold))
+                        .font(.systemScaled(18, weight: .bold))
                     Text("Your gift helps them keep creating faith content.")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                 }
@@ -1289,7 +1289,7 @@ struct TipJarSheet: View {
                 // Amount picker
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Choose Amount")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(.secondary)
                     HStack(spacing: 10) {
                         ForEach(amounts, id: \.self) { amt in
@@ -1299,7 +1299,7 @@ struct TipJarSheet: View {
                                 }
                             } label: {
                                 Text("$\(Int(amt))")
-                                    .font(.system(size: 15, weight: .semibold))
+                                    .font(.systemScaled(15, weight: .semibold))
                                     .foregroundStyle(selectedAmount == amt ? .white : .primary)
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 12)
@@ -1322,10 +1322,10 @@ struct TipJarSheet: View {
                 // Message
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Add a Message (optional)")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(.secondary)
                     TextField("Thank you for your ministry...", text: $message, axis: .vertical)
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .lineLimit(3...4)
                         .padding(12)
                         .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
@@ -1350,7 +1350,7 @@ struct TipJarSheet: View {
                             Text("Send $\(Int(selectedAmount)) Gift")
                         }
                     }
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
@@ -1404,16 +1404,16 @@ struct CreatorHubEntryCard: View {
                 .frame(width: 56, height: 56)
                 .clipShape(RoundedRectangle(cornerRadius: 14))
                 Image(systemName: "person.wave.2.fill")
-                    .font(.system(size: 24))
+                    .font(.systemScaled(24))
                     .foregroundStyle(.white)
             }
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("Creator Hub")
-                    .font(.system(size: 17, weight: .bold))
+                    .font(.systemScaled(17, weight: .bold))
                     .foregroundStyle(.primary)
                 Text("Faith teachers · Devotionals · Podcasts · Tip jar")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
@@ -1421,7 +1421,7 @@ struct CreatorHubEntryCard: View {
             Spacer()
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(.secondary)
         }
         .padding(16)

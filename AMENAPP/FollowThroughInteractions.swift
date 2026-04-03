@@ -40,7 +40,7 @@ struct PrayerFollowThroughBar: View {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: hasPrayed ? "hands.and.sparkles.fill" : "hands.and.sparkles")
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.systemScaled(15, weight: .medium))
                             .foregroundStyle(hasPrayed ? Color.indigo : .secondary)
                             .contentTransition(.symbolEffect(.replace))
                         
@@ -77,7 +77,7 @@ struct PrayerFollowThroughBar: View {
                     } label: {
                         HStack(spacing: 5) {
                             Image(systemName: "heart.text.square")
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                                 .foregroundStyle(.pink)
                             Text("Encourage")
                                 .font(.custom("OpenSans-Regular", size: 13))
@@ -245,7 +245,7 @@ struct EncouragementSheet: View {
                             ProgressView().scaleEffect(0.8).tint(.white)
                         } else {
                             Image(systemName: "heart.fill")
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                         }
                         Text(isSending ? "Sending..." : "Send Encouragement")
                             .font(.custom("OpenSans-SemiBold", size: 16))
@@ -342,7 +342,7 @@ struct TestimonyReflectPrompt: View {
     private var authorUpdateNudge: some View {
         HStack(spacing: 10) {
             Image(systemName: "arrow.triangle.2.circlepath")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.secondary)
             
             Text("Any update you'd like to share?")
@@ -428,7 +428,7 @@ struct ReflectSheet: View {
                         } label: {
                             HStack(spacing: 5) {
                                 Image(systemName: type.icon)
-                                    .font(.system(size: 13))
+                                    .font(.systemScaled(13))
                                 Text(type.rawValue)
                                     .font(.custom("OpenSans-SemiBold", size: 13))
                             }

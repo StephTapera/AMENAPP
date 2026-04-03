@@ -205,7 +205,7 @@ struct ActionRow: View {
                     .frame(width: 40, height: 40)
 
                 Image(systemName: icon)
-                    .font(.system(size: 18))
+                    .font(.systemScaled(18))
                     .foregroundStyle(color)
             }
 

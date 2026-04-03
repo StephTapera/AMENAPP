@@ -20,12 +20,12 @@ struct NeededThisButton: View {
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: isSaved ? "bookmark.heart.fill" : "bookmark.heart")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(isSaved ? Color.orange : .secondary)
                     .contentTransition(.symbolEffect(.replace))
                 if isSaved {
                     Text("Saved")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.systemScaled(11, weight: .medium))
                         .foregroundStyle(Color.orange)
                         .transition(.opacity.combined(with: .scale(scale: 0.85)))
                 }

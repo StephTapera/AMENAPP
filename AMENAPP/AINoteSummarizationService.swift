@@ -8,6 +8,7 @@
 //
 
 import Foundation
+import Combine
 import FirebaseFirestore
 
 // MARK: - Note Summary Model
@@ -22,9 +23,13 @@ struct NoteSummary: Codable {
 
 // MARK: - AI Note Summarization Service
 
-class AINoteSummarizationService {
+@MainActor
+class AINoteSummarizationService: ObservableObject {
     static let shared = AINoteSummarizationService()
     private let db = Firestore.firestore()
+    
+    // ✅ FIX CR-12: Published error state for UI
+    @Published var lastError: String?
     
     private init() {}
     
@@ -55,12 +60,17 @@ class AINoteSummarizationService {
             return summary
             
         } catch let error as NSError where error.code == 408 {
-            // Timeout error - Cloud Function may not be deployed
-            dlog("⚠️ [AI SUMMARY] Timeout - Cloud Function may not be deployed. Summary unavailable.")
+            // ✅ FIX CR-12: Set error state to surface to user
+            dlog("⚠️ [AI SUMMARY] Timeout - Cloud Function may not be deployed.")
+            await MainActor.run {
+                self.lastError = "Note summarization service timed out. The feature may be temporarily unavailable."
+            }
             return nil
         } catch {
             dlog("❌ [AI SUMMARY] Error: \(error)")
-            // Return nil for other errors too (graceful degradation)
+            await MainActor.run {
+                self.lastError = "Failed to generate note summary: \(error.localizedDescription)"
+            }
             return nil
         }
     }

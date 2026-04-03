@@ -82,7 +82,7 @@ struct WorkflowDetailView: View {
                         .fill(Color(hex: "6B48FF").opacity(0.18))
                         .frame(width: 52, height: 52)
                     Image(systemName: workflow.triggerType.icon)
-                        .font(.system(size: 22))
+                        .font(.systemScaled(22))
                         .foregroundColor(Color(hex: "6B48FF"))
                 }
 
@@ -166,7 +166,7 @@ struct WorkflowDetailView: View {
                                     .fill(Color(hex: "6B48FF").opacity(0.18))
                                     .frame(width: 34, height: 34)
                                 Image(systemName: step.type.icon)
-                                    .font(.system(size: 14))
+                                    .font(.systemScaled(14))
                                     .foregroundColor(Color(hex: "6B48FF"))
                             }
                         }
@@ -265,7 +265,7 @@ struct WorkflowDetailView: View {
                                     .clipShape(Capsule())
 
                                 Image(systemName: "chevron.right")
-                                    .font(.system(size: 11, weight: .semibold))
+                                    .font(.systemScaled(11, weight: .semibold))
                                     .foregroundColor(.white.opacity(0.25))
                             }
                             .padding(.horizontal, 14)
@@ -422,7 +422,7 @@ struct WorkflowRunDetailView: View {
                     .fill(run.status.color.opacity(0.18))
                     .frame(width: 64, height: 64)
                 Image(systemName: run.status == .completed ? "checkmark.circle.fill" : run.status == .failed ? "xmark.circle.fill" : "arrow.trianglehead.clockwise")
-                    .font(.system(size: 28))
+                    .font(.systemScaled(28))
                     .foregroundColor(run.status.color)
             }
 
@@ -510,7 +510,7 @@ struct WorkflowRunDetailView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 12) {
                 Image(systemName: result.status.icon)
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
                     .foregroundColor(result.status.color)
 
                 // Match step label from workflow
@@ -538,7 +538,7 @@ struct WorkflowRunDetailView: View {
             if let error = result.errorMessage, !error.isEmpty {
                 HStack(spacing: 6) {
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                     Text(error)
                         .font(AMENFont.regular(12))
                 }

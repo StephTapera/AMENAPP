@@ -286,7 +286,7 @@ private struct ChurchExperienceStarRatingRow: View {
             HStack(spacing: 4) {
                 ForEach(1...5, id: \.self) { star in
                     Image(systemName: star <= score ? "star.fill" : "star")
-                        .font(.system(size: 20))
+                        .font(.systemScaled(20))
                         .foregroundStyle(star <= score ? Color.black : Color(white: 0.75))
                         .animation(.spring(response: 0.28, dampingFraction: 0.7), value: score)
                         .onTapGesture { score = star }
@@ -309,7 +309,7 @@ private struct SignalChip: View {
         Button(action: onTap) {
             HStack(spacing: 5) {
                 Image(systemName: signal.icon)
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                 Text(signal.displayName)
                     .font(AMENFont.semiBold(12))
             }
@@ -334,7 +334,7 @@ private struct FitTagChip: View {
         Button(action: onTap) {
             HStack(spacing: 5) {
                 Image(systemName: tag.icon)
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                 Text(tag.displayName)
                     .font(AMENFont.semiBold(12))
             }
@@ -482,7 +482,7 @@ struct ChurchExperienceComposer: View {
                 HStack(spacing: 8) {
                     ForEach(1...5, id: \.self) { star in
                         Image(systemName: star <= entry.overallScore ? "star.fill" : "star")
-                            .font(.system(size: 36))
+                            .font(.systemScaled(36))
                             .foregroundStyle(star <= entry.overallScore ? Color.black : Color(white: 0.82))
                             .animation(.spring(response: 0.28, dampingFraction: 0.7), value: entry.overallScore)
                             .onTapGesture { entry.overallScore = star }
@@ -693,7 +693,7 @@ struct ChurchExperienceComposer: View {
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "exclamationmark.shield")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                     Text("Report a serious safety or conduct concern")
                         .font(AMENFont.regular(13))
                 }
@@ -710,7 +710,7 @@ struct ChurchExperienceComposer: View {
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: icon)
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                 Text(label)
                     .font(AMENFont.semiBold(12))
             }
@@ -909,7 +909,7 @@ struct ChurchExperienceConcernFlow: View {
                                         Spacer()
                                         if selectedCategory == cat {
                                             Image(systemName: "checkmark")
-                                                .font(.system(size: 13, weight: .semibold))
+                                                .font(.systemScaled(13, weight: .semibold))
                                                 .foregroundStyle(Color.black)
                                         }
                                     }
@@ -1061,7 +1061,7 @@ struct ChurchReputationCard: View {
                             ForEach(topPositiveSignals, id: \.self) { signal in
                                 HStack(spacing: 4) {
                                     Image(systemName: signal.icon)
-                                        .font(.system(size: 10))
+                                        .font(.systemScaled(10))
                                     Text(signal.displayName)
                                         .font(AMENFont.semiBold(11))
                                 }
@@ -1085,7 +1085,7 @@ struct ChurchReputationCard: View {
                             ForEach(topFitTags, id: \.self) { tag in
                                 HStack(spacing: 4) {
                                     Image(systemName: tag.icon)
-                                        .font(.system(size: 10))
+                                        .font(.systemScaled(10))
                                     Text(tag.displayName)
                                         .font(AMENFont.semiBold(11))
                                 }
@@ -1240,7 +1240,7 @@ struct ChurchExperienceListView: View {
                 HStack(spacing: 6) {
                     ForEach(topSignals, id: \.self) { signal in
                         HStack(spacing: 4) {
-                            Image(systemName: signal.icon).font(.system(size: 10))
+                            Image(systemName: signal.icon).font(.systemScaled(10))
                             Text(signal.displayName).font(AMENFont.semiBold(11))
                         }
                         .foregroundStyle(signal.isPositive ? Color.black : Color(white: 0.45))
@@ -1305,7 +1305,7 @@ struct ChurchExperienceListView: View {
             // Reaction handling — future integration
         } label: {
             HStack(spacing: 4) {
-                Image(systemName: icon).font(.system(size: 12))
+                Image(systemName: icon).font(.systemScaled(12))
                 Text(label).font(AMENFont.regular(13))
             }
             .foregroundStyle(Color(white: 0.5))
@@ -1317,7 +1317,7 @@ struct ChurchExperienceListView: View {
         HStack(spacing: 2) {
             ForEach(1...5, id: \.self) { i in
                 Image(systemName: i <= score ? "star.fill" : "star")
-                    .font(.system(size: 10))
+                    .font(.systemScaled(10))
                     .foregroundStyle(i <= score ? Color.black : Color(white: 0.8))
             }
         }

@@ -98,14 +98,14 @@ struct BereanVOTDCard: View {
                 // Top: Day label + reflection theme
                 HStack {
                     Label("Verse of the Day", systemImage: "sun.horizon.fill")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundStyle(Color.white.opacity(0.75))
                         .labelStyle(.titleAndIcon)
 
                     Spacer()
 
                     Text(votd.reflection)
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.systemScaled(11, weight: .medium))
                         .foregroundStyle(Color.white.opacity(0.60))
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
@@ -126,7 +126,7 @@ struct BereanVOTDCard: View {
 
                 // Verse text
                 Text("\u{201C}\(votd.text)\u{201D}")
-                    .font(.system(size: 15, weight: .light, design: .serif))
+                    .font(.systemScaled(15, weight: .light, design: .serif))
                     .foregroundStyle(Color.white.opacity(0.95))
                     .lineSpacing(5)
                     .padding(.horizontal, 18)
@@ -136,16 +136,16 @@ struct BereanVOTDCard: View {
                 // Reference + CTA
                 HStack {
                     Text(votd.reference)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(Color.white.opacity(0.80))
 
                     Spacer()
 
                     HStack(spacing: 4) {
                         Text("Reflect")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.systemScaled(10, weight: .semibold))
                     }
                     .foregroundStyle(Color.white.opacity(0.70))
                 }

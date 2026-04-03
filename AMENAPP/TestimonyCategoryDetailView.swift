@@ -49,7 +49,7 @@ struct TestimonyCategoryDetailView: View {
                                 .frame(width: 80, height: 80)
                             
                             Image(systemName: category.icon)
-                                .font(.system(size: 40, weight: .semibold))
+                                .font(.systemScaled(40, weight: .semibold))
                                 .foregroundStyle(category.color)
                         }
                         
@@ -113,7 +113,7 @@ struct TestimonyCategoryDetailView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 28))
+                            .font(.systemScaled(28))
                             .foregroundStyle(.gray.opacity(0.3))
                     }
                 }
@@ -123,7 +123,7 @@ struct TestimonyCategoryDetailView: View {
                         // Share category
                     } label: {
                         Image(systemName: "square.and.arrow.up")
-                            .font(.system(size: 18))
+                            .font(.systemScaled(18))
                             .foregroundStyle(.primary)
                     }
                 }

@@ -12,10 +12,10 @@ struct TestimonyRippleView: View {
         if count > 0 {
             HStack(spacing: 5) {
                 Image(systemName: "dot.radiowaves.right")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(amber)
                 Text("This testimony sparked \(count) new \(count == 1 ? "prayer" : "prayers")")
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.systemScaled(10, weight: .medium))
                     .foregroundStyle(textClr)
             }
             .padding(.horizontal, 10)

@@ -384,7 +384,7 @@ struct BlockCheckModifier: ViewModifier {
                 // Show blocked state
                 VStack(spacing: 12) {
                     Image(systemName: "hand.raised.fill")
-                        .font(.system(size: 32))
+                        .font(.systemScaled(32))
                         .foregroundStyle(.secondary)
                     Text("User Unavailable")
                         .font(.custom("OpenSans-Bold", size: 16))

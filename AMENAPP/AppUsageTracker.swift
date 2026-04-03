@@ -287,19 +287,19 @@ struct DailyLimitReachedDialog: View {
                             .shadow(color: .black.opacity(0.06), radius: 12, y: 6)
 
                         Image(systemName: "clock.badge.exclamationmark.fill")
-                            .font(.system(size: 36, weight: .light))
+                            .font(.systemScaled(36, weight: .light))
                             .foregroundStyle(.black.opacity(0.65))
                     }
 
                     // Title
                     Text("Time for a Break")
-                        .font(.system(size: 30, weight: .light, design: .serif))
+                        .font(.systemScaled(30, weight: .light, design: .serif))
                         .foregroundStyle(.black)
                         .tracking(0.3)
 
                     // Message
                     Text("You've spent **\(tracker.snapshotUsageMinutes) minutes** in the app today. We encourage a break to pray, reflect, or be with loved ones.")
-                        .font(.system(size: 15, weight: .regular))
+                        .font(.systemScaled(15, weight: .regular))
                         .foregroundStyle(.black.opacity(0.65))
                         .multilineTextAlignment(.center)
                         .lineSpacing(5)
@@ -309,10 +309,10 @@ struct DailyLimitReachedDialog: View {
                     HStack(spacing: 0) {
                         VStack(spacing: 3) {
                             Text("\(tracker.snapshotUsageMinutes)")
-                                .font(.system(size: 26, weight: .thin, design: .rounded))
+                                .font(.systemScaled(26, weight: .thin, design: .rounded))
                                 .foregroundStyle(.black)
                             Text("Minutes Used")
-                                .font(.system(size: 10, weight: .regular))
+                                .font(.systemScaled(10, weight: .regular))
                                 .foregroundStyle(.black.opacity(0.45))
                                 .textCase(.uppercase)
                                 .tracking(0.6)
@@ -325,10 +325,10 @@ struct DailyLimitReachedDialog: View {
 
                         VStack(spacing: 3) {
                             Text("\(tracker.dailyLimitMinutes)")
-                                .font(.system(size: 26, weight: .thin, design: .rounded))
+                                .font(.systemScaled(26, weight: .thin, design: .rounded))
                                 .foregroundStyle(.black)
                             Text("Daily Limit")
-                                .font(.system(size: 10, weight: .regular))
+                                .font(.systemScaled(10, weight: .regular))
                                 .foregroundStyle(.black.opacity(0.45))
                                 .textCase(.uppercase)
                                 .tracking(0.6)
@@ -358,11 +358,11 @@ struct DailyLimitReachedDialog: View {
                     // Bible verse
                     VStack(spacing: 5) {
                         Text("\"Be still, and know that I am God\"")
-                            .font(.system(size: 13, weight: .light, design: .serif))
+                            .font(.systemScaled(13, weight: .light, design: .serif))
                             .foregroundStyle(.black.opacity(0.75))
                             .italic()
                         Text("Psalm 46:10")
-                            .font(.system(size: 10, weight: .regular))
+                            .font(.systemScaled(10, weight: .regular))
                             .foregroundStyle(.black.opacity(0.4))
                             .textCase(.uppercase)
                             .tracking(1.2)
@@ -382,7 +382,7 @@ struct DailyLimitReachedDialog: View {
                             }
                         } label: {
                             Text("Take a Break")
-                                .font(.system(size: 16, weight: .medium))
+                                .font(.systemScaled(16, weight: .medium))
                                 .foregroundStyle(.white)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 16)
@@ -399,7 +399,7 @@ struct DailyLimitReachedDialog: View {
                             }
                         } label: {
                             Text("Continue Anyway")
-                                .font(.system(size: 15, weight: .regular))
+                                .font(.systemScaled(15, weight: .regular))
                                 .foregroundStyle(.black.opacity(0.5))
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 14)

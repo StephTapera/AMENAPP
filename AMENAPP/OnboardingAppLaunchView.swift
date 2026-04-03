@@ -39,7 +39,7 @@ struct AppLaunchView: View {
 
                 // ── Wordmark ──────────────────────────────────────────
                 Text("AMEN")
-                    .font(.system(size: 44, weight: .black))
+                    .font(.systemScaled(44, weight: .black))
                     .tracking(10)
                     .foregroundStyle(ONB.inkPrimary)
                     .opacity(logoAppeared ? 1 : 0)
@@ -50,12 +50,12 @@ struct AppLaunchView: View {
                 // ── Editorial hero block ───────────────────────────────
                 VStack(alignment: .leading, spacing: 10) {
                     Text("A place to\ngrow in faith.")
-                        .font(.system(size: 40, weight: .black))
+                        .font(.systemScaled(40, weight: .black))
                         .foregroundStyle(ONB.inkPrimary)
                         .lineSpacing(1)
 
                     Text("Thoughtful social, grounded in\nscripture. Free of noise.")
-                        .font(.system(size: 17, weight: .regular))
+                        .font(.systemScaled(17, weight: .regular))
                         .foregroundStyle(ONB.inkSecondary)
                         .lineSpacing(4)
                 }
@@ -76,9 +76,9 @@ struct AppLaunchView: View {
                     ], id: \.1) { icon, label in
                         HStack(spacing: 5) {
                             Image(systemName: icon)
-                                .font(.system(size: 11, weight: .medium))
+                                .font(.systemScaled(11, weight: .medium))
                             Text(label)
-                                .font(.system(size: 12, weight: .medium))
+                                .font(.systemScaled(12, weight: .medium))
                         }
                         .foregroundStyle(ONB.inkSecondary)
                         .padding(.horizontal, 12)
@@ -125,7 +125,7 @@ struct AppLaunchView: View {
 
                 // Fine print
                 Text("By continuing you agree to our **Terms** and **Privacy Policy**.")
-                    .font(.system(size: 11, weight: .regular))
+                    .font(.systemScaled(11, weight: .regular))
                     .foregroundStyle(ONB.inkTertiary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 40)

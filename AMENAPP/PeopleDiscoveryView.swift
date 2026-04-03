@@ -756,7 +756,7 @@ struct PeopleDiscoveryViewNew: View {
                     } label: {
                         HStack(spacing: 12) {
                             Image(systemName: "clock.arrow.circlepath")
-                                .font(.system(size: 15))
+                                .font(.systemScaled(15))
                                 .foregroundStyle(.secondary)
                                 .frame(width: 22)
 
@@ -767,7 +767,7 @@ struct PeopleDiscoveryViewNew: View {
                             Spacer()
 
                             Image(systemName: "arrow.up.left")
-                                .font(.system(size: 13))
+                                .font(.systemScaled(13))
                                 .foregroundStyle(.tertiary)
                         }
                         .padding(.horizontal, 20)
@@ -825,7 +825,7 @@ struct PeopleDiscoveryViewNew: View {
                     Spacer()
                     VStack(spacing: 8) {
                         Image(systemName: "chart.line.uptrend.xyaxis")
-                            .font(.system(size: 28, weight: .light))
+                            .font(.systemScaled(28, weight: .light))
                             .foregroundStyle(.tertiary)
                         Text("No trending topics yet")
                             .font(AMENFont.regular(14))
@@ -849,7 +849,7 @@ struct PeopleDiscoveryViewNew: View {
                                         .fill(topic.iconColor.opacity(0.12))
                                         .frame(width: 40, height: 40)
                                     Image(systemName: topic.icon)
-                                        .font(.system(size: 16, weight: .medium))
+                                        .font(.systemScaled(16, weight: .medium))
                                         .foregroundStyle(topic.iconColor)
                                 }
                                 .accessibilityHidden(true)
@@ -867,7 +867,7 @@ struct PeopleDiscoveryViewNew: View {
                                 Spacer()
 
                                 Image(systemName: "chevron.right")
-                                    .font(.system(size: 13, weight: .medium))
+                                    .font(.systemScaled(13, weight: .medium))
                                     .foregroundStyle(.tertiary)
                             }
                             .padding(.horizontal, 16)
@@ -936,7 +936,7 @@ struct PeopleDiscoveryViewNew: View {
                     Spacer()
                     VStack(spacing: 10) {
                         Image(systemName: "person.2.slash")
-                            .font(.system(size: 32, weight: .light))
+                            .font(.systemScaled(32, weight: .light))
                             .foregroundStyle(.tertiary)
                         Text("No suggestions right now")
                             .font(AMENFont.semiBold(15))
@@ -1030,7 +1030,7 @@ struct PeopleDiscoveryViewNew: View {
             // Fix #11: visible error state with retry
             VStack(spacing: 16) {
                 Image(systemName: "wifi.exclamationmark")
-                    .font(.system(size: 40, weight: .light))
+                    .font(.systemScaled(40, weight: .light))
                     .foregroundStyle(.orange)
                 Text("Search unavailable")
                     .font(AMENFont.semiBold(17))
@@ -1058,7 +1058,7 @@ struct PeopleDiscoveryViewNew: View {
         } else if vm.userResults.isEmpty && vm.postResults.isEmpty && vm.churchResults.isEmpty {
             VStack(spacing: 16) {
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 44, weight: .light))
+                    .font(.systemScaled(44, weight: .light))
                     .foregroundStyle(.tertiary)
                 Text("No results for \"\(searchText)\"")
                     .font(AMENFont.semiBold(17))
@@ -1187,7 +1187,7 @@ struct VibeMatchRow: View {
         if isLoading {
             HStack(spacing: 5) {
                 Image(systemName: "sparkles")
-                    .font(.system(size: 10))
+                    .font(.systemScaled(10))
                     .foregroundStyle(Color.indigo.opacity(0.5))
                 Capsule()
                     .fill(Color(.systemGray5))
@@ -1202,7 +1202,7 @@ struct VibeMatchRow: View {
             } label: {
                 HStack(alignment: .top, spacing: 5) {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.systemScaled(10, weight: .semibold))
                         .foregroundStyle(Color.indigo)
                         .padding(.top, 1)
                     Text(reason)
@@ -1230,7 +1230,7 @@ struct ScopeTabButton: View {
         Button(action: action) {
             HStack(spacing: 6) {
                 Image(systemName: scope.icon)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                 Text(scope.rawValue)
                     .font(AMENFont.semiBold(13))
             }
@@ -1327,7 +1327,7 @@ struct DiscoveryPersonRow: View {
                         if user.followersCount > 0 {
                             Text("•").foregroundStyle(.tertiary).accessibilityHidden(true)
                             Image(systemName: "person.2.fill")
-                                .font(.system(size: 9))
+                                .font(.systemScaled(9))
                                 .foregroundStyle(.tertiary)
                                 .accessibilityHidden(true)
                             // P2: format large follower counts
@@ -1371,7 +1371,7 @@ struct DiscoveryPersonRow: View {
                         Capsule()
                             .fill(Color.accentColor)
                         Image(systemName: "checkmark")
-                            .font(.system(size: 13, weight: .bold))
+                            .font(.systemScaled(13, weight: .bold))
                             .foregroundStyle(.white)
                             .transition(.scale.combined(with: .opacity))
                     } else if localIsFollowing {
@@ -1465,7 +1465,7 @@ struct DiscoveryPostRow: View {
                         .fill(categoryColor(post.category).opacity(0.1))
                         .frame(width: 36, height: 36)
                     Image(systemName: categoryIcon(post.category))
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.systemScaled(14, weight: .medium))
                         .foregroundStyle(categoryColor(post.category))
                 }
                 .accessibilityHidden(true)
@@ -1499,7 +1499,7 @@ struct DiscoveryPostRow: View {
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundStyle(.tertiary)
                     .accessibilityHidden(true)
             }
@@ -1562,7 +1562,7 @@ private struct PostDetailViewWrapper: View {
             } else if loadFailed || post == nil {
                 VStack(spacing: 16) {
                     Image(systemName: "exclamationmark.triangle")
-                        .font(.system(size: 40, weight: .light))
+                        .font(.systemScaled(40, weight: .light))
                         .foregroundStyle(.orange)
                     Text("Post unavailable")
                         .font(AMENFont.semiBold(17))
@@ -1624,12 +1624,12 @@ struct DiscoveryChurchRow: View {
                                 .clipShape(Circle())
                         } placeholder: {
                             Image(systemName: "building.columns.fill")
-                                .font(.system(size: 18, weight: .medium))
+                                .font(.systemScaled(18, weight: .medium))
                                 .foregroundStyle(.secondary)
                         }
                     } else {
                         Image(systemName: "building.columns.fill")
-                            .font(.system(size: 18, weight: .medium))
+                            .font(.systemScaled(18, weight: .medium))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -1659,7 +1659,7 @@ struct DiscoveryChurchRow: View {
                 Spacer(minLength: 8)
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(.tertiary)
                     .accessibilityHidden(true)
             }
@@ -1740,7 +1740,7 @@ struct TrendingTopicFeedView: View {
             } else if let err = loadError {
                 VStack(spacing: 16) {
                     Image(systemName: "wifi.exclamationmark")
-                        .font(.system(size: 42, weight: .light))
+                        .font(.systemScaled(42, weight: .light))
                         .foregroundStyle(.orange)
                     Text("Couldn't load posts")
                         .font(AMENFont.semiBold(17))
@@ -1765,7 +1765,7 @@ struct TrendingTopicFeedView: View {
                             .fill(topic.backgroundColor)
                             .frame(width: 72, height: 72)
                         Image(systemName: topic.icon)
-                            .font(.system(size: 32, weight: .medium))
+                            .font(.systemScaled(32, weight: .medium))
                             .foregroundStyle(topic.iconColor)
                     }
                     Text("No posts yet for \"\(topic.title)\"")
@@ -1797,7 +1797,7 @@ struct TrendingTopicFeedView: View {
                         .fill(topic.backgroundColor)
                         .frame(width: 34, height: 34)
                     Image(systemName: topic.icon)
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.systemScaled(15, weight: .medium))
                         .foregroundStyle(topic.iconColor)
                 }
             }

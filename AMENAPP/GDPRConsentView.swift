@@ -38,7 +38,7 @@ struct GDPRConsentView: View {
 
             VStack(spacing: 24) {
                 Image(systemName: "lock.shield.fill")
-                    .font(.system(size: 44))
+                    .font(.systemScaled(44))
                     .foregroundStyle(.white)
 
                 VStack(spacing: 12) {
@@ -108,7 +108,7 @@ struct GDPRConsentView: View {
     private func consentPoint(icon: String, text: String) -> some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.white.opacity(0.7))
                 .frame(width: 20)
             Text(text)

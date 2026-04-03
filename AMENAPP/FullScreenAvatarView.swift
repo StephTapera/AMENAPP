@@ -41,7 +41,7 @@ struct FullScreenAvatarView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 32))
+                            .font(.systemScaled(32))
                             .foregroundStyle(.white.opacity(0.8))
                             .shadow(color: .black.opacity(0.3), radius: 4)
                     }

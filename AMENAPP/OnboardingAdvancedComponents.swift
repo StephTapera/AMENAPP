@@ -50,7 +50,7 @@ struct ConversationStartersStep: View {
                         } label: {
                             HStack {
                                 Image(systemName: selectedStarters.contains(starter) ? "checkmark.circle.fill" : "circle")
-                                    .font(.system(size: 22))
+                                    .font(.systemScaled(22))
                                     .foregroundStyle(selectedStarters.contains(starter) ? gradientColors[0] : .secondary)
                                 
                                 Text(starter)
@@ -182,7 +182,7 @@ struct MentorMenteeStep: View {
                                     
                                     if experienceAreas.contains(area) {
                                         Image(systemName: "checkmark.circle.fill")
-                                            .font(.system(size: 14))
+                                            .font(.systemScaled(14))
                                             .foregroundStyle(.white)
                                     }
                                 }
@@ -226,7 +226,7 @@ struct MentorOptionCard: View {
                         .frame(width: 50, height: 50)
                     
                     Image(systemName: icon)
-                        .font(.system(size: 22))
+                        .font(.systemScaled(22))
                         .foregroundStyle(isSelected ? .white : .secondary)
                 }
                 
@@ -244,7 +244,7 @@ struct MentorOptionCard: View {
                 Spacer()
                 
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 24))
+                    .font(.systemScaled(24))
                     .foregroundStyle(isSelected ? gradientColors[0] : .secondary)
             }
             .padding()
@@ -532,7 +532,7 @@ struct OnboardingSuccessScreen: View {
                         .scaleEffect(scale)
                     
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 80))
+                        .font(.systemScaled(80))
                         .foregroundStyle(
                             LinearGradient(
                                 colors: gradientColors,
@@ -573,7 +573,7 @@ struct OnboardingSuccessScreen: View {
                     Text("Start Connecting")
                         .font(.custom("OpenSans-Bold", size: 18))
                     Image(systemName: "arrow.right.circle.fill")
-                        .font(.system(size: 20))
+                        .font(.systemScaled(20))
                 }
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
@@ -624,7 +624,7 @@ struct SuccessFeatureRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 20))
+                .font(.systemScaled(20))
                 .foregroundStyle(gradientColors[0])
             
             Text(text)

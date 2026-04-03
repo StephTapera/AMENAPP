@@ -6,6 +6,7 @@
 // Funnels into existing SignInView for email auth.
 
 import SwiftUI
+import Combine
 import AuthenticationServices
 import CryptoKit
 
@@ -57,7 +58,7 @@ struct AMENAuthLandingView: View {
                             .opacity(logoOpacity)
 
                         Text("AMEN")
-                            .font(.system(size: 22, weight: .black))
+                            .font(.systemScaled(22, weight: .black))
                             .tracking(7)
                             .foregroundStyle(Color.black)
                             .opacity(wordOpacity)
@@ -147,7 +148,7 @@ struct AMENAuthLandingView: View {
                     .frame(width: 52, alignment: .leading)
                 Spacer()
                 Text("Continue with Google")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(.black)
                 Spacer()
                 Color.clear.frame(width: 52)
@@ -171,7 +172,7 @@ struct AMENAuthLandingView: View {
                 .fill(Color(white: 0.922))
                 .frame(height: 1)
             Text("or")
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(Color(white: 0.733))
                 .fixedSize()
             Rectangle()
@@ -189,13 +190,13 @@ struct AMENAuthLandingView: View {
         } label: {
             HStack(spacing: 0) {
                 Image(systemName: "envelope")
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.systemScaled(16, weight: .medium))
                     .foregroundStyle(.black)
                     .padding(.leading, 18)
                     .frame(width: 52, alignment: .leading)
                 Spacer()
                 Text("Sign up with email")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.black)
                 Spacer()
                 Color.clear.frame(width: 52)
@@ -212,13 +213,13 @@ struct AMENAuthLandingView: View {
     private var signInLink: some View {
         HStack(spacing: 4) {
             Text("Already have an account?")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(Color(white: 0.667))
             Button {
                 showEmailSignIn = true
             } label: {
                 Text("Sign in")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(Color.black)
             }
             .buttonStyle(.plain)

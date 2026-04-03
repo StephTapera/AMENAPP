@@ -1075,6 +1075,11 @@ public class FirebaseMessagingService: ObservableObject {
         replyToMessageId: String? = nil,
         clientMessageId: String? = nil
     ) async throws {
+        dlog("🔍 [DEBUG] sendMessage called:")
+        dlog("   ConversationId: \(conversationId)")
+        dlog("   CurrentUserId: \(currentUserId)")
+        dlog("   IsAuthenticated: \(isAuthenticated)")
+        
         guard isAuthenticated else {
             throw FirebaseMessagingError.notAuthenticated
         }
@@ -1083,8 +1088,47 @@ public class FirebaseMessagingService: ObservableObject {
             throw FirebaseMessagingError.invalidInput("Message cannot be empty")
         }
         
+        dlog("🔍 [DEBUG] About to call canSendMessage...")
         // P1-4 FIX: Check if user can send message, create pending request if first message
-        let (canSend, reason) = try await canSendMessage(conversationId: conversationId)
+        let (canSend, reason): (Bool, String?)
+        do {
+            let result = try await canSendMessage(conversationId: conversationId)
+            canSend = result.canSend
+            reason = result.reason
+            dlog("🔍 [DEBUG] canSendMessage returned: canSend=\(canSend), reason=\(reason ?? "nil")")
+        } catch let error as NSError {
+            dlog("❌ [DEBUG] canSendMessage FAILED with error: \(error)")
+            dlog("   Error domain: \(error.domain), code: \(error.code)")
+            
+            // Check if it's a Firestore permission error
+            if error.domain == "FIRFirestoreErrorDomain" && error.code == 7 {
+                dlog("   🔍 This is a Firestore PERMISSION_DENIED error")
+                dlog("   The conversation document cannot be read - likely due to missing/incorrect participantIds")
+                
+                // Run quick diagnostic by trying to read with admin privileges bypass
+                do {
+                    let conversationRef = db.collection("conversations").document(conversationId)
+                    let doc = try await conversationRef.getDocument(source: .server)
+                    
+                    if doc.exists {
+                        let data = doc.data() ?? [:]
+                        let participantIds = data["participantIds"] as? [String] ?? []
+                        dlog("   🔍 [DIAGNOSIS] Conversation exists but access denied")
+                        dlog("      ParticipantIds in document: \(participantIds)")
+                        dlog("      Current user: \(currentUserId)")
+                        dlog("      User in participantIds: \(participantIds.contains(currentUserId))")
+                    } else {
+                        dlog("   🔍 [DIAGNOSIS] Conversation document does not exist")
+                    }
+                } catch {
+                    dlog("   🔍 [DIAGNOSIS] Cannot read conversation even for diagnosis: \(error)")
+                }
+                
+                throw FirebaseMessagingError.invalidInput("Cannot access this conversation. It may have been deleted or corrupted. Please start a new conversation with this person.")
+            }
+            
+            throw FirebaseMessagingError.networkError(error)
+        }
         let conversationRef = db.collection("conversations").document(conversationId)
         
         var shouldCreatePendingRequest = false
@@ -1235,6 +1279,22 @@ public class FirebaseMessagingService: ObservableObject {
             let participantIds = conversation.participantIds
             let status = conversation.conversationStatus ?? "accepted"
             let requesterId = conversation.requesterId
+            
+            // 🔍 DEBUG: Log conversation state before attempting write
+            dlog("🔍 [PERMISSIONS DEBUG] Sending message:")
+            dlog("   Conversation ID: \(conversationId)")
+            dlog("   Current User ID: \(currentUserId)")
+            dlog("   ParticipantIds: \(participantIds)")
+            dlog("   Is current user in participantIds: \(participantIds.contains(currentUserId))")
+            dlog("   Message sender ID: \(message.senderId)")
+            dlog("   Conversation status: \(status)")
+            
+            // ✅ Validate user is in participantIds before attempting write
+            guard participantIds.contains(currentUserId) else {
+                dlog("❌ [PERMISSIONS ERROR] Current user NOT in participantIds!")
+                dlog("   This should never happen - conversation may be corrupted")
+                throw FirebaseMessagingError.invalidInput("You are not a participant in this conversation. Please restart the conversation.")
+            }
             
             // Use batch to update both message and conversation
             let batch = db.batch()

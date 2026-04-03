@@ -161,7 +161,7 @@ struct ChurchDiscoveryPulseView: View {
                     .shadow(color: Color.black.opacity(0.07), radius: 10, y: 3)
 
                 Image(systemName: state.centerIcon)
-                    .font(.system(size: 18, weight: .medium, design: .default))
+                    .font(.systemScaled(18, weight: .medium, design: .default))
                     .foregroundStyle(state.accentColor)
                     .opacity(iconOpacity)
             }
@@ -268,7 +268,7 @@ struct FindChurchDiscoveryCard: View {
 
                 if !state.statusLabel.isEmpty {
                     Text(state.statusLabel)
-                        .font(.system(size: 15, weight: .medium, design: .default))
+                        .font(.systemScaled(15, weight: .medium, design: .default))
                         .foregroundStyle(Color(white: 0.25))
                         .multilineTextAlignment(.center)
                         .transition(.opacity.combined(with: .move(edge: .bottom)))

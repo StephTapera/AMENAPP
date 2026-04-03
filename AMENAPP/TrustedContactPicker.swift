@@ -114,7 +114,7 @@ struct TrustedContactsSection: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 10) {
                 Image(systemName: "person.2.circle.fill")
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
                     .foregroundStyle(accent)
                 Text("Your Trusted People")
                     .font(.custom("OpenSans-Bold", size: 15))
@@ -140,7 +140,7 @@ struct TrustedContactsSection: View {
                 } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                         Text("Add a trusted person")
                             .font(.custom("OpenSans-SemiBold", size: 13))
                     }
@@ -204,7 +204,7 @@ struct TrustedContactsSection: View {
                 }
             } label: {
                 Image(systemName: "phone.fill")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.white)
                     .frame(width: 36, height: 36)
                     .background(accent, in: Circle())
@@ -218,7 +218,7 @@ struct TrustedContactsSection: View {
                 }
             } label: {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(.tertiary)
             }
             .buttonStyle(PlainButtonStyle())

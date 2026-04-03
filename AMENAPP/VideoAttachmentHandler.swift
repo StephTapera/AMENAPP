@@ -244,7 +244,7 @@ struct VideoMessageBubble: View {
                             .tint(.white)
                             .scaleEffect(1.2)
                         Text("\(Int(progress * 100))%")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                             .foregroundStyle(.white)
                     }
                 }
@@ -256,7 +256,7 @@ struct VideoMessageBubble: View {
                         .fill(.ultraThinMaterial)
                         .frame(width: 50, height: 50)
                     Image(systemName: "play.fill")
-                        .font(.system(size: 20, weight: .semibold))
+                        .font(.systemScaled(20, weight: .semibold))
                         .foregroundStyle(.white)
                         .offset(x: 2)
                 }
@@ -269,7 +269,7 @@ struct VideoMessageBubble: View {
                     HStack {
                         Spacer()
                         Text(formatDuration(dur))
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.systemScaled(11, weight: .semibold))
                             .foregroundStyle(.white)
                             .padding(.horizontal, 7)
                             .padding(.vertical, 3)
@@ -320,7 +320,7 @@ private struct VideoPlayerSheet: View {
                 dismiss()
             } label: {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 30))
+                    .font(.systemScaled(30))
                     .foregroundStyle(.white.opacity(0.85))
                     .padding(20)
             }

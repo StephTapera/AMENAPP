@@ -65,7 +65,7 @@ struct SpiritGraphModifier: ViewModifier {
                         .frame(width: 12, height: 12)
                 } else {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.systemScaled(10, weight: .semibold))
                         .foregroundStyle(Color.indigo)
                 }
                 Text(reason.isEmpty ? "Why this reached you" : "Why this reached you ·")

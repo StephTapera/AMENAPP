@@ -24,14 +24,14 @@ struct PinDurationSheet: View {
 
             // Title
             Text("Pin to profile")
-                .font(.system(size: 17, weight: .semibold))
+                .font(.systemScaled(17, weight: .semibold))
                 .foregroundStyle(Color.white.opacity(0.9))
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 20)
                 .padding(.bottom, 4)
 
             Text("Choose how long this post stays pinned.")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(Color.white.opacity(0.45))
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 20)
@@ -55,7 +55,7 @@ struct PinDurationSheet: View {
                 isPresented = false
             } label: {
                 Text("Pin Post")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(Color(red: 0.05, green: 0.05, blue: 0.08))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
@@ -84,19 +84,19 @@ private struct DurationRow: View {
         Button(action: onTap) {
             HStack(spacing: 14) {
                 Image(systemName: duration.icon)
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.systemScaled(16, weight: .medium))
                     .foregroundStyle(isSelected ? Color.white : Color.white.opacity(0.5))
                     .frame(width: 24)
 
                 Text(duration.label)
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.systemScaled(15, weight: .medium))
                     .foregroundStyle(isSelected ? Color.white.opacity(0.9) : Color.white.opacity(0.55))
 
                 Spacer()
 
                 if isSelected {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(Color.white.opacity(0.9))
                 }
             }

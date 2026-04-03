@@ -92,11 +92,11 @@ struct BereanSavedMessagesView: View {
     private var searchBar: some View {
         HStack(spacing: 12) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 16, weight: .medium))
+                .font(.systemScaled(16, weight: .medium))
                 .foregroundStyle(.white.opacity(0.5))
             
             TextField("Search saved messages...", text: $searchText)
-                .font(.system(size: 15, weight: .regular))
+                .font(.systemScaled(15, weight: .regular))
                 .foregroundStyle(.white)
                 .tint(Color(red: 1.0, green: 0.7, blue: 0.5))
             
@@ -105,7 +105,7 @@ struct BereanSavedMessagesView: View {
                     searchText = ""
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 16))
+                        .font(.systemScaled(16))
                         .foregroundStyle(.white.opacity(0.5))
                 }
             }
@@ -170,7 +170,7 @@ struct BereanSavedMessagesView: View {
     private var emptyStateView: some View {
         VStack(spacing: 20) {
             Image(systemName: searchText.isEmpty ? "bookmark" : "magnifyingglass")
-                .font(.system(size: 50))
+                .font(.systemScaled(50))
                 .foregroundStyle(.white.opacity(0.3))
             
             Text(searchText.isEmpty ? "No Saved Messages" : "No Results")
@@ -197,7 +197,7 @@ struct TagFilterChip: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(isSelected ? .white : .white.opacity(0.7))
                 .padding(.horizontal, 14)
                 .padding(.vertical, 7)
@@ -229,7 +229,7 @@ struct SavedMessageCard: View {
                 // Header
                 HStack(spacing: 8) {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundStyle(Color(red: 1.0, green: 0.7, blue: 0.5))
                     
                     Text("Berean AI")
@@ -254,7 +254,7 @@ struct SavedMessageCard: View {
                 if let note = savedMessage.note, !note.isEmpty {
                     HStack(spacing: 6) {
                         Image(systemName: "note.text")
-                            .font(.system(size: 10))
+                            .font(.systemScaled(10))
                         
                         Text(note)
                             .font(.custom("OpenSans-Regular", size: 12))
@@ -291,7 +291,7 @@ struct SavedMessageCard: View {
                     if !savedMessage.message.verseReferences.isEmpty {
                         HStack(spacing: 4) {
                             Image(systemName: "book.closed.fill")
-                                .font(.system(size: 10))
+                                .font(.systemScaled(10))
                             
                             Text("\(savedMessage.message.verseReferences.count)")
                                 .font(.custom("OpenSans-SemiBold", size: 11))
@@ -400,7 +400,7 @@ struct EditSavedMessageSheet: View {
                                                 tags.removeAll { $0 == tag }
                                             } label: {
                                                 Image(systemName: "xmark.circle.fill")
-                                                    .font(.system(size: 14))
+                                                    .font(.systemScaled(14))
                                             }
                                         }
                                         .foregroundStyle(.white)
@@ -433,7 +433,7 @@ struct EditSavedMessageSheet: View {
                                     addTag()
                                 } label: {
                                     Image(systemName: "plus.circle.fill")
-                                        .font(.system(size: 28))
+                                        .font(.systemScaled(28))
                                         .foregroundStyle(Color(red: 1.0, green: 0.7, blue: 0.5))
                                 }
                                 .disabled(newTag.isEmpty)
@@ -446,7 +446,7 @@ struct EditSavedMessageSheet: View {
                         } label: {
                             HStack {
                                 Image(systemName: "trash.fill")
-                                    .font(.system(size: 14))
+                                    .font(.systemScaled(14))
                                 
                                 Text("Delete Saved Message")
                                     .font(.custom("OpenSans-SemiBold", size: 15))

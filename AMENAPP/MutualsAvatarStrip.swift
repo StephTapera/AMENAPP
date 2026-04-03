@@ -31,7 +31,7 @@ struct MutualsAvatarStrip: View {
                 labelText
                 Spacer()
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundStyle(.white.opacity(0.4))
             }
             .padding(.horizontal, 16)
@@ -72,7 +72,7 @@ struct MutualsAvatarStrip: View {
                 .fill(Color.white.opacity(0.15))
                 .overlay(Circle().stroke(Color.black, lineWidth: 2))
             Text("+\(overflow)")
-                .font(.system(size: 9, weight: .semibold))
+                .font(.systemScaled(9, weight: .semibold))
                 .foregroundStyle(.white)
         }
         .frame(width: avatarSize, height: avatarSize)
@@ -88,7 +88,7 @@ struct MutualsAvatarStrip: View {
                     .frame(width: 160, height: 13)
             } else {
                 Text(buildLabelString())
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.white.opacity(0.75))
                     .lineLimit(1)
             }
@@ -155,7 +155,7 @@ struct MutualsCircleAvatar: View {
                 image.resizable().scaledToFill()
             case .failure, .empty:
                 Image(systemName: "person.fill")
-                    .font(.system(size: size * 0.45))
+                    .font(.systemScaled(size * 0.45))
                     .foregroundStyle(.white.opacity(0.6))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Color.white.opacity(0.12))

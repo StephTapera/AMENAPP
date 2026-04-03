@@ -133,10 +133,10 @@ struct ChristianMediaBannerView: View {
                 Spacer()
                 HStack(spacing: 4) {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 9, weight: .medium))
+                        .font(.systemScaled(9, weight: .medium))
                         .foregroundStyle(CMDesign.softInk.opacity(0.7))
                     Text("Curated for you  ·  Sermons, Music, Podcasts")
-                        .font(.system(size: 10, weight: .regular))
+                        .font(.systemScaled(10, weight: .regular))
                         .foregroundStyle(CMDesign.softInk.opacity(0.75))
                         .lineLimit(1)
                 }
@@ -160,7 +160,7 @@ struct ChristianMediaBannerView: View {
             VStack(alignment: .leading, spacing: 0) {
                 // Category label — "From:" equivalent
                 Text("Christian Media")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.systemScaled(10, weight: .semibold))
                     .foregroundStyle(CMDesign.badgeAccent)
                     .tracking(0.5)
                     .textCase(.uppercase)
@@ -168,14 +168,14 @@ struct ChristianMediaBannerView: View {
 
                 // Primary headline
                 Text("Watch, listen,\nreflect.")
-                    .font(.system(size: 22, weight: .bold, design: .default))
+                    .font(.systemScaled(22, weight: .bold, design: .default))
                     .foregroundStyle(CMDesign.deepInk)
                     .lineSpacing(2)
                     .padding(.bottom, 7)
 
                 // Supporting descriptor
                 Text("Sermons, worship, podcasts & devotionals")
-                    .font(.system(size: 11, weight: .regular))
+                    .font(.systemScaled(11, weight: .regular))
                     .foregroundStyle(CMDesign.softInk)
                     .lineLimit(1)
             }
@@ -313,9 +313,9 @@ struct LayeredMediaPreviewStack: View {
             // Label chip at bottom of card
             HStack(spacing: 4) {
                 Image(systemName: iconName)
-                    .font(.system(size: 8, weight: .medium))
+                    .font(.systemScaled(8, weight: .medium))
                 Text(label)
-                    .font(.system(size: 8, weight: .semibold))
+                    .font(.systemScaled(8, weight: .semibold))
             }
             .foregroundStyle(.white.opacity(0.88))
             .padding(.horizontal, 7)
@@ -340,10 +340,10 @@ struct MediaCountBadge: View {
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: "play.rectangle.on.rectangle.fill")
-                .font(.system(size: 9, weight: .medium))
+                .font(.systemScaled(9, weight: .medium))
                 .foregroundStyle(CMDesign.badgeAccent.opacity(0.75))
             Text("\(count)+ resources")
-                .font(.system(size: 9, weight: .semibold))
+                .font(.systemScaled(9, weight: .semibold))
                 .foregroundStyle(CMDesign.softInk)
         }
         .padding(.horizontal, 8)

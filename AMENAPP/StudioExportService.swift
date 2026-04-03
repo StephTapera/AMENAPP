@@ -86,22 +86,22 @@ private struct StudioExportCard: View {
                             .fill(tool.accentColor.opacity(0.15))
                             .frame(width: 36, height: 36)
                         Image(systemName: tool.icon)
-                            .font(.system(size: 16, weight: .medium))
+                            .font(.systemScaled(16, weight: .medium))
                             .foregroundStyle(tool.accentColor)
                     }
                     VStack(alignment: .leading, spacing: 1) {
                         Text(tool.outputLabel.uppercased())
-                            .font(.system(size: 9, weight: .semibold))
+                            .font(.systemScaled(9, weight: .semibold))
                             .foregroundStyle(tool.accentColor)
                             .kerning(1.5)
                         Text(title.isEmpty ? "AMEN Studio" : title)
-                            .font(.system(size: 14, weight: .bold))
+                            .font(.systemScaled(14, weight: .bold))
                             .foregroundStyle(.primary)
                             .lineLimit(1)
                     }
                     Spacer()
                     Image(systemName: "cross.fill")
-                        .font(.system(size: 12, weight: .light))
+                        .font(.systemScaled(12, weight: .light))
                         .foregroundStyle(tool.accentColor.opacity(0.5))
                 }
                 .padding(.bottom, 20)
@@ -112,7 +112,7 @@ private struct StudioExportCard: View {
 
                 // Content
                 Text(text)
-                    .font(.system(size: 15, design: .serif))
+                    .font(.systemScaled(15, design: .serif))
                     .foregroundStyle(.primary)
                     .lineSpacing(6)
                     .multilineTextAlignment(.leading)
@@ -123,11 +123,11 @@ private struct StudioExportCard: View {
                 // Footer
                 HStack {
                     Text("Created with AMEN")
-                        .font(.system(size: 10))
+                        .font(.systemScaled(10))
                         .foregroundStyle(.secondary)
                     Spacer()
                     Image(systemName: "sparkles")
-                        .font(.system(size: 10))
+                        .font(.systemScaled(10))
                         .foregroundStyle(tool.accentColor.opacity(0.6))
                 }
             }

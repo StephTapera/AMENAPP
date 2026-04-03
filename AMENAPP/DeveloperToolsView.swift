@@ -121,7 +121,7 @@ struct DeveloperToolsView: View {
                                 testSearch()
                             } label: {
                                 Image(systemName: "magnifyingglass")
-                                    .font(.system(size: 16, weight: .semibold))
+                                    .font(.systemScaled(16, weight: .semibold))
                                     .foregroundStyle(.white)
                                     .padding(10)
                                     .background(Circle().fill(Color.blue))

@@ -275,15 +275,15 @@ struct AIAssistPopup: View {
                         .fill(toneColor.opacity(0.12))
                         .frame(width: 36, height: 36)
                     Image(systemName: toneIcon)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(toneColor)
                 }
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("AI Writing Assist")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                     Text(suggestion.tone.capitalized + " tone")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.secondary)
                 }
 
@@ -291,7 +291,7 @@ struct AIAssistPopup: View {
 
                 Button(action: onDismiss) {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 20))
+                        .font(.systemScaled(20))
                         .foregroundStyle(Color.primary.opacity(0.25))
                 }
                 .buttonStyle(.plain)
@@ -318,7 +318,7 @@ struct AIAssistPopup: View {
             HStack(spacing: 12) {
                 Button(action: onDismiss) {
                     Text("Dismiss")
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.systemScaled(15, weight: .medium))
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
@@ -333,7 +333,7 @@ struct AIAssistPopup: View {
                     onApply(suggestion.continuation)
                 } label: {
                     Text("Append")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)

@@ -141,7 +141,7 @@ struct SettingsView: View {
                         // ── App Version ─────────────────────────────────────
                         HStack {
                             Text("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")")
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                                 .foregroundStyle(SD.secondary)
                         }
                         .frame(maxWidth: .infinity)
@@ -158,7 +158,7 @@ struct SettingsView: View {
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     Text("Settings")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(SD.label)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
@@ -172,7 +172,7 @@ struct SettingsView: View {
                                 .overlay(Circle().stroke(Color.primary.opacity(0.08), lineWidth: 0.5))
                                 .frame(width: 30, height: 30)
                             Image(systemName: "xmark")
-                                .font(.system(size: 11, weight: .bold))
+                                .font(.systemScaled(11, weight: .bold))
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -243,18 +243,18 @@ struct SettingsView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     if let user = Auth.auth().currentUser {
                         Text(user.displayName ?? "Your Account")
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(.systemScaled(15, weight: .semibold))
                             .foregroundStyle(SD.label)
                         Text(user.email ?? "")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(SD.secondary)
                             .lineLimit(1)
                     } else {
                         Text("Your Account")
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(.systemScaled(15, weight: .semibold))
                             .foregroundStyle(SD.label)
                         Text("Manage profile & preferences")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(SD.secondary)
                     }
                 }
@@ -264,7 +264,7 @@ struct SettingsView: View {
             Spacer()
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .medium))
+                .font(.systemScaled(12, weight: .medium))
                 .foregroundStyle(SD.chevron)
         }
         .padding(.horizontal, 16)
@@ -296,7 +296,7 @@ struct SettingsView: View {
                 .frame(width: 52, height: 52)
                 .overlay(Circle().stroke(SD.panelEdge, lineWidth: 1))
             Text(initials)
-                .font(.system(size: 18, weight: .semibold))
+                .font(.systemScaled(18, weight: .semibold))
                 .foregroundStyle(SD.label)
         }
     }
@@ -361,23 +361,23 @@ struct SDNavRow<Destination: View>: View {
                     .frame(width: 30, height: 30)
                     .overlay(
                         Image(systemName: icon)
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.systemScaled(14, weight: .medium))
                             .foregroundStyle(.white)
                     )
             } else {
                 Image(systemName: icon)
-                    .font(.system(size: 16, weight: .regular))
+                    .font(.systemScaled(16, weight: .regular))
                     .foregroundStyle(SD.label)
                     .frame(width: 22, alignment: .center)
             }
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(label)
-                    .font(.system(size: 15, weight: .regular))
+                    .font(.systemScaled(15, weight: .regular))
                     .foregroundStyle(SD.label)
                 if let sub = subtitle {
                     Text(sub)
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(SD.label.opacity(0.45))
                 }
             }
@@ -386,7 +386,7 @@ struct SDNavRow<Destination: View>: View {
 
             if showChevron {
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                     .foregroundStyle(SD.chevron)
             }
         }
@@ -410,12 +410,12 @@ struct SDActionRow: View {
         Button(action: action) {
             HStack(spacing: 13) {
                 Image(systemName: icon)
-                    .font(.system(size: 16, weight: .regular))
+                    .font(.systemScaled(16, weight: .regular))
                     .foregroundStyle(style == .danger ? SD.danger : SD.label)
                     .frame(width: 22, alignment: .center)
 
                 Text(label)
-                    .font(.system(size: 15, weight: .regular))
+                    .font(.systemScaled(15, weight: .regular))
                     .foregroundStyle(style == .danger ? SD.danger : SD.label)
 
                 Spacer()
@@ -439,17 +439,17 @@ struct SDToggleRow: View {
     var body: some View {
         HStack(spacing: 13) {
             Image(systemName: icon)
-                .font(.system(size: 16, weight: .regular))
+                .font(.systemScaled(16, weight: .regular))
                 .foregroundStyle(SD.label)
                 .frame(width: 22, alignment: .center)
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(label)
-                    .font(.system(size: 15, weight: .regular))
+                    .font(.systemScaled(15, weight: .regular))
                     .foregroundStyle(SD.label)
                 if let sub = subtitle {
                     Text(sub)
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(SD.label.opacity(0.45))
                 }
             }
@@ -476,19 +476,19 @@ struct SDDisabledRow: View {
     var body: some View {
         HStack(spacing: 13) {
             Image(systemName: icon)
-                .font(.system(size: 16, weight: .regular))
+                .font(.systemScaled(16, weight: .regular))
                 .foregroundStyle(SD.label.opacity(0.3))
                 .frame(width: 22, alignment: .center)
 
             Text(label)
-                .font(.system(size: 15, weight: .regular))
+                .font(.systemScaled(15, weight: .regular))
                 .foregroundStyle(SD.label.opacity(0.3))
 
             Spacer()
 
             if let badge {
                 Text(badge)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                     .foregroundStyle(SD.secondary)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 3)

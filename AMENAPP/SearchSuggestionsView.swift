@@ -74,7 +74,7 @@ struct SearchSuggestionsView: View {
                         }
                         
                         Image(systemName: "arrow.up.backward")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(.tertiary)
                             .rotationEffect(.degrees(90))
                     }

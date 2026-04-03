@@ -51,7 +51,7 @@ struct ReasoningThreadView: View {
                     } label: {
                         Image(systemName: "xmark")
                             .foregroundColor(.black.opacity(0.7))
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.systemScaled(15, weight: .medium))
                     }
                 }
             }
@@ -71,7 +71,7 @@ struct ReasoningThreadView: View {
                 .tint(Color.purple)
                 .scaleEffect(1.3)
             Text("Generating discussion frame...")
-                .font(.system(size: 15, weight: .medium))
+                .font(.systemScaled(15, weight: .medium))
                 .foregroundColor(.black.opacity(0.6))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -144,19 +144,19 @@ struct ReasoningThreadView: View {
                     .frame(width: 32, height: 32)
                     .overlay(
                         Text(String(postAuthorName.prefix(1)).uppercased())
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                             .foregroundColor(.black.opacity(0.75))
                     )
                 Text(postAuthorName)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundColor(.black.opacity(0.9))
                 Spacer()
                 Image(systemName: "quote.opening")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundColor(Color.purple.opacity(0.55))
             }
             Text(postText)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundColor(.black.opacity(0.7))
                 .lineLimit(3)
         }
@@ -203,10 +203,10 @@ struct ReasoningThreadView: View {
 
         return HStack(spacing: 6) {
             Image(systemName: "chart.bar.xaxis")
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
                 .foregroundColor(color)
             Text(label)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundColor(color)
         }
         .padding(.horizontal, 12)
@@ -224,10 +224,10 @@ struct ReasoningThreadView: View {
     private var sectionHeader: some View {
         HStack {
             Text("Discussion")
-                .font(.system(size: 16, weight: .bold))
+                .font(.systemScaled(16, weight: .bold))
                 .foregroundColor(.black)
             Text("(\(vm.nodes.count) arguments)")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundColor(.black.opacity(0.45))
             Spacer()
         }
@@ -239,9 +239,9 @@ struct ReasoningThreadView: View {
     private var viewUpdatePill: some View {
         HStack(spacing: 5) {
             Text("↺")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
             Text("\(vm.discussion.viewUpdateCount) \(vm.discussion.viewUpdateCount == 1 ? "person" : "people") changed their view")
-                .font(.system(size: 12, weight: .medium))
+                .font(.systemScaled(12, weight: .medium))
         }
         .foregroundColor(Color(red: 0.20, green: 0.65, blue: 0.40))
         .padding(.horizontal, 12)
@@ -263,9 +263,9 @@ struct ReasoningThreadView: View {
         } label: {
             HStack(spacing: 8) {
                 Image(systemName: "plus")
-                    .font(.system(size: 15, weight: .bold))
+                    .font(.systemScaled(15, weight: .bold))
                 Text("Add Your View")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
             }
             .foregroundColor(.black)
             .padding(.horizontal, 18)

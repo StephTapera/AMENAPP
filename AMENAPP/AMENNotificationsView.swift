@@ -286,7 +286,7 @@ private struct NotificationAvatar: View {
 
             if type == .bereanInsight || type == .system {
                 Image(systemName: type.iconName)
-                    .font(.system(size: 18, weight: .medium))
+                    .font(.systemScaled(18, weight: .medium))
                     .foregroundStyle(Color.black.opacity(0.7))
             } else {
                 Text(initials)
@@ -341,7 +341,7 @@ private struct NotificationCard: View {
 
             // Type icon badge
             Image(systemName: notification.type.iconName)
-                .font(.system(size: 13, weight: .medium))
+                .font(.systemScaled(13, weight: .medium))
                 .foregroundStyle(Color(white: 0.55))
                 .padding(.top, 14)
         }
@@ -402,7 +402,7 @@ private struct GroupSectionHeader: View {
         Button(action: onToggle) {
             HStack(spacing: 8) {
                 Image(systemName: type.iconName)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(Color.black.opacity(0.75))
                     .frame(width: 20)
 
@@ -422,7 +422,7 @@ private struct GroupSectionHeader: View {
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(Color(white: 0.55))
                     .rotationEffect(.degrees(isCollapsed ? 0 : 90))
                     .animation(.spring(response: 0.35, dampingFraction: 0.80), value: isCollapsed)
@@ -442,7 +442,7 @@ private struct FocusModePill: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: isOn ? "moon.fill" : "moon")
-                .font(.system(size: 14, weight: .medium))
+                .font(.systemScaled(14, weight: .medium))
                 .foregroundStyle(Color.black.opacity(0.75))
 
             Text("Focus Mode")
@@ -485,7 +485,7 @@ private struct NotificationsEmptyState: View {
                     .shadow(color: Color.black.opacity(0.06), radius: 16, x: 0, y: 4)
 
                 Image(systemName: "bell.fill")
-                    .font(.system(size: 28, weight: .medium))
+                    .font(.systemScaled(28, weight: .medium))
                     .foregroundStyle(Color.black.opacity(0.6))
             }
 

@@ -120,7 +120,7 @@ struct TestimoniesView: View {
                                         Text("Clear filter")
                                             .font(AMENFont.semiBold(12))
                                         Image(systemName: "xmark.circle.fill")
-                                            .font(.system(size: 14))
+                                            .font(.systemScaled(14))
                                     }
                                     .foregroundStyle(.blue)
                                 }
@@ -153,7 +153,7 @@ struct TestimoniesView: View {
                     // Following tab with no results — tell user why
                     VStack(spacing: 16) {
                         Image(systemName: FollowService.shared.following.isEmpty ? "person.2.slash" : "sparkle")
-                            .font(.system(size: 44))
+                            .font(.systemScaled(44))
                             .foregroundStyle(.secondary.opacity(0.5))
                         Text(FollowService.shared.following.isEmpty
                              ? "Follow believers to see their testimonies"
@@ -251,7 +251,7 @@ struct TestimoniesView: View {
             if let category = selectedCategory {
                 HStack(spacing: 6) {
                     Image(systemName: category.icon)
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundStyle(category.color)
                     
                     Text(category.title)
@@ -314,7 +314,7 @@ struct TestimoniesView: View {
                         Spacer()
                         
                         Image(systemName: "chevron.down")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                             .foregroundStyle(.secondary)
                             .rotationEffect(.degrees(isCategoryBrowseExpanded ? 180 : 0))
                     }
@@ -436,7 +436,7 @@ struct TestimoniesView: View {
                 if allPosts.isEmpty {
                     VStack(spacing: 16) {
                         Image(systemName: selectedFilter == .following ? "person.2" : "hands.sparkles")
-                            .font(.system(size: 48))
+                            .font(.systemScaled(48))
                             .foregroundStyle(.secondary)
 
                         if selectedFilter == .following {
@@ -734,14 +734,14 @@ struct TestimonyCategoryCard: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Image(systemName: category.icon)
-                        .font(.system(size: 24))
+                        .font(.systemScaled(24))
                         .foregroundStyle(category.color)
                     
                     Spacer()
                     
                     if isSelected {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 18))
+                            .font(.systemScaled(18))
                             .foregroundStyle(category.color)
                     }
                 }
@@ -846,7 +846,7 @@ struct TestimonyPostCard: View {
                     haptic.impactOccurred()
                 } label: {
                     Image(systemName: isFollowing ? "checkmark.circle.fill" : "plus.circle.fill")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.systemScaled(18, weight: .semibold))
                         .foregroundStyle(isFollowing ? .black : .white)
                         .background(
                             Circle()
@@ -878,7 +878,7 @@ struct TestimonyPostCard: View {
                    let category = [TestimonyCategory.healing, .career, .relationship, .financial, .spiritual, .family].first(where: { $0.title.lowercased() == topicTag.lowercased() }) {
                     HStack(spacing: 3) {
                         Image(systemName: category.icon)
-                            .font(.system(size: 9, weight: .semibold))
+                            .font(.systemScaled(9, weight: .semibold))
                         Text(category.title)
                             .font(AMENFont.bold(10))
                     }
@@ -965,7 +965,7 @@ struct TestimonyPostCard: View {
             }
         } label: {
             Image(systemName: "ellipsis")
-                .font(.system(size: 18, weight: .semibold))
+                .font(.systemScaled(18, weight: .semibold))
                 .foregroundStyle(Color.black.opacity(0.6))
                 .frame(width: 32, height: 32)
         }
@@ -998,7 +998,7 @@ struct TestimonyPostCard: View {
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: hasAmened ? "hands.clap.fill" : "hands.clap")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                 Text("\(amenCount)")
                     .font(AMENFont.semiBold(11))
             }
@@ -1062,7 +1062,7 @@ struct TestimonyPostCard: View {
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: "bubble.left.fill")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                 Text("\(commentCount)")
                     .font(AMENFont.semiBold(11))
             }
@@ -1090,7 +1090,7 @@ struct TestimonyPostCard: View {
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: hasReposted ? "arrow.2.squarepath.circle.fill" : "arrow.2.squarepath")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                 Text("\(repostCount)")
                     .font(AMENFont.semiBold(11))
             }
@@ -1153,7 +1153,7 @@ struct TestimonyPostCard: View {
             sharePost()
         } label: {
             Image(systemName: "square.and.arrow.up")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(Color.black.opacity(0.5))
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
@@ -1409,7 +1409,7 @@ struct TestimonyCommentSection: View {
                                 postComment()
                             } label: {
                                 Image(systemName: "arrow.up.circle.fill")
-                                    .font(.system(size: 24))
+                                    .font(.systemScaled(24))
                                     .foregroundStyle(.black)
                             }
                         } else {
@@ -1417,7 +1417,7 @@ struct TestimonyCommentSection: View {
                                 showQuickResponses.toggle()
                             } label: {
                                 Image(systemName: showQuickResponses ? "sparkles.square.filled.on.square" : "sparkles")
-                                    .font(.system(size: 18))
+                                    .font(.systemScaled(18))
                                     .foregroundStyle(.black.opacity(0.5))
                             }
                             .buttonStyle(.plain)
@@ -1563,7 +1563,7 @@ struct TestimonyCommentRow: View {
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: hasAmened ? "hands.clap.fill" : "hands.clap")
-                                .font(.system(size: 11, weight: .semibold))
+                                .font(.systemScaled(11, weight: .semibold))
                             if amenCount > 0 {
                                 Text("\(amenCount)")
                                     .font(AMENFont.semiBold(10))
@@ -1640,7 +1640,7 @@ struct TestimonyCategoryDetailInlineView: View {
                                     .frame(width: 80, height: 80)
                                 
                                 Image(systemName: category.icon)
-                                    .font(.system(size: 40))
+                                    .font(.systemScaled(40))
                                     .foregroundStyle(category.color)
                             }
                             
@@ -1689,7 +1689,7 @@ struct TestimonyCategoryDetailInlineView: View {
                         if categoryPosts.isEmpty {
                             VStack(spacing: 12) {
                                 Image(systemName: category.icon)
-                                    .font(.system(size: 40))
+                                    .font(.systemScaled(40))
                                     .foregroundStyle(category.color.opacity(0.5))
                                 Text("No testimonies in \(category.title) yet")
                                     .font(AMENFont.bold(16))
@@ -1718,7 +1718,7 @@ struct TestimonyCategoryDetailInlineView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .foregroundStyle(.primary)
                     }
                 }
@@ -1728,7 +1728,7 @@ struct TestimonyCategoryDetailInlineView: View {
                         // Share category
                     } label: {
                         Image(systemName: "square.and.arrow.up")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .foregroundStyle(.primary)
                     }
                 }
@@ -1815,7 +1815,7 @@ struct TestimonyFullCommentSheet: View {
                 postComment()
             } label: {
                 Image(systemName: "arrow.up.circle.fill")
-                    .font(.system(size: 28))
+                    .font(.systemScaled(28))
                     .foregroundStyle(.black)
             }
             .buttonStyle(.plain)
@@ -1824,7 +1824,7 @@ struct TestimonyFullCommentSheet: View {
                 showQuickResponses.toggle()
             } label: {
                 Image(systemName: showQuickResponses ? "sparkles.square.filled.on.square" : "sparkles")
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
                     .foregroundStyle(.black.opacity(0.5))
             }
             .buttonStyle(.plain)
@@ -1860,7 +1860,7 @@ struct TestimonyFullCommentSheet: View {
                                    let category = [TestimonyCategory.healing, .career, .relationship, .financial, .spiritual, .family].first(where: { $0.title.lowercased() == topicTag.lowercased() }) {
                                     HStack(spacing: 3) {
                                         Image(systemName: category.icon)
-                                            .font(.system(size: 8, weight: .semibold))
+                                            .font(.systemScaled(8, weight: .semibold))
                                         Text(category.title)
                                             .font(AMENFont.bold(9))
                                     }
@@ -1961,7 +1961,7 @@ struct TestimonyFullCommentSheet: View {
                         } else if comments.isEmpty {
                             VStack(spacing: 16) {
                                 Image(systemName: "bubble.left.and.bubble.right")
-                                    .font(.system(size: 48))
+                                    .font(.systemScaled(48))
                                     .foregroundStyle(.secondary)
                                 
                                 Text("No comments yet")
@@ -2007,7 +2007,7 @@ struct TestimonyFullCommentSheet: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 24))
+                            .font(.systemScaled(24))
                             .foregroundStyle(.gray)
                             .symbolRenderingMode(.hierarchical)
                     }

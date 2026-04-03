@@ -97,7 +97,7 @@ struct BereanChatsListView: View {
         HStack(spacing: 0) {
             Button { dismiss() } label: {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(.primary)
                     .frame(width: 40, height: 40)
                     .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -111,10 +111,10 @@ struct BereanChatsListView: View {
 
             VStack(spacing: 2) {
                 Text("Conversations")
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.systemScaled(17, weight: .semibold))
                     .foregroundStyle(.primary)
                 Text("\(conversations.count) saved")
-                    .font(.system(size: 12, weight: .regular))
+                    .font(.systemScaled(12, weight: .regular))
                     .foregroundStyle(.secondary)
             }
 
@@ -125,7 +125,7 @@ struct BereanChatsListView: View {
                     // folder action
                 } label: {
                     Image(systemName: "folder")
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.systemScaled(15, weight: .medium))
                         .foregroundStyle(.secondary)
                         .frame(width: 40, height: 40)
                         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -137,7 +137,7 @@ struct BereanChatsListView: View {
 
                 Button { dismiss() } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(.secondary)
                         .frame(width: 40, height: 40)
                         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -156,15 +156,15 @@ struct BereanChatsListView: View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(.secondary)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
             TextField("Search conversations", text: $searchText)
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .foregroundStyle(.primary)
             if !searchText.isEmpty {
                 Button { searchText = "" } label: {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundStyle(.secondary)
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                 }
                 .buttonStyle(.plain)
             }
@@ -190,18 +190,18 @@ struct BereanChatsListView: View {
                         .fill(Color.primary)
                         .frame(width: 40, height: 40)
                     Image(systemName: "plus")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(.background)
                 }
 
                 Text("New Conversation")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(.primary)
 
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundStyle(.tertiary)
             }
             .padding(.horizontal, 16)
@@ -223,7 +223,7 @@ struct BereanChatsListView: View {
     private func sectionLabel(_ title: String) -> some View {
         HStack {
             Text(title)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
                 .foregroundStyle(.tertiary)
                 .kerning(1.2)
             Spacer()
@@ -252,26 +252,26 @@ struct BereanChatsListView: View {
                     .fill(Color.primary.opacity(0.06))
                     .frame(width: 38, height: 38)
                 Image(systemName: "bubble.left.and.bubble.right")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(.secondary)
             }
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(convo.title)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(.primary)
                     .lineLimit(1)
 
                 HStack(spacing: 6) {
                     Text(convo.translation)
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
                         .background(Color.primary.opacity(0.07), in: RoundedRectangle(cornerRadius: 4))
 
                     Text(convo.date.relativeFormatted)
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(.tertiary)
                 }
             }
@@ -279,7 +279,7 @@ struct BereanChatsListView: View {
             Spacer()
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 11, weight: .medium))
+                .font(.systemScaled(11, weight: .medium))
                 .foregroundStyle(.quaternary)
         }
         .padding(.horizontal, 16)
@@ -315,18 +315,18 @@ struct BereanChatsListView: View {
                     .fill(Color.primary.opacity(0.06))
                     .frame(width: 38, height: 38)
                 Image(systemName: icon)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(.secondary)
             }
 
             Text(title)
-                .font(.system(size: 15, weight: .regular))
+                .font(.systemScaled(15, weight: .regular))
                 .foregroundStyle(.primary)
 
             Spacer()
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .medium))
+                .font(.systemScaled(12, weight: .medium))
                 .foregroundStyle(.quaternary)
         }
         .padding(.horizontal, 16)
@@ -352,12 +352,12 @@ struct BereanChatsListView: View {
                         .fill(Color.red.opacity(0.08))
                         .frame(width: 38, height: 38)
                     Image(systemName: "trash")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.systemScaled(14, weight: .medium))
                         .foregroundStyle(Color.red.opacity(0.7))
                 }
 
                 Text("Clear All Conversations")
-                    .font(.system(size: 15, weight: .regular))
+                    .font(.systemScaled(15, weight: .regular))
                     .foregroundStyle(Color.red.opacity(0.75))
 
                 Spacer()
@@ -378,10 +378,10 @@ struct BereanChatsListView: View {
     private var emptySearchState: some View {
         VStack(spacing: 12) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 32))
+                .font(.systemScaled(32))
                 .foregroundStyle(.quaternary)
             Text("No results for \"\(searchText)\"")
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)

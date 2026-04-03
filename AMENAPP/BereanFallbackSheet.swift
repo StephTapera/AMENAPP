@@ -18,10 +18,10 @@ struct BereanFallbackSheet: View {
             // Header
             HStack {
                 Image(systemName: "cross.fill")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(.purple)
                 Text("Berean AI")
-                    .font(.system(size: 16, weight: .bold))
+                    .font(.systemScaled(16, weight: .bold))
                     .foregroundStyle(.white)
                 Spacer()
 
@@ -36,14 +36,14 @@ struct BereanFallbackSheet: View {
 
                 Button { dismiss() } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 22))
+                        .font(.systemScaled(22))
                         .foregroundStyle(.white.opacity(0.4))
                 }
             }
 
             // Post preview
             Text(service.fallbackPostPreview)
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(.gray)
                 .lineLimit(1)
 
@@ -54,7 +54,7 @@ struct BereanFallbackSheet: View {
                 HStack(spacing: 8) {
                     ProgressView().scaleEffect(0.7).tint(.purple)
                     Text(service.fallbackState?.phase.statusText ?? "Loading...")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(.gray)
                         .italic()
                 }
@@ -62,7 +62,7 @@ struct BereanFallbackSheet: View {
                 .padding(.vertical, 20)
             } else {
                 Text(service.fallbackState?.responseText ?? "")
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .foregroundStyle(.white)
                     .lineSpacing(4)
             }
@@ -73,7 +73,7 @@ struct BereanFallbackSheet: View {
                     HStack(spacing: 8) {
                         ForEach(scriptures, id: \.self) { ref in
                             Text(ref)
-                                .font(.system(size: 12, weight: .medium))
+                                .font(.systemScaled(12, weight: .medium))
                                 .foregroundStyle(.white)
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 5)
@@ -97,7 +97,7 @@ struct BereanFallbackSheet: View {
                     )
                 } label: {
                     Text("Go Deeper")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)

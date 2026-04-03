@@ -28,7 +28,7 @@ struct AgeGateView: View {
 
             VStack(spacing: 12) {
                 Image(systemName: "person.crop.circle.badge.checkmark")
-                    .font(.system(size: 52))
+                    .font(.systemScaled(52))
                     .foregroundStyle(.indigo)
                     .opacity(appeared ? 1 : 0)
                     .scaleEffect(appeared ? 1 : 0.8)

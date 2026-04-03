@@ -60,7 +60,7 @@ struct BlockedUsersView: View {
     private var emptyStateView: some View {
         VStack(spacing: 20) {
             Image(systemName: "hand.raised.slash")
-                .font(.system(size: 60))
+                .font(.systemScaled(60))
                 .foregroundStyle(.secondary)
 
             Text("No Blocked Users")

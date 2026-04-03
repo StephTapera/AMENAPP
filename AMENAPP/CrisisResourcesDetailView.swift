@@ -173,7 +173,7 @@ struct CrisisResourcesDetailView: View {
 
                     // Eyebrow label
                     Text("CRISIS HELP & SUPPORT")
-                        .font(.system(size: 9, weight: .semibold))
+                        .font(.systemScaled(9, weight: .semibold))
                         .kerning(2.5)
                         .foregroundStyle(crisisSubLight)
                         .padding(.bottom, 10)
@@ -188,7 +188,7 @@ struct CrisisResourcesDetailView: View {
 
                     // Subtitle
                     Text("Confidential help is here, 24/7.")
-                        .font(.system(size: 14, weight: .regular))
+                        .font(.systemScaled(14, weight: .regular))
                         .foregroundStyle(crisisSubLight)
                         .padding(.bottom, 28)
                 }
@@ -211,7 +211,7 @@ struct CrisisResourcesDetailView: View {
             Button { dial("911") } label: {
                 HStack(spacing: 10) {
                     Image(systemName: "exclamationmark.circle.fill")
-                        .font(.system(size: 18))
+                        .font(.systemScaled(18))
                     VStack(alignment: .leading, spacing: 1) {
                         Text("Immediate danger — call 911")
                             .font(.custom("OpenSans-Bold", size: 15))
@@ -221,7 +221,7 @@ struct CrisisResourcesDetailView: View {
                     }
                     Spacer()
                     Image(systemName: "phone.fill")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                 }
                 .foregroundStyle(.white)
                 .padding(.horizontal, 18)
@@ -426,7 +426,7 @@ struct CrisisResourcesDetailView: View {
                         .fill(Color(red: 0.12, green: 0.55, blue: 0.52).opacity(0.14))
                         .frame(width: 44, height: 44)
                     Image(systemName: "bubble.left.and.text.bubble.right.fill")
-                        .font(.system(size: 20, weight: .medium))
+                        .font(.systemScaled(20, weight: .medium))
                         .foregroundStyle(Color(red: 0.12, green: 0.55, blue: 0.52))
                 }
                 VStack(alignment: .leading, spacing: 2) {
@@ -439,7 +439,7 @@ struct CrisisResourcesDetailView: View {
                 }
                 Spacer()
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(.tertiary)
             }
 
@@ -472,7 +472,7 @@ struct CrisisResourcesDetailView: View {
     private var safetyFooter: some View {
         VStack(spacing: 8) {
             Image(systemName: "lock.fill")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.tertiary)
             Text("Your privacy is protected. This section is private and is never shown publicly on your profile.")
                 .font(.custom("OpenSans-Regular", size: 12))
@@ -553,7 +553,7 @@ private struct SupportSectionCard<Content: View>: View {
                             .fill(accentColor.opacity(isExpanded ? 0.18 : 0.11))
                             .frame(width: 40, height: 40)
                         Image(systemName: sectionIcon)
-                            .font(.system(size: 17, weight: .semibold))
+                            .font(.systemScaled(17, weight: .semibold))
                             .foregroundStyle(accentColor)
                     }
                     Text(section.rawValue)
@@ -561,7 +561,7 @@ private struct SupportSectionCard<Content: View>: View {
                         .foregroundStyle(.primary)
                     Spacer()
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(.tertiary)
                 }
                 .padding(.horizontal, 16)
@@ -612,7 +612,7 @@ private struct HotlineRow: View {
                         .fill(hotline.color.opacity(0.13))
                         .frame(width: 42, height: 42)
                     Image(systemName: hotline.icon)
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.systemScaled(18, weight: .semibold))
                         .foregroundStyle(hotline.color)
                 }
 
@@ -637,12 +637,12 @@ private struct HotlineRow: View {
                 HStack(spacing: 6) {
                     if hotline.phoneNumber != nil {
                         Image(systemName: "phone.fill")
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundStyle(hotline.color)
                     }
                     if hotline.textNumber != nil {
                         Image(systemName: "message.fill")
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundStyle(hotline.color)
                     }
                 }
@@ -702,7 +702,7 @@ private struct SafetyPlanContent: View {
                                 .multilineTextAlignment(.leading)
                             Spacer()
                             Image(systemName: expandedStep == index ? "chevron.up" : "chevron.down")
-                                .font(.system(size: 11, weight: .semibold))
+                                .font(.systemScaled(11, weight: .semibold))
                                 .foregroundStyle(.tertiary)
                         }
                         if expandedStep == index {
@@ -744,7 +744,7 @@ private struct ResourceLinkRow: View {
                     .fill(accent.opacity(0.12))
                     .frame(width: 40, height: 40)
                 Image(systemName: icon)
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.systemScaled(17, weight: .semibold))
                     .foregroundStyle(accent)
             }
             VStack(alignment: .leading, spacing: 2) {
@@ -757,7 +757,7 @@ private struct ResourceLinkRow: View {
             }
             Spacer()
             Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(.tertiary)
         }
         .padding(.horizontal, 14)
@@ -779,7 +779,7 @@ private struct CrisisInfoRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: icon)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(accent)
                 .padding(.top, 1)
             Text(text)
@@ -808,7 +808,7 @@ private struct QuickContactPill: View {
         Button(action: action) {
             HStack(spacing: 6) {
                 Image(systemName: icon)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                 Text(label)
                     .font(.custom("OpenSans-SemiBold", size: 13))
             }

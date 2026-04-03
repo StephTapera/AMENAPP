@@ -86,7 +86,7 @@ struct PostInteractionsDebugView: View {
                         }
                     } label: {
                         Text(tab.rawValue)
-                            .font(.system(size: 14, weight: selectedTab == tab ? .bold : .regular))
+                            .font(.systemScaled(14, weight: selectedTab == tab ? .bold : .regular))
                             .foregroundColor(selectedTab == tab ? .white : .primary)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 8)

@@ -61,7 +61,7 @@ struct VergeCreatorStudioView: View {
                         Image(systemName: "xmark.circle.fill")
                             .symbolRenderingMode(.hierarchical)
                             .foregroundStyle(.white.opacity(0.6))
-                            .font(.system(size: 22))
+                            .font(.systemScaled(22))
                     }
                 }
             }
@@ -139,7 +139,7 @@ struct VergeCreatorStudioView: View {
     private func metricCard(icon: String, label: String, value: String, color: Color) -> some View {
         VStack(spacing: 10) {
             Image(systemName: icon)
-                .font(.system(size: 22, weight: .semibold))
+                .font(.systemScaled(22, weight: .semibold))
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(color)
             Text(value)
@@ -160,7 +160,7 @@ struct VergeCreatorStudioView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 Image(systemName: "sparkles")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(amenViolet)
                 Text("AI Forecast")
@@ -265,7 +265,7 @@ struct VergeCreatorStudioView: View {
             // Tip jar toggle
             HStack(spacing: 12) {
                 Image(systemName: "gift.fill")
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.systemScaled(17, weight: .semibold))
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(amenGold)
                 Text("Tip Jar")
@@ -353,7 +353,7 @@ struct VergeCreatorStudioView: View {
                     ProgressView().tint(.white).scaleEffect(0.85)
                 } else {
                     Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                     Text("Refresh AI Projection")
                         .font(AMENFont.bold(15))
                 }

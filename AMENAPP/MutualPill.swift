@@ -26,7 +26,7 @@ struct MutualPill: View {
                 HStack(spacing: 5) {
                     StackedAvatars(users: Array(mutuals.prefix(3)))
                     Text("\(mutuals.count) mutual\(mutuals.count == 1 ? "" : "s")")
-                        .font(.system(size: 9, weight: .semibold))
+                        .font(.systemScaled(9, weight: .semibold))
                         .foregroundStyle(.primary.opacity(0.7))
                     LiveDot()
                 }
@@ -129,17 +129,17 @@ struct MutualExpandPanel: View {
                     
                     VStack(alignment: .leading, spacing: 1) {
                         Text(user.name)
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.systemScaled(11, weight: .semibold))
                             .foregroundStyle(.primary)
                         Text(user.context)
-                            .font(.system(size: 9))
+                            .font(.systemScaled(9))
                             .foregroundStyle(.secondary)
                     }
                     
                     Spacer()
                     
                     Text(user.relationshipLabel)
-                        .font(.system(size: 8, weight: .bold))
+                        .font(.systemScaled(8, weight: .bold))
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
                         .background(user.badgeColor.opacity(0.12), in: Capsule())

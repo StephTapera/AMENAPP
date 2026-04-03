@@ -337,12 +337,12 @@ struct CreatePostView: View {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "tag")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.systemScaled(12, weight: .medium))
                         Text(topicTagButtonText)
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.systemScaled(13, weight: .medium))
                         if selectedTopicTag.isEmpty && selectedCategory != .testimonies {
                             Text("Required")
-                                .font(.system(size: 10, weight: .medium))
+                                .font(.systemScaled(10, weight: .medium))
                                 .foregroundStyle(.secondary.opacity(0.7))
                                 .padding(.horizontal, 5)
                                 .padding(.vertical, 2)
@@ -458,7 +458,7 @@ struct CreatePostView: View {
                                     }
                                 } label: {
                                     Text("Add to thread…")
-                                        .font(.system(size: 15))
+                                        .font(.systemScaled(15))
                                         .foregroundStyle(Color(.tertiaryLabel))
                                 }
                                 .buttonStyle(.plain)
@@ -488,7 +488,7 @@ struct CreatePostView: View {
                                             get: { threadPosts[index] },
                                             set: { threadPosts[index] = $0 }
                                         ), axis: .vertical)
-                                        .font(.system(size: 16))
+                                        .font(.systemScaled(16))
                                         .lineLimit(10...20)
                                         .textFieldStyle(.plain)
                                         
@@ -506,9 +506,9 @@ struct CreatePostView: View {
                                             } label: {
                                                 HStack(spacing: 6) {
                                                     Image(systemName: "xmark.circle.fill")
-                                                        .font(.system(size: 14))
+                                                        .font(.systemScaled(14))
                                                     Text("Remove")
-                                                        .font(.system(size: 13))
+                                                        .font(.systemScaled(13))
                                                 }
                                                 .foregroundStyle(.secondary)
                                             }
@@ -535,7 +535,7 @@ struct CreatePostView: View {
                                         }
                                     } label: {
                                         Text("Add another post…")
-                                            .font(.system(size: 15))
+                                            .font(.systemScaled(15))
                                             .foregroundStyle(Color(.tertiaryLabel))
                                     }
                                     .buttonStyle(.plain)
@@ -620,7 +620,7 @@ struct CreatePostView: View {
                     dismiss()
                 }
             }
-            .font(.system(size: 16, weight: .regular))
+            .font(.systemScaled(16, weight: .regular))
             .foregroundStyle(.primary)
             .confirmationDialog("", isPresented: $showCancelConfirmation, titleVisibility: .hidden) {
                 Button("Save Draft") {
@@ -638,7 +638,7 @@ struct CreatePostView: View {
 
         ToolbarItem(placement: .principal) {
             Text("New post")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
         }
 
         // Draft button
@@ -647,7 +647,7 @@ struct CreatePostView: View {
                 showDraftsSheet = true
             } label: {
                 Image(systemName: "doc.text")
-                    .font(.system(size: 16, weight: .regular))
+                    .font(.systemScaled(16, weight: .regular))
                     .foregroundStyle(.primary)
             }
         }
@@ -666,12 +666,12 @@ struct CreatePostView: View {
                             .frame(width: 20, height: 20)
 
                         Image(systemName: scheduledDate != nil ? "calendar" : "arrow.up")
-                            .font(.system(size: 11, weight: .bold))
+                            .font(.systemScaled(11, weight: .bold))
                             .foregroundStyle(canPost ? Color.black : Color.black.opacity(0.35))
                     }
 
                     Text(scheduledDate != nil ? "Schedule" : "Post")
-                        .font(.system(size: 16, weight: .bold))
+                        .font(.systemScaled(16, weight: .bold))
                         .foregroundStyle(canPost ? Color.black : Color.black.opacity(0.35))
                 }
                 .padding(.horizontal, 14)
@@ -1081,7 +1081,7 @@ struct CreatePostView: View {
             // Reason field
             HStack(spacing: 8) {
                 Image(systemName: "text.bubble")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(Color.primary.opacity(0.4))
                 TextField("Reason (optional — grief, trauma, etc.)", text: $sensitiveContentReason)
                     .font(AMENFont.regular(13))
@@ -1102,14 +1102,14 @@ struct CreatePostView: View {
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: hideEngagementCounts ? "eye.slash.fill" : "eye")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(hideEngagementCounts ? Color(hex: "6B48FF") : Color.primary.opacity(0.4))
                     Text("Hide likes & comments count")
                         .font(AMENFont.regular(13))
                         .foregroundStyle(Color.primary.opacity(0.75))
                     Spacer()
                     Image(systemName: hideEngagementCounts ? "checkmark.circle.fill" : "circle")
-                        .font(.system(size: 16))
+                        .font(.systemScaled(16))
                         .foregroundStyle(hideEngagementCounts ? Color(hex: "6B48FF") : Color.primary.opacity(0.25))
                 }
             }
@@ -1349,7 +1349,7 @@ struct CreatePostView: View {
                         .frame(width: 44, height: 44)
                         .overlay(
                             Text(initial)
-                                .font(.system(size: 18, weight: .semibold))
+                                .font(.systemScaled(18, weight: .semibold))
                                 .foregroundStyle(.secondary)
                         )
                 }
@@ -1359,7 +1359,7 @@ struct CreatePostView: View {
                     .frame(width: 44, height: 44)
                     .overlay(
                         Text(initial)
-                            .font(.system(size: 18, weight: .semibold))
+                            .font(.systemScaled(18, weight: .semibold))
                             .foregroundStyle(.secondary)
                     )
             }
@@ -1367,7 +1367,7 @@ struct CreatePostView: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 4) {
                     Text("@\(nameToShow)")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(.primary)
 
                     if let uid = Auth.auth().currentUser?.uid,
@@ -1391,10 +1391,10 @@ struct CreatePostView: View {
                 } label: {
                     HStack(spacing: 4) {
                         Text(selectedCategory.displayName)
-                            .font(.system(size: 13, weight: .regular))
+                            .font(.systemScaled(13, weight: .regular))
                             .foregroundStyle(.secondary)
                         Image(systemName: "chevron.down")
-                            .font(.system(size: 9, weight: .semibold))
+                            .font(.systemScaled(9, weight: .semibold))
                             .foregroundStyle(.tertiary)
                     }
                 }
@@ -1409,14 +1409,14 @@ struct CreatePostView: View {
         HStack(spacing: 20) {
             Button { showingImagePicker = true } label: {
                 Image(systemName: "photo")
-                    .font(.system(size: 18, weight: .light))
+                    .font(.systemScaled(18, weight: .light))
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
 
             Button { showingCamera = true } label: {
                 Image(systemName: "camera")
-                    .font(.system(size: 18, weight: .light))
+                    .font(.systemScaled(18, weight: .light))
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
@@ -1427,28 +1427,28 @@ struct CreatePostView: View {
                 }
             } label: {
                 Image(systemName: "chart.bar.xaxis")
-                    .font(.system(size: 18, weight: .light))
+                    .font(.systemScaled(18, weight: .light))
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
 
             Button { showingVersePickerSheet = true } label: {
                 Image(systemName: "text.book.closed")
-                    .font(.system(size: 18, weight: .light))
+                    .font(.systemScaled(18, weight: .light))
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
 
             Button { showingLinkSheet = true } label: {
                 Image(systemName: "link")
-                    .font(.system(size: 18, weight: .light))
+                    .font(.systemScaled(18, weight: .light))
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
 
             Button { showingScheduleSheet = true } label: {
                 Image(systemName: "calendar")
-                    .font(.system(size: 18, weight: .light))
+                    .font(.systemScaled(18, weight: .light))
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
@@ -1466,11 +1466,11 @@ struct CreatePostView: View {
                 Button { showingVersePickerSheet = true } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "book.fill")
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                         Text("Attach a verse?")
                             .font(AMENFont.semiBold(12))
                         Image(systemName: "plus")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.systemScaled(11, weight: .semibold))
                     }
                     .foregroundColor(Color(hex: "6B48FF"))
                     .padding(.horizontal, 14)
@@ -1497,7 +1497,7 @@ struct CreatePostView: View {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: allAlt ? "checkmark.circle.fill" : "text.bubble")
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                             .foregroundColor(allAlt ? .green : Color.primary.opacity(0.45))
                         Text(allAlt ? "Alt text added" : "Add alt text for accessibility")
                             .font(AMENFont.regular(12))
@@ -1517,7 +1517,7 @@ struct CreatePostView: View {
                     showCommentControls = true
                 } label: {
                     Text(commentPermission == .everyone ? "Anyone can reply" : commentPermission.rawValue)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundStyle(Color.primary.opacity(0.75))
                 }
                 .buttonStyle(.plain)
@@ -1528,9 +1528,9 @@ struct CreatePostView: View {
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: postVisibility.icon)
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.systemScaled(11, weight: .medium))
                         Text(postVisibility.displayName)
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.systemScaled(12, weight: .medium))
                     }
                     .foregroundStyle(Color.primary.opacity(0.75))
                 }
@@ -1550,7 +1550,7 @@ struct CreatePostView: View {
                     HapticManager.impact(style: .light)
                 } label: {
                     Image(systemName: hasSensitiveContent ? "exclamationmark.triangle.fill" : "exclamationmark.triangle")
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.systemScaled(15, weight: .medium))
                         .foregroundStyle(hasSensitiveContent ? .orange : Color.primary.opacity(0.55))
                 }
                 .buttonStyle(.plain)
@@ -1561,7 +1561,7 @@ struct CreatePostView: View {
                     showingScheduleSheet = true
                 } label: {
                     Image(systemName: scheduledDate != nil ? "calendar.badge.clock" : "calendar")
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.systemScaled(15, weight: .medium))
                         .foregroundStyle(scheduledDate != nil ? Color(hex: "6B48FF") : Color.primary.opacity(0.55))
                 }
                 .buttonStyle(.plain)
@@ -1578,7 +1578,7 @@ struct CreatePostView: View {
                 // Character count — shows early but stays calm until near limit
                 if postText.count > 250 {
                     Text("\(postText.count)/500")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundStyle(
                             postText.count > 500 ? .red :
                             postText.count > 480 ? .orange :
@@ -1619,7 +1619,7 @@ struct CreatePostView: View {
             if postText.count > 400 {
                 HStack(spacing: 3) {
                     Image(systemName: characterCountIcon)
-                        .font(.system(size: 9, weight: .semibold))
+                        .font(.systemScaled(9, weight: .semibold))
                     Text("\(postText.count)/500")
                         .font(AMENFont.semiBold(10))
                 }
@@ -1669,7 +1669,7 @@ struct CreatePostView: View {
                             haptic.impactOccurred(intensity: 0.7)
                         } label: {
                             Image(systemName: isToolbarExpanded ? "chevron.left" : "ellipsis")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.systemScaled(14, weight: .semibold))
                                 .foregroundStyle(Color.primary.opacity(0.6))
                                 .frame(width: 32, height: 32)
                                 .scaleEffect(isToolbarExpanded ? 0.95 : 1.0)
@@ -1837,7 +1837,7 @@ struct CreatePostView: View {
                                 .scaleEffect(0.80)
                         } else if scheduledDate != nil {
                             Image(systemName: "calendar.badge.clock")
-                                .font(.system(size: 14, weight: .bold))
+                                .font(.systemScaled(14, weight: .bold))
                                 .foregroundStyle(canPost
                                     ? Color(red: 0.92, green: 0.15, blue: 0.26)
                                     : Color(red: 0.92, green: 0.15, blue: 0.26).opacity(0.30))
@@ -1938,7 +1938,7 @@ struct CreatePostView: View {
     private var topicTagHeaderView: some View {
         HStack {
             Image(systemName: "tag.fill")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(.red)
             
             Text(selectedCategory == .testimonies ? "Testimony Category" : selectedCategory == .openTable ? "Topic Tag" : "Prayer Type")
@@ -1976,7 +1976,7 @@ struct CreatePostView: View {
                         .foregroundStyle(.secondary)
                     if selectedCategory != .testimonies {
                         Text("Required")
-                            .font(.system(size: 10, weight: .medium))
+                            .font(.systemScaled(10, weight: .medium))
                             .foregroundStyle(.secondary.opacity(0.7))
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
@@ -1987,7 +1987,7 @@ struct CreatePostView: View {
                 // Show icon for prayer types
                 if selectedCategory == .prayer {
                     Image(systemName: prayerTypeIcon(for: selectedTopicTag))
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(prayerTypeColor(for: selectedTopicTag))
                 }
                 
@@ -1999,7 +1999,7 @@ struct CreatePostView: View {
             Spacer()
             
             Image(systemName: "chevron.right")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(.secondary)
         }
         .padding(14)
@@ -2015,7 +2015,7 @@ struct CreatePostView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Image(systemName: "person.2.fill")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.blue)
                 Text("Audience")
                     .font(AMENFont.bold(15))
@@ -2030,14 +2030,14 @@ struct CreatePostView: View {
             } label: {
                 HStack {
                     Image(systemName: postVisibility.icon)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(postVisibility.tintColor)
                     Text(postVisibility.displayName)
                         .font(AMENFont.bold(15))
                         .foregroundStyle(.primary)
                     Spacer()
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(.secondary)
                 }
                 .padding(14)
@@ -2058,7 +2058,7 @@ struct CreatePostView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Image(systemName: "book.closed.fill")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.orange)
                 Text("Scripture")
                     .font(AMENFont.bold(15))
@@ -2104,13 +2104,13 @@ struct CreatePostView: View {
                             }
                         } label: {
                             Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 16))
+                                .font(.systemScaled(16))
                                 .foregroundStyle(.secondary)
                         }
                         .buttonStyle(.plain)
                     } else {
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -2132,7 +2132,7 @@ struct CreatePostView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Image(systemName: "building.columns.fill")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.indigo)
                 Text("Tag a Church")
                     .font(AMENFont.bold(15))
@@ -2170,13 +2170,13 @@ struct CreatePostView: View {
                             }
                         } label: {
                             Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 16))
+                                .font(.systemScaled(16))
                                 .foregroundStyle(.secondary)
                         }
                         .buttonStyle(.plain)
                     } else {
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -2257,7 +2257,7 @@ struct CreatePostView: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 4) {
                 Image(systemName: "person.badge.plus")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(Color.purple)
                 Text("Tagged")
                     .font(AMENFont.bold(12))
@@ -2277,7 +2277,7 @@ struct CreatePostView: View {
                                 HapticManager.impact(style: .light)
                             } label: {
                                 Image(systemName: "xmark")
-                                    .font(.system(size: 9, weight: .bold))
+                                    .font(.systemScaled(9, weight: .bold))
                                     .foregroundStyle(.secondary)
                             }
                             .buttonStyle(.plain)
@@ -2303,7 +2303,7 @@ struct CreatePostView: View {
             // Section label
             HStack(spacing: 5) {
                 Image(systemName: "at")
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.systemScaled(11, weight: .bold))
                     .foregroundStyle(.secondary)
                 Text("Mention User")
                     .font(AMENFont.semiBold(12))
@@ -2345,7 +2345,7 @@ struct CreatePostView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Image(systemName: "sparkles")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(Color.blue)
                 
                 Text("Suggested Hashtags")
@@ -2397,7 +2397,7 @@ struct CreatePostView: View {
                     .tracking(0.8)
                     .textCase(.uppercase)
                 Text(scheduledDate, format: .dateTime.day())
-                    .font(.system(size: 22, weight: .black))
+                    .font(.systemScaled(22, weight: .black))
                     .foregroundStyle(accentDark)
             }
             .frame(width: 48)
@@ -2424,7 +2424,7 @@ struct CreatePostView: View {
                             .fill(ink.opacity(0.07))
                             .frame(width: 28, height: 28)
                         Image(systemName: "xmark")
-                            .font(.system(size: 10, weight: .bold))
+                            .font(.systemScaled(10, weight: .bold))
                             .foregroundStyle(ink.opacity(0.55))
                     }
                 }
@@ -2445,7 +2445,7 @@ struct CreatePostView: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     Image(systemName: characterCountIcon)
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(characterCountColor)
                     
                     Text(characterCountText)
@@ -2457,7 +2457,7 @@ struct CreatePostView: View {
                 if postText.count > 500 {
                     HStack(spacing: 4) {
                         Image(systemName: "exclamationmark.triangle.fill")
-                            .font(.system(size: 10))
+                            .font(.systemScaled(10))
                         Text("Character limit exceeded - cannot post")
                             .font(AMENFont.bold(11))
                     }
@@ -4564,7 +4564,7 @@ struct CirclePostButton: View {
             ZStack {
                 // Send icon (paperplane)
                 Image(systemName: "paperplane.fill")
-                    .font(.system(size: 17, weight: .medium))
+                    .font(.systemScaled(17, weight: .medium))
                     .foregroundStyle(iconColor)
                     .opacity(iconOpacity)
                     .scaleEffect(iconScale)
@@ -4579,7 +4579,7 @@ struct CirclePostButton: View {
                 // Checkmark (sent state)
                 if showCheck {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 14, weight: .bold))
+                        .font(.systemScaled(14, weight: .bold))
                         .foregroundStyle(.black)
                         .transition(.scale.combined(with: .opacity))
                 }
@@ -4738,7 +4738,7 @@ struct ThreadsPostButton: View {
                 // "Post" text (idle/ready state)
                 if !showSpinner && !showCheck {
                     Text("Post")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(buttonState == .ready ? Color.primary : Color.secondary)
                 }
                 
@@ -4753,7 +4753,7 @@ struct ThreadsPostButton: View {
                 // Checkmark (sent state)
                 if showCheck {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 14, weight: .bold))
+                        .font(.systemScaled(14, weight: .bold))
                         .foregroundStyle(.primary)
                         .transition(.scale.combined(with: .opacity))
                 }
@@ -4985,13 +4985,13 @@ private struct GlassCategorySegment: View {
                 // Icon + optional label
                 HStack(spacing: 5) {
                     Image(systemName: category.icon)
-                        .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                        .font(.systemScaled(13, weight: isSelected ? .semibold : .regular))
                         .foregroundStyle(isSelected ? .primary : .secondary)
                         .symbolRenderingMode(.hierarchical)
 
                     if showLabel {
                         Text(segmentLabel)
-                            .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
+                            .font(.systemScaled(11, weight: isSelected ? .semibold : .regular))
                             .foregroundStyle(isSelected ? .primary : .secondary)
                             .lineLimit(1)
                             .minimumScaleFactor(0.6)
@@ -5061,7 +5061,7 @@ struct EnhancedToolbarButton: View {
         }) {
             VStack(spacing: 4) {
                 Image(systemName: icon)
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.systemScaled(18, weight: .semibold))
                     .foregroundStyle(isActive ? activeColor : Color.primary.opacity(0.6))
                 
                 Text(label)
@@ -5197,7 +5197,7 @@ struct TopicTagSheet: View {
                     // Search box - Liquid Glass design
                     HStack(spacing: 8) {
                         Image(systemName: "magnifyingglass")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                             .foregroundStyle(.black.opacity(0.4))
                         
                         TextField("Search topics...", text: $searchText)
@@ -5211,7 +5211,7 @@ struct TopicTagSheet: View {
                                 }
                             } label: {
                                 Image(systemName: "xmark.circle.fill")
-                                    .font(.system(size: 16))
+                                    .font(.systemScaled(16))
                                     .foregroundStyle(.black.opacity(0.3))
                             }
                         }
@@ -5231,7 +5231,7 @@ struct TopicTagSheet: View {
                     if filteredTags.isEmpty {
                         VStack(spacing: 12) {
                             Image(systemName: "magnifyingglass")
-                                .font(.system(size: 40))
+                                .font(.systemScaled(40))
                                 .foregroundStyle(.secondary.opacity(0.5))
                             Text("No topics found")
                                 .font(AMENFont.semiBold(16))
@@ -5317,7 +5317,7 @@ struct TopicTagCard: View {
                         .frame(width: 56, height: 56)
                     
                     Image(systemName: icon)
-                        .font(.system(size: 24, weight: .semibold))
+                        .font(.systemScaled(24, weight: .semibold))
                         .foregroundStyle(color)
                 }
                 .scaleEffect(isPressed ? 0.9 : 1.0)
@@ -5395,7 +5395,7 @@ struct SchedulePostSheet: View {
                                 .fill(Color.black.opacity(0.06))
                                 .frame(width: 34, height: 34)
                             Image(systemName: "xmark")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.systemScaled(13, weight: .semibold))
                                 .foregroundStyle(ink)
                         }
                     }
@@ -5427,7 +5427,7 @@ struct SchedulePostSheet: View {
                             .tracking(1.5)
 
                         Text(dayNumber)
-                            .font(.system(size: 64, weight: .black, design: .default))
+                            .font(.systemScaled(64, weight: .black, design: .default))
                             .foregroundStyle(.white)
                             .lineLimit(1)
                             .minimumScaleFactor(0.6)
@@ -5442,7 +5442,7 @@ struct SchedulePostSheet: View {
                         // Time badge — accent block
                         HStack(spacing: 5) {
                             Image(systemName: "clock.fill")
-                                .font(.system(size: 10, weight: .semibold))
+                                .font(.systemScaled(10, weight: .semibold))
                                 .foregroundStyle(accentDark)
                             Text(timeString)
                                 .font(AMENFont.bold(13))
@@ -5457,7 +5457,7 @@ struct SchedulePostSheet: View {
 
                         HStack(spacing: 4) {
                             Image(systemName: "globe")
-                                .font(.system(size: 9))
+                                .font(.systemScaled(9))
                                 .foregroundStyle(Color.white.opacity(0.45))
                             Text(timezoneString)
                                 .font(AMENFont.regular(10))
@@ -5507,7 +5507,7 @@ struct SchedulePostSheet: View {
                             .fill(accent.opacity(0.15))
                             .frame(width: 32, height: 32)
                         Image(systemName: "clock.badge.checkmark.fill")
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundStyle(Color(red: 0.55, green: 0.44, blue: 0.02))
                     }
                     VStack(alignment: .leading, spacing: 1) {
@@ -5537,7 +5537,7 @@ struct SchedulePostSheet: View {
                                 .fill(ink.opacity(0.06))
                                 .frame(width: 32, height: 32)
                             Image(systemName: "calendar.badge.clock")
-                                .font(.system(size: 13))
+                                .font(.systemScaled(13))
                                 .foregroundStyle(ink)
                         }
                         VStack(alignment: .leading, spacing: 1) {
@@ -5577,7 +5577,7 @@ struct SchedulePostSheet: View {
                     } label: {
                         HStack(spacing: 10) {
                             Image(systemName: "calendar.badge.checkmark")
-                                .font(.system(size: 15, weight: .bold))
+                                .font(.systemScaled(15, weight: .bold))
                             Text("Schedule Post")
                                 .font(AMENFont.bold(16))
                         }
@@ -5687,7 +5687,7 @@ struct GlassToolbarButton: View {
             action()
         }) {
             Image(systemName: icon)
-                .font(.system(size: 22, weight: .semibold))
+                .font(.systemScaled(22, weight: .semibold))
                 .foregroundStyle(Color.primary)
                 .frame(width: 48, height: 48)
                 .scaleEffect(isPressed ? 0.9 : 1.0)
@@ -5765,7 +5765,7 @@ struct EnhancedCategoryChip: View {
         Button(action: action) {
             VStack(spacing: 8) {
                 Image(systemName: category.icon)
-                    .font(.system(size: 22, weight: .semibold))
+                    .font(.systemScaled(22, weight: .semibold))
                     .foregroundStyle(iconGradient)
                     .frame(width: 46, height: 46)
                     .background(
@@ -5864,7 +5864,7 @@ private struct DraggableImageCell: View {
                             .frame(width: 28, height: 28)
 
                         Image(systemName: "xmark")
-                            .font(.system(size: 12, weight: .bold))
+                            .font(.systemScaled(12, weight: .bold))
                             .foregroundStyle(.white)
                     }
                 }
@@ -5896,7 +5896,7 @@ private struct AddImageButton: View {
                 .frame(width: 120, height: 120)
                 .overlay(
                     Image(systemName: "plus")
-                        .font(.system(size: 24, weight: .light))
+                        .font(.systemScaled(24, weight: .light))
                         .foregroundStyle(.secondary)
                 )
         }
@@ -5988,7 +5988,7 @@ struct LinkInputSheet: View {
             if !inputURL.isEmpty && !isValidURL(inputURL) {
                 HStack(spacing: 6) {
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.orange)
                     
                     Text("Please enter a valid URL")
@@ -6099,7 +6099,7 @@ struct LinkPreviewCardView: View {
                 }
             }) {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 22))
+                    .font(.systemScaled(22))
                     .foregroundStyle(.secondary)
             }
         }
@@ -6118,7 +6118,7 @@ struct LinkPreviewCardView: View {
                 .frame(width: 60, height: 60)
             
             Image(systemName: "link")
-                .font(.system(size: 20, weight: .semibold))
+                .font(.systemScaled(20, weight: .semibold))
                 .foregroundStyle(Color.blue)
         }
     }
@@ -6212,7 +6212,7 @@ struct ConsolidatedToolbar: View {
                 }
             } label: {
                 Image(systemName: "ellipsis.circle")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.systemScaled(18, weight: .semibold))
                     .foregroundStyle(Color.primary.opacity(0.6))
                     .frame(width: 36, height: 36)
             }
@@ -6265,7 +6265,7 @@ struct CompactToolbarButton: View {
             action()
         }) {
             Image(systemName: icon)
-                .font(.system(size: 18, weight: .semibold))
+                .font(.systemScaled(18, weight: .semibold))
                 .foregroundStyle(isActive ? Color.primary : Color.primary.opacity(0.5))
                 .frame(width: 36, height: 36)
                 .scaleEffect(isPressed ? 0.9 : 1.0)
@@ -6327,7 +6327,7 @@ struct GlassmorphicButton: View {
                 
                 // Icon
                 Image(systemName: icon)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(.primary)
             }
             .scaleEffect(isPressed ? 0.92 : 1.0)
@@ -6361,7 +6361,7 @@ struct GlassToolbarIcon: View {
             action()
         }) {
             Image(systemName: icon)
-                .font(.system(size: 18, weight: .medium))
+                .font(.systemScaled(18, weight: .medium))
                 .foregroundStyle(isActive ? Color.primary : Color.primary.opacity(0.4))
                 .frame(width: 36, height: 36)
                 .scaleEffect(isPressed ? 0.85 : 1.0)
@@ -6430,7 +6430,7 @@ struct CameraAttachmentPreview: View {
                         .fill(Color(.systemBackground).opacity(0.92))
                         .frame(width: 30, height: 30)
                     Image(systemName: "xmark")
-                        .font(.system(size: 12, weight: .bold))
+                        .font(.systemScaled(12, weight: .bold))
                         .foregroundStyle(.primary)
                 }
             }
@@ -6458,7 +6458,7 @@ struct PollComposerCard: View {
             // Header
             HStack {
                 Image(systemName: "chart.bar.fill")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(.secondary)
                 Text("Poll")
                     .font(AMENFont.semiBold(14))
@@ -6466,7 +6466,7 @@ struct PollComposerCard: View {
                 Spacer()
                 Button(action: onRemove) {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 20))
+                        .font(.systemScaled(20))
                         .foregroundStyle(.secondary)
                 }
                 .accessibilityLabel("Remove poll")
@@ -6488,7 +6488,7 @@ struct PollComposerCard: View {
                                 .strokeBorder(Color(.systemGray4), lineWidth: 1.5)
                                 .frame(width: 22, height: 22)
                             Text(optionLabel(index))
-                                .font(.system(size: 11, weight: .semibold))
+                                .font(.systemScaled(11, weight: .semibold))
                                 .foregroundStyle(.secondary)
                         }
 
@@ -6531,7 +6531,7 @@ struct PollComposerCard: View {
                 } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "plus.circle")
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.systemScaled(15, weight: .medium))
                         Text("Add option")
                             .font(AMENFont.regular(14))
                     }
@@ -6548,7 +6548,7 @@ struct PollComposerCard: View {
             // Duration picker
             HStack {
                 Image(systemName: "clock")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.secondary)
                 Text("Duration")
                     .font(AMENFont.regular(14))
@@ -6591,7 +6591,7 @@ struct PollComposerCard: View {
             }
         } label: {
             Image(systemName: "minus.circle.fill")
-                .font(.system(size: 18))
+                .font(.systemScaled(18))
                 .foregroundStyle(Color(.systemGray3))
         }
         .accessibilityLabel(accessLabel)
@@ -6633,13 +6633,13 @@ struct CompactGlassButton: View {
                             .frame(width: 38, height: 38)
                             .shadow(color: Color.black.opacity(0.10), radius: 4, x: 0, y: 2)
                         Image(systemName: icon)
-                            .font(.system(size: 15, weight: .bold))
+                            .font(.systemScaled(15, weight: .bold))
                             .foregroundStyle(Color.primary.opacity(0.75))
                     }
                     .scaleEffect(isPressed ? 0.88 : 1.0)
                 } else {
                     Image(systemName: icon)
-                        .font(.system(size: 16, weight: .light))
+                        .font(.systemScaled(16, weight: .light))
                         .foregroundStyle(isActive ? Color.primary.opacity(0.7) : Color.primary.opacity(0.3))
                         .frame(width: 36, height: 36)
                         .scaleEffect(isPressed ? 0.85 : 1.0)
@@ -6691,7 +6691,7 @@ struct ComposerSchedulePill: View {
             Button(action: onTap) {
                 HStack(spacing: 5) {
                     Image(systemName: isScheduled ? "calendar.badge.clock" : "calendar")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundStyle(isScheduled ? Color.black : Color(white: 0.45))
 
                     Text(isScheduled ? "Scheduled · \(formattedDate)" : "Schedule")
@@ -6709,7 +6709,7 @@ struct ComposerSchedulePill: View {
             if isScheduled {
                 Button(action: onClear) {
                     Image(systemName: "xmark")
-                        .font(.system(size: 9, weight: .bold))
+                        .font(.systemScaled(9, weight: .bold))
                         .foregroundStyle(Color(white: 0.50))
                         .padding(.trailing, 8)
                         .padding(.vertical, 6)
@@ -6776,7 +6776,7 @@ struct MinimalToolbarButton: View {
                 
                 // Icon
                 Image(systemName: icon)
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.systemScaled(17, weight: .semibold))
                     .foregroundStyle(isActive ? activeColor : Color.primary.opacity(0.4))
                     .frame(width: 36, height: 36)
             }
@@ -6857,7 +6857,7 @@ struct LiquidGlassPostButton: View {
                         .scaleEffect(1.1)
                 } else if isScheduled {
                     Image(systemName: "calendar.badge.clock")
-                        .font(.system(size: 22, weight: .semibold))
+                        .font(.systemScaled(22, weight: .semibold))
                         .foregroundStyle(isEnabled ? red : red.opacity(0.30))
                 } else {
                     // Bold chunky upward arrow
@@ -6914,7 +6914,7 @@ struct AuthenticityPromptSheet: View {
                                 .frame(width: 48, height: 48)
                             
                             Image(systemName: "sparkles")
-                                .font(.system(size: 22))
+                                .font(.systemScaled(22))
                                 .foregroundStyle(Color.orange)
                         }
                         
@@ -7015,17 +7015,17 @@ private struct VerseBadgeView: View {
         HStack(spacing: 8) {
             HStack(spacing: 6) {
                 Image(systemName: "text.book.closed.fill")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.blue)
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(reference)
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(.primary)
                     
                     if !text.isEmpty {
                         Text(text.prefix(50) + (text.count > 50 ? "..." : ""))
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
@@ -7035,7 +7035,7 @@ private struct VerseBadgeView: View {
                 
                 Button(action: onRemove) {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 16))
+                        .font(.systemScaled(16))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -7060,11 +7060,11 @@ private struct TaggedUsersView: View {
                 ForEach(users, id: \.userId) { user in
                     HStack(spacing: 6) {
                         Image(systemName: "person.crop.circle.fill")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(.purple)
                         
                         Text("@\(user.username)")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.systemScaled(12, weight: .medium))
                             .foregroundStyle(.primary)
                         
                         Button {
@@ -7073,7 +7073,7 @@ private struct TaggedUsersView: View {
                             }
                         } label: {
                             Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -7388,7 +7388,7 @@ struct AlgoliaMentionSuggestionRow: View {
 
                 // Subtle chevron affordance
                 Image(systemName: "arrow.up.left")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                     .foregroundStyle(.tertiary)
             }
             .padding(.horizontal, 14)
@@ -7485,7 +7485,7 @@ private struct BereanTonePopup: View {
                             // Sticker-label title — tilted, on yellow strip
                             HStack(spacing: 8) {
                                 Image(systemName: "sparkles")
-                                    .font(.system(size: 17, weight: .black))
+                                    .font(.systemScaled(17, weight: .black))
                                     .foregroundStyle(Color(red: 0.15, green: 0.15, blue: 0.15))
                                     .rotationEffect(.degrees(sparkleRotation))
                                 Text("Tone Check")
@@ -7516,7 +7516,7 @@ private struct BereanTonePopup: View {
                                     .fill(Color.black.opacity(0.08))
                                     .frame(width: 30, height: 30)
                                 Image(systemName: "xmark")
-                                    .font(.system(size: 11, weight: .bold))
+                                    .font(.systemScaled(11, weight: .bold))
                                     .foregroundStyle(Color.secondary)
                             }
                         }
@@ -7531,7 +7531,7 @@ private struct BereanTonePopup: View {
                             // Context label — plain language explanation
                             HStack(spacing: 6) {
                                 Image(systemName: "lightbulb.fill")
-                                    .font(.system(size: 11))
+                                    .font(.systemScaled(11))
                                     .foregroundStyle(Color(red: 0.10, green: 0.45, blue: 0.35))
                                 Text("Suggested rewrite — tap \"Use this\" to replace your post")
                                     .font(AMENFont.semiBold(11))
@@ -7575,7 +7575,7 @@ private struct BereanTonePopup: View {
                                 Button { onUse(suggestion) } label: {
                                     HStack(spacing: 6) {
                                         Image(systemName: "checkmark.circle.fill")
-                                            .font(.system(size: 15, weight: .semibold))
+                                            .font(.systemScaled(15, weight: .semibold))
                                         Text("Use this")
                                             .font(AMENFont.bold(15))
                                     }
@@ -7606,7 +7606,7 @@ private struct BereanTonePopup: View {
                                 Button { onDismiss() } label: {
                                     HStack(spacing: 6) {
                                         Image(systemName: "pencil")
-                                            .font(.system(size: 13, weight: .semibold))
+                                            .font(.systemScaled(13, weight: .semibold))
                                         Text("Keep mine")
                                             .font(AMENFont.bold(15))
                                     }
@@ -7635,7 +7635,7 @@ private struct BereanTonePopup: View {
                         // No rewrite needed — tone is already good
                         VStack(spacing: 16) {
                             Text("✅")
-                                .font(.system(size: 40))
+                                .font(.systemScaled(40))
                             Text("Your post has a great tone!\nNo changes needed.")
                                 .font(AMENFont.regular(15))
                                 .foregroundStyle(Color.secondary)
@@ -7755,7 +7755,7 @@ private struct SourceLabelPrompt: View {
                                 .fill(stickerOrange.opacity(0.2))
                                 .frame(width: 56, height: 56)
                             Text("🔍")
-                                .font(.system(size: 26))
+                                .font(.systemScaled(26))
                         }
 
                         // Title on orange sticker label
@@ -7784,7 +7784,7 @@ private struct SourceLabelPrompt: View {
                     VStack(alignment: .leading, spacing: 8) {
                         HStack(spacing: 5) {
                             Image(systemName: "tag.fill")
-                                .font(.system(size: 10, weight: .bold))
+                                .font(.systemScaled(10, weight: .bold))
                                 .foregroundStyle(Color(red: 0.20, green: 0.40, blue: 0.80))
                             Text("source label")
                                 .font(AMENFont.bold(10))
@@ -7832,7 +7832,7 @@ private struct SourceLabelPrompt: View {
                     // ── Preview badge ─────────────────────────────────
                     HStack(spacing: 6) {
                         Image(systemName: "info.circle.fill")
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                             .foregroundStyle(Color.secondary)
                         Text("Your post will show a \"via \(selectedSource)\" label")
                             .font(AMENFont.regular(12))
@@ -7853,7 +7853,7 @@ private struct SourceLabelPrompt: View {
                         Button { onPostWithSource(selectedSource) } label: {
                             HStack(spacing: 7) {
                                 Image(systemName: "paperplane.fill")
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(.systemScaled(14, weight: .semibold))
                                 Text("Post with source label")
                                     .font(AMENFont.bold(15))
                             }
@@ -7884,7 +7884,7 @@ private struct SourceLabelPrompt: View {
                         Button { onEdit() } label: {
                             HStack(spacing: 7) {
                                 Image(systemName: "pencil")
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .font(.systemScaled(13, weight: .semibold))
                                 Text("Write it myself")
                                     .font(AMENFont.bold(15))
                             }
@@ -7985,7 +7985,7 @@ struct PostAudienceSheet: View {
                                         .fill(option.tintColor.opacity(0.12))
                                         .frame(width: 40, height: 40)
                                     Image(systemName: option.icon)
-                                        .font(.system(size: 16, weight: .semibold))
+                                        .font(.systemScaled(16, weight: .semibold))
                                         .foregroundStyle(option.tintColor)
                                 }
 
@@ -8003,7 +8003,7 @@ struct PostAudienceSheet: View {
                                 if selectedVisibility == option {
                                     Image(systemName: "checkmark.circle.fill")
                                         .foregroundStyle(option.tintColor)
-                                        .font(.system(size: 20))
+                                        .font(.systemScaled(20))
                                 }
                             }
                             .padding(.horizontal, 20)
@@ -8079,7 +8079,7 @@ struct PostVersePickerSheet: View {
                     HStack(spacing: 10) {
                         Image(systemName: "magnifyingglass")
                             .foregroundStyle(.secondary)
-                            .font(.system(size: 16))
+                            .font(.systemScaled(16))
                         TextField("Search a verse or type reference (e.g. John 3:16)", text: $searchQuery)
                             .font(AMENFont.regular(15))
                             .focused($searchFocused)
@@ -8164,7 +8164,7 @@ struct PostVersePickerSheet: View {
                                         HStack(alignment: .top, spacing: 12) {
                                             Image(systemName: selectedReference == passage.reference
                                                   ? "checkmark.circle.fill" : "book.closed")
-                                                .font(.system(size: 18))
+                                                .font(.systemScaled(18))
                                                 .foregroundStyle(selectedReference == passage.reference
                                                                  ? .indigo : .secondary)
                                                 .frame(width: 24)
@@ -8203,7 +8203,7 @@ struct PostVersePickerSheet: View {
                             // Empty state — hints
                             VStack(spacing: 16) {
                                 Image(systemName: "book.closed.fill")
-                                    .font(.system(size: 40))
+                                    .font(.systemScaled(40))
                                     .foregroundStyle(Color.indigo.opacity(0.4))
                                 Text("Search by keyword or reference")
                                     .font(AMENFont.semiBold(16))
@@ -8234,7 +8234,7 @@ struct PostVersePickerSheet: View {
                         } else if !searchQuery.isEmpty && searchResults.isEmpty && !isSearching {
                             VStack(spacing: 8) {
                                 Image(systemName: "magnifyingglass")
-                                    .font(.system(size: 32))
+                                    .font(.systemScaled(32))
                                     .foregroundStyle(.secondary.opacity(0.5))
                                 Text("No results for \"\(searchQuery)\"")
                                     .font(AMENFont.regular(15))
@@ -8255,7 +8255,7 @@ struct PostVersePickerSheet: View {
                                 VStack(alignment: .leading, spacing: 6) {
                                     HStack(spacing: 6) {
                                         Image(systemName: "book.closed.fill")
-                                            .font(.system(size: 12))
+                                            .font(.systemScaled(12))
                                             .foregroundStyle(.indigo)
                                         Text(selectedReference)
                                             .font(AMENFont.bold(13))
@@ -8402,7 +8402,7 @@ struct PostChurchTagSheet: View {
                 HStack(spacing: 10) {
                     Image(systemName: "magnifyingglass")
                         .foregroundStyle(.secondary)
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                     TextField("Search churches by name", text: $searchText)
                         .font(AMENFont.regular(15))
                         .focused($searchFocused)
@@ -8433,7 +8433,7 @@ struct PostChurchTagSheet: View {
                     if !taggedChurchId.isEmpty {
                         HStack(spacing: 12) {
                             Image(systemName: "building.columns.fill")
-                                .font(.system(size: 16))
+                                .font(.systemScaled(16))
                                 .foregroundStyle(.purple)
                                 .frame(width: 36, height: 36)
                                 .background(Circle().fill(Color.purple.opacity(0.1)))
@@ -8462,7 +8462,7 @@ struct PostChurchTagSheet: View {
 
                     VStack(spacing: 8) {
                         Image(systemName: "building.columns")
-                            .font(.system(size: 32))
+                            .font(.systemScaled(32))
                             .foregroundStyle(Color(uiColor: .tertiaryLabel))
                         Text("Search for a church to tag")
                             .font(AMENFont.regular(14))
@@ -8478,7 +8478,7 @@ struct PostChurchTagSheet: View {
                 } else if searchResults.isEmpty {
                     VStack(spacing: 8) {
                         Image(systemName: "magnifyingglass")
-                            .font(.system(size: 28))
+                            .font(.systemScaled(28))
                             .foregroundStyle(Color(uiColor: .tertiaryLabel))
                         Text("No churches found for \"\(searchText)\"")
                             .font(AMENFont.regular(14))
@@ -8495,7 +8495,7 @@ struct PostChurchTagSheet: View {
                         } label: {
                             HStack(spacing: 12) {
                                 Image(systemName: "building.columns.fill")
-                                    .font(.system(size: 14))
+                                    .font(.systemScaled(14))
                                     .foregroundStyle(.purple)
                                     .frame(width: 32, height: 32)
                                     .background(Circle().fill(Color.purple.opacity(0.1)))
@@ -8513,7 +8513,7 @@ struct PostChurchTagSheet: View {
                                 if taggedChurchId == church.id {
                                     Image(systemName: "checkmark")
                                         .foregroundStyle(.purple)
-                                        .font(.system(size: 14, weight: .semibold))
+                                        .font(.systemScaled(14, weight: .semibold))
                                 }
                             }
                         }
@@ -8665,11 +8665,11 @@ struct LiquidGlassPostButtonAnimated: View {
                         .fill(Color.black.opacity(0.08))
                         .frame(width: 22, height: 22)
                     Image(systemName: "arrow.up")
-                        .font(.system(size: 12, weight: .bold))
+                        .font(.systemScaled(12, weight: .bold))
                         .foregroundStyle(.black)
                 }
                 Text("Post")
-                    .font(.system(size: min(max(height * 0.30, 17), 19), weight: .bold))
+                    .font(.systemScaled(min(max(height * 0.30, 17), 19), weight: .bold))
                     .foregroundStyle(.black)
             }
         }
@@ -8705,7 +8705,7 @@ struct LiquidGlassPostButtonAnimated: View {
                 .rotationEffect(.degrees(-90))
 
             Text("\(Int(progress * 100))%")
-                .font(.system(size: 13, weight: .bold))
+                .font(.systemScaled(13, weight: .bold))
                 .foregroundStyle(.black)
         }
         .frame(width: size, height: size)
@@ -8747,11 +8747,11 @@ struct LiquidGlassPostButtonAnimated: View {
                         .fill(Color.black)
                         .frame(width: 22, height: 22)
                     Image(systemName: "checkmark")
-                        .font(.system(size: 11, weight: .bold))
+                        .font(.systemScaled(11, weight: .bold))
                         .foregroundStyle(.white)
                 }
                 Text("Posted")
-                    .font(.system(size: min(max(height * 0.29, 16), 18), weight: .bold))
+                    .font(.systemScaled(min(max(height * 0.29, 16), 18), weight: .bold))
                     .foregroundStyle(.black)
             }
         }
@@ -8805,10 +8805,10 @@ struct LiquidGlassPostButtonDemoView: View {
                 Spacer()
                 VStack(spacing: 8) {
                     Text("Liquid Glass Post Button")
-                        .font(.system(size: 28, weight: .bold))
+                        .font(.systemScaled(28, weight: .bold))
                         .foregroundStyle(.black)
                     Text("White background, black text, native-feeling glass, responsive across phones.")
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.systemScaled(15, weight: .medium))
                         .foregroundStyle(.black.opacity(0.45))
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 30)

@@ -47,7 +47,7 @@ private struct StrengthChip: View {
                 .fill(color)
                 .frame(width: 6, height: 6)
             Text("\(count) \(label)")
-                .font(.system(size: 11, weight: .medium))
+                .font(.systemScaled(11, weight: .medium))
                 .foregroundStyle(.secondary)
         }
         .padding(.horizontal, 8)

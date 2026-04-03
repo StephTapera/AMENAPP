@@ -42,7 +42,7 @@ struct AgeVerificationOnboardingView: View {
                 Spacer()
 
                 Text("How old are you?")
-                    .font(.system(size: 32, weight: .bold))
+                    .font(.systemScaled(32, weight: .bold))
                     .foregroundColor(.white)
 
                 Text("We keep our community safe for everyone")

@@ -135,7 +135,7 @@ struct ChatIdentityCard: View {
                 )
                 .frame(width: 76, height: 76)
             Text(conversation.initials)
-                .font(.system(size: 28, weight: .bold))
+                .font(.systemScaled(28, weight: .bold))
                 .foregroundStyle(.white)
         }
     }
@@ -146,21 +146,21 @@ struct ChatIdentityCard: View {
         VStack(spacing: 5) {
             // Display name
             Text(conversation.name)
-                .font(.system(size: 22, weight: .bold))
+                .font(.systemScaled(22, weight: .bold))
                 .foregroundStyle(.primary)
                 .multilineTextAlignment(.center)
 
             // Username
             if let username = conversation.otherUserUsername, !username.isEmpty {
                 Text("@\(username)")
-                    .font(.system(size: 14, weight: .regular))
+                    .font(.systemScaled(14, weight: .regular))
                     .foregroundStyle(.secondary)
             }
 
             // Bio preview (one line)
             if let bio = conversation.otherUserBio, !bio.isEmpty {
                 Text(bio)
-                    .font(.system(size: 13, weight: .regular))
+                    .font(.systemScaled(13, weight: .regular))
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
                     .multilineTextAlignment(.center)
@@ -174,9 +174,9 @@ struct ChatIdentityCard: View {
     private var relationshipBadge: some View {
         HStack(spacing: 6) {
             Image(systemName: followRelationship.icon)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
             Text(followRelationship.label)
-                .font(.system(size: 12, weight: .medium))
+                .font(.systemScaled(12, weight: .medium))
         }
         .foregroundStyle(.secondary)
         .padding(.horizontal, 12)
@@ -196,7 +196,7 @@ struct ChatIdentityCard: View {
             Button(action: onViewProfile) {
                 VStack(spacing: 5) {
                     Image(systemName: "person.circle")
-                        .font(.system(size: 22, weight: .regular))
+                        .font(.systemScaled(22, weight: .regular))
                         .foregroundStyle(.primary.opacity(0.75))
                         .frame(width: 44, height: 44)
                         .background(
@@ -205,7 +205,7 @@ struct ChatIdentityCard: View {
                                 .overlay(Circle().strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.8))
                         )
                     Text("View Profile")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.systemScaled(11, weight: .medium))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -225,12 +225,12 @@ struct ChatIdentityCard: View {
                                     .scaleEffect(0.75)
                             } else {
                                 Image(systemName: "person.badge.plus")
-                                    .font(.system(size: 18, weight: .medium))
+                                    .font(.systemScaled(18, weight: .medium))
                                     .foregroundStyle(.white)
                             }
                         }
                         Text(followButtonLabel)
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.systemScaled(11, weight: .medium))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -243,7 +243,7 @@ struct ChatIdentityCard: View {
                 Button(action: onSendPrayer) {
                     VStack(spacing: 5) {
                         Image(systemName: "hands.sparkles.fill")
-                            .font(.system(size: 20, weight: .regular))
+                            .font(.systemScaled(20, weight: .regular))
                             .foregroundStyle(.primary.opacity(0.75))
                             .frame(width: 44, height: 44)
                             .background(
@@ -252,7 +252,7 @@ struct ChatIdentityCard: View {
                                     .overlay(Circle().strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.8))
                             )
                         Text("Send Prayer")
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.systemScaled(11, weight: .medium))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -272,9 +272,9 @@ struct ChatSourceBanner: View {
         if source != .direct && !source.label.isEmpty {
             HStack(spacing: 7) {
                 Image(systemName: source.icon)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                 Text(source.label)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
             }
             .foregroundStyle(.secondary)
             .padding(.horizontal, 14)
@@ -320,9 +320,9 @@ struct ChatRequestBanner: View {
                 if followRelationship != .loading {
                     HStack(spacing: 5) {
                         Image(systemName: followRelationship.icon)
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.systemScaled(11, weight: .medium))
                         Text(followRelationship.label)
-                            .font(.system(size: 12, weight: .regular))
+                            .font(.systemScaled(12, weight: .regular))
                     }
                     .foregroundStyle(.secondary)
                 }
@@ -331,9 +331,9 @@ struct ChatRequestBanner: View {
                 if conversation.source != .direct, !conversation.source.label.isEmpty {
                     HStack(spacing: 5) {
                         Image(systemName: conversation.source.icon)
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.systemScaled(10, weight: .semibold))
                         Text(conversation.source.label)
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.systemScaled(11, weight: .medium))
                     }
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 10)
@@ -393,12 +393,12 @@ struct ChatRequestBanner: View {
             // Name + username
             VStack(alignment: .leading, spacing: 3) {
                 Text(conversation.name)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(.primary)
 
                 if let username = conversation.otherUserUsername, !username.isEmpty {
                     Text("@\(username)")
-                        .font(.system(size: 13, weight: .regular))
+                        .font(.systemScaled(13, weight: .regular))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -409,7 +409,7 @@ struct ChatRequestBanner: View {
             HStack(spacing: 8) {
                 Button(action: onViewProfile) {
                     Text("Profile")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundStyle(.primary)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
@@ -426,7 +426,7 @@ struct ChatRequestBanner: View {
                     showMoreMenu = true
                 } label: {
                     Image(systemName: "ellipsis")
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.systemScaled(15, weight: .medium))
                         .foregroundStyle(.secondary)
                         .frame(width: 32, height: 32)
                 }
@@ -447,7 +447,7 @@ struct ChatRequestBanner: View {
                 )
                 .frame(width: 48, height: 48)
             Text(conversation.initials)
-                .font(.system(size: 18, weight: .bold))
+                .font(.systemScaled(18, weight: .bold))
                 .foregroundStyle(.white)
         }
     }
@@ -468,7 +468,7 @@ struct ChatRequestBanner: View {
                             .scaleEffect(0.8)
                     } else {
                         Text("Delete")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                     }
                 }
                 .foregroundStyle(Color(red: 0.75, green: 0.15, blue: 0.15))
@@ -498,7 +498,7 @@ struct ChatRequestBanner: View {
                             .scaleEffect(0.8)
                     } else {
                         Text("Accept")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                     }
                 }
                 .foregroundStyle(.white)
@@ -519,9 +519,9 @@ struct ChatRequestBanner: View {
     private var safetyNote: some View {
         HStack(spacing: 5) {
             Image(systemName: "shield.checkered")
-                .font(.system(size: 10))
+                .font(.systemScaled(10))
             Text("Review before accepting. You can always block or report.")
-                .font(.system(size: 11, weight: .regular))
+                .font(.systemScaled(11, weight: .regular))
         }
         .foregroundStyle(.tertiary)
         .frame(maxWidth: .infinity)
@@ -539,14 +539,14 @@ struct ChatOutgoingPendingBanner: View {
         VStack(spacing: 10) {
             HStack(spacing: 8) {
                 Image(systemName: "clock.arrow.circlepath")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(.secondary)
                 Text("Message request sent")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(.secondary)
             }
             Text("\(conversation.name) will see your message once they accept.")
-                .font(.system(size: 12, weight: .regular))
+                .font(.systemScaled(12, weight: .regular))
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)
         }
@@ -603,12 +603,12 @@ struct ChatEmptyState: View {
         VStack(spacing: 16) {
             // Subtle cross watermark
             Image(systemName: "cross.fill")
-                .font(.system(size: 40, weight: .ultraLight))
+                .font(.systemScaled(40, weight: .ultraLight))
                 .foregroundStyle(.primary.opacity(0.04))
                 .padding(.bottom, 4)
 
             Text(emptyPrompt)
-                .font(.system(size: 14, weight: .regular))
+                .font(.systemScaled(14, weight: .regular))
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
@@ -621,9 +621,9 @@ struct ChatEmptyState: View {
                     } label: {
                         HStack(spacing: 8) {
                             Text(starter.emoji)
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                             Text(starter.text)
-                                .font(.system(size: 13, weight: .medium))
+                                .font(.systemScaled(13, weight: .medium))
                                 .foregroundStyle(.primary.opacity(0.6))
                         }
                         .padding(.horizontal, 14)
@@ -651,7 +651,7 @@ struct ChatSystemMessageRow: View {
 
     var body: some View {
         Text(text)
-            .font(.system(size: 12, weight: .medium))
+            .font(.systemScaled(12, weight: .medium))
             .foregroundStyle(.secondary)
             .padding(.horizontal, 16)
             .padding(.vertical, 6)

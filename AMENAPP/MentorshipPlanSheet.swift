@@ -64,7 +64,7 @@ struct MentorshipPlanSheet: View {
 
                 if let err = errorMessage {
                     Text(err)
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.red)
                         .padding(.horizontal, 18)
                 }
@@ -103,9 +103,9 @@ struct MentorshipPlanSheet: View {
             MentorAvatarView(name: mentor.name, photoURL: mentor.photoURL, size: 44)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Mentorship with \(mentor.name)")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                 Text(mentor.role)
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.secondary)
             }
             Spacer()
@@ -123,7 +123,7 @@ struct MentorshipPlanSheet: View {
                     ProgressView().tint(.white).padding(.trailing, 4)
                 }
                 Text(plan.isFree ? "Start Free — \(plan.name)" : "Continue — \(plan.priceLabel)")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(.white)
             }
             .frame(maxWidth: .infinity)
@@ -246,7 +246,7 @@ private struct PlanCard: View {
         VStack(alignment: .leading, spacing: 10) {
             headerRow
             Text(plan.description)
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(.secondary)
             featuresList
         }
@@ -265,17 +265,17 @@ private struct PlanCard: View {
     @ViewBuilder
     private var headerRow: some View {
         HStack {
-            Text(plan.name).font(.system(size: 15, weight: .bold))
+            Text(plan.name).font(.systemScaled(15, weight: .bold))
             if let badge = plan.badge {
                 Text(badge)
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.systemScaled(9, weight: .bold))
                     .foregroundStyle(badgeColor)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 3)
                     .background(Capsule().fill(badgeColor.opacity(0.10)))
             }
             Spacer()
-            Text(plan.priceLabel).font(.system(size: 17, weight: .bold))
+            Text(plan.priceLabel).font(.systemScaled(17, weight: .bold))
         }
     }
 
@@ -318,10 +318,10 @@ private struct PlanFeatureRow: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: included ? "checkmark" : "xmark")
-                .font(.system(size: 10, weight: .semibold))
+                .font(.systemScaled(10, weight: .semibold))
                 .foregroundStyle(included ? Color(red: 0.09, green: 0.64, blue: 0.29) : Color(.systemGray3))
             Text(text)
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(included ? .primary : .secondary)
         }
     }

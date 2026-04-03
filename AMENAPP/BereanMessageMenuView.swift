@@ -15,43 +15,79 @@ struct BereanMessageMenuView: View {
     var onSaveToPrayer: (() -> Void)? = nil
     /// Called when user taps "Save" — saves to Church Notes
     var onSaveToNotes: (() -> Void)? = nil
+    /// Inline contextual actions
+    var onAsk: (() -> Void)? = nil
+    var onExplain: (() -> Void)? = nil
+    var onApply: (() -> Void)? = nil
+    var onRelatedVerses: (() -> Void)? = nil
+    var onSearch: (() -> Void)? = nil
 
-    private let actions: [(emoji: String, label: String, id: String)] = [
-        ("📋", "Copy",   "copy"),
-        ("📖", "Notes",  "notes"),
-        ("📤", "Post",   "post"),
-        ("🙏", "Pray",   "pray"),
-        ("🔍", "Dig In", "digin"),
+    private struct ActionItem: Identifiable {
+        let id: String
+        let icon: String
+        let label: String
+    }
+
+    private let actions: [ActionItem] = [
+        ActionItem(id: "ask", icon: "sparkles", label: "Ask"),
+        ActionItem(id: "explain", icon: "text.magnifyingglass", label: "Explain"),
+        ActionItem(id: "apply", icon: "figure.walk", label: "Apply"),
+        ActionItem(id: "related", icon: "book.pages", label: "Verses"),
+        ActionItem(id: "search", icon: "magnifyingglass", label: "Search"),
+        ActionItem(id: "digin", icon: "magnifyingglass.circle", label: "Dig In"),
+        ActionItem(id: "copy", icon: "doc.on.doc", label: "Copy"),
+        ActionItem(id: "notes", icon: "note.text", label: "Notes"),
+        ActionItem(id: "pray", icon: "hands.sparkles", label: "Pray"),
+        ActionItem(id: "post", icon: "square.and.arrow.up", label: "Post")
     ]
 
     var body: some View {
-        HStack(spacing: 2) {
-            ForEach(actions, id: \.id) { action in
+        LazyVGrid(
+            columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 4),
+            spacing: 8
+        ) {
+            ForEach(actions) { action in
                 Button { handleAction(action.id) } label: {
-                    VStack(spacing: 3) {
-                        Text(action.emoji)
-                            .font(.system(size: 18))
+                    VStack(spacing: 4) {
+                        Image(systemName: action.icon)
+                            .font(.systemScaled(14, weight: .semibold))
+                            .foregroundStyle(Color(white: 0.2))
                         Text(action.label)
-                            .font(.system(size: 9, weight: .medium))
-                            .foregroundStyle(Color(.secondaryLabel))
+                            .font(.systemScaled(9, weight: .medium))
+                            .foregroundStyle(Color(white: 0.45))
                     }
-                    .frame(minWidth: 46)
+                    .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
-                    .padding(.horizontal, 4)
                 }
                 .buttonStyle(.plain)
             }
         }
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .padding(10)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(Color(.separator), lineWidth: 0.5)
+                .strokeBorder(Color(white: 0.86).opacity(0.6), lineWidth: 0.5)
         )
-        .shadow(color: .black.opacity(0.12), radius: 16, y: 6)
+        .shadow(color: .black.opacity(0.08), radius: 16, y: 6)
     }
 
     private func handleAction(_ id: String) {
         switch id {
+        case "ask":
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            onAsk?()
+        case "explain":
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            onExplain?()
+        case "apply":
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            onApply?()
+        case "related":
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            onRelatedVerses?()
+        case "search":
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            onSearch?()
         case "copy":
             UIPasteboard.general.string = message
             UINotificationFeedbackGenerator().notificationOccurred(.success)

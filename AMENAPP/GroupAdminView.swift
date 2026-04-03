@@ -129,7 +129,7 @@ struct GroupInfoView: View {
                     .frame(width: 100, height: 100)
 
                 Image(systemName: "person.3.fill")
-                    .font(.system(size: 40))
+                    .font(.systemScaled(40))
                     .foregroundStyle(conversation.avatarColor)
             }
 
@@ -181,7 +181,7 @@ struct GroupInfoView: View {
                         showAddMembers = true
                     } label: {
                         Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 22))
+                            .font(.systemScaled(22))
                             .foregroundStyle(.blue)
                     }
                     .padding(.trailing, 20)
@@ -315,7 +315,7 @@ struct GroupInfoView: View {
             } label: {
                 HStack {
                     Image(systemName: "rectangle.portrait.and.arrow.right")
-                        .font(.system(size: 20))
+                        .font(.systemScaled(20))
                         .foregroundStyle(.red)
 
                     Text("Leave Group")
@@ -630,7 +630,7 @@ struct GroupMemberRow: View {
                     }
                 } label: {
                     Image(systemName: "ellipsis.circle")
-                        .font(.system(size: 20))
+                        .font(.systemScaled(20))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -653,7 +653,7 @@ struct AdminActionRow: View {
         Button(action: action) {
             HStack(spacing: 14) {
                 Image(systemName: icon)
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
                     .foregroundStyle(color)
                     .frame(width: 30)
                 
@@ -664,7 +664,7 @@ struct AdminActionRow: View {
                 Spacer()
                 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(.secondary.opacity(0.5))
             }
             .padding(.horizontal, 16)

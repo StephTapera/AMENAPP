@@ -5,6 +5,7 @@ enum ProfileActionKind: String, CaseIterable, Hashable {
     case message
     case prayWith
     case viewTestimony
+    case prayerRequest
 
     case planVisit
     case messageChurch
@@ -16,4 +17,6 @@ enum ProfileActionKind: String, CaseIterable, Hashable {
     case collaborate
     case visitWebsite
     case viewResources
+    case visitSite
+    case viewOpportunities
 }

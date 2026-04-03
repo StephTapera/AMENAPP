@@ -74,7 +74,7 @@ struct CommunityGuidelinesPrompt: View {
                     .shadow(color: Color.blue.opacity(0.15), radius: 20, x: 0, y: 8)
 
                 Image(systemName: "hands.sparkles.fill")
-                    .font(.system(size: 42, weight: .semibold))
+                    .font(.systemScaled(42, weight: .semibold))
                     .foregroundStyle(
                         LinearGradient(
                             colors: [Color.blue, Color.blue.opacity(0.7)],
@@ -130,7 +130,7 @@ struct CommunityGuidelinesPrompt: View {
                     .fill(guideline.color.opacity(0.12))
                     .frame(width: 36, height: 36)
                 Image(systemName: guideline.icon)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(guideline.color)
             }
 
@@ -162,7 +162,7 @@ struct CommunityGuidelinesPrompt: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.85)
                 Image(systemName: "arrow.right")
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.systemScaled(14, weight: .bold))
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 17)

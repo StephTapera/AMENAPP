@@ -124,13 +124,13 @@ struct TeachingCompatibilityView: View {
             } else if let pct = service.compatibilityPct {
                 HStack(spacing: 6) {
                     Image(systemName: "waveform")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(Color(.secondaryLabel))
                     Text("Teaching style match: ")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(Color(.secondaryLabel))
                     + Text("\(pct)%")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(Color(.label))
                 }
             }

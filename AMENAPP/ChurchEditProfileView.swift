@@ -292,7 +292,7 @@ struct ChurchEditProfileView: View {
                     ForEach(Array(businessLinks.enumerated()), id: \.offset) { index, link in
                         HStack(spacing: 10) {
                             Image(systemName: "link")
-                                .font(.system(size: 13))
+                                .font(.systemScaled(13))
                                 .foregroundColor(.black.opacity(0.4))
                             Text(link)
                                 .font(AMENFont.regular(15))
@@ -303,7 +303,7 @@ struct ChurchEditProfileView: View {
                                 businessLinks.remove(at: index)
                             } label: {
                                 Image(systemName: "minus.circle.fill")
-                                    .font(.system(size: 18))
+                                    .font(.systemScaled(18))
                                     .foregroundColor(.black.opacity(0.3))
                             }
                         }
@@ -318,7 +318,7 @@ struct ChurchEditProfileView: View {
 
                 HStack(spacing: 8) {
                     TextField("Add a link...", text: $newBusinessLink)
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                         .autocapitalization(.none)
                         .disableAutocorrection(true)
                     Button {
@@ -328,7 +328,7 @@ struct ChurchEditProfileView: View {
                         newBusinessLink = ""
                     } label: {
                         Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 20))
+                            .font(.systemScaled(20))
                             .foregroundColor(.black)
                     }
                 }
@@ -359,7 +359,7 @@ struct ChurchEditProfileView: View {
     private func sectionCard<Content: View>(header: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(header.uppercased())
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 4)
 
@@ -381,7 +381,7 @@ struct ChurchEditProfileView: View {
 
     private func labeledTextField(_ placeholder: String, text: Binding<String>) -> some View {
         TextField(placeholder, text: text)
-            .font(.system(size: 15))
+            .font(.systemScaled(15))
             .textFieldStyle(.plain)
             .padding(.vertical, 8)
     }
@@ -391,12 +391,12 @@ struct ChurchEditProfileView: View {
         ZStack(alignment: .topLeading) {
             if text.wrappedValue.isEmpty {
                 Text(placeholder)
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .foregroundColor(.black.opacity(0.3))
                     .padding(.top, 8)
             }
             TextEditor(text: text)
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .frame(minHeight: 80)
                 .scrollContentBackground(.hidden)
                 .background(Color.clear)
@@ -417,7 +417,7 @@ struct ChurchEditProfileView: View {
                     .fill(Color(white: 0.95))
                     .frame(width: 52, height: 52)
                 Image(systemName: icon)
-                    .font(.system(size: 22))
+                    .font(.systemScaled(22))
                     .foregroundColor(.black.opacity(0.35))
             }
             VStack(alignment: .leading, spacing: 3) {
@@ -430,7 +430,7 @@ struct ChurchEditProfileView: View {
             }
             Spacer()
             Image(systemName: "chevron.right")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundColor(.black.opacity(0.25))
         }
         .padding(.vertical, 6)
@@ -461,7 +461,7 @@ struct ChurchEditProfileView: View {
                 serviceTimes.remove(at: index)
             } label: {
                 Image(systemName: "minus.circle.fill")
-                    .font(.system(size: 18))
+                    .font(.systemScaled(18))
                     .foregroundColor(.black.opacity(0.3))
             }
         }
@@ -473,17 +473,17 @@ struct ChurchEditProfileView: View {
         VStack(spacing: 8) {
             HStack(spacing: 8) {
                 TextField("Day (e.g. Sunday)", text: $newServiceDay)
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .textFieldStyle(.plain)
                     .frame(maxWidth: .infinity)
                 Divider().frame(height: 20)
                 TextField("Time (e.g. 10:00 AM)", text: $newServiceTime)
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .textFieldStyle(.plain)
                     .frame(maxWidth: .infinity)
             }
             TextField("Label (e.g. Main Service)", text: $newServiceLabel)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .textFieldStyle(.plain)
             HStack(spacing: 8) {
                 Button("Cancel") {
@@ -525,7 +525,7 @@ struct ChurchEditProfileView: View {
     private func verificationStatusBadge(_ status: VerificationStatus) -> some View {
         HStack(spacing: 5) {
             Image(systemName: verificationIcon(status))
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundColor(verificationColor(status))
             Text(verificationLabel(status))
                 .font(AMENFont.semiBold(12))

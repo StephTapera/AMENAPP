@@ -60,13 +60,21 @@ final class ComposerPlaceholderService {
     }
 
     private func recentEchoOnPost(userId: String) async -> Bool {
+        // Note: This query requires a composite index: authorId + lastEchoAt
+        // If index is missing, gracefully return false instead of crashing
         let cutoff = Timestamp(date: Date().addingTimeInterval(-86400 * 3)) // last 3 days
-        let snap = try? await db.collection("posts")
-            .whereField("authorId", isEqualTo: userId)
-            .whereField("lastEchoAt", isGreaterThan: cutoff)
-            .limit(to: 1)
-            .getDocuments()
-        return (snap?.documents.isEmpty == false)
+        do {
+            let snap = try await db.collection("posts")
+                .whereField("authorId", isEqualTo: userId)
+                .whereField("lastEchoAt", isGreaterThan: cutoff)
+                .limit(to: 1)
+                .getDocuments()
+            return !snap.documents.isEmpty
+        } catch {
+            // Gracefully handle missing index error
+            print("⚠️ [ComposerPlaceholder] recentEchoOnPost query failed (likely missing index): \(error)")
+            return false
+        }
     }
 
     private func lastPostDate(userId: String) async -> Date? {
@@ -97,13 +105,21 @@ final class ComposerPlaceholderService {
     }
 
     private func hasRecentComment(userId: String) async -> Bool {
+        // Note: This query requires a composite index: authorId + lastCommentAt
+        // If index is missing, gracefully return false instead of crashing
         let cutoff = Timestamp(date: Date().addingTimeInterval(-86400 * 2))
-        let snap = try? await db.collection("posts")
-            .whereField("authorId", isEqualTo: userId)
-            .whereField("lastCommentAt", isGreaterThan: cutoff)
-            .limit(to: 1)
-            .getDocuments()
-        return (snap?.documents.isEmpty == false)
+        do {
+            let snap = try await db.collection("posts")
+                .whereField("authorId", isEqualTo: userId)
+                .whereField("lastCommentAt", isGreaterThan: cutoff)
+                .limit(to: 1)
+                .getDocuments()
+            return !snap.documents.isEmpty
+        } catch {
+            // Gracefully handle missing index error
+            print("⚠️ [ComposerPlaceholder] hasRecentComment query failed (likely missing index): \(error)")
+            return false
+        }
     }
 
     // MARK: - Time / day

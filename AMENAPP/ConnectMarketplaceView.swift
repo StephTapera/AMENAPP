@@ -47,10 +47,10 @@ struct ConnectMarketplaceView: View {
                 // Search
                 HStack(spacing: 10) {
                     Image(systemName: "magnifyingglass")
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                         .foregroundStyle(.secondary)
                     TextField("Search marketplace...", text: $searchText)
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                         .textFieldStyle(.plain)
                         .autocorrectionDisabled()
                 }
@@ -120,19 +120,19 @@ struct ConnectMarketplaceView: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 Text("MARKETPLACE")
-                    .font(.system(size: 10, weight: .semibold)).kerning(3)
+                    .font(.systemScaled(10, weight: .semibold)).kerning(3)
                     .foregroundStyle(Color.white.opacity(0.55))
                 Text("Faith Marketplace")
-                    .font(.system(size: 26, weight: .black))
+                    .font(.systemScaled(26, weight: .black))
                     .foregroundStyle(.white)
                 Text("Buy, sell, and share resources within the community.")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(Color.white.opacity(0.7))
 
                 Button { showCreate = true } label: {
                     HStack(spacing: 6) {
-                        Image(systemName: "plus").font(.system(size: 11, weight: .bold))
-                        Text("List an Item").font(.system(size: 12, weight: .semibold))
+                        Image(systemName: "plus").font(.systemScaled(11, weight: .bold))
+                        Text("List an Item").font(.systemScaled(12, weight: .semibold))
                     }
                     .foregroundStyle(accentIndigo)
                     .padding(.horizontal, 14).padding(.vertical, 9)
@@ -158,7 +158,7 @@ struct ConnectMarketplaceView: View {
                     withAnimation(.spring(response: 0.25)) { selectedCategory = nil }
                 } label: {
                     Text("All")
-                        .font(.system(size: 13, weight: selectedCategory == nil ? .bold : .regular))
+                        .font(.systemScaled(13, weight: selectedCategory == nil ? .bold : .regular))
                         .foregroundStyle(selectedCategory == nil ? .white : .secondary)
                         .padding(.horizontal, 14).padding(.vertical, 8)
                         .background(Capsule().fill(selectedCategory == nil ? accentIndigo : Color(.secondarySystemBackground)))
@@ -171,7 +171,7 @@ struct ConnectMarketplaceView: View {
                         }
                     } label: {
                         Text(cat)
-                            .font(.system(size: 13, weight: selectedCategory == cat ? .bold : .regular))
+                            .font(.systemScaled(13, weight: selectedCategory == cat ? .bold : .regular))
                             .foregroundStyle(selectedCategory == cat ? .white : .secondary)
                             .padding(.horizontal, 14).padding(.vertical, 8)
                             .background(Capsule().fill(selectedCategory == cat ? accentIndigo : Color(.secondarySystemBackground)))
@@ -195,7 +195,7 @@ struct ConnectMarketplaceView: View {
                     Color(red: 0.38, green: 0.25, blue: 0.78).opacity(0.15)
                         .overlay(
                             Image(systemName: "bag.fill")
-                                .font(.system(size: 24))
+                                .font(.systemScaled(24))
                                 .foregroundStyle(accentIndigo.opacity(0.3))
                         )
                 }
@@ -204,22 +204,22 @@ struct ConnectMarketplaceView: View {
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
 
             Text(listing.title)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(.primary)
                 .lineLimit(2)
 
             if listing.isFree {
                 Text("Free")
-                    .font(.system(size: 13, weight: .bold))
+                    .font(.systemScaled(13, weight: .bold))
                     .foregroundStyle(.green)
             } else {
                 Text("$\(String(format: "%.2f", listing.price))")
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.systemScaled(14, weight: .bold))
                     .foregroundStyle(accentIndigo)
             }
 
             Text(listing.sellerName)
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(.secondary)
         }
         .padding(10)
@@ -234,13 +234,13 @@ struct ConnectMarketplaceView: View {
     private var emptyState: some View {
         VStack(spacing: 12) {
             Image(systemName: "bag.fill")
-                .font(.system(size: 40))
+                .font(.systemScaled(40))
                 .foregroundStyle(.secondary.opacity(0.4))
                 .padding(.top, 40)
             Text("No listings yet")
-                .font(.system(size: 17, weight: .bold))
+                .font(.systemScaled(17, weight: .bold))
             Text("Be the first to list something on the marketplace!")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)

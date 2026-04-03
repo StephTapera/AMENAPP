@@ -38,7 +38,7 @@ struct HelpSupportView: View {
                         } label: {
                             HStack(spacing: 12) {
                                 Image(systemName: topic.icon)
-                                    .font(.system(size: 20))
+                                    .font(.systemScaled(20))
                                     .foregroundStyle(topic.color)
                                     .frame(width: 32)
 
@@ -55,7 +55,7 @@ struct HelpSupportView: View {
                                 Spacer()
 
                                 Image(systemName: "chevron.right")
-                                    .font(.system(size: 12, weight: .semibold))
+                                    .font(.systemScaled(12, weight: .semibold))
                                     .foregroundStyle(.secondary)
                             }
                             .padding(.horizontal, 16)
@@ -92,7 +92,7 @@ struct HelpSupportView: View {
                     } label: {
                         HStack(spacing: 12) {
                             Image(systemName: "envelope.fill")
-                                .font(.system(size: 20))
+                                .font(.systemScaled(20))
                                 .foregroundStyle(.blue)
                                 .frame(width: 32)
 
@@ -109,7 +109,7 @@ struct HelpSupportView: View {
                             Spacer()
 
                             Image(systemName: "chevron.right")
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.systemScaled(12, weight: .semibold))
                                 .foregroundStyle(.secondary)
                         }
                         .padding(.horizontal, 16)
@@ -122,7 +122,7 @@ struct HelpSupportView: View {
                     Link(destination: URL(string: "https://amenapp.com/support")!) {
                         HStack(spacing: 12) {
                             Image(systemName: "safari.fill")
-                                .font(.system(size: 20))
+                                .font(.systemScaled(20))
                                 .foregroundStyle(.cyan)
                                 .frame(width: 32)
 
@@ -139,7 +139,7 @@ struct HelpSupportView: View {
                             Spacer()
 
                             Image(systemName: "arrow.up.right")
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.systemScaled(12, weight: .semibold))
                                 .foregroundStyle(.secondary)
                         }
                         .padding(.horizontal, 16)
@@ -165,7 +165,7 @@ struct HelpSupportView: View {
                     Link(destination: URL(string: "https://amenapp.com/community")!) {
                         HStack(spacing: 12) {
                             Image(systemName: "person.3.fill")
-                                .font(.system(size: 20))
+                                .font(.systemScaled(20))
                                 .foregroundStyle(.purple)
                                 .frame(width: 32)
 
@@ -182,7 +182,7 @@ struct HelpSupportView: View {
                             Spacer()
 
                             Image(systemName: "arrow.up.right")
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.systemScaled(12, weight: .semibold))
                                 .foregroundStyle(.secondary)
                         }
                         .padding(.horizontal, 16)
@@ -210,7 +210,7 @@ struct HelpSupportView: View {
                     } label: {
                         HStack(spacing: 12) {
                             Image(systemName: "lightbulb.fill")
-                                .font(.system(size: 20))
+                                .font(.systemScaled(20))
                                 .foregroundStyle(.yellow)
                                 .frame(width: 32)
 
@@ -227,7 +227,7 @@ struct HelpSupportView: View {
                             Spacer()
 
                             Image(systemName: "chevron.right")
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.systemScaled(12, weight: .semibold))
                                 .foregroundStyle(.secondary)
                         }
                         .padding(.horizontal, 16)
@@ -242,7 +242,7 @@ struct HelpSupportView: View {
                     } label: {
                         HStack(spacing: 12) {
                             Image(systemName: "ladybug.fill")
-                                .font(.system(size: 20))
+                                .font(.systemScaled(20))
                                 .foregroundStyle(.red)
                                 .frame(width: 32)
 
@@ -259,7 +259,7 @@ struct HelpSupportView: View {
                             Spacer()
 
                             Image(systemName: "chevron.right")
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.systemScaled(12, weight: .semibold))
                                 .foregroundStyle(.secondary)
                         }
                         .padding(.horizontal, 16)
@@ -541,7 +541,7 @@ struct HelpTopicDetailView: View {
                     HStack {
                         Spacer()
                         Image(systemName: topic.icon)
-                            .font(.system(size: 60))
+                            .font(.systemScaled(60))
                             .foregroundStyle(topic.color)
                             .padding(.top, 20)
                         Spacer()
@@ -692,7 +692,7 @@ struct FeedbackFormView: View {
                     // Header
                     VStack(spacing: 12) {
                         Image(systemName: "lightbulb.fill")
-                            .font(.system(size: 60))
+                            .font(.systemScaled(60))
                             .foregroundStyle(
                                 LinearGradient(
                                     colors: [.yellow, .orange],
@@ -728,7 +728,7 @@ struct FeedbackFormView: View {
                                     } label: {
                                         VStack(spacing: 8) {
                                             Image(systemName: type.icon)
-                                                .font(.system(size: 24))
+                                                .font(.systemScaled(24))
                                                 .foregroundStyle(feedbackType == type ? type.color : .gray)
 
                                             Text(type.rawValue)
@@ -931,7 +931,7 @@ struct BugReportFormView: View {
                     // Header
                     VStack(spacing: 12) {
                         Image(systemName: "ladybug.fill")
-                            .font(.system(size: 60))
+                            .font(.systemScaled(60))
                             .foregroundStyle(.red)
                             .padding(.top, 20)
 
@@ -975,7 +975,7 @@ struct BugReportFormView: View {
                                 } label: {
                                     VStack(spacing: 6) {
                                         Image(systemName: severity.icon)
-                                            .font(.system(size: 20))
+                                            .font(.systemScaled(20))
                                             .foregroundStyle(bugSeverity == severity ? severity.color : .gray)
 
                                         Text(severity.rawValue)

@@ -53,10 +53,10 @@ struct RepostActionSheet: View {
                 } label: {
                     HStack(spacing: 14) {
                         Image(systemName: "repeat")
-                            .font(.system(size: 17, weight: .semibold))
+                            .font(.systemScaled(17, weight: .semibold))
                             .foregroundStyle(Color(.label))
                         Text("Repost")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .foregroundStyle(Color(.label))
                         Spacer()
                     }
@@ -82,10 +82,10 @@ struct RepostActionSheet: View {
                 } label: {
                     HStack(spacing: 14) {
                         Image(systemName: "quote.bubble")
-                            .font(.system(size: 17, weight: .semibold))
+                            .font(.systemScaled(17, weight: .semibold))
                             .foregroundStyle(Color(.label))
                         Text("Quote")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .foregroundStyle(Color(.label))
                         Spacer()
                     }
@@ -274,7 +274,7 @@ struct QuotePostComposerView: View {
                         HapticManager.impact(style: .light)
                         dismiss()
                     }
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(.secondary)
                 }
                 ToolbarItem(placement: .principal) {
@@ -402,7 +402,7 @@ struct QuotePostComposerView: View {
                 Text(selectedCategory.displayName)
                     .font(.custom("OpenSans-SemiBold", size: 11))
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(.systemScaled(9, weight: .semibold))
             }
             .foregroundStyle(categoryColor(for: selectedCategory))
             .padding(.horizontal, 8)
@@ -467,7 +467,7 @@ struct QuotePostComposerView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 5) {
                 Image(systemName: "at")
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.systemScaled(11, weight: .bold))
                     .foregroundStyle(.secondary)
                 Text("Mention User")
                     .font(.custom("OpenSans-SemiBold", size: 12))
@@ -511,7 +511,7 @@ struct QuotePostComposerView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Image(systemName: "sparkles")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(Color.blue)
                 Text("Suggested Hashtags")
                     .font(.custom("OpenSans-Bold", size: 13))
@@ -564,7 +564,7 @@ struct QuotePostComposerView: View {
                 }
             } label: {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 24))
+                    .font(.systemScaled(24))
                     .symbolRenderingMode(.palette)
                     .foregroundStyle(.white, .black.opacity(0.6))
                     .padding(8)
@@ -594,7 +594,7 @@ struct QuotePostComposerView: View {
                             }
                         } label: {
                             Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 18))
+                                .font(.systemScaled(18))
                                 .symbolRenderingMode(.palette)
                                 .foregroundStyle(.white, .black.opacity(0.6))
                                 .padding(2)
@@ -624,12 +624,12 @@ struct QuotePostComposerView: View {
                                 .clipShape(Circle())
                         } placeholder: {
                             Text(originalPost.authorInitials)
-                                .font(.system(size: 8, weight: .bold))
+                                .font(.systemScaled(8, weight: .bold))
                                 .foregroundStyle(.primary)
                         }
                     } else {
                         Text(originalPost.authorInitials)
-                            .font(.system(size: 8, weight: .bold))
+                            .font(.systemScaled(8, weight: .bold))
                             .foregroundStyle(.primary)
                     }
                 }
@@ -664,13 +664,13 @@ struct QuotePostComposerView: View {
                             .frame(width: 52, height: 52)
                             .overlay(
                                 Image(systemName: "photo")
-                                    .font(.system(size: 18))
+                                    .font(.systemScaled(18))
                                     .foregroundStyle(.secondary)
                             )
                     }
                     if urls.count > 3 {
                         Text("+\(urls.count - 3)")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.systemScaled(12, weight: .medium))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -687,7 +687,7 @@ struct QuotePostComposerView: View {
 
     private func quoteCategoryBadge(for category: Post.PostCategory) -> some View {
         Text(category.displayName)
-            .font(.system(size: 10, weight: .semibold))
+            .font(.systemScaled(10, weight: .semibold))
             .foregroundStyle(categoryColor(for: category))
             .padding(.horizontal, 7)
             .padding(.vertical, 3)
@@ -704,7 +704,7 @@ struct QuotePostComposerView: View {
                 .frame(width: 28, height: 28)
                 .overlay(
                     Image(systemName: "plus")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(.secondary)
                 )
                 .padding(.leading, 6)
@@ -735,7 +735,7 @@ struct QuotePostComposerView: View {
                     matching: .images
                 ) {
                     Image(systemName: "photo.on.rectangle.angled")
-                        .font(.system(size: 18, weight: .light))
+                        .font(.systemScaled(18, weight: .light))
                         .foregroundStyle(.secondary)
                         .frame(width: 36, height: 36)
                         .contentShape(Rectangle())
@@ -751,7 +751,7 @@ struct QuotePostComposerView: View {
                     showingCamera = true
                 } label: {
                     Image(systemName: "camera")
-                        .font(.system(size: 18, weight: .light))
+                        .font(.systemScaled(18, weight: .light))
                         .foregroundStyle(.secondary)
                         .frame(width: 36, height: 36)
                         .contentShape(Rectangle())
@@ -765,7 +765,7 @@ struct QuotePostComposerView: View {
                     isFocused = true
                 } label: {
                     Image(systemName: "at")
-                        .font(.system(size: 18, weight: .light))
+                        .font(.systemScaled(18, weight: .light))
                         .foregroundStyle(.secondary)
                         .frame(width: 36, height: 36)
                         .contentShape(Rectangle())
@@ -782,7 +782,7 @@ struct QuotePostComposerView: View {
                     }
                 } label: {
                     Image(systemName: "number")
-                        .font(.system(size: 18, weight: .light))
+                        .font(.systemScaled(18, weight: .light))
                         .foregroundStyle(.secondary)
                         .frame(width: 36, height: 36)
                         .contentShape(Rectangle())
@@ -813,7 +813,7 @@ struct QuotePostComposerView: View {
 
                         if remaining <= 20 {
                             Text("\(remaining)")
-                                .font(.system(size: 9, weight: .bold))
+                                .font(.systemScaled(9, weight: .bold))
                                 .foregroundStyle(remaining < 0 ? .red : .secondary)
                                 .monospacedDigit()
                         }

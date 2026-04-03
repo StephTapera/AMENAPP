@@ -89,7 +89,7 @@ struct ResourceFolderCard: View {
                                     .fill(.white.opacity(0.18))
                                     .frame(width: 44, height: 44)
                                 Image(systemName: icon)
-                                    .font(.system(size: 20, weight: .semibold))
+                                    .font(.systemScaled(20, weight: .semibold))
                                     .foregroundStyle(.white)
                             }
                             VStack(alignment: .leading, spacing: 3) {
@@ -106,7 +106,7 @@ struct ResourceFolderCard: View {
                         .padding(.leading, 18)
                         Spacer()
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                             .foregroundStyle(.white.opacity(0.55))
                             .padding(.trailing, 18)
                     }
@@ -188,7 +188,7 @@ struct ResourceFolderCard: View {
             // Label chip at bottom of sheet
             if !label.isEmpty {
                 Text(label)
-                    .font(.system(size: 7, weight: .semibold))
+                    .font(.systemScaled(7, weight: .semibold))
                     .foregroundStyle(accentColor.mix(with: .black, by: 0.1))
                     .lineLimit(1)
                     .padding(.horizontal, 4)
@@ -287,12 +287,12 @@ struct FolderSquareCard: View {
                                 .fill(.white.opacity(0.18))
                                 .frame(width: 26, height: 26)
                             Image(systemName: icon)
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.systemScaled(12, weight: .semibold))
                                 .foregroundStyle(.white)
                         }
                         // Title below icon
                         Text(title)
-                            .font(.system(size: 9, weight: .bold))
+                            .font(.systemScaled(9, weight: .bold))
                             .foregroundStyle(.white)
                             .shadow(color: .black.opacity(0.18), radius: 1, y: 1)
                             .lineLimit(2)

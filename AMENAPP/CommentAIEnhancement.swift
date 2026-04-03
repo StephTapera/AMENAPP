@@ -306,7 +306,7 @@ struct AIEnhancedCommentsView: View {
                         }
                     } label: {
                         Image(systemName: showAISummary ? "brain.head.profile.fill" : "brain.head.profile")
-                            .font(.system(size: 16))
+                            .font(.systemScaled(16))
                             .foregroundStyle(.purple)
                     }
                 }
@@ -391,7 +391,7 @@ struct AIEnhancedCommentsView: View {
                         submitComment()
                     } label: {
                         Image(systemName: "arrow.up.circle.fill")
-                            .font(.system(size: 28))
+                            .font(.systemScaled(28))
                             .foregroundStyle(commentText.isEmpty ? .black.opacity(0.3) : .black)
                     }
                     .disabled(commentText.isEmpty)
@@ -452,7 +452,7 @@ struct AISummaryBanner: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: "sparkles")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.purple)
             
             Text(summary)
@@ -484,7 +484,7 @@ struct AIInsightsBar: View {
             // Sentiment indicator
             HStack(spacing: 4) {
                 Image(systemName: insights.sentiment.icon)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                 Text(insights.sentiment.rawValue)
                     .font(.custom("OpenSans-Medium", size: 11))
             }
@@ -504,7 +504,7 @@ struct AIInsightsBar: View {
                 
                 HStack(spacing: 4) {
                     Image(systemName: "book.fill")
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                     Text("Scripture")
                         .font(.custom("OpenSans-Medium", size: 11))
                 }
@@ -525,7 +525,7 @@ struct ToxicityWarningBanner: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
                 .foregroundStyle(.orange)
             
             VStack(alignment: .leading, spacing: 2) {
@@ -615,7 +615,7 @@ struct InsightBadge: View {
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: icon)
-                .font(.system(size: 10))
+                .font(.systemScaled(10))
             Text(text)
                 .font(.custom("OpenSans-SemiBold", size: 10))
         }
@@ -647,7 +647,7 @@ struct ReplyIndicator: View {
                 onDismiss()
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundStyle(.black.opacity(0.6))
             }
         }
