@@ -146,7 +146,7 @@ struct ConnectForumView: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 Button {
-                    withAnimation(.spring(response: 0.25)) { selectedCategory = nil }
+                    withAnimation(Motion.adaptive(.spring(response: 0.25))) { selectedCategory = nil }
                 } label: {
                     Text("All")
                         .font(.systemScaled(13, weight: selectedCategory == nil ? .bold : .regular))
@@ -156,7 +156,7 @@ struct ConnectForumView: View {
                 }
                 ForEach(categories, id: \.self) { cat in
                     Button {
-                        withAnimation(.spring(response: 0.25)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.25))) {
                             selectedCategory = selectedCategory == cat ? nil : cat
                         }
                     } label: {

@@ -263,7 +263,7 @@ struct AMENResourceDetailView: View {
             // Primary play button
             Button {
                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                withAnimation(.spring(response: 0.38, dampingFraction: 0.78)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.78))) {
                     showPlayer.toggle()
                 }
             } label: {
@@ -298,7 +298,7 @@ struct AMENResourceDetailView: View {
             // Save
             Button {
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) { isSaved.toggle() }
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) { isSaved.toggle() }
             } label: {
                 Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
                     .font(.systemScaled(16, weight: .semibold))
@@ -385,7 +385,7 @@ struct AMENResourceDetailView: View {
 
     private func tabPill(_ tab: MediaTab) -> some View {
         Button {
-            withAnimation(.spring(response: 0.32, dampingFraction: 0.76)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.32, dampingFraction: 0.76))) {
                 activeTab = tab
             }
             UIImpactFeedbackGenerator(style: .light).impactOccurred()

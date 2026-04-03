@@ -42,7 +42,7 @@ struct ModernPrayerWallView: View {
                                     category: category,
                                     isSelected: selectedCategory == category
                                 ) {
-                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                         selectedCategory = category
                                     }
                                 }

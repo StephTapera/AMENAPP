@@ -85,7 +85,7 @@ struct BereanChatsListView: View {
         }
         .onAppear {
             loadConversations()
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.8))) {
                 animateIn = true
             }
         }

@@ -621,7 +621,7 @@ struct PostCard: View {
     @MainActor
     private func toggleActionMenu() {
         HapticManager.impact(style: .light)
-        withAnimation(.spring(response: 0.38, dampingFraction: 0.84)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.84))) {
             if isActionMenuPresented {
                 actionMenuCoordinator.activePostId = nil
             } else {
@@ -634,7 +634,7 @@ struct PostCard: View {
     private func closeActionMenu(animated: Bool = true) {
         guard isActionMenuPresented else { return }
         if animated {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.9)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.9))) {
                 actionMenuCoordinator.activePostId = nil
             }
         } else {
@@ -1555,7 +1555,7 @@ struct PostCard: View {
                     // Toggle original/translated
                     Button {
                         HapticManager.impact(style: .light)
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
                             showTranslatedContent.toggle()
                         }
                     } label: {
@@ -2011,7 +2011,7 @@ struct PostCard: View {
             isPublicContent: isPublic
         )
 
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.85))) {
             translationUIState = result
             if let translated = result.translatedText {
                 translatedContent = translated
@@ -2209,7 +2209,7 @@ struct PostCard: View {
                 if !isPostExpanded && content.count > 300 {
                     Button {
                         HapticManager.impact(style: .light)
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                             interactionsService.toggleExpanded(stablePostId)
                         }
                     } label: {
@@ -2467,7 +2467,7 @@ struct PostCard: View {
                     guard horizontalAmount > verticalAmount * 4.0 else { 
                         // Reset any partial swipe state if gesture becomes too vertical
                         if swipeOffset != 0 {
-                            withAnimation(.spring(response: 0.2, dampingFraction: 0.9)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.9))) {
                                 swipeOffset = 0
                                 swipeDirection = .none
                             }
@@ -2479,7 +2479,7 @@ struct PostCard: View {
                     // This ensures scrolling always works smoothly
                     guard verticalAmount < 10 else {
                         if swipeOffset != 0 {
-                            withAnimation(.spring(response: 0.2, dampingFraction: 0.9)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.9))) {
                                 swipeOffset = 0
                                 swipeDirection = .none
                             }
@@ -2504,7 +2504,7 @@ struct PostCard: View {
                     // Very strict check: only trigger if it's an unmistakably horizontal swipe
                     // 4x ratio + minimal vertical movement ensures this never interferes with scrolling
                     guard horizontalAmount > verticalAmount * 4.0, verticalAmount < 15 else {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                             swipeOffset = 0
                             swipeDirection = .none
                         }
@@ -2516,7 +2516,7 @@ struct PostCard: View {
                         triggerSwipeLikeAction()
                         
                         // Reset with animation
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                             swipeOffset = 0
                             swipeDirection = .none
                         }
@@ -2526,14 +2526,14 @@ struct PostCard: View {
                         
                         // Small delay before reset to ensure sheet presents properly
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                 swipeOffset = 0
                                 swipeDirection = .none
                             }
                         }
                     } else {
                         // Reset with animation if threshold not met
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                             swipeOffset = 0
                             swipeDirection = .none
                         }
@@ -2930,7 +2930,7 @@ struct PostCard: View {
 
         // Haptic + optimistic update fire immediately — before the network round-trip
         HapticManager.impact(style: .light)
-        withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
+        withAnimation(Motion.adaptive(.spring(response: springResponse, dampingFraction: springDamping))) {
             hasLitLightbulb.toggle()
             isLightbulbAnimating = true
         }
@@ -2964,7 +2964,7 @@ struct PostCard: View {
                 logDebug("  ROLLBACK: Reverting to hasLitLightbulb=\(previousState)", category: "LIGHTBULB")
 
                 // Revert optimistic update on error
-                withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
+                withAnimation(Motion.adaptive(.spring(response: springResponse, dampingFraction: springDamping))) {
                     hasLitLightbulb = previousState
                 }
                 isLightbulbAnimating = false
@@ -3007,7 +3007,7 @@ struct PostCard: View {
 
         // Haptic + optimistic update fire immediately — before the network round-trip
         HapticManager.notification(type: .success)
-        withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
+        withAnimation(Motion.adaptive(.spring(response: springResponse, dampingFraction: springDamping))) {
             hasSaidAmen.toggle()
         }
 
@@ -3047,7 +3047,7 @@ struct PostCard: View {
                 logDebug("  ROLLBACK: Reverting to hasSaidAmen=\(previousState)", category: "AMEN")
 
                 // Revert optimistic update on error
-                withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
+                withAnimation(Motion.adaptive(.spring(response: springResponse, dampingFraction: springDamping))) {
                     hasSaidAmen = previousState
                 }
                 amenShakeError.toggle()
@@ -3118,7 +3118,7 @@ struct PostCard: View {
         
         // Haptic + optimistic update fire immediately — before the network round-trip
         HapticManager.notification(type: .success)
-        withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
+        withAnimation(Motion.adaptive(.spring(response: springResponse, dampingFraction: springDamping))) {
             hasReposted.toggle()
         }
 
@@ -3136,7 +3136,7 @@ struct PostCard: View {
 
                 // Update UI to match database state
                 await MainActor.run {
-                    withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
+                    withAnimation(Motion.adaptive(.spring(response: springResponse, dampingFraction: springDamping))) {
                         hasReposted = isReposted
                     }
                 }
@@ -3166,7 +3166,7 @@ struct PostCard: View {
                 logDebug("  ROLLBACK: Reverting to hasReposted=\(previousState)", category: "REPOST")
 
                 await MainActor.run {
-                    withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
+                    withAnimation(Motion.adaptive(.spring(response: springResponse, dampingFraction: springDamping))) {
                         hasReposted = previousState
                     }
                     repostShakeError.toggle()
@@ -3327,7 +3327,7 @@ struct PostCard: View {
                    !copy.isEmpty {
                     await MainActor.run {
                         testimonyResonanceCopy = copy
-                        withAnimation(.spring(response: 0.38, dampingFraction: 0.72)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.72))) {
                             showTestimonyResonance = true
                         }
                         testimonyResonanceDismissTask?.cancel()
@@ -3418,7 +3418,7 @@ struct PostCard: View {
         // Haptic + optimistic update fire immediately — before the network round-trip
         HapticManager.impact(style: .light)
         logDebug("  📤 Performing OPTIMISTIC UI update...", category: "SAVE")
-        withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
+        withAnimation(Motion.adaptive(.spring(response: springResponse, dampingFraction: springDamping))) {
             isSaved.toggle()
         }
         
@@ -3443,7 +3443,7 @@ struct PostCard: View {
                 // Ensure UI matches server state
                 await MainActor.run {
                     if isSaved != isSavedNow {
-                        withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
+                        withAnimation(Motion.adaptive(.spring(response: springResponse, dampingFraction: springDamping))) {
                             isSaved = isSavedNow
                         }
                     }
@@ -3489,7 +3489,7 @@ struct PostCard: View {
                 
                 // Revert on error
                 await MainActor.run {
-                    withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
+                    withAnimation(Motion.adaptive(.spring(response: springResponse, dampingFraction: springDamping))) {
                         isSaved = previousState
                     }
                     
@@ -3537,7 +3537,7 @@ struct PostCard: View {
         
         // Haptic + optimistic update fire immediately — before the network round-trip
         HapticManager.impact(style: .light)
-        withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
+        withAnimation(Motion.adaptive(.spring(response: springResponse, dampingFraction: springDamping))) {
             isPraying.toggle()
         }
 
@@ -3565,7 +3565,7 @@ struct PostCard: View {
             } else {
                 dlog("❌ Failed to \(isPraying ? "start" : "stop") praying")
                 await MainActor.run {
-                    withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
+                    withAnimation(Motion.adaptive(.spring(response: springResponse, dampingFraction: springDamping))) {
                         isPraying = previousState
                     }
                     HapticManager.notification(type: .error)
@@ -3595,7 +3595,7 @@ struct PostCard: View {
         
         // Haptic + optimistic update
         HapticManager.impact(style: .medium)
-        withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
+        withAnimation(Motion.adaptive(.spring(response: springResponse, dampingFraction: springDamping))) {
             isFasting.toggle()
         }
         
@@ -3627,7 +3627,7 @@ struct PostCard: View {
             } else {
                 dlog("❌ Failed to \(isFasting ? "join" : "leave") fast")
                 await MainActor.run {
-                    withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
+                    withAnimation(Motion.adaptive(.spring(response: springResponse, dampingFraction: springDamping))) {
                         isFasting = previousState
                     }
                     HapticManager.notification(type: .error)
@@ -3795,7 +3795,7 @@ private struct AmenPostCardActionMenu: View {
         .offset(y: hasAppeared ? 0 : -10)
         .shadow(color: Color.white.opacity(hasAppeared ? 0.32 : 0), radius: 18, y: -4)
         .onAppear {
-            withAnimation(.spring(response: 0.38, dampingFraction: 0.84)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.84))) {
                 hasAppeared = true
             }
         }
@@ -4380,7 +4380,7 @@ private struct PostCardSheetsModifier: ViewModifier {
                     ($0.childSnapshot(forPath: "postId").value as? String) == postId
                 }
                 await MainActor.run {
-                    withAnimation(.spring(response: 0.12, dampingFraction: 0.75)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.12, dampingFraction: 0.75))) {
                         hasCommented = didComment
                     }
                 }

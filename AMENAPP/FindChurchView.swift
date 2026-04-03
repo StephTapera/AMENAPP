@@ -1065,14 +1065,14 @@ struct FindChurchView: View {
                             isLocationAuthorized: locationManager.isAuthorized,
                             onSearchSubmit: { performSearchWithText() },
                             onFilterTap: {
-                                withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
                                     showFilters.toggle()
                                 }
                             },
                             onRefresh: locationManager.isAuthorized ? { performRealSearch() } : nil,
                             onBack: { dismiss() },
                             isMapMode: showMapView,
-                            onMapToggle: { withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) { showMapView.toggle() } }
+                            onMapToggle: { withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.8))) { showMapView.toggle() } }
                         )
                         
                         // Minimal filter chips (shown when expanded)
@@ -1185,7 +1185,7 @@ struct FindChurchView: View {
                                         // AI Church Recommendations
                                         VStack(alignment: .leading, spacing: 12) {
                                             Button {
-                                                withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                                                withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
                                                     showAIRecommendations.toggle()
                                                 }
                                                 
@@ -1287,13 +1287,13 @@ struct FindChurchView: View {
                                             isVisited: userPreferences.visitedChurches.contains(church.id),
                                             isExpanded: expandedChurchId == church.id,
                                             onTap: {
-                                                withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                                                withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
                                                     selectedChurch = church
                                                     markChurchAsViewed(church)
                                                 }
                                             },
                                             onExpand: {
-                                                withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                                                withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
                                                     expandedChurchId = expandedChurchId == church.id ? nil : church.id
                                                 }
                                             },
@@ -2075,7 +2075,7 @@ struct FindChurchView: View {
                 )
                 
                 await MainActor.run {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
                         aiRecommendations = recommendations
                         isLoadingAIRecommendations = false
                     }
@@ -2184,7 +2184,7 @@ struct FindChurchHeader: View {
                     
                     if !isCollapsed {
                         Button {
-                            withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.75))) {
                                 isExpanded.toggle()
                             }
                         } label: {
@@ -2330,7 +2330,7 @@ struct FindChurchHeader: View {
                     
                     if !searchText.isEmpty {
                         Button {
-                            withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.75))) {
                                 searchText = ""
                                 isSearchFocused = false
                             }
@@ -2525,7 +2525,7 @@ struct EnhancedChurchCard: View {
                     
                     // Save button (circular dark style matching search)
                     Button {
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.7))) {
                             onSave()
                             let haptic = UIImpactFeedbackGenerator(style: .medium)
                             haptic.impactOccurred()
@@ -2683,7 +2683,7 @@ struct EnhancedChurchCard: View {
                 
                 // Show more/less button
                 Button {
-                    withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.75))) {
                         isExpanded.toggle()
                         let haptic = UIImpactFeedbackGenerator(style: .light)
                         haptic.impactOccurred()
@@ -2720,7 +2720,7 @@ struct EnhancedChurchCard: View {
         )
         .onLongPressGesture {
             if let onToggleComparison = onToggleComparison {
-                withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.75))) {
                     onToggleComparison(church.id)
                 }
                 let haptic = UIImpactFeedbackGenerator(style: .medium)
@@ -3187,7 +3187,7 @@ struct ChurchCard: View {
                     }
                     
                     Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                             isExpanded.toggle()
                         }
                     } label: {
@@ -3342,7 +3342,7 @@ struct SmartFeaturesBanner: View {
                 Spacer()
                 
                 Button {
-                    withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.75))) {
                         isExpanded.toggle()
                         let haptic = UIImpactFeedbackGenerator(style: .light)
                         haptic.impactOccurred()
@@ -3906,7 +3906,7 @@ struct MinimalChurchHeader: View {
                 
                 if !searchText.isEmpty {
                     Button {
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
                             searchText = ""
                         }
                     } label: {
@@ -3955,7 +3955,7 @@ struct MinimalFilterRow: View {
             HStack(spacing: 10) {
                 // Saved toggle
                 Button {
-                    withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
                         showSavedOnly.toggle()
                     }
                 } label: {
@@ -3978,7 +3978,7 @@ struct MinimalFilterRow: View {
                 Menu {
                     ForEach(FindChurchView.ChurchSortMode.allCases, id: \.self) { mode in
                         Button {
-                            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
                                 sortMode = mode
                             }
                         } label: {
@@ -4048,7 +4048,7 @@ struct MinimalFilterRow: View {
                 ForEach(FindChurchView.ChurchDenomination.allCases, id: \.self) { denomination in
                     HStack(spacing: 6) {
                         Button {
-                            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
                                 selectedDenomination = denomination
                             }
                         } label: {
@@ -4161,7 +4161,7 @@ struct MinimalCardButtonStyle: ButtonStyle {
             .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
             .animation(.easeOut(duration: 0.15), value: configuration.isPressed)
             .onChange(of: configuration.isPressed) { _, newValue in
-                withAnimation(.spring(response: 0.2, dampingFraction: 0.75)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.75))) {
                     isPressed = newValue
                 }
             }
@@ -4509,7 +4509,7 @@ struct QuickFilterBar: View {
             HStack(spacing: 10) {
                 ForEach(FindChurchView.QuickFilter.allCases, id: \.self) { filter in
                     Button {
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
                             selectedFilter = selectedFilter == filter ? nil : filter
                         }
                     } label: {
@@ -5620,7 +5620,7 @@ struct FindChurchMapView: View {
                         isVisible: pinsVisible[church.id] ?? false
                     )
                     .onTapGesture {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                             selectedChurch = church
                             showMiniSheet = true
                         }
@@ -5628,7 +5628,7 @@ struct FindChurchMapView: View {
                     .onAppear {
                         let idx = churches.firstIndex(where: { $0.id == church.id }) ?? 0
                         DispatchQueue.main.asyncAfter(deadline: .now() + Double(idx) * 0.08) {
-                            withAnimation(.spring(response: 0.5, dampingFraction: 0.6)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.6))) {
                                 pinsVisible[church.id] = true
                             }
                         }

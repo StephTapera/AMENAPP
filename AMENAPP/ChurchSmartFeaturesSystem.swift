@@ -136,7 +136,7 @@ struct SpiritualNeedsRouterView: View {
 
         Button {
             guard !atMax else { return }
-            withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.82))) {
                 if isSelected { selectedNeeds.remove(need) }
                 else          { selectedNeeds.insert(need) }
             }
@@ -275,7 +275,7 @@ struct PostVisitReflectionCard: View {
                 HStack(spacing: 8) {
                     ForEach(PostVisitReflection.QuickRating.allCases, id: \.self) { rating in
                         Button {
-                            withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.82))) {
                                 selectedRating = rating
                             }
                         } label: {
@@ -372,7 +372,7 @@ struct PostVisitReflectionCard: View {
 
     private func yesNoButton(label: String, value: Bool, binding: Binding<Bool?>) -> some View {
         Button {
-            withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.82))) {
                 binding.wrappedValue = value
             }
         } label: {

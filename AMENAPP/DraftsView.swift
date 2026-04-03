@@ -39,7 +39,7 @@ struct DraftsView: View {
                                 // Swipe to delete
                                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                                     Button(role: .destructive) {
-                                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
                                             draftsManager.deleteDraft(draft)
                                         }
                                     } label: {
@@ -68,7 +68,7 @@ struct DraftsView: View {
                     ToolbarItem(placement: .primaryAction) {
                         Menu {
                             Button {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
                                     draftsManager.cleanupExpiredDrafts()
                                 }
                             } label: {
@@ -102,7 +102,7 @@ struct DraftsView: View {
                 titleVisibility: .visible
             ) {
                 Button("Delete All", role: .destructive) {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
                         draftsManager.deleteAllDrafts()
                     }
                 }

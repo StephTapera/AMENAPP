@@ -87,7 +87,7 @@ struct BereanSafetyShieldPill: View {
 
     var body: some View {
         Button {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                 isExpanded = true
             }
         } label: {
@@ -169,7 +169,7 @@ struct BereanSafetySheet: View {
                 Spacer()
 
                 Button {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                         isExpanded = false
                     }
                 } label: {
@@ -250,7 +250,7 @@ private struct SafetyOptionButton: View {
     private func handleAction(_ action: SafetyIntervention.SafetyOption.SafetyAction) {
         switch action {
         case .dismiss:
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                 BereanConversationSafetyService.shared.dismissIntervention()
                 isExpanded = false
             }

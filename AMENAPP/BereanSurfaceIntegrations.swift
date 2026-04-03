@@ -168,7 +168,7 @@ struct BereanAssistChip: View {
         }
         .buttonStyle(.plain)
         ._onButtonGesture { pressing in
-            withAnimation(.spring(response: 0.22, dampingFraction: 0.70)) { pressed = pressing }
+            withAnimation(Motion.adaptive(.spring(response: 0.22, dampingFraction: 0.70))) { pressed = pressing }
         } perform: {}
     }
 }
@@ -279,7 +279,7 @@ struct BereanNoteIntelligenceCard: View {
         VStack(alignment: .leading, spacing: 0) {
             // Trigger button
             Button {
-                withAnimation(.spring(response: 0.42, dampingFraction: 0.82)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.42, dampingFraction: 0.82))) {
                     isExpanded.toggle()
                 }
                 if !hasAnalyzed { analyzeNote() }
@@ -622,7 +622,7 @@ struct BereanContextualEntryPoint: View {
 
             // Trigger button
             Button {
-                withAnimation(.spring(response: 0.38, dampingFraction: 0.78)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.78))) {
                     isExpanded.toggle()
                 }
             } label: {

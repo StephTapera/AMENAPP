@@ -153,7 +153,7 @@ struct BereanStructuredCard: View {
             if let saveTap = onSave {
                 Button {
                     saveTap()
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                         isSaved = true
                     }
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()

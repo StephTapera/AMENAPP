@@ -172,7 +172,7 @@ struct MilestoneSheetView: View {
 
     private func runEntrance() {
         // 1. Badge springs in
-        withAnimation(.spring(response: 0.42, dampingFraction: 0.62).delay(0.18)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.42, dampingFraction: 0.62)).delay(0.18)) {
             badgeScale = 1.0
             badgeOpacity = 1.0
         }
@@ -183,7 +183,7 @@ struct MilestoneSheetView: View {
         }
 
         // 3. Content fades + slides up
-        withAnimation(.spring(response: 0.48, dampingFraction: 0.75).delay(0.28)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.48, dampingFraction: 0.75)).delay(0.28)) {
             contentOpacity = 1.0
             contentOffset = 0
         }

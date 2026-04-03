@@ -237,7 +237,7 @@ struct FullscreenMediaViewer: View {
             .onEnded { _ in
                 lastScale = 1.0
                 if scale < 1.05 {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                         resetZoom()
                     }
                 }
@@ -274,7 +274,7 @@ struct FullscreenMediaViewer: View {
                 if dragDismissOffset > 100 || value.velocity.height > 600 {
                     dismiss()
                 } else {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                         dragDismissOffset = 0
                     }
                 }
@@ -290,7 +290,7 @@ struct FullscreenMediaViewer: View {
     }
     
     private func handleDoubleTap() {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
             if scale > 1.05 {
                 resetZoom()
             } else {

@@ -149,7 +149,7 @@ struct TipSheetView: View {
         ) {
             ForEach(presets, id: \.self) { amount in
                 Button {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                         selectedAmount    = amount
                         customAmountText  = ""
                     }
@@ -314,7 +314,7 @@ struct TipSheetView: View {
                 "roomTitle":   roomTitle,
                 "createdAt":   FieldValue.serverTimestamp()
             ])
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                 isSending = false
                 didSend   = true
             }

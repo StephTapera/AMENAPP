@@ -118,7 +118,7 @@ struct SpotlightView: View {
                         icon: filter.icon,
                         isSelected: selectedFilter == filter,
                         action: {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                 selectedFilter = filter
                             }
                             let haptic = UIImpactFeedbackGenerator(style: .light)

@@ -200,7 +200,7 @@ struct AccountSetupChecklistView: View {
                                 isComplete: progress.completedItems.contains(item.id),
                                 isRequired: item.isRequired,
                                 onTap: {
-                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                                    withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.82))) {
                                         if progress.completedItems.contains(item.id) {
                                             progress.markIncomplete(item.id)
                                         } else {
@@ -208,7 +208,7 @@ struct AccountSetupChecklistView: View {
                                         }
                                     }
                                     if progress.isComplete {
-                                        withAnimation(.spring(response: 0.35, dampingFraction: 0.82).delay(0.15)) {
+                                        withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.82)).delay(0.15)) {
                                             showCompletion = true
                                         }
                                     }
@@ -302,11 +302,11 @@ struct SetupChecklistRow: View {
 
     var body: some View {
         Button(action: {
-            withAnimation(.spring(response: 0.22, dampingFraction: 0.70)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.22, dampingFraction: 0.70))) {
                 tapped = true
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                withAnimation(.spring(response: 0.22, dampingFraction: 0.70)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.22, dampingFraction: 0.70))) {
                     tapped = false
                 }
             }
@@ -445,7 +445,7 @@ struct SetupCompletionCard: View {
             )
             .frame(minHeight: 200)
             .onAppear {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.75).delay(0.1)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.75)).delay(0.1)) {
                     appeared = true
                 }
             }
@@ -483,7 +483,7 @@ struct AccountSetupContinuationCard: View {
                                 .foregroundStyle(.black)
                             Spacer()
                             Button(action: {
-                                withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.82))) {
                                     visible = false
                                 }
                                 onDismiss()
@@ -557,7 +557,7 @@ struct ComposerPresetChipRow: View {
             HStack(spacing: 8) {
                 ForEach(presets, id: \.self) { preset in
                     Button {
-                        withAnimation(.spring(response: 0.22, dampingFraction: 0.70)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.22, dampingFraction: 0.70))) {
                             selectedChip = selectedChip == preset ? nil : preset
                         }
                         onSelect(preset)

@@ -42,7 +42,7 @@ final class BereanIslandViewModel: ObservableObject {
         responseText = ""
         displayedText = ""
         thinkingSeconds = 0
-        withAnimation(.spring(response: 0.5, dampingFraction: 0.75)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.75))) {
             state = .thinking
         }
         startLiveActivityIfNeeded()
@@ -68,7 +68,7 @@ final class BereanIslandViewModel: ObservableObject {
         thinkingSeconds = 0
         let snippet = Self.snippet(from: cached.responseText)
         responseText = snippet
-        withAnimation(.spring(response: 0.45, dampingFraction: 0.78)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.45, dampingFraction: 0.78))) {
             state = .responded
         }
         typeText(snippet)
@@ -77,7 +77,7 @@ final class BereanIslandViewModel: ObservableObject {
     func dismiss() {
         thinkingTask?.cancel()
         typingTask?.cancel()
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.85))) {
             state = .idle
         }
         endLiveActivity()
@@ -119,7 +119,7 @@ final class BereanIslandViewModel: ObservableObject {
                 } else {
                     updateLiveActivityForSpeaking()
                 }
-                withAnimation(.spring(response: 0.45, dampingFraction: 0.78)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.45, dampingFraction: 0.78))) {
                     state = .responded
                 }
                 typeText(snippet)
@@ -128,7 +128,7 @@ final class BereanIslandViewModel: ObservableObject {
                 thinkingTask?.cancel()
                 let fallback = "Berean couldn't reach the scriptures right now. Tap \"Open Full\" to try again."
                 responseText = fallback
-                withAnimation(.spring(response: 0.45, dampingFraction: 0.78)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.45, dampingFraction: 0.78))) {
                     state = .responded
                 }
                 typeText(fallback)

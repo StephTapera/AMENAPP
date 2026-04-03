@@ -283,7 +283,7 @@ struct EventsView: View {
             HStack(spacing: 8) {
                 // All pill
                 Button {
-                    withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) { selectedCategory = nil }
+                    withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.75))) { selectedCategory = nil }
                 } label: {
                     Text("All")
                         .font(.custom(selectedCategory == nil ? "OpenSans-Bold" : "OpenSans-Regular", size: 13))
@@ -296,7 +296,7 @@ struct EventsView: View {
 
                 ForEach(EventCategory.allCases, id: \.self) { cat in
                     Button {
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.75))) {
                             selectedCategory = selectedCategory == cat ? nil : cat
                         }
                     } label: {
@@ -457,7 +457,7 @@ struct FeaturedEventCard: View {
         .scaleEffect(appeared ? 1 : 0.92)
         .opacity(appeared ? 1 : 0)
         .onAppear {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.75).delay(Double.random(in: 0...0.12))) {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75)).delay(Double.random(in: 0...0.12))) {
                 appeared = true
             }
         }

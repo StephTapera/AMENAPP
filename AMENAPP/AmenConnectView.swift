@@ -213,7 +213,7 @@ struct AMENConnectView: View {
                         label: tab.rawValue,
                         isSelected: selectedTab == tab
                     ) {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.65)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.65))) {
                             selectedTab = tab
                         }
                     }

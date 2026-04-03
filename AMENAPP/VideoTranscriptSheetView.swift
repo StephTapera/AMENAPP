@@ -113,7 +113,7 @@ struct VideoTranscriptSheetView: View {
 
             // Dismiss X
             Button {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.82))) {
                     dismiss()
                 }
             } label: {
@@ -154,7 +154,7 @@ struct VideoTranscriptSheetView: View {
         HStack(spacing: 4) {
             ForEach(TranscriptTab.allCases, id: \.self) { tab in
                 Button {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.82))) {
                         activeTab = tab
                     }
                 } label: {
@@ -490,7 +490,7 @@ struct VideoTranscriptSheetView: View {
             Button {
                 let trimmed = noteText.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !trimmed.isEmpty else { return }
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.82))) {
                     savedNotes.insert(trimmed, at: 0)
                     onSaveNote(trimmed)
                     noteText = ""

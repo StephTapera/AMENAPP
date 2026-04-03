@@ -62,7 +62,7 @@ struct AISuggestionSheet: View {
                                     isSelected: selectedPreset == preset.label,
                                     amenPurple: amenPurple
                                 ) {
-                                    withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                                    withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                                         selectedPreset = selectedPreset == preset.label
                                             ? nil
                                             : preset.label

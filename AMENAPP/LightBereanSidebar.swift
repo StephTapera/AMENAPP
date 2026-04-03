@@ -173,7 +173,7 @@ struct LightBereanSidebar: View {
                     match: match,
                     isExpanded: expandedScripture == match.id
                 ) {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.75))) {
                         expandedScripture = expandedScripture == match.id ? nil : match.id
                     }
                 }

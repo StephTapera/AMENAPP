@@ -119,7 +119,7 @@ struct BereanGoalsSheet: View {
             // Completion toggle
             Button {
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                     BereanGoalsService.shared.toggleComplete(goal.id)
                 }
             } label: {

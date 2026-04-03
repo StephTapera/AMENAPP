@@ -160,13 +160,13 @@ struct PrivateCommunitiesView: View {
             if showOnboarding && !hasCompletedOnboarding {
                 CommunityOnboardingView(
                     onComplete: {
-                        withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.6, dampingFraction: 0.8))) {
                             hasCompletedOnboarding = true
                             showOnboarding = false
                         }
                     },
                     onSkip: {
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.8))) {
                             hasCompletedOnboarding = true
                             showOnboarding = false
                         }
@@ -456,7 +456,7 @@ struct PrivateCommunitiesView: View {
         HStack(spacing: 0) {
             ForEach(CommunityTab.allCases, id: \.self) { tab in
                 Button {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.75))) {
                         selectedTab = tab
                         let haptic = UIImpactFeedbackGenerator(style: .medium)
                         haptic.impactOccurred()
@@ -523,7 +523,7 @@ struct PrivateCommunitiesView: View {
     
     // MARK: - Actions
     private func joinCommunity(_ community: PrivateCommunity) {
-        _ = withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+        _ = withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
             joinedCommunities.insert(community.id)
         }
         
@@ -533,14 +533,14 @@ struct PrivateCommunitiesView: View {
         
         // After joining, switch to My Communities tab after a short delay
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                 selectedTab = .myCommunities
             }
         }
     }
     
     private func toggleJoin(_ community: PrivateCommunity) {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
             if joinedCommunities.contains(community.id) {
                 joinedCommunities.remove(community.id)
             } else {
@@ -808,7 +808,7 @@ struct PrivateCommunityCard: View {
                     .buttonStyle(PlainButtonStyle())
                     
                     Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                             isExpanded.toggle()
                         }
                         let haptic = UIImpactFeedbackGenerator(style: .light)
@@ -1168,7 +1168,7 @@ struct CommunityOnboardingView: View {
                     haptic.impactOccurred()
                     
                     if currentPage < pages.count - 1 {
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.8))) {
                             currentPage += 1
                         }
                     } else {
@@ -1559,7 +1559,7 @@ struct CommunityCodeEntryView: View {
                 let haptic = UINotificationFeedbackGenerator()
                 haptic.notificationOccurred(.error)
                 
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                     isValidating = false
                     showError = true
                     errorMessage = "Invalid code. Please check and try again."
@@ -1686,7 +1686,7 @@ struct CreateCommunityView: View {
                             HStack(spacing: 12) {
                                 ForEach(CommunityType.allCases, id: \.self) { type in
                                     Button {
-                                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                             selectedType = type
                                         }
                                         let haptic = UIImpactFeedbackGenerator(style: .light)
@@ -2178,7 +2178,7 @@ struct ContactSalesView: View {
                             HStack(spacing: 12) {
                                 ForEach(CommunityType.allCases, id: \.self) { type in
                                     Button {
-                                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                             organizationType = type
                                         }
                                     } label: {
@@ -2693,7 +2693,7 @@ struct EventCalendarView: View {
                     HStack(spacing: 12) {
                         ForEach(EventType.allCases, id: \.self) { type in
                             Button {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                     selectedEventType = type
                                 }
                             } label: {
@@ -2950,7 +2950,7 @@ struct EventCard: View {
             }
             
             Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                     isRSVPed.toggle()
                 }
                 let haptic = UIImpactFeedbackGenerator(style: .medium)
@@ -3460,7 +3460,7 @@ struct VolunteerOpportunityCard: View {
             .foregroundStyle(.primary)
             
             Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                     isSignedUp.toggle()
                 }
             } label: {
@@ -3545,7 +3545,7 @@ struct LanguageSettingsView: View {
                     VStack(spacing: 12) {
                         ForEach(languages, id: \.self) { language in
                             Button {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                     selectedLanguage = language
                                 }
                             } label: {
@@ -3680,7 +3680,7 @@ struct CreateEventView: View {
                                 HStack(spacing: 10) {
                                     ForEach([EventCalendarView.EventType.worship, .study, .service, .social, .mission], id: \.self) { type in
                                         Button {
-                                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                                 selectedType = type
                                             }
                                         } label: {
@@ -4092,7 +4092,7 @@ struct CommunityDetailView: View {
             HStack(spacing: 8) {
                 ForEach(DetailTab.allCases, id: \.self) { tab in
                     Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                             selectedTab = tab
                         }
                     } label: {
@@ -4402,7 +4402,7 @@ struct CommunityPrayerRequestCard: View {
             
             HStack(spacing: 16) {
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                         hasPrayed.toggle()
                     }
                 } label: {

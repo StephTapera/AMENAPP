@@ -40,7 +40,7 @@ struct VoiceToWisdomView: View {
 
     private var idlePill: some View {
         Button {
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.7))) {
                 isExpanded = true
             }
             viewModel.startRecording()
@@ -93,7 +93,7 @@ struct VoiceToWisdomView: View {
             // Stop button
             Button {
                 viewModel.stopRecording()
-                withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.7))) {
                     isExpanded = false
                 }
             } label: {

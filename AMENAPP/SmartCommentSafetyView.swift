@@ -557,7 +557,7 @@ struct CommentInputBarView: View {
                 priorCommentCount: priorCount
             )
             await MainActor.run {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
                     if result.riskLevel == .clear {
                         assessment = nil
                     } else {

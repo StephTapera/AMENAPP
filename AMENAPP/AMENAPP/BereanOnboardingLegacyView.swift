@@ -133,7 +133,7 @@ struct BereanOnboardingView: View {
             Button {
                 if currentStep > 0 {
                     isNavigatingForward = false
-                    withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.82))) {
                         currentStep -= 1
                     }
                     resetAndAnimateChips()
@@ -307,7 +307,7 @@ struct BereanOnboardingView: View {
             ForEach(personalizationOptions, id: \.label) { option in
                 let isSelected = selectedPersonalization.contains(option.label)
                 Button {
-                    withAnimation(.spring(response: 0.28, dampingFraction: 0.72)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.72))) {
                         if isSelected {
                             selectedPersonalization.remove(option.label)
                         } else {
@@ -412,7 +412,7 @@ struct BereanOnboardingView: View {
                     completeOnboarding()
                 } else {
                     isNavigatingForward = true
-                    withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.82))) {
                         currentStep += 1
                     }
                     resetAndAnimateChips()

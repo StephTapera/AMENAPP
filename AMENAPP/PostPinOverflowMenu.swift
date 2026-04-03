@@ -233,7 +233,7 @@ struct PostPinOverflowMenu: View {
             }
         } else {
             // Show inline pin type picker
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.75))) {
                 showPinTypeSheet.toggle()
             }
             dlog("PostPinOverflowMenu: showing pin type picker for \(postId)")
@@ -350,7 +350,7 @@ struct PinTypePickerView: View {
                         label: option.label,
                         isSelected: selectedType == option.type
                     ) {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                             selectedType = option.type
                         }
                         dlog("PinTypePickerView: selected \(option.type.rawValue)")

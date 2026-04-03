@@ -271,7 +271,7 @@ struct MinimalAuthenticationView: View {
                         // Email auth
                         Button {
                             errorMessage = nil
-                            withAnimation(.spring(response: 0.42, dampingFraction: 0.88)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.42, dampingFraction: 0.88))) {
                                 showEmailForm = true
                             }
                         } label: {
@@ -349,7 +349,7 @@ struct MinimalAuthenticationView: View {
                     if showsEmailFormOnAppear {
                         dismiss()
                     } else {
-                        withAnimation(.spring(response: 0.42, dampingFraction: 0.88)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.42, dampingFraction: 0.88))) {
                             showEmailForm = false
                             errorMessage = nil
                             signUpStep = 0
@@ -519,7 +519,7 @@ struct MinimalAuthenticationView: View {
 
                         Button {
                             if !isLogin && signUpStep < 2 {
-                                withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.32, dampingFraction: 0.78))) {
                                     signUpStep += 1
                                 }
                                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -555,7 +555,7 @@ struct MinimalAuthenticationView: View {
 
                         if !isLogin && signUpStep > 0 {
                             Button {
-                                withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.32, dampingFraction: 0.78))) {
                                     signUpStep -= 1
                                 }
                                 UIImpactFeedbackGenerator(style: .light).impactOccurred()

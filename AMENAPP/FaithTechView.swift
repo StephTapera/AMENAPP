@@ -33,7 +33,7 @@ struct FaithTechView: View {
                 HStack(spacing: 8) {
                     ForEach(TechCategory.allCases, id: \.self) { category in
                         Button {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                 selectedCategory = category
                             }
                         } label: {
@@ -260,7 +260,7 @@ struct TechArticleCard: View {
                 Spacer()
                 
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                         isBookmarked.toggle()
                     }
                 } label: {
@@ -882,7 +882,7 @@ struct ArticleDetailView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 16) {
                         Button {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                                 isBookmarked.toggle()
                                 let haptic = UIImpactFeedbackGenerator(style: .medium)
                                 haptic.impactOccurred()

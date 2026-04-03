@@ -146,8 +146,8 @@ struct MentorCardView: View {
                 .onEnded { _ in
                     isPressed = false
                     if !reduceMotion {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.55)) { liftOffset = -3 }
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.65).delay(0.1)) { liftOffset = 0 }
+                        withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.55))) { liftOffset = -3 }
+                        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.65)).delay(0.1)) { liftOffset = 0 }
                     }
                 }
         )

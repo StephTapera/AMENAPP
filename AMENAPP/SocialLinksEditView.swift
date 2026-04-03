@@ -220,7 +220,7 @@ struct SocialLinksEditView: View {
     // MARK: - Remove Link
     
     private func removeLink(_ link: SocialLinkUI) {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
             socialLinks.removeAll { $0.id == link.id }
         }
         
@@ -433,7 +433,7 @@ struct AddSocialLinkSheet: View {
                                     platform: platform,
                                     isSelected: selectedPlatform == platform
                                 ) {
-                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                         selectedPlatform = platform
                                     }
                                     let haptic = UIImpactFeedbackGenerator(style: .light)

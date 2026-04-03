@@ -332,7 +332,7 @@ struct StudioWriteView: View {
             // Ask AI button
             Button {
                 HapticManager.impact(style: .light)
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                     showAIModePicker.toggle()
                 }
             } label: {
@@ -470,7 +470,7 @@ struct StudioWriteView: View {
             HStack(spacing: 8) {
                 ForEach(StudioWritingType.allCases) { type in
                     Button {
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
                             writingType = type
                         }
                         HapticManager.impact(style: .light)
@@ -547,7 +547,7 @@ struct StudioWriteView: View {
                 ForEach(StudioAIMode.allCases) { mode in
                     Button {
                         selectedAIMode = mode
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
                             showAIModePicker = false
                         }
                         HapticManager.impact(style: .medium)
@@ -599,7 +599,7 @@ struct StudioWriteView: View {
         }
         .background(Color.black.opacity(0.001))
         .onTapGesture {
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
                 showAIModePicker = false
             }
         }
@@ -782,12 +782,12 @@ struct StudioWriteView: View {
         guard !trimmed.isEmpty else { return }
 
         isAIGenerating = true
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.72)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.72))) {
             showAISuggestion = true
             aiSuggestionScale = 0.92
         }
         // Animate in
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.72).delay(0.05)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.72)).delay(0.05)) {
             aiSuggestionScale = 1.0
         }
 
@@ -839,7 +839,7 @@ struct StudioWriteView: View {
         guard !trimmed.isEmpty else { return }
 
         isAIGenerating = true
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.72)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.72))) {
             showAISuggestion = true
             aiSuggestionScale = 1.0
         }
@@ -895,7 +895,7 @@ struct StudioWriteView: View {
     }
 
     private func dismissAISuggestion() {
-        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
             aiSuggestionScale = 0.92
         }
         withAnimation(.easeOut(duration: 0.15).delay(0.1)) {

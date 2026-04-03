@@ -118,7 +118,7 @@ struct FeedComposerRow: View {
         }
         .onChange(of: isFocused) { _, focused in
             if !focused && text.isEmpty {
-                withAnimation(.spring(response: 0.32, dampingFraction: 0.72)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.32, dampingFraction: 0.72))) {
                     isExpanded = false
                 }
             }
@@ -128,7 +128,7 @@ struct FeedComposerRow: View {
     // MARK: - Actions
 
     private func expand() {
-        withAnimation(.spring(response: 0.32, dampingFraction: 0.72)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.32, dampingFraction: 0.72))) {
             isExpanded = true
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
@@ -144,7 +144,7 @@ struct FeedComposerRow: View {
         dismissKeyboard()
         PostsManager.shared.createPost(content: trimmed, category: .openTable)
         UINotificationFeedbackGenerator().notificationOccurred(.success)
-        withAnimation(.spring(response: 0.32, dampingFraction: 0.72)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.32, dampingFraction: 0.72))) {
             text = ""
             isExpanded = false
             isPosting = false

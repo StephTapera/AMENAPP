@@ -51,7 +51,7 @@ struct EnhancedDailyPrayerView: View {
                 HStack(spacing: 0) {
                     ForEach(PrayerTab.allCases, id: \.self) { tab in
                         Button {
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.75))) {
                                 selectedTab = tab
                                 let haptic = UIImpactFeedbackGenerator(style: .medium)
                                 haptic.impactOccurred()
@@ -217,7 +217,7 @@ struct TodayPrayersContent: View {
                     prayer: prayer,
                     isCompleted: completedPrayers.contains(prayer.id)
                 ) {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
                         if completedPrayers.contains(prayer.id) {
                             completedPrayers.remove(prayer.id)
                         } else {
@@ -464,7 +464,7 @@ struct WeekPrayersContent: View {
             HStack(spacing: 12) {
                 ForEach(0..<weekDays.count, id: \.self) { index in
                     Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                             selectedDay = index
                         }
                     } label: {

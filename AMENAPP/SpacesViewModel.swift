@@ -78,13 +78,13 @@ class SpacesViewModel: ObservableObject {
         let spaceRef = db.collection("spaces").document(spaceId)
 
         if joinedSpaceIds.contains(spaceId) {
-            SwiftUI.withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+            SwiftUI.withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                 joinedSpaceIds.remove(spaceId)
             }
             try? await ref.delete()
             try? await spaceRef.updateData(["memberCount": FieldValue.increment(Int64(-1))])
         } else {
-            SwiftUI.withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+            SwiftUI.withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                 joinedSpaceIds.insert(spaceId)
             }
             try? await ref.setData([

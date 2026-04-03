@@ -123,7 +123,7 @@ struct KoraCreateCircleSheet: View {
     private func purposeButton(_ purpose: KoraPurpose) -> some View {
         let isSelected = selectedPurpose == purpose
         return Button {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                 selectedPurpose = purpose
             }
         } label: {
@@ -178,7 +178,7 @@ struct KoraCreateCircleSheet: View {
     private func rhythmSegment(_ rhythm: KoraRhythm) -> some View {
         let isSelected = selectedRhythm == rhythm
         return Button {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                 selectedRhythm = rhythm
             }
         } label: {
@@ -276,7 +276,7 @@ struct KoraCreateCircleSheet: View {
     private func colorSwatch(_ color: (hex: String, name: String)) -> some View {
         let isSelected = selectedColorHex == color.hex
         return Button {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                 selectedColorHex = color.hex
             }
         } label: {

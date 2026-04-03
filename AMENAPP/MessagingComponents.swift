@@ -564,7 +564,7 @@ struct NeumorphicSegmentedControl: View {
         HStack(spacing: 0) {
             ForEach(0..<options.count, id: \.self) { index in
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                         selectedIndex = index
                     }
                     
@@ -770,7 +770,7 @@ struct ModernChatInputBar: View {
                             )
                         
                         Button {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                 let _ = selectedImages.remove(at: index)
                             }
                         } label: {
@@ -970,7 +970,7 @@ struct DiaChatView: View {
         guard !messageText.isEmpty else { return }
         
         // Create and send message
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
             messageText = ""
             selectedImages.removeAll()
         }

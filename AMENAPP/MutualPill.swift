@@ -18,7 +18,7 @@ struct MutualPill: View {
         VStack(alignment: .leading, spacing: 0) {
             // PILL
             Button {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.72)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.72))) {
                     expanded.toggle()
                 }
                 HapticManager.impact(style: .light)

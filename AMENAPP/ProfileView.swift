@@ -523,7 +523,7 @@ struct ProfileView: View {
 
             // Toggle button with enhanced animation
             Button {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.75, blendDuration: 0.2)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.75, blendDuration: 0.2))) {
                     isToolbarExpanded.toggle()
                 }
                 HapticManager.impact(style: .light)
@@ -641,7 +641,7 @@ struct ProfileView: View {
                 if isOptimistic {
                     // OPTIMISTIC: Add immediately for instant feedback
                     if !self.userPosts.contains(where: { $0.id == newPost.id }) {
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.8))) {
                             self.userPosts.insert(newPost, at: 0)  // Add at top
                         }
                         dlog("   ⚡ OPTIMISTIC post added instantly")
@@ -677,7 +677,7 @@ struct ProfileView: View {
                         dlog("   Updated existing post at index \(index)")
                     } else {
                         // Wasn't added optimistically, add now
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.8))) {
                             self.userPosts.insert(newPost, at: 0)
                         }
                         dlog("   Added confirmed post (wasn't optimistic)")
@@ -1501,7 +1501,7 @@ struct ProfileView: View {
                    !summary.isEmpty {
                     await MainActor.run {
                         digestSummary = summary
-                        withAnimation(.spring(response: 0.38, dampingFraction: 0.80)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.80))) {
                             showDigestBanner = true
                         }
                         // Auto-dismiss after 8 seconds
@@ -1690,7 +1690,7 @@ struct ProfileView: View {
                     HapticManager.impact(style: .light)
                     
                     // Switch tab with fast, smooth animation
-                    withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
                         selectedTab = tab
                     }
                     
@@ -1773,12 +1773,12 @@ struct ProfileView: View {
                 // — No photo: tap opens photo picker directly
                 // — Has photo: tap opens full-screen avatar view
                 Button {
-                    withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.7))) {
                         avatarPressed = true
                     }
                     Task { @MainActor in
                         try? await Task.sleep(nanoseconds: 150_000_000)
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.7))) {
                             avatarPressed = false
                         }
                         try? await Task.sleep(nanoseconds: 50_000_000)
@@ -2404,7 +2404,7 @@ struct ProfilePostCard: View {
                     let verticalAmount = abs(value.translation.height)
                     
                     guard horizontalAmount > verticalAmount * 2 else {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                             swipeOffset = 0
                             swipeDirection = .none
                         }
@@ -2417,7 +2417,7 @@ struct ProfilePostCard: View {
                         triggerSwipeCommentAction()
                     }
                     
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                         swipeOffset = 0
                         swipeDirection = .none
                     }
@@ -2643,7 +2643,7 @@ struct ProfilePostCard: View {
     // MARK: - Actions
     
     private func toggleLightbulb() {
-        withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.75))) {
             hasLitLightbulb.toggle()
             if hasLitLightbulb {
                 lightbulbCount += 1
@@ -2672,7 +2672,7 @@ struct ProfilePostCard: View {
     }
     
     private func toggleAmen() {
-        withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.75))) {
             hasSaidAmen.toggle()
             if hasSaidAmen {
                 amenCount += 1
@@ -3536,7 +3536,7 @@ struct EditProfileView: View {
                 // Clear button
                 if !bioURL.isEmpty {
                     Button {
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.7))) {
                             bioURL = ""
                             bioURLError = nil
                             hasChanges = true
@@ -3626,7 +3626,7 @@ struct EditProfileView: View {
             } else {
                 // Display interests as chips with flexible wrapping
                 FlexibleInterestsView(interests: interests) { interest in
-                    withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
                         if let index = interests.firstIndex(of: interest) {
                             interests.remove(at: index)
                             hasChanges = true
@@ -3674,7 +3674,7 @@ struct EditProfileView: View {
                                 Text(topic)
                                     .font(AMENFont.semiBold(13))
                                 Button {
-                                    withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                                    withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
                                         profileTopics.removeAll { $0 == topic }
                                         hasChanges = true
                                     }
@@ -4189,7 +4189,7 @@ struct EditProfileView: View {
         }
         
         // Add interest with fast animation
-        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
             interests.append(trimmedInterest)
             hasChanges = true
         }
@@ -4977,7 +4977,7 @@ struct FullScreenAvatarView: View {
                 HStack {
                     Spacer()
                     Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
                             scale = 0.8
                             opacity = 0
                         }
@@ -4996,7 +4996,7 @@ struct FullScreenAvatarView: View {
             .opacity(opacity)
         }
         .onAppear {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.8))) {
                 scale = 1.0
                 opacity = 1.0
             }
@@ -6405,7 +6405,7 @@ struct HandDrawnHighlightText: View {
             .opacity(appeared ? 1 : 0)
             .scaleEffect(appeared ? 1 : 0.85)
             .onAppear {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.7).delay(animationDelay)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.7)).delay(animationDelay)) {
                     appeared = true
                 }
             }

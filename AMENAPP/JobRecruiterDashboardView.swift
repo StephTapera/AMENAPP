@@ -104,7 +104,7 @@ struct JobRecruiterDashboardView: View {
     private func tabBarButton(for tab: RecruiterTab) -> some View {
         let isSelected = selectedTab == tab
         Button {
-            withAnimation(.spring(response: 0.3)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3))) {
                 selectedTab = tab
             }
         } label: {

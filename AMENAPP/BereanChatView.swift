@@ -467,7 +467,7 @@ struct BereanChatBubble: View {
         .offset(x: appeared ? 0 : (isUser ? 10 : -10))
         .scaleEffect(appeared ? 1 : 0.97, anchor: isUser ? .bottomTrailing : .bottomLeading)
         .onAppear {
-            withAnimation(.spring(response: 0.42, dampingFraction: 0.72)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.42, dampingFraction: 0.72))) {
                 appeared = true
             }
         }

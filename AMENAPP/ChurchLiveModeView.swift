@@ -426,7 +426,7 @@ struct ChurchLiveModeView: View {
                 HStack(spacing: 0) {
                     ForEach(LiveTab.allCases, id: \.rawValue) { tab in
                         Button {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
                                 activeTab = tab
                             }
                         } label: {

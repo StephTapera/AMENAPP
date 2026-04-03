@@ -135,7 +135,7 @@ struct BrowseCommunitiesView: View {
         } ?? Color.accentColor
 
         return Button {
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
                 selectedCategory = (selectedCategory == id) ? nil : id
             }
             HapticManager.impact(style: .light)

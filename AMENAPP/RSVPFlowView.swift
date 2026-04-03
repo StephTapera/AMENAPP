@@ -103,7 +103,7 @@ struct RSVPFlowView: View {
             // Continue
             Button {
                 if selectedStatus == .going || selectedStatus == .maybe {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) { step = .calendarOptions }
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) { step = .calendarOptions }
                 } else {
                     submitRSVP()
                 }
@@ -296,7 +296,7 @@ struct RSVPFlowView: View {
     @ViewBuilder
     private func rsvpOption(_ status: RSVPStatus) -> some View {
         Button {
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.7))) {
                 selectedStatus = status
             }
         } label: {
@@ -440,7 +440,7 @@ struct RSVPFlowView: View {
 
             isSubmitting = false
             onRSVPComplete?(selectedStatus)
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.75))) {
                 step = .confirmation
             }
         }
@@ -600,7 +600,7 @@ struct AddToCalendarButton: View {
             let granted = await calendarService.requestCalendarPermission()
             guard granted else { addState = .failed; return }
             let id = await calendarService.addEventToCalendar(event)
-            withAnimation(.spring(response: 0.3)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3))) {
                 addState = id != nil ? .added : .failed
             }
         }

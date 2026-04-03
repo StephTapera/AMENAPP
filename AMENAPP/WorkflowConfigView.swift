@@ -180,7 +180,7 @@ struct WorkflowConfigView: View {
                         ForEach(questionStyles, id: \.self) { style in
                             let isSelected = questionStyle == style
                             Button {
-                                withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.7))) {
                                     questionStyle = style
                                 }
                             } label: {

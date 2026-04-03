@@ -104,7 +104,7 @@ struct ModerationToastView: View {
         }
         .onAppear {
             // Animate in
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.7))) {
                 isVisible = true
                 offset = 0
             }
@@ -117,7 +117,7 @@ struct ModerationToastView: View {
     }
     
     private func dismiss() {
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.8))) {
             offset = 50
             isVisible = false
         }

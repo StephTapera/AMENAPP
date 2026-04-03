@@ -182,14 +182,14 @@ struct PrePublishAIAssistView: View {
                     previewText: preview,
                     onApply: {
                         onApply(preview)
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
                             resultPreview = nil
                             activeActionId = nil
                             isExpanded = false
                         }
                     },
                     onDiscard: {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
                             resultPreview = nil
                             activeActionId = nil
                         }
@@ -214,7 +214,7 @@ struct PrePublishAIAssistView: View {
 
     private var collapsedPill: some View {
         Button {
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.8))) {
                 isExpanded = true
             }
         } label: {
@@ -265,7 +265,7 @@ struct PrePublishAIAssistView: View {
                 Spacer()
 
                 Button {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.8))) {
                         isExpanded = false
                         resultPreview = nil
                         activeActionId = nil
@@ -332,7 +332,7 @@ struct PrePublishAIAssistView: View {
         Task {
             let result = await applyAssist(action: action, to: postText)
             await MainActor.run {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
                     resultPreview = result
                     isProcessing = false
                 }

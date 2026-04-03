@@ -54,7 +54,7 @@ struct BereanGlassComposer: View {
             }
             // Animation 6 — glass focus lift
             .onChange(of: isFocused) { focused in
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.72)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.72))) {
                     composerScale    = focused ? 1.008 : 1.0
                     composerOffsetY  = focused ? -3 : 0
                     shadowRadius     = focused ? 40 : 20
@@ -207,7 +207,7 @@ struct BereanActionChipRow: View {
         .onAppear {
             for i in chips.indices {
                 let delay = 0.70 + Double(i) * 0.09
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.64).delay(delay)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.64)).delay(delay)) {
                     chipsVisible[i] = true
                 }
             }

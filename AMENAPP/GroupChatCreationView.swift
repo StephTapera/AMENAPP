@@ -204,7 +204,7 @@ struct CreateGroupView: View {
                             category: category,
                             isSelected: groupCategory == category
                         ) {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                 groupCategory = category
                                 selectedGroupIcon = category.icon
                             }
@@ -414,7 +414,7 @@ struct CreateGroupView: View {
     }
     
     private func toggleUserSelection(_ userId: String) {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
             if selectedUsers.contains(userId) {
                 selectedUsers.remove(userId)
             } else {

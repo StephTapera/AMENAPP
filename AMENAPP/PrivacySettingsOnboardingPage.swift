@@ -163,7 +163,7 @@ struct PrivacySettingsOnboardingPage: View {
                                         action: {
                                             let haptic = UIImpactFeedbackGenerator(style: .light)
                                             haptic.impactOccurred()
-                                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                                 whoCanMessage = option
                                             }
                                         }
@@ -183,7 +183,7 @@ struct PrivacySettingsOnboardingPage: View {
                                     Button(action: {
                                         let haptic = UIImpactFeedbackGenerator(style: .light)
                                         haptic.impactOccurred()
-                                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                             commentModeration = level
                                         }
                                     }) {

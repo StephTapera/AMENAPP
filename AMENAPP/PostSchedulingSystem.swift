@@ -494,7 +494,7 @@ struct SmartScheduleSheet: View {
             suggestion: suggestion,
             isSelected: isSelected
         ) {
-            withAnimation(.spring(response: 0.22, dampingFraction: 0.80)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.22, dampingFraction: 0.80))) {
                 selectedSuggestionID = suggestion.id
                 selectedDateTime = suggestion.suggestedDate
             }
@@ -641,7 +641,7 @@ struct SmartScheduleSheet: View {
 
     private func quietPublishRow(mode: QuietPublishMode, icon: String, title: String, subtitle: String) -> some View {
         Button {
-            withAnimation(.spring(response: 0.22, dampingFraction: 0.80)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.22, dampingFraction: 0.80))) {
                 publishModeState = mode
             }
         } label: {
@@ -710,7 +710,7 @@ struct SmartScheduleSheet: View {
             // Remove schedule (only if already scheduled)
             if scheduledDate != nil {
                 Button {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.85))) {
                         scheduledDate = nil
                         isPresented = false
                     }
@@ -891,7 +891,7 @@ struct PublishPillView: View {
 
             // Chevron for dropdown
             Button {
-                withAnimation(.spring(response: 0.22, dampingFraction: 0.80)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.22, dampingFraction: 0.80))) {
                     isExpanded.toggle()
                 }
             } label: {
@@ -914,7 +914,7 @@ struct PublishPillView: View {
                 .shadow(color: Color.black.opacity(0.06), radius: 16, x: 0, y: 4)
         )
         .onLongPressGesture {
-            withAnimation(.spring(response: 0.22, dampingFraction: 0.80)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.22, dampingFraction: 0.80))) {
                 isExpanded = true
             }
         }
@@ -935,7 +935,7 @@ struct PublishPillView: View {
                 icon: "arrow.up",
                 label: "Post now",
                 action: {
-                    withAnimation(.spring(response: 0.22, dampingFraction: 0.80)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.22, dampingFraction: 0.80))) {
                         mode = .postNow
                         isExpanded = false
                     }
@@ -947,7 +947,7 @@ struct PublishPillView: View {
                 icon: "calendar.badge.clock",
                 label: "Schedule",
                 action: {
-                    withAnimation(.spring(response: 0.22, dampingFraction: 0.80)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.22, dampingFraction: 0.80))) {
                         mode = .schedule
                         isExpanded = false
                     }
@@ -959,7 +959,7 @@ struct PublishPillView: View {
                 icon: "tray.and.arrow.down",
                 label: "Save draft",
                 action: {
-                    withAnimation(.spring(response: 0.22, dampingFraction: 0.80)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.22, dampingFraction: 0.80))) {
                         mode = .draft
                         isExpanded = false
                     }
@@ -1052,7 +1052,7 @@ struct ScheduledStatusChip: View {
         .scaleEffect(appeared ? 1.0 : 0.8)
         .opacity(appeared ? 1.0 : 0.0)
         .onAppear {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.85))) {
                 appeared = true
             }
         }
@@ -1232,7 +1232,7 @@ struct ScheduledPostsHub: View {
         HStack(spacing: 4) {
             ForEach(ScheduledHubTab.allCases, id: \.rawValue) { tab in
                 Button {
-                    withAnimation(.spring(response: 0.22, dampingFraction: 0.80)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.22, dampingFraction: 0.80))) {
                         selectedTab = tab
                     }
                 } label: {
@@ -1283,7 +1283,7 @@ struct ScheduledPostsHub: View {
     }
 
     private func removeEntry(id: String) {
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.85))) {
             entries.removeAll { $0.id == id }
         }
     }
@@ -1359,7 +1359,7 @@ struct ScheduledPostRow: View {
 
                 // 3-dot overflow
                 Button {
-                    withAnimation(.spring(response: 0.22, dampingFraction: 0.80)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.22, dampingFraction: 0.80))) {
                         showOverflow.toggle()
                     }
                 } label: {

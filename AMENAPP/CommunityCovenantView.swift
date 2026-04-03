@@ -150,7 +150,7 @@ struct CommunityCovenantView: View {
                     
                     // Agreement Checkbox
                     Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                             hasAgreed.toggle()
                         }
                         let haptic = UIImpactFeedbackGenerator(style: .light)
@@ -209,7 +209,7 @@ struct CommunityCovenantView: View {
                         trailingIcon: "arrow.right",
                         action: {
                         if !hasAgreed {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                 hasAgreed = true
                             }
                             UIImpactFeedbackGenerator(style: .light).impactOccurred()

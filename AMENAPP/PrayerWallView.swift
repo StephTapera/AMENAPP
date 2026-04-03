@@ -161,7 +161,7 @@ struct PrayerWallMapView_DEPRECATED: View {
                                 y: latitudeToY(pin.location.latitude, height: geometry.size.height)
                             )
                             .onTapGesture {
-                                withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
                                     selectedPin = pin
                                 }
                             }
@@ -198,7 +198,7 @@ struct PrayerWallMapView_DEPRECATED: View {
                         Spacer()
                         
                         Button {
-                            withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
                                 selectedPin = prayerPins.randomElement()
                             }
                         } label: {

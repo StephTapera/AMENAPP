@@ -63,7 +63,7 @@ struct FullScreenAvatarView: View {
         .statusBarHidden()
         .onTapGesture(count: 2) {
             // Double tap to reset zoom
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                 scale = 1.0
                 offset = .zero
                 lastScale = 1.0
@@ -129,7 +129,7 @@ struct FullScreenAvatarView: View {
                 
                 // Reset if zoomed out too much
                 if scale < 1.0 {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                         scale = 1.0
                         offset = .zero
                         lastOffset = .zero

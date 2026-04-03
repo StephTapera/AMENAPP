@@ -303,7 +303,7 @@ struct RichLinkPreviewCard: View {
     private func removeButton(action: @escaping () -> Void) -> some View {
         Button {
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.75))) {
                 action()
             }
         } label: {
@@ -425,7 +425,7 @@ struct VersePreviewCard: View {
     private func xButton(action: @escaping () -> Void) -> some View {
         Button {
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.75))) {
                 action()
             }
         } label: {

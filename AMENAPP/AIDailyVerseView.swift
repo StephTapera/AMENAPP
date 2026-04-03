@@ -202,7 +202,7 @@ struct DailyVerseBannerView: View {
 
     private func toggleExpanded() {
         guard verse != nil else { return }
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.82))) {
             isExpanded.toggle()
         }
     }

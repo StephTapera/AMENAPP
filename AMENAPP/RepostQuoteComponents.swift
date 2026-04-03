@@ -559,7 +559,7 @@ struct QuotePostComposerView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
 
             Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                     cameraImage = nil
                 }
             } label: {
@@ -952,7 +952,7 @@ struct QuotePostComposerView: View {
         guard !trimmed.isEmpty else { return }
 
         HapticManager.notification(type: .success)
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
             isPublishing = true
         }
 

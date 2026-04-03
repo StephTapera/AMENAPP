@@ -162,7 +162,7 @@ struct BibleStudyGuideView: View {
                 HStack(spacing: 8) {
                     ForEach(StudyPlan.allCases, id: \.self) { plan in
                         Button {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                 selectedPlan = plan
                                 let haptic = UIImpactFeedbackGenerator(style: .light)
                                 haptic.impactOccurred()
@@ -495,7 +495,7 @@ struct EnhancedBibleStudyPlanCard: View {
                 // Action buttons
                 HStack(spacing: 12) {
                     Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                             isEnrolled.toggle()
                             let haptic = UIImpactFeedbackGenerator(style: .medium)
                             haptic.impactOccurred()

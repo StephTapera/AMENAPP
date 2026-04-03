@@ -247,7 +247,7 @@ struct HelixAddNodeSheet: View {
                 ForEach(HelixNodeType.allCases, id: \.self) { type in
                     let isSelected = selectedType == type
                     Button {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.7))) {
                             selectedType = type
                         }
                     } label: {
@@ -326,7 +326,7 @@ struct HelixAddNodeSheet: View {
                     ForEach(HelixHealth.allCases, id: \.self) { health in
                         let isSelected = selectedHealth == health
                         Button {
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.7))) {
                                 selectedHealth = health
                             }
                         } label: {
@@ -367,7 +367,7 @@ struct HelixAddNodeSheet: View {
                         let nodeId = existingNode.id!
                         let isConnected = selectedConnections.contains(nodeId)
                         Button {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                                 if isConnected {
                                     selectedConnections.remove(nodeId)
                                 } else {

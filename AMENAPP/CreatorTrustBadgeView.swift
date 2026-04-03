@@ -78,7 +78,7 @@ struct CreatorTrustBadgeView: View {
         }
         .buttonStyle(CoCreationPressStyle())
         .onAppear {
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.65).delay(0.2)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.65)).delay(0.2)) {
                 sparkleScale   = 1.4
                 sparkleOpacity = 1.0
             }

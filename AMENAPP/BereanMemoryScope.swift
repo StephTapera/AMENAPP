@@ -129,7 +129,7 @@ struct BereanMemoryScopeSheet: View {
         let accent = scopeOption.accent
 
         Button {
-            withAnimation(.spring(response: 0.28, dampingFraction: 0.80)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.80))) {
                 store.scope = scopeOption
             }
         } label: {

@@ -287,7 +287,7 @@ struct BusinessPrincipleCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Button {
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
                     isExpanded.toggle()
                 }
             } label: {

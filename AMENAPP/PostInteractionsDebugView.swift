@@ -81,7 +81,7 @@ struct PostInteractionsDebugView: View {
             HStack(spacing: 8) {
                 ForEach(DebugTab.allCases, id: \.self) { tab in
                     Button {
-                        withAnimation(.spring(response: 0.3)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3))) {
                             selectedTab = tab
                         }
                     } label: {

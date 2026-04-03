@@ -90,7 +90,7 @@ struct OnboardingFlowView: View {
     }
 
     private func advance() {
-        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.8))) {
             currentPage = min(currentPage + 1, totalPages - 1)
         }
     }
@@ -313,7 +313,7 @@ private struct OnboardingAgeSlide: View {
                     VStack(spacing: 0) {
                         Button {
                             UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.75))) {
                                 showPicker.toggle()
                             }
                         } label: {
@@ -524,7 +524,7 @@ private struct OnboardingTermsSlide: View {
                     // Liquid glass toggle row
                     Button {
                         UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.7))) {
                             agreed.toggle()
                         }
                     } label: {
@@ -731,7 +731,7 @@ private struct OnboardingPrivacySlide: View {
                 VStack(spacing: 14) {
                     Button {
                         UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.7))) {
                             acknowledged.toggle()
                         }
                     } label: {
@@ -954,7 +954,7 @@ private struct OnboardingSlide3: View {
                         ForEach(Array(stages.enumerated()), id: \.element.value) { index, stage in
                             Button {
                                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                     selectedFaithStage = stage.value
                                 }
                             } label: {
@@ -1098,7 +1098,7 @@ private struct OnboardingSlide4: View {
         .onAppear {
             withAnimation { appeared = true }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.4)) { bellWiggle = 8 }
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.4))) { bellWiggle = 8 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                     withAnimation(.default) { bellWiggle = 0 }
                 }
@@ -1438,7 +1438,7 @@ private struct OnboardingSlide5: View {
 
     private func toggleFollow(_ user: SuggestedUser) {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
             if followingIds.contains(user.id) {
                 followingIds.remove(user.id)
                 Task { try? await FollowService.shared.unfollowUser(userId: user.id) }
@@ -1555,7 +1555,7 @@ private struct FlexibleInterestGrid: View {
                     isSelected: selected.contains(item.label),
                     isDisabled: !selected.contains(item.label) && selected.count >= maxSelections
                 ) {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                         if selected.contains(item.label) {
                             selected.remove(item.label)
                         } else if selected.count < maxSelections {
@@ -1579,8 +1579,8 @@ private struct OnboardingInterestChip: View {
 
     var body: some View {
         Button {
-            withAnimation(.spring(response: 0.22, dampingFraction: 0.5)) { scale = 0.88 }
-            withAnimation(.spring(response: 0.32, dampingFraction: 0.6).delay(0.1)) { scale = 1.0 }
+            withAnimation(Motion.adaptive(.spring(response: 0.22, dampingFraction: 0.5))) { scale = 0.88 }
+            withAnimation(Motion.adaptive(.spring(response: 0.32, dampingFraction: 0.6)).delay(0.1)) { scale = 1.0 }
             action()
         } label: {
             HStack(spacing: 6) {

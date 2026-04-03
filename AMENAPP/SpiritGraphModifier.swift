@@ -43,7 +43,7 @@ struct SpiritGraphModifier: ViewModifier {
                 guard !isFollowing, !hasFetched else { return }
                 hasFetched = true
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.78)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.78))) {
                         showPrompt = true
                     }
                 }

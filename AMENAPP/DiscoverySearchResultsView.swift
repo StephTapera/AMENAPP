@@ -42,7 +42,7 @@ struct DiscoverySearchResultsView: View {
             HStack(spacing: 0) {
                 ForEach(DiscoverySearchTab.allCases) { tab in
                     Button {
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
                             selectedTab = tab
                         }
                     } label: {

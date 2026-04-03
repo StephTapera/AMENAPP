@@ -298,7 +298,7 @@ struct ONBHeroText: View {
         }
         .frame(maxWidth: .infinity, alignment: alignment == .leading ? .leading : .center)
         .onAppear {
-            withAnimation(.spring(response: 0.55, dampingFraction: 0.78).delay(0.05)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.55, dampingFraction: 0.78)).delay(0.05)) {
                 appeared = true
             }
         }
@@ -366,7 +366,7 @@ struct ONBPrivacyRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Button {
-                withAnimation(.spring(response: 0.30, dampingFraction: 0.75)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.30, dampingFraction: 0.75))) {
                     expanded.toggle()
                 }
             } label: {
@@ -441,7 +441,7 @@ struct ONBStepTransition<Content: View>: View {
             .id(step)
             .onAppear {
                 appeared = false
-                withAnimation(.spring(response: 0.50, dampingFraction: 0.82)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.50, dampingFraction: 0.82))) {
                     appeared = true
                 }
             }

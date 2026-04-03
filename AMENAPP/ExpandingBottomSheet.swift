@@ -217,7 +217,7 @@ struct ReadMoreText: View {
 
             if isTruncated {
                 Button {
-                    withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.32, dampingFraction: 0.78))) {
                         expanded.toggle()
                     }
                 } label: {

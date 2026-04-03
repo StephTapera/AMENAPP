@@ -333,7 +333,7 @@ private struct BDDescriptionSection: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                     expanded.toggle()
                 }
             } label: {
@@ -382,7 +382,7 @@ private struct BDActionButtons: View {
             HStack(spacing: 10) {
                 Button {
                     if !reduceMotion {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                             vm.toggleSave(book: book)
                             savedPulse = true
                         }
@@ -452,7 +452,7 @@ private struct BDPrimaryButton: View {
                     if !isPressed { withAnimation(.easeOut(duration: 0.1)) { isPressed = true } }
                 }
                 .onEnded { _ in
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { isPressed = false }
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) { isPressed = false }
                 }
         )
     }

@@ -526,11 +526,11 @@ struct BereanThinkingTaskPills: View {
 
         // Animate checkmark pop: 0 → 1 via two-phase animation
         tasks[idx].checkProgress = 0
-        withAnimation(.spring(response: 0.30, dampingFraction: 0.55)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.30, dampingFraction: 0.55))) {
             tasks[idx].checkProgress = 1.1   // overshoot
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.16) {
-            withAnimation(.spring(response: 0.22, dampingFraction: 0.80)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.22, dampingFraction: 0.80))) {
                 tasks[idx].checkProgress = 1.0  // settle
             }
         }
@@ -538,13 +538,13 @@ struct BereanThinkingTaskPills: View {
         // Move to top if checked, back to original position if unchecked
         if tasks[idx].isChecked {
             let item = tasks.remove(at: idx)
-            withAnimation(.spring(response: 0.58, dampingFraction: 0.72)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.58, dampingFraction: 0.72))) {
                 tasks.insert(item, at: 0)
             }
         } else {
             // Restore alphabetical/original order — move to end of checked group
             let item = tasks.remove(at: idx)
-            withAnimation(.spring(response: 0.58, dampingFraction: 0.72)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.58, dampingFraction: 0.72))) {
                 tasks.append(item)
             }
         }
@@ -561,7 +561,7 @@ struct BereanThinkingTaskPills: View {
             }
             // Re-sort
             let origOrder = ["Searching Scripture", "Theological context", "Composing your answer"]
-            withAnimation(.spring(response: 0.58, dampingFraction: 0.72)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.58, dampingFraction: 0.72))) {
                 tasks.sort { a, b in
                     (origOrder.firstIndex(of: a.label) ?? 99) < (origOrder.firstIndex(of: b.label) ?? 99)
                 }
@@ -877,13 +877,13 @@ struct BereanInputOverlay: View {
     private func openMenu() {
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         inputFocused = false
-        withAnimation(.spring(response: 0.42, dampingFraction: 0.78)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.42, dampingFraction: 0.78))) {
             isMenuOpen = true
         }
     }
 
     private func dismissMenu() {
-        withAnimation(.spring(response: 0.38, dampingFraction: 0.80)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.80))) {
             isMenuOpen = false
         }
     }
@@ -984,7 +984,7 @@ struct BereanMorphingToolbar: View {
             if isDepthExpanded {
                 // Expanded state: label + icon in a dark coral pill
                 Button {
-                    withAnimation(.spring(response: 0.50, dampingFraction: 0.70)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.50, dampingFraction: 0.70))) {
                         isDepthExpanded = false
                     }
                     UIImpactFeedbackGenerator(style: .medium).impactOccurred()
@@ -1015,7 +1015,7 @@ struct BereanMorphingToolbar: View {
             } else {
                 // Collapsed: small icon circle
                 Button {
-                    withAnimation(.spring(response: 0.50, dampingFraction: 0.70)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.50, dampingFraction: 0.70))) {
                         isDepthExpanded = true
                     }
                     UIImpactFeedbackGenerator(style: .medium).impactOccurred()

@@ -109,7 +109,7 @@ struct CustomWorkflowBuilderView: View {
                 ForEach(WorkflowTrigger.allCases, id: \.self) { trigger in
                     let isSelected = selectedTrigger == trigger
                     Button {
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                             selectedTrigger = trigger
                         }
                     } label: {
@@ -206,7 +206,7 @@ struct CustomWorkflowBuilderView: View {
                 sectionHeader("Steps")
                 Spacer()
                 Button {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                         steps.append(WorkflowStep(
                             order: steps.count,
                             type: .notify,
@@ -302,7 +302,7 @@ struct CustomWorkflowBuilderView: View {
 
                 // Remove button
                 Button {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.75))) {
                         steps.remove(at: index)
                         // Re-index
                         for i in 0..<steps.count {

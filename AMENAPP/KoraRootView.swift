@@ -194,7 +194,7 @@ struct KoraRootView: View {
 
     private var fabButton: some View {
         Button {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                 showCreateSheet = true
             }
         } label: {

@@ -119,7 +119,7 @@ struct BereanLandingView: View {
             // Dismiss suggestions when tapping the background
             .onTapGesture {
                 if inputFocused {
-                    withAnimation(.spring(response: 0.38, dampingFraction: 0.78)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.78))) {
                         inputFocused = false
                         inputText = ""
                     }
@@ -160,7 +160,7 @@ struct BereanLandingView: View {
                     },
                     onVoiceTap: onVoiceTap,
                     onFocusChange: { focused in
-                        withAnimation(.spring(response: 0.48, dampingFraction: 0.82)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.48, dampingFraction: 0.82))) {
                             suggestionsVisible = focused
                         }
                     }
@@ -182,7 +182,7 @@ struct BereanLandingView: View {
 
     private func revealCards() {
         guard !reduceMotion else { return }
-        withAnimation(.spring(response: 0.55, dampingFraction: 0.82).delay(0.05)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.55, dampingFraction: 0.82)).delay(0.05)) {
             statusCardVisible = true
         }
     }
@@ -533,7 +533,7 @@ struct BereanInputBar: View {
             // Cancel — slides in from trailing edge when focused
             if focused {
                 Button {
-                    withAnimation(.spring(response: 0.38, dampingFraction: 0.78)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.78))) {
                         text = ""
                         isFocused.wrappedValue = false
                     }

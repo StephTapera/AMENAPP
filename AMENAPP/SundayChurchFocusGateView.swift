@@ -272,7 +272,7 @@ struct SundayChurchFocusGateView: View {
                 glowPulse = true
             }
             // Staggered entrance
-            withAnimation(.spring(response: 0.55, dampingFraction: 0.82).delay(0.08)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.55, dampingFraction: 0.82)).delay(0.08)) {
                 appeared = true
             }
         }
@@ -356,7 +356,7 @@ struct LiquidGlassToggleButton: View {
 
     var body: some View {
         Button(action: {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                 action()
             }
         }) {

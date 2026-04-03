@@ -68,7 +68,7 @@ struct CrisisResourcesDetailView: View {
                             isExpanded: expandedSection == section,
                             content: { sectionContent(for: section) }
                         ) {
-                            withAnimation(.spring(response: 0.38, dampingFraction: 0.75)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.75))) {
                                 expandedSection = expandedSection == section ? nil : section
                             }
                             UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -682,7 +682,7 @@ private struct SafetyPlanContent: View {
 
             ForEach(Array(steps.enumerated()), id: \.offset) { index, step in
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.78)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.78))) {
                         expandedStep = expandedStep == index ? nil : index
                     }
                 } label: {

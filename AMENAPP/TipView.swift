@@ -82,7 +82,7 @@ struct TipView: View {
                             isSelected: selectedAmount == amount && customAmount.isEmpty,
                             accentColor: amenPurple
                         ) {
-                            withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                                 selectedAmount = amount
                                 customAmount   = ""
                             }
@@ -154,7 +154,7 @@ struct TipView: View {
                                 amount: effectiveAmount,
                                 message: tipMessage
                             )
-                            withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                                 isSending = false
                                 didSend = true
                             }

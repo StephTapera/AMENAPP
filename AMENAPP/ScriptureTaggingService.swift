@@ -165,7 +165,7 @@ struct ScriptureTagsRow: View {
                         HStack(spacing: 6) {
                             ForEach(tags) { tag in
                                 Button {
-                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
                                         expandedTag = expandedTag?.id == tag.id ? nil : tag
                                     }
                                 } label: {

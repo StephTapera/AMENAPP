@@ -29,7 +29,7 @@ struct SearchScopeTabBar: View {
             HStack(spacing: 4) {
                 ForEach(SearchScope.allCases, id: \.self) { scope in
                     Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.72)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.72))) {
                             selected = scope
                         }
                         UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -122,7 +122,7 @@ struct SearchTopProfileCard: View {
 
                     // Follow button
                     Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.65)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.65))) {
                             isFollowing.toggle()
                         }
                         UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -171,7 +171,7 @@ struct SearchTopProfileCard: View {
         .opacity(appeared ? 1 : 0)
         .offset(y: appeared ? 0 : 10)
         .onAppear {
-            withAnimation(.spring(response: 0.42, dampingFraction: 0.78).delay(0.05)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.42, dampingFraction: 0.78)).delay(0.05)) {
                 appeared = true
             }
         }
@@ -264,7 +264,7 @@ struct BereanSearchAnswerCard: View {
         .opacity(appeared ? 1 : 0)
         .offset(y: appeared ? 0 : 8)
         .onAppear {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.75).delay(0.1)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75)).delay(0.1)) {
                 appeared = true
             }
         }

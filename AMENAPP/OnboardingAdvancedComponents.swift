@@ -40,7 +40,7 @@ struct ConversationStartersStep: View {
                 VStack(spacing: 12) {
                     ForEach(starters, id: \.self) { starter in
                         Button {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                 if selectedStarters.contains(starter) {
                                     selectedStarters.remove(starter)
                                 } else {
@@ -125,7 +125,7 @@ struct MentorMenteeStep: View {
                     isSelected: mentorPreference == .seekingMentor,
                     gradientColors: gradientColors
                 ) {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                         mentorPreference = .seekingMentor
                     }
                 }
@@ -137,7 +137,7 @@ struct MentorMenteeStep: View {
                     isSelected: mentorPreference == .willingToMentor,
                     gradientColors: gradientColors
                 ) {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                         mentorPreference = .willingToMentor
                     }
                 }
@@ -149,7 +149,7 @@ struct MentorMenteeStep: View {
                     isSelected: mentorPreference == .peerToPeer,
                     gradientColors: gradientColors
                 ) {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                         mentorPreference = .peerToPeer
                     }
                 }
@@ -164,7 +164,7 @@ struct MentorMenteeStep: View {
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                         ForEach(areas, id: \.self) { area in
                             Button {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                     if experienceAreas.contains(area) {
                                         experienceAreas.remove(area)
                                     } else {
@@ -596,7 +596,7 @@ struct OnboardingSuccessScreen: View {
         .padding()
         .onAppear {
             // Animate entrance
-            withAnimation(.spring(response: 0.6, dampingFraction: 0.7).delay(0.1)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.6, dampingFraction: 0.7)).delay(0.1)) {
                 scale = 1.0
             }
             

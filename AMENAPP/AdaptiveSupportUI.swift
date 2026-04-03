@@ -34,7 +34,7 @@ struct AdaptiveSupportOverlay: ViewModifier {
             .onChange(of: orchestrator.pendingSupportSurface) { _, surface in
                 if let surface {
                     currentSurface = surface
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.82)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.82))) {
                         isPresented = true
                     }
                 }
@@ -195,7 +195,7 @@ struct GentleCheckInCard: View {
             HStack(spacing: 10) {
                 ForEach(CheckInMood.allCases, id: \.self) { mood in
                     Button {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.75))) {
                             selectedMood = mood
                         }
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {

@@ -576,7 +576,7 @@ struct CategoryBrowseCard: View {
         }
         .buttonStyle(PlainButtonStyle())
         .onLongPressGesture(minimumDuration: .infinity, pressing: { pressing in
-            withAnimation(.spring(response: 0.2, dampingFraction: 0.7)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.7))) {
                 isPressed = pressing
             }
         }, perform: {})

@@ -159,7 +159,7 @@ struct AmenOptionsSheet: View {
     }
 
     private func dismiss() {
-        withAnimation(.spring(response: 0.42, dampingFraction: 0.86)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.42, dampingFraction: 0.86))) {
             isPresented = false
         }
     }

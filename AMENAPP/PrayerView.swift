@@ -562,7 +562,7 @@ struct DailyPrayerView: View {
                             prayer: prayer,
                             isCompleted: completedPrayers.contains(index),
                             onComplete: {
-                                withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
                                     completedPrayers.insert(index)
                                     
                                     if completedPrayers.count == dailyPrayers.count {
@@ -1518,7 +1518,7 @@ struct PrayerPostCard: View {
             }
             
             if let newFollowState = userInfo["isFollowing"] as? Bool {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                     isFollowing = newFollowState
                 }
                 dlog("🔄 Follow state synced for \(authorName): \(newFollowState)")
@@ -1678,7 +1678,7 @@ struct PrayerPostCard: View {
                 count: nil,  // ✅ Changed: Don't show count, just illuminate
                 isActive: commentCount > 0  // Illuminate if there are comments
             ) {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                     showFullCommentSheet = true
                     
                     let haptic = UIImpactFeedbackGenerator(style: .light)
@@ -1970,7 +1970,7 @@ struct PrayerPostCard: View {
     
     private func handleAmenTap() {
         // P1 #8: OPTIMISTIC UPDATE — toggle UI immediately so feedback is instant
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
             hasAmened.toggle()
             amenCount = hasAmened ? amenCount + 1 : amenCount - 1
             isAmenAnimating = true
@@ -2018,7 +2018,7 @@ struct PrayerPostCard: View {
                 } catch {
                     // On error, revert the optimistic update
                     await MainActor.run {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                             hasAmened.toggle()
                             amenCount = hasAmened ? amenCount + 1 : amenCount - 1
                         }
@@ -2064,7 +2064,7 @@ struct PrayerPostCard: View {
         guard !isOwnPost else { return }
         
         // OPTIMISTIC UPDATE
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
             isFollowing.toggle()
         }
         
@@ -2097,7 +2097,7 @@ struct PrayerPostCard: View {
                 
                 // On error, revert the optimistic update
                 await MainActor.run {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                         isFollowing = !currentFollowState
                     }
                     
@@ -2200,7 +2200,7 @@ struct PrayerPostCard: View {
         
         // OPTIMISTIC UPDATE: Update UI immediately for instant feedback
         await MainActor.run {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                 hasReposted.toggle()
                 repostCount += hasReposted ? 1 : -1
             }
@@ -2229,7 +2229,7 @@ struct PrayerPostCard: View {
                 
                 // On error, revert the optimistic update
                 await MainActor.run {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                         hasReposted = previousRepostState
                         repostCount = previousRepostCount
                     }
@@ -2276,7 +2276,7 @@ struct PrayerPostCard: View {
         
         // OPTIMISTIC UPDATE: Update UI immediately for instant feedback
         await MainActor.run {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                 hasSaved.toggle()
             }
             
@@ -2306,7 +2306,7 @@ struct PrayerPostCard: View {
                 
                 // On error, revert the optimistic update
                 await MainActor.run {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                         hasSaved = previousSavedState
                     }
                     
@@ -2689,7 +2689,7 @@ struct PrayerCommentSection: View {
     private var quickActionsButtons: some View {
         HStack(spacing: 8) {
             Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                     showQuickPrayers.toggle()
                 }
             } label: {
@@ -2849,7 +2849,7 @@ struct PrayerCommentSection: View {
         let deletedIndex = comments.firstIndex(where: { $0.id == commentId }) ?? 0
         
         // OPTIMISTIC UPDATE: Remove from UI immediately
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
             comments.removeAll { $0.id == commentId }
             commentCount = comments.count
         }
@@ -2870,7 +2870,7 @@ struct PrayerCommentSection: View {
                 
                 // On error, restore the comment at its original position
                 await MainActor.run {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                         // Insert back at original index (or append if index out of bounds)
                         if deletedIndex < comments.count {
                             comments.insert(deletedComment, at: deletedIndex)
@@ -3030,7 +3030,7 @@ struct PrayerCommentRow: View {
                     Button {
                         let haptic = UIImpactFeedbackGenerator(style: .light)
                         haptic.impactOccurred()
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                             showReplyField.toggle()
                         }
                         if showReplyField {
@@ -3127,7 +3127,7 @@ struct PrayerCommentRow: View {
         let previousCount = localPrayCount
         
         // OPTIMISTIC UPDATE: Update UI immediately
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
             hasPrayed.toggle()
             localPrayCount += hasPrayed ? 1 : -1
         }
@@ -3148,7 +3148,7 @@ struct PrayerCommentRow: View {
                 
                 // On error, revert the optimistic update
                 await MainActor.run {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                         hasPrayed = previousState
                         localPrayCount = previousCount
                     }
@@ -3294,7 +3294,7 @@ struct PrayerWallView: View {
                     HStack(spacing: 10) {
                         ForEach(PrayerWallFilter.allCases, id: \.self) { filter in
                             Button {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                     selectedFilter = filter
                                 }
                                 let haptic = UIImpactFeedbackGenerator(style: .light)
@@ -3409,7 +3409,7 @@ struct PrayerWallCard: View {
             
             // Pray button
             Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                     hasPrayed.toggle()
                 }
                 let haptic = UIImpactFeedbackGenerator(style: .medium)
@@ -3670,7 +3670,7 @@ struct SmartPrayerChatView: View {
                         HStack(spacing: 12) {
                             HStack(spacing: 10) {
                                 Button {
-                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                         showQuickResponses.toggle()
                                         if showQuickResponses { showPrayerTemplates = false }
                                     }
@@ -3681,7 +3681,7 @@ struct SmartPrayerChatView: View {
                                 }
                                 
                                 Button {
-                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                         showPrayerTemplates.toggle()
                                         if showPrayerTemplates { showQuickResponses = false }
                                     }
@@ -3742,7 +3742,7 @@ struct SmartPrayerChatView: View {
             timestamp: Date()
         )
         
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.8))) {
             messages.append(newMessage)
             messageText = ""
             
@@ -3765,7 +3765,7 @@ struct SmartPrayerChatView: View {
                 timestamp: Date()
             )
             
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.8))) {
                 messages.append(responseMessage)
             }
         }

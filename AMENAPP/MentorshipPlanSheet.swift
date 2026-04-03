@@ -86,7 +86,7 @@ struct MentorshipPlanSheet: View {
                 let selected = selectedPlan?.id == plan.id
                 PlanCard(plan: plan, isSelected: selected)
                     .onTapGesture {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                             selectedPlan = plan
                         }
                     }

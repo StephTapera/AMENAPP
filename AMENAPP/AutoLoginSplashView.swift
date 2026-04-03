@@ -173,21 +173,21 @@ struct AutoLoginSplashView: View {
     private func runAppearAnimations() {
         // Ring
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-            withAnimation(.spring(response: 0.55, dampingFraction: 0.72)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.55, dampingFraction: 0.72))) {
                 ringScale = 1.0
                 ringOpacity = 1.0
             }
         }
         // Photo bloom
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.68)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.68))) {
                 photoScale = 1.0
                 photoOpacity = 1.0
             }
         }
         // Username slide up
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.75)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.75))) {
                 nameOffset = 0
                 nameOpacity = 1.0
             }
@@ -220,11 +220,11 @@ struct AutoLoginSplashView: View {
 
             await MainActor.run {
                 if didResolve == true {
-                    withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.6, dampingFraction: 0.8))) {
                         onSuccess()
                     }
                 } else {
-                    withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.6, dampingFraction: 0.8))) {
                         onFailure()
                     }
                 }

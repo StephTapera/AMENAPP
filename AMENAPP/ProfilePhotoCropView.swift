@@ -149,7 +149,7 @@ struct ProfilePhotoCropView: View {
                     height: baseOffset.height + value.translation.height
                 )
                 finalOffset = clampOffset(finalOffset, scale: scale)
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
                     offset = finalOffset
                 }
                 baseOffset = finalOffset
@@ -170,7 +170,7 @@ struct ProfilePhotoCropView: View {
             .onEnded { value in
                 let final = max(minScale, baseScale * value.magnification)
                 let clampedOffset = clampOffset(baseOffset, scale: final)
-                withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
                     scale = final
                     offset = clampedOffset
                 }

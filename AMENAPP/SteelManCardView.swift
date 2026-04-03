@@ -21,7 +21,7 @@ struct SteelManCardView: View {
         VStack(alignment: .leading, spacing: 0) {
             // Header row — tappable
             Button {
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                     isExpanded.toggle()
                 }
             } label: {

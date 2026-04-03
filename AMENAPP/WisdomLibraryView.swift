@@ -367,7 +367,7 @@ private struct WLHeroSection: View {
 
                     // ── Top-right: Search button ──────────────────────────────
                     Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.82)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.82))) {
                             showSearch.toggle()
                             if !showSearch { vm.clearSearch() }
                         }

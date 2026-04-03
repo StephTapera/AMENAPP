@@ -1244,7 +1244,7 @@ struct AMENShareSheet: View {
 
                 // ── Cancel ────────────────────────────────────────────
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                         isPresented = false
                     }
                 } label: {
@@ -1289,7 +1289,7 @@ struct AMENShareSheet: View {
                 renderedImage = image
                 isRendering = false
                 // Entrance animation — card settles in
-                withAnimation(.spring(response: 0.45, dampingFraction: 0.82)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.45, dampingFraction: 0.82))) {
                     cardScale = 1.0
                     cardOpacity = 1.0
                 }
@@ -1299,7 +1299,7 @@ struct AMENShareSheet: View {
             }
         } else {
             isRendering = false
-            withAnimation(.spring(response: 0.45, dampingFraction: 0.82)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.45, dampingFraction: 0.82))) {
                 cardScale = 1.0
                 cardOpacity = 1.0
             }

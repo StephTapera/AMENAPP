@@ -426,7 +426,7 @@ struct AMENResourcesHubView: View {
         let isSelected = vm.selectedCategory == cat
         return Button {
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                 vm.selectedCategory = cat
             }
         } label: {
@@ -519,13 +519,13 @@ struct AMENResourcesHubView: View {
                         },
                         onPlay: {
                             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                 nowPlayingItem = nowPlayingItem?.id == item.id ? nil : item
                             }
                         },
                         onSave: {
                             UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                            withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.7))) {
                                 if savedIDs.contains(item.id) {
                                     savedIDs.remove(item.id)
                                 } else {
@@ -606,7 +606,7 @@ struct AMENResourcesHubView: View {
                         }
                         selectedDock = tab
                         if tab == .saved {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                                 selectedMode = .library
                             }
                         }
@@ -826,7 +826,7 @@ private struct StackingMediaCard: View {
                     }
                 }
                 .onEnded { _ in
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) { isPressed = false }
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) { isPressed = false }
                 }
         )
     }

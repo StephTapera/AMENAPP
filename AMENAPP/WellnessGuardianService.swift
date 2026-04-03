@@ -166,7 +166,7 @@ class WellnessGuardianService: ObservableObject {
             breakReminderMessage = "It's getting late. Rest well and see you tomorrow! 🌙"
         }
         
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
             shouldShowBreakReminder = true
         }
         
@@ -183,7 +183,7 @@ class WellnessGuardianService: ObservableObject {
     
     func dismissBreakReminder() {
         lastReminderDismissedAt = Date()
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
             shouldShowBreakReminder = false
         }
     }

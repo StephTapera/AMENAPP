@@ -248,7 +248,7 @@ struct BereanFullOnboardingView: View {
     private func focusChip(item: (label: String, icon: String)) -> some View {
         let isSelected = selectedFocusItems.contains(item.label)
         return Button {
-            withAnimation(.spring(response: 0.28, dampingFraction: 0.72)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.72))) {
                 if isSelected {
                     selectedFocusItems.remove(item.label)
                 } else {
@@ -361,7 +361,7 @@ struct BereanFullOnboardingView: View {
                     onComplete()
                 }
             } else {
-                withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.82))) {
                     currentPage += 1
                 }
             }

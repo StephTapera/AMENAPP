@@ -165,7 +165,7 @@ struct SpaceFeedView: View {
     private func contentTypePill(label: String, icon: String, type: SpacePost.ContentType?) -> some View {
         let isSelected = feedVM.selectedContentType == type
         return Button {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                 feedVM.selectedContentType = type
             }
         } label: {

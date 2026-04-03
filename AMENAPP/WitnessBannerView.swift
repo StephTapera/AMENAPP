@@ -66,7 +66,7 @@ struct WitnessBannerView: View {
         .offset(y: appeared ? 0 : 10)
         .opacity(appeared ? 1 : 0)
         .onAppear {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                 appeared = true
             }
         }

@@ -44,7 +44,7 @@ struct ScrollBudget50Banner: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .scrollBudget50Reached)) { _ in
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.8))) {
                 showBanner = true
             }
             

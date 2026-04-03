@@ -155,7 +155,7 @@ struct FloatingSiriTip: View {
                     Spacer()
                     
                     Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                             isShowing = false
                         }
                     } label: {

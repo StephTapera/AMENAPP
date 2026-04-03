@@ -121,7 +121,7 @@ struct EnhancedCommentRow: View {
                 HStack(spacing: 16) {
                     // Reaction Picker Button
                     Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                             showReactionPicker.toggle()
                         }
                         let haptic = UIImpactFeedbackGenerator(style: .light)
@@ -185,7 +185,7 @@ struct EnhancedCommentRow: View {
                 ReactionPicker(onSelect: { reaction in
                     selectReaction(reaction)
                 }, onDismiss: {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                         showReactionPicker = false
                     }
                 })
@@ -205,12 +205,12 @@ struct EnhancedCommentRow: View {
 
     private func selectReaction(_ reaction: CommentReaction) {
         // Animate reaction selection
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.5))) {
             reactionScale = 1.3
         }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                 reactionScale = 1.0
             }
         }
@@ -240,7 +240,7 @@ struct EnhancedCommentRow: View {
         haptic.impactOccurred()
 
         // Close picker
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
             showReactionPicker = false
         }
 
@@ -368,7 +368,7 @@ struct ReactionPicker: View {
             // Stagger animation
             for (index, reaction) in CommentReaction.allCases.enumerated() {
                 DispatchQueue.main.asyncAfter(deadline: .now() + Double(index) * 0.05) {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.6))) {
                         _ = appearedReactions.insert(reaction)
                     }
                 }

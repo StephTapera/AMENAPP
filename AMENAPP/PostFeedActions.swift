@@ -224,13 +224,13 @@ struct PostFeedActionsMenu: View {
     
     private func showFeedback(_ message: String) {
         feedbackMessage = message
-        withAnimation(.spring(response: 0.3)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3))) {
             showFeedbackToast = true
         }
         
         Task {
             try? await Task.sleep(nanoseconds: 2_000_000_000)
-            withAnimation(.spring(response: 0.3)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3))) {
                 showFeedbackToast = false
             }
         }

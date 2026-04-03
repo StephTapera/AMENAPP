@@ -506,7 +506,7 @@ struct MessagesView: View {
         Button {
             // haptic
             HapticManager.impact(style: .light)
-            withAnimation(.spring(response: 0.26, dampingFraction: 0.78)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.26, dampingFraction: 0.78))) {
                 selectedTab = tab
             }
         } label: {
@@ -684,7 +684,7 @@ struct MessagesView: View {
         HStack(spacing: 8) {
             ForEach([MessageTab.messages, MessageTab.requests, MessageTab.archived], id: \.self) { tab in
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
                         selectedTab = tab
                     }
                     // haptic
@@ -881,7 +881,7 @@ struct MessagesView: View {
             .onAppear {
                 if !hasSeenSwipeHint && !filteredConversations.isEmpty {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
                             showSwipeHint = true
                         }
                         DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
@@ -1116,7 +1116,7 @@ struct MessagesView: View {
         // Compact header appears when scrolled down significantly
         if offset < -150 {
             if showHeader {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.75))) {
                     showHeader = false
                 }
             }
@@ -1124,7 +1124,7 @@ struct MessagesView: View {
         // Full header when at top or scrolling up
         else if offset >= -50 {
             if !showHeader {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.75))) {
                     showHeader = true
                 }
             }
@@ -1219,7 +1219,7 @@ struct MessagesView: View {
         HStack(spacing: 0) {
             ForEach([MessageTab.messages, MessageTab.requests, MessageTab.archived], id: \.self) { tab in
                 Button {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.85))) {
                         selectedTab = tab
                     }
                     // haptic
@@ -2189,12 +2189,12 @@ struct MessagesView: View {
             HapticManager.notification(type: .success)
             
             // Smoothly transition to messages tab with animation
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.8))) {
                 selectedTab = .messages
             }
             
             if let acceptedConversation = messagingService.conversations.first(where: { $0.id == request.conversationId }) {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.85))) {
                     activeSheet = .chat(acceptedConversation)
                 }
             } else {
@@ -2207,7 +2207,7 @@ struct MessagesView: View {
                     unreadCount: 0,
                     avatarColor: .blue
                 )
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.85))) {
                     activeSheet = .chat(placeholderConversation)
                 }
             }
@@ -5014,7 +5014,7 @@ struct ModernConversationDetailView: View {
     
     private var backButton: some View {
         Button {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
                 mainTabSelection.wrappedValue = 0  // Navigate to home tab
             }
             // haptic

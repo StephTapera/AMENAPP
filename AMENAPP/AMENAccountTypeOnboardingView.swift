@@ -106,7 +106,7 @@ final class AMENAccountTypeViewModel: ObservableObject {
     @Published var showExtendedOnboarding: Bool = false
 
     func selectType(_ type: AMENAccountType) {
-        withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.32, dampingFraction: 0.78))) {
             selectedType = type
         }
     }

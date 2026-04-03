@@ -379,7 +379,7 @@ struct SelahView: View {
                                 isExpanded: expandedSections.contains(section.id),
                                 showHighlights: showHighlights,
                                 onToggle: {
-                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.78)) {
+                                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.78))) {
                                         if expandedSections.contains(section.id) {
                                             expandedSections.remove(section.id)
                                         } else {
@@ -477,7 +477,7 @@ struct SelahView: View {
             HStack {
                 Spacer()
                 Button {
-                    withAnimation(.spring(response: 0.28, dampingFraction: 0.8)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.8))) {
                         showHighlights.toggle()
                     }
                 } label: {
@@ -516,7 +516,7 @@ struct SelahView: View {
                             namespace: formatNamespace
                         ) {
                             UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                            withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.32, dampingFraction: 0.78))) {
                                 selectedFormat = format
                             }
                         }
@@ -545,7 +545,7 @@ struct SelahView: View {
             )
             .clipShape(Capsule())
             .onChange(of: selectedFormat) { _, newVal in
-                withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.32, dampingFraction: 0.78))) {
                     proxy.scrollTo(newVal, anchor: .center)
                 }
             }
@@ -682,7 +682,7 @@ struct SelahView: View {
                 try await churchNotesService.createNote(note)
                 await MainActor.run {
                     isSavingNote = false
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
                         showSaveConfirmation = true
                     }
                     UIImpactFeedbackGenerator(style: .medium).impactOccurred()
@@ -757,10 +757,10 @@ private struct SelahFormatSegment: View {
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in
                     guard !isPressed else { return }
-                    withAnimation(.spring(response: 0.18, dampingFraction: 0.7)) { isPressed = true }
+                    withAnimation(Motion.adaptive(.spring(response: 0.18, dampingFraction: 0.7))) { isPressed = true }
                 }
                 .onEnded { _ in
-                    withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) { isPressed = false }
+                    withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.7))) { isPressed = false }
                 }
         )
         .animation(.spring(response: 0.32, dampingFraction: 0.78), value: isSelected)

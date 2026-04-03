@@ -786,7 +786,7 @@ struct ChurchExperienceComposer: View {
 
     private func handleCTA() {
         if step < 4 {
-            withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) { step += 1 }
+            withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.82))) { step += 1 }
             return
         }
         // Final step — moderate then submit
@@ -1261,7 +1261,7 @@ struct ChurchExperienceListView: View {
 
                 if text.count > 100 {
                     Button(isExpanded ? "Show less" : "Read more") {
-                        withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.82))) {
                             if isExpanded { expandedEntryIds.remove(entry.id) }
                             else          { expandedEntryIds.insert(entry.id) }
                         }

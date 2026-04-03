@@ -36,7 +36,7 @@ final class ProfileFeedViewModel: ObservableObject {
                 }
 
                 guard let pinnedPostId = data["pinnedPostId"] as? String, !pinnedPostId.isEmpty else {
-                    withAnimation(.spring(response: 0.45, dampingFraction: 0.72)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.45, dampingFraction: 0.72))) {
                         self.pinnedPost = nil
                     }
                     self.isLoading = false
@@ -58,7 +58,7 @@ final class ProfileFeedViewModel: ObservableObject {
         guard let postId = post.firebaseId else { return }
         do {
             try await PinnedPostService.shared.pinPost(postId: postId)
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.7))) {
                 pinnedPost = post
             }
         } catch {
@@ -68,7 +68,7 @@ final class ProfileFeedViewModel: ObservableObject {
 
     func unpinCurrent() async {
         guard let post = pinnedPost, let postId = post.firebaseId else { return }
-        withAnimation(.spring(response: 0.45, dampingFraction: 0.72)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.45, dampingFraction: 0.72))) {
             pinnedPost = nil
         }
         do {
@@ -90,7 +90,7 @@ final class ProfileFeedViewModel: ObservableObject {
                 return
             }
             let post = try doc.data(as: Post.self)
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.7))) {
                 self.pinnedPost = post
             }
         } catch {

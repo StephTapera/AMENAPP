@@ -243,7 +243,7 @@ struct ConversationThreadView: View {
                                 highlightedCommentIDs: highlightedCommentIDs,
                                 isClusterExpanded: expandedClusters.contains(item.comment.id ?? ""),
                                 onExpandCluster: {
-                                    withAnimation(.spring(response: 0.38, dampingFraction: 0.78)) {
+                                    withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.78))) {
                                         let id = item.comment.id ?? ""
                                         if expandedClusters.contains(id) {
                                             expandedClusters.remove(id)
@@ -316,7 +316,7 @@ struct ConversationThreadView: View {
 
             // Sort picker button
             Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.82)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.82))) {
                     showSortPicker.toggle()
                 }
             } label: {
@@ -402,7 +402,7 @@ struct ConversationThreadView: View {
         // Show a reflection card every ~8 user interactions
         guard reflectionCounter > 0 && reflectionCounter % 8 == 0 else { return }
         guard !reflectionTriggerIds.contains(commentId) else { return }
-        _ = withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
+        _ = withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.82))) {
             reflectionTriggerIds.insert(commentId)
         }
     }
@@ -422,7 +422,7 @@ private struct ThreadSortPicker: View {
         VStack(alignment: .leading, spacing: 0) {
             ForEach(ThreadSort.allCases, id: \.self) { option in
                 Button {
-                    withAnimation(.spring(response: 0.25, dampingFraction: 0.82)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.82))) {
                         selected = option
                         isShowing = false
                     }
@@ -616,7 +616,7 @@ struct ThreadReplyRow: View {
                     HStack(spacing: 20) {
                         // Amen
                         Button {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.5))) {
                                 hasAmened.toggle()
                                 localAmenCount += hasAmened ? 1 : -1
                             }
@@ -882,7 +882,7 @@ private struct ThreadBranchCluster: View {
             // "Show more replies" collapse button
             if !showAll && replies.count > visibleLimit {
                 Button {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.78)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.78))) {
                         showAll = true
                     }
                 } label: {
@@ -1031,7 +1031,7 @@ private struct ThreadReplyBranchRow: View {
                 // Mini action bar
                 HStack(spacing: 16) {
                     Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.5))) {
                             hasAmened.toggle()
                             localAmenCount += hasAmened ? 1 : -1
                         }
@@ -1531,7 +1531,7 @@ struct ThreadComposerView: View {
                     let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
                     if let prompt = WisdomRankingService.deescalationPrompt(for: trimmed),
                        !deescalationOverride {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.82)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.82))) {
                             deescalationPrompt = prompt
                         }
                     } else {

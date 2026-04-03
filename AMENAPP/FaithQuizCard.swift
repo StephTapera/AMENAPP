@@ -60,14 +60,14 @@ struct FaithQuizCard: View {
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in
-                    withAnimation(.spring(response: 0.2, dampingFraction: 0.6)) { isPressed = true }
+                    withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.6))) { isPressed = true }
                 }
                 .onEnded { _ in
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.55)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.55))) {
                         isPressed = false
                         if !reduceMotion { liftOffset = -5 }
                     }
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.65).delay(0.12)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.65)).delay(0.12)) {
                         liftOffset = 0
                     }
                 }

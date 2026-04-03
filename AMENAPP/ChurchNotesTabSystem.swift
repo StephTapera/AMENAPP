@@ -190,7 +190,7 @@ struct ChurchNoteDetailTabView: View {
 
     private func tabPill(_ tab: ChurchNoteTab) -> some View {
         Button {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                 vm.activeTab = tab
             }
         } label: {

@@ -453,7 +453,7 @@ struct BereanAIAssistantView: View {
             // PROMPT 4 & 5: generate follow-ups and extract claims for new AI messages
             if let last = viewModel.messages.last, !last.isFromUser {
                 generateFollowUps(from: last)
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) { showFollowUps = true }
+                withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.8))) { showFollowUps = true }
                 messageClaims[last.id] = extractClaims(from: last)
             } else {
                 withAnimation(.easeOut(duration: 0.2)) { showFollowUps = false }
@@ -873,7 +873,7 @@ struct BereanAIAssistantView: View {
                     recognizer: recognizer,
                     onStop: {
                         recognizer.stopRecording()
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                             isVoiceListening = false
                         }
                         if !recognizer.transcribedText.isEmpty {
@@ -882,7 +882,7 @@ struct BereanAIAssistantView: View {
                     },
                     onCancel: {
                         recognizer.stopRecording()
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                             isVoiceListening = false
                         }
                     }
@@ -934,7 +934,7 @@ struct BereanAIAssistantView: View {
                 longPressHintTask = Task { @MainActor in
                     try? await Task.sleep(nanoseconds: 2_000_000_000) // 2.0 s
                     guard !Task.isCancelled else { return }
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
                         showFirstTimeLongPressHint = true
                     }
                     try? await Task.sleep(nanoseconds: 5_000_000_000) // 5.0 s
@@ -1168,7 +1168,7 @@ struct BereanAIAssistantView: View {
                 // Right: Single menu button - minimal ChatGPT style
                 Button {
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.82))) {
                         showConversationDrawer = true
                     }
                 } label: {
@@ -1410,7 +1410,7 @@ struct BereanAIAssistantView: View {
     private var folderNavButton: some View {
         Button {
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.82))) {
                 showConversationDrawer = true
             }
         } label: {
@@ -2001,7 +2001,7 @@ struct BereanAIAssistantView: View {
                 .submitLabel(.send)
                 .accessibilityLabel("Message input field")
                 .onChange(of: messageText) { _, newValue in
-                    withAnimation(.spring(response: 0.50, dampingFraction: 0.80)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.50, dampingFraction: 0.80))) {
                         inputBarExpanded = !newValue.isEmpty
                     }
                     isTyping = !newValue.isEmpty
@@ -2985,7 +2985,7 @@ struct BereanQuickChip: View {
         }
         .buttonStyle(.plain)
         .onLongPressGesture(minimumDuration: .infinity, pressing: { pressing in
-            withAnimation(.spring(response: 0.22, dampingFraction: 0.72)) { isPressed = pressing }
+            withAnimation(Motion.adaptive(.spring(response: 0.22, dampingFraction: 0.72))) { isPressed = pressing }
         }, perform: {})
     }
 }
@@ -3033,7 +3033,7 @@ struct BereanLightActionCard: View {
         }
         .buttonStyle(.plain)
         .onLongPressGesture(minimumDuration: .infinity, pressing: { pressing in
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.7))) {
                 isPressed = pressing
             }
         }, perform: {})
@@ -3181,7 +3181,7 @@ struct SquareActionCard: View {
         }
         .buttonStyle(.plain)
         .onLongPressGesture(minimumDuration: .infinity, pressing: { pressing in
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.7))) {
                 isPressed = pressing
             }
         }, perform: {})
@@ -3333,7 +3333,7 @@ struct BereanMessageBubbleView: View {
         .animation(.spring(response: 0.45, dampingFraction: 0.78), value: appeared)
         .onAppear {
             guard !appeared else { return }
-            withAnimation(.spring(response: 0.45, dampingFraction: 0.78)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.45, dampingFraction: 0.78))) {
                 appeared = true
             }
         }
@@ -3546,7 +3546,7 @@ struct BereanMessageBubbleView: View {
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
             menuScale = 0.88
             menuOpacity = 0
-            withAnimation(.spring(response: 0.38, dampingFraction: 0.68)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.68))) {
                 showMessageMenu = true
                 menuScale = 1.0
                 menuOpacity = 1.0
@@ -3557,7 +3557,7 @@ struct BereanMessageBubbleView: View {
                 BereanMessageMenuView(
                     message: message.content,
                     onDismiss: {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                             showMessageMenu = false
                         }
                     },
@@ -3683,7 +3683,7 @@ struct BereanMessageBubbleView: View {
             Button {
                 menuScale = 0.92
                 menuOpacity = 0
-                withAnimation(.spring(response: 0.38, dampingFraction: 0.68)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.68))) {
                     showMessageMenu = true
                     menuScale = 1.0
                     menuOpacity = 1.0
@@ -4388,7 +4388,7 @@ struct BereanVoiceListeningOverlay: View {
             }
         }
         .onAppear {
-            withAnimation(.spring(response: 0.55, dampingFraction: 0.7)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.55, dampingFraction: 0.7))) {
                 appeared = true
             }
             withAnimation(
@@ -7134,7 +7134,7 @@ struct BereanPillButton: View {
         }
         .buttonStyle(.plain)
         .onLongPressGesture(minimumDuration: .infinity, pressing: { pressing in
-            withAnimation(.spring(response: 0.22, dampingFraction: 0.72)) { isPressed = pressing }
+            withAnimation(Motion.adaptive(.spring(response: 0.22, dampingFraction: 0.72))) { isPressed = pressing }
         }, perform: {})
     }
 }
@@ -7289,7 +7289,7 @@ struct BereanConversationDrawer: View {
             Color.black.opacity(0.32)
                 .ignoresSafeArea()
                 .onTapGesture {
-                    withAnimation(.spring(response: 0.34, dampingFraction: 0.84)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.34, dampingFraction: 0.84))) {
                         isShowing = false
                     }
                 }
@@ -7398,7 +7398,7 @@ struct BereanConversationDrawer: View {
             Spacer()
             // Folder/list toggle
             Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.78)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.78))) {
                     showFolderView.toggle()
                 }
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -7413,7 +7413,7 @@ struct BereanConversationDrawer: View {
             }
             .buttonStyle(.plain)
             Button {
-                withAnimation(.spring(response: 0.34, dampingFraction: 0.84)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.34, dampingFraction: 0.84))) {
                     isShowing = false
                 }
             } label: {
@@ -7594,7 +7594,7 @@ struct BereanConversationDrawer: View {
         VStack(alignment: .leading, spacing: 0) {
             // Folder header row (tappable to expand/collapse)
             Button {
-                withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.82))) {
                     if expandedFolders.contains(tag) {
                         expandedFolders.remove(tag)
                     } else {
@@ -8576,7 +8576,7 @@ struct BereanLandingActionCard: View {
         }
         .buttonStyle(.plain)
         ._onButtonGesture { pressing in
-            withAnimation(.spring(response: 0.22, dampingFraction: 0.72)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.22, dampingFraction: 0.72))) {
                 pressed = pressing
             }
         } perform: {}
@@ -8848,17 +8848,17 @@ struct BereanModeCapsule: View {
                 let allCases = BereanPersonalityMode.allCases
                 if let idx = allCases.firstIndex(of: personalityMode) {
                     let next = allCases[(idx + 1) % allCases.count]
-                    withAnimation(.spring(response: 0.38, dampingFraction: 0.72)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.72))) {
                         personalityMode = next
                         badgeScale = 0.80
                     }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                        withAnimation(.spring(response: 0.30, dampingFraction: 0.58)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.30, dampingFraction: 0.58))) {
                             badgeScale = 1.06
                         }
                     }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.30) {
-                        withAnimation(.spring(response: 0.22, dampingFraction: 0.80)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.22, dampingFraction: 0.80))) {
                             badgeScale = 1.0
                         }
                     }
@@ -9075,7 +9075,7 @@ struct BereanQuickPill: View {
         }
         .buttonStyle(.plain)
         ._onButtonGesture { pressing in
-            withAnimation(.spring(response: 0.22, dampingFraction: 0.72)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.22, dampingFraction: 0.72))) {
                 pressed = pressing
             }
         } perform: {}
@@ -9225,7 +9225,7 @@ struct BereanFeaturePill: View {
         }
         .buttonStyle(.plain)
         ._onButtonGesture { pressing in
-            withAnimation(.spring(response: 0.22, dampingFraction: 0.72)) { pressed = pressing }
+            withAnimation(Motion.adaptive(.spring(response: 0.22, dampingFraction: 0.72))) { pressed = pressing }
         } perform: {}
     }
 }

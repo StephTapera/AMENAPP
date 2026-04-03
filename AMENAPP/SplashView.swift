@@ -62,7 +62,7 @@ struct SplashView: View {
 
     private func runAnimation() {
         // Step 1 — logo entrance (smooth spring with subtle rotation settle)
-        withAnimation(.spring(response: 0.6, dampingFraction: 0.75, blendDuration: 0.3)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.6, dampingFraction: 0.75, blendDuration: 0.3))) {
             logoScale   = 1.0
             logoRotation = 0
             logoOpacity = 1
@@ -70,7 +70,7 @@ struct SplashView: View {
 
         // Step 2 — wordmark fade up (delayed, smooth)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.78)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.78))) {
                 wordmarkOpacity = 1
                 wordmarkScale = 1.0
                 wordmarkOffset  = 0

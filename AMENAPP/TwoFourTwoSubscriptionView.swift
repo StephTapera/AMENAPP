@@ -63,7 +63,7 @@ struct TwoFourTwoSubscriptionView: View {
             }
         }
         .preferredColorScheme(.dark)
-        .onAppear { withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) { appeared = true } }
+        .onAppear { withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.8))) { appeared = true } }
     }
 }
 

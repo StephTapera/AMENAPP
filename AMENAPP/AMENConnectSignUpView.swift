@@ -185,7 +185,7 @@ struct AMENConnectSignUpView: View {
                         isSelected: selectedTier == tier,
                         billingAnnual: billingAnnual
                     ) {
-                        withAnimation(.spring(response: 0.28, dampingFraction: 0.8)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.8))) {
                             selectedTier = tier
                         }
                     }
@@ -340,14 +340,14 @@ struct AMENConnectSignUpView: View {
             if !purchased {
                 // User cancelled purchase — keep free tier, still proceed to success
                 isSubmitting = false
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) { showSuccess = true }
+                withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) { showSuccess = true }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) { dismiss() }
                 return
             }
         }
 
         isSubmitting = false
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
             showSuccess = true
         }
         // Auto dismiss after showing success

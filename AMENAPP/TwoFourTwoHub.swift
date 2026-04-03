@@ -70,7 +70,7 @@ struct TwoFourTwoHub: View {
                 .scaleEffect(headerAppeared ? 1.0 : 0.7)
                 .opacity(headerAppeared ? 1 : 0)
                 .onAppear {
-                    withAnimation(.spring(response: 0.55, dampingFraction: 0.7).delay(0.1)) { headerAppeared = true }
+                    withAnimation(Motion.adaptive(.spring(response: 0.55, dampingFraction: 0.7)).delay(0.1)) { headerAppeared = true }
                 }
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 6) {

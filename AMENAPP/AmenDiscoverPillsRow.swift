@@ -216,7 +216,7 @@ struct AmenDiscoverFilterPillsRow: View {
             HStack(spacing: 8) {
                 ForEach(categories, id: \.self) { cat in
                     FilterPillButton(title: cat, isSelected: selected == cat) {
-                        withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.82))) {
                             selected = cat
                         }
                         onSelect?(cat)

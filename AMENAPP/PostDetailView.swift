@@ -207,7 +207,7 @@ struct PostDetailView: View {
                         // Show collapse option only for long posts
                         if !isPostExpanded {
                             Button {
-                                withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.85))) {
                                     isPostExpanded = true
                                 }
                             } label: {
@@ -371,7 +371,7 @@ struct PostDetailView: View {
             }
             .onChange(of: commentScrollTarget) { _, target in
                 guard let target else { return }
-                withAnimation(.spring(response: 0.38, dampingFraction: 0.9)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.9))) {
                     scrollProxy.scrollTo(target, anchor: .center)
                 }
                 commentScrollTarget = nil
@@ -1147,7 +1147,7 @@ struct PostDetailView: View {
         
         // Haptic + optimistic update
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.7))) {
             isFasting.toggle()
         }
         
@@ -1177,7 +1177,7 @@ struct PostDetailView: View {
                     ToastManager.shared.success(isFasting ? "Joined fast" : "Left fast")
                 } else {
                     dlog("❌ Failed to \(isFasting ? "join" : "leave") fast")
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.7))) {
                         isFasting = previousState
                     }
                     UINotificationFeedbackGenerator().notificationOccurred(.error)
@@ -1270,7 +1270,7 @@ struct PostDetailView: View {
         // 4. Update state
         recentReactors = reactors
         reactorCount = totalCount
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
             reactorsVisible = true
         }
     }
@@ -1509,7 +1509,7 @@ struct CommentRowView: View {
 
                     if replyCount > 0 {
                         Button {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                 showReplies.toggle()
                             }
                         } label: {

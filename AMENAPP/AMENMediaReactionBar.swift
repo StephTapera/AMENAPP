@@ -105,13 +105,13 @@ struct AMENReactionButton: View {
     }
 
     private func triggerReaction() {
-        withAnimation(.spring(response: 0.25, dampingFraction: 0.5)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.5))) {
             bouncing = true
             isActive.toggle()
             count += isActive ? 1 : -1
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                 bouncing = false
             }
         }
@@ -185,7 +185,7 @@ struct AMENMediaReactionBar: View {
         .offset(y: barVisible ? 0 : 60)
         .opacity(barVisible ? 1 : 0)
         .onAppear {
-            withAnimation(.spring(response: 0.45, dampingFraction: 0.72).delay(0.15)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.45, dampingFraction: 0.72)).delay(0.15)) {
                 barVisible = true
             }
         }

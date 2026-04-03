@@ -85,7 +85,7 @@ struct FindFriendsOnboardingView: View {
                 VStack(spacing: 16) {
                     if currentStep < totalSteps - 1 {
                         Button {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                 currentStep += 1
                             }
                         } label: {
@@ -142,7 +142,7 @@ struct FindFriendsOnboardingView: View {
                     
                     if currentStep > 0 {
                         Button {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                 currentStep -= 1
                             }
                         } label: {
@@ -310,7 +310,7 @@ struct FriendshipGoalsStep: View {
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                 ForEach(friendshipGoals, id: \.self) { goal in
                     Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                             if selectedFriendshipGoals.contains(goal) {
                                 selectedFriendshipGoals.remove(goal)
                             } else {
@@ -437,7 +437,7 @@ struct FriendsInfoStep: View {
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                     ForEach(ageGroups, id: \.self) { age in
                         Button {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                 selectedAgeGroup = age
                             }
                         } label: {
@@ -465,7 +465,7 @@ struct FriendsInfoStep: View {
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                     ForEach(interests, id: \.self) { interest in
                         Button {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                 if selectedInterests.contains(interest) {
                                     selectedInterests.remove(interest)
                                 } else {
@@ -534,7 +534,7 @@ struct FriendsActivitiesStep: View {
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                 ForEach(activities, id: \.self) { activity in
                     Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                             if selectedActivities.contains(activity) {
                                 selectedActivities.remove(activity)
                             } else {
@@ -794,7 +794,7 @@ struct FriendsMeetingSafetyStep: View {
             VStack(alignment: .leading, spacing: 12) {
                 ForEach(meetingPreferences, id: \.self) { preference in
                     Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                             selectedMeetingPreference = preference
                         }
                     } label: {

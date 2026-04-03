@@ -91,8 +91,8 @@ struct FollowBadgeView: View {
     }
 
     private func triggerFollow() {
-        withAnimation(.spring(response: 0.2, dampingFraction: 0.45)) { scale = 0.82 }
-        withAnimation(.spring(response: 0.38, dampingFraction: 0.58).delay(0.08)) { scale = 1.0 }
+        withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.45))) { scale = 0.82 }
+        withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.58)).delay(0.08)) { scale = 1.0 }
 
         let aboutToFollow = !isFollowed
         if aboutToFollow {
@@ -101,13 +101,13 @@ struct FollowBadgeView: View {
                 withAnimation { showRipple = true }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { showRipple = false }
             }
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { showToast = true }
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) { showToast = true }
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
                 withAnimation(.easeOut(duration: 0.3)) { showToast = false }
             }
         }
 
-        withAnimation(.spring(response: 0.38, dampingFraction: 0.62)) { isFollowed.toggle() }
+        withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.62))) { isFollowed.toggle() }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         onToggle()
     }

@@ -79,7 +79,7 @@ final class CaughtUpService: ObservableObject {
         // Deep-scroll counter
         cardsSeenThisSession += 1
         if cardsSeenThisSession == deepScrollThreshold {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.8))) {
                 showDeepScrollNudge = true
             }
         }
@@ -102,7 +102,7 @@ final class CaughtUpService: ObservableObject {
             now.timeIntervalSince($0) < rapidRefreshWindow
         }
         if refreshTimestamps.count >= rapidRefreshThreshold {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.8))) {
                 showRapidRefreshNudge = true
             }
             // Auto-dismiss after 4s
@@ -119,14 +119,14 @@ final class CaughtUpService: ObservableObject {
 
     /// Dismiss the deep-scroll nudge.
     func dismissDeepScrollNudge() {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
             showDeepScrollNudge = false
         }
     }
 
     /// Called when the user taps "View older posts" — clears the caught-up state.
     func dismissCaughtUp() {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
             isCaughtUp = false
         }
     }
@@ -147,7 +147,7 @@ final class CaughtUpService: ObservableObject {
         let unseen = currentWindowPostIds.subtracting(seenIdsInMemory)
         let caught = unseen.isEmpty
         guard caught != isCaughtUp else { return }
-        withAnimation(.spring(response: 0.5, dampingFraction: 0.85)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.85))) {
             isCaughtUp = caught
         }
     }

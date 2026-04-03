@@ -99,14 +99,14 @@ final class ReactionPresentationState: ObservableObject {
         self.selectedEmoji    = selectedEmoji
         self.onSelect         = onSelect
 
-        withAnimation(.spring(response: 0.32, dampingFraction: 0.70)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.32, dampingFraction: 0.70))) {
             activeAnchorID = anchorID
         }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
     func dismiss() {
-        withAnimation(.spring(response: 0.28, dampingFraction: 0.80)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.80))) {
             activeAnchorID = nil
         }
     }
@@ -424,7 +424,7 @@ struct ReactionAnchorBadgeView: View {
         .scaleEffect(didLand ? 1.0 : 0.4)
         .opacity(didLand ? 1.0 : 0.0)
         .onAppear {
-            withAnimation(.spring(response: 0.28, dampingFraction: 0.55)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.55))) {
                 didLand = true
             }
         }

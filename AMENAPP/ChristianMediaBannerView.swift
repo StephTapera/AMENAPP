@@ -82,7 +82,7 @@ struct ChristianMediaBannerView: View {
         .scaleEffect(isPressed ? 0.975 : 1.0)
         .animation(.spring(response: 0.28, dampingFraction: 0.72), value: isPressed)
         .onAppear {
-            withAnimation(.spring(response: 0.72, dampingFraction: 0.82).delay(0.08)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.72, dampingFraction: 0.82)).delay(0.08)) {
                 appeared = true
             }
         }

@@ -38,7 +38,7 @@ struct MyCirclesView: View {
                         )
                         .padding(.horizontal, 20)
                         .onAppear {
-                            withAnimation(.spring(response: 0.45, dampingFraction: 0.75).delay(Double(idx) * 0.07)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.45, dampingFraction: 0.75)).delay(Double(idx) * 0.07)) {
                                 appearedRelIds.formUnion([rel.id])
                             }
                         }
@@ -72,7 +72,7 @@ struct MyCirclesView: View {
                 .padding(.horizontal, 40)
 
             Button {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.7))) {
                     vm.selectedTab = .findMentor
                 }
             } label: {

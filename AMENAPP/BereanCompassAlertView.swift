@@ -114,7 +114,7 @@ struct BereanCompassAlertView: View {
         }
         .ignoresSafeArea(edges: .bottom)
         .onAppear {
-            withAnimation(.spring(response: 0.45, dampingFraction: 0.80)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.45, dampingFraction: 0.80))) {
                 isVisible = true
             }
         }

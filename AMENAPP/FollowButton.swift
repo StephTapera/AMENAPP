@@ -87,7 +87,7 @@ struct SocialFollowButton: View {
                 }
                 
                 await MainActor.run {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                         isFollowing.toggle()
                     }
                     isLoading = false
@@ -215,12 +215,12 @@ struct AnimatedFollowButton: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.14) {
             onToggle()
             labelOffset = isFollowing ? -4 : 4
-            withAnimation(.spring(response: 0.3)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3))) {
                 labelOpacity = 1
                 labelOffset  = 0
             }
             if !isFollowing { // was false, now toggling to true
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.55)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.55))) {
                     checkScale   = 1.0
                     checkOpacity = 1.0
                 }

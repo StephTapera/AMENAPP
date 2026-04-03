@@ -19,13 +19,13 @@ extension AIBibleStudyView {
             conversationHistory.append(messages)
         }
 
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
             messages = []
         }
 
         // Add welcome message back
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.6, dampingFraction: 0.8))) {
                 messages.append(AIStudyMessage(
                     text: "New conversation started! How can I help you study Scripture today?",
                     isUser: false
@@ -91,7 +91,7 @@ extension AIBibleStudyView {
     }
 
     func loadConversation(_ conversation: [AIStudyMessage]) {
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
             messages = conversation
             selectedTab = .chat
         }

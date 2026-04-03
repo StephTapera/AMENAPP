@@ -372,7 +372,7 @@ struct DailyLimitReachedDialog: View {
                     VStack(spacing: 10) {
                         // Primary — Take a Break
                         Button {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                 tracker.showLimitReachedDialog = false
                             }
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
@@ -394,7 +394,7 @@ struct DailyLimitReachedDialog: View {
 
                         // Secondary — Continue Anyway (ghost/glass style)
                         Button {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                 tracker.showLimitReachedDialog = false
                             }
                         } label: {

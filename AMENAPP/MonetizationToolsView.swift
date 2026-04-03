@@ -364,7 +364,7 @@ private struct MonetizationSection<Content: View>: View {
         VStack(spacing: 0) {
             // Header — always visible
             Button {
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                     expandedSection = isExpanded ? nil : id
                 }
             } label: {
@@ -463,7 +463,7 @@ private struct AddDigitalGoodSheet: View {
                                 HStack(spacing: 10) {
                                     ForEach(DigitalGood.GoodType.allCases, id: \.self) { type in
                                         Button {
-                                            withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                                            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                                                 selectedType = type
                                             }
                                         } label: {

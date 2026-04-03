@@ -143,7 +143,7 @@ struct BereanQuickActionsView: View {
 
         Button {
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            withAnimation(.spring(response: 0.28, dampingFraction: 0.75)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.75))) {
                 selectedChipId = chip.id
             }
             // Pre-fill input with the chip's prompt template

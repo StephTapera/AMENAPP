@@ -46,7 +46,7 @@ struct FindFriendsView: View {
                     HStack(spacing: 8) {
                         ForEach(FriendInterest.allCases, id: \.self) { interest in
                             Button {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                     selectedInterest = interest
                                 }
                             } label: {
@@ -178,7 +178,7 @@ struct FriendCard: View {
             Spacer()
             
             Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                     isSent = true
                 }
             } label: {

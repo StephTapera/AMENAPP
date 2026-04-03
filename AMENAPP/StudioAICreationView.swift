@@ -388,7 +388,7 @@ struct StudioAICreationView: View {
 
     private func toolChip(_ tool: StudioTool) -> some View {
         Button {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                 selectedTool = tool
                 vm.reset()
             }

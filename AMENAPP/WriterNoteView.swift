@@ -226,7 +226,7 @@ struct WriterNoteView: View {
     
     private var metadataToggle: some View {
         Button {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.8))) {
                 showMetadata.toggle()
             }
             let haptic = UIImpactFeedbackGenerator(style: .light)

@@ -126,7 +126,7 @@ struct HeyFeedComposerView: View {
         let isSelected = selectedType == type
 
         return Button {
-            withAnimation(.spring(response: 0.38, dampingFraction: 0.72)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.72))) {
                 selectedType = type
             }
         } label: {
@@ -249,7 +249,7 @@ struct HeyFeedComposerView: View {
                 )
                 await MainActor.run {
                     isSubmitting = false
-                    withAnimation(.spring(response: 0.38, dampingFraction: 0.72)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.72))) {
                         showSuccess = true
                     }
                 }
