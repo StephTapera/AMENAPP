@@ -142,7 +142,7 @@ struct ScriptureDNAView: View {
                                 sectionHeader("THEMES")
                                     .padding(.horizontal, 16)
 
-                                FlowLayout(spacing: 6) {
+                                AMENFlowLayout(spacing: 6) {
                                     ForEach(result.keyThemes, id: \.self) { theme in
                                         Text(theme)
                                             .font(.caption2)
@@ -277,7 +277,7 @@ private struct WordMapPlaceholderSheet: View {
                         .padding(.horizontal, 32)
 
                     if let result {
-                        FlowLayout(spacing: 8) {
+                        AMENFlowLayout(spacing: 8) {
                             ForEach(result.keyThemes, id: \.self) { theme in
                                 Text(theme)
                                     .font(.subheadline)

@@ -205,6 +205,9 @@ struct SpiritualTimelineView: View {
     private var timelineContent: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 0) {
+                FaithWrappedInlineCard()
+                    .padding(.bottom, 18)
+
                 ForEach(Array(service.milestones.enumerated()), id: \.element.id) { index, milestone in
                     MilestoneRow(
                         milestone: milestone,
@@ -281,6 +284,42 @@ struct SpiritualTimelineView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+private struct FaithWrappedInlineCard: View {
+    var body: some View {
+        NavigationLink(destination: SpiritualJourneySelectionView()) {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(Color.white.opacity(0.08))
+                        .frame(width: 40, height: 40)
+                    Image(systemName: "sparkles")
+                        .font(.systemScaled(16, weight: .semibold))
+                        .foregroundColor(.white)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Faith Wrapped")
+                        .font(AMENFont.semiBold(14))
+                        .foregroundColor(.white)
+                    Text("Your season, gently told back to you")
+                        .font(AMENFont.regular(12))
+                        .foregroundColor(.white.opacity(0.6))
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.systemScaled(14, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.7))
+            }
+            .padding(14)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.white.opacity(0.12), lineWidth: 0.6))
+        }
+        .buttonStyle(.plain)
     }
 }
 

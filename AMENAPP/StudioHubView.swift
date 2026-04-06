@@ -19,6 +19,7 @@ struct StudioHubView: View {
     @State private var showPaywall = false
     @State private var showSynaptic = false
     @State private var showFaithReel = false
+    @State private var showAmenSync = false
 
     // Entrance animation state
     @State private var cardsVisible = false
@@ -77,6 +78,16 @@ struct StudioHubView: View {
                             }
                         }
                         .padding(.horizontal, 20)
+
+                        // AMEN Sync — Create once, distribute everywhere
+                        AmenSyncHubCard {
+                            showAmenSync = true
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.top, 14)
+                        .opacity(cardsVisible ? 1 : 0)
+                        .offset(y: cardsVisible ? 0 : 20)
+                        .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.28), value: cardsVisible)
 
                         // Faith Reel Studio — now live
                         FaithReelLiveCard {
@@ -152,6 +163,9 @@ struct StudioHubView: View {
             }
             .fullScreenCover(isPresented: $showFaithReel) {
                 FaithReelStudioView()
+            }
+            .fullScreenCover(isPresented: $showAmenSync) {
+                AmenSyncEntryView()
             }
         }
         .modelContainer(for: StudioDraft.self)

@@ -616,7 +616,7 @@ struct UserProfileSheet: View {
                                 .font(.custom("OpenSans-Bold", size: 18))
                                 .padding(.horizontal)
                             
-                            FlowLayout(spacing: 8) {
+                            AMENFlowLayout(spacing: 8) {
                                 ForEach(user.interests, id: \.self) { interest in
                                     Text(interest)
                                         .font(.custom("OpenSans-SemiBold", size: 13))

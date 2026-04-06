@@ -9,7 +9,7 @@
 
 import SwiftUI
 
-struct FlowLayout: Layout {
+struct AMENFlowLayout: Layout {
     var spacing: CGFloat = 8
     var horizontalSpacing: CGFloat?
     var verticalSpacing: CGFloat?
@@ -105,7 +105,7 @@ struct FlowLayout: Layout {
                 Text("Simple Flow Layout")
                     .font(.headline)
                 
-                FlowLayout(spacing: 8) {
+                AMENFlowLayout(spacing: 8) {
                     ForEach(["Prayer", "Faith", "Hope", "Love", "Grace", "Mercy", "Worship", "Praise"], id: \.self) { tag in
                         Text("#\(tag)")
                             .font(.systemScaled(14, weight: .semibold))
@@ -125,7 +125,7 @@ struct FlowLayout: Layout {
                 Text("Mixed Sizes")
                     .font(.headline)
                 
-                FlowLayout(spacing: 10) {
+                AMENFlowLayout(spacing: 10) {
                     ForEach(["Short", "Medium Length Tag", "X", "Another Long Tag Here", "Hi", "Test"], id: \.self) { tag in
                         Text(tag)
                             .font(.systemScaled(15, weight: .medium))
@@ -145,7 +145,7 @@ struct FlowLayout: Layout {
                 Text("Custom Spacing")
                     .font(.headline)
                 
-                FlowLayout(horizontalSpacing: 16, verticalSpacing: 12) {
+                AMENFlowLayout(horizontalSpacing: 16, verticalSpacing: 12) {
                     ForEach(1...10, id: \.self) { number in
                         Text("\(number)")
                             .font(.systemScaled(16, weight: .bold))

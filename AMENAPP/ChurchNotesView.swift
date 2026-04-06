@@ -112,6 +112,11 @@ struct ChurchNotesView: View {
     }
     
     var body: some View {
+        bodyContent
+    }
+
+    @ViewBuilder
+    private var bodyContent: some View {
         ZStack {
             // AMEN Liquid Glass — warm pearl base
             Color(.systemGroupedBackground)
@@ -133,6 +138,15 @@ struct ChurchNotesView: View {
                     notes: notesService.notes
                 )
                 
+                // Smart Header Orchestrator (feature-flagged, off by default)
+                SmartHeaderOrchestrator(
+                    screenType: .church,
+                    userName: Auth.auth().currentUser?.displayName ?? "",
+                    intentMode: nil,
+                    scrollOffset: max(0, -scrollOffset),
+                    hasVerseReady: DailyVerseGenkitService.shared.todayVerse != nil
+                )
+
                 // Content with minimal list design or community feed
                 Group {
                     if selectedFilter == .community {
@@ -276,6 +290,11 @@ private struct ChurchNotesAnimatedGradientBackground: View {
     @State private var animationPhase: CGFloat = 0
     
     var body: some View {
+        bodyContent
+    }
+
+    @ViewBuilder
+    private var bodyContent: some View {
         ZStack {
             // Base gradient - warm cream to brown inspired by design
             LinearGradient(
@@ -1567,6 +1586,11 @@ struct NewChurchNoteView: View {
     }
     
     var body: some View {
+        bodyContent
+    }
+
+    @ViewBuilder
+    private var bodyContent: some View {
         ZStack {
             // Dark gradient background
             LinearGradient(
@@ -1750,7 +1774,7 @@ struct NewChurchNoteView: View {
                                 .foregroundStyle(.white.opacity(0.9))
                             
                             if !tags.isEmpty {
-                                FlowLayout(spacing: 8) {
+                                AMENFlowLayout(spacing: 8) {
                                     ForEach(tags, id: \.self) { tag in
                                         TagPill(tag: tag) {
                                             withAnimation {
@@ -2111,6 +2135,7 @@ struct ChurchNoteDetailView: View {
     @State private var showDeleteConfirmation = false
     @State private var activeSheet: ChurchNoteDetailSheet?
     @State private var showCopiedToast = false
+    @State private var showPrayerSaved = false
     @State private var localWorshipSongs: [WorshipSongReference] = []
 
     var body: some View {
@@ -2223,7 +2248,7 @@ struct ChurchNoteDetailView: View {
                             }
                             
                             // Metadata Pills
-                            FlowLayout(spacing: 10) {
+                            AMENFlowLayout(spacing: 10) {
                                 if let churchName = note.churchName, !churchName.isEmpty {
                                     MetadataPill(icon: "building.2", text: churchName)
                                 }
@@ -2275,7 +2300,7 @@ struct ChurchNoteDetailView: View {
                                     .font(AMENFont.bold(18))
                                     .foregroundStyle(.white.opacity(0.9))
 
-                                FlowLayout(spacing: 10) {
+                                AMENFlowLayout(spacing: 10) {
                                     ForEach(note.tags, id: \.self) { tag in
                                         Text("#\(tag)")
                                             .font(AMENFont.semiBold(15))
@@ -2351,6 +2376,80 @@ struct ChurchNoteDetailView: View {
         }
     }
     
+    private func defaultPrayerFocusTextLocal(from note: ChurchNote) -> String {
+        if let scripture = note.scripture, !scripture.isEmpty {
+            return "Pray through \(scripture)"
+        }
+        let trimmed = note.content.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+        if let sentenceEnd = trimmed.firstIndex(of: ".") {
+            return String(trimmed[..<sentenceEnd]).prefix(120) + "…"
+        }
+        return String(trimmed.prefix(120))
+    }
+
+    private var prayerFocusSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Button {
+                let focusText = defaultPrayerFocusTextLocal(from: note)
+                PrayerFocusStore.shared.saveFocus(text: focusText, noteId: note.id)
+                let haptic = UINotificationFeedbackGenerator()
+                haptic.notificationOccurred(.success)
+                withAnimation(.easeOut(duration: 0.25)) {
+                    showPrayerSaved = true
+                }
+                Task {
+                    try? await Task.sleep(nanoseconds: 1_400_000_000)
+                    await MainActor.run {
+                        withAnimation(.easeOut(duration: 0.25)) {
+                            showPrayerSaved = false
+                        }
+                    }
+                }
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "hands.sparkles")
+                        .font(.systemScaled(14, weight: .semibold))
+                    Text("Save to this week’s prayer focus")
+                        .font(.systemScaled(14, weight: .semibold))
+                }
+                .foregroundStyle(.black)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(
+                    Capsule()
+                        .fill(.thinMaterial)
+                        .overlay(Capsule().strokeBorder(Color.black.opacity(0.08), lineWidth: 0.75))
+                )
+            }
+            .buttonStyle(.plain)
+
+            if showPrayerSaved {
+                Text("Saved to prayer focus")
+                    .font(.systemScaled(12, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .transition(.opacity)
+            }
+        }
+        .padding(.horizontal, 20)
+    }
+
+    private func defaultPrayerFocusText(from note: ChurchNote) -> String {
+        if let scripture = note.scripture, !scripture.isEmpty {
+            return "Pray through \(scripture)"
+        }
+        if !note.keyPoints.isEmpty {
+            return note.keyPoints[0]
+        }
+        let trimmedContent = note.content.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+        if !trimmedContent.isEmpty {
+            if let firstLine = trimmedContent.split(separator: "\n").first {
+                return String(firstLine)
+            }
+            return trimmedContent
+        }
+        return note.title
+    }
+
     private func generateShareText() -> String {
         var text = "📝 \(note.title)\n\n"
         
@@ -4484,7 +4583,7 @@ struct ElegantChurchNoteReadView: View {
                         
                         // Tags if available
                         if !churchNote.tags.isEmpty {
-                            FlowLayout(spacing: 8) {
+                            AMENFlowLayout(spacing: 8) {
                                 ForEach(churchNote.tags, id: \.self) { tag in
                                     Text("#\(tag)")
                                         .font(.systemScaled(14, weight: .medium))
@@ -5408,6 +5507,29 @@ struct MinimalNotesList: View {
             }
             .frame(height: 0)
 
+            if let insights = ChurchNotesInsights.make(from: notes) {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Your rhythm")
+                        .font(.systemScaled(13, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 2)
+
+                    if let rhythm = insights.attendanceRhythm {
+                        AttendanceRhythmCard(title: rhythm.title, subtitle: rhythm.subtitle)
+                    }
+
+                    if let focus = insights.prayerFocus {
+                        PrayerFocusCard(text: focus.text)
+                    }
+
+                    if !insights.favoriteThemes.isEmpty {
+                        FavoriteThemesRow(themes: insights.favoriteThemes)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 6)
+            }
+
             LazyVStack(spacing: 10) {
                 ForEach(notes) { note in
                     MinimalNoteRow(
@@ -6055,6 +6177,196 @@ struct MinimalNewNoteSheet: View {
     }
 }
 
+// MARK: - Church Notes Insights (Private)
+
+private struct ChurchNotesInsights {
+    struct Rhythm {
+        let title: String
+        let subtitle: String
+    }
+    struct PrayerFocus {
+        let text: String
+    }
+
+    let attendanceRhythm: Rhythm?
+    let favoriteThemes: [String]
+    let prayerFocus: PrayerFocus?
+
+    static func make(from notes: [ChurchNote]) -> ChurchNotesInsights? {
+        guard !notes.isEmpty else { return nil }
+
+        let rhythm = AttendanceRhythmInsights.compute(from: notes)
+        let themes = FavoriteThemeInsights.compute(from: notes)
+        let focus = PrayerFocusStore.shared.latestFocus()
+
+        if rhythm == nil && themes.isEmpty && focus == nil { return nil }
+        return ChurchNotesInsights(attendanceRhythm: rhythm, favoriteThemes: themes, prayerFocus: focus)
+    }
+}
+
+private struct AttendanceRhythmInsights {
+    static func compute(from notes: [ChurchNote]) -> ChurchNotesInsights.Rhythm? {
+        let dates = notes.map { $0.date }.sorted(by: >)
+        guard let mostRecent = dates.first else { return nil }
+
+        let calendar = Calendar.current
+        let weeks = dates.map { calendar.dateComponents([.weekOfYear, .yearForWeekOfYear], from: $0) }
+        let uniqueWeeks = Set(weeks.compactMap { comp -> String? in
+            guard let week = comp.weekOfYear, let year = comp.yearForWeekOfYear else { return nil }
+            return "\(year)-\(week)"
+        })
+        let streak = computeWeeklyStreak(from: dates)
+
+        let title: String
+        if streak >= 3 {
+            title = "\(streak)-week rhythm"
+        } else if streak == 2 {
+            title = "2-week rhythm"
+        } else {
+            title = "Recent reflection"
+        }
+
+        let subtitle = "\(uniqueWeeks.count) weeks reflected · last note \(mostRecent.formatted(.dateTime.month(.abbreviated).day()))"
+        return ChurchNotesInsights.Rhythm(title: title, subtitle: subtitle)
+    }
+
+    private static func computeWeeklyStreak(from dates: [Date]) -> Int {
+        let calendar = Calendar.current
+        guard let mostRecent = dates.first else { return 0 }
+        var streak = 0
+        var current = mostRecent
+
+        while true {
+            let startOfWeek = calendar.dateInterval(of: .weekOfYear, for: current)?.start
+            guard let weekStart = startOfWeek else { break }
+            let hasNoteThisWeek = dates.contains { date in
+                let interval = calendar.dateInterval(of: .weekOfYear, for: date)
+                return interval?.contains(weekStart) ?? false
+            }
+            if !hasNoteThisWeek { break }
+            streak += 1
+            guard let prevWeek = calendar.date(byAdding: .weekOfYear, value: -1, to: weekStart) else { break }
+            current = prevWeek
+        }
+        return streak
+    }
+}
+
+private struct FavoriteThemeInsights {
+    static func compute(from notes: [ChurchNote]) -> [String] {
+        var counts: [String: Int] = [:]
+        notes.forEach { note in
+            let tags = (note.tags + note.claudeTags).map { $0.lowercased() }
+            for tag in tags {
+                counts[tag, default: 0] += 1
+            }
+        }
+        return counts
+            .sorted { $0.value > $1.value }
+            .prefix(5)
+            .map { $0.key.capitalized }
+    }
+}
+
+private final class PrayerFocusStore {
+    static let shared = PrayerFocusStore()
+    private let storageKey = "churchNotesPrayerFocus"
+
+    private init() {}
+
+    func saveFocus(text: String, noteId: String?) {
+        let item = PrayerFocusItem(id: UUID().uuidString, text: text, noteId: noteId, createdAt: Date())
+        var items = loadAll()
+        items.insert(item, at: 0)
+        persist(items: items)
+    }
+
+    func latestFocus() -> ChurchNotesInsights.PrayerFocus? {
+        guard let item = loadAll().first else { return nil }
+        return ChurchNotesInsights.PrayerFocus(text: item.text)
+    }
+
+    private func loadAll() -> [PrayerFocusItem] {
+        guard let data = UserDefaults.standard.data(forKey: storageKey) else { return [] }
+        return (try? JSONDecoder().decode([PrayerFocusItem].self, from: data)) ?? []
+    }
+
+    private func persist(items: [PrayerFocusItem]) {
+        guard let data = try? JSONEncoder().encode(items) else { return }
+        UserDefaults.standard.set(data, forKey: storageKey)
+    }
+}
+
+private struct PrayerFocusItem: Codable {
+    let id: String
+    let text: String
+    let noteId: String?
+    let createdAt: Date
+}
+
+private struct AttendanceRhythmCard: View {
+    let title: String
+    let subtitle: String
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "calendar.circle.fill")
+                .font(.systemScaled(16))
+                .foregroundStyle(.black.opacity(0.75))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.systemScaled(14, weight: .semibold))
+                    .foregroundStyle(.primary)
+                Text(subtitle)
+                    .font(.systemScaled(12))
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(RoundedRectangle(cornerRadius: 12).fill(.thinMaterial).overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.6)))
+    }
+}
+
+private struct PrayerFocusCard: View {
+    let text: String
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "hands.sparkles")
+                .font(.systemScaled(16))
+                .foregroundStyle(.black.opacity(0.75))
+            Text(text)
+                .font(.systemScaled(13, weight: .medium))
+                .foregroundStyle(.primary)
+                .lineLimit(2)
+            Spacer()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(RoundedRectangle(cornerRadius: 12).fill(.ultraThinMaterial).overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.6)))
+    }
+}
+
+private struct FavoriteThemesRow: View {
+    let themes: [String]
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ForEach(themes.prefix(4), id: \.self) { theme in
+                Text(theme)
+                    .font(.systemScaled(11, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Capsule().fill(Color.black.opacity(0.05)))
+            }
+            Spacer(minLength: 0)
+        }
+    }
+}
+
 // MARK: - Rich Text Editor
 struct RichTextEditor: UIViewRepresentable {
     @Binding var text: String
@@ -6156,6 +6468,7 @@ struct MinimalNoteDetailSheet: View {
     @State private var showShareSheet = false
     @State private var showCopiedToast = false
     @State private var localWorshipSongs: [WorshipSongReference] = []
+    @State private var showPrayerSaved = false
 
     // AI Features
     @State private var noteSummary: NoteSummary?
@@ -6165,6 +6478,11 @@ struct MinimalNoteDetailSheet: View {
     @State private var showAISection = false
     
     var body: some View {
+        bodyContent
+    }
+
+    @ViewBuilder
+    private var bodyContent: some View {
         ZStack {
             Color(.systemGroupedBackground)
                 .ignoresSafeArea()
@@ -6440,6 +6758,8 @@ struct MinimalNoteDetailSheet: View {
                             .lineSpacing(6)
                             .padding(.horizontal, 20)
 
+                        prayerFocusSection
+
                         // Worship songs
                         if !localWorshipSongs.isEmpty {
                             SavedWorshipSongsSection(
@@ -6472,7 +6792,67 @@ struct MinimalNoteDetailSheet: View {
             ShareSheet(items: [generateShareText()])
         }
     }
-    
+
+    private var prayerFocusSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Button {
+                let focusText = defaultPrayerFocusTextLocal(from: note)
+                PrayerFocusStore.shared.saveFocus(text: focusText, noteId: note.id)
+                let haptic = UINotificationFeedbackGenerator()
+                haptic.notificationOccurred(.success)
+                withAnimation(.easeOut(duration: 0.25)) {
+                    showPrayerSaved = true
+                }
+                Task {
+                    try? await Task.sleep(nanoseconds: 1_400_000_000)
+                    await MainActor.run {
+                        withAnimation(.easeOut(duration: 0.25)) {
+                            showPrayerSaved = false
+                        }
+                    }
+                }
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "hands.sparkles")
+                        .font(.systemScaled(14, weight: .semibold))
+                    Text("Save to this week’s prayer focus")
+                        .font(.systemScaled(14, weight: .semibold))
+                }
+                .foregroundStyle(.black)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(
+                    Capsule()
+                        .fill(.thinMaterial)
+                        .overlay(Capsule().strokeBorder(Color.black.opacity(0.08), lineWidth: 0.75))
+                )
+            }
+            .buttonStyle(.plain)
+
+            if showPrayerSaved {
+                Text("Saved to prayer focus")
+                    .font(.systemScaled(12, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .transition(.opacity)
+            }
+        }
+        .padding(.horizontal, 20)
+    }
+
+    private func defaultPrayerFocusTextLocal(from note: ChurchNote) -> String {
+        if let scripture = note.scripture, !scripture.isEmpty {
+            return "Pray through \(scripture)"
+        }
+        if !note.keyPoints.isEmpty {
+            return note.keyPoints[0]
+        }
+        let trimmed = note.content.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+        if let sentenceEnd = trimmed.firstIndex(of: ".") {
+            return String(trimmed[..<sentenceEnd]).prefix(120) + "…"
+        }
+        return String(trimmed.prefix(120))
+    }
+
     private func generateShareText() -> String {
         var text = "📝 \(note.title)\n\n"
         

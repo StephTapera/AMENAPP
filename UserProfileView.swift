@@ -3735,7 +3735,7 @@ struct InterestTagsView: View {
                         .foregroundStyle(.black.opacity(0.5))
                 }
                 
-                FlowLayout(spacing: 8) {
+                AMENFlowLayout(spacing: 8) {
                     ForEach(Array(interests.enumerated()), id: \.offset) { index, interest in
                         HandDrawnInterestTag(interest: interest, index: index)
                     }

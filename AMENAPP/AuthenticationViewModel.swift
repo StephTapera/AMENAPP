@@ -615,6 +615,11 @@ class AuthenticationViewModel: ObservableObject {
             }
         }
 
+        // ── Badge count reset ────────────────────────────────────────────────
+        // Clear the app icon badge so the next user on this device doesn't see
+        // a stale notification count from the previous session.
+        BadgeCountManager.shared.clearBadge()
+
         // ── Auth-ViewModel-owned state ───────────────────────────────────────
         // Clear state that only this ViewModel owns (not covered by AppLifecycleManager).
         cleanupPhoneAuthState()           // phoneVerificationId, phoneNumber, resendCooldown

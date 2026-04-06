@@ -73,7 +73,7 @@ struct AISearchSuggestionsPanel: View {
                         .font(.custom("OpenSans-SemiBold", size: 12))
                         .foregroundStyle(.secondary)
                     
-                    FlowLayout(spacing: 8) {
+                    AMENFlowLayout(spacing: 8) {
                         ForEach(relatedTopics, id: \.self) { topic in
                             Button {
                                 onSuggestionTap(topic)
@@ -142,7 +142,7 @@ struct BiblicalSearchCard: View {
                         .font(.custom("OpenSans-Bold", size: 14))
                         .foregroundStyle(.secondary)
                     
-                    FlowLayout(spacing: 8) {
+                    AMENFlowLayout(spacing: 8) {
                         ForEach(result.keyVerses, id: \.self) { verse in
                             VerseChip(reference: verse)
                         }

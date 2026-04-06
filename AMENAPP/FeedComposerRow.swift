@@ -65,18 +65,17 @@ struct FeedComposerRow: View {
                         if isPosting {
                             ProgressView()
                                 .scaleEffect(0.75)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 6)
                         } else {
                             Text("Post")
-                                .font(.systemScaled(13, weight: .semibold))
-                                .foregroundStyle(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                                    ? Color.primary.opacity(0.22)
-                                    : Color.primary.opacity(0.85))
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 6)
                         }
                     }
+                    .buttonStyle(.amenGlass(
+                        role: .primary,
+                        size: .compact,
+                        shape: .capsule,
+                        background: .balanced,
+                        placement: .inline
+                    ))
                     .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isPosting)
 
                 } else {

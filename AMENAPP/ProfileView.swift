@@ -90,6 +90,10 @@ struct ProfileView: View {
     @State private var isRefreshing = false
     @State private var avatarPressed = false
     
+    @AppStorage("profileChurchId") private var profileChurchId: String = ""
+    @AppStorage("profileChurchName") private var profileChurchName: String = ""
+    @AppStorage("profileChurchVisibility") private var profileChurchVisibility: String = "private"
+    
     // PERFORMANCE: Profile data caching to prevent re-fetches
     @State private var lastProfileLoad: Date?
     private let cacheValidityDuration: TimeInterval = 60 // 60 seconds
@@ -170,6 +174,9 @@ struct ProfileView: View {
     @State private var showLoadError = false
     @State private var loadErrorMessage = ""
 
+    // Quick sign out
+    @State private var showSignOutConfirmation = false
+
     // P0-2: Track pending post-creation refresh so rapid taps cancel the previous one
     @State private var refreshAfterCreationTask: Task<Void, Never>?
 
@@ -183,73 +190,13 @@ struct ProfileView: View {
     }
 
     private var profileRootView: some View {
-        profileScrollView
-            .navigationTitle("")  // Empty to use custom title
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar { profileToolbarContent }
-        // Single sheet presentation — avoids "only one sheet at a time" warnings
-        // and prevents re-initialisation of sheet content when not presented.
-        .sheet(item: $activeSheet) { sheet in
-            switch sheet {
-            case .settings:
-                AMENSettingsView()
-            case .editProfile:
-                EditProfileView(profileData: $profileData)
-            case .qrCode:
-                ProfileQRCodeView(username: "@\(profileData.username)", name: profileData.name)
-            case .fullScreenAvatar:
-                FullScreenAvatarView(name: profileData.name, initials: profileData.initials, profileImageURL: profileData.profileImageURL)
-            case .loginHistory:
-                LoginHistoryView()
-            case .followersList:
-                if let userId = Auth.auth().currentUser?.uid {
-                    SocialFollowersListView(userId: userId, listType: .followers)
-                } else {
-                    Text("Error: Not signed in").padding()
-                }
-            case .followingList:
-                if let userId = Auth.auth().currentUser?.uid {
-                    SocialFollowersListView(userId: userId, listType: .following)
-                } else {
-                    Text("Error: Not signed in").padding()
-                }
-            case .journey:
-                NavigationStack {
-                    LongitudinalSelfView()
-                }
-            case .followRequests:
-                FollowRequestsView()
-            case .changePhoto:
-                ProfilePhotoEditView(
-                    currentImageURL: profileData.profileImageURL,
-                    onPhotoUpdated: { newURL in
-                        profileData.profileImageURL = newURL
-                        lastProfileLoad = nil
-                    }
-                )
+        profilePresentationHost(profileBaseView)
+            // P1-6: Bust profile cache when EditProfileView saves changes
+            .onReceive(NotificationCenter.default.publisher(for: Notification.Name("profileDataUpdated"))) { _ in
+                lastProfileLoad = nil
+                Task { await loadProfileData() }
             }
-        }
-        // Legacy bool bindings: mirror them into activeSheet so old call sites still work
-        .onChange(of: showSettings) { _, v in if v { activeSheet = .settings; showSettings = false } }
-        .onChange(of: showEditProfile) { _, v in if v { activeSheet = .editProfile; showEditProfile = false } }
-        .onChange(of: showQRCode) { _, v in if v { activeSheet = .qrCode; showQRCode = false } }
-        .onChange(of: showFullScreenAvatar) { _, v in if v { activeSheet = .fullScreenAvatar; showFullScreenAvatar = false } }
-        .onChange(of: showLoginHistory) { _, v in if v { activeSheet = .loginHistory; showLoginHistory = false } }
-        .onChange(of: showFollowersList) { _, v in if v { activeSheet = .followersList; showFollowersList = false } }
-        .onChange(of: showFollowingList) { _, v in if v { activeSheet = .followingList; showFollowingList = false } }
-        // P0-1: Surface profile load failures so the user can retry
-        .alert("Couldn't Load Profile", isPresented: $showLoadError) {
-            Button("Retry") { Task { await loadProfileData() } }
-            Button("Cancel", role: .cancel) { }
-        } message: {
-            Text(loadErrorMessage)
-        }
-        // P1-6: Bust profile cache when EditProfileView saves changes
-        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("profileDataUpdated"))) { _ in
-            lastProfileLoad = nil
-            Task { await loadProfileData() }
-        }
-        .task {
+            .task {
             // Load profile data BEFORE view appears (ensures username shows immediately)
             dlog("👁️ ProfileView task started")
             printDataState(context: "task - Before")
@@ -340,6 +287,83 @@ struct ProfileView: View {
             listenersActive = false
             dlog("   ✅ ProfileView cleanup complete")
         }
+    }
+
+    private var profileBaseView: some View {
+        profileScrollView
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { profileToolbarContent }
+    }
+
+    @ViewBuilder
+    private func profilePresentationHost<Content: View>(_ content: Content) -> some View {
+        content
+            // Single sheet presentation — avoids "only one sheet at a time" warnings
+            // and prevents re-initialisation of sheet content when not presented.
+            .sheet(item: $activeSheet) { sheet in
+                switch sheet {
+                case .settings:
+                    AMENSettingsView()
+                case .editProfile:
+                    EditProfileView(profileData: $profileData)
+                case .qrCode:
+                    ProfileQRCodeView(username: "@\(profileData.username)", name: profileData.name)
+                case .fullScreenAvatar:
+                    FullScreenAvatarView(name: profileData.name, initials: profileData.initials, profileImageURL: profileData.profileImageURL)
+                case .loginHistory:
+                    LoginHistoryView()
+                case .followersList:
+                    if let userId = Auth.auth().currentUser?.uid {
+                        SocialFollowersListView(userId: userId, listType: .followers)
+                    } else {
+                        Text("Error: Not signed in").padding()
+                    }
+                case .followingList:
+                    if let userId = Auth.auth().currentUser?.uid {
+                        SocialFollowersListView(userId: userId, listType: .following)
+                    } else {
+                        Text("Error: Not signed in").padding()
+                    }
+                case .journey:
+                    NavigationStack {
+                        LongitudinalSelfView()
+                    }
+                case .followRequests:
+                    FollowRequestsView()
+                case .changePhoto:
+                    ProfilePhotoEditView(
+                        currentImageURL: profileData.profileImageURL,
+                        onPhotoUpdated: { newURL in
+                            profileData.profileImageURL = newURL
+                            lastProfileLoad = nil
+                        }
+                    )
+                }
+            }
+            // Legacy bool bindings: mirror them into activeSheet so old call sites still work
+            .onChange(of: showSettings) { _, v in if v { activeSheet = .settings; showSettings = false } }
+            .onChange(of: showEditProfile) { _, v in if v { activeSheet = .editProfile; showEditProfile = false } }
+            .onChange(of: showQRCode) { _, v in if v { activeSheet = .qrCode; showQRCode = false } }
+            .onChange(of: showFullScreenAvatar) { _, v in if v { activeSheet = .fullScreenAvatar; showFullScreenAvatar = false } }
+            .onChange(of: showLoginHistory) { _, v in if v { activeSheet = .loginHistory; showLoginHistory = false } }
+            .onChange(of: showFollowersList) { _, v in if v { activeSheet = .followersList; showFollowersList = false } }
+            .onChange(of: showFollowingList) { _, v in if v { activeSheet = .followingList; showFollowingList = false } }
+            // P0-1: Surface profile load failures so the user can retry
+            .alert("Couldn't Load Profile", isPresented: $showLoadError) {
+                Button("Retry") { Task { await loadProfileData() } }
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                Text(loadErrorMessage)
+            }
+            .alert("Sign Out?", isPresented: $showSignOutConfirmation) {
+                Button("Cancel", role: .cancel) { }
+                Button("Sign Out", role: .destructive) {
+                    authViewModel.signOut()
+                }
+            } message: {
+                Text("You’ll need to sign in again to access your account.")
+            }
     }
 
     private var profileScrollView: some View {
@@ -472,70 +496,52 @@ struct ProfileView: View {
                     }
             }
 
-            // My Journey button — replaces notification bell
-            Button {
-                activeSheet = .journey
-                HapticManager.impact(style: .light)
-            } label: {
-                Image(systemName: "chart.line.uptrend.xyaxis")
-                    .font(.systemScaled(16, weight: .semibold))
-                    .foregroundStyle(.primary)
-            }
+            Menu {
+                Button {
+                    activeSheet = .journey
+                    HapticManager.impact(style: .light)
+                } label: {
+                    Label("My Journey", systemImage: "chart.line.uptrend.xyaxis")
+                }
 
-            // Conditionally show the 4 buttons when expanded
-            if isToolbarExpanded {
                 Button {
                     showLoginHistory = true
                 } label: {
-                    Image(systemName: "clock.arrow.circlepath")
-                        .font(.systemScaled(16, weight: .semibold))
-                        .foregroundStyle(.primary)
+                    Label("Login History", systemImage: "clock.arrow.circlepath")
                 }
-                .transition(.scale.combined(with: .opacity))
 
                 Button {
                     showQRCode = true
                 } label: {
-                    Image(systemName: "qrcode")
-                        .font(.systemScaled(16, weight: .semibold))
-                        .foregroundStyle(.primary)
+                    Label("Profile QR", systemImage: "qrcode")
                 }
-                .transition(.scale.combined(with: .opacity))
 
                 Button {
                     shareProfile()
                 } label: {
-                    Image(systemName: "square.and.arrow.up")
-                        .font(.systemScaled(16, weight: .semibold))
-                        .foregroundStyle(.primary)
+                    Label("Share Profile", systemImage: "square.and.arrow.up")
                 }
-                .transition(.scale.combined(with: .opacity))
 
                 Button {
                     showSettings = true
                 } label: {
-                    Image(systemName: "line.3.horizontal")
-                        .font(.systemScaled(16, weight: .semibold))
-                        .foregroundStyle(.primary)
+                    Label("Settings", systemImage: "line.3.horizontal")
                 }
-                .transition(.scale.combined(with: .opacity))
-            }
 
-            // Toggle button with enhanced animation
-            Button {
-                withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.75, blendDuration: 0.2))) {
-                    isToolbarExpanded.toggle()
+                Divider()
+
+                Button(role: .destructive) {
+                    showSignOutConfirmation = true
+                    HapticManager.impact(style: .light)
+                } label: {
+                    Label("Sign Out", systemImage: "rectangle.portrait.and.arrow.right")
                 }
-                HapticManager.impact(style: .light)
             } label: {
-                // Icon morphs between ellipsis ↔ xmark with liquid dissolve-reform
-                Image(systemName: isToolbarExpanded ? "xmark" : "ellipsis")
+                Image(systemName: "ellipsis")
                     .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(.primary)
                     .frame(width: 28, height: 28)
                     .contentShape(Rectangle())
-                    .contentTransition(.symbolEffect(.replace.magic(fallback: .replace)))
-                    .scaleEffect(isToolbarExpanded ? 0.95 : 1.0)
             }
             .buttonStyle(.plain)
         }
@@ -1744,6 +1750,16 @@ struct ProfileView: View {
         .padding(.bottom, 0)  // ✅ Zero bottom padding - feed starts RIGHT after tabs
     }
     
+    private var isViewingOwnProfile: Bool {
+        let cachedUsername = UserDefaults.standard.string(forKey: "cachedUsername") ?? ""
+        return !cachedUsername.isEmpty && profileData.username == cachedUsername
+    }
+    
+    private var shouldShowProfileChurchCapsule: Bool {
+        guard !profileChurchName.isEmpty else { return false }
+        return profileChurchVisibility != "private" || isViewingOwnProfile
+    }
+    
     // 🎯 NEW: Profile Header WITHOUT Tab Selector
     private var profileHeaderViewWithoutTabs: some View {
         VStack(spacing: 6) {
@@ -1866,6 +1882,11 @@ struct ProfileView: View {
                     )
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            
+            if shouldShowProfileChurchCapsule {
+                ChurchNameCapsulePill(churchName: profileChurchName, onTap: {})
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
             
             // Topic chips (Feature 4)
@@ -4285,7 +4306,7 @@ struct FlexibleInterestsView: View {
     let onRemove: (String) -> Void
     
     var body: some View {
-        FlowLayout(spacing: 8) {
+        AMENFlowLayout(spacing: 8) {
             ForEach(interests, id: \.self) { interest in
                 InterestChip(interest: interest) {
                     onRemove(interest)
@@ -6603,7 +6624,7 @@ struct WrappingHStack<Content: View>: View {
     
     var body: some View {
         // Create a flowing text layout
-        FlowLayout(spacing: 4) {
+        AMENFlowLayout(spacing: 4) {
             ForEach(Array(segments.enumerated()), id: \.offset) { _, segment in
                 content(segment)
             }

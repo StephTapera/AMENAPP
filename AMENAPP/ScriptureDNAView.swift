@@ -23,6 +23,11 @@ struct ScriptureDNAView: View {
     }
 
     var body: some View {
+        bodyContent
+    }
+
+    @ViewBuilder
+    private var bodyContent: some View {
         if reference.count > 4 {
             VStack(alignment: .leading, spacing: 0) {
                 // Collapsed header — always visible
@@ -142,7 +147,7 @@ struct ScriptureDNAView: View {
                                 sectionHeader("THEMES")
                                     .padding(.horizontal, 16)
 
-                                FlowLayout(spacing: 6) {
+                                AMENFlowLayout(spacing: 6) {
                                     ForEach(result.keyThemes, id: \.self) { theme in
                                         Text(theme)
                                             .font(.caption2)
@@ -277,7 +282,7 @@ private struct WordMapPlaceholderSheet: View {
                         .padding(.horizontal, 32)
 
                     if let result {
-                        FlowLayout(spacing: 8) {
+                        AMENFlowLayout(spacing: 8) {
                             ForEach(result.keyThemes, id: \.self) { theme in
                                 Text(theme)
                                     .font(.subheadline)

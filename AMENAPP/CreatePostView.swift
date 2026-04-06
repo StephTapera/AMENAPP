@@ -667,38 +667,18 @@ struct CreatePostView: View {
 
                         Image(systemName: scheduledDate != nil ? "calendar" : "arrow.up")
                             .font(.systemScaled(11, weight: .bold))
-                            .foregroundStyle(canPost ? Color.black : Color.black.opacity(0.35))
                     }
 
                     Text(scheduledDate != nil ? "Schedule" : "Post")
-                        .font(.systemScaled(16, weight: .bold))
-                        .foregroundStyle(canPost ? Color.black : Color.black.opacity(0.35))
                 }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 7)
-                .background(
-                    Capsule()
-                        .fill(.ultraThinMaterial)
-                        .overlay(
-                            Capsule()
-                                .fill(
-                                    LinearGradient(
-                                        colors: [
-                                            Color.white.opacity(canPost ? 0.78 : 0.60),
-                                            Color.white.opacity(canPost ? 0.44 : 0.30)
-                                        ],
-                                        startPoint: .top,
-                                        endPoint: .bottom
-                                    )
-                                )
-                        )
-                        .overlay(
-                            Capsule()
-                                .stroke(Color.white.opacity(canPost ? 0.90 : 0.70), lineWidth: 1)
-                        )
-                        .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 4)
-                )
             }
+            .buttonStyle(.amenGlass(
+                role: .primary,
+                size: .compact,
+                shape: .capsule,
+                background: .balanced,
+                placement: .overlay
+            ))
             .disabled(!canPost)
         }
     }
@@ -1555,17 +1535,6 @@ struct CreatePostView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(hasSensitiveContent ? "Remove content warning" : "Mark as sensitive")
-
-                // Schedule button
-                Button {
-                    showingScheduleSheet = true
-                } label: {
-                    Image(systemName: scheduledDate != nil ? "calendar.badge.clock" : "calendar")
-                        .font(.systemScaled(15, weight: .medium))
-                        .foregroundStyle(scheduledDate != nil ? Color(hex: "6B48FF") : Color.primary.opacity(0.55))
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(scheduledDate != nil ? "Change scheduled time" : "Schedule post")
 
                 // Berean AI tone checker — only when text exists
                 if !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -4503,6 +4472,7 @@ struct CirclePostButton: View {
     @State private var pulseScale: CGFloat = 1
     @State private var pulseOpacity: Double = 0
     @State private var ringProgress: CGFloat = 0
+    @State private var pulseTimer: Timer?
     
     var body: some View {
         ZStack {
@@ -4518,8 +4488,9 @@ struct CirclePostButton: View {
                             pulseScale = 1.3
                             pulseOpacity = 0
                         }
-                        // Reset pulse for continuous animation
-                        Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { _ in
+                        // Reset pulse for continuous animation — timer is stored and invalidated on disappear
+                        pulseTimer?.invalidate()
+                        pulseTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { _ in
                             pulseScale = 1
                             pulseOpacity = 0.3
                             withAnimation(.easeOut(duration: 2)) {
@@ -4527,6 +4498,10 @@ struct CirclePostButton: View {
                                 pulseOpacity = 0
                             }
                         }
+                    }
+                    .onDisappear {
+                        pulseTimer?.invalidate()
+                        pulseTimer = nil
                     }
             }
             
@@ -7293,6 +7268,7 @@ private struct BereanToneButton: View {
                 } else {
                     Image("amen-logo")
                         .resizable()
+                        .renderingMode(.original)
                         .scaledToFit()
                         .frame(width: 28, height: 28)
                         .blendMode(.multiply)

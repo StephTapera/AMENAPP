@@ -24,6 +24,7 @@ struct BereanAIAssistantView: View {
     @Environment(\.scenePhase) private var scenePhase  // FIX 4: Detect background/foreground
     @StateObject private var viewModel = BereanViewModel()
     @StateObject private var notesService = ChurchNotesService()
+    @StateObject private var liquidComposerVM = BereanComposerViewModel()  // Liquid Glass composer state
     @State private var messageText = ""
     @State private var selectedQuickActionCardType: BereanCardType = .generic
     @State private var showSuggestions = true
@@ -435,6 +436,9 @@ struct BereanAIAssistantView: View {
                 }
                 if scrolledDown { userHasScrolledUp = true }
                 else if backAtTop { userHasScrolledUp = false }
+                
+                // Update Liquid Glass composer with scroll offset
+                liquidComposerVM.updateScroll(value)
             }
     }
 
@@ -579,7 +583,7 @@ struct BereanAIAssistantView: View {
 
     private var rootView: some View {
         ZStack {
-            Color(white: 0.97)
+            BereanColor.background
                 .ignoresSafeArea()
             
             VStack(spacing: 0) {
@@ -1224,35 +1228,20 @@ struct BereanAIAssistantView: View {
         HStack(spacing: 12) {
             // Minimal elegant icon
             ZStack {
-                // Soft glow when thinking
                 Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color(red: 1.0, green: 0.7, blue: 0.5).opacity(isThinking ? 0.3 : 0.15),
-                                Color(red: 0.6, green: 0.5, blue: 0.9).opacity(isThinking ? 0.2 : 0.1)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
+                    .fill(Color.white)
+                    .overlay(
+                        Circle()
+                            .fill(Color.black.opacity(isThinking ? 0.06 : 0.03))
                     )
                     .frame(width: 40, height: 40)
-                    .scaleEffect(isThinking ? 1.1 : 1.0)
-                    .animation(.easeInOut(duration: 2).repeatForever(autoreverses: true), value: isThinking)
-                
-                // Sparkle icon
+                    .scaleEffect(isThinking ? 1.05 : 1.0)
+                    .animation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true), value: isThinking)
+                    .shadow(color: .black.opacity(0.06), radius: 6, y: 2)
+
                 Image(systemName: "sparkles")
                     .font(.systemScaled(18, weight: .light))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [
-                                Color(red: 0.3, green: 0.3, blue: 0.35),
-                                Color(red: 0.25, green: 0.25, blue: 0.3)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
+                    .foregroundStyle(Color(white: 0.2))
                     .symbolEffect(.pulse, options: .repeating, value: isThinking)
             }
             
@@ -1284,19 +1273,7 @@ struct BereanAIAssistantView: View {
         } label: {
             Image(systemName: showSmartFeatures ? "star.circle.fill" : "star.circle")
                 .font(.systemScaled(20, weight: .light))
-                .foregroundStyle(
-                    showSmartFeatures ?
-                        LinearGradient(
-                            colors: [Color(red: 1.0, green: 0.6, blue: 0.4), Color(red: 0.6, green: 0.5, blue: 0.9)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ) :
-                        LinearGradient(
-                            colors: [Color(white: 0.4), Color(white: 0.35)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                )
+                .foregroundStyle(showSmartFeatures ? Color(white: 0.15) : Color(white: 0.45))
                 .frame(width: 32, height: 32)
                 .symbolEffect(.bounce, value: showSmartFeatures)
         }
@@ -1329,21 +1306,9 @@ struct BereanAIAssistantView: View {
                 }
             }
             .foregroundStyle(
-                premiumManager.hasProAccess ?
-                    // Gold gradient for Pro
-                    LinearGradient(
-                        colors: [Color(red: 1.0, green: 0.75, blue: 0.4), Color(red: 1.0, green: 0.6, blue: 0.3)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ) :
-                    // Subtle warning colors for free tier
-                    LinearGradient(
-                        colors: premiumManager.freeMessagesRemaining > 3 ? 
-                            [Color(white: 0.4), Color(white: 0.35)] : 
-                            [Color.orange, Color.red],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
+                premiumManager.hasProAccess
+                    ? Color(white: 0.1)
+                    : (premiumManager.freeMessagesRemaining > 3 ? Color(white: 0.4) : Color.orange)
             )
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
@@ -1352,7 +1317,7 @@ struct BereanAIAssistantView: View {
                     .fill(.ultraThinMaterial)
                     .overlay(Capsule().fill(Color.white.opacity(0.55)))
                     .overlay(Capsule().strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5))
-                    .shadow(color: premiumManager.hasProAccess ? Color(red: 1.0, green: 0.6, blue: 0.3).opacity(0.15) : Color.black.opacity(0.06), radius: 10, y: 3)
+                    .shadow(color: .black.opacity(premiumManager.hasProAccess ? 0.10 : 0.06), radius: 10, y: 3)
             )
         }
     }
@@ -1368,7 +1333,7 @@ struct BereanAIAssistantView: View {
             } label: {
                 Image(systemName: "folder.badge.plus")
                     .font(.systemScaled(15, weight: .medium))
-                    .foregroundStyle(Color(white: 0.22))
+                    .foregroundStyle(BereanColor.textSecondary)
                     .frame(width: 36, height: 36)
                     .background(
                         Circle()
@@ -1388,7 +1353,7 @@ struct BereanAIAssistantView: View {
             } label: {
                 Image(systemName: "clock")
                     .font(.systemScaled(15, weight: .medium))
-                    .foregroundStyle(Color(white: 0.22))
+                    .foregroundStyle(BereanColor.textSecondary)
                     .frame(width: 36, height: 36)
                     .background(
                         Circle()
@@ -1417,7 +1382,7 @@ struct BereanAIAssistantView: View {
             ZStack(alignment: .topTrailing) {
                 Image(systemName: "folder")
                     .font(.systemScaled(16, weight: .medium))
-                    .foregroundStyle(Color(white: 0.22))
+                    .foregroundStyle(BereanColor.textSecondary)
                     .frame(width: 36, height: 36)
                     .background(
                         Circle()
@@ -1430,7 +1395,7 @@ struct BereanAIAssistantView: View {
                 // Unread badge — shows when there are saved conversations
                 if !viewModel.savedConversations.isEmpty {
                     Circle()
-                        .fill(BereanDesign.coral)
+                        .fill(BereanColor.textPrimary)
                         .frame(width: 7, height: 7)
                         .offset(x: 1, y: -1)
                         .transition(.scale.combined(with: .opacity))
@@ -1444,13 +1409,13 @@ struct BereanAIAssistantView: View {
     private var headerBackground: some View {
         ZStack {
             Rectangle().fill(.ultraThinMaterial)
-            Rectangle().fill(Color.white.opacity(0.55))
+            Rectangle().fill(BereanColor.background.opacity(0.85))
 
             // Subtle bottom border
             VStack {
                 Spacer()
                 Rectangle()
-                    .fill(Color(white: 0.82).opacity(0.4))
+                    .fill(BereanColor.separator.opacity(0.6))
                     .frame(height: 0.5)
             }
         }
@@ -1781,29 +1746,7 @@ struct BereanAIAssistantView: View {
 
     private var inputBarView: some View {
         VStack(spacing: 0) {
-            // Mode selector — visible when composer is idle (no text typed).
-            // Hides as soon as the user starts typing so it never clutters the conversation.
-            if messageText.isEmpty {
-                responseModePickerView
-                    .contextMenu {
-                        Section("Session") {
-                            ForEach(BereanSessionMode.allCases, id: \.self) { mode in
-                                Button(mode.rawValue) {
-                                    applySessionMode(mode)
-                                }
-                            }
-                        }
-                        Section("Personality") {
-                            ForEach(BereanPersonalityMode.allCases, id: \.self) { mode in
-                                Button(mode.rawValue) {
-                                    personalityMode = mode
-                                }
-                            }
-                        }
-                    }
-            }
-
-            // Follow-up chips after AI response
+            // Follow-up chips after AI response (above composer)
             if showFollowUps && !followUpSuggestions.isEmpty && messageText.isEmpty && !viewModel.messages.isEmpty {
                 BereanFollowUpView(suggestions: Array(followUpSuggestions.prefix(3))) { item in
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -1820,9 +1763,31 @@ struct BereanAIAssistantView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
 
-            // Transparent Liquid Glass composer card - hero element
-            premiumComposerCard
-                .padding(.horizontal, 16)
+            // New Liquid Glass composer wrapper
+            BereanEnhancedComposerWrapper(
+                messageText: $messageText,
+                isInputFocused: $isInputFocused,
+                isGenerating: $isGenerating,
+                responseMode: $responseMode,
+                followUpSuggestions: $followUpSuggestions,
+                showFollowUps: $showFollowUps,
+                onSend: {
+                    if !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        sendMessage(messageText)
+                    }
+                },
+                onPlusButtonTap: {
+                    handlePlusButtonTap()
+                },
+                onVoice: {
+                    handleVoiceButtonTap()
+                },
+                onStop: {
+                    stopGeneration()
+                },
+                composerVM: liquidComposerVM
+            )
+            .padding(.horizontal, 16)
         }
         .padding(.bottom, 12)
         .animation(.easeOut(duration: 0.25), value: keyboardHeight)
@@ -2277,6 +2242,41 @@ struct BereanAIAssistantView: View {
         // Show quick actions menu
         withAnimation(.easeOut(duration: 0.2)) {
             showPlusMenu = true
+        }
+    }
+    
+    /// Handle Liquid Glass action selection
+    private func handleLiquidGlassAction(_ action: BereanLiquidAction.ActionType) {
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        
+        switch action {
+        case .attachFile:
+            // TODO: Implement file attachment
+            #if DEBUG
+            dlog("📎 Attach file action")
+            #endif
+        case .camera:
+            // TODO: Implement camera
+            #if DEBUG
+            dlog("📷 Camera action")
+            #endif
+        case .voiceNote:
+            handleVoiceButtonTap()
+        case .verseLookup:
+            // TODO: Implement verse lookup
+            #if DEBUG
+            dlog("📖 Verse lookup action")
+            #endif
+        case .summarize:
+            // TODO: Implement summarize
+            #if DEBUG
+            dlog("✨ Summarize action")
+            #endif
+        case .searchScripture:
+            // TODO: Implement scripture search
+            #if DEBUG
+            dlog("🔍 Search scripture action")
+            #endif
         }
     }
     
@@ -3622,6 +3622,7 @@ struct BereanMessageBubbleView: View {
                     HStack(spacing: 5) {
                         Image("amen-logo")
                             .resizable()
+                            .renderingMode(.original)
                             .scaledToFit()
                             .frame(width: 12, height: 12)
                             .blendMode(.multiply)

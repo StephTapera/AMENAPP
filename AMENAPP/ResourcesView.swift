@@ -9,6 +9,8 @@ import SwiftUI
 import FirebaseAuth
 
 struct ResourcesView: View {
+    @ObservedObject private var greetingService = GreetingService.shared
+    @ObservedObject private var featureFlags = AMENFeatureFlags.shared
     @State private var searchText = ""
     @State private var selectedCategory: ResourceCategory = .all
     @FocusState private var isSearchFocused: Bool
@@ -82,6 +84,15 @@ struct ResourcesView: View {
                         }
                         .frame(height: 0)
 
+                        // Smart Header Orchestrator (feature-flagged, off by default)
+                        SmartHeaderOrchestrator(
+                            screenType: .resources,
+                            userName: Auth.auth().currentUser?.displayName ?? "",
+                            intentMode: nil,
+                            scrollOffset: max(0, -scrollOffset),
+                            hasVerseReady: DailyVerseGenkitService.shared.todayVerse != nil
+                        )
+
                         // Header scrolls WITH content (like OpenTable / Messages)
                         headerView
                             .opacity(max(0.0, min(1.0, 1.0 + (scrollOffset / 80.0))))
@@ -116,6 +127,7 @@ struct ResourcesView: View {
             .animation(.easeOut(duration: 0.15), value: searchFilteredResources.count)
             .onAppear {
                 setupKeyboardObservers()
+                greetingService.refreshGreeting()
             }
             .onDisappear {
                 removeKeyboardObservers()
@@ -133,22 +145,23 @@ struct ResourcesView: View {
             scrollOffset = offset
         }
         
-        // Hide header and tab bar when scrolling down
+        // Hide header when scrolling down, but keep tab bar visible in Resources
+        // ResourcesView is a static hub, not an infinite feed, so tab bar stays visible
         if offset < -100 {
             if showHeader {
                 withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.75))) {
                     showHeader = false
                 }
             }
-            tabBarVisible.wrappedValue = false
+            // Don't hide tab bar in Resources — users need quick navigation
         } else if offset >= -30 {
-            // Show header and tab bar when near top
+            // Show header when near top
             if !showHeader {
                 withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.75))) {
                     showHeader = true
                 }
             }
-            tabBarVisible.wrappedValue = true
+            // Tab bar is always visible in Resources
         }
     }
     
@@ -180,10 +193,10 @@ struct ResourcesView: View {
 
                 Spacer()
 
-                // Right: greeting + "Resources" heading + red dot
+                // Right: personalized greeting + "Resources" heading + red dot
                 VStack(alignment: .trailing, spacing: 2) {
-                    // Greeting — small, warm
-                    Text("Hi, \(userFirstName)")
+                    // Personalized greeting — small, warm
+                    Text(greetingService.currentGreeting.text)
                         .font(AMENFont.regular(14))
                         .foregroundStyle(.secondary)
 
@@ -259,39 +272,24 @@ struct ResourcesView: View {
                     isSearchFocused = true
                 }
             } label: {
-                ZStack {
-                    Circle()
-                        .fill(.ultraThinMaterial)
-                        .frame(width: 44, height: 44)
-                        .overlay(
-                            Circle()
-                                .stroke(
-                                    LinearGradient(
-                                        colors: [
-                                            Color.white.opacity(0.3),
-                                            Color.white.opacity(0.1)
-                                        ],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    ),
-                                    lineWidth: 1
-                                )
-                        )
-                        .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 2)
-                    
-                    if isSearchingWithAI {
-                        ProgressView()
-                            .scaleEffect(0.8)
-                    } else {
-                        Image(systemName: searchText.isEmpty ? "magnifyingglass" : "sparkles.rectangle.stack.fill")
-                            .font(.systemScaled(18, weight: .semibold))
-                            .foregroundStyle(searchText.isEmpty ? Color.primary.opacity(0.6) : Color.purple)
-                            .symbolEffect(.pulse, options: .repeating, isActive: useAISearch && !searchText.isEmpty)
-                    }
+                if isSearchingWithAI {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                } else {
+                    Image(systemName: searchText.isEmpty ? "magnifyingglass" : "sparkles.rectangle.stack.fill")
+                        .font(.systemScaled(18, weight: .semibold))
+                        .symbolEffect(.pulse, options: .repeating, isActive: useAISearch && !searchText.isEmpty)
                 }
-                .animation(.easeOut(duration: 0.2), value: searchText.isEmpty)
-                .animation(.easeOut(duration: 0.2), value: isSearchingWithAI)
             }
+            .buttonStyle(.amenGlass(
+                role: .utility,
+                size: .iconLarge,
+                shape: .circle,
+                background: .balanced,
+                placement: .inline
+            ))
+            .animation(.easeOut(duration: 0.2), value: searchText.isEmpty)
+            .animation(.easeOut(duration: 0.2), value: isSearchingWithAI)
             
             // Text field with custom styling
             TextField("Search resources...", text: $searchText)
@@ -321,16 +319,16 @@ struct ResourcesView: View {
                     let haptic = UIImpactFeedbackGenerator(style: .light)
                     haptic.impactOccurred()
                 } label: {
-                    ZStack {
-                        Circle()
-                            .fill(.ultraThinMaterial)
-                            .frame(width: 28, height: 28)
-                        
-                        Image(systemName: "xmark")
-                            .font(.systemScaled(11, weight: .bold))
-                            .foregroundStyle(.secondary)
-                    }
+                    Image(systemName: "xmark")
+                        .font(.systemScaled(11, weight: .bold))
                 }
+                .buttonStyle(.amenGlass(
+                    role: .dismiss,
+                    size: .icon,
+                    shape: .circle,
+                    background: .balanced,
+                    placement: .inline
+                ))
                 .transition(.scale.combined(with: .opacity).animation(.easeOut(duration: 0.15)))
             }
         }
@@ -394,6 +392,50 @@ struct ResourcesView: View {
             // ── Disaster Alerts — shown for All and Crisis categories ──
             if selectedCategory == .all || selectedCategory == .crisis {
                 DisasterResourcesSection()
+            }
+
+            // ── AMEN Studio ──
+            if featureFlags.studioEnabled, (selectedCategory == .all || selectedCategory == .tools || selectedCategory == .learning) {
+                resourceSection(title: "AMEN Studio", subtitle: "Create with clarity") {
+                    NavigationLink(destination: AmenStudioResourcesView()) {
+                        HStack(spacing: 14) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(LinearGradient(
+                                        colors: [Color.black.opacity(0.9), Color.black.opacity(0.7)],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    ))
+                                    .frame(width: 44, height: 44)
+                                Image(systemName: "sparkles")
+                                    .font(.systemScaled(18, weight: .semibold))
+                                    .foregroundColor(.white)
+                            }
+
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("Studio Resources")
+                                    .font(.systemScaled(16, weight: .semibold))
+                                    .foregroundColor(.primary)
+                                Text("Templates, packs, and creator tools")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+
+                            Spacer()
+
+                            Image(systemName: "chevron.right")
+                                .font(.systemScaled(13, weight: .semibold))
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(14)
+                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke(Color.black.opacity(0.08), lineWidth: 1)
+                        )
+                    }
+                    .buttonStyle(ResourceCardPressStyle())
+                }
             }
 
             // ── Communities — Spaces ──
@@ -623,6 +665,19 @@ struct ResourcesView: View {
                                     iconColors: [Color(hex: "6B48FF"), Color(hex: "8B5CF6")],
                                     title: "Spiritual Timeline",
                                     subtitle: "AI-powered personal faith milestones"
+                                )
+                            }
+                            .buttonStyle(ResourceCardPressStyle())
+                        }
+
+                        // Faith Wrapped
+                        if selectedCategory == .all || selectedCategory == .learning || selectedCategory == .community {
+                            NavigationLink(destination: SpiritualJourneySelectionView()) {
+                                CompactResourceRow(
+                                    icon: "sparkles",
+                                    iconColors: [Color(hex: "111827"), Color(hex: "6B7280")],
+                                    title: "Faith Wrapped",
+                                    subtitle: "Your season, gently told back to you"
                                 )
                             }
                             .buttonStyle(ResourceCardPressStyle())

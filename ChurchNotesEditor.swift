@@ -844,7 +844,7 @@ struct EnhancedChurchNoteEditor: View {
             .padding(.horizontal, 20)
 
             if !detectedTags.isEmpty {
-                NoteTagFlowLayout(tags: detectedTags, visibleCount: visibleTagCount)
+                NoteTagAMENFlowLayout(tags: detectedTags, visibleCount: visibleTagCount)
             } else if !isAnalyzing && content.count > 50 {
                 Text("Tags appear after you write a few sentences")
                     .font(.system(size: 12))

@@ -102,6 +102,9 @@ struct Post: Identifiable, Codable, Equatable {
     var sharedChurchName: String? = nil
     var sharedChurchDenomination: String? = nil
     var sharedChurchServiceTime: String? = nil
+    var sharedChurchEventId: String? = nil
+    var sharedChurchEventName: String? = nil
+    var sharedChurchEventTime: String? = nil
 
     // Insight counts (Feature 5 — meaningful engagement metrics)
     var savesCount: Int = 0        // Incremented by toggleSavePost
@@ -328,6 +331,7 @@ struct Post: Identifiable, Codable, Equatable {
         case taggedChurchId, taggedChurchName
         case quote
         case isChurchShare, sharedChurchName, sharedChurchDenomination, sharedChurchServiceTime
+        case sharedChurchEventId, sharedChurchEventName, sharedChurchEventTime
     }
     
     init(from decoder: Decoder) throws {
@@ -408,6 +412,9 @@ struct Post: Identifiable, Codable, Equatable {
         sharedChurchName = try container.decodeIfPresent(String.self, forKey: .sharedChurchName)
         sharedChurchDenomination = try container.decodeIfPresent(String.self, forKey: .sharedChurchDenomination)
         sharedChurchServiceTime = try container.decodeIfPresent(String.self, forKey: .sharedChurchServiceTime)
+        sharedChurchEventId = try container.decodeIfPresent(String.self, forKey: .sharedChurchEventId)
+        sharedChurchEventName = try container.decodeIfPresent(String.self, forKey: .sharedChurchEventName)
+        sharedChurchEventTime = try container.decodeIfPresent(String.self, forKey: .sharedChurchEventTime)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -467,6 +474,9 @@ struct Post: Identifiable, Codable, Equatable {
         try container.encodeIfPresent(sharedChurchName, forKey: .sharedChurchName)
         try container.encodeIfPresent(sharedChurchDenomination, forKey: .sharedChurchDenomination)
         try container.encodeIfPresent(sharedChurchServiceTime, forKey: .sharedChurchServiceTime)
+        try container.encodeIfPresent(sharedChurchEventId, forKey: .sharedChurchEventId)
+        try container.encodeIfPresent(sharedChurchEventName, forKey: .sharedChurchEventName)
+        try container.encodeIfPresent(sharedChurchEventTime, forKey: .sharedChurchEventTime)
     }
 
     init(

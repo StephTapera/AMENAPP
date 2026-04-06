@@ -86,7 +86,8 @@ struct AMENNotification: Identifiable {
         self.type = notifType
         self.actorName = actorName
         self.body = body
-        self.isRead = data["isRead"] as? Bool ?? false
+        let readValue = (data["read"] as? Bool) ?? (data["isRead"] as? Bool) ?? false
+        self.isRead = readValue
         self.postId = data["postId"] as? String
         self.actorId = data["actorId"] as? String
         self.commentId = data["commentId"] as? String
@@ -154,9 +155,25 @@ final class AMENNotificationsViewModel: ObservableObject {
     }
 
     func markRead(_ id: String) {
+        Task { await markReadRemote(id) }
+    }
+
+    func markReadRemote(_ id: String) async {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        let ref = Firestore.firestore()
+            .collection("users")
+            .document(uid)
+            .collection("notifications")
+            .document(id)
+        do {
+            try await ref.setData(["read": true, "isRead": true], merge: true)
+        } catch {
+            dlog("❌ Failed to mark notification read: \(error.localizedDescription)")
+        }
         if let index = notifications.firstIndex(where: { $0.id == id }) {
             notifications[index].isRead = true
         }
+        await BadgeCountManager.shared.immediateUpdate()
     }
 
     func dismiss(_ id: String) {
@@ -204,10 +221,14 @@ final class AMENNotificationsViewModel: ObservableObject {
         let batch = Firestore.firestore().batch()
         let ref = Firestore.firestore().collection("users").document(uid).collection("notifications")
         for n in notifications where !n.isRead {
-            batch.updateData(["isRead": true], forDocument: ref.document(n.id))
+            batch.setData(["read": true, "isRead": true], forDocument: ref.document(n.id), merge: true)
         }
-        Task { try? await batch.commit() }
-        markAllRead()
+        Task {
+            try? await batch.commit()
+            markAllRead()
+            BadgeCountManager.shared.clearNotifications()
+            await BadgeCountManager.shared.immediateUpdate()
+        }
     }
 
     /// Delete a notification from Firestore + locally.
@@ -541,6 +562,10 @@ struct AMENNotificationsView: View {
             }
             .task {
                 viewModel.startListening()
+            }
+            .onAppear {
+                viewModel.markAllReadRemote()
+                BadgeCountManager.shared.clearNotifications()
             }
             .onDisappear {
                 viewModel.stopListening()

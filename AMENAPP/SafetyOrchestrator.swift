@@ -90,7 +90,7 @@ final class SafetyOrchestrator: ObservableObject {
     @Published var supportState: SafetySupportState = .normal
 
     /// The highest-priority support surface currently warranted
-    @Published var pendingSupportSurface: SupportSurface?
+    @Published var pendingSupportSurface: SafetySupportSurface?
 
     /// True while a content safety decision is being computed asynchronously
     @Published var isEvaluatingContent = false
@@ -526,7 +526,7 @@ final class SafetyOrchestrator: ObservableObject {
 
 // MARK: - Support Surface
 
-enum SupportSurface: Equatable {
+enum SafetySupportSurface: Equatable {
     case gentleCheckIn
     case pauseAndBreathe
     case prayerAndSupport
@@ -549,7 +549,7 @@ enum SupportSurface: Equatable {
 // MARK: - Adaptive Support Coordinator
 
 enum AdaptiveSupportCoordinator {
-    static func surface(for state: SafetySupportState) -> SupportSurface? {
+    static func surface(for state: SafetySupportState) -> SafetySupportSurface? {
         switch state {
         case .normal, .awarenessActive:   return nil
         case .gentleCheckIn:              return .gentleCheckIn

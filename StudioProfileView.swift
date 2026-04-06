@@ -706,7 +706,7 @@ struct StudioAboutView: View {
             if !profile.specialties.isEmpty {
                 VStack(alignment: .leading, spacing: 10) {
                     sectionHeader("Specialties")
-                    FlowLayout(spacing: 8) {
+                    AMENFlowLayout(spacing: 8) {
                         ForEach(profile.specialties, id: \.self) { specialty in
                             Text(specialty)
                                 .font(.system(size: 12, weight: .medium))

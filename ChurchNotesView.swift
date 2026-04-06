@@ -1752,7 +1752,7 @@ struct NewChurchNoteView: View {
                                 .foregroundStyle(.white.opacity(0.9))
                             
                             if !tags.isEmpty {
-                                FlowLayout(spacing: 8) {
+                                AMENFlowLayout(spacing: 8) {
                                     ForEach(tags, id: \.self) { tag in
                                         TagPill(tag: tag) {
                                             withAnimation {
@@ -2225,7 +2225,7 @@ struct ChurchNoteDetailView: View {
                             }
                             
                             // Metadata Pills
-                            FlowLayout(spacing: 10) {
+                            AMENFlowLayout(spacing: 10) {
                                 if let churchName = note.churchName, !churchName.isEmpty {
                                     MetadataPill(icon: "building.2", text: churchName)
                                 }
@@ -2277,7 +2277,7 @@ struct ChurchNoteDetailView: View {
                                     .font(.custom("OpenSans-Bold", size: 18))
                                     .foregroundStyle(.white.opacity(0.9))
 
-                                FlowLayout(spacing: 10) {
+                                AMENFlowLayout(spacing: 10) {
                                     ForEach(note.tags, id: \.self) { tag in
                                         Text("#\(tag)")
                                             .font(.custom("OpenSans-SemiBold", size: 15))
@@ -4482,7 +4482,7 @@ struct ElegantChurchNoteReadView: View {
                         
                         // Tags if available
                         if !churchNote.tags.isEmpty {
-                            FlowLayout(spacing: 8) {
+                            AMENFlowLayout(spacing: 8) {
                                 ForEach(churchNote.tags, id: \.self) { tag in
                                     Text("#\(tag)")
                                         .font(.system(size: 14, weight: .medium))

@@ -62,6 +62,9 @@ struct FirestorePost: Codable, Identifiable {
     var sharedChurchName: String?
     var sharedChurchDenomination: String?
     var sharedChurchServiceTime: String?
+    var sharedChurchEventId: String?
+    var sharedChurchEventName: String?
+    var sharedChurchEventTime: String?
 
     // Content source label — set when user acknowledges pasted/AI content
     var contentSource: String?
@@ -111,6 +114,7 @@ struct FirestorePost: Codable, Identifiable {
         case lightbulbUserIds
         case churchNoteId
         case isChurchShare, sharedChurchName, sharedChurchDenomination, sharedChurchServiceTime
+        case sharedChurchEventId, sharedChurchEventName, sharedChurchEventTime
         case contentSource
         case quote
         case linkedPrayerRequestId
@@ -160,6 +164,9 @@ struct FirestorePost: Codable, Identifiable {
         sharedChurchName = try container.decodeIfPresent(String.self, forKey: .sharedChurchName)
         sharedChurchDenomination = try container.decodeIfPresent(String.self, forKey: .sharedChurchDenomination)
         sharedChurchServiceTime = try container.decodeIfPresent(String.self, forKey: .sharedChurchServiceTime)
+        sharedChurchEventId = try container.decodeIfPresent(String.self, forKey: .sharedChurchEventId)
+        sharedChurchEventName = try container.decodeIfPresent(String.self, forKey: .sharedChurchEventName)
+        sharedChurchEventTime = try container.decodeIfPresent(String.self, forKey: .sharedChurchEventTime)
         contentSource = try container.decodeIfPresent(String.self, forKey: .contentSource)
         quote = try container.decodeIfPresent(PostQuoteMetadata.self, forKey: .quote)
         linkedPrayerRequestId = try container.decodeIfPresent(String.self, forKey: .linkedPrayerRequestId)
@@ -200,6 +207,9 @@ struct FirestorePost: Codable, Identifiable {
         sharedChurchName: String? = nil,
         sharedChurchDenomination: String? = nil,
         sharedChurchServiceTime: String? = nil,
+        sharedChurchEventId: String? = nil,
+        sharedChurchEventName: String? = nil,
+        sharedChurchEventTime: String? = nil,
         contentSource: String? = nil,
         quote: PostQuoteMetadata? = nil
     ) {
@@ -233,6 +243,9 @@ struct FirestorePost: Codable, Identifiable {
         self.sharedChurchName = sharedChurchName
         self.sharedChurchDenomination = sharedChurchDenomination
         self.sharedChurchServiceTime = sharedChurchServiceTime
+        self.sharedChurchEventId = sharedChurchEventId
+        self.sharedChurchEventName = sharedChurchEventName
+        self.sharedChurchEventTime = sharedChurchEventTime
         self.contentSource = contentSource
         self.quote = quote
     }
@@ -313,6 +326,9 @@ struct FirestorePost: Codable, Identifiable {
         post.sharedChurchName = sharedChurchName
         post.sharedChurchDenomination = sharedChurchDenomination
         post.sharedChurchServiceTime = sharedChurchServiceTime
+        post.sharedChurchEventId = sharedChurchEventId
+        post.sharedChurchEventName = sharedChurchEventName
+        post.sharedChurchEventTime = sharedChurchEventTime
         return post
     }
 
@@ -527,6 +543,9 @@ class FirebasePostService: ObservableObject {
         sharedChurchName: String? = nil,
         sharedChurchDenomination: String? = nil,
         sharedChurchServiceTime: String? = nil,
+        sharedChurchEventId: String? = nil,
+        sharedChurchEventName: String? = nil,
+        sharedChurchEventTime: String? = nil,
         quote: PostQuoteMetadata? = nil
     ) async throws {
         #if DEBUG
@@ -576,6 +595,9 @@ class FirebasePostService: ObservableObject {
                 sharedChurchName: sharedChurchName,
                 sharedChurchDenomination: sharedChurchDenomination,
                 sharedChurchServiceTime: sharedChurchServiceTime,
+                sharedChurchEventId: sharedChurchEventId,
+                sharedChurchEventName: sharedChurchEventName,
+                sharedChurchEventTime: sharedChurchEventTime,
                 quote: quote
             )
         }
@@ -599,6 +621,9 @@ class FirebasePostService: ObservableObject {
         sharedChurchName: String? = nil,
         sharedChurchDenomination: String? = nil,
         sharedChurchServiceTime: String? = nil,
+        sharedChurchEventId: String? = nil,
+        sharedChurchEventName: String? = nil,
+        sharedChurchEventTime: String? = nil,
         quote: PostQuoteMetadata? = nil
     ) async throws {
 
@@ -706,6 +731,9 @@ class FirebasePostService: ObservableObject {
         optimisticPost.sharedChurchName = sharedChurchName
         optimisticPost.sharedChurchDenomination = sharedChurchDenomination
         optimisticPost.sharedChurchServiceTime = sharedChurchServiceTime
+        optimisticPost.sharedChurchEventId = sharedChurchEventId
+        optimisticPost.sharedChurchEventName = sharedChurchEventName
+        optimisticPost.sharedChurchEventTime = sharedChurchEventTime
         optimisticPost.quote = quote
         
         // 🚀 STEP 3: INSTANTLY notify ProfileView (UI updates IMMEDIATELY)
@@ -740,6 +768,9 @@ class FirebasePostService: ObservableObject {
             sharedChurchName: sharedChurchName,
             sharedChurchDenomination: sharedChurchDenomination,
             sharedChurchServiceTime: sharedChurchServiceTime,
+            sharedChurchEventId: sharedChurchEventId,
+            sharedChurchEventName: sharedChurchEventName,
+            sharedChurchEventTime: sharedChurchEventTime,
             quote: quote
         )
         
@@ -751,9 +782,11 @@ class FirebasePostService: ObservableObject {
                 var postData = try Firestore.Encoder().encode(firestorePost)
                 // Remove legacy interaction arrays — interactions now live in subcollections
                 // (posts/{postId}/amens/{userId}, posts/{postId}/lightbulbs/{userId}).
+                // intercessorUids is tracked in RTDB prayerActivity/{postId}/prayingUsers/
                 // Keeping these arrays would create unbounded document growth at scale.
                 postData.removeValue(forKey: "amenUserIds")
                 postData.removeValue(forKey: "lightbulbUserIds")
+                postData.removeValue(forKey: "intercessorUids")
                 // P0 IDEMPOTENCY: Embed the key so Cloud Functions / security rules can
                 // detect and reject replayed writes server-side.
                 postData["idempotencyKey"] = _idempotencyKey

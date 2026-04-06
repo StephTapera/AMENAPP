@@ -16,6 +16,7 @@ import FirebaseFunctions
 import Combine
 import CoreLocation
 
+@MainActor
 struct PostCard: View {
     let post: Post?
     let authorName: String
@@ -2251,18 +2252,21 @@ struct PostCard: View {
                     .padding(.top, 10)
             }
 
-            // Find a Church pill — shown when the post is a church share from Find a Church
+            // Find a Church capsule — name-only pill for posts
             if let post = post, post.isChurchShare, let churchName = post.sharedChurchName {
-                FindChurchPill(
-                    churchName: churchName,
-                    denomination: post.sharedChurchDenomination,
-                    serviceTime: post.sharedChurchServiceTime
-                ) {
-                    HapticManager.impact(style: .light)
+                ChurchNameCapsulePill(churchName: churchName) {
                     NotificationCenter.default.post(name: .navigateToFindChurch, object: nil)
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 10)
+
+                if let eventName = post.sharedChurchEventName, !eventName.isEmpty {
+                    ChurchEventCapsulePill(eventName: eventName, eventTime: post.sharedChurchEventTime) {
+                        NotificationCenter.default.post(name: .navigateToFindChurch, object: nil)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 6)
+                }
             }
 
             // ✅ Poll Display (if post contains a poll)
@@ -4261,6 +4265,7 @@ struct ReportReasonCard: View {
 // MARK: - View Modifiers
 
 /// Handles all sheet presentations and alerts
+@MainActor
 private struct PostCardSheetsModifier: ViewModifier {
     @Binding var activeSheet: PostCard.PostCardSheet?
     @Binding var hasCommented: Bool
@@ -4390,6 +4395,7 @@ private struct PostCardSheetsModifier: ViewModifier {
 }
 
 /// Handles all interaction observers and state updates
+@MainActor
 private struct PostCardInteractionsModifier: ViewModifier {
     let post: Post?
     @ObservedObject var interactionsService: PostInteractionsService  // ✅ FIXED: Observe changes

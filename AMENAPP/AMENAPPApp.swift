@@ -26,6 +26,10 @@ struct AMENAPPApp: App {
     @State private var currentUser: UserModel? = nil  // Store user for personalized welcome
     @State private var hasCompletedOnboarding = true  // ✅ FIX: Default to true to prevent showing onboarding on every launch
     @State private var showNotifOnboarding = false
+    // COPPA: Age gate shown once before accessing the app. Stored in AppStorage so it
+    // persists across launches and cannot be bypassed by clearing session state.
+    @AppStorage("hasCompletedAgeVerification") private var hasCompletedAgeVerification = false
+    @State private var ageGateEligible = false
     @StateObject private var killSwitch = RemoteKillSwitch.shared
 
     // PERFORMANCE: Store auth listener handle for cleanup
@@ -184,8 +188,17 @@ struct AMENAPPApp: App {
                     .handleChurchDeepLinks()  // ✅ Handle church deep links
                     .notificationOnboarding(isPresented: $showNotifOnboarding)
 
-                // Age verification is collected but no longer blocks any users
-                // All ages have full access to the app
+                // COPPA age gate — fullScreenCover blocks access until user confirms age ≥ 13.
+                // hasCompletedAgeVerification persists via @AppStorage so it never shows twice.
+                if !hasCompletedAgeVerification {
+                    Color.clear
+                        .fullScreenCover(isPresented: Binding(
+                            get: { !hasCompletedAgeVerification },
+                            set: { _ in }
+                        )) {
+                            AgeGateView(isEligible: $ageGateEligible)
+                        }
+                }
             }
             // Forced upgrade alert — shown when Remote Config minimum_app_version
             // is higher than the installed binary. Users must update before continuing.
@@ -795,12 +808,6 @@ struct AMENAPPApp: App {
         // Schedule the next refresh immediately so we chain future wakeups.
         scheduleBackgroundFeedRefresh()
 
-        task.expirationHandler = {
-            // iOS is revoking our budget — mark incomplete so the system knows
-            // we didn't finish (may affect future scheduling heuristics).
-            task.setTaskCompleted(success: false)
-        }
-
         let refreshTask = Task {
             guard Auth.auth().currentUser != nil else {
                 task.setTaskCompleted(success: true)
@@ -813,6 +820,7 @@ struct AMENAPPApp: App {
             dlog("✅ BGAppRefreshTask completed — feed cache updated")
         }
 
+        // Set expiration handler AFTER creating the Task so it can cancel it.
         task.expirationHandler = {
             refreshTask.cancel()
             task.setTaskCompleted(success: false)

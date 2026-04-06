@@ -140,6 +140,7 @@ class NestedCommentService: ObservableObject {
         let snapshot = try await db.collection("comments")
             .whereField("postId", isEqualTo: postId)
             .order(by: "timestamp", descending: false)
+            .limit(to: 100)
             .getDocuments()
         
         var comments: [NestedComment] = []
@@ -174,6 +175,7 @@ class NestedCommentService: ObservableObject {
         let snapshot = try await db.collection("comments")
             .whereField("parentCommentId", isEqualTo: parentCommentId)
             .order(by: "timestamp", descending: false)
+            .limit(to: 50)
             .getDocuments()
         
         var replies: [NestedComment] = []

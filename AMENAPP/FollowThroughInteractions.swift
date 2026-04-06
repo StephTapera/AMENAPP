@@ -555,6 +555,7 @@ struct AISparkleSearchButton: View {
         } label: {
             Image("amen-logo")
                 .resizable()
+                .renderingMode(.original)
                 .scaledToFit()
                 .frame(width: 28, height: 28)
                 .blendMode(.multiply)

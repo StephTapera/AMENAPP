@@ -174,7 +174,7 @@ struct MentorProfileView: View {
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 18)
 
-            FlowLayout(spacing: 8) {
+            AMENFlowLayout(spacing: 8) {
                 ForEach(mentor.specialties, id: \.self) { spec in
                     Text(spec)
                         .font(.systemScaled(12, weight: .medium))

@@ -8,6 +8,7 @@
 import SwiftUI
 import Combine
 import FirebaseFirestore
+import FirebaseDatabase
 import FirebaseAuth
 import UserNotifications
 
@@ -112,42 +113,61 @@ struct ScriptureAnchorCard: View {
 class PrayerEchoService {
     static let shared = PrayerEchoService()
 
+    // ── RTDB reference for prayer echo state ─────────────────────────────────
+    // Replaces in-document `intercessorUids` array which was unbounded and
+    // caused hotspot writes + 1MB document limit risk on popular prayers.
+    // New path: prayerActivity/{postId}/prayingUsers/{uid} = true|null
+    private lazy var rtdb: DatabaseReference = Database.database().reference()
+
     func hasEchoed(post: Post) -> Bool {
         guard let uid = Auth.auth().currentUser?.uid else { return false }
+        // Prefer the legacy in-document array if present (backwards compat for old posts),
+        // but new writes always go to RTDB so this will naturally drain over time.
         return post.intercessorUids?.contains(uid) ?? false
+    }
+
+    /// Check echo state from RTDB (async, always current).
+    func hasEchoedAsync(postId: String) async -> Bool {
+        guard let uid = Auth.auth().currentUser?.uid else { return false }
+        guard let snapshot = try? await rtdb
+            .child("prayerActivity").child(postId).child("prayingUsers").child(uid)
+            .getData() else { return false }
+        return snapshot.exists()
     }
 
     func toggleEcho(post: Post) async {
         guard let uid = Auth.auth().currentUser?.uid else { return }
         let postId = post.firestoreId
         guard !postId.isEmpty else { return }
+
+        let alreadyEchoed = await hasEchoedAsync(postId: postId)
+        let prayerRef = rtdb.child("prayerActivity").child(postId).child("prayingUsers").child(uid)
+
+        // Update RTDB echo state — no unbounded array on the Firestore document.
+        if alreadyEchoed {
+            try? await prayerRef.removeValue()
+        } else {
+            try? await prayerRef.setValue(true)
+        }
+
+        // Keep the Firestore stoneCount counter (a simple Int field, not an array).
         let db = Firestore.firestore()
         let ref = db.collection("posts").document(postId)
-        let alreadyEchoed = hasEchoed(post: post)
+        let delta = alreadyEchoed ? Int64(-1) : Int64(1)
+        try? await ref.updateData(["stoneCount": FieldValue.increment(delta)])
 
-        if alreadyEchoed {
-            try? await ref.updateData([
-                "intercessorUids": FieldValue.arrayRemove([uid]),
-                "stoneCount": FieldValue.increment(Int64(-1))
+        // Notify author on new echo.
+        if !alreadyEchoed && post.authorId != uid {
+            let notifRef = db.collection("notifications").document()
+            try? await notifRef.setData([
+                "type": "prayerEcho",
+                "toUserId": post.authorId,
+                "fromUserId": uid,
+                "postId": postId,
+                "message": "Someone is echoing your prayer 🙏",
+                "createdAt": FieldValue.serverTimestamp(),
+                "read": false
             ])
-        } else {
-            try? await ref.updateData([
-                "intercessorUids": FieldValue.arrayUnion([uid]),
-                "stoneCount": FieldValue.increment(Int64(1))
-            ])
-            // Notify the author
-            if post.authorId != uid {
-                let notifRef = db.collection("notifications").document()
-                try? await notifRef.setData([
-                    "type": "prayerEcho",
-                    "toUserId": post.authorId,
-                    "fromUserId": uid,
-                    "postId": postId,
-                    "message": "Someone is echoing your prayer 🙏",
-                    "createdAt": FieldValue.serverTimestamp(),
-                    "read": false
-                ])
-            }
         }
     }
 }
@@ -655,8 +675,7 @@ class BurdenMatchService: ObservableObject {
             .limit(to: 5)
             .getDocuments { [weak self] snap, _ in
                 let tags = snap?.documents.compactMap { $0["topicTag"] as? String } ?? []
-                guard !tags.isEmpty else { return }
-                let primaryTag = tags.first!
+                guard let primaryTag = tags.first else { return }
 
                 // Find others with same tag
                 db.collection("posts")

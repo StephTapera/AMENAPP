@@ -193,6 +193,7 @@ struct PostDetailView: View {
                         HStack(spacing: 12) {
                             Image("amen-logo")
                                 .resizable()
+                                .renderingMode(.original)
                                 .scaledToFit()
                                 .frame(width: 22, height: 22)
                                 .blendMode(.multiply)
@@ -576,6 +577,7 @@ struct PostDetailView: View {
 
                     Image("amen-logo")
                         .resizable()
+                        .renderingMode(.original)
                         .scaledToFit()
                         .frame(width: 26, height: 26)
                         .blendMode(.multiply)

@@ -2809,6 +2809,7 @@ struct SearchButton: View {
                 // Berean AI icon - AMEN app logo
                 Image("amen-logo")
                     .resizable()
+                    .renderingMode(.original)
                     .scaledToFit()
                     .frame(width: 22, height: 22)
                     .padding(8)
@@ -6769,6 +6770,7 @@ struct ThreadsPostingBar: View {
                     .frame(width: 36, height: 36)
                 Image("amen-logo")
                     .resizable()
+                    .renderingMode(.original)
                     .scaledToFill()
                     .frame(width: 28, height: 28)
                     .clipShape(Circle())

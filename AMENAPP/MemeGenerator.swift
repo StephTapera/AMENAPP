@@ -275,7 +275,7 @@ struct MemeGeneratorView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
                     ForEach(MemeTemplate.faithMemes) { template in
-                        TemplateCard(template: template, isSelected: selectedTemplate?.id == template.id) {
+                        MemeTemplateCard(template: template, isSelected: selectedTemplate?.id == template.id) {
                             selectTemplate(template)
                         }
                     }
@@ -465,7 +465,7 @@ struct MemeGeneratorView: View {
 
 // MARK: - Template Card
 
-struct TemplateCard: View {
+struct MemeTemplateCard: View {
     let template: MemeTemplate
     let isSelected: Bool
     let action: () -> Void

@@ -267,6 +267,7 @@ struct BereanSuggestionsPanel: View {
                 HStack(spacing: 6) {
                     Image("amen-logo")
                         .resizable()
+                        .renderingMode(.original)
                         .scaledToFit()
                         .frame(width: 14, height: 14)
                     Text("Berean is reading your post")

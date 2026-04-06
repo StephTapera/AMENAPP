@@ -21,7 +21,7 @@ struct MutualConnection: Identifiable, Equatable {
     var initials: String {
         let parts = displayName.split(separator: " ")
         let first = parts.first?.prefix(1) ?? ""
-        let last = parts.count > 1 ? parts.last!.prefix(1) : ""
+        let last = parts.count > 1 ? (parts.last?.prefix(1) ?? "") : ""
         return "\(first)\(last)".uppercased()
     }
 

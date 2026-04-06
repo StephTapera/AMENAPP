@@ -58,6 +58,8 @@ class SessionTimeoutManager: ObservableObject {
         warningTimer?.invalidate()
         maxAgeTimer?.invalidate()
         countdownTimer?.invalidate()
+        activityObservers.forEach { NotificationCenter.default.removeObserver($0) }
+        activityObservers.removeAll()
     }
 
     // MARK: - Public Methods
@@ -865,6 +867,7 @@ struct AppLoadingScreen: View {
                 // Logo
                 Image("amen-logo")
                     .resizable()
+                    .renderingMode(.original)
                     .aspectRatio(contentMode: .fit)
                     .frame(width: 90, height: 90)
                     .opacity(logoOpacity)

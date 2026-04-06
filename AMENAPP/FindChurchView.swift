@@ -128,6 +128,7 @@ private enum FindChurchSheet: Identifiable {
     case schedule
     case firstVisit(VisitCompanionChurch)
     case churchDetail(Church)
+    case planningChecklist(Church)
     case comparison([Church])
 
     var id: String {
@@ -137,6 +138,7 @@ private enum FindChurchSheet: Identifiable {
         case .schedule: return "schedule"
         case .firstVisit(let c): return "firstVisit_\(c.id ?? "unknown")"
         case .churchDetail(let c): return "churchDetail_\(c.id)"
+        case .planningChecklist(let c): return "planningChecklist_\(c.id)"
         case .comparison: return "comparison"
         }
     }
@@ -834,6 +836,8 @@ struct FindChurchView: View {
         var preferredCongregationSize: CongregationSize = .any
         var musicStylePreference: MusicStyle = .any
         var programInterests: Set<ProgramType> = []
+        var familyModeEnabled: Bool = false
+        var accessibilityNeeds: Set<AccessibilityNeed> = []
         var typicalArrivalTimes: [Date] = [] // Historical arrival times
         var prepTimeMinutes: Int = 30 // Time needed to prepare before leaving
         var lastNotificationCheckTime: Date?
@@ -864,6 +868,32 @@ struct FindChurchView: View {
         }
     }
     
+    enum AccessibilityNeed: String, CaseIterable, Codable, Hashable {
+        case wheelchair
+        case hearingAssistance
+        case captioning
+        case sensoryFriendly
+        case stepFree
+        case easyParking
+        case familyRestroom
+        case quietEnvironment
+        case livestream
+
+        var displayName: String {
+            switch self {
+            case .wheelchair: return "Wheelchair access"
+            case .hearingAssistance: return "Hearing assistance"
+            case .captioning: return "Captions/transcript"
+            case .sensoryFriendly: return "Sensory friendly"
+            case .stepFree: return "Step-free entrance"
+            case .easyParking: return "Easy parking"
+            case .familyRestroom: return "Family restroom"
+            case .quietEnvironment: return "Quiet environment"
+            case .livestream: return "Livestream"
+            }
+        }
+    }
+
     enum QuickFilter: String, CaseIterable {
         case nearestNow = "Nearest Now"
         case serviceToday = "Service Today"
@@ -1083,6 +1113,8 @@ struct FindChurchView: View {
                                 searchRadius: $searchRadius,
                                 showSavedOnly: $showSavedChurches,
                                 showDenominationInfo: $showDenominationInfo,
+                                familyModeEnabled: $userPreferences.familyModeEnabled,
+                                accessibilityNeeds: $userPreferences.accessibilityNeeds,
                                 onRadiusChange: { performRealSearch() }
                             )
                             .transition(.move(edge: .top).combined(with: .opacity))
@@ -1280,6 +1312,18 @@ struct FindChurchView: View {
                                         .padding(.top, 8)
                                     }
                                     
+                                    if let suggestion = ReturnVisitSuggestion.make(from: churchVisitHistory, churches: filteredChurches, plannedChurchId: plannedAttendanceChurchId) {
+                                        ReturnVisitSuggestionCard(
+                                            title: suggestion.title,
+                                            subtitle: suggestion.subtitle,
+                                            actionTitle: "Plan next visit",
+                                            onAction: {
+                                                activeSheet = .planningChecklist(suggestion.church)
+                                            }
+                                        )
+                                        .padding(.horizontal, 8)
+                                    }
+
                                     ForEach(filteredChurches) { church in
                                         EnhancedMinimalChurchCard(
                                             church: church,
@@ -1308,6 +1352,7 @@ struct FindChurchView: View {
                                                     } else {
                                                         plannedAttendanceChurchId = church.id
                                                         scheduleSundayMorningReminder(for: church)
+                                                        activeSheet = .planningChecklist(church)
                                                     }
                                                 }
                                             }
@@ -1546,7 +1591,10 @@ struct FindChurchView: View {
         case .schedule:
             ChurchScheduleView(
                 savedChurches: persistenceManager.savedChurches,
-                onDismiss: { activeSheet = nil }
+                onDismiss: { activeSheet = nil },
+                onCompare: {
+                    activeSheet = .comparison(persistenceManager.savedChurches)
+                }
             )
         case .firstVisit(let church):
             FirstVisitCompanionView(church: church)
@@ -1572,6 +1620,16 @@ struct FindChurchView: View {
                     activeSheet = .firstVisit(visitChurch)
                 }
             )
+        case .planningChecklist(let church):
+            PlanningChecklistView(
+                church: church,
+                onDirections: { openDirections(to: church) },
+                onAddToCalendar: { addToSchedule(church) },
+                onDismiss: { activeSheet = nil }
+            )
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+            .presentationCornerRadius(28)
         case .comparison(let churches):
             ChurchComparisonView(
                 churches: churches,
@@ -3948,6 +4006,8 @@ struct MinimalFilterRow: View {
     @Binding var searchRadius: Double
     @Binding var showSavedOnly: Bool
     @Binding var showDenominationInfo: FindChurchView.ChurchDenomination?
+    @Binding var familyModeEnabled: Bool
+    @Binding var accessibilityNeeds: Set<FindChurchView.AccessibilityNeed>
     var onRadiusChange: () -> Void
     
     var body: some View {
@@ -4044,6 +4104,63 @@ struct MinimalFilterRow: View {
                     )
                 }
                 
+                // Family mode toggle
+                Button {
+                    withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
+                        familyModeEnabled.toggle()
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: familyModeEnabled ? "figure.and.child.circle.fill" : "figure.and.child.circle")
+                            .font(.systemScaled(12, weight: .medium))
+                        Text("Family Mode")
+                            .font(.systemScaled(14, weight: .medium))
+                    }
+                    .foregroundStyle(familyModeEnabled ? Color.white : Color(red: 0.3, green: 0.3, blue: 0.3))
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(
+                        Capsule()
+                            .fill(familyModeEnabled ? Color(red: 0.2, green: 0.2, blue: 0.2) : Color(white: 0.96))
+                    )
+                }
+
+                // Accessibility filters
+                Menu {
+                    ForEach(FindChurchView.AccessibilityNeed.allCases, id: \.self) { need in
+                        Button {
+                            if accessibilityNeeds.contains(need) {
+                                accessibilityNeeds.remove(need)
+                            } else {
+                                accessibilityNeeds.insert(need)
+                            }
+                        } label: {
+                            HStack {
+                                Text(need.displayName)
+                                if accessibilityNeeds.contains(need) {
+                                    Image(systemName: "checkmark")
+                                }
+                            }
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "figure.roll")
+                            .font(.systemScaled(12, weight: .medium))
+                        Text("Accessibility")
+                            .font(.systemScaled(14, weight: .medium))
+                        Image(systemName: "chevron.down")
+                            .font(.systemScaled(10, weight: .semibold))
+                    }
+                    .foregroundStyle(Color(red: 0.3, green: 0.3, blue: 0.3))
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(
+                        Capsule()
+                            .fill(Color(white: 0.96))
+                    )
+                }
+
                 // Denomination filters with info buttons
                 ForEach(FindChurchView.ChurchDenomination.allCases, id: \.self) { denomination in
                     HStack(spacing: 6) {
@@ -4894,6 +5011,9 @@ struct EnhancedChurchDetailSheet: View {
     var onCheckIn: () -> Void
     var onAddToSchedule: () -> Void
     var onPlanFirstVisit: () -> Void
+    @AppStorage("profileChurchId") private var profileChurchId: String = ""
+    @AppStorage("profileChurchName") private var profileChurchName: String = ""
+    @AppStorage("profileChurchVisibility") private var profileChurchVisibility: String = "private"
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
@@ -5012,6 +5132,46 @@ struct EnhancedChurchDetailSheet: View {
                         }
                     }
                     
+                    // Add to profile (optional)
+                    Menu {
+                        Button("Private") {
+                            profileChurchId = church.id.uuidString
+                            profileChurchName = church.name
+                            profileChurchVisibility = "private"
+                        }
+                        Button("Followers only") {
+                            profileChurchId = church.id.uuidString
+                            profileChurchName = church.name
+                            profileChurchVisibility = "followers"
+                        }
+                        Button("Public") {
+                            profileChurchId = church.id.uuidString
+                            profileChurchName = church.name
+                            profileChurchVisibility = "public"
+                        }
+                        if !profileChurchId.isEmpty {
+                            Button("Remove") {
+                                profileChurchId = ""
+                                profileChurchName = ""
+                                profileChurchVisibility = "private"
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "person.crop.circle.badge.checkmark")
+                                .font(.systemScaled(14))
+                            Text(profileChurchId == church.id.uuidString ? "Added to profile" : "Add to profile")
+                                .font(.systemScaled(14, weight: .medium))
+                        }
+                        .foregroundStyle(Color(red: 0.3, green: 0.3, blue: 0.3))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(Color(white: 0.96))
+                        )
+                    }
+
                     // Plan First Visit Button
                     Button(action: onPlanFirstVisit) {
                         HStack(spacing: 8) {
@@ -5117,6 +5277,7 @@ extension Church {
 struct ChurchScheduleView: View {
     let savedChurches: [Church]
     let onDismiss: () -> Void
+    let onCompare: () -> Void
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
@@ -5141,6 +5302,26 @@ struct ChurchScheduleView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .padding(.top, 100)
                     } else {
+                        if savedChurches.count > 1 {
+                            Button(action: onCompare) {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "chart.bar.xaxis")
+                                        .font(.systemScaled(14, weight: .semibold))
+                                    Text("Compare service times")
+                                        .font(.systemScaled(14, weight: .semibold))
+                                }
+                                .foregroundStyle(Color(red: 0.2, green: 0.2, blue: 0.2))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .fill(Color(white: 0.96))
+                                        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.black.opacity(0.08), lineWidth: 0.8))
+                                )
+                            }
+                            .buttonStyle(.plain)
+                        }
+
                         ForEach(savedChurches) { church in
                             VStack(alignment: .leading, spacing: 12) {
                                 Text(church.name)
@@ -5583,6 +5764,54 @@ struct AIRecommendationCard: View {
     }
 }
 
+// MARK: - Return Visit Suggestion
+
+private struct ReturnVisitSuggestion {
+    let church: Church
+    let title: String
+    let subtitle: String
+
+    static func make(from history: [FindChurchView.ChurchVisit], churches: [Church], plannedChurchId: UUID?) -> ReturnVisitSuggestion? {
+        guard plannedChurchId == nil else { return nil }
+        guard let mostRecent = history.sorted(by: { $0.date > $1.date }).first else { return nil }
+        guard let church = churches.first(where: { $0.id == mostRecent.churchId }) else { return nil }
+        let subtitle = "Your last visit was \(mostRecent.date.formatted(.dateTime.month(.abbreviated).day()))."
+        return ReturnVisitSuggestion(church: church, title: "Return to \(church.name)", subtitle: subtitle)
+    }
+}
+
+private struct ReturnVisitSuggestionCard: View {
+    let title: String
+    let subtitle: String
+    let actionTitle: String
+    let onAction: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "calendar.badge.plus")
+                .font(.systemScaled(16, weight: .semibold))
+                .foregroundStyle(Color.black.opacity(0.7))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.systemScaled(14, weight: .semibold))
+                    .foregroundStyle(.primary)
+                Text(subtitle)
+                    .font(.systemScaled(12))
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Button(actionTitle, action: onAction)
+                .font(.systemScaled(12, weight: .semibold))
+                .foregroundStyle(.black)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(Capsule().fill(Color(white: 0.95)))
+        }
+        .padding(12)
+        .background(RoundedRectangle(cornerRadius: 12).fill(.ultraThinMaterial).overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.6)))
+    }
+}
+
 // MARK: - Find Church Map View
 
 struct FindChurchMapView: View {
@@ -5755,6 +5984,148 @@ struct ChurchMapMiniSheet: View {
         )
         .padding(.horizontal, 16)
         .padding(.bottom, 20)
+    }
+}
+
+// MARK: - Planning Checklist Sheet
+
+struct PlanningChecklistView: View {
+    let church: Church
+    let onDirections: () -> Void
+    let onAddToCalendar: () -> Void
+    let onDismiss: () -> Void
+
+    @State private var directionsReady = false
+    @State private var calendarSaved = false
+    @State private var arrivalPlanned = false
+    @State private var kidsCheckInReviewed = false
+    @State private var quietModeReady = false
+
+    var body: some View {
+        VStack(spacing: 16) {
+            HStack {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Get ready")
+                        .font(.systemScaled(18, weight: .semibold))
+                        .foregroundStyle(Color.primary)
+                    Text(church.name)
+                        .font(.systemScaled(13, weight: .medium))
+                        .foregroundStyle(Color.secondary)
+                }
+                Spacer()
+                Button("Done") { onDismiss() }
+                    .font(.systemScaled(13, weight: .semibold))
+                    .foregroundStyle(Color.primary)
+            }
+
+            checklistRow(
+                title: "Directions ready",
+                subtitle: "Open maps when you're set",
+                isDone: directionsReady,
+                onTap: {
+                    directionsReady = true
+                    onDirections()
+                }
+            )
+
+            checklistRow(
+                title: "Save service time",
+                subtitle: "Add to your calendar",
+                isDone: calendarSaved,
+                onTap: {
+                    calendarSaved = true
+                    onAddToCalendar()
+                }
+            )
+
+            checklistRow(
+                title: "Plan arrival",
+                subtitle: "Arrive a few minutes early",
+                isDone: arrivalPlanned,
+                onTap: { arrivalPlanned.toggle() }
+            )
+
+            checklistRow(
+                title: "Kids check-in",
+                subtitle: "Review if applicable",
+                isDone: kidsCheckInReviewed,
+                onTap: { kidsCheckInReviewed.toggle() }
+            )
+
+            checklistRow(
+                title: "Quiet mode",
+                subtitle: "Reduce noise during service",
+                isDone: quietModeReady,
+                onTap: { quietModeReady.toggle() }
+            )
+
+            ShareLink(item: "Join me at \(church.name) — service time: \(church.serviceTime).") {
+                HStack(spacing: 10) {
+                    Image(systemName: "person.2.fill")
+                        .font(.systemScaled(14, weight: .semibold))
+                        .foregroundStyle(.black.opacity(0.75))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Invite a friend")
+                            .font(.systemScaled(14, weight: .semibold))
+                            .foregroundStyle(.primary)
+                        Text("Send a private invite")
+                            .font(.systemScaled(12))
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.systemScaled(12, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color(white: 0.96))
+                        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.8))
+                )
+            }
+
+            Spacer()
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 24)
+        .background(Color.white)
+    }
+
+    private func checklistRow(
+        title: String,
+        subtitle: String,
+        isDone: Bool,
+        onTap: @escaping () -> Void
+    ) -> some View {
+        Button(action: onTap) {
+            HStack(spacing: 12) {
+                Image(systemName: isDone ? "checkmark.circle.fill" : "circle")
+                    .font(.systemScaled(18, weight: .semibold))
+                    .foregroundStyle(isDone ? Color.green : Color.gray.opacity(0.6))
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title)
+                        .font(.systemScaled(15, weight: .semibold))
+                        .foregroundStyle(Color.primary)
+                    Text(subtitle)
+                        .font(.systemScaled(12, weight: .regular))
+                        .foregroundStyle(Color.secondary)
+                }
+                Spacer()
+            }
+            .padding(.vertical, 12)
+            .padding(.horizontal, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5)
+                    )
+            )
+        }
+        .buttonStyle(.plain)
     }
 }
 

@@ -249,7 +249,7 @@ struct ChurchNoteDetailModal: View {
                                 .tracking(0.5)
                                 .padding(.bottom, 4)
                             
-                            FlowLayout(spacing: 8) {
+                            AMENFlowLayout(spacing: 8) {
                                 ForEach(note.tags, id: \.self) { tag in
                                     Text(tag)
                                         .font(.custom("OpenSans-Regular", size: 13))

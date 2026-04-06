@@ -136,7 +136,9 @@ final class UniversalSearchViewModel: ObservableObject {
                     response += chunk
                     bereanAnswer = response
                 }
-            } catch {}
+            } catch {
+                dlog("⚠️ [DiscoverSearch] Berean inline search failed: \(error.localizedDescription)")
+            }
             if !Task.isCancelled { bereanAnswerLoading = false }
         }
     }
@@ -284,6 +286,8 @@ final class UniversalSearchViewModel: ObservableObject {
         let lowered = query.lowercased()
         let followingSet = FollowService.shared.following
         let currentUID = Auth.auth().currentUser?.uid ?? ""
+        // Filter out users the current user has blocked or been blocked by
+        let blockedIds = BlockService.shared.blockedUsers
         do {
             // Prefix match on displayNameLower; fall back to usernameLower if empty
             let snap = try await db.collection("users")
@@ -294,6 +298,7 @@ final class UniversalSearchViewModel: ObservableObject {
             return snap.documents.compactMap { doc -> DiscoveryPerson? in
                 let d = doc.data()
                 guard doc.documentID != currentUID,
+                      !blockedIds.contains(doc.documentID),
                       let displayName = d["displayName"] as? String,
                       let username = d["username"] as? String else { return nil }
                 return DiscoveryPerson(
@@ -322,6 +327,7 @@ final class UniversalSearchViewModel: ObservableObject {
             .components(separatedBy: .whitespacesAndNewlines)
             .filter { !$0.isEmpty }
         guard !tokens.isEmpty else { return [] }
+        let blockedIds = BlockService.shared.blockedUsers
         do {
             let snap = try await db.collection("posts")
                 .whereField("contentTokens", arrayContainsAny: Array(tokens.prefix(10)))
@@ -329,7 +335,9 @@ final class UniversalSearchViewModel: ObservableObject {
                 .getDocuments()
             return snap.documents.compactMap { doc -> DiscoveryPost? in
                 let d = doc.data()
-                guard let content = d["content"] as? String else { return nil }
+                let authorId = d["authorId"] as? String ?? ""
+                guard !blockedIds.contains(authorId),
+                      let content = d["content"] as? String else { return nil }
                 return DiscoveryPost(
                     id: doc.documentID,
                     authorId: d["authorId"] as? String ?? "",

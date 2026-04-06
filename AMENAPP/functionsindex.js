@@ -953,3 +953,26 @@ exports.onMessageCreated = functions.firestore
     }
   });
 
+// =============================================================================
+// CHURCH INTELLIGENCE LAYER
+// Exports from churchIntelligenceFunctions.js
+// =============================================================================
+
+const churchIntelligence = require('./churchIntelligenceFunctions');
+
+exports.createOrUpdateVisitSession         = churchIntelligence.createOrUpdateVisitSession;
+exports.saveChurchReflection               = churchIntelligence.saveChurchReflection;
+exports.handlePostVisitPromptEligibility   = churchIntelligence.handlePostVisitPromptEligibility;
+exports.buildChurchVisitInsights           = churchIntelligence.buildChurchVisitInsights;
+exports.churchPromptPolicyCheck            = churchIntelligence.churchPromptPolicyCheck;
+
+// =============================================================================
+// BEREAN LIVE VOICE FUNCTIONS
+// =============================================================================
+
+const bereanVoiceFns = require('./bereanVoiceFunctions');
+
+exports.bereanVoiceProxy  = bereanVoiceFns.bereanVoiceProxy;
+exports.voiceSessionStart = bereanVoiceFns.voiceSessionStart;
+exports.voiceModeration   = bereanVoiceFns.voiceModeration;
+exports.ttsProxy          = bereanVoiceFns.ttsProxy;

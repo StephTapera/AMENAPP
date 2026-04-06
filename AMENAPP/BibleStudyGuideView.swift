@@ -6,6 +6,8 @@
 //
 
 import SwiftUI
+import FirebaseAuth
+import FirebaseFirestore
 
 struct BibleStudyGuideView: View {
     @Environment(\.dismiss) var dismiss
@@ -396,6 +398,58 @@ struct EnhancedBibleStudyPlanCard: View {
     let plan: BibleStudyPlan
     @State private var isEnrolled = false
     @State private var isExpanded = false
+    @State private var currentDay: Int = 0
+    @State private var enrolledAt: Date? = nil
+
+    // MARK: Firestore helpers
+
+    private func progressDoc() -> DocumentReference? {
+        guard let uid = Auth.auth().currentUser?.uid else { return nil }
+        return Firestore.firestore()
+            .collection("users").document(uid)
+            .collection("studyPlanProgress").document(plan.id.uuidString)
+    }
+
+    private func loadProgress() async {
+        guard let ref = progressDoc(),
+              let snap = try? await ref.getDocument(),
+              snap.exists,
+              let data = snap.data() else { return }
+        await MainActor.run {
+            isEnrolled  = data["isEnrolled"] as? Bool ?? false
+            currentDay  = data["currentDay"] as? Int ?? 0
+            if let ts = data["enrolledAt"] as? Timestamp {
+                enrolledAt = ts.dateValue()
+            }
+        }
+    }
+
+    private func saveEnrollment(enrolled: Bool) {
+        guard let ref = progressDoc() else { return }
+        Task {
+            try? await ref.setData([
+                "planId":      plan.id.uuidString,
+                "planTitle":   plan.title,
+                "isEnrolled":  enrolled,
+                "currentDay":  enrolled ? currentDay : 0,
+                "totalDays":   plan.duration,
+                "enrolledAt":  enrolled ? FieldValue.serverTimestamp() : FieldValue.delete(),
+                "updatedAt":   FieldValue.serverTimestamp(),
+            ], merge: true)
+        }
+    }
+
+    private func advanceDay() {
+        guard isEnrolled, currentDay < plan.duration else { return }
+        currentDay += 1
+        guard let ref = progressDoc() else { return }
+        Task {
+            try? await ref.updateData([
+                "currentDay": currentDay,
+                "updatedAt":  FieldValue.serverTimestamp(),
+            ])
+        }
+    }
     
     var body: some View {
         VStack(spacing: 0) {
@@ -500,11 +554,12 @@ struct EnhancedBibleStudyPlanCard: View {
                             let haptic = UIImpactFeedbackGenerator(style: .medium)
                             haptic.impactOccurred()
                         }
+                        saveEnrollment(enrolled: isEnrolled)
                     } label: {
                         HStack(spacing: 8) {
                             Image(systemName: isEnrolled ? "checkmark.circle.fill" : "play.circle.fill")
                                 .font(.systemScaled(18))
-                            
+
                             Text(isEnrolled ? "Enrolled" : "Start Plan")
                                 .font(.custom("OpenSans-Bold", size: 16))
                         }
@@ -558,6 +613,7 @@ struct EnhancedBibleStudyPlanCard: View {
                 .shadow(color: .black.opacity(0.08), radius: 12, y: 4)
         )
         .padding(.horizontal, 20)
+        .task { await loadProgress() }
     }
 }
 

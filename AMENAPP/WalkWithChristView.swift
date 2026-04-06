@@ -889,6 +889,9 @@ struct WalkWithChristView: View {
             // ── Status / intro block ───────────────────────────────────────
             statusBlock
 
+            // ── Today With God ────────────────────────────────────────────
+            todayWithGodCard
+
             // ── Next Steps ────────────────────────────────────────────────
             if store.profile.onboardingComplete {
                 nextStepsSection
@@ -917,6 +920,91 @@ struct WalkWithChristView: View {
             Color.clear.frame(height: 32)
         }
         .padding(.top, 28)
+    }
+
+    // MARK: - Today With God Card
+
+    private var todayWithGodCard: some View {
+        let prompt = dailyPrompt(for: store.profile)
+        return HStack(alignment: .top, spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(Color.black.opacity(0.08))
+                    .frame(width: 40, height: 40)
+                Image(systemName: "sun.max.fill")
+                    .font(.systemScaled(16, weight: .semibold))
+                    .foregroundStyle(ink)
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Today with God")
+                    .font(.systemScaled(12, weight: .semibold))
+                    .kerning(1.2)
+                    .foregroundStyle(slate)
+                    .textCase(.uppercase)
+                Text(prompt.title)
+                    .font(.systemScaled(16, weight: .semibold))
+                    .foregroundStyle(ink)
+                Text(prompt.body)
+                    .font(.systemScaled(13))
+                    .foregroundStyle(slate)
+                    .lineSpacing(2)
+            }
+
+            Spacer()
+
+            Button {
+                bereanQuery = prompt.actionQuery
+                showBerean = true
+            } label: {
+                Text("Ask Berean")
+                    .font(.systemScaled(12, weight: .semibold))
+                    .foregroundStyle(ink)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color.black.opacity(0.06), in: Capsule())
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(16)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
+        .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+        .padding(.horizontal, 24)
+    }
+
+    private struct DailyPrompt {
+        let title: String
+        let body: String
+        let actionQuery: String
+    }
+
+    private func dailyPrompt(for profile: WalkProfile) -> DailyPrompt {
+        if profile.currentNeed == .healing || profile.currentNeed == .encouragement {
+            return DailyPrompt(
+                title: "You are not alone",
+                body: "If today feels heavy, start with a simple prayer and one honest sentence.",
+                actionQuery: "Help me pray when I feel overwhelmed"
+            )
+        }
+        if profile.stage == .returning {
+            return DailyPrompt(
+                title: "Start small, start real",
+                body: "A short scripture and one quiet minute can reset your day.",
+                actionQuery: "Give me a short scripture and a simple prayer"
+            )
+        }
+        if profile.stage == .growing {
+            return DailyPrompt(
+                title: "Grow deeper today",
+                body: "Pick one verse and ask what it means for your actual week.",
+                actionQuery: "Help me apply scripture to my week"
+            )
+        }
+        return DailyPrompt(
+            title: "One faithful step",
+            body: "Consistency beats intensity. Take one small step with God today.",
+            actionQuery: "What is one small step with God I can take today"
+        )
     }
 
     // MARK: - Status Block

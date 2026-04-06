@@ -84,6 +84,27 @@ struct EnhancedChurchNoteEditor: View {
     // Feature 08: Scripture Reminders
     @StateObject private var reminderManager = ScriptureReminderManager()
 
+    // MARK: — Smart Feature ViewModels (8 features)
+    @StateObject private var aiInsightsVM    = AIInsightsViewModel()
+    @StateObject private var scriptureDNAVM  = ScriptureDNAViewModel()
+    @StateObject private var churchRadarVM   = ChurchRadarViewModel()
+    @StateObject private var voiceWisdomVM   = VoiceToWisdomViewModel()
+    @StateObject private var communityDuetVM = CommunityDuetViewModel()
+    @StateObject private var quoteForgeVM    = QuoteForgeViewModel()
+    @StateObject private var growthArcVM     = GrowthArcViewModel()
+
+    // MARK: — Smart Feature Visibility Toggles
+    // Inline panels
+    @State private var showVoicePanel      = false
+    @State private var showAIInsightsPanel = false
+    @State private var showScriptureDNA    = false
+    @State private var showRadarPanel      = false
+    // Sheet presentations
+    @State private var showCommunityDuet   = false
+    @State private var showQuoteForge      = false
+    @State private var showGrowthArc       = false
+    @State private var showReelComposer    = false
+
     // Feature 1: Claude auto-tagging
     @State private var detectedTags: [String] = []
     @State private var visibleTagCount: Int = 0
@@ -217,7 +238,41 @@ struct EnhancedChurchNoteEditor: View {
 
                         // Tags section
                         tagsSection
+
+                        // Smart feature chip bar (always visible)
+                        smartFeatureChipBar
+                            .padding(.top, 4)
+
+                        // Inline feature panels (toggled by chips above)
+                        if showVoicePanel {
+                            VoiceToWisdomView(viewModel: voiceWisdomVM, noteBody: $content)
+                                .padding(.horizontal, 16)
+                                .transition(.move(edge: .top).combined(with: .opacity))
+                        }
+                        if showAIInsightsPanel {
+                            AIInsightsPanelView(viewModel: aiInsightsVM, bodyText: $content)
+                                .padding(.horizontal, 16)
+                                .transition(.move(edge: .top).combined(with: .opacity))
+                        }
+                        if showScriptureDNA {
+                            ScriptureDNAView(viewModel: scriptureDNAVM, reference: $scripture)
+                                .padding(.horizontal, 16)
+                                .transition(.move(edge: .top).combined(with: .opacity))
+                        }
+                        if showRadarPanel {
+                            ChurchRadarView(viewModel: churchRadarVM) { church in
+                                churchName   = church.name
+                                pastor       = church.pastorName
+                                if sermonTitle.isEmpty { sermonTitle = church.sermonTitle }
+                            }
+                            .padding(.horizontal, 16)
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                        }
                     }
+                    .animation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.78)), value: showVoicePanel)
+                    .animation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.78)), value: showAIInsightsPanel)
+                    .animation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.78)), value: showScriptureDNA)
+                    .animation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.78)), value: showRadarPanel)
                     .padding(.bottom, 40)
                 }
             }
@@ -270,6 +325,18 @@ struct EnhancedChurchNoteEditor: View {
                 content += (content.isEmpty ? "" : "\n\n") + extracted
                 trackUnsavedChanges()
             }
+        }
+        .sheet(isPresented: $showCommunityDuet) {
+            CommunityDuetSheet(viewModel: communityDuetVM, noteBody: $content)
+        }
+        .sheet(isPresented: $showQuoteForge) {
+            QuoteForgeSheet(viewModel: quoteForgeVM, noteBody: $content)
+        }
+        .sheet(isPresented: $showGrowthArc) {
+            GrowthArcSheet(viewModel: growthArcVM)
+        }
+        .sheet(isPresented: $showReelComposer) {
+            ReelComposerView(viewModel: quoteForgeVM, quote: quoteForgeVM.detectedQuote)
         }
     }
     
@@ -851,6 +918,113 @@ struct EnhancedChurchNoteEditor: View {
                     .padding(.horizontal, 16)
                 }
             }
+        }
+    }
+
+    // MARK: - Smart Feature Chip Bar
+
+    private var smartFeatureChipBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+                // ── Inline panel chips ─────────────────────────────────────
+                CNFeatureChip(
+                    icon: "mic.fill",
+                    label: "Voice",
+                    isActive: showVoicePanel,
+                    accentColor: Color(hex: "16A34A")
+                ) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.78))) {
+                        showVoicePanel.toggle()
+                    }
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                }
+
+                CNFeatureChip(
+                    icon: "sparkles",
+                    label: "AI Insights",
+                    isActive: showAIInsightsPanel,
+                    accentColor: .amenPurple
+                ) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.78))) {
+                        showAIInsightsPanel.toggle()
+                    }
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                }
+
+                CNFeatureChip(
+                    icon: "book.closed.fill",
+                    label: "Scripture",
+                    isActive: showScriptureDNA,
+                    accentColor: .amenBlue
+                ) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.78))) {
+                        showScriptureDNA.toggle()
+                    }
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                }
+
+                CNFeatureChip(
+                    icon: "antenna.radiowaves.left.and.right",
+                    label: "Radar",
+                    isActive: showRadarPanel,
+                    accentColor: .amenCyan
+                ) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.78))) {
+                        showRadarPanel.toggle()
+                    }
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                }
+
+                // Divider pip
+                Capsule()
+                    .fill(Color.primary.opacity(0.1))
+                    .frame(width: 1, height: 24)
+
+                // ── Sheet chips ────────────────────────────────────────────
+                CNFeatureChip(
+                    icon: "quote.bubble.fill",
+                    label: "Quote",
+                    isActive: false,
+                    accentColor: .cnGold
+                ) {
+                    quoteForgeVM.detectBestQuote(from: content)
+                    showQuoteForge = true
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                }
+
+                CNFeatureChip(
+                    icon: "film.fill",
+                    label: "Reel",
+                    isActive: false,
+                    accentColor: .cnGold
+                ) {
+                    quoteForgeVM.detectBestQuote(from: content)
+                    showReelComposer = true
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                }
+
+                CNFeatureChip(
+                    icon: "person.2.fill",
+                    label: "Duet",
+                    isActive: false,
+                    accentColor: .amenRose
+                ) {
+                    showCommunityDuet = true
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                }
+
+                CNFeatureChip(
+                    icon: "chart.line.uptrend.xyaxis",
+                    label: "Growth",
+                    isActive: false,
+                    accentColor: .amenEmerald
+                ) {
+                    showGrowthArc = true
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 4)
         }
     }
 
@@ -2049,5 +2223,64 @@ struct ScriptureReminderView: View {
         .buttonStyle(.bordered)
         .tint(mgr.isScheduled ? .green : .orange)
         .controlSize(.small)
+    }
+}
+
+// MARK: - CNFeatureChip
+// Liquid glass pill button used in the smart feature chip bar.
+// Active state glows with the chip's accent colour.
+
+struct CNFeatureChip: View {
+    let icon: String
+    let label: String
+    let isActive: Bool
+    let accentColor: Color
+    let action: () -> Void
+
+    @State private var isPressed = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.system(size: 12, weight: .semibold))
+                Text(label)
+                    .font(.system(size: 12, weight: .semibold))
+            }
+            .foregroundStyle(isActive ? accentColor : Color.primary.opacity(0.65))
+            .padding(.horizontal, 14)
+            .padding(.vertical, 9)
+            .background {
+                Capsule()
+                    .fill(.thinMaterial)
+                    .overlay {
+                        Capsule()
+                            .fill(isActive
+                                  ? accentColor.opacity(0.12)
+                                  : Color.primary.opacity(0.03))
+                    }
+                    .overlay {
+                        Capsule()
+                            .strokeBorder(
+                                isActive
+                                    ? accentColor.opacity(0.45)
+                                    : Color.primary.opacity(0.08),
+                                lineWidth: isActive ? 1.5 : 1
+                            )
+                    }
+                    .shadow(
+                        color: isActive ? accentColor.opacity(0.25) : .clear,
+                        radius: 8, y: 3
+                    )
+            }
+            .scaleEffect(isPressed ? 0.95 : 1.0)
+        }
+        .buttonStyle(.plain)
+        .animation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.7)), value: isActive)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in isPressed = true }
+                .onEnded   { _ in isPressed = false }
+        )
     }
 }

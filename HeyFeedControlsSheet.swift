@@ -79,7 +79,7 @@ struct HeyFeedControlsSheet: View {
                             .font(.caption)
                             .foregroundColor(.secondary)
                         
-                        HeyFeedFlowLayout(spacing: 8) {
+                        HeyFeedAMENFlowLayout(spacing: 8) {
                             ForEach(FeedTopic.allCases, id: \.self) { topic in
                                 TopicChip(
                                     topic: topic,

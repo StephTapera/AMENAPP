@@ -1,6 +1,7 @@
 import SwiftUI
 import UIKit
 
+@MainActor
 struct SelectablePostTextView: UIViewRepresentable {
     let text: String
     let mentions: [MentionedUser]?
@@ -122,8 +123,10 @@ struct SelectablePostTextView: UIViewRepresentable {
         }
 
         func handleSelectionChange(_ selection: PostTextSelection?) {
-            parent.isSelecting = selection != nil
-            parent.selection = selection
+            Task { @MainActor in
+                parent.isSelecting = selection != nil
+                parent.selection = selection
+            }
         }
     }
 }

@@ -31,8 +31,9 @@ class PhotoInsightsService {
     static let shared = PhotoInsightsService()
     
     private let db = Firestore.firestore()
-    private let apiKey: String
-    
+    // SECURITY: API key is NOT stored on the client.
+    // Vision API calls must be proxied through Firebase Cloud Functions.
+
     // Badge mappings from Vision API labels
     private let badgeMappings: [String: String] = [
         // Nature & Outdoors
@@ -79,147 +80,35 @@ class PhotoInsightsService {
         "Smile": "😊 Joyful"
     ]
     
-    private init() {
-        self.apiKey = BundleConfig.string(forKey: "GOOGLE_VISION_API_KEY") ?? ""
-    }
-    
-    // MARK: - Main Analysis Function
-    
-    func analyzeProfilePhoto(imageURL: String, userId: String, currentUserId: String) async throws -> PhotoInsight {
-        // If no API key is configured, skip analysis entirely
-        guard !apiKey.isEmpty else {
-            throw PhotoInsightError.apiKeyMissing
-        }
+    private init() {}
 
+    // MARK: - Main Analysis Function
+
+    /// Analyze a profile photo to generate interest badges.
+    /// SECURITY: Direct Vision API calls are disabled on the client.
+    /// Photo analysis must be proxied through a Firebase Cloud Function (analyzeProfilePhoto callable).
+    func analyzeProfilePhoto(imageURL: String, userId: String, currentUserId: String) async throws -> PhotoInsight {
         // Check cache first (can read anyone's cached insights)
         if let cached = try? await getCachedInsight(userId: userId) {
             return cached
         }
-        
-        // Determine if we should cache the result
-        let shouldCache = (userId == currentUserId)
-        
-        // Download image data
-        guard let url = URL(string: imageURL) else {
-            throw PhotoInsightError.invalidURL
-        }
-        
-        let (data, _) = try await URLSession.shared.data(from: url)
-        let base64Image = data.base64EncodedString()
-        
-        // Call Google Cloud Vision API
-        let labels = try await detectLabels(base64Image: base64Image)
-        
-        // Generate badges from labels
-        let badges = generateBadges(from: labels)
-        
-        // Create insight
-        let insight = PhotoInsight(
-            badges: badges,
-            dominantColors: nil,
-            analyzedAt: Date()
+        // SECURITY: Vision API key is NOT stored on the client.
+        // Photo label analysis must go through Cloud Functions.
+        throw NSError(
+            domain: "PhotoInsightsService",
+            code: 501,
+            userInfo: [NSLocalizedDescriptionKey: "Photo insights analysis must be invoked via Cloud Function proxy"]
         )
-        
-        // Only cache if this is the current user's own photo
-        if shouldCache {
-            do {
-                try await cacheInsight(insight, userId: userId)
-                dlog("✅ Cached photo insights for current user: \(userId)")
-            } catch {
-                dlog("⚠️ Failed to cache photo insights: \(error)")
-                // Continue anyway - we still have the result
-            }
-        }
-        
-        dlog("✅ Generated \(badges.count) badges for user: \(userId)")
-        return insight
     }
-    
-    // MARK: - Google Cloud Vision API
-    
+
+    // MARK: - (Disabled) Google Cloud Vision API
+    // SECURITY: detectLabels is disabled. Vision API calls must be proxied through Cloud Functions.
     private func detectLabels(base64Image: String) async throws -> [String] {
-        let endpoint = "https://vision.googleapis.com/v1/images:annotate?key=\(apiKey)"
-        
-        guard let url = URL(string: endpoint) else {
-            throw PhotoInsightError.invalidURL
-        }
-        
-        let requestBody: [String: Any] = [
-            "requests": [
-                [
-                    "image": [
-                        "content": base64Image
-                    ],
-                    "features": [
-                        [
-                            "type": "LABEL_DETECTION",
-                            "maxResults": 10
-                        ],
-                        [
-                            "type": "SAFE_SEARCH_DETECTION"
-                        ]
-                    ]
-                ]
-            ]
-        ]
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw PhotoInsightError.networkError
-        }
-        
-        guard httpResponse.statusCode == 200 else {
-            dlog("❌ Vision API error: \(httpResponse.statusCode)")
-            if let errorString = String(data: data, encoding: .utf8) {
-                dlog("   Response: \(errorString)")
-            }
-            throw PhotoInsightError.apiError(httpResponse.statusCode)
-        }
-        
-        // Parse response
-        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-        guard let responses = json?["responses"] as? [[String: Any]],
-              let firstResponse = responses.first else {
-            return []
-        }
-        
-        // ✅ CHECK SAFESEARCH FIRST - Block inappropriate profile pictures
-        if let safeSearch = firstResponse["safeSearchAnnotation"] as? [String: String] {
-            let adult = safeSearch["adult"] ?? "UNKNOWN"
-            let racy = safeSearch["racy"] ?? "UNKNOWN"
-            let violence = safeSearch["violence"] ?? "UNKNOWN"
-            
-            // Strict thresholds for profile pictures
-            if adult == "POSSIBLE" || adult == "LIKELY" || adult == "VERY_LIKELY" ||
-               racy == "POSSIBLE" || racy == "LIKELY" || racy == "VERY_LIKELY" ||
-               violence == "LIKELY" || violence == "VERY_LIKELY" {
-                dlog("❌ SafeSearch blocked profile picture: adult=\(adult), racy=\(racy), violence=\(violence)")
-                throw PhotoInsightError.unsafeContent
-            }
-        }
-        
-        guard let labelAnnotations = firstResponse["labelAnnotations"] as? [[String: Any]] else {
-            return []
-        }
-        
-        // Extract labels with confidence > 0.7
-        let labels = labelAnnotations.compactMap { annotation -> String? in
-            guard let description = annotation["description"] as? String,
-                  let score = annotation["score"] as? Double,
-                  score > 0.7 else {
-                return nil
-            }
-            return description
-        }
-        
-        dlog("🔍 Detected labels: \(labels.joined(separator: ", "))")
-        return labels
+        throw NSError(
+            domain: "PhotoInsightsService",
+            code: 501,
+            userInfo: [NSLocalizedDescriptionKey: "Vision API calls must be proxied through Cloud Functions"]
+        )
     }
     
     // MARK: - Badge Generation

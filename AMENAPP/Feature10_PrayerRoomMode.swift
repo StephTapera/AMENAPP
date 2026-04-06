@@ -128,10 +128,9 @@ final class PrayerRoomManager: ObservableObject {
                 .collection("prayerRoomSummaries").document(threadId)
                 .setData(["summary": summary, "createdAt": FieldValue.serverTimestamp()])
 
-            // Mark thread viewedBy
-            try? await db.collection("threads").document(threadId).updateData([
-                "viewedBy": FieldValue.arrayUnion([userId]),
-            ])
+            // View state is already recorded in the user's own subcollection above.
+            // Do NOT write viewedBy array on the thread document — it would grow
+            // unbounded for popular threads (hotspot write risk).
 
             await MainActor.run { entryPrayerSummary = summary }
         } catch {

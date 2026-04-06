@@ -5,28 +5,29 @@
     
     "postInteractions": {
       "$postId": {
-        ".read": true,
-        ".write": "auth != null",
+        ".read": "auth != null",
         ".indexOn": ["timestamp"],
-        
+
         "lightbulbs": {
           "$userId": {
-            ".write": "auth.uid == $userId"
+            ".read": "auth != null",
+            ".write": "auth != null && auth.uid == $userId"
           }
         },
-        
+
         "amens": {
           "$userId": {
-            ".write": "auth.uid == $userId"
+            ".read": "auth != null",
+            ".write": "auth != null && auth.uid == $userId"
           }
         },
-        
+
         "comments": {
           ".indexOn": ["timestamp"],
           "$commentId": {
-            ".read": true,
+            ".read": "auth != null",
             ".write": "auth != null",
-            
+
             "replies": {
               ".indexOn": ["timestamp"]
             }
@@ -37,8 +38,8 @@
     
     "conversations": {
       "$conversationId": {
-        ".read": "auth != null && data.child('participantIds').child(auth.uid).exists()",
-        ".write": "auth != null && data.child('participantIds').child(auth.uid).exists()",
+        ".read": "auth != null && (data.child('participantIds').child(auth.uid).exists() || newData.child('participantIds').child(auth.uid).exists())",
+        ".write": "auth != null && (data.child('participantIds').child(auth.uid).exists() || newData.child('participantIds').child(auth.uid).exists())",
         
         "messages": {
           ".indexOn": ["timestamp"]
@@ -48,32 +49,33 @@
     
     "activityFeed": {
       "global": {
-        ".read": true,
-        ".write": "auth != null",
+        ".read": "auth != null",
+        ".write": false,
         ".indexOn": ["timestamp"]
       }
     },
-    
+
     "communityActivity": {
       "$communityId": {
-        ".read": true,
-        ".write": "auth != null",
+        ".read": "auth != null",
+        ".write": false,
         ".indexOn": ["timestamp"]
       }
     },
-    
+
     "prayerActivity": {
       "$postId": {
-        ".read": true,
-        
+        ".read": "auth != null",
+
         "prayingUsers": {
           "$userId": {
-            ".write": "auth.uid == $userId"
+            ".write": "auth != null && auth.uid == $userId"
           }
         },
-        
+
         "count": {
-          ".write": "auth != null"
+          ".read": "auth != null",
+          ".write": false
         }
       }
     },
@@ -87,9 +89,9 @@
     
     "followers": {
       "$userId": {
-        ".read": true,
+        ".read": "auth != null",
         "$followerId": {
-          ".write": "auth.uid == $followerId"
+          ".write": "auth != null && auth.uid == $followerId"
         }
       }
     },
@@ -98,7 +100,7 @@
       "$userId": {
         ".read": "auth != null",
         "$followingId": {
-          ".write": "auth.uid == $userId"
+          ".write": "auth != null && auth.uid == $userId"
         }
       }
     },

@@ -87,9 +87,9 @@ final class TTLCache<Key: Hashable, Value> {
         // Evict expired entries proactively if policy requests it
         if policy.evictsOnWrite { evictExpired() }
 
-        // Enforce entry cap: remove oldest if at limit
-        if let max = policy.maxEntries, store.count >= max {
-            store.removeValue(forKey: store.keys.first!)
+        // Enforce entry cap: remove an entry if at limit
+        if let max = policy.maxEntries, store.count >= max, let keyToEvict = store.keys.first {
+            store.removeValue(forKey: keyToEvict)
         }
 
         store[key] = CacheEntry(value: value, insertedAt: Date())

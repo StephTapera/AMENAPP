@@ -488,6 +488,9 @@ struct SpiritualHealthView: View {
                     .padding(.top, 16)
             }
 
+            faithWrappedCard
+                .padding(.horizontal, 20)
+
             // 8-week trend sparkline
             if store.checkIns.count >= 2 {
                 trendChart
@@ -883,6 +886,41 @@ struct SpiritualHealthView: View {
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
         .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
         .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+    }
+
+    // Faith Wrapped entry card
+    private var faithWrappedCard: some View {
+        NavigationLink(destination: SpiritualJourneySelectionView()) {
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle()
+                        .fill(Color.black.opacity(0.08))
+                        .frame(width: 44, height: 44)
+                    Image(systemName: "sparkles")
+                        .font(.systemScaled(18, weight: .semibold))
+                        .foregroundStyle(.black)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Faith Wrapped")
+                        .font(.systemScaled(15, weight: .semibold))
+                        .foregroundStyle(.black)
+                    Text("Your season, gently told back to you")
+                        .font(.systemScaled(12))
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.systemScaled(14, weight: .semibold))
+                    .foregroundStyle(.secondary)
+            }
+            .padding(12)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
+            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+        }
+        .buttonStyle(.plain)
     }
 
     // Rotating set of Berean AI-style reflection prompts

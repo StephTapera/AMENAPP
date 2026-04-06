@@ -70,6 +70,16 @@ class HomeFeedAlgorithm: ObservableObject {
         // one-way broadcast accounts.
         let mutualFollowIds: Set<String>
 
+        // Hey Feed NL layer — pre-captured deltas keyed by FeedTopic raw value.
+        // nlRankingDeltas:   user's explicit duration-aware NL preferences (±0.35 cap per topic)
+        // sessionModeDeltas: contextual session-mode adjustments for the current scroll session
+        // saturationPenalties: topic overexposure penalty from rolling 25-post window (0 to -0.25)
+        // contradictionMultipliers: behavior-vs-preference contradiction correction (0.2–1.0)
+        let nlRankingDeltas:           [String: Double]
+        let sessionModeDeltas:         [String: Double]
+        let saturationPenalties:       [String: Double]
+        let contradictionMultipliers:  [String: Double]
+
         @MainActor
         static func capture() -> ScoringContext {
             let svc = HeyFeedPreferencesService.shared
@@ -93,6 +103,34 @@ class HomeFeedAlgorithm: ObservableObject {
                 $0[id] = RecommendationIntelligenceService.shared.getCachedRelevance(for: id)
             }
             let mutualFollowIds = FollowService.shared.following.intersection(FollowService.shared.followers)
+
+            // Capture Hey Feed NL intelligence signals for all NL taxonomy topics.
+            // Each service returns a per-topic dictionary keyed by taxonomy string ID.
+            let nlService       = HeyFeedNLPreferencesService.shared
+            let sessionService  = HeyFeedSessionModeService.shared
+            let satService      = HeyFeedSaturationService.shared
+            let contraService   = HeyFeedContradictionService.shared
+
+            // All taxonomy topic IDs used by the NL layer
+            let nlTopicIds: [String] = [
+                "testimonies", "prayer_requests", "bible_teaching", "practical_faith",
+                "encouragement", "church_discovery", "debate", "promotional_content",
+                "grief_support", "worship_music", "theology", "community",
+                "relationship_followed", "local_relevance", "repetition", "intensity",
+            ]
+
+            var nlDeltas:     [String: Double] = [:]
+            var sessionDeltas:[String: Double] = [:]
+            var satPenalties: [String: Double] = [:]
+            var contraMults:  [String: Double] = [:]
+
+            for tid in nlTopicIds {
+                nlDeltas[tid]     = nlService.rankingDelta(for: tid)
+                sessionDeltas[tid] = sessionService.rankingDelta(for: tid)
+                satPenalties[tid] = satService.saturationPenalty(for: tid)
+                contraMults[tid]  = contraService.boostMultiplier(for: tid)
+            }
+
             return ScoringContext(
                 prefsLoaded: svc.lastRefreshTime != nil,
                 mutedAuthors: prefs.mutedAuthors,
@@ -106,7 +144,11 @@ class HomeFeedAlgorithm: ObservableObject {
                 currentUserId: Auth.auth().currentUser?.uid,
                 trustScores: cachedTrust,
                 recommendationScores: cachedRecommendations,
-                mutualFollowIds: mutualFollowIds
+                mutualFollowIds: mutualFollowIds,
+                nlRankingDeltas: nlDeltas,
+                sessionModeDeltas: sessionDeltas,
+                saturationPenalties: satPenalties,
+                contradictionMultipliers: contraMults
             )
         }
     }
@@ -262,6 +304,32 @@ class HomeFeedAlgorithm: ObservableObject {
         // accounts to reward depth over reach — a core AMEN product principle.
         if context?.mutualFollowIds.contains(post.authorId) == true {
             score += 6.0
+        }
+
+        // 16. Hey Feed NL Intelligence Layer
+        // Maps the post to the most relevant NL taxonomy topic, then applies four
+        // independent signals captured from the new intelligence services.
+        // All four are additive/multiplicative adjustments on top of the base score.
+        if let ctx = context {
+            let nlTopicId = nlTopicId(for: post)
+
+            // 16a. User's explicit NL preference delta (±0.35 normalized to score units × 35)
+            let nlDelta = ctx.nlRankingDeltas[nlTopicId] ?? 0.0
+            score += nlDelta * 35.0
+
+            // 16b. Session mode delta (e.g. Devotional mode boosts bible_teaching by 0.3)
+            let sessionDelta = ctx.sessionModeDeltas[nlTopicId] ?? 0.0
+            score += sessionDelta * 25.0
+
+            // 16c. Saturation penalty — user has seen too much of this topic recently
+            // penalty is already 0 to -0.25; scale to meaningful score impact
+            let satPenalty = ctx.saturationPenalties[nlTopicId] ?? 0.0
+            score += satPenalty * 40.0   // e.g. max -10 pts at -0.25 × 40
+
+            // 16d. Contradiction multiplier — dampen score when user says "more X"
+            // but keeps skipping X (signals the stated preference isn't actionable)
+            let contraMult = ctx.contradictionMultipliers[nlTopicId] ?? 1.0
+            score *= contraMult
         }
 
         return min(100, max(0, score))
@@ -1266,6 +1334,21 @@ class HomeFeedAlgorithm: ObservableObject {
     
     // MARK: - HeyFeed Integration Helpers
     
+    /// Map a post to the Hey Feed NL taxonomy topic ID used by the NL intelligence layer.
+    /// The NL taxonomy uses fine-grained string IDs ("testimonies", "prayer_requests", etc.)
+    /// that map more precisely than the broader FeedTopic enum.
+    nonisolated private func nlTopicId(for post: Post) -> String {
+        // topicTag on the post takes priority — it's the author-chosen fine-grained tag
+        if let tag = post.topicTag, !tag.isEmpty { return tag }
+        switch post.category {
+        case .testimonies: return "testimonies"
+        case .prayer:      return "prayer_requests"
+        case .tip:         return "bible_teaching"
+        case .funFact:     return "bible_teaching"
+        case .openTable:   return "community"
+        }
+    }
+
     /// Map Post category to HeyFeed topic
     nonisolated private func mapCategoryToTopic(_ category: Post.PostCategory) -> FeedTopic {
         switch category {

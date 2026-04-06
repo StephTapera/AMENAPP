@@ -433,15 +433,18 @@ final class AMENMessageSafetyEngine {
 
 // MARK: - Image Safety Gate
 
-/// Runs Google Vision SafeSearch on an image BEFORE it is encrypted and uploaded.
+/// Evaluates image safety before an image is encrypted and uploaded.
 /// Called from the image attachment picker.
+///
+/// SECURITY: Direct Vision API calls from the client are disabled.
+/// Image safety evaluation is handled server-side via the moderateImage Cloud Function.
+/// This gate always returns .safe so the image proceeds to upload; the Cloud Function
+/// performs the actual SafeSearch check and can reject the image post-upload.
 @MainActor
 final class AMENImageSafetyGate {
 
     static let shared = AMENImageSafetyGate()
     private init() {}
-
-    private let visionAPIKey = BundleConfig.string(forKey: "GOOGLE_VISION_API_KEY") ?? ""
 
     enum ImageSafetyResult {
         case safe
@@ -449,44 +452,8 @@ final class AMENImageSafetyGate {
     }
 
     func evaluate(imageData: Data) async -> ImageSafetyResult {
-        guard !visionAPIKey.isEmpty else { return .safe }  // Fail open if key missing
-
-        let base64 = imageData.base64EncodedString()
-        let body: [String: Any] = [
-            "requests": [[
-                "image": ["content": base64],
-                "features": [["type": "SAFE_SEARCH_DETECTION"]]
-            ]]
-        ]
-
-        guard let url = URL(string: "https://vision.googleapis.com/v1/images:annotate?key=\(visionAPIKey)"),
-              let bodyData = try? JSONSerialization.data(withJSONObject: body)
-        else { return .safe }
-
-        var req = URLRequest(url: url)
-        req.httpMethod = "POST"
-        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.httpBody = bodyData
-
-        guard let (data, _) = try? await URLSession.shared.data(for: req),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let responses = json["responses"] as? [[String: Any]],
-              let first = responses.first,
-              let safeSearch = first["safeSearchAnnotation"] as? [String: String]
-        else { return .safe }
-
-        let blocked = ["LIKELY", "VERY_LIKELY"]
-
-        if let adult = safeSearch["adult"], blocked.contains(adult) {
-            return .blocked(reason: "This image contains adult content and cannot be sent on AMEN.")
-        }
-        if let violence = safeSearch["violence"], blocked.contains(violence) {
-            return .blocked(reason: "This image contains violent content and cannot be sent on AMEN.")
-        }
-        if let racy = safeSearch["racy"], racy == "VERY_LIKELY" {
-            return .blocked(reason: "This image violates AMEN's content standards.")
-        }
-
+        // SECURITY: Vision API key is NOT stored on the client.
+        // Server-side Cloud Function (moderateImage) handles image safety checks.
         return .safe
     }
 }

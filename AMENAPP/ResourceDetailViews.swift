@@ -102,19 +102,34 @@ struct SermonSummarizerView: View {
     }
     
     private func analyzeSermon() {
+        guard !sermonText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         isAnalyzing = true
-        
-        // Simulate AI processing
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-            summary = "This sermon focused on the transformative power of God's grace in our daily lives. The speaker emphasized that true faith isn't just about belief, but about allowing God's love to shape our actions and relationships with others."
-            
-            keyPoints = [
-                "Grace is not earned - it's freely given by God",
-                "Faith should transform how we treat others",
-                "Daily prayer deepens our relationship with God",
-                "Living out faith requires both belief and action"
-            ]
-            
+        Task {
+            let prompt = """
+            You are a biblical scholar and sermon analyst. Analyze the following sermon notes or transcript and produce:
+            1. A concise 2–3 sentence summary capturing the central message.
+            2. 4–6 key takeaways as bullet points.
+
+            Respond in this exact JSON format (no markdown):
+            {"summary":"...", "keyPoints":["...","..."]}
+
+            Sermon content:
+            \(sermonText.prefix(4000))
+            """
+            let raw = try? await ClaudeService.shared.sendMessageSync(prompt, mode: .scholar)
+            let cleaned = (raw ?? "")
+                .replacingOccurrences(of: "```json", with: "")
+                .replacingOccurrences(of: "```", with: "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            struct Result: Decodable { let summary: String; let keyPoints: [String] }
+            if let data = cleaned.data(using: .utf8),
+               let result = try? JSONDecoder().decode(Result.self, from: data) {
+                summary   = result.summary
+                keyPoints = result.keyPoints
+            } else {
+                summary   = raw ?? "Unable to generate summary. Please try again."
+                keyPoints = []
+            }
             isAnalyzing = false
         }
     }

@@ -134,6 +134,7 @@ struct AccountSettingsView: View {
     @State private var showDeleteAccount = false
     @State private var showDeactivateAccount = false
     @State private var showPrivacyDashboard = false
+    @State private var showSignOutConfirmation = false
     @State private var isPrivateAccount = false
     @State private var isTogglingPrivacy = false
 
@@ -326,6 +327,33 @@ struct AccountSettingsView: View {
                         .padding(.bottom, 8)
 
                     VStack(spacing: 0) {
+                        // Security Center - Login History, Sessions, Events
+                        NavigationLink {
+                            SecurityCenterView()
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: "lock.shield.fill")
+                                    .frame(width: 24)
+                                    .foregroundStyle(.blue)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text("Security & Access")
+                                        .font(AMENFont.semiBold(15))
+                                    Text("Login history, active sessions, and security events")
+                                        .font(AMENFont.regular(13))
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.systemScaled(12, weight: .semibold))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        
+                        Divider().padding(.leading, 56)
+                        
                         Button {
                             showChangePassword = true
                         } label: {
@@ -423,6 +451,32 @@ struct AccountSettingsView: View {
                                     Text("Two-Factor Authentication")
                                         .font(AMENFont.semiBold(15))
                                     Text("Extra security with SMS")
+                                        .font(AMENFont.regular(13))
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.systemScaled(12, weight: .semibold))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        
+                        Divider().padding(.leading, 56)
+                        
+                        NavigationLink {
+                            PhoneVerificationView()
+                        } label: {
+                            HStack {
+                                Image(systemName: "phone.badge.checkmark.fill")
+                                    .frame(width: 24)
+                                    .foregroundStyle(.green)
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Verify Phone Number")
+                                        .font(AMENFont.semiBold(15))
+                                    Text("Add verified phone for recovery & 2FA")
                                         .font(AMENFont.regular(13))
                                         .foregroundStyle(.secondary)
                                 }
@@ -827,6 +881,33 @@ struct AccountSettingsView: View {
                         .padding(.bottom, 8)
 
                     VStack(spacing: 0) {
+                        // Personalized Greeting Settings
+                        NavigationLink {
+                            GreetingSettingsView()
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: "hand.wave.fill")
+                                    .frame(width: 24)
+                                    .foregroundStyle(.orange)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text("Personalized Greeting")
+                                        .font(AMENFont.semiBold(15))
+                                    Text("Customize your welcome message")
+                                        .font(AMENFont.regular(13))
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.systemScaled(12, weight: .semibold))
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+
+                        Divider().padding(.leading, 16)
+
                         Toggle(isOn: $filterMatureContent) {
                             HStack(spacing: 12) {
                                 Image(systemName: "shield.fill")
@@ -1077,6 +1158,42 @@ struct AccountSettingsView: View {
                     .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                     .padding(.horizontal, 16)
 
+                    // MARK: — ACCOUNT
+                    Text("ACCOUNT")
+                        .font(AMENFont.bold(11))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 24)
+                        .padding(.bottom, 8)
+
+                    VStack(spacing: 0) {
+                        // Sign Out
+                        Button {
+                            showSignOutConfirmation = true
+                        } label: {
+                            HStack {
+                                Image(systemName: "rectangle.portrait.and.arrow.right")
+                                    .frame(width: 24)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Sign Out")
+                                        .font(AMENFont.semiBold(15))
+                                    Text("You'll need to sign in again to access your account")
+                                        .font(AMENFont.regular(12))
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            .foregroundStyle(.blue)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                    }
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                    .padding(.horizontal, 16)
+
                     // MARK: — DANGER ZONE
                     Text("DANGER ZONE")
                         .font(AMENFont.bold(11))
@@ -1165,6 +1282,20 @@ struct AccountSettingsView: View {
             }
             .sheet(isPresented: $showPrivacyDashboard) {
                 PrivacyDashboardView()
+            }
+            .alert("Sign Out?", isPresented: $showSignOutConfirmation) {
+                Button("Cancel", role: .cancel) { }
+                Button("Sign Out", role: .destructive) {
+                    Task {
+                        do {
+                            try Auth.auth().signOut()
+                        } catch {
+                            print("Error signing out: \(error.localizedDescription)")
+                        }
+                    }
+                }
+            } message: {
+                Text("You'll need to sign in again to access your account.")
             }
             .onAppear {
                 Task {

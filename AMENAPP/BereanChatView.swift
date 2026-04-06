@@ -150,6 +150,7 @@ struct BereanChatView: View {
 
     @StateObject private var vm: BereanChatViewModel
     @State private var showModeSheet = false
+    @State private var sendSweep = false
     @FocusState private var inputFocused: Bool
     @Environment(\.dismiss) private var dismiss
 
@@ -164,7 +165,7 @@ struct BereanChatView: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            Color.white.ignoresSafeArea()
+            BereanColor.background.ignoresSafeArea()
 
             VStack(spacing: 0) {
                 navigationBar
@@ -217,6 +218,7 @@ struct BereanChatView: View {
                             .fill(.ultraThinMaterial)
                             .overlay(Circle().fill(Color.white.opacity(0.60)))
                             .overlay(Circle().strokeBorder(BereanColor.glassStroke, lineWidth: 0.5))
+                            .shadow(color: .black.opacity(0.05), radius: 6, y: 2)
                     )
             }
             .buttonStyle(.plain)
@@ -225,7 +227,7 @@ struct BereanChatView: View {
 
             // Center title
             Text(conversationTitle ?? "Berean")
-                .font(AMENFont.semiBold(17))
+                .font(BereanType.headline())
                 .foregroundColor(BereanColor.textPrimary)
                 .lineLimit(1)
 
@@ -243,6 +245,7 @@ struct BereanChatView: View {
             Color.white
                 .overlay(Divider().background(BereanColor.separator), alignment: .bottom)
         )
+        .modifier(SoftStickyHeaderModifier(isActive: true, intensity: 0.25))
     }
 
     // MARK: - Message Scroll View
@@ -373,6 +376,7 @@ struct BereanChatView: View {
                     if vm.isThinking {
                         vm.cancelStreaming()
                     } else {
+                        sendSweep.toggle()
                         vm.send()
                         inputFocused = false
                     }
@@ -389,6 +393,7 @@ struct BereanChatView: View {
                             .foregroundColor(.white)
                     }
                 }
+                .highlightSweep(trigger: sendSweep)
                 .padding(.bottom, 2)
             }
         }

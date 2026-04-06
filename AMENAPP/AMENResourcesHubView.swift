@@ -8,6 +8,8 @@
 
 import SwiftUI
 import Observation
+import FirebaseAuth
+import FirebaseFirestore
 
 // MARK: - View Model (unchanged data layer)
 
@@ -258,13 +260,50 @@ struct AMENResourcesHubView: View {
                 .padding(.bottom, 24)
         }
         .navigationBarHidden(true)
-        .task { await vm.load() }
+        .task {
+            await vm.load()
+            await loadSavedIDs()
+        }
         .navigationDestination(item: $selectedEntry) { entry in
             AMENResourceDetailView(entry: entry)
         }
         .animation(.spring(response: 0.35, dampingFraction: 0.8), value: isSearchActive)
         .animation(.spring(response: 0.3, dampingFraction: 0.75), value: selectedMode)
         .animation(.spring(response: 0.3, dampingFraction: 0.75), value: vm.selectedCategory)
+    }
+
+    // MARK: - Saved Resources Persistence
+
+    private func savedCollection() -> CollectionReference? {
+        guard let uid = Auth.auth().currentUser?.uid else { return nil }
+        return Firestore.firestore()
+            .collection("users").document(uid)
+            .collection("savedResources")
+    }
+
+    private func loadSavedIDs() async {
+        guard let col = savedCollection() else { return }
+        guard let snapshot = try? await col.whereField("isSaved", isEqualTo: true).getDocuments() else { return }
+        let ids = Set(snapshot.documents.map { $0.documentID })
+        await MainActor.run { savedIDs = ids }
+    }
+
+    private func toggleSaved(_ item: MediaCardItem) {
+        if savedIDs.contains(item.id) {
+            savedIDs.remove(item.id)
+            Task { try? await savedCollection()?.document(item.id).delete() }
+        } else {
+            savedIDs.insert(item.id)
+            Task {
+                try? await savedCollection()?.document(item.id).setData([
+                    "isSaved":    true,
+                    "title":      item.title,
+                    "subtitle":   item.subtitle,
+                    "category":   item.category.rawValue,
+                    "savedAt":    FieldValue.serverTimestamp(),
+                ])
+            }
+        }
     }
 
     // MARK: - Dot Grid Texture
@@ -526,11 +565,7 @@ struct AMENResourcesHubView: View {
                         onSave: {
                             UIImpactFeedbackGenerator(style: .light).impactOccurred()
                             withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.7))) {
-                                if savedIDs.contains(item.id) {
-                                    savedIDs.remove(item.id)
-                                } else {
-                                    savedIDs.insert(item.id)
-                                }
+                                toggleSaved(item)
                             }
                         }
                     )

@@ -340,7 +340,7 @@ struct ReviewStep: View {
                         ReviewSection(title: "Interests", icon: "star.fill", gradientColors: gradientColors) {
                             onEdit("interests")
                         } content: {
-                            FlowLayout(spacing: 8) {
+                            AMENFlowLayout(spacing: 8) {
                                 ForEach(Array(profileData.interests), id: \.self) { interest in
                                     Text(interest)
                                         .font(.custom("OpenSans-SemiBold", size: 13))

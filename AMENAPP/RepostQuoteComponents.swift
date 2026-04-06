@@ -1072,16 +1072,17 @@ struct QuotePostComposerView: View {
                         return nil
                     }
                     if snapshot.exists {
+                        // Do NOT use arrayUnion for recentPostIds — that array would grow
+                        // unbounded for popular hashtags (hotspot write + 1MB doc limit risk).
+                        // Posts are already queryable by tag via contentTokens/topicTag fields.
                         transaction.updateData([
                             "postCount": FieldValue.increment(Int64(1)),
-                            "recentPostIds": FieldValue.arrayUnion([postId]),
                             "lastUsed": FieldValue.serverTimestamp()
                         ], forDocument: tagRef)
                     } else {
                         transaction.setData([
                             "tag": cleanTag.lowercased(),
                             "postCount": 1,
-                            "recentPostIds": [postId],
                             "createdAt": FieldValue.serverTimestamp(),
                             "lastUsed": FieldValue.serverTimestamp()
                         ], forDocument: tagRef)

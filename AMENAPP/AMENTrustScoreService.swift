@@ -101,7 +101,9 @@ final class AMENTrustScoreService: ObservableObject {
                 cachedRecords[uid] = record
                 return record
             }
-        } catch {}
+        } catch {
+            dlog("⚠️ [TrustScore] fetchRecord failed for \(uid): \(error.localizedDescription)")
+        }
 
         // Default for new / unknown accounts
         return AMENTrustRecord(

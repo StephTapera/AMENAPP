@@ -98,6 +98,24 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		0804F587EA71407AA64D8634 /* AmenSyncModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmenSyncModels.swift; sourceTree = "<group>"; };
+		0F485E8816FD4F539AA958C5 /* AmenSyncHubCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmenSyncHubCard.swift; sourceTree = "<group>"; };
+		27CFD76466884F5BBD04A1F2 /* AmenSyncCaptionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmenSyncCaptionService.swift; sourceTree = "<group>"; };
+		3120D71872D94559AEBE38F9 /* CreationPromptBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreationPromptBar.swift; sourceTree = "<group>"; };
+		35FFF8CDEC8642A68C258780 /* CreationModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreationModels.swift; sourceTree = "<group>"; };
+		5AA9B8E644D04ABEAAC1B73F /* CreationStudioView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreationStudioView.swift; sourceTree = "<group>"; };
+		5F61F9D6175143FC800638E8 /* AssetSelectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssetSelectionView.swift; sourceTree = "<group>"; };
+		8ED726DB5CDC452EB1AFB438 /* AmenSyncDraftsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmenSyncDraftsView.swift; sourceTree = "<group>"; };
+		922950E8CC9D46569F7E0EC3 /* SceneBuilderViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneBuilderViewModel.swift; sourceTree = "<group>"; };
+		A2C11335A649489CA118C3F3 /* CreationDraftService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreationDraftService.swift; sourceTree = "<group>"; };
+		AA86F52210834944B71B50CF /* LiquidGlassCreationComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiquidGlassCreationComponents.swift; sourceTree = "<group>"; };
+		D6084B1DB0854630B7B3E661 /* AmenSyncEntryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmenSyncEntryView.swift; sourceTree = "<group>"; };
+		D62DCFF1C5A247B4B51C0162 /* AmenSyncViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmenSyncViewModel.swift; sourceTree = "<group>"; };
+		D65C30C1C1AF4F71B03AA3D0 /* CreationPublishView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreationPublishView.swift; sourceTree = "<group>"; };
+		D75E708FF5164132A318EA58 /* CreationTimelineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreationTimelineView.swift; sourceTree = "<group>"; };
+		D9249F2C56B94D75A3A87527 /* AmenSyncStudioView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmenSyncStudioView.swift; sourceTree = "<group>"; };
+		E42C295EA4584A44B2D88197 /* TemplatePickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemplatePickerView.swift; sourceTree = "<group>"; };
+		E96B1EDAE41B4A07A7C0A567 /* AmenSyncModerationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmenSyncModerationService.swift; sourceTree = "<group>"; };
 		EF03BC942F2B31ED0026395A /* DEBUG_CHAT_NOT_OPENING.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = DEBUG_CHAT_NOT_OPENING.md; sourceTree = "<group>"; };
 		EF03BCA22F2B36EC0026395A /* FIX_TYPING_INDICATORS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = FIX_TYPING_INDICATORS.md; sourceTree = "<group>"; };
 		EF03BCA42F2B37000026395A /* QUICK_FIX.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = QUICK_FIX.md; sourceTree = "<group>"; };
@@ -105,6 +123,9 @@
 		EF03BCDA2F2BEF440026395A /* CHAT_IMPLEMENTATION_STATUS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CHAT_IMPLEMENTATION_STATUS.md; sourceTree = "<group>"; };
 		EF03BCE02F2BF17E0026395A /* CHATVIEW_MIGRATION_GUIDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CHATVIEW_MIGRATION_GUIDE.md; sourceTree = "<group>"; };
 		EF03BCE22F2BF1BA0026395A /* PRODUCTION_DEPLOYMENT_SUMMARY.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = PRODUCTION_DEPLOYMENT_SUMMARY.md; sourceTree = "<group>"; };
+		EF156EE52F80A46F000C4448 /* GreetingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GreetingService.swift; sourceTree = "<group>"; };
+		EF156EE62F80A48D000C4448 /* PersonalizedGreetingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonalizedGreetingView.swift; sourceTree = "<group>"; };
+		EF156EE72F80A4B3000C4448 /* GreetingSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GreetingSettingsView.swift; sourceTree = "<group>"; };
 		EF3ACF7D2F30027C00596905 /* FIX_CONTACTS_PERMISSION_CRASH.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = FIX_CONTACTS_PERMISSION_CRASH.md; sourceTree = "<group>"; };
 		EF3ACF9D2F30603500596905 /* UNIFIED_CHAT_ENHANCEMENTS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = UNIFIED_CHAT_ENHANCEMENTS.md; sourceTree = "<group>"; };
 		EF3AD06B2F32F5AD00596905 /* genkit-server-index.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = "genkit-server-index.js"; sourceTree = "<group>"; };
@@ -284,6 +305,34 @@
 		EF92D0162F257D7C00CC9601 /* FIREBASE_PERSISTENCE_TROUBLESHOOTING.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = FIREBASE_PERSISTENCE_TROUBLESHOOTING.md; sourceTree = "<group>"; };
 		EF94DD902F5925C6004D0767 /* BereanSafetyPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BereanSafetyPolicy.swift; sourceTree = "<group>"; };
 		EF94DD922F59D77E004D0767 /* AMENInbox.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AMENInbox.swift; sourceTree = "<group>"; };
+		EF9FD0262F821BB100EBF035 /* index.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = index.ts; sourceTree = "<group>"; };
+		EF9FD0272F821BB700EBF035 /* createProject.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = createProject.ts; sourceTree = "<group>"; };
+		EF9FD0282F821BBC00EBF035 /* updateProject.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = updateProject.ts; sourceTree = "<group>"; };
+		EF9FD0292F821BC000EBF035 /* deleteProject.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = deleteProject.ts; sourceTree = "<group>"; };
+		EF9FD02A2F821BC500EBF035 /* autosaveProject.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = autosaveProject.ts; sourceTree = "<group>"; };
+		EF9FD02B2F821BC900EBF035 /* queueProcessingJob.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = queueProcessingJob.ts; sourceTree = "<group>"; };
+		EF9FD02C2F821BCE00EBF035 /* processVideoProxy.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = processVideoProxy.ts; sourceTree = "<group>"; };
+		EF9FD02D2F821BD200EBF035 /* generateThumbnail.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = generateThumbnail.ts; sourceTree = "<group>"; };
+		EF9FD02E2F821BD700EBF035 /* transcribeMedia.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = transcribeMedia.ts; sourceTree = "<group>"; };
+		EF9FD02F2F821BDB00EBF035 /* generateSubtitleTrack.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = generateSubtitleTrack.ts; sourceTree = "<group>"; };
+		EF9FD0302F821BDF00EBF035 /* translateSubtitleTrack.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = translateSubtitleTrack.ts; sourceTree = "<group>"; };
+		EF9FD0312F821BE300EBF035 /* buildOutputVariants.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = buildOutputVariants.ts; sourceTree = "<group>"; };
+		EF9FD0322F821BE800EBF035 /* renderExport.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = renderExport.ts; sourceTree = "<group>"; };
+		EF9FD0332F821BEB00EBF035 /* publishProject.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = publishProject.ts; sourceTree = "<group>"; };
+		EF9FD0342F821BF000EBF035 /* moderateCreatorAsset.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = moderateCreatorAsset.ts; sourceTree = "<group>"; };
+		EF9FD0352F821BF400EBF035 /* verifyAuthenticitySignals.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = verifyAuthenticitySignals.ts; sourceTree = "<group>"; };
+		EF9FD0362F821BF800EBF035 /* saveBrandKit.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = saveBrandKit.ts; sourceTree = "<group>"; };
+		EF9FD0372F821BFB00EBF035 /* cloneTemplateToProject.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = cloneTemplateToProject.ts; sourceTree = "<group>"; };
+		EF9FD0382F821BFF00EBF035 /* recordCreatorAnalytics.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = recordCreatorAnalytics.ts; sourceTree = "<group>"; };
+		EF9FD0392F821C0400EBF035 /* enforceCreatorEntitlement.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = enforceCreatorEntitlement.ts; sourceTree = "<group>"; };
+		EF9FD03A2F821C0700EBF035 /* cleanupOrphanedAssets.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = cleanupOrphanedAssets.ts; sourceTree = "<group>"; };
+		EF9FD03B2F821C0B00EBF035 /* retryFailedCreatorJob.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = retryFailedCreatorJob.ts; sourceTree = "<group>"; };
+		EF9FD03E2F821C1D00EBF035 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
+		EF9FDB942F821E0C00EBF035 /* creatorTypes.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = creatorTypes.ts; sourceTree = "<group>"; };
+		EF9FE6952F821ED000EBF035 /* firestore.creator.rules.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = firestore.creator.rules.md; sourceTree = "<group>"; };
+		EF9FFCBC2F82831B00EBF035 /* ffmpegUtils.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = ffmpegUtils.ts; sourceTree = "<group>"; };
+		EF9FFCBD2F82835600EBF035 /* package.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = package.json; sourceTree = "<group>"; };
+		EF9FFCBE2F82835E00EBF035 /* tsconfig.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = tsconfig.json; sourceTree = "<group>"; };
 		EFAE09662F4AE793009D7209 /* PRODUCTION_READINESS_AUDIT_COMPLETE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = PRODUCTION_READINESS_AUDIT_COMPLETE.md; sourceTree = "<group>"; };
 		EFAE09682F4B4D11009D7209 /* FollowStateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FollowStateManager.swift; sourceTree = "<group>"; };
 		EFAE096A2F4B4F16009D7209 /* LiquidGlassAnimations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiquidGlassAnimations.swift; sourceTree = "<group>"; };
@@ -362,6 +411,7 @@
 		EFD4FEC72F5F2B1400672160 /* TestimonyContextDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestimonyContextDetector.swift; sourceTree = "<group>"; };
 		EFD4FEC92F5F2B5900672160 /* PoliticalDiscussionGuard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoliticalDiscussionGuard.swift; sourceTree = "<group>"; };
 		EFD4FECB2F5F2BB800672160 /* HumorToneClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HumorToneClassifier.swift; sourceTree = "<group>"; };
+		FE6331EA2267427EBCD3177B /* AmenSyncReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmenSyncReviewView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -382,7 +432,6 @@
 		EF7F3C6A2F2352350016C6EE /* Exceptions for "AMENAPP" folder in "AMENAPP" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				.swift,
 				Info.plist,
 				SavedPostsTests.swift,
 			);
@@ -396,16 +445,6 @@
 			target = EF5B39032F5BA7A500152D09 /* AMENWidgetExtensionExtension */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
-/* Begin PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
-		EF7F3C6B2F2352350016C6EE /* Exceptions for "AMENAPP" folder in "Compile Sources" phase from "AMENAPP" target */ = {
-			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
-			buildPhase = EF8151972F184E97008912E3 /* Sources */;
-			membershipExceptions = (
-				.swift,
-			);
-		};
-/* End PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		EF56F7422F2881A30019B94A /* AMENAPPTests */ = {
@@ -425,7 +464,6 @@
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				EF7F3C6A2F2352350016C6EE /* Exceptions for "AMENAPP" folder in "AMENAPP" target */,
-				EF7F3C6B2F2352350016C6EE /* Exceptions for "AMENAPP" folder in "Compile Sources" phase from "AMENAPP" target */,
 				EF7475DB2F2C873700A4434F /* Exceptions for "AMENAPP" folder in "AMENAPPTests" target */,
 				EF8AFE832F68795F000A7001 /* Exceptions for "AMENAPP" folder in "AMENWidgetExtensionExtension" target */,
 			);
@@ -767,6 +805,30 @@
 				EFCC000D2F7000000099AA0D /* UserObservanceProfileService.swift */,
 				EFB9554E2F7A48F9001FEE47 /* Assets2.xcassets */,
 				EFB955D72F7CD850001FEE47 /* MESSAGING_PERMISSIONS_FIX.md */,
+				EF156EE52F80A46F000C4448 /* GreetingService.swift */,
+				EF156EE62F80A48D000C4448 /* PersonalizedGreetingView.swift */,
+				EF156EE72F80A4B3000C4448 /* GreetingSettingsView.swift */,
+				EF9FD0212F821B8300EBF035 /* functions 2 */,
+				EF9FD0222F821B9900EBF035 /* Backend */,
+				35FFF8CDEC8642A68C258780 /* CreationModels.swift */,
+				922950E8CC9D46569F7E0EC3 /* SceneBuilderViewModel.swift */,
+				AA86F52210834944B71B50CF /* LiquidGlassCreationComponents.swift */,
+				D75E708FF5164132A318EA58 /* CreationTimelineView.swift */,
+				E42C295EA4584A44B2D88197 /* TemplatePickerView.swift */,
+				5F61F9D6175143FC800638E8 /* AssetSelectionView.swift */,
+				5AA9B8E644D04ABEAAC1B73F /* CreationStudioView.swift */,
+				3120D71872D94559AEBE38F9 /* CreationPromptBar.swift */,
+				D65C30C1C1AF4F71B03AA3D0 /* CreationPublishView.swift */,
+				A2C11335A649489CA118C3F3 /* CreationDraftService.swift */,
+				0804F587EA71407AA64D8634 /* AmenSyncModels.swift */,
+				D62DCFF1C5A247B4B51C0162 /* AmenSyncViewModel.swift */,
+				27CFD76466884F5BBD04A1F2 /* AmenSyncCaptionService.swift */,
+				E96B1EDAE41B4A07A7C0A567 /* AmenSyncModerationService.swift */,
+				D6084B1DB0854630B7B3E661 /* AmenSyncEntryView.swift */,
+				D9249F2C56B94D75A3A87527 /* AmenSyncStudioView.swift */,
+				FE6331EA2267427EBCD3177B /* AmenSyncReviewView.swift */,
+				8ED726DB5CDC452EB1AFB438 /* AmenSyncDraftsView.swift */,
+				0F485E8816FD4F539AA958C5 /* AmenSyncHubCard.swift */,
 			);
 			sourceTree = "<group>";
 		};
@@ -778,6 +840,72 @@
 				EF5B39042F5BA7A500152D09 /* AMENWidgetExtensionExtension.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		EF9FD0212F821B8300EBF035 /* functions 2 */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = "functions 2";
+			sourceTree = "<group>";
+		};
+		EF9FD0222F821B9900EBF035 /* Backend */ = {
+			isa = PBXGroup;
+			children = (
+				EF9FD0232F821BA000EBF035 /* functions */,
+				EF9FE6952F821ED000EBF035 /* firestore.creator.rules.md */,
+			);
+			path = Backend;
+			sourceTree = "<group>";
+		};
+		EF9FD0232F821BA000EBF035 /* functions */ = {
+			isa = PBXGroup;
+			children = (
+				EF9FD0242F821BA300EBF035 /* src */,
+				EF9FD03E2F821C1D00EBF035 /* README.md */,
+				EF9FFCBD2F82835600EBF035 /* package.json */,
+				EF9FFCBE2F82835E00EBF035 /* tsconfig.json */,
+			);
+			path = functions;
+			sourceTree = "<group>";
+		};
+		EF9FD0242F821BA300EBF035 /* src */ = {
+			isa = PBXGroup;
+			children = (
+				EF9FD0252F821BA500EBF035 /* creator */,
+				EF9FD0262F821BB100EBF035 /* index.ts */,
+			);
+			path = src;
+			sourceTree = "<group>";
+		};
+		EF9FD0252F821BA500EBF035 /* creator */ = {
+			isa = PBXGroup;
+			children = (
+				EF9FD0272F821BB700EBF035 /* createProject.ts */,
+				EF9FD0282F821BBC00EBF035 /* updateProject.ts */,
+				EF9FD0292F821BC000EBF035 /* deleteProject.ts */,
+				EF9FD02A2F821BC500EBF035 /* autosaveProject.ts */,
+				EF9FD02B2F821BC900EBF035 /* queueProcessingJob.ts */,
+				EF9FD02C2F821BCE00EBF035 /* processVideoProxy.ts */,
+				EF9FD02D2F821BD200EBF035 /* generateThumbnail.ts */,
+				EF9FD02E2F821BD700EBF035 /* transcribeMedia.ts */,
+				EF9FD02F2F821BDB00EBF035 /* generateSubtitleTrack.ts */,
+				EF9FD0302F821BDF00EBF035 /* translateSubtitleTrack.ts */,
+				EF9FD0312F821BE300EBF035 /* buildOutputVariants.ts */,
+				EF9FD0322F821BE800EBF035 /* renderExport.ts */,
+				EF9FD0332F821BEB00EBF035 /* publishProject.ts */,
+				EF9FD0342F821BF000EBF035 /* moderateCreatorAsset.ts */,
+				EF9FD0352F821BF400EBF035 /* verifyAuthenticitySignals.ts */,
+				EF9FD0362F821BF800EBF035 /* saveBrandKit.ts */,
+				EF9FD0372F821BFB00EBF035 /* cloneTemplateToProject.ts */,
+				EF9FD0382F821BFF00EBF035 /* recordCreatorAnalytics.ts */,
+				EF9FD0392F821C0400EBF035 /* enforceCreatorEntitlement.ts */,
+				EF9FD03A2F821C0700EBF035 /* cleanupOrphanedAssets.ts */,
+				EF9FD03B2F821C0B00EBF035 /* retryFailedCreatorJob.ts */,
+				EF9FDB942F821E0C00EBF035 /* creatorTypes.ts */,
+				EF9FFCBC2F82831B00EBF035 /* ffmpegUtils.ts */,
+			);
+			path = creator;
 			sourceTree = "<group>";
 		};
 		EFBDED3F2F251CD1001E650E /* Frameworks */ = {
@@ -1094,7 +1222,7 @@
 				INFOPLIST_FILE = AMENWidgetExtension/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = AMENWidgetExtension;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -1125,7 +1253,7 @@
 				INFOPLIST_FILE = AMENWidgetExtension/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = AMENWidgetExtension;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

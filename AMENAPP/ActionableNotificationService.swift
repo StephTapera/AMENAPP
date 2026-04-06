@@ -416,8 +416,13 @@ class ActionableNotificationService: ObservableObject {
             }
         case .markPrayed:
             if let prayerId = entityId {
+                // Write user prayer state to a subcollection — avoids unbounded
+                // prayedBy array on the prayer document (hotspot writes at scale).
+                try await db.collection("prayers").document(prayerId)
+                    .collection("prayedBy").document(currentUserId)
+                    .setData(["prayedAt": FieldValue.serverTimestamp()], merge: true)
+                // Keep the counter as a plain Int (safe — just a number, not an array).
                 try await db.collection("prayers").document(prayerId).updateData([
-                    "prayedBy": FieldValue.arrayUnion([currentUserId]),
                     "prayerCount": FieldValue.increment(Int64(1))
                 ])
             }

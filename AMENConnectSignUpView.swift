@@ -593,7 +593,7 @@ struct FlowTagSelector: View {
 
     var body: some View {
         // Wrap tags into rows
-        ConnectFlowLayout(options) { skill in
+        ConnectAMENFlowLayout(options) { skill in
             Button {
                 if selected.contains(skill) {
                     selected.remove(skill)
@@ -625,7 +625,7 @@ struct FlowTabSelector: View {
     let accentColor: Color
 
     var body: some View {
-        ConnectFlowLayout(options) { tab in
+        ConnectAMENFlowLayout(options) { tab in
             Button {
                 if selected.contains(tab) {
                     selected.remove(tab)

@@ -118,6 +118,16 @@ const {
   onNewPrayerFellowshipCheck,
 } = require("./fellowshipMatcher");
 
+// Hey Feed: NL-driven feed control intelligence layer
+const {
+  submitHeyFeedNLRequest,
+  removeHeyFeedNLPreference,
+  resetHeyFeedNLPreferences,
+  parseHeyFeedIntent,
+  expireHeyFeedNLPreferences,
+  rebuildFeedControlState,
+} = require("./heyfeedFunctions");
+
 
 // Export all functions
 exports.sendPushNotification = sendPushNotification;
@@ -1087,3 +1097,51 @@ exports.onUserProfileUpdated = onUserProfileUpdated;
 // ============================================================================
 const {cleanupStaleNotifications} = require("./notificationCleanup");
 exports.cleanupStaleNotifications = cleanupStaleNotifications;
+
+// ============================================================================
+// HEY FEED — NL-driven feed control intelligence layer
+//   submitHeyFeedNLRequest    — callable: parse NL text, write preferences
+//   removeHeyFeedNLPreference — callable: deactivate single preference
+//   resetHeyFeedNLPreferences — callable: clear all active preferences
+//   parseHeyFeedIntent        — callable: preview parse (no write)
+//   expireHeyFeedNLPreferences — scheduled every 4h: expire stale prefs
+//   rebuildFeedControlState    — scheduled every 1h: housekeeping
+// ============================================================================
+exports.submitHeyFeedNLRequest    = submitHeyFeedNLRequest;
+exports.removeHeyFeedNLPreference = removeHeyFeedNLPreference;
+exports.resetHeyFeedNLPreferences = resetHeyFeedNLPreferences;
+exports.parseHeyFeedIntent        = parseHeyFeedIntent;
+exports.expireHeyFeedNLPreferences = expireHeyFeedNLPreferences;
+exports.rebuildFeedControlState   = rebuildFeedControlState;
+
+// ============================================================================
+// AMEN CREATOR — AI Scene Builder + Living Templates
+//   generateScenePlan          — callable: generate structured timeline from assets + intent
+//   refineScenePlan            — callable: refine plan from NL prompt
+//   runCreationSafetyCheck     — callable: safety check before publish
+//   applyTemplateToAssets      — callable: map assets to template structure
+//   generateCaptionSuggestions — callable: AI caption suggestions
+//   saveCreationDraft          — callable: persist draft to Firestore
+//   trackTemplateUsage         — callable: analytics for template affinity
+// ============================================================================
+const {
+  generateScenePlan,
+  refineScenePlan,
+  runCreationSafetyCheck,
+  applyTemplateToAssets,
+  generateCaptionSuggestions,
+  saveCreationDraft,
+  trackTemplateUsage,
+} = require("./creationFunctions");
+
+exports.generateScenePlan          = generateScenePlan;
+exports.refineScenePlan            = refineScenePlan;
+exports.runCreationSafetyCheck     = runCreationSafetyCheck;
+exports.applyTemplateToAssets      = applyTemplateToAssets;
+exports.generateCaptionSuggestions = generateCaptionSuggestions;
+exports.saveCreationDraft          = saveCreationDraft;
+exports.trackTemplateUsage         = trackTemplateUsage;
+
+// Scheduled post publisher
+const { publishScheduledPosts } = require('./scheduledPostPublisher');
+exports.publishScheduledPosts = publishScheduledPosts;

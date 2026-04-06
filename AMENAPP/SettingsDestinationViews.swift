@@ -206,7 +206,9 @@ struct MutedAccountsView: View {
                 }
             }
             mutedUsers = entries
-        } catch {}
+        } catch {
+            dlog("⚠️ [SettingsDestination] loadMutedUsers failed: \(error.localizedDescription)")
+        }
         isLoading = false
     }
 

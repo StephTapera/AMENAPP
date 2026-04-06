@@ -207,7 +207,7 @@ struct AddArgumentSheet: View {
                 .font(.system(size: 13))
                 .foregroundColor(.black.opacity(0.65))
 
-            FlowLayout(spacing: 6) {
+            AMENFlowLayout(spacing: 6) {
                 ForEach(vm.manipulationFlags, id: \.self) { flag in
                     Text(flag.replacingOccurrences(of: "_", with: " ").capitalized)
                         .font(.system(size: 11, weight: .medium))

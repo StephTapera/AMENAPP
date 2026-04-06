@@ -30,6 +30,7 @@ struct SearchExpandBar: View {
     var onQueryChanged: (String) -> Void
     var onSelectResult: (DiscoverySearchResult) -> Void
     var onClose: () -> Void
+    var scrollProgress: CGFloat = 0
 
     // Layout
     @State private var barState: SearchBarState = .collapsed
@@ -111,7 +112,8 @@ struct SearchExpandBar: View {
     // MARK: - Expanded Bar
 
     private var expandedBar: some View {
-        HStack(spacing: 0) {
+        let glassProgress = min(max(scrollProgress, 0), 1)
+        return HStack(spacing: 0) {
             // Left: magnifying glass icon — scales slightly when focused
             Image(systemName: "magnifyingglass")
                 .font(.systemScaled(15, weight: .medium))
@@ -168,7 +170,7 @@ struct SearchExpandBar: View {
                         endPoint: .bottom
                     )
                 )
-                .overlay(Capsule().strokeBorder(Color.black.opacity(0.06), lineWidth: 1))
+                .overlay(Capsule().strokeBorder(Color.black.opacity(0.06 + 0.06 * glassProgress), lineWidth: 1))
                 .shadow(
                     color: .black.opacity(fieldFocused ? 0.10 : 0.06),
                     radius: fieldFocused ? 28 : 12,
@@ -177,7 +179,9 @@ struct SearchExpandBar: View {
                 )
                 .offset(y: fieldFocused ? -2 : 0)
                 .animation(.spring(response: 0.48, dampingFraction: 0.82), value: fieldFocused)
+                .opacity(1.0 - 0.04 * glassProgress)
         )
+        .scaleEffect(1.0 - 0.012 * glassProgress)
     }
 
     // MARK: - Results Dropdown

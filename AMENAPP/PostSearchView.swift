@@ -105,7 +105,9 @@ struct PostSearchView: View {
                             try await Task.sleep(nanoseconds: 400_000_000)
                             guard !Task.isCancelled else { return }
                             await viewModel.searchPosts(query: searchText)
-                        } catch {}
+                        } catch {
+                            // Task.sleep throws CancellationError on cancel — expected, not an error
+                        }
                     }
                 }
             

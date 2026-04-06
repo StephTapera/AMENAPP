@@ -704,7 +704,7 @@ struct FaithReelCreatorView: View {
                     Text("Tags")
                         .font(.caption)
                         .foregroundStyle(Color.white.opacity(0.4))
-                    FlowLayout(spacing: 8) {
+                    AMENFlowLayout(spacing: 8) {
                         ForEach(availableTags, id: \.self) { tag in
                             Button {
                                 if selectedTags.contains(tag) {

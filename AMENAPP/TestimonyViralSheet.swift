@@ -246,7 +246,7 @@ struct TestimonyViralSheet: View {
                                 .foregroundColor(Color.white.opacity(0.5))
                         }
                     }
-                    FlowLayout(spacing: 6) {
+                    AMENFlowLayout(spacing: 6) {
                         ForEach(r.hashtags, id: \.self) { tag in
                             Text(tag)
                                 .font(.systemScaled(12, weight: .medium))

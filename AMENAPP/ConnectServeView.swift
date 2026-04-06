@@ -255,8 +255,11 @@ struct ConnectServeView: View {
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         Task {
             let db = Firestore.firestore()
+            // Store signup in a subcollection to avoid unbounded in-document array.
+            try? await db.collection("serveOpportunities").document(opp.id)
+                .collection("signups").document(uid)
+                .setData(["signedUpAt": FieldValue.serverTimestamp()], merge: true)
             try? await db.collection("serveOpportunities").document(opp.id).updateData([
-                "signedUpUIDs": FieldValue.arrayUnion([uid]),
                 "spotsAvailable": FieldValue.increment(Int64(-1))
             ])
         }

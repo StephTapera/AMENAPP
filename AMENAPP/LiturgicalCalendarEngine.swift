@@ -413,8 +413,7 @@ struct LiturgicalState: Codable {
             lines.append("")
         }
 
-        if !upcomingObservances.isEmpty {
-            let next = upcomingObservances.first!
+        if let next = upcomingObservances.first {
             if next.daysUntil <= 14 {
                 lines.append("\(next.name) is in \(next.daysUntil) days.")
             }

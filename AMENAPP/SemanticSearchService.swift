@@ -49,7 +49,7 @@ class SemanticSearchService: ObservableObject {
         guard let snapshot = try? await db.collection("posts")
             .whereField("createdAt", isGreaterThan: Timestamp(date: ninetyDaysAgo))
             .order(by: "createdAt", descending: true)
-            .limit(to: 500)
+            .limit(to: 100)
             .getDocuments() else {
             searchResults = []
             return

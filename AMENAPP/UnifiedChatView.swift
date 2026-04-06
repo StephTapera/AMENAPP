@@ -15,6 +15,27 @@ import FirebaseFirestore
 import FirebaseFunctions
 import Combine
 
+private struct UnifiedChatScrollOffsetKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
+private struct UnifiedChatBottomAnchorKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
+private struct UnifiedChatScrollViewHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
 // MARK: - Unified Chat View
 
 struct UnifiedChatView: View {
@@ -71,6 +92,15 @@ struct UnifiedChatView: View {
     @State private var firstUnreadMessageId: String?
     @State private var showJumpToUnread = false
     @State private var showGroupInfo = false
+
+    @StateObject private var successChips = SuccessChipCenter()
+    @State private var scrollViewHeight: CGFloat = 0
+    @State private var bottomAnchorY: CGFloat = 0
+    @State private var contentOffsetY: CGFloat = 0
+    @State private var lastContentOffsetY: CGFloat = 0
+    @State private var isScrollingDown: Bool = false
+    @State private var showJumpToLatest: Bool = false
+    @State private var sendSweepTrigger: Bool = false
 
     // Failed message tracking for retry
     @State private var failedMessageId: String?
@@ -165,165 +195,186 @@ struct UnifiedChatView: View {
         messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    private var headerSofteningProgress: CGFloat {
+        min(max(-contentOffsetY / 80, 0), 1)
+    }
+
+    @ViewBuilder
+    private var mainStack: some View {
+        VStack(spacing: 0) {
+            // Header
+            liquidGlassHeader
+                .modifier(SoftStickyHeaderModifier(isActive: headerSofteningProgress > 0.01, intensity: headerSofteningProgress))
+            
+            // Incoming message request banner (enhanced)
+            if isIncomingRequest {
+                ChatRequestBanner(
+                    conversation: conversation,
+                    followRelationship: followRelationship,
+                    isFollowLoading: isFollowButtonLoading,
+                    isAccepting: isAcceptingRequest,
+                    isDeclining: isDecliningRequest,
+                    onViewProfile: { showUserProfile = true },
+                    onFollow: { followOtherUser() },
+                    onAccept: { acceptMessageRequest() },
+                    onDecline: { declineMessageRequest() },
+                    onRestrict: { restrictSender() },
+                    onBlock: {
+                        userIdToBlock = otherUserId
+                        showBlockConfirmation = true
+                    },
+                    onReport: {
+                        // Report the conversation
+                        Task {
+                            try? await messagingService.reportSpam(
+                                conversation.id,
+                                reason: "Message request report"
+                            )
+                            await MainActor.run {
+                                toastManager.showSuccess("Reported")
+                            }
+                        }
+                    }
+                )
+                .transition(.asymmetric(
+                    insertion: .move(edge: .top).combined(with: .opacity),
+                    removal: .move(edge: .top).combined(with: .opacity)
+                ))
+            }
+
+            // Messages
+            messagesScrollView
+        }
+        .safeAreaInset(edge: .bottom) {
+            // Floating input bar - Automatically anchors to keyboard
+            VStack(spacing: 0) {
+                // Safety: strike notice (shown after a message is blocked)
+                if showStrikeNotice {
+                    StrikeNoticeView(
+                        strikeCount: safetyStrikeCount,
+                        reason: safetyStrikeReason,
+                        onDismiss: {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3))) {
+                                showStrikeNotice = false
+                            }
+                        },
+                        onFollowThem: otherUserId.map { uid in
+                            {
+                                guard !isFollowButtonLoading else { return }
+                                isFollowButtonLoading = true
+                                Task {
+                                    do {
+                                        try await FollowService.shared.followUser(userId: uid)
+                                        // Re-check follow status so the policy reflects the new follow
+                                        let followStatus = try await FirebaseMessagingService.shared.checkFollowStatus(userId1: Auth.auth().currentUser?.uid ?? "", userId2: uid)
+                                        await MainActor.run {
+                                            isFollowingOtherUser = followStatus.user1FollowsUser2
+                                            isFollowedByOtherUser = followStatus.user2FollowsUser1
+                                            isMutualFollow = followStatus.user1FollowsUser2 && followStatus.user2FollowsUser1
+                                            isFollowButtonLoading = false
+                                            // Dismiss the notice — they can now send a message request
+                                            withAnimation(Motion.adaptive(.spring(response: 0.3))) {
+                                                showStrikeNotice = false
+                                                // Don't increment strike — following is not a safety violation
+                                                safetyStrikeCount = max(0, safetyStrikeCount - 1)
+                                            }
+                                        }
+                                    } catch {
+                                        await MainActor.run { isFollowButtonLoading = false }
+                                    }
+                                }
+                            }
+                        },
+                        isFollowLoading: isFollowButtonLoading
+                    )
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+
+                // Safety: account frozen notice (replaces input bar)
+                if showAccountFrozen {
+                    AccountFrozenNoticeView(
+                        reason: accountFrozenReason,
+                        onContactSupport: {
+                            // Open support — placeholder for now
+                        }
+                    )
+                    .transition(.opacity)
+                } else {
+                    // Collapsible media section
+                    if isMediaSectionExpanded {
+                        collapsibleMediaSection
+                            .transition(.asymmetric(
+                                insertion: .move(edge: .bottom).combined(with: .opacity),
+                                removal: .move(edge: .bottom).combined(with: .opacity)
+                            ))
+                    }
+
+                    // Live link preview above input
+                    ComposerLinkPreview(controller: chatLinkController)
+                        .padding(.horizontal, 12)
+                        .padding(.top, 4)
+                        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: chatLinkController.activeURL)
+
+                    // Smart reply chips — aligned with the text field inside the input bar
+                    // Leading: 12 (outer hPad) + 40 (+ button) + 12 (spacing) = 64
+                    if messageText.isEmpty && !smartReplySuggestions.isEmpty {
+                        smartReplyChipsRow
+                            .autoHideChips(isScrollingDown || isInputFocused)
+                            .padding(.leading, 64)
+                            .padding(.trailing, 12)
+                            .padding(.bottom, 4)
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
+
+                    // Feature 2: Reply preview strip — shown when replying to a message
+                    if let replying = replyingTo {
+                        ReplyPreviewStrip(
+                            replyToText: replying.text.isEmpty ? "(attachment)" : replying.text,
+                            replyToAuthor: replying.senderName ?? "Message"
+                        ) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
+                                replyingTo = nil
+                            }
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.bottom, 4)
+                        .transition(.asymmetric(
+                            insertion: .move(edge: .bottom).combined(with: .opacity),
+                            removal: .move(edge: .bottom).combined(with: .opacity)
+                        ))
+                    }
+
+                    // Scheduled messages + edit mode banners (above input bar)
+                    scheduledMessagesBanner
+                    editModeBanner
+
+                    // Compact input bar
+                    compactInputBar
+                        .composerCompression(isInputFocused || !messageText.isEmpty || isRecording)
+                        .padding(.horizontal, 12)
+                        .padding(.bottom, 4)
+                }
+            }
+            .background(Color.clear)
+            .animation(.spring(response: 0.35, dampingFraction: 0.8), value: showStrikeNotice)
+            .animation(.spring(response: 0.35, dampingFraction: 0.8), value: showAccountFrozen)
+        }
+    }
+
     var body: some View {
         ZStack {
             // Clean gradient background - black and white theme
             liquidGlassBackground
 
-            VStack(spacing: 0) {
-                // Header
-                liquidGlassHeader
-                
-                // Incoming message request banner (enhanced)
-                if isIncomingRequest {
-                    ChatRequestBanner(
-                        conversation: conversation,
-                        followRelationship: followRelationship,
-                        isFollowLoading: isFollowButtonLoading,
-                        isAccepting: isAcceptingRequest,
-                        isDeclining: isDecliningRequest,
-                        onViewProfile: { showUserProfile = true },
-                        onFollow: { followOtherUser() },
-                        onAccept: { acceptMessageRequest() },
-                        onDecline: { declineMessageRequest() },
-                        onRestrict: { restrictSender() },
-                        onBlock: {
-                            userIdToBlock = otherUserId
-                            showBlockConfirmation = true
-                        },
-                        onReport: {
-                            // Report the conversation
-                            Task {
-                                try? await messagingService.reportSpam(
-                                    conversation.id,
-                                    reason: "Message request report"
-                                )
-                                await MainActor.run {
-                                    toastManager.showSuccess("Reported")
-                                }
-                            }
-                        }
-                    )
-                    .transition(.asymmetric(
-                        insertion: .move(edge: .top).combined(with: .opacity),
-                        removal: .move(edge: .top).combined(with: .opacity)
-                    ))
-                }
+            mainStack
 
-                // Messages
-                messagesScrollView
-            }
-            .safeAreaInset(edge: .bottom) {
-                // Floating input bar - Automatically anchors to keyboard
-                VStack(spacing: 0) {
-                    // Safety: strike notice (shown after a message is blocked)
-                    if showStrikeNotice {
-                        StrikeNoticeView(
-                            strikeCount: safetyStrikeCount,
-                            reason: safetyStrikeReason,
-                            onDismiss: {
-                                withAnimation(Motion.adaptive(.spring(response: 0.3))) {
-                                    showStrikeNotice = false
-                                }
-                            },
-                            onFollowThem: otherUserId.map { uid in
-                                {
-                                    guard !isFollowButtonLoading else { return }
-                                    isFollowButtonLoading = true
-                                    Task {
-                                        do {
-                                            try await FollowService.shared.followUser(userId: uid)
-                                            // Re-check follow status so the policy reflects the new follow
-                                            let followStatus = try await FirebaseMessagingService.shared.checkFollowStatus(userId1: Auth.auth().currentUser?.uid ?? "", userId2: uid)
-                                            await MainActor.run {
-                                                isFollowingOtherUser = followStatus.user1FollowsUser2
-                                                isFollowedByOtherUser = followStatus.user2FollowsUser1
-                                                isMutualFollow = followStatus.user1FollowsUser2 && followStatus.user2FollowsUser1
-                                                isFollowButtonLoading = false
-                                                // Dismiss the notice — they can now send a message request
-                                                withAnimation(Motion.adaptive(.spring(response: 0.3))) {
-                                                    showStrikeNotice = false
-                                                    // Don't increment strike — following is not a safety violation
-                                                    safetyStrikeCount = max(0, safetyStrikeCount - 1)
-                                                }
-                                            }
-                                        } catch {
-                                            await MainActor.run { isFollowButtonLoading = false }
-                                        }
-                                    }
-                                }
-                            },
-                            isFollowLoading: isFollowButtonLoading
-                        )
+            if LiquidGlassEffectsFlags.floatingStatusPill, !networkMonitor.isConnected {
+                VStack {
+                    Spacer()
+                    FloatingStatusPillView(text: "Offline", systemIcon: "wifi.slash")
+                        .padding(.bottom, 96)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
-                    }
-
-                    // Safety: account frozen notice (replaces input bar)
-                    if showAccountFrozen {
-                        AccountFrozenNoticeView(
-                            reason: accountFrozenReason,
-                            onContactSupport: {
-                                // Open support — placeholder for now
-                            }
-                        )
-                        .transition(.opacity)
-                    } else {
-                        // Collapsible media section
-                        if isMediaSectionExpanded {
-                            collapsibleMediaSection
-                                .transition(.asymmetric(
-                                    insertion: .move(edge: .bottom).combined(with: .opacity),
-                                    removal: .move(edge: .bottom).combined(with: .opacity)
-                                ))
-                        }
-
-                        // Live link preview above input
-                        ComposerLinkPreview(controller: chatLinkController)
-                            .padding(.horizontal, 12)
-                            .padding(.top, 4)
-                            .animation(.spring(response: 0.35, dampingFraction: 0.8), value: chatLinkController.activeURL)
-
-                        // Smart reply chips — aligned with the text field inside the input bar
-                        // Leading: 12 (outer hPad) + 40 (+ button) + 12 (spacing) = 64
-                        if messageText.isEmpty && !smartReplySuggestions.isEmpty {
-                            smartReplyChipsRow
-                                .padding(.leading, 64)
-                                .padding(.trailing, 12)
-                                .padding(.bottom, 4)
-                                .transition(.move(edge: .bottom).combined(with: .opacity))
-                        }
-
-                        // Feature 2: Reply preview strip — shown when replying to a message
-                        if let replying = replyingTo {
-                            ReplyPreviewStrip(
-                                replyToText: replying.text.isEmpty ? "(attachment)" : replying.text,
-                                replyToAuthor: replying.senderName ?? "Message"
-                            ) {
-                                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
-                                    replyingTo = nil
-                                }
-                            }
-                            .padding(.horizontal, 12)
-                            .padding(.bottom, 4)
-                            .transition(.asymmetric(
-                                insertion: .move(edge: .bottom).combined(with: .opacity),
-                                removal: .move(edge: .bottom).combined(with: .opacity)
-                            ))
-                        }
-
-                        // Scheduled messages + edit mode banners (above input bar)
-                        scheduledMessagesBanner
-                        editModeBanner
-
-                        // Compact input bar
-                        compactInputBar
-                            .padding(.horizontal, 12)
-                            .padding(.bottom, 4)
-                    }
                 }
-                .background(Color.clear)
-                .animation(.spring(response: 0.35, dampingFraction: 0.8), value: showStrikeNotice)
-                .animation(.spring(response: 0.35, dampingFraction: 0.8), value: showAccountFrozen)
             }
 
             // Premium iMessage-quality reaction tray overlay (AMENReactionSystem)
@@ -331,6 +382,7 @@ struct UnifiedChatView: View {
         }
         .navigationBarHidden(true)
         .withToast()
+        .successChips(successChips)
         .sheet(isPresented: $showUserProfile) {
             ChatUserProfileSheet(
                 conversation: conversation,
@@ -381,6 +433,12 @@ struct UnifiedChatView: View {
             } else if oldValue && !newValue {
                 // Just went offline
                 toastManager.showWarning("You're offline. Messages will send when connection is restored.")
+            }
+        }
+        .onChange(of: reportConfirmationMessage) { _, newValue in
+            if let text = newValue {
+                successChips.show(text)
+                reportConfirmationMessage = nil
             }
         }
         .photosPicker(
@@ -673,6 +731,12 @@ struct UnifiedChatView: View {
         ZStack(alignment: .bottomTrailing) {
             ScrollViewReader { proxy in
                 ScrollView(showsIndicators: false) {
+                    GeometryReader { geo in
+                        Color.clear
+                            .preference(key: UnifiedChatScrollOffsetKey.self, value: geo.frame(in: .named("UnifiedChatScroll")).minY)
+                    }
+                    .frame(height: 0)
+
                     LazyVStack(spacing: 0) {
                         // ── Identity card (first-time / empty chat) ──────────────────
                         if isFirstTimeChat && !isIncomingRequest {
@@ -723,6 +787,7 @@ struct UnifiedChatView: View {
                                     sendQuickReply(text)
                                 }
                             )
+                            .autoHideChips(isScrollingDown || isInputFocused)
                             .padding(.horizontal, 16)
                             .padding(.top, 8)
                             .transition(.opacity.combined(with: .move(edge: .bottom)))
@@ -981,10 +1046,41 @@ struct UnifiedChatView: View {
                         Color.clear
                             .frame(height: 1)
                             .id(bottomID)
+                            .background(
+                                GeometryReader { geo in
+                                    Color.clear
+                                        .preference(
+                                            key: UnifiedChatBottomAnchorKey.self,
+                                            value: geo.frame(in: .named("UnifiedChatScroll")).maxY
+                                        )
+                                }
+                            )
                     }
                     .padding(.horizontal, 16)
                     .padding(.top, 8)
                     .padding(.bottom, 120) // Extra padding so messages don't hide under input bar
+                }
+                .coordinateSpace(name: "UnifiedChatScroll")
+                .background(
+                    GeometryReader { geo in
+                        Color.clear.preference(key: UnifiedChatScrollViewHeightKey.self, value: geo.size.height)
+                    }
+                )
+                .onPreferenceChange(UnifiedChatScrollOffsetKey.self) { value in
+                    let delta = value - lastContentOffsetY
+                    isScrollingDown = delta < -0.5
+                    lastContentOffsetY = value
+                    contentOffsetY = value
+                }
+                .onPreferenceChange(UnifiedChatScrollViewHeightKey.self) { value in
+                    scrollViewHeight = value
+                }
+                .onPreferenceChange(UnifiedChatBottomAnchorKey.self) { value in
+                    bottomAnchorY = value
+                    let distance = bottomAnchorY - scrollViewHeight
+                    let nearBottom = distance < 80
+                    isNearBottom = nearBottom
+                    showJumpToLatest = !nearBottom && !messages.isEmpty
                 }
                 .onChange(of: messages.count) { oldCount, newCount in
                     // P1-2 FIX: Only auto-scroll if near bottom
@@ -1032,6 +1128,18 @@ struct UnifiedChatView: View {
                 .onChange(of: firstUnreadMessageId) { _, newValue in
                     // Show/hide jump to unread button
                     showJumpToUnread = newValue != nil
+                }
+                .overlay(alignment: .bottomTrailing) {
+                    if LiquidGlassEffectsFlags.jumpToLatestPill, showJumpToLatest {
+                        JumpToLatestPill {
+                            withAnimation(.easeOut(duration: 0.25)) {
+                                proxy.scrollTo(bottomID, anchor: .bottom)
+                            }
+                        }
+                        .padding(.trailing, 20)
+                        .padding(.bottom, 130)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
                 }
             }
             
@@ -1415,6 +1523,7 @@ struct UnifiedChatView: View {
                     .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isMessageEmpty)
                     .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isRecording)
                 }
+                .highlightSweep(trigger: sendSweepTrigger)
                 .buttonStyle(SpringButtonStyle())
                 .disabled(isSendingMessage || isBereanStreaming)
                 .successSeal(
@@ -1872,6 +1981,8 @@ struct UnifiedChatView: View {
         let haptic = UIImpactFeedbackGenerator(style: .light)
         haptic.impactOccurred()
         messageSeal.trigger()
+        sendSweepTrigger.toggle()
+        successChips.show("Sent")
 
         Task {
             defer {

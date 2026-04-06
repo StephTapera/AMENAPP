@@ -11,10 +11,21 @@ import WebKit
 
 // MARK: - Entry point (type-erased)
 
-enum AMENMediaEntry: Hashable {
+enum AMENMediaEntry: Hashable, Identifiable {
     case sermon(AMENSermon)
     case podcast(AMENPodcastEpisode)
     case worship(AMENWorshipTrack)
+
+    var id: String {
+        switch self {
+        case .sermon(let s):
+            return "sermon_\(s.id)"
+        case .podcast(let p):
+            return "podcast_\(p.id)"
+        case .worship(let w):
+            return "worship_\(w.id)"
+        }
+    }
 }
 
 // MARK: - Main view
@@ -28,6 +39,9 @@ struct AMENResourceDetailView: View {
     @State private var heroOffset: CGFloat = 0
     @State private var tabBarVisible = false
     @State private var sectionAppeared: Set<String> = []
+    @State private var relatedSermons: [AMENSermon] = []
+    @State private var isLoadingRelated = false
+    @State private var selectedRelated: AMENMediaEntry?
 
     // MARK: Derived metadata
 
@@ -141,6 +155,25 @@ struct AMENResourceDetailView: View {
             floatingBar
         }
         .navigationBarHidden(true)
+        .sheet(item: $selectedRelated) { related in
+            AMENResourceDetailView(entry: related)
+        }
+        .onChange(of: activeTab) { _, tab in
+            if tab == .related && relatedSermons.isEmpty && !isLoadingRelated {
+                Task { await loadRelated() }
+            }
+        }
+    }
+
+    private func loadRelated() async {
+        isLoadingRelated = true
+        let query = speakerLine.isEmpty ? "Christian sermon" : speakerLine
+        relatedSermons = await AMENMediaService.shared.searchSermons(query: query, maxResults: 4)
+        // Exclude the current entry itself
+        if case .sermon(let s) = entry {
+            relatedSermons = relatedSermons.filter { $0.id != s.id }
+        }
+        isLoadingRelated = false
     }
 
     // MARK: - Hero (reference-style: full-bleed + large headline over gradient scrim)
@@ -531,10 +564,35 @@ struct AMENResourceDetailView: View {
 
     private var relatedContent: some View {
         editorialSection(label: "Related Content") {
-            VStack(spacing: 12) {
-                relatedPlaceholderRow(icon: "video.fill", label: "More from \(speakerLine)", color: accentColor)
-                relatedPlaceholderRow(icon: "headphones", label: "Recommended Podcasts", color: .teal)
-                relatedPlaceholderRow(icon: "book.fill", label: "Study Series", color: .orange)
+            if isLoadingRelated {
+                HStack(spacing: 10) {
+                    ProgressView().tint(accentColor)
+                    Text("Finding more from \(speakerLine)…")
+                        .font(.systemScaled(14))
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.vertical, 8)
+            } else if relatedSermons.isEmpty {
+                Text("No related content found.")
+                    .font(.systemScaled(14))
+                    .foregroundStyle(.secondary)
+                    .padding(.vertical, 8)
+            } else {
+                VStack(spacing: 12) {
+                    ForEach(relatedSermons.prefix(3)) { sermon in
+                        Button {
+                            selectedRelated = .sermon(sermon)
+                        } label: {
+                            relatedPlaceholderRow(
+                                icon: "video.fill",
+                                label: sermon.title,
+                                sublabel: sermon.speaker,
+                                color: accentColor
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
             }
         }
     }
@@ -675,8 +733,8 @@ struct AMENResourceDetailView: View {
         .buttonStyle(.plain)
     }
 
-    /// Related content placeholder row
-    private func relatedPlaceholderRow(icon: String, label: String, color: Color) -> some View {
+    /// Related content row — supports an optional subtitle line
+    private func relatedPlaceholderRow(icon: String, label: String, sublabel: String? = nil, color: Color) -> some View {
         HStack(spacing: 14) {
             ZStack {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
@@ -686,9 +744,17 @@ struct AMENResourceDetailView: View {
                     .font(.systemScaled(16))
                     .foregroundStyle(color)
             }
-            Text(label)
-                .font(.systemScaled(15))
-                .foregroundStyle(.primary)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(label)
+                    .font(.systemScaled(15))
+                    .foregroundStyle(.primary)
+                    .lineLimit(2)
+                if let sub = sublabel {
+                    Text(sub)
+                        .font(.systemScaled(12))
+                        .foregroundStyle(.secondary)
+                }
+            }
             Spacer()
             Image(systemName: "chevron.right")
                 .font(.systemScaled(12, weight: .semibold))

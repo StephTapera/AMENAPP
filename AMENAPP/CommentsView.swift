@@ -15,6 +15,27 @@ import Combine  // Required for Timer.publish().autoconnect()
 import PhotosUI
 import Vision
 
+private struct CommentsScrollOffsetKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
+private struct CommentsBottomAnchorKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
+private struct CommentsScrollViewHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
 struct CommentsView: View {
     let post: Post
     let prefillText: String?
@@ -77,6 +98,15 @@ struct CommentsView: View {
     // Smart reply chips
     @State private var smartReplySuggestions: [String] = []
     @State private var isLoadingSmartReplies = false
+
+    @StateObject private var successChips = SuccessChipCenter()
+    @State private var scrollViewHeight: CGFloat = 0
+    @State private var bottomAnchorY: CGFloat = 0
+    @State private var contentOffsetY: CGFloat = 0
+    @State private var lastContentOffsetY: CGFloat = 0
+    @State private var isScrollingDown: Bool = false
+    @State private var showJumpToLatest: Bool = false
+    @State private var sendSweepTrigger: Bool = false
     
     // Berean AI integration
     @State private var showBerean = false
@@ -465,16 +495,26 @@ struct CommentsView: View {
         }
     }
 
-    var body: some View {
+    @ViewBuilder
+    private var mainStack: some View {
         ZStack {
         VStack(spacing: 0) {
             headerView
+                .modifier(SoftStickyHeaderModifier(isActive: true, intensity: 0.25))
 
             pendingApprovalBanner
             
             // Comments List with ScrollViewReader for smooth scrolling
             ScrollViewReader { proxy in
                 ScrollView {
+                    GeometryReader { geometry in
+                        Color.clear.preference(
+                            key: CommentsScrollOffsetKey.self,
+                            value: geometry.frame(in: .named("commentsScroll")).minY
+                        )
+                    }
+                    .frame(height: 0)
+
                     LazyVStack(spacing: 0) {
                         if isLoading {
                             // P0 FIX: Skeleton loading UI - shows immediately, no blocking
@@ -667,9 +707,48 @@ struct CommentsView: View {
                             }
                         }
                     }
+                    Color.clear
+                        .frame(height: 1)
+                        .background(GeometryReader { proxy in
+                            Color.clear.preference(
+                                key: CommentsBottomAnchorKey.self,
+                                value: proxy.frame(in: .named("commentsScroll")).maxY
+                            )
+                        })
+                        .id("commentsBottom")
+                }
+                .coordinateSpace(name: "commentsScroll")
+                .background(GeometryReader { proxy in
+                    Color.clear.preference(key: CommentsScrollViewHeightKey.self, value: proxy.size.height)
+                })
+                .onPreferenceChange(CommentsScrollOffsetKey.self) { value in
+                    contentOffsetY = value
+                    isScrollingDown = value < lastContentOffsetY - 4
+                    lastContentOffsetY = value
+                }
+                .onPreferenceChange(CommentsBottomAnchorKey.self) { value in
+                    bottomAnchorY = value
+                    let isAtBottom = bottomAnchorY <= scrollViewHeight + 24
+                    showJumpToLatest = !isAtBottom
+                }
+                .onPreferenceChange(CommentsScrollViewHeightKey.self) { value in
+                    scrollViewHeight = value
                 }
                 .onAppear {
                     scrollProxy = proxy
+                }
+            }
+            .overlay(alignment: .bottomTrailing) {
+                if LiquidGlassEffectsFlags.jumpToLatestPill && showJumpToLatest {
+                    JumpToLatestPill {
+                        withAnimation(.easeOut(duration: 0.25)) {
+                            scrollProxy?.scrollTo("commentsBottom", anchor: .bottom)
+                            showJumpToLatest = false
+                        }
+                    }
+                    .padding(.trailing, 16)
+                    .padding(.bottom, 140)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
             
@@ -677,6 +756,11 @@ struct CommentsView: View {
             
             // Input Area with Liquid Glass Buttons
             VStack(spacing: 0) {
+                if LiquidGlassEffectsFlags.floatingStatusPill && isSubmittingComment {
+                    FloatingStatusPillView(text: "Posting...", systemIcon: "arrow.up")
+                        .padding(.bottom, 6)
+                        .transition(.opacity.combined(with: .move(edge: .bottom)))
+                }
                 // Replying indicator
                 if let replyingTo = replyingTo {
                     HStack {
@@ -729,6 +813,7 @@ struct CommentsView: View {
                     }
                     .padding(.top, 8)
                     .padding(.bottom, 2)
+                    .autoHideChips(isScrollingDown || isInputFocused)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
 
@@ -856,6 +941,7 @@ struct CommentsView: View {
                                 HStack(spacing: 6) {
                                     Image("amen-logo")
                                         .resizable()
+                                        .renderingMode(.original)
                                         .scaledToFit()
                                         .frame(width: 14, height: 14)
                                     Text("Berean suggested a rewrite")
@@ -1064,6 +1150,7 @@ struct CommentsView: View {
                                         } else {
                                             Image("amen-logo")
                                                 .resizable()
+                                                .renderingMode(.original)
                                                 .scaledToFit()
                                                 .frame(width: 16, height: 16)
                                                 .blendMode(.multiply)
@@ -1081,10 +1168,15 @@ struct CommentsView: View {
                             GlassCircularButton(
                                 icon: "paperplane.fill",
                                 action: {
+                                    sendSweepTrigger = true
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
+                                        sendSweepTrigger = false
+                                    }
                                     submitComment()
                                 },
                                 isDisabled: commentText.isEmpty || isSubmittingComment || rateLimitMessage != nil
                             )
+                            .highlightSweep(trigger: sendSweepTrigger)
                             .successSeal(
                                 isActive: commentSeal.isVisible,
                                 label: "Sent",
@@ -1095,10 +1187,12 @@ struct CommentsView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 16)
+                .composerCompression(isInputFocused || !commentText.isEmpty)
                 .background(Color.white)
             }
         }
         .background(Color.white)
+        .successChips(successChips)
         .gesture(
             // Tap to dismiss keyboard
             TapGesture()
@@ -1198,6 +1292,8 @@ struct CommentsView: View {
             }
             // Refresh smart reply chips when a new comment arrives
             if newCount > oldCount { refreshSmartReplies() }
+            let isAtBottom = bottomAnchorY <= scrollViewHeight + 24
+            showJumpToLatest = !isAtBottom
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("commentsUpdated"))) { notification in
             // Check if this notification is for our post
@@ -1238,6 +1334,10 @@ struct CommentsView: View {
         // Premium reaction tray overlay — sits above all comments content
         ReactionTrayOverlay(state: ReactionPresentationState.shared)
         } // end ZStack
+    }
+
+    var body: some View {
+        mainStack
     }
     
     // MARK: - Load Current User Data
@@ -1581,6 +1681,7 @@ struct CommentsView: View {
                     // haptic
                     HapticManager.notification(type: .success)
                     commentSeal.trigger()
+                    successChips.show("Comment sent")
                     isSubmittingComment = false  // Re-enable after write completes
                 }
             } catch {
@@ -2032,6 +2133,7 @@ private struct PostCommentRow: View {
     @State private var activeCommentSheet: CommentSheet?
     @State private var textSelection: PostTextSelection?
     @State private var isTextSelecting = false
+    @State private var showSoftReactions = false
     // reaction picker is handled by AMENReactionSystem (.reactionPicker modifier on MentionTextView)
     
     private enum CommentSheet: Identifiable {
@@ -2256,8 +2358,7 @@ private struct PostCommentRow: View {
                             .font(.systemScaled(12))
 
                         if comment.replyCount > 0 {
-                            Text("\(comment.replyCount)")
-                                .font(.custom("OpenSans-Regular", size: 12))
+                            MorphingBadgeView(count: comment.replyCount, useDot: isThreadExpanded)
                         }
                     }
                     .foregroundStyle(.black.opacity(0.6))
@@ -2337,6 +2438,34 @@ private struct PostCommentRow: View {
             contentColumn
         }
         .padding(.horizontal, isReply ? 12 : 16)
+        .onLongPressGesture(minimumDuration: 0.35) {
+            guard LiquidGlassEffectsFlags.reactionSheet, !isTextSelecting else { return }
+            withAnimation(.easeOut(duration: 0.2)) {
+                showSoftReactions = true
+            }
+        }
+        .overlay(alignment: .topLeading) {
+            if showSoftReactions {
+                SoftReactionSheet(actions: ["❤️", "🙏", "👍"]) { action in
+                    if action == "❤️" || action == "🙏" {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
+                            hasAmened.toggle()
+                        }
+                        onAmen()
+                    }
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        showSoftReactions = false
+                    }
+                }
+                .offset(x: isReply ? 44 : 52, y: -8)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+        .onTapGesture {
+            if showSoftReactions {
+                withAnimation(.easeOut(duration: 0.2)) { showSoftReactions = false }
+            }
+        }
         .contextMenu {
             // Copy comment text
             Button {

@@ -29,6 +29,7 @@ struct WelcomeScreenView: View {
                 // Logo - single instance, optimized
                 Image("amen-logo")
                     .resizable()
+                    .renderingMode(.original)
                     .aspectRatio(contentMode: .fit)
                     .frame(width: 100, height: 100)
                     .opacity(logoOpacity)

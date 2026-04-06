@@ -112,10 +112,12 @@ final class EventsStore: ObservableObject {
                 self.isLoaded = true
             }
 
-        // Load user's RSVPs
+        // Load user's RSVPs from user-scoped subcollection (avoids rsvpUIDs arrayContains
+        // which required the unbounded array on the event document).
         if let uid = Auth.auth().currentUser?.uid {
-            db.collection("faithEvents")
-                .whereField("rsvpUIDs", arrayContains: uid)
+            db.collection("users").document(uid)
+                .collection("eventRsvps")
+                .limit(to: 100)
                 .getDocuments { [weak self] snap, _ in
                     let ids = snap?.documents.compactMap { $0.documentID } ?? []
                     Task { @MainActor [weak self] in
@@ -132,8 +134,14 @@ final class EventsStore: ObservableObject {
 
     func rsvp(to eventID: String) async throws {
         guard let uid = Auth.auth().currentUser?.uid else { return }
+        let ts: [String: Any] = ["rsvpedAt": FieldValue.serverTimestamp()]
+        // Store RSVP in event subcollection and in user subcollection (for fast lookup).
+        async let eventWrite: () = try db.collection("faithEvents").document(eventID)
+            .collection("rsvps").document(uid).setData(ts, merge: true)
+        async let userWrite: () = try db.collection("users").document(uid)
+            .collection("eventRsvps").document(eventID).setData(ts, merge: true)
+        _ = try await (eventWrite, userWrite)
         try await db.collection("faithEvents").document(eventID).updateData([
-            "rsvpUIDs": FieldValue.arrayUnion([uid]),
             "rsvpCount": FieldValue.increment(Int64(1))
         ])
         myRSVPs.append(eventID)
@@ -141,8 +149,11 @@ final class EventsStore: ObservableObject {
 
     func cancelRSVP(for eventID: String) async throws {
         guard let uid = Auth.auth().currentUser?.uid else { return }
+        try await db.collection("faithEvents").document(eventID)
+            .collection("rsvps").document(uid).delete()
+        try await db.collection("users").document(uid)
+            .collection("eventRsvps").document(eventID).delete()
         try await db.collection("faithEvents").document(eventID).updateData([
-            "rsvpUIDs": FieldValue.arrayRemove([uid]),
             "rsvpCount": FieldValue.increment(Int64(-1))
         ])
         myRSVPs.removeAll { $0 == eventID }

@@ -75,19 +75,21 @@ service cloud.firestore {
                        isValidLength(request.resource.data.displayName, 100) &&
                        (!('bio' in request.resource.data) || isValidLength(request.resource.data.bio, 500));
       
-      // Users can UPDATE their own profile OR update follower counts (for follow/unfollow system)
-      allow update: if isSignedIn() && (
-        // Own profile updates
-        (request.auth.uid == userId &&
-         (!('username' in request.resource.data.diff(resource.data).affectedKeys()) || 
-          isValidLength(request.resource.data.username, 30)) &&
-         (!('displayName' in request.resource.data.diff(resource.data).affectedKeys()) || 
-          isValidLength(request.resource.data.displayName, 100)) &&
-         (!('bio' in request.resource.data.diff(resource.data).affectedKeys()) || 
-          isValidLength(request.resource.data.bio, 500))) ||
-        // System counter updates (follow/unfollow operations)
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['followersCount', 'followingCount', 'postsCount', 'updatedAt'])
-      );
+      // Users can UPDATE their own profile content.
+      // SECURITY FIX: followersCount/followingCount/postsCount MUST NOT be client-writable
+      // on other users' documents — any user could inflate/deflate any social graph counter.
+      // Counter writes are exclusively performed by Cloud Functions (Admin SDK, bypasses rules).
+      allow update: if isSignedIn() &&
+        request.auth.uid == userId &&
+        (!('username' in request.resource.data.diff(resource.data).affectedKeys()) ||
+         isValidLength(request.resource.data.username, 30)) &&
+        (!('displayName' in request.resource.data.diff(resource.data).affectedKeys()) ||
+         isValidLength(request.resource.data.displayName, 100)) &&
+        (!('bio' in request.resource.data.diff(resource.data).affectedKeys()) ||
+         isValidLength(request.resource.data.bio, 500)) &&
+        // Owners may not directly write social counters — Cloud Functions own these
+        !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['followersCount', 'followingCount', 'postsCount']);
       
       // Users can DELETE their own profile
       allow delete: if isOwner(userId);
@@ -189,11 +191,16 @@ service cloud.firestore {
                        // Valid category
                        request.resource.data.category in ['#OPENTABLE', 'Testimonies', 'Prayer'];
       
-      // Post owner can update, OR system can update counters
-      allow update: if isSignedIn() && (
-        request.auth.uid == resource.data.authorId ||
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['amenCount', 'lightbulbCount', 'commentCount', 'repostCount', 'updatedAt'])
-      );
+      // Post owner can update their own post content.
+      // SECURITY FIX: Counter fields (amenCount, lightbulbCount, etc.) MUST NOT be
+      // client-writable — any signed-in user could set them to arbitrary values.
+      // Counter writes are exclusively performed by Cloud Functions / RTDB triggers
+      // (which use the Admin SDK and bypass these rules).
+      allow update: if isSignedIn() &&
+        request.auth.uid == resource.data.authorId &&
+        // Owner may not directly write counter fields — only content/metadata
+        !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['amenCount', 'lightbulbCount', 'commentCount', 'repostCount']);
       
       // Only post owner can delete
       allow delete: if isSignedIn() && 
@@ -253,9 +260,16 @@ service cloud.firestore {
       allow read: if isSignedIn() && 
                      resource.data.recipientId == request.auth.uid;
       
-      // Anyone can create notifications (system-generated)
+      // SECURITY FIX: Notification creator must be the sender (fromUserId == auth.uid).
+      // Prevents any signed-in user from spamming arbitrary notifications to any recipient.
+      // System/admin notifications should be written via Cloud Functions (Admin SDK bypasses rules).
       allow create: if isSignedIn() &&
-                       hasRequiredFields(request.resource.data, ['recipientId', 'type', 'createdAt']);
+                       hasRequiredFields(request.resource.data, ['recipientId', 'type', 'createdAt']) &&
+                       // Sender must be the authenticated user, OR it's a system type with no actor
+                       (request.resource.data.get('fromUserId', '') == request.auth.uid ||
+                        request.resource.data.get('fromUserId', '') == '') &&
+                       // Cannot notify yourself (prevents self-spam loops)
+                       request.resource.data.recipientId != request.auth.uid;
       
       // Only recipient can update (e.g., mark as read)
       allow update: if isSignedIn() && 
@@ -312,18 +326,96 @@ service cloud.firestore {
       // Members subcollection
       match /members/{memberId} {
         allow read: if isSignedIn();
-        
+
         // Anyone can join (create membership)
         allow create: if isSignedIn() &&
                          request.resource.data.userId == request.auth.uid &&
                          hasRequiredFields(request.resource.data, ['userId', 'joinedAt']);
-        
+
         // Users can leave (delete their membership) OR admins can remove members
         allow delete: if isSignedIn() && (
           request.auth.uid == memberId ||
           request.auth.uid in get(/databases/$(database)/documents/communities/$(communityId)).data.adminIds
         );
       }
+    }
+
+    // ========================================
+    // CHURCH INTELLIGENCE LAYER
+    // ========================================
+
+    // Church directory — public read, server-only writes via Admin SDK
+    match /churches/{churchId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // User's saved churches — owner only
+    match /users/{userId}/savedChurches/{churchId} {
+      allow read, write, delete: if isOwner(userId);
+    }
+
+    // Church visit sessions — owner only; immutable fields protected on update
+    match /users/{userId}/churchVisitSessions/{sessionId} {
+      allow read, write: if isOwner(userId);
+      allow update: if isOwner(userId) &&
+        !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['userId', 'churchId', 'createdAt']);
+    }
+
+    // Church reflections — owner only
+    match /users/{userId}/churchReflections/{reflectionId} {
+      allow read, write, delete: if isOwner(userId);
+    }
+
+    // Church assist state — owner only
+    match /users/{userId}/churchAssistState/{doc} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // Church visit insights — owner read only; written by server aggregation trigger
+    match /users/{userId}/churchVisitInsights/{doc} {
+      allow read: if isOwner(userId);
+      allow write: if false;
+    }
+
+    // User-scoped event RSVPs — owner only
+    match /users/{userId}/eventRsvps/{eventId} {
+      allow read, write, delete: if isOwner(userId);
+    }
+
+    // ========================================
+    // EVENTS AND COMMUNITY ACTIONS — SUBCOLLECTIONS
+    // ========================================
+
+    // Event RSVP subcollection — authenticated users can write their own slot
+    match /faithEvents/{eventId}/rsvps/{userId} {
+      allow read: if isSignedIn();
+      allow write, delete: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Serve opportunity signup subcollection
+    match /serveOpportunities/{oppId}/signups/{userId} {
+      allow read: if isSignedIn();
+      allow write, delete: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Ministry membership subcollection
+    match /ministries/{ministryId}/members/{userId} {
+      allow read: if isSignedIn();
+      allow write, delete: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Prayer "prayedBy" subcollection — any authenticated user can mark as prayed
+    match /prayers/{prayerId}/prayedBy/{userId} {
+      allow read: if isSignedIn();
+      allow write, delete: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Berean voice session transcript subcollection — session owner only
+    match /berean_voice_sessions/{sessionId}/transcript/{chunkId} {
+      allow read, write: if isSignedIn() &&
+        get(/databases/$(database)/documents/berean_voice_sessions/$(sessionId)).data.userId == request.auth.uid;
     }
   }
 }

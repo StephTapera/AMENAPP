@@ -230,7 +230,9 @@ class SpiritualHealthIntelligenceService: ObservableObject {
             if let dict = result as? [String: Any], let text = dict["text"] as? String {
                 return text.trimmingCharacters(in: .whitespacesAndNewlines)
             }
-        } catch {}
+        } catch {
+            dlog("⚠️ [SpiritualHealthIntelligence] AI insight generation failed: \(error.localizedDescription)")
+        }
         // Fallback
         if trend == .growing {
             return "Your faith journey is gaining momentum. \(postCount) posts and counting — keep going."

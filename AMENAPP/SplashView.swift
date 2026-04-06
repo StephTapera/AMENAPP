@@ -37,8 +37,7 @@ struct SplashView: View {
             VStack(spacing: 10) {
                 Image("amen-logo")
                     .resizable()
-                    .renderingMode(.template)
-                    .foregroundStyle(Color.black)
+                    .renderingMode(.original)
                     .scaledToFit()
                     .frame(width: 44, height: 48)
                     .scaleEffect(logoScale)

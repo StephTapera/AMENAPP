@@ -435,6 +435,7 @@ struct PrayerArcCard: View {
                         .shadow(color: .black.opacity(0.08), radius: 10, x: 0, y: 2)
                     Image("amen-logo")
                         .resizable()
+                        .renderingMode(.original)
                         .scaledToFit()
                         .frame(width: 26, height: 26)
                         .blendMode(.multiply)

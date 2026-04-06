@@ -352,6 +352,7 @@ public class FirebaseMessagingService: ObservableObject {
         conversationsListener = db.collection("conversations")
             .whereField("participantIds", arrayContains: currentUserId)
             .order(by: "updatedAt", descending: true)
+            .limit(to: 50)
             .addSnapshotListener { [weak self] snapshot, error in
                 guard let self = self else { return }
                 
@@ -512,6 +513,7 @@ public class FirebaseMessagingService: ObservableObject {
         archivedConversationsListener = db.collection("conversations")
             .whereField("participantIds", arrayContains: currentUserId)
             .order(by: "updatedAt", descending: true)
+            .limit(to: 50)
             .addSnapshotListener { [weak self] snapshot, error in
                 guard let self = self else { return }
                 

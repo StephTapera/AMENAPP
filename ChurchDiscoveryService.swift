@@ -532,7 +532,7 @@ struct ChurchPreferenceOnboardingView: View {
                         .font(.custom("OpenSans-SemiBold", size: 16))
                         .padding(.horizontal, 20)
 
-                    FlowLayout(spacing: 10) {
+                    AMENFlowLayout(spacing: 10) {
                         ForEach(ChurchRichProfile.ChurchTag.allCases, id: \.self) { tag in
                             TagChip(
                                 title: tag.rawValue,

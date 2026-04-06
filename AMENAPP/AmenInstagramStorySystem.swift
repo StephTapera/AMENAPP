@@ -101,6 +101,7 @@ struct AmenInstagramStoryCard: View {
                     if content.showLogo {
                         Image("amen-logo")
                             .resizable()
+                            .renderingMode(.original)
                             .scaledToFit()
                             .frame(height: 26)
                     }

@@ -106,42 +106,56 @@ struct AMENTabBar: View {
         .frame(height: 54)
         .background(glassBackground)
         .clipShape(Capsule())
-        // ✨ Enhanced shadow for elevated liquid glass effect
-        .shadow(color: .black.opacity(0.08), radius: 30, x: 0, y: 12)  // Soft outer shadow
-        .shadow(color: .black.opacity(0.12), radius: 12, x: 0, y: 6)   // Mid-range shadow
-        .shadow(color: .black.opacity(0.05), radius: 3, x: 0, y: 1)    // Subtle contact shadow
+        // ✨ Soft, minimal shadow for floating glass effect
+        .shadow(color: .black.opacity(0.06), radius: 20, x: 0, y: 8)   // Soft outer glow
+        .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 3)    // Mid lift
+        .shadow(color: .black.opacity(0.02), radius: 2, x: 0, y: 1)    // Subtle contact
         .padding(.horizontal, 20)
         .padding(.bottom, 10)
         .offset(y: isMinimized ? 100 : 0)
         .animation(.easeOut(duration: 0.18), value: isMinimized)
     }
 
-    // MARK: - Glass background (Liquid Glass — visible on white)
+    // MARK: - Glass background (Liquid Glass — Native iOS transparency)
 
     private var glassBackground: some View {
         ZStack {
-            // Layer 1 — base material
+            // Layer 1 — strong blur with ultra-thin material (lets content show through)
             Capsule()
                 .fill(.ultraThinMaterial)
 
-            // Layer 2 — white luminosity overlay (keeps it light without going opaque)
+            // Layer 2 — very light white tint (minimal, lets color bleed through)
             Capsule()
-                .fill(Color.white.opacity(0.55))
+                .fill(Color.white.opacity(0.15))
 
-            // Layer 3 — top specular highlight strip (inner edge light)
+            // Layer 3 — subtle top highlight (inner glass edge light)
             Capsule()
-                .inset(by: 1)
+                .inset(by: 0.5)
                 .fill(
                     LinearGradient(
-                        colors: [Color.white.opacity(0.55), Color.clear],
+                        colors: [
+                            Color.white.opacity(0.35),
+                            Color.white.opacity(0.08),
+                            Color.clear
+                        ],
                         startPoint: .top,
-                        endPoint: .init(x: 0.5, y: 0.38)
+                        endPoint: .init(x: 0.5, y: 0.25)
                     )
                 )
 
-            // Layer 4 — hairline border: visible on white, not on dark
+            // Layer 4 — soft bright border (light glass edge definition)
             Capsule()
-                .strokeBorder(Color(white: 0.72).opacity(0.55), lineWidth: 0.5)
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(0.5),
+                            Color.white.opacity(0.25)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 0.33
+                )
         }
     }
 
@@ -156,13 +170,31 @@ struct AMENTabBar: View {
             clearBadge(for: tab)
         } label: {
             ZStack {
-                // Selected state glass capsule highlight
+                // Selected state: transparent glass bubble
                 if isSelected {
                     Capsule()
                         .fill(.thinMaterial)
-                        .overlay(Capsule().fill(Color.white.opacity(0.70)))
-                        .overlay(Capsule().strokeBorder(Color(white: 0.82).opacity(0.4), lineWidth: 0.5))
-                        .shadow(color: Color.black.opacity(0.06), radius: 6, x: 0, y: 2)
+                        .overlay(
+                            Capsule()
+                                .fill(
+                                    LinearGradient(
+                                        colors: [
+                                            Color.white.opacity(0.4),
+                                            Color.white.opacity(0.2)
+                                        ],
+                                        startPoint: .top,
+                                        endPoint: .bottom
+                                    )
+                                )
+                        )
+                        .overlay(
+                            Capsule()
+                                .strokeBorder(
+                                    Color.white.opacity(0.5),
+                                    lineWidth: 0.33
+                                )
+                        )
+                        .shadow(color: Color.black.opacity(0.03), radius: 4, x: 0, y: 1)
                         .frame(width: 42, height: 34)
                         .transition(.scale(scale: 0.7).combined(with: .opacity))
                         .animation(.spring(response: 0.22, dampingFraction: 0.7), value: isSelected)

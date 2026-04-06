@@ -3934,7 +3934,7 @@ struct FlexibleInterestsView: View {
     let onRemove: (String) -> Void
     
     var body: some View {
-        FlowLayout(spacing: 8) {
+        AMENFlowLayout(spacing: 8) {
             ForEach(interests, id: \.self) { interest in
                 InterestChip(interest: interest) {
                     onRemove(interest)
@@ -6251,7 +6251,7 @@ struct WrappingHStack<Content: View>: View {
     
     var body: some View {
         // Create a flowing text layout
-        FlowLayout(spacing: 4) {
+        AMENFlowLayout(spacing: 4) {
             ForEach(Array(segments.enumerated()), id: \.offset) { _, segment in
                 content(segment)
             }

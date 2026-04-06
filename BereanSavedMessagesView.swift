@@ -390,7 +390,7 @@ struct EditSavedMessageSheet: View {
                             
                             // Current tags
                             if !tags.isEmpty {
-                                FlowLayout(spacing: 8) {
+                                AMENFlowLayout(spacing: 8) {
                                     ForEach(tags, id: \.self) { tag in
                                         HStack(spacing: 6) {
                                             Text(tag)

@@ -470,7 +470,7 @@ struct ChurchNoteDetailTabView: View {
             glassCard {
                 VStack(alignment: .leading, spacing: 10) {
                     sectionHeader("Themes", icon: "tag")
-                    ChurchNotesFlowLayout(spacing: 8) {
+                    AMENFlowLayout(spacing: 8) {
                         ForEach(organized.themes, id: \.self) { theme in
                             Text(theme.capitalized)
                                 .font(.systemScaled(12, weight: .medium))

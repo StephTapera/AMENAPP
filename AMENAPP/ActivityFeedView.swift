@@ -16,6 +16,7 @@ struct ActivityFeedView: View {
     @State private var selectedTab: FeedTab = .global
     @State private var userChurchId: String?
     @State private var isLoadingChurch = false
+    @State private var scrollOffset: CGFloat = 0
     
     enum FeedTab: String, CaseIterable {
         case global = "Global"
@@ -78,8 +79,24 @@ struct ActivityFeedView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
                 
+                // Smart Header Orchestrator (feature-flagged, off by default)
+                SmartHeaderOrchestrator(
+                    screenType: .feed,
+                    userName: Auth.auth().currentUser?.displayName ?? "",
+                    intentMode: nil,
+                    scrollOffset: scrollOffset,
+                    hasVerseReady: DailyVerseGenkitService.shared.todayVerse != nil
+                )
+
                 // Activity List
                 ScrollView {
+                    GeometryReader { geo in
+                        Color.clear.preference(
+                            key: ScrollOffsetPreferenceKey.self,
+                            value: geo.frame(in: .named("activityScroll")).minY
+                        )
+                    }
+                    .frame(height: 0)
                     LazyVStack(spacing: 12) {
                         if selectedTab == .global {
                             if let errorMessage = activityService.globalFeedError {
@@ -112,6 +129,10 @@ struct ActivityFeedView: View {
                         }
                     }
                     .padding()
+                }
+                .coordinateSpace(name: "activityScroll")
+                .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
+                    scrollOffset = -value
                 }
             }
             .navigationTitle("Activity")

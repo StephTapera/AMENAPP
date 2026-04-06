@@ -90,7 +90,9 @@ final class ChurchTeachingStyleService: ObservableObject {
             if let style = (result.data as? [String: Any])?["style"] as? String {
                 return LearnerStyle(rawValue: style) ?? .unknown
             }
-        } catch {}
+        } catch {
+            dlog("⚠️ [ChurchTeachingStyle] inferUserLearningStyle call failed: \(error.localizedDescription)")
+        }
         return .unknown
     }
 
@@ -106,7 +108,9 @@ final class ChurchTeachingStyleService: ObservableObject {
             if let style = (result.data as? [String: Any])?["style"] as? String {
                 return PastorStyle(rawValue: style) ?? .unknown
             }
-        } catch {}
+        } catch {
+            dlog("⚠️ [ChurchTeachingStyle] inferPastorStyle call failed: \(error.localizedDescription)")
+        }
         return .unknown
     }
 }

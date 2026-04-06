@@ -133,6 +133,68 @@ struct FindChurchPill: View {
     }
 }
 
+// MARK: - Name-Only Church Capsule (Feed/Post Attachment)
+
+/// Minimal name-only capsule used for post attachments (no denomination/time).
+struct ChurchNameCapsulePill: View {
+    let churchName: String
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: {
+            HapticManager.impact(style: .light)
+            onTap()
+        }) {
+            Text(churchName)
+                .font(.systemScaled(13, weight: .semibold))
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(liquidGlassPill)
+        }
+        .buttonStyle(.plain)
+        .pressableButton()
+    }
+}
+
+// MARK: - Church Event Capsule (Feed/Post Attachment)
+
+/// Compact event capsule attached to posts/notes when a specific church event is referenced.
+struct ChurchEventCapsulePill: View {
+    let eventName: String
+    let eventTime: String?
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: {
+            HapticManager.impact(style: .light)
+            onTap()
+        }) {
+            HStack(spacing: 6) {
+                Image(systemName: "calendar")
+                    .font(.systemScaled(11, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                Text(eventName)
+                    .font(.systemScaled(12, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                if let eventTime, !eventTime.isEmpty {
+                    Text("· \(eventTime)")
+                        .font(.systemScaled(11, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .background(liquidGlassPill)
+        }
+        .buttonStyle(.plain)
+        .pressableButton()
+    }
+}
+
 // MARK: - Worship Music Pill
 
 /// Tappable music pill for a worship song reference — opens Spotify or Apple Music.
@@ -355,7 +417,7 @@ struct ChurchNoteDetailModal: View {
                                 .tracking(0.8)
                                 .padding(.bottom, 4)
 
-                            FlowLayout(spacing: 8) {
+                            AMENFlowLayout(spacing: 8) {
                                 ForEach(note.tags, id: \.self) { tag in
                                     Text(tag)
                                         .font(.systemScaled(13))

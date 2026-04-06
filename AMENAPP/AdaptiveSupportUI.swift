@@ -27,7 +27,7 @@ import SwiftUI
 struct AdaptiveSupportOverlay: ViewModifier {
     @ObservedObject private var orchestrator = SafetyOrchestrator.shared
     @State private var isPresented = false
-    @State private var currentSurface: SupportSurface?
+    @State private var currentSurface: SafetySupportSurface?
 
     func body(content: Content) -> some View {
         content
@@ -52,7 +52,7 @@ struct AdaptiveSupportOverlay: ViewModifier {
     }
 
     @ViewBuilder
-    private func surfaceView(for surface: SupportSurface) -> some View {
+    private func surfaceView(for surface: SafetySupportSurface) -> some View {
         switch surface {
         case .gentleCheckIn:
             GentleCheckInCard(onDismiss: { isPresented = false })
@@ -69,7 +69,7 @@ struct AdaptiveSupportOverlay: ViewModifier {
         }
     }
 
-    private func detentsFor(_ surface: SupportSurface) -> Set<PresentationDetent> {
+    private func detentsFor(_ surface: SafetySupportSurface) -> Set<PresentationDetent> {
         switch surface {
         case .gentleCheckIn:   return [.height(320)]
         case .pauseAndBreathe: return [.height(440)]

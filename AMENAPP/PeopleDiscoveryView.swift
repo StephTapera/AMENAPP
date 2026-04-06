@@ -397,7 +397,9 @@ class DiscoveryViewModel: ObservableObject {
                     .map { $0.toUserModel() }
                 return
             }
-        } catch {}
+        } catch {
+            dlog("⚠️ [PeopleDiscovery] Algolia search failed, falling back to Firestore: \(error.localizedDescription)")
+        }
 
         // Firestore prefix fallback (only if Algolia returned nothing)
         do {
@@ -694,7 +696,8 @@ struct PeopleDiscoveryViewNew: View {
             },
             onClose: {
                 searchText = ""
-            }
+            },
+            scrollProgress: max(0, min(1, -scrollOffset / 80))
         )
     }
 

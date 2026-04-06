@@ -15,24 +15,30 @@ struct EmailVerificationBanner: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 12) {
-                // Warning icon
-                Image(systemName: "envelope.badge.fill")
-                    .font(.systemScaled(18))
-                    .foregroundStyle(.yellow)
+                // Warning icon — larger and more prominent
+                ZStack {
+                    Circle()
+                        .fill(Color.yellow.opacity(0.2))
+                        .frame(width: 40, height: 40)
+                    
+                    Image(systemName: "envelope.badge.fill")
+                        .font(.systemScaled(20))
+                        .foregroundStyle(.yellow)
+                }
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Verify Your Email")
-                        .font(.systemScaled(14, weight: .semibold))
+                        .font(.systemScaled(15, weight: .bold))
                         .foregroundStyle(.primary)
                     
-                    Text("Check your inbox for the verification link")
-                        .font(.systemScaled(12))
+                    Text("Some features are limited until you verify")
+                        .font(.systemScaled(13))
                         .foregroundStyle(.secondary)
                 }
                 
                 Spacer()
                 
-                // Resend button
+                // Resend button — more prominent
                 Button {
                     resendVerificationEmail()
                 } label: {
@@ -41,19 +47,22 @@ struct EmailVerificationBanner: View {
                             .controlSize(.small)
                     } else {
                         Text("Resend")
-                            .font(.systemScaled(13, weight: .medium))
-                            .foregroundStyle(.blue)
+                            .font(.systemScaled(14, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(Color.blue, in: RoundedRectangle(cornerRadius: 8))
                     }
                 }
                 .disabled(isResending)
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            .padding(.vertical, 16)
             .background(
                 LinearGradient(
                     colors: [
-                        Color.yellow.opacity(0.12),
-                        Color.orange.opacity(0.08)
+                        Color.yellow.opacity(0.18),
+                        Color.orange.opacity(0.12)
                     ],
                     startPoint: .leading,
                     endPoint: .trailing
@@ -61,8 +70,8 @@ struct EmailVerificationBanner: View {
             )
             .overlay(
                 Rectangle()
-                    .fill(Color.yellow.opacity(0.3))
-                    .frame(height: 1),
+                    .fill(Color.yellow.opacity(0.4))
+                    .frame(height: 1.5),
                 alignment: .bottom
             )
         }

@@ -40,22 +40,22 @@
         },
         "lightbulbCount": {
           ".read": "auth != null",
-          ".write": "auth != null",
+          ".write": false,
           ".validate": "newData.isNumber() && newData.val() >= 0"
         },
         "amenCount": {
           ".read": "auth != null",
-          ".write": "auth != null",
+          ".write": false,
           ".validate": "newData.isNumber() && newData.val() >= 0"
         },
         "commentCount": {
           ".read": "auth != null",
-          ".write": "auth != null",
+          ".write": false,
           ".validate": "newData.isNumber() && newData.val() >= 0"
         },
         "repostCount": {
           ".read": "auth != null",
-          ".write": "auth != null",
+          ".write": false,
           ".validate": "newData.isNumber() && newData.val() >= 0"
         }
       }
@@ -198,18 +198,18 @@
         },
         "prayingNow": {
           ".read": "auth != null",
-          ".write": "auth != null",
+          ".write": false,
           ".validate": "newData.isNumber() && newData.val() >= 0"
         },
         "totalPrayerSessions": {
           ".read": "auth != null",
-          ".write": "auth != null",
+          ".write": false,
           ".validate": "newData.isNumber() && newData.val() >= 0"
         },
         "sessions": {
           "$sessionId": {
             ".read": "auth != null",
-            ".write": "auth != null"
+            ".write": "auth != null && auth.uid == newData.child('userId').val()"
           }
         }
       }

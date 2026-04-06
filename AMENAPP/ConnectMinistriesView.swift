@@ -232,8 +232,11 @@ struct ConnectMinistriesView: View {
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         Task {
             let db = Firestore.firestore()
+            // Store membership in a subcollection to avoid unbounded in-document array.
+            try? await db.collection("ministries").document(ministry.id)
+                .collection("members").document(uid)
+                .setData(["joinedAt": FieldValue.serverTimestamp()], merge: true)
             try? await db.collection("ministries").document(ministry.id).updateData([
-                "memberUIDs": FieldValue.arrayUnion([uid]),
                 "memberCount": FieldValue.increment(Int64(1))
             ])
         }

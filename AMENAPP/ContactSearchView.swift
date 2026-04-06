@@ -674,7 +674,7 @@ struct UserProfileSheet: View {
                                 .font(AMENFont.bold(18))
                                 .padding(.horizontal)
                             
-                            FlowLayout(spacing: 8) {
+                            AMENFlowLayout(spacing: 8) {
                                 ForEach(user.interests, id: \.self) { interest in
                                     Text(interest)
                                         .font(AMENFont.semiBold(13))

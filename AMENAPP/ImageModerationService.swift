@@ -104,126 +104,33 @@ class ImageModerationService {
     static let shared = ImageModerationService()
     
     private let db = Firestore.firestore()
-    private let apiKey: String
-    
-    private init() {
-        self.apiKey = BundleConfig.string(forKey: "GOOGLE_VISION_API_KEY") ?? ""
-    }
-    
+    // SECURITY: API key is NOT stored on the client.
+    // Image moderation is handled server-side via Cloud Functions (moderateImage callable).
+
+    private init() {}
+
     // MARK: - Main Moderation Function
-    
-    /// Moderate an image before allowing upload
+
+    /// Moderate an image before allowing upload.
+    /// Direct Vision API calls are disabled on the client; all images are held for
+    /// server-side Cloud Function moderation (moderateImage callable) to process.
     func moderateImage(imageData: Data, userId: String, context: ImageContext) async throws -> ImageModerationDecision {
         dlog("🛡️ [IMAGE MOD] Moderating \(context.rawValue) image for user: \(userId)")
-
-        // If the Vision API key is not configured, we cannot verify image safety.
-        // Hold for human review rather than blindly approving unmoderated content.
-        guard !apiKey.isEmpty else {
-            dlog("⚠️ [IMAGE MOD] GOOGLE_VISION_API_KEY not set — holding image for human review")
-            return .review(reasons: ["Image safety check unavailable — held for review"])
-        }
-        
-        // Convert to base64
-        let base64Image = imageData.base64EncodedString()
-        
-        // Call Vision API SafeSearch
-        let safeSearchResult = try await performSafeSearch(base64Image: base64Image)
-        
-        // Determine action
-        if !safeSearchResult.isApproved {
-            dlog("❌ [IMAGE MOD] BLOCKED - \(safeSearchResult.flaggedReasons.joined(separator: ", "))")
-            
-            // Log to Firestore for admin review
-            try await logModerationAction(
-                userId: userId,
-                context: context,
-                result: safeSearchResult,
-                action: .blocked
-            )
-            
-            return .blocked(reasons: safeSearchResult.flaggedReasons)
-        }
-        
-        if safeSearchResult.needsReview {
-            dlog("⚠️ [IMAGE MOD] REVIEW NEEDED - borderline content")
-            
-            try await logModerationAction(
-                userId: userId,
-                context: context,
-                result: safeSearchResult,
-                action: .review
-            )
-            
-            return .review(reasons: ["Content requires manual review"])
-        }
-        
-        dlog("✅ [IMAGE MOD] APPROVED")
-        return .approved
+        dlog("ℹ️ [IMAGE MOD] Deferring to Cloud Function for image safety check")
+        // Hold for server-side processing rather than calling Vision API directly from client.
+        return .review(reasons: ["Image safety check pending server-side moderation"])
     }
-    
-    // MARK: - Vision API Integration
-    
+
+    // MARK: - (Disabled) Vision API Integration
+    // SECURITY: Direct Vision API calls from the client are disabled.
+    // performSafeSearch is a stub that always throws — Vision API must be proxied
+    // through a Firebase Cloud Function (moderateImage callable) on the server side.
     private func performSafeSearch(base64Image: String) async throws -> SafeSearchResult {
-        let endpoint = "https://vision.googleapis.com/v1/images:annotate?key=\(apiKey)"
-        
-        guard let url = URL(string: endpoint) else {
-            throw ImageModerationError.invalidURL
-        }
-        
-        let requestBody: [String: Any] = [
-            "requests": [
-                [
-                    "image": [
-                        "content": base64Image
-                    ],
-                    "features": [
-                        [
-                            "type": "SAFE_SEARCH_DETECTION"
-                        ]
-                    ]
-                ]
-            ]
-        ]
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
-        request.timeoutInterval = 10 // 10 second timeout
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw ImageModerationError.networkError
-        }
-        
-        guard httpResponse.statusCode == 200 else {
-            dlog("❌ [IMAGE MOD] Vision API error: \(httpResponse.statusCode)")
-            if let errorString = String(data: data, encoding: .utf8) {
-                dlog("   Response: \(errorString)")
-            }
-            throw ImageModerationError.apiError(httpResponse.statusCode)
-        }
-        
-        // Parse SafeSearch response
-        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-        guard let responses = json?["responses"] as? [[String: Any]],
-              let firstResponse = responses.first,
-              let safeSearchAnnotation = firstResponse["safeSearchAnnotation"] as? [String: String] else {
-            throw ImageModerationError.parsingError
-        }
-        
-        let result = SafeSearchResult(
-            adult: SafeSearchLikelihood(stringValue: safeSearchAnnotation["adult"] ?? "UNKNOWN"),
-            spoof: SafeSearchLikelihood(stringValue: safeSearchAnnotation["spoof"] ?? "UNKNOWN"),
-            medical: SafeSearchLikelihood(stringValue: safeSearchAnnotation["medical"] ?? "UNKNOWN"),
-            violence: SafeSearchLikelihood(stringValue: safeSearchAnnotation["violence"] ?? "UNKNOWN"),
-            racy: SafeSearchLikelihood(stringValue: safeSearchAnnotation["racy"] ?? "UNKNOWN")
+        throw NSError(
+            domain: "ImageModerationService",
+            code: 501,
+            userInfo: [NSLocalizedDescriptionKey: "Vision API moderation must be invoked via Cloud Function proxy"]
         )
-        
-        dlog("🔍 [IMAGE MOD] SafeSearch: adult=\(result.adult), racy=\(result.racy), violence=\(result.violence)")
-        
-        return result
     }
     
     // MARK: - Logging

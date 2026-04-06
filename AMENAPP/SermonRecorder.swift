@@ -334,7 +334,7 @@ struct SermonRecordingSheet: View {
                         }
                     }
                     if !recorder.liveNote.scriptures.isEmpty {
-                        FlowLayout(spacing: 6) {
+                        AMENFlowLayout(spacing: 6) {
                             ForEach(recorder.liveNote.scriptures, id: \.self) { ref in
                                 Text(ref)
                                     .font(.systemScaled(12, weight: .medium))
