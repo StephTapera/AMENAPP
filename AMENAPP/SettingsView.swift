@@ -10,6 +10,7 @@
 
 import SwiftUI
 import FirebaseAuth
+import FirebaseFirestore
 
 // MARK: - Design Tokens
 
@@ -747,9 +748,34 @@ private struct EditProfileFromSettingsView: View {
                     initials:        UserDefaults.standard.string(forKey: "cached_initials") ?? String((user?.displayName ?? "?").prefix(1)),
                     profileImageURL: UserDefaults.standard.string(forKey: "cached_profileImageURL") ?? user?.photoURL?.absoluteString,
                     interests:       [String](),
-                    socialLinks:     [SocialLinkUI]()
+                    socialLinks:     [SocialLinkUI](),
+                    profileTopics:   [String]()
                 )
-                _ = uid // suppress unused warning
+                
+                // Load interests, topics, and social links from Firestore
+                do {
+                    let doc = try await Firestore.firestore().document("users/\(uid)").getDocument()
+                    if let data = doc.data() {
+                        if let interests = data["interests"] as? [String] {
+                            profileData.interests = interests
+                        }
+                        if let topics = data["profileTopics"] as? [String] {
+                            profileData.profileTopics = topics
+                        }
+                        if let socialLinksData = data["socialLinks"] as? [[String: Any]] {
+                            profileData.socialLinks = socialLinksData.compactMap { linkData in
+                                guard let platform = linkData["platform"] as? String,
+                                      let username = linkData["username"] as? String,
+                                      let socialPlatform = SocialLinkUI.SocialPlatform(rawValue: platform) else {
+                                    return nil
+                                }
+                                return SocialLinkUI(platform: socialPlatform, username: username)
+                            }
+                        }
+                    }
+                } catch {
+                    print("Error loading profile data: \(error)")
+                }
             }
     }
 }
