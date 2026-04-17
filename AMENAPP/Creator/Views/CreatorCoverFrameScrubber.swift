@@ -16,7 +16,7 @@ struct CreatorCoverFrameScrubber: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Cover frame")
                 .font(AMENFont.semiBold(13))
-                .foregroundStyle(Color.black.opacity(0.6))
+                .foregroundStyle(.secondary)
 
             ZStack {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)

@@ -294,7 +294,7 @@ struct DailyLimitReachedDialog: View {
                     // Title
                     Text("Time for a Break")
                         .font(.systemScaled(30, weight: .light, design: .serif))
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.primary)
                         .tracking(0.3)
 
                     // Message
@@ -310,7 +310,7 @@ struct DailyLimitReachedDialog: View {
                         VStack(spacing: 3) {
                             Text("\(tracker.snapshotUsageMinutes)")
                                 .font(.systemScaled(26, weight: .thin, design: .rounded))
-                                .foregroundStyle(.black)
+                                .foregroundStyle(.primary)
                             Text("Minutes Used")
                                 .font(.systemScaled(10, weight: .regular))
                                 .foregroundStyle(.black.opacity(0.45))
@@ -326,7 +326,7 @@ struct DailyLimitReachedDialog: View {
                         VStack(spacing: 3) {
                             Text("\(tracker.dailyLimitMinutes)")
                                 .font(.systemScaled(26, weight: .thin, design: .rounded))
-                                .foregroundStyle(.black)
+                                .foregroundStyle(.primary)
                             Text("Daily Limit")
                                 .font(.systemScaled(10, weight: .regular))
                                 .foregroundStyle(.black.opacity(0.45))

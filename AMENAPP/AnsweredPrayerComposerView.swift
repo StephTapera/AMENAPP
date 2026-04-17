@@ -13,7 +13,6 @@ struct AnsweredPrayerComposerView: View {
     @State private var errorMessage: String?
     @FocusState private var isTextFocused: Bool
 
-    private let db = Firestore.firestore()
     private let charcoal = Color(red: 0.110, green: 0.110, blue: 0.102) // #1c1c1a
     private let amber    = Color(red: 0.784, green: 0.447, blue: 0.165) // #c8722a
 
@@ -133,7 +132,7 @@ struct AnsweredPrayerComposerView: View {
         defer { isPosting = false }
 
         let prayerId = originalPrayerPost.firestoreId
-        let newRef = db.collection("posts").document()
+        let newRef = Firestore.firestore().collection("posts").document()
 
         // Build testimony document
         let testimonyData: [String: Any] = [
@@ -155,7 +154,7 @@ struct AnsweredPrayerComposerView: View {
         do {
             try await newRef.setData(testimonyData)
             // Update prayer post
-            try await db.collection("posts").document(prayerId).updateData([
+            try await Firestore.firestore().collection("posts").document(prayerId).updateData([
                 "prayerStatus": "answered",
                 "linkedTestimonyId": newRef.documentID
             ])

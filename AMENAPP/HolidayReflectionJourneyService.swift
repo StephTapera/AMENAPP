@@ -150,7 +150,7 @@ final class HolidayReflectionJourneyService: ObservableObject {
     @Published private(set) var activeJourneys: [ReflectionJourney] = []
     @Published private(set) var isGenerating = false
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private let localStorageKey = "holiday_journeys_v1"
 
     private init() {

@@ -981,7 +981,7 @@ struct QuotePostComposerView: View {
     /// Uploads any attached images to Storage first, then writes the post doc.
     private func writeQuotePostToFirestore(text: String, images: [UIImage] = []) {
         guard let uid = Auth.auth().currentUser?.uid else { return }
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         let docId = db.collection("posts").document().documentID
         let docRef = db.collection("posts").document(docId)
 
@@ -1057,7 +1057,7 @@ struct QuotePostComposerView: View {
     /// Indexes hashtags in Firestore for discovery.
     /// Each hashtag gets a document in `hashtags` collection with a post count and recent posts array.
     private func indexHashtags(_ hashtags: [String], postId: String) async {
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         for tag in hashtags {
             let cleanTag = tag.hasPrefix("#") ? String(tag.dropFirst()) : tag
             guard !cleanTag.isEmpty else { continue }

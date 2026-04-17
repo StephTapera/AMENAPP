@@ -27,7 +27,7 @@ final class PostVisitReflectionViewModel: ObservableObject {
     @Published var saveSucceeded: Bool = false
     @Published var errorMessage: String?
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     /// Save reflection privately to user's personal Firestore subcollection.
     func savePrivately(churchId: String, visitSessionId: String?, userId: String) async {

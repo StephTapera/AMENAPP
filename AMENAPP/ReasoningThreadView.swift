@@ -1,6 +1,3 @@
-// ReasoningThreadView.swift — AMEN App
-// Full-screen modal for structured, AI-framed discussions on a post.
-
 import SwiftUI
 import FirebaseFirestore
 import FirebaseAuth
@@ -9,292 +6,345 @@ struct ReasoningThreadView: View {
     let postId: String
     let postText: String
     let postAuthorName: String
+    let entrySource: String?
 
     @StateObject private var vm: ReasoningViewModel
     @State private var showAddArgument = false
-    @State private var replyingToNodeId: String? = nil
+    @State private var composerParentNodeId: String? = nil
+    @State private var composerPreferredType: DiscussionNode.NodeType = .argument
     @State private var steelForExpanded = false
     @State private var steelAgainstExpanded = false
+    @State private var headerCompressed = false
     @Environment(\.dismiss) private var dismiss
 
-    init(postId: String, postText: String, postAuthorName: String) {
+    init(postId: String, postText: String, postAuthorName: String, entrySource: String? = nil) {
         self.postId = postId
         self.postText = postText
         self.postAuthorName = postAuthorName
+        self.entrySource = entrySource
         _vm = StateObject(wrappedValue: ReasoningViewModel(postId: postId, postText: postText))
     }
 
-    // MARK: - Body
-
     var body: some View {
-        NavigationStack {
-            ZStack(alignment: .bottomTrailing) {
-                Color(.systemGroupedBackground).ignoresSafeArea()
+        ZStack(alignment: .bottom) {
+            Color(.systemGroupedBackground).ignoresSafeArea()
 
-                if vm.isLoadingFrame {
-                    loadingView
-                } else {
-                    scrollContent
+            content
+                .safeAreaInset(edge: .top) {
+                    header
+                        .padding(.horizontal, 16)
+                        .padding(.top, 6)
+                        .padding(.bottom, 8)
+                        .background(
+                            Rectangle()
+                                .fill(.ultraThinMaterial)
+                                .opacity(headerCompressed ? 0.96 : 0.0)
+                                .ignoresSafeArea()
+                        )
                 }
 
-                // FAB
-                if !vm.isLoadingFrame {
-                    addViewButton
-                }
+            if shouldShowFloatingButton {
+                AddYourViewFloatingButton(
+                    title: floatingButtonTitle,
+                    icon: "plus",
+                    action: openComposer
+                )
+                .padding(.bottom, 18)
+                .padding(.horizontal, 16)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
-            .navigationTitle("Discussion Thread")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "xmark")
-                            .foregroundColor(.black.opacity(0.7))
-                            .font(.systemScaled(15, weight: .medium))
+        }
+        .sheet(isPresented: $showAddArgument) {
+            AddArgumentSheet(
+                vm: vm,
+                parentNodeId: composerParentNodeId,
+                preferredType: composerPreferredType
+            )
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
+        }
+        .task {
+            vm.threadOpenEntrySource = entrySource
+            await vm.loadOrCreate()
+        }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        switch vm.loadState {
+        case .idle, .loading:
+            ThreadLoadingSkeleton()
+        case .error(let message):
+            ThreadUnavailableState(
+                title: "Couldn’t Load Thread",
+                message: message,
+                retryTitle: "Try Again",
+                onRetry: { Task { await vm.retryLoad() } }
+            )
+        case .unavailable(let message):
+            ThreadUnavailableState(
+                title: "Thread Unavailable",
+                message: message,
+                retryTitle: nil,
+                onRetry: nil
+            )
+        case .loaded, .empty:
+            threadContent
+        }
+    }
+
+    private var header: some View {
+        AmenGlassHeaderBar(
+            title: "Discussion Thread",
+            subtitle: entrySource.map { "From \($0)" } ?? subtitleText,
+            onClose: { dismiss() },
+            trailing: AnyView(
+                Menu {
+                    Button("Share Thread") { }
+                    Button("Report Thread") { }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .frame(width: 36, height: 36)
+                        .background(
+                            Circle()
+                                .fill(.ultraThinMaterial)
+                                .overlay(Circle().strokeBorder(Color.black.opacity(0.06), lineWidth: 0.6))
+                        )
+                }
+            )
+        )
+    }
+
+    private var threadContent: some View {
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 14) {
+                offsetReader
+                DiscussionTopicHeroCard(
+                    authorName: postAuthorName,
+                    sourceLabel: "Source",
+                    title: vm.discussion.claim.isEmpty ? postText : vm.discussion.claim,
+                    classification: frameTypeLabel,
+                    smartTag: smartTag
+                )
+
+                HStack(spacing: 8) {
+                    AmenGlassPill(title: frameTypeLabel, icon: "chart.bar.xaxis", tint: frameTint)
+                    AmenGlassPill(title: discussionStatusLabel, icon: "sparkles", tint: Color.black.opacity(0.72))
+                    if vm.discussion.viewUpdateCount > 0 {
+                        AmenGlassPill(
+                            title: "\(vm.discussion.viewUpdateCount) changed view",
+                            icon: "arrow.uturn.left.circle",
+                            tint: Color.green.opacity(0.9)
+                        )
                     }
                 }
-            }
-        }
-        .presentationDetents([.large])
-        .sheet(isPresented: $showAddArgument) {
-            AddArgumentSheet(vm: vm, parentNodeId: nil)
-        }
-        .task { await vm.loadOrCreate() }
-    }
 
-    // MARK: - Loading
-
-    private var loadingView: some View {
-        VStack(spacing: 16) {
-            ProgressView()
-                .tint(Color.purple)
-                .scaleEffect(1.3)
-            Text("Generating discussion frame...")
-                .font(.systemScaled(15, weight: .medium))
-                .foregroundColor(.black.opacity(0.6))
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    // MARK: - Scroll Content
-
-    private var scrollContent: some View {
-        ScrollView(showsIndicators: false) {
-            LazyVStack(spacing: 12) {
-
-                // Original post preview
-                originalPostCard
-
-                // AI frame badge
-                frameTypeBadge
-
-                // Steel-man FOR
-                SteelManCardView(
+                PerspectiveBriefCard(
                     label: "Strongest case FOR",
-                    text: vm.discussion.aiSteelManFor,
-                    tintColor: Color(red: 0.55, green: 0.25, blue: 1.0),
-                    isExpanded: $steelForExpanded
+                    summary: compressedSummary(for: vm.discussion.aiSteelManFor),
+                    bodyText: vm.discussion.aiSteelManFor,
+                    helperText: "A concise AI summary of the strongest charitable supporting case.",
+                    tint: Color(red: 0.55, green: 0.25, blue: 1.0),
+                    isExpanded: $steelForExpanded,
+                    onToggle: { trackBriefExpansion(side: "for") }
                 )
 
-                // Steel-man AGAINST
-                SteelManCardView(
+                PerspectiveBriefCard(
                     label: "Strongest case AGAINST",
-                    text: vm.discussion.aiSteelManAgainst,
-                    tintColor: Color(red: 0.96, green: 0.65, blue: 0.14),
-                    isExpanded: $steelAgainstExpanded
+                    summary: compressedSummary(for: vm.discussion.aiSteelManAgainst),
+                    bodyText: vm.discussion.aiSteelManAgainst,
+                    helperText: "A concise AI summary of the strongest charitable opposing case.",
+                    tint: Color(red: 0.87, green: 0.63, blue: 0.22),
+                    isExpanded: $steelAgainstExpanded,
+                    onToggle: { trackBriefExpansion(side: "against") }
                 )
 
-                // Section header
-                sectionHeader
-
-                // View update count pill
-                if vm.discussion.viewUpdateCount > 0 {
-                    viewUpdatePill
-                }
-
-                // Argument tree
-                ForEach(vm.rootNodes) { node in
-                    ArgumentNodeView(
-                        node: node,
-                        depth: 0,
-                        vm: vm,
-                        onReply: { nodeId in
-                            replyingToNodeId = nodeId
-                            showAddArgument = true
+                AmenGlassCard(cornerRadius: 22, padding: 14) {
+                    HStack(alignment: .firstTextBaseline) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Discussion")
+                                .font(.systemScaled(18, weight: .semibold))
+                                .foregroundStyle(.primary)
+                            Text(sectionSubtitle)
+                                .font(.systemScaled(12))
+                                .foregroundStyle(.secondary)
                         }
-                    )
+                        Spacer()
+                        AmenGlassPill(title: "\(vm.nodes.count) entries", icon: "bubble.left.and.bubble.right", tint: Color.black.opacity(0.7))
+                    }
                 }
 
-                // Bottom padding for FAB
-                Color.clear.frame(height: 80)
+                if vm.nodes.isEmpty {
+                    DiscussionEmptyState(
+                        onArgument: { openComposer(type: .argument) },
+                        onEvidence: { openComposer(type: .evidence) },
+                        onViewChange: { openComposer(type: .viewUpdate) }
+                    )
+                } else {
+                    LazyVStack(spacing: 10) {
+                        ForEach(vm.rootNodes) { node in
+                            ArgumentNodeView(
+                                node: node,
+                                depth: 0,
+                                vm: vm,
+                                onReply: { nodeId in
+                                    composerParentNodeId = nodeId
+                                    composerPreferredType = .counterargument
+                                    showAddArgument = true
+                                }
+                            )
+                            .id(node.id)
+                        }
+                    }
+                }
+
+                submissionNotice
+                Color.clear.frame(height: 110)
             }
             .padding(.horizontal, 16)
-            .padding(.top, 8)
+            .padding(.bottom, 8)
         }
+        .coordinateSpace(name: "threadScroll")
     }
 
-    // MARK: - Original Post Card
-
-    private var originalPostCard: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                Circle()
-                    .fill(Color.black.opacity(0.06))
-                    .frame(width: 32, height: 32)
-                    .overlay(
-                        Text(String(postAuthorName.prefix(1)).uppercased())
-                            .font(.systemScaled(13, weight: .semibold))
-                            .foregroundColor(.black.opacity(0.75))
-                    )
-                Text(postAuthorName)
-                    .font(.systemScaled(14, weight: .semibold))
-                    .foregroundColor(.black.opacity(0.9))
-                Spacer()
-                Image(systemName: "quote.opening")
-                    .font(.systemScaled(12))
-                    .foregroundColor(Color.purple.opacity(0.55))
+    @ViewBuilder
+    private var submissionNotice: some View {
+        switch vm.submissionState {
+        case .idle, .posting:
+            EmptyView()
+        case .success:
+            AmenGlassCard(cornerRadius: 20, padding: 14, tint: Color.green.opacity(0.6)) {
+                Label("Your contribution was added to the discussion.", systemImage: "checkmark.circle.fill")
+                    .font(.systemScaled(13, weight: .medium))
+                    .foregroundStyle(.primary)
             }
-            Text(postText)
-                .font(.systemScaled(14))
-                .foregroundColor(.black.opacity(0.7))
-                .lineLimit(3)
+        case .pendingModeration:
+            AmenGlassCard(cornerRadius: 20, padding: 14, tint: Color.orange.opacity(0.6)) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Label("Submitted", systemImage: "clock.badge.checkmark")
+                        .font(.systemScaled(13, weight: .semibold))
+                        .foregroundStyle(.primary)
+                    Text("Your contribution may need a quick review before it appears to everyone.")
+                        .font(.systemScaled(12))
+                        .foregroundStyle(.secondary)
+                }
+            }
+        case .failed(let message):
+            AmenGlassCard(cornerRadius: 20, padding: 14, tint: Color.red.opacity(0.45)) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Label("Couldn’t post", systemImage: "exclamationmark.circle")
+                        .font(.systemScaled(13, weight: .semibold))
+                        .foregroundStyle(.primary)
+                    Text(message)
+                        .font(.systemScaled(12))
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
-        .padding(14)
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                stops: [
-                                    .init(color: Color.white.opacity(0.86), location: 0.0),
-                                    .init(color: Color.white.opacity(0.70), location: 1.0)
-                                ],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .strokeBorder(Color.black.opacity(0.06), lineWidth: 0.8)
-                )
-        )
     }
 
-    // MARK: - Frame Type Badge
+    private var offsetReader: some View {
+        GeometryReader { proxy in
+            Color.clear
+                .preference(key: ThreadOffsetKey.self, value: proxy.frame(in: .named("threadScroll")).minY)
+        }
+        .frame(height: 0)
+        .onPreferenceChange(ThreadOffsetKey.self) { value in
+            withAnimation(.easeInOut(duration: 0.18)) {
+                headerCompressed = value < -12
+            }
+        }
+    }
 
-    private var frameTypeBadge: some View {
-        let label: String
-        let color: Color
+    private var shouldShowFloatingButton: Bool {
+        if case .loading = vm.loadState { return false }
+        if case .posting = vm.submissionState { return false }
+        return !showAddArgument
+    }
+
+    private var frameTypeLabel: String {
         switch vm.discussion.aiFactualVsValues {
         case "factual":
-            label = "Factual Disagreement"
-            color = Color(red: 0.24, green: 0.71, blue: 0.96)
+            return "Factual"
         case "values":
-            label = "Values Disagreement"
-            color = Color(red: 0.96, green: 0.42, blue: 0.42)
+            return "Values"
         default:
-            label = "Factual + Values"
-            color = Color(red: 0.55, green: 0.25, blue: 1.0)
+            return "Factual + Values"
         }
-
-        return HStack(spacing: 6) {
-            Image(systemName: "chart.bar.xaxis")
-                .font(.systemScaled(11, weight: .semibold))
-                .foregroundColor(color)
-            Text(label)
-                .font(.systemScaled(12, weight: .semibold))
-                .foregroundColor(color)
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-        .background(
-            Capsule()
-                .fill(color.opacity(0.13))
-                .overlay(Capsule().strokeBorder(color.opacity(0.25), lineWidth: 1))
-        )
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    // MARK: - Section Header
-
-    private var sectionHeader: some View {
-        HStack {
-            Text("Discussion")
-                .font(.systemScaled(16, weight: .bold))
-                .foregroundColor(.black)
-            Text("(\(vm.nodes.count) arguments)")
-                .font(.systemScaled(14))
-                .foregroundColor(.black.opacity(0.45))
-            Spacer()
-        }
-        .padding(.top, 4)
+    private var discussionStatusLabel: String {
+        if vm.nodes.isEmpty { return "New discussion" }
+        if vm.nodes.count > 5 { return "Active discussion" }
+        return "Balanced thread"
     }
 
-    // MARK: - View Update Pill
-
-    private var viewUpdatePill: some View {
-        HStack(spacing: 5) {
-            Text("↺")
-                .font(.systemScaled(13))
-            Text("\(vm.discussion.viewUpdateCount) \(vm.discussion.viewUpdateCount == 1 ? "person" : "people") changed their view")
-                .font(.systemScaled(12, weight: .medium))
-        }
-        .foregroundColor(Color(red: 0.20, green: 0.65, blue: 0.40))
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-        .background(
-            Capsule()
-                .fill(Color(red: 0.20, green: 0.65, blue: 0.40).opacity(0.12))
-                .overlay(Capsule().strokeBorder(Color(red: 0.20, green: 0.65, blue: 0.40).opacity(0.25), lineWidth: 1))
-        )
-        .frame(maxWidth: .infinity, alignment: .leading)
+    private var smartTag: String? {
+        if vm.nodes.count > 3 { return "Perspective thread" }
+        if vm.nodes.isEmpty { return "Be the first voice" }
+        return "Balanced thread"
     }
 
-    // MARK: - FAB
-
-    private var addViewButton: some View {
-        Button {
-            replyingToNodeId = nil
-            showAddArgument = true
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: "plus")
-                    .font(.systemScaled(15, weight: .bold))
-                Text("Add Your View")
-                    .font(.systemScaled(15, weight: .semibold))
-            }
-            .foregroundColor(.black)
-            .padding(.horizontal, 18)
-            .padding(.vertical, 12)
-            .background(
-                Capsule()
-                    .fill(.ultraThinMaterial)
-                    .overlay(
-                        Capsule()
-                            .fill(
-                                LinearGradient(
-                                    stops: [
-                                        .init(color: Color.white.opacity(0.92), location: 0.0),
-                                        .init(color: Color.white.opacity(0.68), location: 1.0)
-                                    ],
-                                    startPoint: .top,
-                                    endPoint: .bottom
-                                )
-                            )
-                    )
-                    .overlay(
-                        Capsule()
-                            .strokeBorder(Color.black.opacity(0.10), lineWidth: 0.8)
-                    )
-                    .shadow(color: Color.black.opacity(0.10), radius: 18, x: 0, y: 8)
-            )
+    private var frameTint: Color {
+        switch vm.discussion.aiFactualVsValues {
+        case "factual":
+            return Color.blue.opacity(0.8)
+        case "values":
+            return Color.red.opacity(0.72)
+        default:
+            return Color.purple.opacity(0.85)
         }
-        .padding(.trailing, 20)
-        .padding(.bottom, 24)
-        .transition(.scale.combined(with: .opacity))
+    }
+
+    private var sectionSubtitle: String {
+        if vm.nodes.isEmpty {
+            return "No responses yet. Add the first thoughtful contribution."
+        }
+        return "Follow the discussion, add context, or respond to the strongest case."
+    }
+
+    private var subtitleText: String? {
+        switch vm.loadState {
+        case .loaded, .empty:
+            return vm.nodes.isEmpty ? "New thread" : "\(vm.nodes.count) contributions"
+        default:
+            return nil
+        }
+    }
+
+    private var floatingButtonTitle: String {
+        if vm.nodes.isEmpty { return "Add Your View" }
+        if vm.discussion.aiFactualVsValues == "factual" { return "Add Evidence" }
+        return "Add Your View"
+    }
+
+    private func compressedSummary(for text: String) -> String {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count > 160 else { return trimmed }
+        let prefix = trimmed.prefix(157)
+        return prefix + "..."
+    }
+
+    private func openComposer() {
+        openComposer(type: .argument)
+    }
+
+    private func openComposer(type: DiscussionNode.NodeType) {
+        composerParentNodeId = nil
+        composerPreferredType = type
+        showAddArgument = true
+    }
+
+    private func trackBriefExpansion(side: String) {
+        dlog("[DiscussionThread] ai_brief_expanded side=\(side) postId=\(postId)")
+    }
+}
+
+private struct ThreadOffsetKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
     }
 }

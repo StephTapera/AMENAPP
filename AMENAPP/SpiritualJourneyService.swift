@@ -6,7 +6,7 @@ import FirebaseFirestore
 final class SpiritualJourneyService {
     static let shared = SpiritualJourneyService()
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     func fetchOrGenerateStory(period: JourneyPeriod) async throws -> SpiritualJourneyStory {
         guard let uid = Auth.auth().currentUser?.uid else {

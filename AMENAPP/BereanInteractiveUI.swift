@@ -806,7 +806,9 @@ struct BereanInputOverlay: View {
     // MARK: Input bar
 
     private var inputBar: some View {
-        HStack(spacing: 10) {
+        let trimmedMessage = messageText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let canSend = !trimmedMessage.isEmpty
+        return HStack(spacing: 10) {
             // + button — toggles the overlay
             Button {
                 if isMenuOpen { dismissMenu() } else { openMenu() }
@@ -833,6 +835,10 @@ struct BereanInputOverlay: View {
                 .font(.systemScaled(15, weight: .regular))
                 .foregroundStyle(BUI.ink)
                 .focused($inputFocused)
+                .submitLabel(.send)
+                .onSubmit {
+                    sendMessage()
+                }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
                 .background(
@@ -842,7 +848,9 @@ struct BereanInputOverlay: View {
                 )
 
             // Send
-            Button {} label: {
+            Button {
+                sendMessage()
+            } label: {
                 Image(systemName: "arrow.up")
                     .font(.systemScaled(13, weight: .bold))
                     .foregroundStyle(.white)
@@ -850,8 +858,9 @@ struct BereanInputOverlay: View {
                     .background(Circle().fill(BUI.coral))
             }
             .buttonStyle(BereanCTAPressStyle())
-            .opacity(messageText.isEmpty ? 0.4 : 1.0)
-            .animation(.easeOut(duration: 0.12), value: messageText.isEmpty)
+            .disabled(!canSend)
+            .opacity(canSend ? 1.0 : 0.4)
+            .animation(.easeOut(duration: 0.12), value: canSend)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
@@ -886,6 +895,16 @@ struct BereanInputOverlay: View {
         withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.80))) {
             isMenuOpen = false
         }
+    }
+
+    private func sendMessage() {
+        let trimmedMessage = messageText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedMessage.isEmpty else { return }
+
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        messageText = ""
+        inputFocused = false
+        dismissMenu()
     }
 
     private func fadeSlideTransition(delay: Double) -> AnyTransition {

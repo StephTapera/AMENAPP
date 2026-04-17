@@ -42,7 +42,7 @@ final class AccountabilityThreadManager: ObservableObject {
     @Published var weeklyPrompt: String = ""
 
     private let db        = Firestore.firestore()
-    private let functions = Functions.functions()
+    private lazy var functions = Functions.functions()
     private var listeners: [String: ListenerRegistration] = [:]
 
     private init() {}

@@ -273,13 +273,13 @@ private struct GlassCard: ViewModifier {
                     .fill(.ultraThinMaterial)
                     .overlay(
                         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                            .fill(Color.white.opacity(0.55))
+                            .fill(AmenTheme.Colors.glassFill)
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                            .strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5)
+                            .strokeBorder(AmenTheme.Colors.glassStroke, lineWidth: 0.5)
                     )
-                    .shadow(color: Color.black.opacity(0.06), radius: 14, x: 0, y: 4)
+                    .shadow(color: AmenTheme.Colors.shadowCard, radius: 14, x: 0, y: 4)
             )
     }
 }
@@ -300,19 +300,19 @@ private struct NotificationAvatar: View {
         ZStack {
             Circle()
                 .fill(.ultraThinMaterial)
-                .overlay(Circle().fill(Color.white.opacity(0.55)))
-                .overlay(Circle().strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5))
+                .overlay(Circle().fill(AmenTheme.Colors.glassFill))
+                .overlay(Circle().strokeBorder(AmenTheme.Colors.glassStroke, lineWidth: 0.5))
                 .frame(width: 44, height: 44)
-                .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 2)
+                .shadow(color: AmenTheme.Colors.shadowCard, radius: 8, x: 0, y: 2)
 
             if type == .bereanInsight || type == .system {
                 Image(systemName: type.iconName)
                     .font(.systemScaled(18, weight: .medium))
-                    .foregroundStyle(Color.black.opacity(0.7))
+                    .foregroundStyle(AmenTheme.Colors.iconPrimary)
             } else {
                 Text(initials)
                     .font(AMENFont.semiBold(14))
-                    .foregroundStyle(Color.black.opacity(0.8))
+                    .foregroundStyle(AmenTheme.Colors.textPrimary)
             }
         }
     }
@@ -335,7 +335,7 @@ private struct NotificationCard: View {
 
             // Unread indicator
             Circle()
-                .fill(notification.isRead ? Color.clear : Color.black)
+                .fill(notification.isRead ? Color.clear : AmenTheme.Colors.iconPrimary)
                 .frame(width: 8, height: 8)
                 .padding(.top, 18)
 
@@ -344,17 +344,17 @@ private struct NotificationCard: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(notification.body)
                     .font(AMENFont.semiBold(15))
-                    .foregroundStyle(Color.black)
+                    .foregroundStyle(.primary)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
 
                 Text(notification.actorName)
                     .font(AMENFont.regular(13))
-                    .foregroundStyle(Color(white: 0.45))
+                    .foregroundStyle(AmenTheme.Colors.textSecondary)
 
                 Text(relativeTimestamp(notification.timestamp))
                     .font(AMENFont.regular(12))
-                    .foregroundStyle(Color(white: 0.65))
+                    .foregroundStyle(AmenTheme.Colors.textTertiary)
             }
             .padding(.vertical, 4)
 
@@ -363,7 +363,7 @@ private struct NotificationCard: View {
             // Type icon badge
             Image(systemName: notification.type.iconName)
                 .font(.systemScaled(13, weight: .medium))
-                .foregroundStyle(Color(white: 0.55))
+                .foregroundStyle(AmenTheme.Colors.iconSecondary)
                 .padding(.top, 14)
         }
         .padding(.horizontal, 14)
@@ -424,27 +424,27 @@ private struct GroupSectionHeader: View {
             HStack(spacing: 8) {
                 Image(systemName: type.iconName)
                     .font(.systemScaled(14, weight: .semibold))
-                    .foregroundStyle(Color.black.opacity(0.75))
+                    .foregroundStyle(AmenTheme.Colors.iconPrimary)
                     .frame(width: 20)
 
                 Text(type.label)
                     .font(AMENFont.semiBold(14))
-                    .foregroundStyle(Color.black)
+                    .foregroundStyle(.primary)
 
                 if unreadCount > 0 {
                     Text("\(unreadCount)")
                         .font(AMENFont.bold(11))
-                        .foregroundStyle(Color.white)
+                        .foregroundStyle(AmenTheme.Colors.buttonPrimaryText)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(Capsule().fill(Color.black))
+                        .background(Capsule().fill(AmenTheme.Colors.buttonPrimary))
                 }
 
                 Spacer()
 
                 Image(systemName: "chevron.right")
                     .font(.systemScaled(12, weight: .semibold))
-                    .foregroundStyle(Color(white: 0.55))
+                    .foregroundStyle(AmenTheme.Colors.iconSecondary)
                     .rotationEffect(.degrees(isCollapsed ? 0 : 90))
                     .animation(.spring(response: 0.35, dampingFraction: 0.80), value: isCollapsed)
             }
@@ -464,19 +464,19 @@ private struct FocusModePill: View {
         HStack(spacing: 10) {
             Image(systemName: isOn ? "moon.fill" : "moon")
                 .font(.systemScaled(14, weight: .medium))
-                .foregroundStyle(Color.black.opacity(0.75))
+                .foregroundStyle(AmenTheme.Colors.iconPrimary)
 
             Text("Focus Mode")
                 .font(AMENFont.semiBold(14))
-                .foregroundStyle(Color.black)
+                .foregroundStyle(.primary)
 
             Text(isOn ? "ON" : "OFF")
                 .font(AMENFont.bold(12))
-                .foregroundStyle(isOn ? Color.black : Color(white: 0.55))
+                .foregroundStyle(isOn ? AmenTheme.Colors.iconPrimary : AmenTheme.Colors.iconSecondary)
 
             Toggle("", isOn: $isOn)
                 .labelsHidden()
-                .tint(.black)
+                .tint(AmenTheme.Colors.buttonPrimary)
                 .scaleEffect(0.8)
         }
         .padding(.horizontal, 18)
@@ -484,9 +484,9 @@ private struct FocusModePill: View {
         .background(
             Capsule()
                 .fill(.ultraThinMaterial)
-                .overlay(Capsule().fill(Color.white.opacity(0.55)))
-                .overlay(Capsule().strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5))
-                .shadow(color: Color.black.opacity(0.06), radius: 12, x: 0, y: 3)
+                .overlay(Capsule().fill(AmenTheme.Colors.glassFill))
+                .overlay(Capsule().strokeBorder(AmenTheme.Colors.glassStroke, lineWidth: 0.5))
+                .shadow(color: AmenTheme.Colors.shadowCard, radius: 12, x: 0, y: 3)
         )
         .animation(.spring(response: 0.35, dampingFraction: 0.80), value: isOn)
     }
@@ -500,24 +500,24 @@ private struct NotificationsEmptyState: View {
             ZStack {
                 Circle()
                     .fill(.ultraThinMaterial)
-                    .overlay(Circle().fill(Color.white.opacity(0.55)))
-                    .overlay(Circle().strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5))
+                    .overlay(Circle().fill(AmenTheme.Colors.glassFill))
+                    .overlay(Circle().strokeBorder(AmenTheme.Colors.glassStroke, lineWidth: 0.5))
                     .frame(width: 72, height: 72)
-                    .shadow(color: Color.black.opacity(0.06), radius: 16, x: 0, y: 4)
+                    .shadow(color: AmenTheme.Colors.shadowCard, radius: 16, x: 0, y: 4)
 
                 Image(systemName: "bell.fill")
                     .font(.systemScaled(28, weight: .medium))
-                    .foregroundStyle(Color.black.opacity(0.6))
+                    .foregroundStyle(AmenTheme.Colors.iconSecondary)
             }
 
             VStack(spacing: 6) {
                 Text("You're all caught up")
                     .font(AMENFont.semiBold(17))
-                    .foregroundStyle(Color.black)
+                    .foregroundStyle(.primary)
 
                 Text("New activity will appear here")
                     .font(AMENFont.regular(14))
-                    .foregroundStyle(Color(white: 0.45))
+                    .foregroundStyle(AmenTheme.Colors.textSecondary)
             }
         }
         .padding(32)
@@ -534,7 +534,7 @@ struct AMENNotificationsView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.white
+                AmenTheme.Colors.backgroundGrouped
                     .ignoresSafeArea()
 
                 if viewModel.filteredNotifications.isEmpty {
@@ -555,7 +555,7 @@ struct AMENNotificationsView: View {
                         } label: {
                             Text("Mark all read")
                                 .font(AMENFont.semiBold(14))
-                                .foregroundStyle(Color.black)
+                                .foregroundStyle(.primary)
                         }
                     }
                 }
@@ -668,12 +668,13 @@ struct AMENNotificationsView: View {
 
         case .mention, .comment, .reaction:
             if let postId = notification.postId, !postId.isEmpty {
+                let route: NotificationRoute
                 if let commentId = notification.commentId, !commentId.isEmpty {
-                    CommentFocusCoordinator.shared.set(scrollTarget: commentId, highlight: commentId)
+                    route = .postComment(postID: postId, commentID: commentId)
+                } else {
+                    route = .post(postID: postId)
                 }
-                NotificationDeepLinkRouter.shared.navigate(
-                    to: .post(postId: postId, scrollToCommentId: notification.commentId)
-                )
+                NotificationTapHandler.shared.execute(route)
             }
             // No postId → stay on notifications (graceful no-op for sample data)
 
@@ -681,8 +682,7 @@ struct AMENNotificationsView: View {
             break // Berean insight — stays in notifications; no external destination
 
         case .communityInvite:
-            // Route to Resources/Communities tab
-            NotificationDeepLinkRouter.shared.navigate(to: .notifications)
+            NotificationTapHandler.shared.execute(.fallback)
 
         case .system:
             break // System notifications — no deep destination

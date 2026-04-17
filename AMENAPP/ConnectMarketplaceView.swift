@@ -250,7 +250,7 @@ struct ConnectMarketplaceView: View {
     // MARK: - Data
 
     private func loadListings() async {
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         do {
             let snap = try await db.collection("marketplace")
                 .order(by: "createdAt", descending: true)
@@ -337,7 +337,7 @@ struct CreateMarketplaceSheet: View {
             condition: condition
         )
         Task {
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
             let encoded = try? Firestore.Encoder().encode(listing)
             if let encoded {
                 try? await db.collection("marketplace").document(listing.id).setData(encoded)

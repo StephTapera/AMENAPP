@@ -13,9 +13,11 @@ struct SpotlightCard: View {
     let post: Post
     let explanation: String?
     
+    @StateObject private var successChips = SuccessChipCenter()
     @State private var isPressed = false
     @State private var showPostDetail = false
     @State private var hasReacted = false
+    @State private var hasBookmarked = false
     @State private var showShareSheet = false
     
     var body: some View {
@@ -75,6 +77,10 @@ struct SpotlightCard: View {
         }
         .sheet(isPresented: $showShareSheet) {
             ShareSheet(items: [generateShareText()])
+        }
+        .successChips(successChips)
+        .onAppear {
+            hasBookmarked = loadBookmarkedPostIDs().contains(bookmarkID)
         }
     }
     
@@ -292,10 +298,12 @@ struct SpotlightCard: View {
             Spacer()
             
             // Bookmark
-            Button(action: {}) {
-                Image(systemName: "bookmark")
+            Button {
+                toggleBookmark()
+            } label: {
+                Image(systemName: hasBookmarked ? "bookmark.fill" : "bookmark")
                     .font(.systemScaled(16, weight: .medium))
-                    .foregroundColor(.white.opacity(0.6))
+                    .foregroundColor(hasBookmarked ? .amenGold : .white.opacity(0.6))
             }
         }
         .padding(.top, 4)
@@ -343,6 +351,36 @@ struct SpotlightCard: View {
     private func generateShareText() -> String {
         "\(post.content)\n\n- \(post.authorName) on AMEN"
     }
+
+    private var bookmarkID: String {
+        post.firestoreId
+    }
+
+    private func toggleBookmark() {
+        withAnimation(LiquidSpring.elastic) {
+            hasBookmarked.toggle()
+        }
+        saveBookmarkState(hasBookmarked)
+        successChips.show(hasBookmarked ? "Saved" : "Removed", icon: hasBookmarked ? "bookmark.fill" : "bookmark.slash")
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
+    private func loadBookmarkedPostIDs() -> Set<String> {
+        let ids = UserDefaults.standard.stringArray(forKey: Self.bookmarkStorageKey) ?? []
+        return Set(ids)
+    }
+
+    private func saveBookmarkState(_ isBookmarked: Bool) {
+        var ids = loadBookmarkedPostIDs()
+        if isBookmarked {
+            ids.insert(bookmarkID)
+        } else {
+            ids.remove(bookmarkID)
+        }
+        UserDefaults.standard.set(Array(ids), forKey: Self.bookmarkStorageKey)
+    }
+
+    private static let bookmarkStorageKey = "spotlightBookmarkedPostIDs"
 }
 
 // MARK: - Interaction Button
@@ -385,4 +423,3 @@ struct InteractionButton: View {
 
 // MARK: - Preview
 // Preview removed - use app simulator to test Spotlight feature
-

@@ -15,8 +15,8 @@ protocol CreatorMediaImportServicing {
 }
 
 final class CreatorMediaImportService: CreatorMediaImportServicing {
-    private let db = Firestore.firestore()
-    private let storage = Storage.storage()
+    private lazy var db = Firestore.firestore()
+    private lazy var storage = Storage.storage()
     private let sceneService: CreatorSceneServicing = CreatorSceneService()
 
     func importAssets(

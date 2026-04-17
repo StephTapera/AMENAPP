@@ -149,7 +149,7 @@ struct FollowRequestsBadgeModifier: ViewModifier {
 @MainActor
 class FollowRequestsBadgeViewModel: ObservableObject {
     @Published var pendingCount = 0
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     func loadPendingCount() async {
         guard let currentUserId = Auth.auth().currentUser?.uid else { return }
@@ -286,7 +286,7 @@ struct FollowerStatsWidget: View {
                 VStack(spacing: 4) {
                     Text("\(formatCount(stats.followers))")
                         .font(.custom("OpenSans-Bold", size: 20))
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.primary)
                     
                     Text("Followers")
                         .font(.custom("OpenSans-Regular", size: 13))
@@ -304,7 +304,7 @@ struct FollowerStatsWidget: View {
                 VStack(spacing: 4) {
                     Text("\(formatCount(stats.following))")
                         .font(.custom("OpenSans-Bold", size: 20))
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.primary)
                     
                     Text("Following")
                         .font(.custom("OpenSans-Regular", size: 13))
@@ -398,7 +398,7 @@ class PeopleSearchViewModel: ObservableObject {
     @Published var users: [UserModel] = []
     @Published var isLoading = false
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     func search(query: String) async {
         guard !query.isEmpty else {

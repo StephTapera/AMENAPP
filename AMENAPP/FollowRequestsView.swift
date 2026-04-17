@@ -185,7 +185,7 @@ struct FollowRequestCard: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(user.displayName)
                         .font(AMENFont.bold(16))
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.primary)
                     
                     Text("@\(user.username)")
                         .font(AMENFont.regular(14))
@@ -292,7 +292,7 @@ class FollowRequestsViewModel: ObservableObject {
         willSet { objectWillChange.send() }
     }
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     // P0 FIX: Private initializer for singleton pattern
     private init() {}
@@ -504,7 +504,7 @@ class FollowRequestsViewModel: ObservableObject {
 @MainActor
 class FollowRequestService {
     static let shared = FollowRequestService()
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     private init() {}
     

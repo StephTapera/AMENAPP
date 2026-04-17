@@ -18,7 +18,7 @@ final class AnonymousGraceDropManager: ObservableObject {
     static let shared = AnonymousGraceDropManager()
 
     private let db        = Firestore.firestore()
-    private let functions = Functions.functions()
+    private lazy var functions = Functions.functions()
 
     private init() {}
 

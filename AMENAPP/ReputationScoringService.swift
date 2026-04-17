@@ -182,7 +182,7 @@ class ReputationScoringService: ObservableObject {
     @Published var currentScore: ReputationScore = ReputationScore()
     @Published var isLoading = false
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     private init() {
         Task {

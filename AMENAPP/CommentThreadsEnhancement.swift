@@ -76,7 +76,7 @@ struct ThreadedCommentsView: View {
             HStack {
                 Text("Comments")
                     .font(.custom("OpenSans-Bold", size: 18))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
                 
                 Text("\(commentsWithReplies.count)")
                     .font(.custom("OpenSans-Regular", size: 14))
@@ -390,7 +390,7 @@ struct EnhancedCommentContent: View {
                 HStack(spacing: 8) {
                     Text(comment.authorName)
                         .font(.custom("OpenSans-SemiBold", size: isReply ? 13 : 14))
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.primary)
                     
                     if isOP {
                         Text("OP")
@@ -456,7 +456,7 @@ struct CommentContentText: View {
     var body: some View {
         Text(content)
             .font(.custom("OpenSans-Regular", size: isReply ? 13 : 14))
-            .foregroundStyle(.black)
+            .foregroundStyle(.primary)
             .fixedSize(horizontal: false, vertical: true)
             .textSelection(.enabled) // Allow text selection
     }

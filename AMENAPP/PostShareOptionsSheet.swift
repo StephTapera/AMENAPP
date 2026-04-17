@@ -21,7 +21,7 @@ private struct GlassDialogButton: View {
             HStack(spacing: 12) {
                 Image(systemName: systemImage)
                     .font(.systemScaled(16, weight: .semibold))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
                     .frame(width: 36, height: 36)
                     .background(Color.white.opacity(0.6))
                     .clipShape(Circle())
@@ -29,7 +29,7 @@ private struct GlassDialogButton: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
                         .font(AMENFont.semiBold(15))
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.primary)
                     Text(subtitle)
                         .font(AMENFont.regular(12))
                         .foregroundStyle(.black.opacity(0.5))
@@ -71,7 +71,7 @@ struct PostShareOptionsSheet: View {
                 HStack {
                     Text("Share Post")
                         .font(AMENFont.semiBold(18))
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.primary)
 
                     Spacer()
 
@@ -111,7 +111,7 @@ struct PostShareOptionsSheet: View {
                     dismiss()
                 }
                 .font(AMENFont.semiBold(15))
-                .foregroundStyle(.black)
+                .foregroundStyle(.primary)
                 .padding(.top, 4)
             }
             .padding(20)
@@ -389,7 +389,7 @@ struct MessageComposeView: View {
         let trimmed = query.trimmingCharacters(in: .whitespaces).lowercased()
         guard !trimmed.isEmpty else { return }
         await MainActor.run { isSearching = true }
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         async let byDisplayName = db.collection("users")
             .whereField("displayNameLowercase", isGreaterThanOrEqualTo: trimmed)
             .whereField("displayNameLowercase", isLessThan: trimmed + "\u{f8ff}")
@@ -591,7 +591,7 @@ struct MessageComposeView: View {
                     clientMessageId: messageId
                 )
                 // Tag message as a post share for deep-link
-                let db = Firestore.firestore()
+                lazy var db = Firestore.firestore()
                 try? await db.collection("conversations").document(conversation.id)
                     .collection("messages").document(messageId)
                     .updateData(["postId": post.firestoreId, "messageType": "postShare"])
@@ -631,7 +631,7 @@ struct MessageComposeView: View {
                     text: messageText,
                     clientMessageId: messageId
                 )
-                let db = Firestore.firestore()
+                lazy var db = Firestore.firestore()
                 try? await db.collection("conversations").document(conversationId)
                     .collection("messages").document(messageId)
                     .updateData(["postId": post.firestoreId, "messageType": "postShare"])

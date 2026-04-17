@@ -53,7 +53,7 @@ final class ChurchMatcherService: ObservableObject {
     @Published var isRanking = false
 
     private let db        = Firestore.firestore()
-    private let functions = Functions.functions()
+    private lazy var functions = Functions.functions()
 
     // MARK: - Public API
 
@@ -113,6 +113,10 @@ final class ChurchMatcherService: ObservableObject {
 
         let sorted = ranked.sorted { $0.totalScore > $1.totalScore }
         matches = sorted
+
+        // Generate and persist explainable recommendation reasons for all matches
+        ChurchRecommendationReasonService.shared.generateAndStoreAll(matches: sorted)
+
         return sorted
     }
 

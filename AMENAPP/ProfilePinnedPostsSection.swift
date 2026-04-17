@@ -179,7 +179,7 @@ actor ProfilePinnedPostService {
     // MARK: - Firestore Operations
     
     private func fetchPinnedPostsFromFirestore(userId: String) async throws -> [Post] {
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         
         let snapshot = try await db.collection("users")
             .document(userId)
@@ -203,7 +203,7 @@ actor ProfilePinnedPostService {
     }
     
     private func savePinnedPostToFirestore(postId: String, userId: String) async throws {
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         
         try await db.collection("users")
             .document(userId)
@@ -216,7 +216,7 @@ actor ProfilePinnedPostService {
     }
     
     private func removePinnedPostFromFirestore(postId: String, userId: String) async throws {
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         
         try await db.collection("users")
             .document(userId)
@@ -226,7 +226,7 @@ actor ProfilePinnedPostService {
     }
     
     private func fetchPost(postId: String) async throws -> Post? {
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         
         let snapshot = try await db.collection("posts")
             .document(postId)

@@ -12,8 +12,8 @@ import FirebaseFunctions
 class SafeMessagingService: ObservableObject {
     static let shared = SafeMessagingService()
 
-    private let db = Firestore.firestore()
-    private let functions = Functions.functions()
+    private lazy var db = Firestore.firestore()
+    private lazy var functions = Functions.functions()
 
     @Published var pendingMessages: [String: SafeMessage] = [:] // localId -> Message
 

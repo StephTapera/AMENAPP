@@ -130,7 +130,7 @@ struct QuickAuthTest: View {
                 
                 // Step 3: Verify profile was created in Firestore
                 message += "📝 Checking Firestore profile...\n"
-                let db = Firestore.firestore()
+                lazy var db = Firestore.firestore()
                 let doc = try await db.collection("users").document(user.uid).getDocument()
                 
                 if doc.exists {
@@ -191,7 +191,7 @@ struct QuickAuthTest: View {
                 message += "   Display Name (Auth): \(currentUser.displayName ?? "N/A")\n"
                 message += "\n"
                 
-                let db = Firestore.firestore()
+                lazy var db = Firestore.firestore()
                 message += "📝 Fetching Firestore document...\n"
                 message += "   Path: users/\(currentUser.uid)\n\n"
                 
@@ -256,7 +256,7 @@ struct QuickAuthTest: View {
             do {
                 message += "✅ Firebase configured: \(FirebaseApp.app() != nil)\n"
                 
-                let auth = Auth.auth()
+                lazy var auth = Auth.auth()
                 message += "📝 Email: \(testEmail)\n"
                 message += "📝 Password length: \(testPassword.count) characters\n"
                 message += "📝 Attempting sign in...\n"
@@ -268,7 +268,7 @@ struct QuickAuthTest: View {
                 
                 // Check Firestore profile
                 message += "📝 Checking Firestore profile...\n"
-                let db = Firestore.firestore()
+                lazy var db = Firestore.firestore()
                 let doc = try await db.collection("users").document(result.user.uid).getDocument()
                 
                 if doc.exists {
@@ -342,7 +342,7 @@ struct QuickAuthTest: View {
         
         Task {
             do {
-                let db = Firestore.firestore()
+                lazy var db = Firestore.firestore()
                 
                 // Query for users with this username
                 let snapshot = try await db.collection("users")
@@ -397,7 +397,7 @@ struct QuickAuthTest: View {
                 
                 // Delete Firestore document
                 message += "📝 Deleting Firestore profile...\n"
-                let db = Firestore.firestore()
+                lazy var db = Firestore.firestore()
                 try await db.collection("users").document(userId).delete()
                 message += "✅ Firestore profile deleted\n"
                 

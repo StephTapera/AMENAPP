@@ -18,7 +18,7 @@ struct UnreadMessageDivider: View {
             
             Text("Unread Messages")
                 .font(.custom("OpenSans-SemiBold", size: 11))
-                .foregroundStyle(.black)
+                .foregroundStyle(.primary)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 4)
                 .background(
@@ -151,7 +151,7 @@ struct MessageReactionsDisplay: View {
                         if group.count > 1 {
                             Text("\(group.count)")
                                 .font(.custom("OpenSans-SemiBold", size: 11))
-                                .foregroundStyle(.black)
+                                .foregroundStyle(.primary)
                         }
                     }
                     .padding(.horizontal, 8)

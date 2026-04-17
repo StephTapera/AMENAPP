@@ -38,7 +38,7 @@ class PhoneVerificationService: ObservableObject {
     @Published var phoneNumber: String = ""
     @Published var isPhoneVerified: Bool = false
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var verificationID: String?
     
     private init() {

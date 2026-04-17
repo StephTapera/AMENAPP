@@ -87,75 +87,99 @@ struct AMENTabBar: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            // All 6 tabs in original order
+            // All 6 tabs in original order (compact spacing)
             ForEach(AMENTab.allCases, id: \.rawValue) { tab in
                 tabItem(tab)
+                    .frame(width: 50, height: 48)
             }
 
-            // Divider between tabs and compose
+            // Subtle divider between tabs and compose (monochrome)
             Rectangle()
-                .fill(Color.primary.opacity(0.12))
-                .frame(width: 0.5, height: 24)
-                .padding(.horizontal, 2)
+                .fill(AmenTheme.Colors.separatorSubtle)
+                .frame(width: 0.5, height: 20)
+                .padding(.horizontal, 6)
 
             // Compose button at end
             composeButton
-                .padding(.trailing, 4)
+                .padding(.leading, 2)
         }
-        .padding(.horizontal, 6)
-        .frame(height: 54)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
         .background(glassBackground)
         .clipShape(Capsule())
-        // ✨ Soft, minimal shadow for floating glass effect
-        .shadow(color: .black.opacity(0.06), radius: 20, x: 0, y: 8)   // Soft outer glow
-        .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 3)    // Mid lift
-        .shadow(color: .black.opacity(0.02), radius: 2, x: 0, y: 1)    // Subtle contact
+        // Refined layered shadow for premium floating effect
+        .shadow(color: AmenTheme.Colors.shadowFloating.opacity(0.70), radius: 20, x: 0, y: 8)
+        .shadow(color: AmenTheme.Colors.shadowFloating.opacity(0.38), radius: 8, x: 0, y: 3)
+        .shadow(color: AmenTheme.Colors.shadowFloating.opacity(0.20), radius: 2, x: 0, y: 1)
         .padding(.horizontal, 20)
         .padding(.bottom, 10)
         .offset(y: isMinimized ? 100 : 0)
         .animation(.easeOut(duration: 0.18), value: isMinimized)
     }
 
-    // MARK: - Glass background (Liquid Glass — Native iOS transparency)
+    // MARK: - Glass background (adaptive for light and dark mode)
+
+    @Environment(\.colorScheme) private var colorScheme
 
     private var glassBackground: some View {
-        ZStack {
-            // Layer 1 — strong blur with ultra-thin material (lets content show through)
+        let isDark = colorScheme == .dark
+
+        return ZStack {
+            // Layer 1 — Material blur base (auto-adapts to dark/light)
             Capsule()
                 .fill(.ultraThinMaterial)
 
-            // Layer 2 — very light white tint (minimal, lets color bleed through)
+            // Layer 2 — Adaptive highlight fill
+            // Light: bright white glass | Dark: barely-there smoke
             Capsule()
-                .fill(Color.white.opacity(0.15))
+                .fill(AmenTheme.Colors.glassFill)
+            Capsule()
+                .fill(AmenTheme.Colors.surfaceGlassDark)
 
-            // Layer 3 — subtle top highlight (inner glass edge light)
+            // Layer 3 — Directional top highlight (reduced in dark mode)
             Capsule()
-                .inset(by: 0.5)
                 .fill(
                     LinearGradient(
                         colors: [
-                            Color.white.opacity(0.35),
-                            Color.white.opacity(0.08),
+                            AmenTheme.Colors.glassHighlightTop.opacity(isDark ? 0.8 : 1.0),
+                            AmenTheme.Colors.glassHighlightBottom.opacity(isDark ? 1.0 : 0.9),
                             Color.clear
                         ],
-                        startPoint: .top,
-                        endPoint: .init(x: 0.5, y: 0.25)
+                        startPoint: .init(x: 0.2, y: 0),
+                        endPoint: .init(x: 0.7, y: 0.4)
                     )
                 )
+                .allowsHitTesting(false)
 
-            // Layer 4 — soft bright border (light glass edge definition)
+            // Layer 4 — Depth pooling (more visible in dark mode for separation)
+            Capsule()
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color.clear,
+                            AmenTheme.Colors.glassDepth.opacity(isDark ? 0.72 : 0.40),
+                            AmenTheme.Colors.glassDepth.opacity(isDark ? 1.0 : 0.65)
+                        ],
+                        startPoint: .init(x: 0.3, y: 0.6),
+                        endPoint: .init(x: 1, y: 1)
+                    )
+                )
+                .allowsHitTesting(false)
+
+            // Layer 5 — Edge contour stroke
             Capsule()
                 .strokeBorder(
                     LinearGradient(
                         colors: [
-                            Color.white.opacity(0.5),
-                            Color.white.opacity(0.25)
+                            AmenTheme.Colors.glassStroke.opacity(isDark ? 1.0 : 0.92),
+                            AmenTheme.Colors.glassStroke.opacity(isDark ? 0.45 : 0.36),
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     ),
-                    lineWidth: 0.33
+                    lineWidth: 0.5
                 )
+                .allowsHitTesting(false)
         }
     }
 
@@ -170,34 +194,55 @@ struct AMENTabBar: View {
             clearBadge(for: tab)
         } label: {
             ZStack {
-                // Selected state: transparent glass bubble
+                // Selected state: Ink Motion sculpted glass tile
                 if isSelected {
                     Capsule()
-                        .fill(.thinMaterial)
+                        .fill(colorScheme == .dark ? AmenTheme.Colors.surfaceElevated : AmenTheme.Colors.surfaceCard)
+                        .background(
+                            Capsule()
+                                .fill(.thinMaterial)
+                        )
                         .overlay(
+                            // Directional top-left highlight (molded glass polish)
                             Capsule()
                                 .fill(
                                     LinearGradient(
                                         colors: [
-                                            Color.white.opacity(0.4),
-                                            Color.white.opacity(0.2)
+                                            AmenTheme.Colors.glassHighlightTop.opacity(colorScheme == .dark ? 0.55 : 0.95),
+                                            AmenTheme.Colors.glassHighlightBottom.opacity(colorScheme == .dark ? 0.7 : 0.9),
+                                            Color.clear
                                         ],
-                                        startPoint: .top,
-                                        endPoint: .bottom
+                                        startPoint: .init(x: 0.15, y: 0),
+                                        endPoint: .init(x: 0.8, y: 0.5)
+                                    )
+                                )
+                        )
+                        .overlay(
+                            // Subtle black depth on opposite edge
+                            Capsule()
+                                .fill(
+                                    LinearGradient(
+                                        colors: [
+                                            Color.clear,
+                                            AmenTheme.Colors.glassDepth.opacity(colorScheme == .dark ? 0.8 : 0.45)
+                                        ],
+                                        startPoint: .init(x: 0.2, y: 0.5),
+                                        endPoint: .init(x: 1, y: 1)
                                     )
                                 )
                         )
                         .overlay(
                             Capsule()
                                 .strokeBorder(
-                                    Color.white.opacity(0.5),
-                                    lineWidth: 0.33
+                                    AmenTheme.Colors.borderSoft,
+                                    lineWidth: 0.5
                                 )
                         )
-                        .shadow(color: Color.black.opacity(0.03), radius: 4, x: 0, y: 1)
-                        .frame(width: 42, height: 34)
-                        .transition(.scale(scale: 0.7).combined(with: .opacity))
-                        .animation(.spring(response: 0.22, dampingFraction: 0.7), value: isSelected)
+                        .shadow(color: AmenTheme.Colors.shadowCard.opacity(0.65), radius: 6, x: 0, y: 2)
+                        .shadow(color: AmenTheme.Colors.shadowCard.opacity(0.28), radius: 2, x: 0, y: 1)
+                        .frame(width: 44, height: 36)
+                        .transition(.scale(scale: 0.92).combined(with: .opacity))
+                        .animation(.spring(response: 0.22, dampingFraction: 0.75), value: isSelected)
                 }
 
                 // Icon with badge pinned to its top-right corner
@@ -206,21 +251,22 @@ struct AMENTabBar: View {
                         profileAvatar(url: url, isSelected: isSelected)
                     } else {
                         Image(systemName: isSelected ? tab.activeIcon : tab.inactiveIcon)
-                            .font(.systemScaled(21, weight: isSelected ? .semibold : .regular))
-                            .foregroundStyle(isSelected ? Color.primary : Color.primary.opacity(0.45))
-                            .scaleEffect(isSelected ? 1.06 : 1.0)
-                            .animation(.spring(response: 0.22, dampingFraction: 0.7), value: isSelected)
+                            .font(.systemScaled(19, weight: isSelected ? .semibold : .regular))
+                            .foregroundStyle(isSelected ? AmenTheme.Colors.iconPrimary : AmenTheme.Colors.iconSecondary)
+                            .scaleEffect(isSelected ? 1.03 : 1.0)
+                            .animation(.spring(response: 0.22, dampingFraction: 0.75), value: isSelected)
                     }
 
                     let count = badges.count(for: tab)
                     if count > 0 {
                         BadgeView(count: count)
-                            .offset(x: 9, y: -7)
+                            .offset(x: 8, y: -6)
                     }
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .contentShape(Rectangle())
+            .frame(maxWidth: .infinity)
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
         .buttonStyle(.plain)
         .sensoryFeedback(.selection, trigger: isSelected)
@@ -240,40 +286,106 @@ struct AMENTabBar: View {
                     .clipShape(Circle())
                     .overlay(
                         Circle().strokeBorder(
-                            Color.primary.opacity(isSelected ? 0.9 : 0.25),
+                            (isSelected ? AmenTheme.Colors.iconPrimary : AmenTheme.Colors.iconSecondary).opacity(isSelected ? 0.9 : 0.5),
                             lineWidth: isSelected ? 2 : 1
                         )
                     )
             } else {
                 Image(systemName: isSelected ? AMENTab.profile.activeIcon : AMENTab.profile.inactiveIcon)
                     .font(.systemScaled(21, weight: isSelected ? .semibold : .regular))
-                    .foregroundStyle(isSelected ? Color.primary : Color.primary.opacity(0.38))
+                    .foregroundStyle(isSelected ? AmenTheme.Colors.iconPrimary : AmenTheme.Colors.iconSecondary)
             }
         }
     }
 
     // MARK: - Compose button
 
+    // MARK: - Compose button (Ink Motion Tile aesthetic — compact monochrome)
+    
     private var composeButton: some View {
         Button(action: onCompose) {
             ZStack {
-                // Glass ring outer layer
+                // Soft outer glow (monochrome)
                 Circle()
-                    .fill(.ultraThinMaterial)
-                    .overlay(Circle().fill(Color.white.opacity(0.30)))
-                    .overlay(Circle().strokeBorder(Color(white: 0.72).opacity(0.55), lineWidth: 0.5))
-                    .frame(width: 38, height: 38)
-                // Solid inner circle — keeps the button identifiable as primary action
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                AmenTheme.Colors.shadowFloating.opacity(0.32),
+                                Color.clear
+                            ],
+                            center: .center,
+                            startRadius: 0,
+                            endRadius: 20
+                        )
+                    )
+                    .frame(width: 48, height: 48)
+                
+                // Main sculpted glass button
                 Circle()
-                    .fill(Color.primary)
-                    .frame(width: 30, height: 30)
-                Image(systemName: "square.and.pencil")
-                    .font(.systemScaled(13, weight: .semibold))
-                    .foregroundStyle(Color(.systemBackground))
+                    .fill(colorScheme == .dark ? AmenTheme.Colors.surfaceElevated : AmenTheme.Colors.surfaceCard)
+                    .background(
+                        Circle()
+                            .fill(.regularMaterial)
+                    )
+                    .frame(width: 40, height: 40)
+                    .overlay(
+                        // Directional top-left polish
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        AmenTheme.Colors.glassHighlightTop.opacity(colorScheme == .dark ? 0.65 : 1.0),
+                                        AmenTheme.Colors.glassHighlightBottom.opacity(colorScheme == .dark ? 0.9 : 1.0),
+                                        Color.clear
+                                    ],
+                                    startPoint: .init(x: 0.2, y: 0.1),
+                                    endPoint: .init(x: 0.8, y: 0.6)
+                                )
+                            )
+                            .frame(width: 40, height: 40)
+                    )
+                    .overlay(
+                        // Subtle black depth on opposite edge
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        Color.clear,
+                                        AmenTheme.Colors.glassDepth.opacity(colorScheme == .dark ? 0.85 : 0.55)
+                                    ],
+                                    startPoint: .init(x: 0.2, y: 0.4),
+                                    endPoint: .init(x: 1, y: 1)
+                                )
+                            )
+                            .frame(width: 40, height: 40)
+                    )
+                    .overlay(
+                        // Refined edge
+                        Circle()
+                            .strokeBorder(
+                                LinearGradient(
+                                    colors: [
+                                        AmenTheme.Colors.glassStroke.opacity(colorScheme == .dark ? 1.0 : 0.9),
+                                        AmenTheme.Colors.borderSoft.opacity(colorScheme == .dark ? 0.75 : 1.0)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 0.5
+                            )
+                    )
+                    .shadow(color: AmenTheme.Colors.shadowFloating.opacity(0.60), radius: 8, x: 0, y: 3)
+                    .shadow(color: AmenTheme.Colors.shadowFloating.opacity(0.24), radius: 3, x: 0, y: 1)
+                
+                // Plus icon (black on white)
+                Image(systemName: "plus")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(AmenTheme.Colors.iconPrimary)
             }
         }
         .buttonStyle(ComposeButtonStyle())
-        .frame(width: 44, height: 44)
+        .frame(width: 48, height: 48)
+        .contentShape(Circle())
         .accessibilityLabel("Create post")
     }
 
@@ -318,8 +430,9 @@ private struct BadgeView: View {
 private struct ComposeButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.86 : 1.0)
-            .animation(.spring(response: 0.2, dampingFraction: 0.6), value: configuration.isPressed)
+            .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
+            .opacity(configuration.isPressed ? 0.92 : 1.0)
+            .animation(.easeOut(duration: 0.15), value: configuration.isPressed)
     }
 }
 

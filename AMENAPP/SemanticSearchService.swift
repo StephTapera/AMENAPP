@@ -18,7 +18,7 @@ class SemanticSearchService: ObservableObject {
     @Published var searchResults: [SemanticSearchResult] = []
     @Published var isSearching = false
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     private init() {}
 
@@ -48,6 +48,7 @@ class SemanticSearchService: ObservableObject {
         let ninetyDaysAgo = Calendar.current.date(byAdding: .day, value: -90, to: Date()) ?? Date()
         guard let snapshot = try? await db.collection("posts")
             .whereField("createdAt", isGreaterThan: Timestamp(date: ninetyDaysAgo))
+            .whereField("visibility", isEqualTo: "everyone")
             .order(by: "createdAt", descending: true)
             .limit(to: 100)
             .getDocuments() else {

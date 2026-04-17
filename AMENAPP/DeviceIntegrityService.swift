@@ -40,7 +40,7 @@ final class DeviceIntegrityService {
         "report": 2.0,
     ]
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     // MARK: - Login Lockout
 

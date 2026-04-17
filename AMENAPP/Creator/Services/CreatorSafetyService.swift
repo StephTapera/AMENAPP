@@ -13,7 +13,7 @@ protocol CreatorSafetyServicing {
 }
 
 final class CreatorSafetyService: CreatorSafetyServicing {
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     func evaluateAsset(_ asset: CreatorAsset) async throws -> CreatorSafetyDecision {
         _ = try requireOwnerID()

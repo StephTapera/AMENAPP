@@ -165,7 +165,7 @@ struct LinkAttachSheet: View {
             let domain = url.host?.replacingOccurrences(of: "www.", with: "")
 
             let messageId = UUID().uuidString
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
             let messageData: [String: Any] = [
                 "id": messageId,
                 "text": description.trimmingCharacters(in: .whitespacesAndNewlines),

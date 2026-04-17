@@ -153,7 +153,7 @@ struct PrivacyDashboardView: View {
         guard let userId = Auth.auth().currentUser?.uid else { return }
         
         do {
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
             
             // Get user doc
             let userDoc = try await db.collection("users").document(userId).getDocument()

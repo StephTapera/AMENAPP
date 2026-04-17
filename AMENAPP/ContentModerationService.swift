@@ -12,7 +12,7 @@ import FirebaseFunctions
 
 class ContentModerationService {
     static let shared = ContentModerationService()
-    private let functions = Functions.functions()
+    private lazy var functions = Functions.functions()
     
     // MARK: - Main Moderation Method
     

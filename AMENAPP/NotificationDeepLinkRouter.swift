@@ -10,6 +10,7 @@ import Foundation
 import SwiftUI
 import Combine
 import FirebaseFirestore
+import FirebaseAuth
 
 /// Handles deep linking from notifications to specific app screens
 @MainActor
@@ -29,6 +30,7 @@ final class NotificationDeepLinkRouter: ObservableObject {
         case post(postId: String, scrollToCommentId: String? = nil)
         case profile(userId: String)
         case conversation(conversationId: String, messageId: String? = nil)
+        case groupJoinLink(token: String)
         case notifications
         case messages
         case prayer(prayerId: String)
@@ -45,6 +47,8 @@ final class NotificationDeepLinkRouter: ObservableObject {
                 return id1 == id2
             case (.conversation(let id1, let msg1), .conversation(let id2, let msg2)):
                 return id1 == id2 && msg1 == msg2
+            case (.groupJoinLink(let t1), .groupJoinLink(let t2)):
+                return t1 == t2
             case (.notifications, .notifications), (.messages, .messages):
                 return true
             case (.prayer(let id1), .prayer(let id2)):
@@ -241,6 +245,12 @@ final class NotificationDeepLinkRouter: ObservableObject {
             }
             return .notifications
 
+        case .actionThreadInvite, .actionThreadUpdate, .actionThreadReminder:
+            if let postId = notification.postId {
+                return .post(postId: postId)
+            }
+            return .notifications
+
         case .unknown:
             return .notifications
         }
@@ -255,6 +265,18 @@ final class NotificationDeepLinkRouter: ObservableObject {
 
     private func performNavigation(to destination: NavigationDestination) {
         let now = Date()
+
+        // FIX #11: Guard against routing before authentication is complete.
+        // A notification tap can call this method before Firebase Auth has resolved
+        // the session (e.g. during auto-login splash or cold start). Firing activeDestination
+        // while !isAuthenticated causes navigation into protected screens before the
+        // auth state listener has set isAuthenticated=true, resulting in blank/unauthenticated views.
+        // Queue unconditionally until both appReady AND auth are confirmed.
+        guard Auth.auth().currentUser != nil else {
+            pendingNavigation = destination
+            dlog("⏸️ Queued navigation (auth not ready): \(destination)")
+            return
+        }
 
         // P1 FIX: Debounce rapid navigation requests. If two notifications arrive
         // within 0.6s and the first destination hasn't been consumed yet, queue the
@@ -280,6 +302,14 @@ final class NotificationDeepLinkRouter: ObservableObject {
 
     /// Call this when app is ready to handle navigation
     func appDidBecomeReady() {
+        // FIX #11: Only release queued deep links if the user is still authenticated.
+        // markAppReady() is called from mainContent.onAppear which is inside the
+        // isAuthenticated branch, but race conditions can cause appReady to be set
+        // before the auth token is fully stable. Re-checking here is safe and cheap.
+        guard Auth.auth().currentUser != nil else {
+            dlog("⏸️ appDidBecomeReady: auth not ready yet — holding pending navigation")
+            return
+        }
         if let pending = pendingNavigation {
             dlog("▶️ Processing pending navigation: \(pending)")
             activeDestination = pending
@@ -324,7 +354,7 @@ final class NotificationDeepLinkRouter: ObservableObject {
     }
 
     private func contentExists(for destination: NavigationDestination) async -> Bool {
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         switch destination {
         case .post(let postId, _):
             let doc = try? await db.collection("posts").document(postId).getDocument()
@@ -353,8 +383,25 @@ final class NotificationDeepLinkRouter: ObservableObject {
     
     // MARK: - URL Scheme Support (for external deep links)
     
-    /// Handle deep link URL (e.g., amenapp://post/abc123)
+    /// Handle deep link URL (e.g., amenapp://post/abc123 or https://amenapp.com/group/join?token=...)
     func handleURL(_ url: URL) {
+        // Support universal links (https://amenapp.com/...) alongside custom scheme
+        if url.scheme == "https" || url.scheme == "http" {
+            guard let host = url.host, host.hasSuffix("amenapp.com") else {
+                dlog("⚠️ Unknown universal link host: \(url.host ?? "nil")")
+                return
+            }
+            // Universal links use path as the route: https://amenapp.com/group/join?token=...
+            let pathComponents = url.pathComponents.filter { $0 != "/" }
+            if pathComponents.count >= 2, pathComponents[0] == "group", pathComponents[1] == "join",
+               let token = url.queryParameters["token"], !token.isEmpty {
+                let destination = NavigationDestination.groupJoinLink(token: token)
+                dlog("🔗 Universal link → groupJoinLink(token: \(token.prefix(8))...)")
+                navigate(to: destination)
+            }
+            return
+        }
+        
         guard url.scheme == "amenapp" else {
             dlog("⚠️ Unknown URL scheme: \(url.scheme ?? "nil")")
             return
@@ -387,6 +434,14 @@ final class NotificationDeepLinkRouter: ObservableObject {
             if let conversationId = pathComponents.first {
                 let messageId = url.queryParameters["messageId"]
                 destination = .conversation(conversationId: conversationId, messageId: messageId)
+            } else {
+                destination = .messages
+            }
+            
+        case "group":
+            // Handle group invite links: amenapp://group/join?token=...
+            if pathComponents.first == "join", let token = url.queryParameters["token"], !token.isEmpty {
+                destination = .groupJoinLink(token: token)
             } else {
                 destination = .messages
             }
@@ -511,6 +566,16 @@ struct NotificationNavigationHandler: ViewModifier {
                     // Studio profiles are accessible via Resources tab
                     selectedTab = 3
                     pendingAction = nil
+                    
+                case .groupJoinLink(let token):
+                    selectedTab = 2  // Switch to Messages tab
+                    pendingAction = {
+                        NotificationCenter.default.post(
+                            name: .openGroupJoinLink,
+                            object: nil,
+                            userInfo: ["token": token]
+                        )
+                    }
                 }
 
                 // Clear destination after handling

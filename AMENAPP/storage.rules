@@ -7,10 +7,28 @@ service firebase.storage {
       return request.auth != null;
     }
 
+    // Helper function to check admin via JWT custom claim (matches Firestore rules).
+    // The 'admin' claim is set by the adminClaims Cloud Function via admin SDK.
+    function isAdmin() {
+      return request.auth != null && request.auth.token.get('admin', false) == true;
+    }
+
     // Helper function to check file size (in MB)
     function isValidSize(maxSizeMB) {
       return request.resource.size < maxSizeMB * 1024 * 1024;
     }
+
+    // 4.3 CONTENT-TYPE SPOOFING LIMITATION:
+    // request.resource.contentType is supplied by the client in the upload request.
+    // An attacker can declare contentType: 'image/jpeg' while uploading a PHP script,
+    // HTML file, or other malicious payload. The allowlists below act as a deterrent
+    // but are NOT a hard security boundary — they only validate the client-declared
+    // MIME type, not the actual file bytes.
+    //
+    // MANDATORY server-side mitigation: deploy a Firebase Storage onFinalize Cloud
+    // Function that downloads the file, checks magic bytes with the `file-type` npm
+    // package, and deletes files whose actual type does not match the declared type.
+    // Without this, Storage URLs served in any web context risk XSS via HTML uploads.
 
     // P0 FIX: Explicit MIME allowlists to prevent SVG/script injection and
     // exotic video container exploits. 'image/.*' would allow image/svg+xml
@@ -32,8 +50,11 @@ service firebase.storage {
     // PROFILE IMAGES
     // ========================================
     match /profile_images/{userId}/{fileName} {
-      // Anyone can read profile images (public)
-      allow read;
+      // P0 FIX: Require authentication for reads.
+      // Unauthenticated scrapers/bots could previously enumerate and download all
+      // user profile photos without an account — a mass-harvesting risk, especially
+      // for users (e.g. domestic violence survivors) who need profile privacy.
+      allow read: if isAuthenticated();
 
       // Users can only upload to their own folder
       // Max 5MB, must be an allowed image type
@@ -65,8 +86,9 @@ service firebase.storage {
     // USER PHOTOS (Gallery, additional photos)
     // ========================================
     match /user_photos/{userId}/{albumName}/{fileName} {
-      // Anyone can read user photos (public)
-      allow read;
+      // P0 FIX: Require authentication for reads.
+      // Previously any unauthenticated caller could download full user photo albums.
+      allow read: if isAuthenticated();
 
       // Users can only upload to their own folder
       // Max 10MB, must be an image or video
@@ -253,9 +275,13 @@ service firebase.storage {
     // CHURCH VERIFICATION DOCUMENTS
     // ========================================
     match /verification_docs/{userId}/{fileName} {
-      // Only the user and admins can read verification docs
+      // 4.4 FIX: Added isAdmin() to the read condition.
+      // Previously only the owner could read their own verification docs, which
+      // meant church admins processing verification applications had to use the
+      // Firebase Console (not scalable). Admins now read via the JWT 'admin'
+      // custom claim, which is set server-side and cannot be forged by clients.
       allow read: if isAuthenticated()
-        && request.auth.uid == userId;
+        && (request.auth.uid == userId || isAdmin());
 
       // Users can upload verification documents
       // Max 5MB, must be image or PDF

@@ -8,7 +8,7 @@ final class NotificationSettingsService: ObservableObject {
     private init() {}
 
     @Published var settings = NotificationSettings()
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     func fetchSettings() async {
         guard let uid = Auth.auth().currentUser?.uid else { return }

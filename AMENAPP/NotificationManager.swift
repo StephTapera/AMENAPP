@@ -27,7 +27,7 @@ class NotificationManager: ObservableObject {
     @Published var isAuthorized: Bool = false
     
     private let center = UNUserNotificationCenter.current()
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     // DEPRECATED: UserDefaults storage deprecated. Settings now stored in Firestore.
     private let settingsKey = "notification_preferences"
     // P2 FIX: Track the app version at which the notification prompt was last shown

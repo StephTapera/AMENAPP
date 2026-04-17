@@ -4,6 +4,26 @@
 // StripePaymentSheet is linked via SPM (stripe-ios ≥ 25.8.0).
 // When the Stripe package isn't available yet, paid plans show a
 // placeholder message instead of crashing at compile time.
+//
+// ⚠️ APP STORE COMPLIANCE — REQUIRED BEFORE SUBMISSION ⚠️
+// Apple App Store Guideline 3.1.1 requires that in-app purchases of digital
+// goods and services (including paid mentorship subscriptions) go through
+// Apple's In-App Purchase system.
+//
+// This file currently uses the Stripe PaymentSheet SDK to collect payment
+// directly, which WILL cause App Store rejection.
+//
+// REQUIRED ACTION before submitting to App Store:
+//   1. Create StoreKit product IDs for each mentorship plan tier in
+//      App Store Connect → In-App Purchases.
+//   2. Replace the Stripe PaymentSheet flow with Product.purchase() from
+//      StoreKit 2 (mirroring PremiumManager.purchase(_:)).
+//   3. Remove the stripe-ios SPM dependency.
+//   4. Use Stripe only on the server side for payouts to mentors
+//      (StudioPaymentService / Stripe Connect — this is allowed).
+//
+// Stripe Connect payouts TO mentors are NOT affected by this restriction;
+// only the buyer-side collection of money must go through StoreKit.
 
 import SwiftUI
 #if canImport(StripePaymentSheet)

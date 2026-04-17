@@ -132,7 +132,7 @@ struct ProfilePhotoEditView: View {
                                     Text("Take Photo")
                                         .font(AMENFont.bold(16))
                                 }
-                                .foregroundStyle(.black)
+                                .foregroundStyle(.primary)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 16)
                                 .background(

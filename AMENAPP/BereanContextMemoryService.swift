@@ -64,7 +64,7 @@ final class BereanContextMemoryService: ObservableObject {
     @Published private(set) var userContext: BereanUserContext = BereanUserContext()
     @Published var isLoaded = false
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var memoriesListener: ListenerRegistration?
     private var contextListener: ListenerRegistration?
 

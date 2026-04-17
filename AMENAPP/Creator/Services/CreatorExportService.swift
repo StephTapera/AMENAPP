@@ -8,7 +8,7 @@ protocol CreatorExportServicing {
 }
 
 final class CreatorExportService: CreatorExportServicing {
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     func buildOutputVariants(projectID: String) async throws -> CreatorProcessingJob {
         try await createJob(projectID: projectID, type: .exportRender)

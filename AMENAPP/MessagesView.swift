@@ -16,6 +16,10 @@ enum MessageSheetType: Identifiable, Equatable {
     case chat(ChatConversation)
     case newMessage
     case createGroup
+    case createGroupLink
+    case createGroupLinkWithPurpose(GroupPurpose)
+    case joinGroupViaLink(token: String)
+    case generatedGroupLink(link: GroupLink, groupName: String)
     case settings
     
     var id: String {
@@ -26,6 +30,14 @@ enum MessageSheetType: Identifiable, Equatable {
             return "newMessage"
         case .createGroup:
             return "createGroup"
+        case .createGroupLink:
+            return "createGroupLink"
+        case .createGroupLinkWithPurpose(let purpose):
+            return "createGroupLinkPurpose_\(purpose.rawValue)"
+        case .joinGroupViaLink(let token):
+            return "joinGroupViaLink_\(token)"
+        case .generatedGroupLink(let link, _):
+            return "generatedGroupLink_\(link.token)"
         case .settings:
             return "settings"
         }
@@ -54,6 +66,7 @@ struct MessagesView: View {
     @ObservedObject private var userService = UserService.shared
     @ObservedObject private var blockService = BlockService.shared
     @State private var searchText = ""
+    @FocusState private var isMessageSearchFocused: Bool
     @State private var activeSheet: MessageSheetType?
     @State private var selectedTab: MessageTab = .messages
     @State private var rowsVisible = false
@@ -271,21 +284,8 @@ struct MessagesView: View {
                     tabBarVisible.wrappedValue = true
                 }
                 .sheet(item: $activeSheet) { sheetType in
-                    Group {
-                        switch sheetType {
-                        case .chat(let conversation):
-                            UnifiedChatView(conversation: conversation)
-                        case .newMessage:
-                            ProductionMessagingUserSearchView { selectedUser in
-                                Task { await startConversation(with: selectedUser) }
-                            }
-                        case .createGroup:
-                            CreateGroupView()
-                        case .settings:
-                            MessageSettingsView()
-                        }
-                    }
-                    .presentationDragIndicator(.visible)
+                    sheetContent(for: sheetType)
+                        .presentationDragIndicator(.visible)
                 }
                 .onAppear { recomputeConversationCache() }
                 .onChange(of: messagingService.conversations) { _, _ in recomputeConversationCache() }
@@ -318,6 +318,44 @@ struct MessagesView: View {
         }
     }
 
+    // MARK: — Sheet Content
+
+    @ViewBuilder
+    private func sheetContent(for sheetType: MessageSheetType) -> some View {
+        switch sheetType {
+        case .chat(let conversation):
+            UnifiedChatView(conversation: conversation)
+        case .newMessage:
+            ProductionMessagingUserSearchView { selectedUser in
+                Task { await startConversation(with: selectedUser) }
+            }
+        case .createGroup:
+            CreateGroupView()
+        case .createGroupLink:
+            CreateGroupLinkSheet { link in
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 400_000_000)
+                    activeSheet = .generatedGroupLink(link: link, groupName: "Group")
+                }
+            }
+        case .createGroupLinkWithPurpose(let purpose):
+            CreateGroupLinkSheet(onCreated: { link in
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 400_000_000)
+                    activeSheet = .generatedGroupLink(link: link, groupName: "Group")
+                }
+            }, presetPurpose: purpose)
+        case .joinGroupViaLink(let token):
+            JoinGroupViaLinkView(token: token) { conversationId in
+                MessagingCoordinator.shared.openConversation(conversationId)
+            }
+        case .generatedGroupLink(let link, let groupName):
+            GeneratedGroupLinkSheet(link: link, groupName: groupName)
+        case .settings:
+            MessageSettingsView()
+        }
+    }
+
     // MARK: — AMEN Inbox (new skin)
 
     private var amenInboxBody: some View {
@@ -326,6 +364,15 @@ struct MessagesView: View {
 
             ScrollView(showsIndicators: false) {
                 LazyVStack(spacing: 0, pinnedViews: []) {
+
+                    // Zero-height scroll offset reader for top blur
+                    GeometryReader { geo in
+                        Color.clear.preference(
+                            key: ScrollOffsetPreferenceKey.self,
+                            value: geo.frame(in: .named("amenInboxScroll")).minY
+                        )
+                    }
+                    .frame(height: 0)
 
                     // ── HERO HEADER ──────────────────────────────────────────
                     InboxHeroHeader(
@@ -415,7 +462,17 @@ struct MessagesView: View {
                     Spacer().frame(height: 32)
                 }
             }
+            .coordinateSpace(name: "amenInboxScroll")
+            .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
+                if abs(value - scrollOffset) >= 1 {
+                    scrollOffset = value
+                }
+            }
             .refreshable { await refreshConversations() }
+
+            // ── Top-edge frosted blur ─────────────────────────────────
+            ScrollEdgeTopBlurOverlay(scrollOffset: scrollOffset)
+                .ignoresSafeArea(edges: .top)
         }
     }
 
@@ -623,7 +680,22 @@ struct MessagesView: View {
             // ✅ Search bar (liquid glass, like reference)
             modernSearchBar
                 .padding(.horizontal, 20)
-                .padding(.bottom, 12)
+                .padding(.bottom, messagingService.isOffline ? 4 : 12)
+
+            // OFFLINE FIX: Stale-data freshness indicator — shown when device is offline
+            // and we have a timestamp from the last successful conversation sync.
+            if messagingService.isOffline, let loadedAt = messagingService.conversationsLastLoadedAt {
+                HStack(spacing: 6) {
+                    Image(systemName: "clock.arrow.circlepath")
+                        .font(.systemScaled(11, weight: .medium))
+                    Text("Showing messages from \(loadedAt.relativeTimeString())")
+                        .font(.systemScaled(11, weight: .regular))
+                }
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 10)
+                .transition(.opacity)
+            }
         }
         .background(Color(.systemBackground))
     }
@@ -934,8 +1006,18 @@ struct MessagesView: View {
             openChat(conversation)
         } label: {
             HStack(spacing: 12) {
-                // ✅ Avatar (circular, 52pt like reference)
-                modernAvatarView(for: conversation)
+                // ✅ Avatar (circular, 52pt like reference) with presence indicator
+                ZStack(alignment: .bottomTrailing) {
+                    modernAvatarView(for: conversation)
+
+                    // Presence indicator (System 14)
+                    if AMENFeatureFlags.shared.presenceIntelligenceEnabled,
+                       let otherUserId = conversation.otherParticipantId,
+                       !conversation.isGroup {
+                        PresenceIndicatorView(userId: otherUserId, mode: .dot)
+                            .offset(x: 2, y: 2)
+                    }
+                }
                 
                 // ✅ Content (name + preview)
                 VStack(alignment: .leading, spacing: 4) {
@@ -1147,7 +1229,13 @@ struct MessagesView: View {
         VStack(spacing: 16) {
             titleAndButtonsRow
             tabSelector
-            NeumorphicMessagesSearchBar(text: $searchText)
+            AmenSmartCapsule(
+                text: $searchText,
+                placeholder: "Search conversations",
+                style: .messages,
+                isFocused: $isMessageSearchFocused,
+                onClear: { searchText = "" }
+            )
         }
         .padding(.horizontal, 20)
         .padding(.top, 8)
@@ -1189,6 +1277,33 @@ struct MessagesView: View {
                     HapticManager.impact(style: .light)
                 } label: {
                     Label("New Group", systemImage: "person.3")
+                }
+                
+                Button {
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        activeSheet = .createGroupLink
+                    }
+                    HapticManager.impact(style: .light)
+                } label: {
+                    Label("Create with Link", systemImage: "link.badge.plus")
+                }
+                
+                Button {
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        activeSheet = .createGroupLinkWithPurpose(.prayer)
+                    }
+                    HapticManager.impact(style: .light)
+                } label: {
+                    Label("Prayer Group", systemImage: "hands.sparkles.fill")
+                }
+                
+                Button {
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        activeSheet = .createGroupLinkWithPurpose(.church)
+                    }
+                    HapticManager.impact(style: .light)
+                } label: {
+                    Label("Church Group", systemImage: "building.columns.fill")
                 }
                 
                 Divider()
@@ -2856,14 +2971,14 @@ struct ModernConversationRow: View {
                 HStack {
                     Text(conversation.name)
                         .font(.custom("OpenSans-Bold", size: 16))
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.primary)
                         .lineLimit(1)
                     
                     Spacer()
                     
                     Text(conversation.timestamp)
                         .font(.custom("OpenSans-Regular", size: 12))
-                        .foregroundStyle(.black.opacity(0.5))
+                        .foregroundStyle(.secondary)
                 }
                 
                 HStack {
@@ -3662,7 +3777,7 @@ struct SelectedUserChip: View {
     }
 }
 
-struct MessageSettingsView: View {
+struct LegacyMessageSettingsViewPlaceholder: View {
     @Environment(\.dismiss) private var dismiss
     @AppStorage("muteUnknownSenders") private var muteUnknownSenders = false
     @AppStorage("allowReadReceipts") private var allowReadReceipts = true
@@ -4838,6 +4953,11 @@ struct CoordinatorModifier: ViewModifier {
                     }
                 }
             }
+            .onReceive(messagingCoordinator.$groupJoinToken) { token in
+                // Handle group join link deep links
+                guard let token = token, !token.isEmpty else { return }
+                activeSheet = .joinGroupViaLink(token: token)
+            }
     }
 }
 
@@ -4847,6 +4967,8 @@ struct ModernConversationDetailView: View {
     @Environment(\.dismiss) var dismiss
     @Environment(\.mainTabSelection) private var mainTabSelection
     let conversation: ChatConversation
+    @ObservedObject private var supportDetectionService = SupportDetectionService.shared
+    @ObservedObject private var supportActionExecutor = SupportActionExecutor.shared
     @State private var messageText = ""
     @State private var messages: [AppMessage] = []
     @FocusState private var isInputFocused: Bool
@@ -4862,6 +4984,10 @@ struct ModernConversationDetailView: View {
     @State private var errorMessage = ""
     
     @State private var typingTask: Task<Void, Never>?
+    @State private var supportDraftTask: Task<Void, Never>?
+    @State private var supportDraftPayload: SupportInterventionPayload?
+    @State private var showSupportDraftSheet = false
+    @State private var bypassSupportGate = false
     
     var body: some View {
         ZStack {
@@ -4926,7 +5052,31 @@ struct ModernConversationDetailView: View {
             // Floating input bar with liquid glass
             VStack {
                 Spacer()
-                
+
+                if let payload = supportDraftPayload {
+                    switch payload.presentationMode {
+                    case .chips(let chips):
+                        SupportChipsRowView(
+                            chips: chips,
+                            onTap: handleSupportAction(_:),
+                            onDismiss: dismissSupportPrompt
+                        )
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 8)
+                    case .inlineCard(let model):
+                        SupportInlineCardView(
+                            model: model,
+                            actions: payload.actions,
+                            onTap: handleSupportAction(_:),
+                            onDismiss: dismissSupportPrompt
+                        )
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 8)
+                    case .none, .sheet:
+                        EmptyView()
+                    }
+                }
+
                 ModernChatInputBar(
                     messageText: $messageText,
                     isInputFocused: _isInputFocused,
@@ -4939,6 +5089,18 @@ struct ModernConversationDetailView: View {
         .navigationBarHidden(true)
         .sheet(isPresented: $showingPhotoPicker) {
             MessagingPhotoPickerView(selectedImages: $selectedImages)
+        }
+        .sheet(isPresented: $showSupportDraftSheet) {
+            if let payload = supportDraftPayload,
+               case .sheet(let model) = payload.presentationMode {
+                SupportInterventionSheetView(
+                    model: model,
+                    actions: payload.actions,
+                    onAction: handleSupportAction(_:),
+                    onDismiss: dismissSupportPrompt,
+                    onContinue: continueSendAfterSupportPrompt
+                )
+            }
         }
         .alert("Message Failed", isPresented: $showErrorAlert) {
             Button("OK", role: .cancel) {}
@@ -4956,6 +5118,8 @@ struct ModernConversationDetailView: View {
             // Cancel typing task
             typingTask?.cancel()
             typingTask = nil
+            supportDraftTask?.cancel()
+            supportDraftTask = nil
             
             // Send typing stopped status
             Task { @MainActor in
@@ -4967,7 +5131,9 @@ struct ModernConversationDetailView: View {
         }
         .onReceive(Just(messageText)) { newValue in
             handleTypingIndicator(isTyping: !newValue.isEmpty)
+            scheduleSupportDraftAnalysis(for: newValue)
         }
+        .supportDestinationSheet()
     }
     
     // MARK: - Modern Header (Liquid Glass Design)
@@ -5155,6 +5321,12 @@ struct ModernConversationDetailView: View {
         guard !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !selectedImages.isEmpty else { return }
         
         let textToSend = messageText.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if shouldPresentSupportGate(for: textToSend) {
+            showSupportDraftSheet = true
+            return
+        }
+
         let imagesToSend = selectedImages
         let replyToId = replyingTo?.id
         
@@ -5201,6 +5373,72 @@ struct ModernConversationDetailView: View {
     
     private func simulateResponse() {
         // Remove this function - responses will come from real users via Firebase
+    }
+
+    private func scheduleSupportDraftAnalysis(for text: String) {
+        supportDraftTask?.cancel()
+        bypassSupportGate = false
+
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            supportDraftPayload = nil
+            return
+        }
+
+        supportDraftTask = Task {
+            try? await Task.sleep(nanoseconds: 550_000_000)
+            guard !Task.isCancelled else { return }
+
+            let payload = await supportDetectionService.analyzeSupport(
+                surface: .dmDraft,
+                text: trimmed,
+                sourceId: conversation.id,
+                metadata: [
+                    "conversationId": conversation.id,
+                    "isGroup": conversation.isGroup ? "true" : "false"
+                ]
+            )
+
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                supportDraftPayload = payload
+                if let payload {
+                    supportDetectionService.record(payload: payload, outcome: .shown)
+                }
+            }
+        }
+    }
+
+    private func handleSupportAction(_ action: SupportAction) {
+        guard let payload = supportDraftPayload else { return }
+        supportActionExecutor.execute(action, from: .dmDraft)
+        supportDetectionService.record(payload: payload, outcome: .engaged)
+        showSupportDraftSheet = false
+    }
+
+    private func dismissSupportPrompt() {
+        if let payload = supportDraftPayload {
+            supportDetectionService.record(payload: payload, outcome: .dismissed)
+        }
+        supportDraftPayload = nil
+        showSupportDraftSheet = false
+    }
+
+    private func continueSendAfterSupportPrompt() {
+        bypassSupportGate = true
+        showSupportDraftSheet = false
+        sendMessage()
+    }
+
+    private func shouldPresentSupportGate(for text: String) -> Bool {
+        guard !bypassSupportGate,
+              let payload = supportDraftPayload,
+              payload.analyzedText == text,
+              case .sheet = payload.presentationMode else {
+            return false
+        }
+
+        return true
     }
     
     private func simulateTyping() {

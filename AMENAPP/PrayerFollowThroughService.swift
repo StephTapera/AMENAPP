@@ -131,7 +131,7 @@ class PrayerFollowThroughService: ObservableObject {
     @Published var upcomingReminders: [PrayerFollowUpReminder] = []
     @Published var isLoading = false
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     private init() {
         Task {

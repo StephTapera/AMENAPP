@@ -57,14 +57,7 @@ struct ChurchPill: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color(.secondarySystemBackground))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .stroke(Color.blue.opacity(0.3), lineWidth: 1)
-                    )
-            )
+            .glassEffect(.subtle, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .buttonStyle(.plain)
     }
@@ -159,11 +152,7 @@ struct ChurchEntityCard: View {
                 }
             }
             .padding(16)
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color(.secondarySystemBackground))
-                    .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
-            )
+            .glassEffect(GlassEffectStyle.regular, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
         .buttonStyle(.plain)
     }

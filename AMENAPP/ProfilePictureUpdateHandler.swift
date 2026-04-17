@@ -12,7 +12,7 @@ import FirebaseAuth
 class ProfilePictureUpdateHandler {
     static let shared = ProfilePictureUpdateHandler()
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     private init() {}
     

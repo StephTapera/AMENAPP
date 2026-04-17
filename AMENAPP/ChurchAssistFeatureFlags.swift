@@ -21,7 +21,7 @@ struct ChurchAssistFeatureFlags {
     #if DEBUG
     /// When true, overrides all flags to enabled for QA and development.
     /// Never set to true in production builds.
-    static var debugForceAllEnabled: Bool = false
+    static var debugForceAllEnabled: Bool = true
 
     /// Returns the effective value of a flag — if debugForceAllEnabled is set,
     /// all flags return true regardless of their individual values.

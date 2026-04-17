@@ -74,7 +74,7 @@ final class PrayerLiveActivityService {
 
         Task {
             do {
-                let db = Firestore.firestore()
+                lazy var db = Firestore.firestore()
                 try await db.collection("prayers")
                     .document(postId)
                     .collection("prayedBy")
@@ -127,7 +127,7 @@ final class PrayerLiveActivityService {
         guard !postId.isEmpty else { return }
         amenListener?.remove()
 
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         amenListener = db.collection("posts").document(postId)
             .addSnapshotListener { [weak self] snapshot, _ in
                 guard let data = snapshot?.data(),

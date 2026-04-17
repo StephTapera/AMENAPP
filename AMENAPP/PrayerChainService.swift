@@ -82,7 +82,7 @@ struct ChainParticipant: Identifiable, Codable {
 @MainActor
 class PrayerChainService: ObservableObject {
     static let shared = PrayerChainService()
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var listener: ListenerRegistration?
 
     @Published var activeChains: [PrayerChain] = []

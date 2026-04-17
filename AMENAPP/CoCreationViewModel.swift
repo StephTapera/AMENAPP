@@ -19,7 +19,7 @@ class CoCreationViewModel: ObservableObject {
     @Published var isCreatingSession = false
     @Published var elapsedSeconds: Int = 0
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var sessionsListener: ListenerRegistration?
     private var canvasListener: ListenerRegistration?
     private var canvasDebounceTask: Task<Void, Never>? = nil

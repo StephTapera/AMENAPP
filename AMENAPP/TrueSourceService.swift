@@ -65,7 +65,7 @@ final class TrueSourceService: ObservableObject {
     @Published private(set) var states: [String: TrueSourceState] = [:]
 
     private let functions = Functions.functions(region: "us-central1")
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var inFlight = Set<String>()
 
     private init() {}

@@ -71,7 +71,7 @@ struct ShadowBanRecord: Codable {
 /// Enterprise-grade content moderation with multiple AI providers
 class AdvancedModerationService {
     static let shared = AdvancedModerationService()
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     // SECURITY: API keys are NOT stored on the client.
     // analyzeWithGoogleNL and analyzeWithOpenAI are disabled; calls are proxied

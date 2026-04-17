@@ -16,7 +16,7 @@ class LongitudinalViewModel: ObservableObject {
     @Published var hasSeenOnboarding = false
     @Published var hasGrantedPermission = false
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     var hasProfile: Bool { !profile.growthArcs.isEmpty || !profile.topicEvolution.isEmpty }
 

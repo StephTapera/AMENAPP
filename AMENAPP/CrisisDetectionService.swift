@@ -115,7 +115,7 @@ enum ResourceType: String, Codable, CaseIterable {
 /// Service for detecting crisis situations in prayer requests
 class CrisisDetectionService {
     static let shared = CrisisDetectionService()
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     private init() {}
     

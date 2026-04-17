@@ -17,7 +17,7 @@ class ChurchNotesShareService: ObservableObject {
     @Published var isProcessing = false
     @Published var lastError: Error?
     
-    private let functions = Functions.functions()
+    private lazy var functions = Functions.functions()
     
     private init() {}
     

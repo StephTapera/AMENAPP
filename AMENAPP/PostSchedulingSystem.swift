@@ -520,7 +520,7 @@ struct SmartScheduleSheet: View {
                 .datePickerStyle(.graphical)
                 .tint(.black)
                 .padding(8)
-                .onChange(of: selectedDateTime) { _ in
+                .onChange(of: selectedDateTime) {
                     selectedSuggestionID = nil
                 }
 

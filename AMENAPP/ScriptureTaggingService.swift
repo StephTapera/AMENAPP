@@ -45,7 +45,7 @@ class ScriptureTaggingService: ObservableObject {
         }
 
         // Check Firestore first
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         if let doc = try? await db.collection("posts").document(postID).getDocument(),
            let data = doc.data(),
            let tagsData = data["scriptureTags"] as? [[String: Any]], !tagsData.isEmpty {

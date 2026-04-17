@@ -176,7 +176,7 @@ struct UsernameSelectionView: View {
                                 .font(.custom("OpenSans-SemiBold", size: 16))
                         }
                     }
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
                     .frame(maxWidth: .infinity)
                     .frame(height: 52)
                     .background(
@@ -250,7 +250,7 @@ struct UsernameSelectionView: View {
             }
             
             // Check Firestore
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
             let usernameLower = username.lowercased()
             
             do {
@@ -285,7 +285,7 @@ struct UsernameSelectionView: View {
         
         Task {
             do {
-                let db = Firestore.firestore()
+                lazy var db = Firestore.firestore()
                 let usernameLower = username.lowercased()
                 let displayNameLower = displayName.lowercased()
                 

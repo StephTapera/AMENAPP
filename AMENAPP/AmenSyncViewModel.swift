@@ -41,8 +41,8 @@ final class AmenSyncViewModel: ObservableObject {
 
     // MARK: - Private
 
-    private let db = Firestore.firestore()
-    private let storage = Storage.storage()
+    private lazy var db = Firestore.firestore()
+    private lazy var storage = Storage.storage()
     private var projectListener: ListenerRegistration?
     private var variantsListener: ListenerRegistration?
     private var jobsListener: ListenerRegistration?

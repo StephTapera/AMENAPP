@@ -233,7 +233,7 @@ struct PremiumUpgradeView: View {
                                     .font(.systemScaled(17, weight: .semibold))
                                     .tracking(0.3)
                             }
-                            .foregroundStyle(.black)
+                            .foregroundStyle(.primary)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 18)
                             .background(

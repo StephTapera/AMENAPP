@@ -400,7 +400,7 @@ struct VergeCreatorStudioView: View {
               let profileId = vm.creatorProfile?.id else { return }
         let price = Double(subscriptionPriceText) ?? 0
         isSavingPrice = true
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         db.collection("vergeCreatorProfiles").document(profileId).updateData([
             "subscriptionPrice": price
         ]) { _ in
@@ -419,7 +419,7 @@ struct VergeCreatorStudioView: View {
     private func saveTipsEnabled() {
         guard let uid = Auth.auth().currentUser?.uid,
               let profileId = vm.creatorProfile?.id else { return }
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         db.collection("vergeCreatorProfiles").document(profileId).updateData([
             "tipsEnabled": tipsEnabled
         ]) { _ in

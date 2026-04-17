@@ -18,7 +18,7 @@ import EventKit
 class AdaptiveQuietHoursEngine: ObservableObject {
     static let shared = AdaptiveQuietHoursEngine()
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private let calendar = Calendar.current
 
     @Published var learnedPattern: QuietHoursPattern?

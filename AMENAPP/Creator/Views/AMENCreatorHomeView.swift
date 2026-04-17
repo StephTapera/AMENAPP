@@ -24,7 +24,7 @@ struct AMENCreatorHomeView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Quick starts")
                             .font(AMENFont.semiBold(14))
-                            .foregroundStyle(Color.black.opacity(0.6))
+                            .foregroundStyle(.secondary)
 
                         HStack(spacing: 10) {
                             CreatorToggleChip(title: "Sermon Clip", isSelected: false, action: { openNewProject(type: .sermonSnippet) })
@@ -38,7 +38,7 @@ struct AMENCreatorHomeView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Recent projects")
                             .font(AMENFont.semiBold(14))
-                            .foregroundStyle(Color.black.opacity(0.6))
+                            .foregroundStyle(.secondary)
 
                         if viewModel.projects.isEmpty {
                             CreatorEmptyStateView(title: "No projects yet", subtitle: "Start a new creation")

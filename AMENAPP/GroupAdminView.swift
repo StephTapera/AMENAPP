@@ -343,7 +343,7 @@ struct GroupInfoView: View {
     /// the user needing to dismiss and reopen the sheet.
     private func startListeningToGroupInfo() {
         guard let userId = Auth.auth().currentUser?.uid else { return }
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         isLoading = true
 
         conversationListener = db.collection("conversations")
@@ -403,7 +403,7 @@ struct GroupInfoView: View {
 
         Task {
             do {
-                let db = Firestore.firestore()
+                lazy var db = Firestore.firestore()
                 try await db.collection("conversations").document(conversation.id)
                     .updateData(["adminIds": FieldValue.arrayUnion([member.userId])])
 
@@ -427,7 +427,7 @@ struct GroupInfoView: View {
 
         Task {
             do {
-                let db = Firestore.firestore()
+                lazy var db = Firestore.firestore()
                 try await db.collection("conversations").document(conversation.id)
                     .updateData(["adminIds": FieldValue.arrayRemove([member.userId])])
 
@@ -486,7 +486,7 @@ struct GroupInfoView: View {
             let downloadURL = try await ref.downloadURL()
             
             // Update conversation document with new group photo URL
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
             try await db.collection("conversations").document(conversation.id)
                 .updateData(["groupImageURL": downloadURL.absoluteString])
             
@@ -506,7 +506,7 @@ struct GroupInfoView: View {
         
         guard let userId = Auth.auth().currentUser?.uid else { return }
         
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         let muteRef = db.collection("mutedConversations").document("\(userId)_\(conversation.id)")
         
         do {

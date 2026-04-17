@@ -17,7 +17,7 @@ import Combine
 class UserSearchMigration: ObservableObject {
     static let shared = UserSearchMigration()
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private let batchSize = 50  // Process users in batches for better performance
     private let maxRetries = 3   // Retry failed operations
     

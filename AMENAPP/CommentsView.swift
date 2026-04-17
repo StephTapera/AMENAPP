@@ -14,6 +14,7 @@ import FirebaseFirestore
 import Combine  // Required for Timer.publish().autoconnect()
 import PhotosUI
 import Vision
+import NaturalLanguage
 
 private struct CommentsScrollOffsetKey: PreferenceKey {
     static var defaultValue: CGFloat = 0
@@ -43,6 +44,7 @@ struct CommentsView: View {
     @Environment(\.dismiss) var dismiss
     @ObservedObject private var commentService = CommentService.shared  // P0 FIX: ObservedObject for singletons (faster init)
     @ObservedObject private var userService = UserService.shared  // P0 FIX: ObservedObject for singletons (faster init)
+    @ObservedObject private var commentBridge = CommentTranslationBridge.shared
     
     // P0 FIX: Lazy load AI services - only initialize when needed, not on sheet open
     @State private var summarizationService: AIThreadSummarizationService?
@@ -63,6 +65,10 @@ struct CommentsView: View {
     
     // P0-1 FIX: Prevent duplicate submissions
     @State private var isSubmittingComment = false
+    // FIX: Temporary ID for the optimistic placeholder inserted while a new top-level
+    // comment is in-flight; cleared when the RTDB listener delivers the real comment
+    // or when the write fails and the placeholder is rolled back.
+    @State private var optimisticCommentTempId: String?
     @StateObject private var commentSeal = SuccessSealController()
     @State private var currentUserProfileImageURL: String?
     @State private var currentUserInitials: String = "U"
@@ -111,6 +117,9 @@ struct CommentsView: View {
     // Berean AI integration
     @State private var showBerean = false
     @State private var bereanQuery = ""
+
+    // Phase 4: Bilingual reply — detected language of the post being commented on
+    @State private var detectedPostLanguage: String?
 
     // Slow mode cooldown: store end date; remaining time is computed from currentTime
     @State private var cooldownEndDate: Date?
@@ -538,6 +547,11 @@ struct CommentsView: View {
                             .padding(.top, 60)
                             .transition(.opacity.combined(with: .move(edge: .top)))
                         } else {
+                            // Phase 6: Multilingual thread summary
+                            if let langSummary = commentBridge.threadLanguageSummary {
+                                ThreadLanguageSummaryView(summary: langSummary)
+                            }
+
                             ForEach(Array(commentsWithReplies.enumerated()), id: \.element.id) { index, commentWithReplies in
                                 VStack(alignment: .leading, spacing: 8) {
                                     // Main Comment with animation
@@ -785,6 +799,16 @@ struct CommentsView: View {
                     .background(Color(red: 0.95, green: 0.95, blue: 0.95))
                 }
                 
+                // Phase 4: Bilingual reply preview — shown when replying to a post in a different language
+                if let postLang = detectedPostLanguage, !commentText.isEmpty {
+                    BilingualReplyComposer(
+                        replyText: commentText,
+                        postAuthorLanguage: postLang
+                    )
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 4)
+                }
+
                 // Smart reply chips — shown when input is empty and suggestions exist
                 if commentText.isEmpty && !smartReplySuggestions.isEmpty {
                     ScrollView(.horizontal, showsIndicators: false) {
@@ -1188,10 +1212,10 @@ struct CommentsView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 16)
                 .composerCompression(isInputFocused || !commentText.isEmpty)
-                .background(Color.white)
+                .background(Color(.systemBackground))
             }
         }
-        .background(Color.white)
+        .background(Color(.systemBackground))
         .successChips(successChips)
         .gesture(
             // Tap to dismiss keyboard
@@ -1261,6 +1285,18 @@ struct CommentsView: View {
                 }
             }
 
+            // Phase 4: Detect post language for bilingual reply composer
+            Task(priority: .background) {
+                let recognizer = NLLanguageRecognizer()
+                recognizer.processString(post.content)
+                if let lang = recognizer.dominantLanguage {
+                    let code = lang.rawValue.components(separatedBy: "-").first ?? lang.rawValue
+                    await MainActor.run {
+                        detectedPostLanguage = code
+                    }
+                }
+            }
+
             // ✅ Start real-time listener FIRST so it picks up cached data immediately
             startRealtimeListener()
 
@@ -1277,6 +1313,7 @@ struct CommentsView: View {
             stopRealtimeListener()
             participantsRebuildTask?.cancel()
             participantsRebuildTask = nil
+            commentBridge.reset()
         }
         // P1 PERF FIX: Rebuild top participants only when comments actually change.
         // Debounced — rapid streaming inserts batch into one rebuild instead of N.
@@ -1591,6 +1628,45 @@ struct CommentsView: View {
                 bereanSuggestion = nil  // Dismiss any pending Berean suggestion
                 // Keep isSubmittingComment = true until the write completes to prevent duplicates
             }
+
+            // FIX: Insert an optimistic placeholder for top-level comments so the user
+            // sees their comment immediately while the RTDB write is in-flight.
+            // Replies expand an existing thread row, so they don't need a separate placeholder.
+            // The placeholder is removed: (a) on success — the RTDB listener delivers the real
+            //   comment and the listener's de-duplication by commentId replaces it naturally,
+            //   or (b) on error — we roll back by filtering it out and restoring commentText.
+            let optimisticId: String? = replyingTo == nil ? UUID().uuidString : nil
+            if let oid = optimisticId {
+                let uid = FirebaseManager.shared.currentUser?.uid ?? ""
+                let displayName = UserDefaults.standard.string(forKey: "currentUserDisplayName")
+                    ?? Auth.auth().currentUser?.displayName
+                    ?? ""
+                let username = UserDefaults.standard.string(forKey: "currentUserUsername") ?? ""
+                let placeholder = Comment(
+                    id: oid,
+                    postId: postId,
+                    authorId: uid,
+                    authorName: displayName,
+                    authorUsername: username,
+                    authorInitials: currentUserInitials,
+                    authorProfileImageURL: currentUserProfileImageURL,
+                    content: text,
+                    createdAt: Date(),
+                    updatedAt: Date(),
+                    isEdited: false,
+                    amenCount: 0,
+                    lightbulbCount: 0,
+                    replyCount: 0,
+                    amenUserIds: [],
+                    parentCommentId: nil,
+                    mentionedUserIds: nil,
+                    approvalStatus: nil
+                )
+                await MainActor.run {
+                    optimisticCommentTempId = oid
+                    commentsWithReplies.append(CommentWithReplies(comment: placeholder))
+                }
+            }
             
             do {
                 var newCommentId: String?
@@ -1678,6 +1754,14 @@ struct CommentsView: View {
                 
                 // Haptic feedback + success seal
                 await MainActor.run {
+                    // Remove the optimistic placeholder now that the write succeeded.
+                    // The RTDB real-time listener will deliver the authoritative comment
+                    // within milliseconds; removing the placeholder first prevents a
+                    // brief duplicate row while the listener catches up.
+                    if let oid = optimisticId {
+                        commentsWithReplies.removeAll { $0.id == oid }
+                        optimisticCommentTempId = nil
+                    }
                     // haptic
                     HapticManager.notification(type: .success)
                     commentSeal.trigger()
@@ -1686,6 +1770,12 @@ struct CommentsView: View {
                 }
             } catch {
                 await MainActor.run {
+                    // Roll back the optimistic placeholder and restore text so the user
+                    // can edit and retry.
+                    if let oid = optimisticId {
+                        commentsWithReplies.removeAll { $0.id == oid }
+                        optimisticCommentTempId = nil
+                    }
                     let nsError = error as NSError
                     if nsError.domain == "CommentService" && nsError.code == -11 {
                         // Rate limit hit — show inline banner and disable send button
@@ -1957,6 +2047,13 @@ struct CommentsView: View {
             // replacement in withAnimation from inside an async Task caused reentrancy
             // into LazyVStack's internal cell recycling buffer → SIGABRT heap corruption.
             commentsWithReplies = newCommentsWithReplies
+
+            // Phase 6: Analyze thread languages for multilingual bridge
+            if AMENFeatureFlags.shared.conversationBridgeEnabled {
+                let allComments = newCommentsWithReplies.flatMap { [$0.comment] + $0.replies }
+                Task { await commentBridge.analyzeThread(comments: allComments) }
+            }
+
             return true
         }
         
@@ -2246,7 +2343,7 @@ private struct PostCommentRow: View {
             HStack(spacing: 4) {
                 Text(comment.authorName)
                     .font(.custom("OpenSans-SemiBold", size: isReply ? 13 : 14))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
 
                 // ✅ Verified badge
                 if VerifiedBadgeHelper.shared.isVerified(userId: comment.authorId) {
@@ -2418,6 +2515,9 @@ private struct PostCommentRow: View {
 
             // Content with highlight-to-quote support
             contentBlock
+
+            // Phase 6: Language indicator for foreign-language comments
+            CommentBridgeRow(comment: comment)
 
             // Translation affordance (lightweight, inline, non-blocking)
             CommentTranslationRow(
@@ -3053,51 +3153,50 @@ struct CommentReactionPicker: View {
     @State private var appeared = false
 
     var body: some View {
-        HStack(spacing: 4) {
-            ForEach(Array(reactions.enumerated()), id: \.offset) { index, reaction in
-                Button {
-                    onReact(reaction.emoji)
-                    // haptic
-                    HapticManager.impact(style: .light)
-                } label: {
-                    Text(reaction.emoji)
-                        .font(.systemScaled(26))
-                        .frame(width: 42, height: 42)
-                        .background(Color(uiColor: .systemBackground).opacity(0.01), in: Circle())
-                }
-                .buttonStyle(EmojiButtonStyle())
-                .scaleEffect(appeared ? 1.0 : 0.4)
-                .opacity(appeared ? 1.0 : 0.0)
-                .animation(
-                    reduceMotion
-                        ? .easeOut(duration: 0.15)
-                        : .spring(response: 0.32, dampingFraction: 0.65).delay(Double(index) * 0.03),
-                    value: appeared
-                )
-                .accessibilityLabel(reaction.label)
-            }
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .background(.ultraThinMaterial, in: Capsule())
-        .overlay(Capsule().strokeBorder(Color(uiColor: .separator).opacity(0.3), lineWidth: 0.5))
-        .shadow(color: .black.opacity(0.12), radius: 16, x: 0, y: 4)
-        .onAppear {
-            withAnimation { appeared = true }
-        }
-        // Dismiss on tap outside
-        .onTapGesture { }
-        .background(
-            Color.clear
+        ZStack {
+            Color.black.opacity(0.001)
+                .ignoresSafeArea()
                 .contentShape(Rectangle())
                 .onTapGesture {
                     withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
                         isPresented = false
                     }
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .ignoresSafeArea()
-        )
+
+            HStack(spacing: 4) {
+                ForEach(Array(reactions.enumerated()), id: \.offset) { index, reaction in
+                    Button {
+                        onReact(reaction.emoji)
+                        // haptic
+                        HapticManager.impact(style: .light)
+                    } label: {
+                        Text(reaction.emoji)
+                            .font(.systemScaled(26))
+                            .frame(width: 42, height: 42)
+                            .background(Color(uiColor: .systemBackground).opacity(0.01), in: Circle())
+                    }
+                    .buttonStyle(EmojiButtonStyle())
+                    .scaleEffect(appeared ? 1.0 : 0.4)
+                    .opacity(appeared ? 1.0 : 0.0)
+                    .animation(
+                        reduceMotion
+                            ? .easeOut(duration: 0.15)
+                            : .spring(response: 0.32, dampingFraction: 0.65).delay(Double(index) * 0.03),
+                        value: appeared
+                    )
+                    .accessibilityLabel(reaction.label)
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(.ultraThinMaterial, in: Capsule())
+            .overlay(Capsule().strokeBorder(Color(uiColor: .separator).opacity(0.3), lineWidth: 0.5))
+            .shadow(color: .black.opacity(0.12), radius: 16, x: 0, y: 4)
+            .onTapGesture { }
+        }
+        .onAppear {
+            withAnimation { appeared = true }
+        }
     }
 }
 

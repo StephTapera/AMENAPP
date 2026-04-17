@@ -16,7 +16,7 @@ import FirebaseAuth
 class MutualConnectionsService {
     static let shared = MutualConnectionsService()
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var cache: [String: [MutualConnection]] = [:]
 
     private init() {}
@@ -303,7 +303,7 @@ struct MutualConnectionsListView: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(connection.displayName)
                     .font(.custom("OpenSans-Bold", size: 15))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
 
                 Text("@\(connection.username)")
                     .font(.custom("OpenSans-Regular", size: 13))

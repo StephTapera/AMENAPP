@@ -68,7 +68,7 @@ final class AMENUserPreferencesService: ObservableObject {
     @Published private(set) var preferences: AMENUserPreferences = .default
     @Published private(set) var isLoaded = false
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var listener: ListenerRegistration?
     private var saveDebounceTask: Task<Void, Never>?
 

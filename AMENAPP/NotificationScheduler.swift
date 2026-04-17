@@ -18,7 +18,7 @@ class NotificationScheduler: ObservableObject {
     static let shared = NotificationScheduler()
     
     private let center = UNUserNotificationCenter.current()
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     // Daily notification counter (resets at midnight)
     @Published private(set) var dailyNotificationCount = 0

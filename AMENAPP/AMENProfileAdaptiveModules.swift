@@ -194,21 +194,21 @@ struct ChurchAffiliationBadgeView: View {
                 HStack(spacing: 8) {
                     Image(systemName: "building.columns.fill")
                         .font(.systemScaled(13, weight: .medium))
-                        .foregroundStyle(.black.opacity(0.65))
+                        .foregroundStyle(.secondary)
 
                     Text("\(relationshipLabel) \(churchName)")
                         .font(AMENFont.semiBold(13))
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.primary)
 
                     Spacer(minLength: 0)
 
                     Text(visibility)
                         .font(AMENFont.regular(11))
-                        .foregroundStyle(.black.opacity(0.45))
+                        .foregroundStyle(.tertiary)
 
                     Image(systemName: "chevron.right")
                         .font(.systemScaled(10, weight: .semibold))
-                        .foregroundStyle(.black.opacity(0.35))
+                        .foregroundStyle(.tertiary)
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 9)
@@ -236,7 +236,7 @@ struct ChurchServiceTimesModuleView: View {
             VStack(alignment: .leading, spacing: 0) {
                 Text("Service Times")
                     .font(AMENFont.bold(15))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
                     .padding(.horizontal, 16)
                     .padding(.top, 14)
                     .padding(.bottom, 10)
@@ -248,17 +248,17 @@ struct ChurchServiceTimesModuleView: View {
                     HStack(spacing: 0) {
                         Text(entry.day)
                             .font(AMENFont.semiBold(13))
-                            .foregroundStyle(.black)
+                            .foregroundStyle(.primary)
                             .frame(minWidth: 80, alignment: .leading)
 
                         Text(entry.time)
                             .font(AMENFont.regular(13))
-                            .foregroundStyle(.black.opacity(0.7))
+                            .foregroundStyle(.secondary)
                             .frame(minWidth: 80, alignment: .leading)
 
                         Text(entry.label)
                             .font(AMENFont.regular(12))
-                            .foregroundStyle(.black.opacity(0.45))
+                            .foregroundStyle(.tertiary)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .padding(.horizontal, 16)
@@ -279,7 +279,7 @@ struct ChurchServiceTimesModuleView: View {
                         Spacer()
                         Text("+\(overflowCount) more  ·  See all")
                             .font(AMENFont.semiBold(12))
-                            .foregroundStyle(.black.opacity(0.5))
+                            .foregroundStyle(.secondary)
                         Spacer()
                     }
                     .padding(.vertical, 10)
@@ -302,11 +302,11 @@ struct ChurchVisitCTAView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Plan your visit")
                         .font(AMENFont.bold(16))
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.primary)
 
                     Text("First-time? Here's what to expect.")
                         .font(AMENFont.regular(13))
-                        .foregroundStyle(.black.opacity(0.55))
+                        .foregroundStyle(.secondary)
                 }
 
                 HStack(spacing: 10) {
@@ -324,7 +324,7 @@ struct ChurchVisitCTAView: View {
                         GlassCapsule {
                             Text("Get Directions")
                                 .font(AMENFont.semiBold(13))
-                                .foregroundStyle(.black)
+                                .foregroundStyle(.primary)
                                 .padding(.horizontal, 18)
                                 .padding(.vertical, 10)
                         }
@@ -360,16 +360,16 @@ struct ChurchMutualSignalView: View {
 
                         Text("\(mutualCount) of your mutuals attend here")
                             .font(AMENFont.semiBold(13))
-                            .foregroundStyle(.black)
+                            .foregroundStyle(.primary)
                     }
                 } else {
                     HStack(spacing: 6) {
                         Image(systemName: "person.3.fill")
                             .font(.systemScaled(14))
-                            .foregroundStyle(.black.opacity(0.5))
+                            .foregroundStyle(.secondary)
                         Text(areaDescription.map { "Many in \($0) connect here" } ?? "Many in your area connect here")
                             .font(AMENFont.semiBold(13))
-                            .foregroundStyle(.black)
+                            .foregroundStyle(.primary)
                     }
                 }
 
@@ -386,7 +386,7 @@ struct ChurchMutualSignalView: View {
     private func signalChip(_ label: String) -> some View {
         Text(label)
             .font(AMENFont.regular(11))
-            .foregroundStyle(.black.opacity(0.6))
+            .foregroundStyle(.secondary)
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
             .background(
@@ -418,10 +418,10 @@ struct ChurchVerificationBadgeView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Verified Church")
                             .font(AMENFont.bold(14))
-                            .foregroundStyle(.black)
+                            .foregroundStyle(.primary)
                         Text("Identity confirmed by AMEN")
                             .font(AMENFont.regular(12))
-                            .foregroundStyle(.black.opacity(0.5))
+                            .foregroundStyle(.secondary)
                     }
 
                     Spacer()
@@ -432,21 +432,21 @@ struct ChurchVerificationBadgeView: View {
                     HStack(spacing: 8) {
                         Image(systemName: "shield.lefthalf.filled")
                             .font(.systemScaled(16))
-                            .foregroundStyle(.black.opacity(0.45))
+                            .foregroundStyle(.tertiary)
                         Text("Verify this church account")
                             .font(AMENFont.semiBold(14))
-                            .foregroundStyle(.black)
+                            .foregroundStyle(.primary)
                     }
 
                     Text("Verification adds trust and unlocks additional features for your community.")
                         .font(AMENFont.regular(12))
-                        .foregroundStyle(.black.opacity(0.55))
+                        .foregroundStyle(.secondary)
                         .lineLimit(2)
 
                     Button(action: onVerify) {
                         Text("Start verification")
                             .font(AMENFont.semiBold(12))
-                            .foregroundStyle(.black)
+                            .foregroundStyle(.primary)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 8)
                             .background(
@@ -480,12 +480,12 @@ struct PersonalFaithJourneyModuleView: View {
                 HStack {
                     Text("Faith Journey")
                         .font(AMENFont.bold(15))
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.primary)
                     Spacer()
                     Button(action: onEdit) {
                         Image(systemName: "pencil")
                             .font(.systemScaled(13, weight: .medium))
-                            .foregroundStyle(.black.opacity(0.4))
+                            .foregroundStyle(.tertiary)
                     }
                     .buttonStyle(.plain)
                 }
@@ -494,16 +494,16 @@ struct PersonalFaithJourneyModuleView: View {
                     HStack(spacing: 8) {
                         Image(systemName: "leaf.fill")
                             .font(.systemScaled(13))
-                            .foregroundStyle(.black.opacity(0.3))
+                            .foregroundStyle(.tertiary)
                         Text("Share what you're growing through")
                             .font(AMENFont.regular(13))
-                            .foregroundStyle(.black.opacity(0.4))
+                            .foregroundStyle(.tertiary)
                     }
                 } else {
                     if let season = currentSeason {
                         Text(season)
                             .font(AMENFont.regular(13))
-                            .foregroundStyle(.black.opacity(0.7))
+                            .foregroundStyle(.secondary)
                             .lineLimit(2)
                     }
 
@@ -511,7 +511,7 @@ struct PersonalFaithJourneyModuleView: View {
                         VStack(alignment: .leading, spacing: 5) {
                             Text("Prayer focus")
                                 .font(AMENFont.semiBold(11))
-                                .foregroundStyle(.black.opacity(0.4))
+                                .foregroundStyle(.tertiary)
                             chipRow(prayerFocusItems)
                         }
                     }
@@ -520,7 +520,7 @@ struct PersonalFaithJourneyModuleView: View {
                         VStack(alignment: .leading, spacing: 5) {
                             Text("Verse topics")
                                 .font(AMENFont.semiBold(11))
-                                .foregroundStyle(.black.opacity(0.4))
+                                .foregroundStyle(.tertiary)
                             chipRow(verseTopics)
                         }
                     }
@@ -536,7 +536,7 @@ struct PersonalFaithJourneyModuleView: View {
                 ForEach(items, id: \.self) { item in
                     Text(item)
                         .font(AMENFont.regular(12))
-                        .foregroundStyle(.black.opacity(0.65))
+                        .foregroundStyle(.secondary)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 5)
                         .background(
@@ -560,18 +560,18 @@ struct PersonalPrayerFocusModuleView: View {
                 HStack(alignment: .top, spacing: 12) {
                     Image(systemName: "hands.and.sparkles.fill")
                         .font(.systemScaled(18))
-                        .foregroundStyle(.black.opacity(0.45))
+                        .foregroundStyle(.tertiary)
                         .frame(width: 26, height: 26)
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text(focus)
                             .font(AMENFont.regular(13))
-                            .foregroundStyle(.black)
+                            .foregroundStyle(.primary)
                             .lineLimit(3)
 
                         Text("Updated 2 days ago")
                             .font(AMENFont.regular(11))
-                            .foregroundStyle(.black.opacity(0.35))
+                            .foregroundStyle(.tertiary)
                     }
 
                     Spacer()
@@ -582,10 +582,10 @@ struct PersonalPrayerFocusModuleView: View {
                     HStack(spacing: 10) {
                         Image(systemName: "plus.circle")
                             .font(.systemScaled(16))
-                            .foregroundStyle(.black.opacity(0.35))
+                            .foregroundStyle(.tertiary)
                         Text("Add a prayer focus")
                             .font(AMENFont.regular(13))
-                            .foregroundStyle(.black.opacity(0.45))
+                            .foregroundStyle(.tertiary)
                         Spacer()
                     }
                     .padding(14)
@@ -608,7 +608,7 @@ struct PersonalTestimonyModuleView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Testimony")
                     .font(AMENFont.bold(15))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
 
                 if let snippet = testimonySnippet {
                     let preview = snippet.count > 80
@@ -617,14 +617,14 @@ struct PersonalTestimonyModuleView: View {
 
                     Text(preview)
                         .font(AMENFont.regular(13))
-                        .foregroundStyle(.black.opacity(0.7))
+                        .foregroundStyle(.secondary)
                         .lineLimit(3)
 
                     if hasMoreContent {
                         Button(action: onView) {
                             Text("Read more →")
                                 .font(AMENFont.semiBold(12))
-                                .foregroundStyle(.black.opacity(0.6))
+                                .foregroundStyle(.secondary)
                         }
                         .buttonStyle(.plain)
                     }
@@ -633,10 +633,10 @@ struct PersonalTestimonyModuleView: View {
                         HStack(spacing: 8) {
                             Image(systemName: "text.book.closed")
                                 .font(.systemScaled(14))
-                                .foregroundStyle(.black.opacity(0.3))
+                                .foregroundStyle(.tertiary)
                             Text("Share your story")
                                 .font(AMENFont.regular(13))
-                                .foregroundStyle(.black.opacity(0.4))
+                                .foregroundStyle(.tertiary)
                         }
                     }
                     .buttonStyle(.plain)
@@ -662,7 +662,7 @@ struct BusinessMissionModuleView: View {
                 // Category chip
                 Text(category)
                     .font(AMENFont.semiBold(11))
-                    .foregroundStyle(.black.opacity(0.6))
+                    .foregroundStyle(.secondary)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
                     .background(
@@ -672,7 +672,7 @@ struct BusinessMissionModuleView: View {
                 if let mission = missionStatement {
                     Text(mission)
                         .font(AMENFont.regular(13))
-                        .foregroundStyle(.black.opacity(0.75))
+                        .foregroundStyle(.secondary)
                         .lineLimit(3)
                 }
 
@@ -685,7 +685,7 @@ struct BusinessMissionModuleView: View {
                             Button(action: onVisitSite) {
                                 Label(url, systemImage: "globe")
                                     .font(AMENFont.regular(12))
-                                    .foregroundStyle(.black.opacity(0.6))
+                                    .foregroundStyle(.secondary)
                             }
                             .buttonStyle(.plain)
                         }
@@ -693,7 +693,7 @@ struct BusinessMissionModuleView: View {
                         if let email = contactEmail {
                             Label(email, systemImage: "envelope")
                                 .font(AMENFont.regular(12))
-                                .foregroundStyle(.black.opacity(0.6))
+                                .foregroundStyle(.secondary)
                                 .lineLimit(1)
                         }
                     }
@@ -714,7 +714,7 @@ struct BusinessLinksModuleView: View {
             VStack(alignment: .leading, spacing: 0) {
                 Text("Links & Resources")
                     .font(AMENFont.bold(15))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
                     .padding(.horizontal, 16)
                     .padding(.top, 14)
                     .padding(.bottom, 10)
@@ -726,18 +726,18 @@ struct BusinessLinksModuleView: View {
                     HStack(spacing: 12) {
                         Image(systemName: link.icon)
                             .font(.systemScaled(14, weight: .medium))
-                            .foregroundStyle(.black.opacity(0.55))
+                            .foregroundStyle(.secondary)
                             .frame(width: 20)
 
                         Text(link.label)
                             .font(AMENFont.regular(13))
-                            .foregroundStyle(.black)
+                            .foregroundStyle(.primary)
 
                         Spacer()
 
                         Image(systemName: "chevron.right")
                             .font(.systemScaled(11, weight: .semibold))
-                            .foregroundStyle(.black.opacity(0.3))
+                            .foregroundStyle(.tertiary)
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
@@ -766,19 +766,19 @@ struct BusinessFeaturedOfferingModuleView: View {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Featured")
                     .font(AMENFont.semiBold(11))
-                    .foregroundStyle(.black.opacity(0.4))
+                    .foregroundStyle(.tertiary)
                     .textCase(.uppercase)
                     .tracking(0.8)
 
                 if let title = offeringTitle {
                     Text(title)
                         .font(AMENFont.bold(16))
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.primary)
 
                     if let desc = offeringDescription {
                         Text(desc)
                             .font(AMENFont.regular(13))
-                            .foregroundStyle(.black.opacity(0.65))
+                            .foregroundStyle(.secondary)
                             .lineLimit(2)
                     }
 
@@ -797,10 +797,10 @@ struct BusinessFeaturedOfferingModuleView: View {
                         HStack(spacing: 8) {
                             Image(systemName: "plus.circle")
                                 .font(.systemScaled(15))
-                                .foregroundStyle(.black.opacity(0.35))
+                                .foregroundStyle(.tertiary)
                             Text("Add your featured offering")
                                 .font(AMENFont.regular(13))
-                                .foregroundStyle(.black.opacity(0.45))
+                                .foregroundStyle(.tertiary)
                         }
                     }
                     .buttonStyle(.plain)
@@ -822,7 +822,7 @@ struct SmartEngagementSignalChipRow: View {
                 ForEach(signals, id: \.self) { signal in
                     Text(signal)
                         .font(AMENFont.regular(11))
-                        .foregroundStyle(.black.opacity(0.6))
+                        .foregroundStyle(.secondary)
                         .padding(.horizontal, 11)
                         .padding(.vertical, 6)
                         .background(

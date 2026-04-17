@@ -84,6 +84,212 @@ extension FirebasePostService {
             linkURL: linkURL
         )
     }
+
+    // MARK: - Rich Edit Pipeline
+
+    func saveEditedPost(request: EditPostRequest) async throws -> EditPostResult {
+        guard let userId = firebaseManager.currentUser?.uid else {
+            throw PostEditServiceError.unauthorized
+        }
+
+        let postRef = db.collection(FirebaseManager.CollectionPath.posts).document(request.postId)
+        let snapshot = try await postRef.getDocument()
+        guard snapshot.exists else {
+            throw PostEditServiceError.postUnavailable
+        }
+
+        let firestorePost = try snapshot.data(as: FirestorePost.self)
+        guard firestorePost.authorId == userId else {
+            throw PostEditServiceError.unauthorized
+        }
+
+        let originalPost = firestorePost.toPost()
+        let policy = EditWindowPolicyState.forCategory(originalPost.category)
+        let expiry = originalPost.editWindowExpiresAt ?? policy.expiryDate(createdAt: originalPost.createdAt)
+        let eligibility = EditEligibility(
+            canEdit: Date() <= expiry,
+            editWindowExpiresAt: expiry,
+            editPolicyType: policy.policyType,
+            editRestrictionReason: Date() <= expiry ? nil : .windowExpired
+        )
+
+        guard eligibility.canEdit else {
+            throw PostEditServiceError.editWindowExpired(expiry)
+        }
+        guard originalPost.editVersion == request.expectedVersion else {
+            throw PostEditServiceError.staleVersion
+        }
+        guard EditIntelligenceEngine.isValidTransition(from: originalPost.category, to: request.category) else {
+            throw PostEditServiceError.invalidTypeTransition
+        }
+
+        let safety = await ContentSafetyShieldService.shared.screenContent(request.editedText, userId: userId)
+        if !safety.isAllowed {
+            throw PostEditServiceError.moderationBlocked(safety.warningMessage ?? "This edit could not be saved.")
+        }
+
+        let finalizedMediaURLs = try await prepareEditedMediaURLs(
+            media: request.media,
+            userId: userId,
+            postId: request.postId
+        )
+
+        let metadata = PostEditMetadata(
+            lastEditTypePrimary: request.intelligence.primaryType,
+            lastEditTypesSecondary: request.intelligence.secondaryTypes,
+            semanticChangeScore: request.intelligence.semanticChangeScore,
+            meaningChangeLevel: request.intelligence.meaningChangeLevel,
+            threadIntegrityRisk: request.intelligence.threadIntegrityRisk,
+            transparencyLevel: request.intelligence.transparencyLevel,
+            updateSuggested: request.intelligence.recommendUpdateInstead,
+            updateUsed: request.saveMode == .updateInstead,
+            correctedAt: request.intelligence.secondaryTypes.contains(.correction) ? Date() : nil,
+            contextUpdatedAt: request.intelligence.primaryType == .contextUpdate ? Date() : nil
+        )
+
+        let now = Date()
+        let nextVersion = originalPost.editVersion + 1
+        let updateItem: PostUpdateItem? = {
+            guard request.saveMode == .updateInstead else { return nil }
+            return PostUpdateItem(
+                updateId: UUID().uuidString,
+                postId: request.postId,
+                authorId: userId,
+                text: request.editedText,
+                createdAt: now,
+                reasonType: request.intelligence.primaryType,
+                linkedEditVersion: originalPost.editVersion
+            )
+        }()
+
+        var updatedPost = originalPost
+        if request.saveMode == .edit {
+            updatedPost.content = request.editedText
+            updatedPost.topicTag = request.topicTag
+            updatedPost.category = request.category
+            updatedPost.imageURLs = finalizedMediaURLs
+            updatedPost.updatedAt = now
+            updatedPost.editedAt = now
+        } else if let updateItem {
+            var updates = updatedPost.postUpdates ?? []
+            updates.append(updateItem)
+            updatedPost.postUpdates = updates
+            updatedPost.updatedAt = now
+            updatedPost.editedAt = now
+        }
+        updatedPost.wasEdited = true
+        updatedPost.editVersion = nextVersion
+        updatedPost.editWindowExpiresAt = expiry
+        updatedPost.editMetadata = metadata
+
+        var updateData: [String: Any] = [
+            "wasEdited": true,
+            "editVersion": nextVersion,
+            "editWindowExpiresAt": expiry,
+            "updatedAt": now,
+            "editedAt": now,
+            "editMetadata": try Firestore.Encoder().encode(metadata)
+        ]
+        if request.saveMode == .edit {
+            updateData["content"] = request.editedText
+            updateData["topicTag"] = request.topicTag ?? FieldValue.delete()
+            updateData["category"] = request.category.rawValue
+            updateData["imageURLs"] = finalizedMediaURLs
+            updateData["flaggedForReview"] = safety.threatLevel == .high || request.intelligence.threadIntegrityRisk == .majorThreadIntegrityRisk
+        } else if let updateItem {
+            let encodedUpdate = try Firestore.Encoder().encode(updateItem)
+            updateData["postUpdates"] = FieldValue.arrayUnion([encodedUpdate])
+        }
+
+        let revisionData: [String: Any] = [
+            "postId": request.postId,
+            "revisionNumber": nextVersion,
+            "editedAt": now,
+            "editorId": userId,
+            "editType": request.intelligence.primaryType.rawValue,
+            "secondaryEditTypes": request.intelligence.secondaryTypes.map(\.rawValue),
+            "semanticChangeScore": request.intelligence.semanticChangeScore,
+            "meaningChangeLevel": request.intelligence.meaningChangeLevel.rawValue,
+            "threadIntegrityRisk": request.intelligence.threadIntegrityRisk.rawValue,
+            "updateSuggested": request.intelligence.recommendUpdateInstead,
+            "updateUsed": request.saveMode == .updateInstead,
+            "oldContent": originalPost.content,
+            "newContent": request.saveMode == .edit ? request.editedText : originalPost.content
+        ]
+
+        let batch = db.batch()
+        batch.updateData(updateData, forDocument: postRef)
+        batch.setData(revisionData, forDocument: db.collection("postEditRevisions").document())
+        try await batch.commit()
+
+        replaceEditedPostInCaches(updatedPost)
+
+        return EditPostResult(
+            updatedPost: updatedPost,
+            editMetadata: metadata,
+            eligibility: eligibility,
+            notices: request.intelligence.notices,
+            updateCreated: updateItem
+        )
+    }
+
+    private func prepareEditedMediaURLs(
+        media: [EditPostMediaDraftItem],
+        userId: String,
+        postId: String
+    ) async throws -> [String] {
+        var resolved: [(Int, String)] = []
+        var imagesToUpload: [UIImage] = []
+        var imageIndexes: [Int] = []
+
+        for item in media {
+            if let remoteURL = item.remoteURL {
+                resolved.append((item.orderIndex, remoteURL))
+                continue
+            }
+            guard let data = item.localImageData else { continue }
+
+            let moderationDecision = try await ImageModerationService.shared.moderateImage(
+                imageData: data,
+                userId: userId,
+                context: .postImage
+            )
+            if !moderationDecision.isApproved {
+                throw PostEditServiceError.moderationBlocked(moderationDecision.userMessage)
+            }
+
+            if let image = UIImage(data: data) {
+                imagesToUpload.append(image)
+                imageIndexes.append(item.orderIndex)
+            }
+        }
+
+        if !imagesToUpload.isEmpty {
+            let uploaded = try await uploadPostImages(imagesToUpload, postId: "edit_\(postId)")
+            for (index, url) in zip(imageIndexes, uploaded) {
+                resolved.append((index, url))
+            }
+        }
+
+        return resolved.sorted { $0.0 < $1.0 }.map(\.1)
+    }
+
+    private func replaceEditedPostInCaches(_ post: Post) {
+        posts.removeAll { $0.firebaseId == post.firebaseId }
+        openTablePosts.removeAll { $0.firebaseId == post.firebaseId }
+        testimoniesPosts.removeAll { $0.firebaseId == post.firebaseId }
+        prayerPosts.removeAll { $0.firebaseId == post.firebaseId }
+
+        posts.insert(post, at: 0)
+        switch post.category {
+        case .openTable, .tip, .funFact:
+            openTablePosts.insert(post, at: 0)
+        case .testimonies:
+            testimoniesPosts.insert(post, at: 0)
+        case .prayer:
+            prayerPosts.insert(post, at: 0)
+        }
+    }
     
     // MARK: - Post Analytics
     

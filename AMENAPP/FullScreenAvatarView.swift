@@ -104,7 +104,7 @@ struct FullScreenAvatarView: View {
             .overlay(
                 Text(initials)
                     .font(.custom("OpenSans-Bold", size: 100))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
             )
     }
     

@@ -133,7 +133,7 @@ final class ChurchNotesFolderService: ObservableObject {
     @Published var folders: [ChurchNoteFolder] = []
     @Published var isLoaded: Bool = false
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var listener: ListenerRegistration?
 
     private init() {}

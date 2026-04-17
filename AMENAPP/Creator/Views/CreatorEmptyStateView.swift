@@ -8,7 +8,7 @@ struct CreatorEmptyStateView: View {
         VStack(spacing: 6) {
             Text(title)
                 .font(AMENFont.semiBold(14))
-                .foregroundStyle(Color.black)
+                .foregroundStyle(.primary)
 
             Text(subtitle)
                 .font(AMENFont.medium(12))

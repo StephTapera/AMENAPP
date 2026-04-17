@@ -108,7 +108,7 @@ enum FileAttachmentService {
                 let downloadURL = try await storageRef.downloadURL()
 
                 let messageId = UUID().uuidString
-                let db = Firestore.firestore()
+                lazy var db = Firestore.firestore()
                 let messageData: [String: Any] = [
                     "id": messageId,
                     "text": "",

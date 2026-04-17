@@ -14,7 +14,7 @@ protocol CreatorEntitlementServicing {
 }
 
 final class CreatorEntitlementService: CreatorEntitlementServicing {
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     func fetchEntitlements(ownerID: String) async throws -> CreatorEntitlementState {
         let snapshot = try await db.collection("creatorEntitlements")

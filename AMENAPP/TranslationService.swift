@@ -235,7 +235,7 @@ final class TranslationService: ObservableObject {
             let result = await self.detectLanguage(text)
             guard result.isReliable else { return }
 
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
             try? await db.collection(collection).document(documentId).updateData([
                 "detectedLanguage": result.languageCode,
                 "detectedLanguageConfidence": result.confidence
@@ -451,6 +451,9 @@ final class TranslationService: ObservableObject {
     // MARK: - Error Mapping
 
     private func mapError(_ error: Error) -> TranslationUIState {
+        if error is AppleTranslationNotInstalledError {
+            return .error(.languageDownloadNeeded)
+        }
         if let translationError = error as? TranslationErrorResponse {
             switch translationError.errorCode {
             case .unsupportedLanguage:    return .error(.unsupportedLanguage)
@@ -480,7 +483,7 @@ final class TranslationService: ObservableObject {
         guard flags.analyticsEnabled else { return }
         Task.detached(priority: .background) {
             // Fire-and-forget analytics event
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
             let today = ISO8601DateFormatter().string(from: Date()).prefix(10)
             _ = try? await db
                 .collection("translationAnalytics")
@@ -501,6 +504,14 @@ final class TranslationService: ObservableObject {
 
 // MARK: - Apple Translation Bridge (iOS 17.4+)
 
+/// Error thrown when Apple Translation models are not installed on-device.
+/// The UI layer should handle this by triggering .translationTask() which
+/// prompts the user to download the required language models.
+struct AppleTranslationNotInstalledError: Error {
+    let sourceLanguage: String
+    let targetLanguage: String
+}
+
 /// Wrapper that isolates the Apple Translation import behind availability guard
 @MainActor
 final class AppleTranslationBridge {
@@ -509,37 +520,45 @@ final class AppleTranslationBridge {
 
     @available(iOS 17.4, *)
     func translate(text: String, from sourceLang: String, to targetLang: String) async throws -> String {
-        // Apple Translation requires a TranslationSession
-        // Sessions are lightweight and can be created per-request
         let source = Locale.Language(identifier: sourceLang)
         let target = Locale.Language(identifier: targetLang)
 
-        return try await withCheckedThrowingContinuation { continuation in
-            Task { @MainActor in
-                do {
-                    // Import Translation framework at call site via dynamic symbol
-                    // This avoids compile-time dependency issues on pre-17.4 targets
-                    let result = try await Self.performAppleTranslation(
-                        text: text, source: source, target: target
-                    )
-                    continuation.resume(returning: result)
-                } catch {
-                    continuation.resume(throwing: error)
-                }
-            }
-        }
-    }
+        // Check if the language pair is available and installed before attempting translation.
+        // TranslationSession(installedSource:target:) only works with pre-downloaded models.
+        let availability = LanguageAvailability()
+        let status = await availability.status(from: source, to: target)
 
-    @available(iOS 17.4, *)
-    private static func performAppleTranslation(
-        text: String,
-        source: Locale.Language,
-        target: Locale.Language
-    ) async throws -> String {
-        // Dynamically resolve Translation.TranslationSession to avoid linker issues
-        // on older OS. In practice, guard with @available ensures this path is safe.
-        let session = Translation.TranslationSession(installedSource: source, target: target)
-        let response = try await session.translate(text)
-        return response.targetText.trimmingCharacters(in: .whitespacesAndNewlines)
+        switch status {
+        case .installed:
+            // Models are downloaded — use the fast headless path
+            let session = TranslationSession(installedSource: source, target: target)
+            let response = try await session.translate(text)
+            return response.targetText.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        case .supported:
+            // Language pair is supported but models aren't downloaded yet.
+            // Throw a specific error so the UI layer can trigger .translationTask()
+            // which prompts the user to download the models.
+            throw AppleTranslationNotInstalledError(
+                sourceLanguage: sourceLang,
+                targetLanguage: targetLang
+            )
+
+        case .unsupported:
+            throw TranslationErrorResponse(
+                requestId: UUID().uuidString,
+                errorCode: .unsupportedLanguage,
+                message: "Language pair \(sourceLang) → \(targetLang) is not supported by Apple Translation",
+                retryAfterSeconds: nil
+            )
+
+        @unknown default:
+            throw TranslationErrorResponse(
+                requestId: UUID().uuidString,
+                errorCode: .serviceUnavailable,
+                message: "Unknown language availability status",
+                retryAfterSeconds: nil
+            )
+        }
     }
 }

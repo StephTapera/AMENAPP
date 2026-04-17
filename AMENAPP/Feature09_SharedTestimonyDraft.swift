@@ -32,7 +32,7 @@ final class TestimonyDraftManager: ObservableObject {
     @Published var isWeaving = false
 
     private let db        = Firestore.firestore()
-    private let functions = Functions.functions()
+    private lazy var functions = Functions.functions()
     private var listener: ListenerRegistration?
 
     private init() {}

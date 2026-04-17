@@ -362,6 +362,85 @@ extension View {
     func trackPostVisibility(postId: String, onSeen: @escaping (String) -> Void) -> some View {
         modifier(PostVisibilityTracker(postId: postId, onSeen: onSeen))
     }
+    
+    /// Track post visibility continuously for intelligent caught-up banner
+    func trackPostVisibilityForBanner(postId: String, onChange: @escaping (String, CGFloat, TimeInterval) -> Void) -> some View {
+        modifier(PostVisibilityTrackerForBanner(postId: postId, onChange: onChange))
+    }
+}
+
+// MARK: - Intelligent Banner Visibility Tracker
+
+/// Continuously tracks visibility percentage and dwell time for intelligent banner eligibility
+struct PostVisibilityTrackerForBanner: ViewModifier {
+    let postId: String
+    var onChange: (String, CGFloat, TimeInterval) -> Void
+    
+    @State private var visibilityRatio: CGFloat = 0
+    @State private var visibilityStartTime: Date?
+    @State private var updateTimer: Timer?
+    
+    func body(content: Content) -> some View {
+        content
+            .background(
+                GeometryReader { geometry in
+                    Color.clear
+                        .preference(key: VisibilityPreferenceKey.self, value: geometry.frame(in: .global))
+                }
+            )
+            .onPreferenceChange(VisibilityPreferenceKey.self) { frame in
+                updateVisibility(frame: frame)
+            }
+            .onAppear {
+                visibilityStartTime = Date()
+                startUpdateTimer()
+            }
+            .onDisappear {
+                stopUpdateTimer()
+                visibilityStartTime = nil
+            }
+    }
+    
+    private func updateVisibility(frame: CGRect) {
+        let screenHeight = UIScreen.main.bounds.height
+        let visibleHeight = min(frame.maxY, screenHeight) - max(frame.minY, 0)
+        let totalHeight = frame.height
+        
+        guard totalHeight > 0 else {
+            visibilityRatio = 0
+            return
+        }
+        
+        visibilityRatio = max(0, min(1, visibleHeight / totalHeight))
+        
+        // Notify about visibility change with current dwell time
+        if let startTime = visibilityStartTime {
+            let dwell = Date().timeIntervalSince(startTime)
+            onChange(postId, visibilityRatio, dwell)
+        }
+    }
+    
+    private func startUpdateTimer() {
+        updateTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { _ in
+            // Periodically update dwell time even if visibility hasn't changed
+            if let startTime = visibilityStartTime, visibilityRatio > 0 {
+                let dwell = Date().timeIntervalSince(startTime)
+                onChange(postId, visibilityRatio, dwell)
+            }
+        }
+    }
+    
+    private func stopUpdateTimer() {
+        updateTimer?.invalidate()
+        updateTimer = nil
+    }
+}
+
+private struct VisibilityPreferenceKey: PreferenceKey {
+    static var defaultValue: CGRect = .zero
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
+        value = nextValue()
+    }
 }
 
 // MARK: - Button style

@@ -272,7 +272,7 @@ struct CommunityCovenantView: View {
                     throw NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
                 }
                 
-                let db = Firestore.firestore()
+                lazy var db = Firestore.firestore()
                 
                 // Save agreement to Firestore
                 try await db.collection("users").document(userId)

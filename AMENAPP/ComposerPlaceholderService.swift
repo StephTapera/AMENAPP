@@ -10,7 +10,7 @@ final class ComposerPlaceholderService {
     private init() {}
 
     private var cached: String?
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     private let genericFallbacks = [
         "What's on your heart?",

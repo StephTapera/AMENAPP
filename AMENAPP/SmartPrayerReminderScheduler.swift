@@ -17,7 +17,7 @@ class SmartPrayerReminderScheduler: NSObject, ObservableObject {
     // MARK: - Services
     private let locationManager = CLLocationManager()
     private let notificationCenter = UNUserNotificationCenter.current()
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     // MARK: - User Defaults Keys
     private let remindersKey = "smartPrayerReminders"

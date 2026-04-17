@@ -111,7 +111,7 @@ class SavedSearchService: ObservableObject {
     @Published var isLoading = false
     @Published var error: String?
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var listener: ListenerRegistration?
     private var alertsListener: ListenerRegistration?
     

@@ -273,8 +273,6 @@ struct PrayerIntentSheet: View {
     @Environment(\.dismiss) var dismiss
     @State private var prayerNote = ""
     @State private var submitted = false
-    private let db = Firestore.firestore()
-
     var body: some View {
         NavigationView {
             ZStack {
@@ -386,10 +384,10 @@ struct PrayerIntentSheet: View {
             "note": prayerNote,
             "prayedAt": FieldValue.serverTimestamp()
         ]
-        db.collection("disasters").document(disasterId)
+        Firestore.firestore().collection("disasters").document(disasterId)
             .collection("prayers").document(uid)
             .setData(prayerData)
-        db.collection("disasters").document(disasterId)
+        Firestore.firestore().collection("disasters").document(disasterId)
             .updateData(["prayerCount": FieldValue.increment(Int64(1))])
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { dismiss() }
@@ -567,7 +565,8 @@ struct DisasterResourceRow: View {
 // MARK: - Resources Tab: Active Disasters Section
 
 struct DisasterResourcesSection: View {
-    @StateObject private var vm = DisasterResourcesViewModel()
+    // PERF FIX: Use the shared singleton (same data, no extra fetch)
+    @ObservedObject private var vm = DisasterResourcesViewModel.shared
 
     var body: some View {
         Group {
@@ -661,7 +660,7 @@ struct CompactDisasterCard: View {
 
 @MainActor
 class DisasterCardViewModel: ObservableObject {
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     func logPrayer(disasterId: String) {
         guard !disasterId.isEmpty,
@@ -676,9 +675,15 @@ class DisasterCardViewModel: ObservableObject {
 }
 
 @MainActor
+// PERF FIX: Singleton so the Firestore listener is created once and reused across
+// all navigations to AMENDiscoveryView. Previously each tab switch created a new
+// DisasterResourcesViewModel, discarded the old one (removing its listener), and
+// re-fetched the disasters collection — a 2–4s reload on every tab navigation.
 class DisasterResourcesViewModel: ObservableObject {
+    static let shared = DisasterResourcesViewModel()
+
     @Published var disasters: [DisasterAlert] = []
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var listener: ListenerRegistration?
 
     func loadDisasters() {

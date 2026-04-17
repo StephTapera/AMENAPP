@@ -132,7 +132,7 @@ struct CoachMarkOverlay: View {
                     } label: {
                         Text(ftueManager.currentStep.primaryButtonText)
                             .font(.systemScaled(17, weight: .semibold))
-                            .foregroundStyle(.black)
+                            .foregroundStyle(.primary)
                             .frame(maxWidth: .infinity)
                             .frame(height: 54)
                             .background(

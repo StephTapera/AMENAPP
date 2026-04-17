@@ -25,6 +25,15 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil
     ) -> Bool {
         dlog("🚀 AppDelegate: didFinishLaunchingWithOptions")
+
+        // When running unit tests, skip all Firebase / push / network initialization.
+        // The test host app launches but tests do NOT need Firebase configured,
+        // and initializing push notifications or ATT in a simulator test process
+        // causes indefinite hangs that cancel all Swift Testing @Suite tests.
+        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
+            dlog("🧪 Test host detected — skipping Firebase & push initialization")
+            return true
+        }
         
         // ✅ Suppress noisy system logging (network framework, CoreTelephony XPC, etc.)
         setenv("OS_ACTIVITY_MODE", "disable", 1)

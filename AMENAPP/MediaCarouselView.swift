@@ -13,6 +13,9 @@ import SwiftUI
 struct MediaCarouselView: View {
     let media: PostMediaContainer
     var onMediaTap: ((PostMediaItem) -> Void)? = nil
+
+    /// Optional post ID for media resume tracking (System 12).
+    var postId: String? = nil
     
     @State private var currentIndex = 0
     @State private var carouselAppeared = false
@@ -24,9 +27,13 @@ struct MediaCarouselView: View {
     
     var body: some View {
         VStack(spacing: 12) {
-            // Carousel scroll
+            // Carousel scroll — LazyHStack so only the visible item ±1 is loaded.
+            // ForEach inside a plain HStack was creating GlassImageView / GlassVideoPlayerView
+            // for every item in the post at the moment the card scrolled into view, firing
+            // one network image request per media item regardless of whether the user ever
+            // swipes to that slide.
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: itemSpacing) {
+                LazyHStack(spacing: itemSpacing) {
                     ForEach(Array(media.sortedItems.enumerated()), id: \.element.id) { index, item in
                         mediaItemView(item, index: index)
                             .frame(width: itemWidth)
@@ -75,7 +82,9 @@ struct MediaCarouselView: View {
                     autoplay: false,
                     onTap: {
                         onMediaTap?(item)
-                    }
+                    },
+                    postId: postId,
+                    mediaItemId: item.id
                 )
             }
         }
@@ -110,6 +119,9 @@ struct MediaCarouselView: View {
 struct PostMediaContainerView: View {
     let media: PostMediaContainer
     var onMediaTap: ((PostMediaItem, Int) -> Void)? = nil
+
+    /// Optional post ID for media resume tracking (System 12).
+    var postId: String? = nil
     
     @State private var showFullscreen = false
     @State private var fullscreenStartIndex = 0
@@ -119,18 +131,23 @@ struct PostMediaContainerView: View {
             if media.isSingleItem, let firstItem = media.sortedItems.first {
                 singleMediaView(firstItem)
             } else if media.hasMultipleItems {
-                MediaCarouselView(media: media) { tappedItem in
-                    if let index = media.sortedItems.firstIndex(where: { $0.id == tappedItem.id }) {
-                        fullscreenStartIndex = index
-                        showFullscreen = true
-                    }
-                }
+                MediaCarouselView(
+                    media: media,
+                    onMediaTap: { tappedItem in
+                        if let index = media.sortedItems.firstIndex(where: { $0.id == tappedItem.id }) {
+                            fullscreenStartIndex = index
+                            showFullscreen = true
+                        }
+                    },
+                    postId: postId
+                )
             }
         }
         .fullScreenCover(isPresented: $showFullscreen) {
             FullscreenMediaViewer(
                 media: media,
-                startIndex: fullscreenStartIndex
+                startIndex: fullscreenStartIndex,
+                postId: postId
             )
         }
     }
@@ -155,11 +172,14 @@ struct PostMediaContainerView: View {
                     thumbnailURL: item.thumbnailURL,
                     duration: item.duration,
                     cornerRadius: 20,
-                    autoplay: false
-                ) {
-                    fullscreenStartIndex = 0
-                    showFullscreen = true
-                }
+                    autoplay: false,
+                    onTap: {
+                        fullscreenStartIndex = 0
+                        showFullscreen = true
+                    },
+                    postId: postId,
+                    mediaItemId: item.id
+                )
             }
         }
         .padding(.horizontal, 16)

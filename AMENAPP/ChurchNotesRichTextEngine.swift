@@ -15,35 +15,34 @@ import SwiftUI
 // MARK: - Highlight Category
 
 enum HighlightCategory: String, Codable, CaseIterable {
-    case conviction  = "conviction"   // yellow  — personal conviction
-    case scripture   = "scripture"    // blue    — scripture references
-    case prayer      = "prayer"       // purple  — prayer items
-    case action      = "action"       // green   — action steps
+    case conviction  = "conviction"   // warm butter — key takeaway
+    case scripture   = "scripture"    // dusty sky — scripture insight
+    case prayer      = "prayer"       // rose mist — prayer items
+    case action      = "action"       // muted sage — action steps
+    case quote       = "quote"        // stone lavender — pastor quote
 
+    /// Soft, premium fill colors (approved palette).
     var uiColor: UIColor {
         switch self {
-        case .conviction: return UIColor.systemYellow.withAlphaComponent(0.35)
-        case .scripture:  return UIColor.systemBlue.withAlphaComponent(0.25)
-        case .prayer:     return UIColor.systemPurple.withAlphaComponent(0.25)
-        case .action:     return UIColor.systemGreen.withAlphaComponent(0.25)
+        case .conviction: return UIColor(red: 0.957, green: 0.906, blue: 0.631, alpha: 1.0) // #F4E7A1
+        case .scripture:  return UIColor(red: 0.863, green: 0.906, blue: 0.969, alpha: 1.0) // #DCE7F7
+        case .prayer:     return UIColor(red: 0.953, green: 0.855, blue: 0.875, alpha: 1.0) // #F3DADF
+        case .action:     return UIColor(red: 0.867, green: 0.914, blue: 0.847, alpha: 1.0) // #DDE9D8
+        case .quote:      return UIColor(red: 0.894, green: 0.890, blue: 0.918, alpha: 1.0) // #E4E3EA
         }
     }
 
     var swiftUIColor: Color {
-        switch self {
-        case .conviction: return Color.yellow.opacity(0.35)
-        case .scripture:  return Color.blue.opacity(0.25)
-        case .prayer:     return Color.purple.opacity(0.25)
-        case .action:     return Color.green.opacity(0.25)
-        }
+        Color(uiColor: uiColor)
     }
 
     var label: String {
         switch self {
-        case .conviction: return "Conviction"
+        case .conviction: return "Key Takeaway"
         case .scripture:  return "Scripture"
         case .prayer:     return "Prayer"
         case .action:     return "Action Step"
+        case .quote:      return "Quote"
         }
     }
 }
@@ -54,6 +53,8 @@ enum RichTextAttributeType: String, Codable {
     case heading
     case subheading
     case bold
+    case italic
+    case underline
     case highlight
     case quoteBlock
     case checklistItem
@@ -144,6 +145,23 @@ final class AttributedStringFormatter {
         }
     }
 
+    // MARK: - Italic
+
+    func applyItalic(to string: NSMutableAttributedString, range: NSRange) {
+        string.enumerateAttribute(.font, in: range, options: []) { value, r, _ in
+            let baseFont = (value as? UIFont) ?? UIFont.preferredFont(forTextStyle: .body)
+            let descriptor = baseFont.fontDescriptor.withSymbolicTraits(.traitItalic) ?? baseFont.fontDescriptor
+            let italicFont = UIFont(descriptor: descriptor, size: baseFont.pointSize)
+            string.addAttribute(.font, value: italicFont, range: r)
+        }
+    }
+
+    // MARK: - Underline
+
+    func applyUnderline(to string: NSMutableAttributedString, range: NSRange) {
+        string.addAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue, range: range)
+    }
+
     // MARK: - Highlight
 
     func applyHighlight(color category: HighlightCategory, to string: NSMutableAttributedString, range: NSRange) {
@@ -214,6 +232,7 @@ final class AttributedStringFormatter {
 
             let font = attrs[.font] as? UIFont
             let bgColor = attrs[.backgroundColor] as? UIColor
+            let hasUnderline = (attrs[.underlineStyle] as? Int).map { $0 != 0 } ?? false
 
             let attributeType: RichTextAttributeType
             var highlightCategory: HighlightCategory?
@@ -225,6 +244,10 @@ final class AttributedStringFormatter {
                 attributeType = .subheading
             } else if let f = font, f.fontDescriptor.symbolicTraits.contains(.traitBold) {
                 attributeType = .bold
+            } else if let f = font, f.fontDescriptor.symbolicTraits.contains(.traitItalic) {
+                attributeType = .italic
+            } else if hasUnderline {
+                attributeType = .underline
             } else if let bg = bgColor {
                 attributeType = .highlight
                 highlightCategory = HighlightCategory.allCases.first { cat in
@@ -263,6 +286,10 @@ final class AttributedStringFormatter {
                 formatter.applySubheading(to: part, range: r)
             case .bold:
                 formatter.applyBold(to: part, range: r)
+            case .italic:
+                formatter.applyItalic(to: part, range: r)
+            case .underline:
+                formatter.applyUnderline(to: part, range: r)
             case .highlight:
                 if let cat = span.highlightCategory {
                     formatter.applyHighlight(color: cat, to: part, range: r)

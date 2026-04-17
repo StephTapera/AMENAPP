@@ -78,7 +78,7 @@ final class SpiritualTimelineService: ObservableObject {
     @Published var error: String?
 
     private let db        = Firestore.firestore()
-    private let functions = Functions.functions()
+    private lazy var functions = Functions.functions()
 
     func load() async {
         guard let uid = Auth.auth().currentUser?.uid else { return }

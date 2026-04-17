@@ -104,7 +104,7 @@ final class ChurchToolsStore: ObservableObject {
     @Published var signedUpRoleIDs: [String] = []
     @Published var isLoaded = false
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     // Real-time listener handles — kept so we can stop them on deinit or explicit stop.
     private var bulletinListener: ListenerRegistration?

@@ -38,6 +38,9 @@ struct SettingsView: View {
     @State private var navigateToAccountSettings = false
     @State private var groupsVisible = false     // drives stagger entrance
     @ObservedObject private var prefsService = AMENUserPreferencesService.shared
+    @StateObject private var searchEngine = SettingsSearchEngine.shared
+    @State private var settingsSearchText = ""
+    @FocusState private var isSettingsSearchFocused: Bool
 
     var body: some View {
         NavigationStack {
@@ -52,6 +55,32 @@ struct SettingsView: View {
                             .opacity(groupsVisible ? 1 : 0)
                             .offset(y: groupsVisible ? 0 : 14)
                             .animation(.spring(response: 0.46, dampingFraction: 0.82).delay(0.04), value: groupsVisible)
+
+                        // ── Settings Search Capsule ────────────────────────
+                        AmenSmartCapsule(
+                            text: $settingsSearchText,
+                            placeholder: "Search settings...",
+                            style: .settings,
+                            isFocused: $isSettingsSearchFocused,
+                            onSubmit: { searchEngine.search(settingsSearchText) },
+                            onClear: {
+                                settingsSearchText = ""
+                                searchEngine.search("")
+                                isSettingsSearchFocused = false
+                            }
+                        )
+                        .onChange(of: settingsSearchText) { _, newValue in
+                            searchEngine.search(newValue)
+                        }
+                        .opacity(groupsVisible ? 1 : 0)
+                        .offset(y: groupsVisible ? 0 : 14)
+                        .animation(.spring(response: 0.46, dampingFraction: 0.82).delay(0.06), value: groupsVisible)
+
+                        // ── Search Results Overlay ─────────────────────────
+                        if !searchEngine.results.isEmpty {
+                            settingsSearchResults
+                                .transition(.opacity.combined(with: .move(edge: .top)))
+                        } else if settingsSearchText.isEmpty {
 
                         // ── Group 1: Account ────────────────────────────────
                         SDGroup {
@@ -91,7 +120,7 @@ struct SettingsView: View {
                             SDDivider()
                             SDNavRow(icon: "heart.text.square", label: "Wellbeing", subtitle: "Screen time, daily limits", iconBg: .teal) { WellbeingGroupView() }
                             SDDivider()
-                            SDNavRow(icon: "character.bubble", label: "Language", subtitle: "Translation preferences", iconBg: .indigo) { TranslationSettingsView() }
+                            SDNavRow(icon: "character.bubble", label: "Language", subtitle: "Language & Translation", iconBg: .indigo) { TranslationSettingsView() }
                         }
                         .opacity(groupsVisible ? 1 : 0)
                         .offset(y: groupsVisible ? 0 : 18)
@@ -150,6 +179,8 @@ struct SettingsView: View {
                         .padding(.bottom, 32)
                         .opacity(groupsVisible ? 1 : 0)
                         .animation(.easeIn(duration: 0.2).delay(0.28), value: groupsVisible)
+
+                        } // end else if settingsSearchText.isEmpty
                     }
                     .padding(.horizontal, 16)
                     .padding(.top, 8)
@@ -205,6 +236,101 @@ struct SettingsView: View {
             .onAppear {
                 withAnimation { groupsVisible = true }
             }
+        }
+    }
+
+    // MARK: - Settings Search Results
+
+    private var settingsSearchResults: some View {
+        AmenCapsuleSuggestionPanel(style: .settings) {
+            ForEach(Array(searchEngine.results.prefix(8).enumerated()), id: \.element.id) { index, entry in
+                if index > 0 {
+                    SD.divider.frame(height: 0.5).padding(.leading, 51)
+                }
+                NavigationLink(destination: destinationView(for: entry.destination)) {
+                    HStack(spacing: 13) {
+                        if let bg = entry.iconBg {
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(bg)
+                                .frame(width: 30, height: 30)
+                                .overlay(
+                                    Image(systemName: entry.icon)
+                                        .font(.systemScaled(14, weight: .medium))
+                                        .foregroundStyle(.white)
+                                )
+                        } else {
+                            Image(systemName: entry.icon)
+                                .font(.systemScaled(16, weight: .regular))
+                                .foregroundStyle(SD.label)
+                                .frame(width: 22, alignment: .center)
+                        }
+
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(entry.label)
+                                .font(.systemScaled(15, weight: .regular))
+                                .foregroundStyle(SD.label)
+                            Text(entry.subtitle)
+                                .font(.systemScaled(12))
+                                .foregroundStyle(SD.label.opacity(0.45))
+                        }
+
+                        Spacer()
+
+                        Image(systemName: "chevron.right")
+                            .font(.systemScaled(11, weight: .medium))
+                            .foregroundStyle(SD.chevron)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(SDPressStyle())
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func destinationView(for destination: SettingsDestination) -> some View {
+        switch destination {
+        case .editProfile:        EditProfileFromSettingsView()
+        case .account:            AccountSettingsView()
+        case .notifications:      NotificationSettingsView()
+        case .messaging:          MessagingSettingsView()
+        case .integrations:       IntegrationSettingsView()
+        case .privacy:            PrivacySettingsView()
+        case .security:           SecurityGroupView()
+        case .bereanAI:           BereanAISettingsView()
+        case .feedContent:        ContentFeedGroupView()
+        case .dailyVerse:         ContentFeedGroupView()
+        case .wellbeing:          WellbeingGroupView()
+        case .language:           TranslationSettingsView()
+        case .creatorInsights:    CreatorGroupView()
+        case .importContent:      ImportLauncherView()
+        case .helpSupport:        HelpSupportView()
+        case .reportProblem:      ReportProblemView()
+        case .aboutAmen:          AboutAmenView()
+        case .signOut:            EmptyView() // handled by action
+        case .deleteAccount:      DeleteAccountView()
+        case .changePassword:     ChangePasswordView()
+        case .twoFactor:          TwoFactorAuthView()
+        case .loginActivity:      ActiveSessionsView()
+        case .downloadData:       DownloadDataView()
+        case .accountStatus:      AccountStatusView()
+        case .appPermissions:     EmptyView() // handled by action
+        case .mutedWords:         HiddenWordsSettingsView()
+        case .feedPreferences:    YourFeedView()
+        case .defaultPostSettings: DefaultPostSettingsView()
+        case .motionAnimations:   AccessibilitySettingsView()
+        case .textSize:           TextSizeSettingsView()
+        case .captionsAltText:    CaptionsAltTextSettingsView()
+        case .screenTime:         ScrollBudgetSettingsView()
+        case .sundayFocus:        SundayFocusModeSettingsView()
+        case .takeABreak:         TakeABreakSettingsView()
+        case .prayerReminders:    PrayerReminderSettingsView()
+        case .quietMode:          QuietModeSettingsView()
+        case .drafts:             DraftsSettingsView()
+        case .scheduleReply:      MessagingSettingsView()
+        case .editMessages:       MessagingSettingsView()
         }
     }
 
@@ -601,7 +727,7 @@ struct ContentFeedGroupView: View {
             SDGroup {
                 SDNavRow(icon: "text.word.spacing",    label: "Muted Words & Topics")  { HiddenWordsSettingsView() }
                 SDDivider()
-                SDNavRow(icon: "slider.horizontal.3",  label: "Feed Preferences")      { HeyFeedControlsSheet() }
+                SDNavRow(icon: "slider.horizontal.3",  label: "Your Feed")             { YourFeedView() }
                 SDDivider()
                 SDNavRow(icon: "gear.badge",            label: "Default Post Settings") { DefaultPostSettingsView() }
                 SDDivider()

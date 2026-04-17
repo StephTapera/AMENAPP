@@ -7,7 +7,7 @@ import FirebaseAuth
 
 class DataMigrationService {
     static let shared = DataMigrationService()
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     // MARK: - Migration Functions
     

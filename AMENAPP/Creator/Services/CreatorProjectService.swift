@@ -11,7 +11,7 @@ protocol CreatorProjectServicing {
 }
 
 final class CreatorProjectService: CreatorProjectServicing {
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     func createProject(title: String, type: CreatorProjectType) async throws -> CreatorProject {
         let ownerID = try requireOwnerID()

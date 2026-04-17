@@ -32,7 +32,7 @@ final class BereanUserContextProvider: ObservableObject {
     private var lastFetchTime: Date?
     private let cacheTTL: TimeInterval = 600 // 10 minutes
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     private init() {}
 

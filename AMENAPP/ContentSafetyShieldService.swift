@@ -19,7 +19,7 @@ class ContentSafetyShieldService: ObservableObject {
     @Published var isAutoModerationEnabled = true
     @Published var detectionStats = ModerationStats()
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private let moderationService = ModerationService.shared
     
     // Detection settings

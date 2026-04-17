@@ -45,7 +45,7 @@ class AMENMultiAccountManager: ObservableObject {
     @Published var errorMessage: String?
     @Published var showAccountSwitcher = false
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private let maxAccounts = 5 // Instagram allows 5 accounts
     private let accountsKey = "amen.multiaccounts.stored"
     private var cancellables = Set<AnyCancellable>()
@@ -128,14 +128,15 @@ class AMENMultiAccountManager: ObservableObject {
         defer { isLoading = false }
         
         do {
-            // Sign out current user
+            // AUTH-02: Tear down all service listeners and flush in-memory caches
+            // (PostsManager, UserProfileImageCache, BlockService, notification state, etc.)
+            // BEFORE signing out. Without this, User B could see User A's cached posts,
+            // profile images, saved posts, or notification badges on first load.
+            AppLifecycleManager.shared.performFullSignOutCleanup()
+
             try Auth.auth().signOut()
-            
-            // Check if we have stored credentials for this account
-            // In a real implementation, you would use Keychain to store tokens
-            // For now, we'll require re-authentication for security
-            
-            // Update last accessed time
+
+            // Update last accessed time for the target account.
             var updatedAccount = account
             updatedAccount.lastAccessedAt = Date()
             

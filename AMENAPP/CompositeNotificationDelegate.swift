@@ -128,12 +128,11 @@ class CompositeNotificationDelegate: NSObject, UNUserNotificationCenterDelegate 
     // MARK: - Handle Push Notification Tap
     
     private func handlePushNotificationTap(response: UNNotificationResponse) {
-        let userInfo = response.notification.request.content.userInfo
-        
-        dlog("📱 Push notification tapped, routing via NotificationDeepLinkRouter")
-        
-        // Route to the correct screen using the deep link router
-        NotificationDeepLinkRouter.shared.routeFromPushPayload(userInfo)
+        dlog("📱 Push notification tapped, routing via NotificationOpenCoordinator")
+
+        Task { @MainActor in
+            await NotificationOpenCoordinator.shared.handleNotificationResponse(response)
+        }
         
         // Update badge count
         Task { @MainActor in

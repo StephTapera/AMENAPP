@@ -2,332 +2,506 @@
 //  AgeAssuranceService.swift
 //  AMENAPP
 //
-//  Age verification and tier-based feature gating.
-//  Tiers match COPPA / UK Children's Code / App Store 4+ guidelines:
-//
-//    Tier A (blocked) — Under 13
-//      - Account creation blocked at signup
-//      - Existing flagged accounts are locked; all features unavailable
-//
-//    Tier B (13–15)
-//      - DMs disabled (no conversations, no message requests)
-//      - Dating feature disabled
-//      - Profile not shown in People Discovery to users they don't follow
-//      - Cannot receive DMs from non-followers
-//      - AI-generated content clearly labeled
-//
-//    Tier C (16–17)
-//      - DMs restricted to mutual followers only
-//      - Dating feature disabled
-//      - Can appear in People Discovery but not surfaced to adults by default
-//
-//    Tier D (18+)
-//      - Full access to all features
-//
-//  Usage:
-//    AgeAssuranceService.shared.canUseDMs       // Bool
-//    AgeAssuranceService.shared.canUseDating    // Bool
-//    AgeAssuranceService.shared.canSendDMTo(userId:)  // async Bool
-//    AgeAssuranceService.shared.tier            // AgeTier
+//  Layered age assurance service following Meta's Instagram/Threads pattern:
+//  1. Declared age (DOB at sign-up)
+//  2. Triggered verification (ID/selfie when suspicious)
+//  3. AI age detection (background risk scoring)
 //
 
-import SwiftUI
-import Observation
+import Foundation
 import FirebaseAuth
 import FirebaseFirestore
-
-// MARK: - Age Tier
-
-enum AgeTier: String, Codable {
-    /// Under 13 — blocked
-    case blocked = "blocked"
-    /// 13–15 — restricted messaging, no dating, reduced discovery
-    case tierB = "tierB"
-    /// 16–17 — mutual-follower DMs only, no dating
-    case tierC = "tierC"
-    /// 18+ — full access
-    case tierD = "tierD"
-
-    /// Human-readable description
-    var displayName: String {
-        switch self {
-        case .blocked: return "Under 13 — Account Locked"
-        case .tierB:   return "Teen (13–15)"
-        case .tierC:   return "Teen (16–17)"
-        case .tierD:   return "Adult (18+)"
-        }
-    }
-
-    static func tier(forAge age: Int) -> AgeTier {
-        switch age {
-        case ..<13: return .blocked
-        case 13...15: return .tierB
-        case 16...17: return .tierC
-        default:    return .tierD
-        }
-    }
-}
-
-// MARK: - AgeAssuranceService
+import FirebaseFunctions
 
 @MainActor
-@Observable
-final class AgeAssuranceService {
-
+class AgeAssuranceService: ObservableObject {
     static let shared = AgeAssuranceService()
+    
+    // MARK: - Published Properties
+    
+    @Published var currentUserTier: AMENAgeAssuranceTier = .adult
+    @Published var currentUserAge: Int = 0
+    @Published var needsVerification: Bool = false
+    @Published var isLoading: Bool = false
+    
+    // MARK: - Private Properties
+    
+    private lazy var db = Firestore.firestore()
+    private lazy var functions = Functions.functions()
+    private var config = AgeGateConfig.default
+    private var ageProfileCache: [String: (profile: UserAgeProfile, timestamp: Date)] = [:]
+    private let cacheDuration: TimeInterval = 300  // 5 minutes
+    
     private init() {}
-
-    private(set) var tier: AgeTier = .tierD
-    private(set) var isLoaded = false
-
-    private let db = Firestore.firestore()
-
-    // MARK: - Feature Gates
-
-    /// DMs are unavailable for Tier B (13–15) and blocked accounts.
-    var canUseDMs: Bool {
-        switch tier {
-        case .blocked, .tierB: return false
-        case .tierC, .tierD:   return true
-        }
-    }
-
-    /// Dating is unavailable for anyone under 18.
-    var canUseDating: Bool {
-        return tier == .tierD
-    }
-
-    /// Whether the user is eligible to appear in People Discovery.
-    /// Tier B users only appear to followers; Tier C/D appear normally.
-    var canAppearInDiscovery: Bool {
-        return tier != .blocked
-    }
-
-    /// Whether this user should be surfaced to adult (18+) users in Discovery.
-    var isVisibleToAdults: Bool {
-        switch tier {
-        case .blocked, .tierB, .tierC: return false
-        case .tierD: return true
-        }
-    }
-
-    /// Tier B users cannot receive DMs from anyone.
-    /// Tier C users can only DM mutual followers (checked per-conversation).
-    /// Tier D: no restriction.
-    func canReceiveDMFromUser(senderTier: AgeTier) -> Bool {
-        switch tier {
-        case .blocked: return false
-        case .tierB:   return false  // No DMs at all
-        case .tierC:   return senderTier == .tierC || senderTier == .tierD
-        case .tierD:   return senderTier != .blocked
-        }
-    }
-
-    /// Check if the current user can send a DM to a given recipient.
-    /// For Tier C users, verifies mutual follow before allowing.
-    func canSendDMTo(userId recipientId: String) async -> Bool {
-        guard canUseDMs else { return false }
-
-        if tier == .tierC {
-            // Mutual follow check
-            guard let uid = Auth.auth().currentUser?.uid else { return false }
-            let iFollowThem = await checkFollows(from: uid, to: recipientId)
-            let theyFollowMe = await checkFollows(from: recipientId, to: uid)
-            return iFollowThem && theyFollowMe
-        }
-
-        return true
-    }
-
-    // MARK: - Load User Tier
-
-    /// Load the age tier from Firestore for the current user.
-    /// Call this once after auth state changes to .signedIn.
+    
+    // MARK: - Public API
+    
+    /// Load age tier for user (called on app launch and sign-in)
     func loadTier(for userId: String) async {
         do {
-            let doc = try await db.collection("users").document(userId).getDocument()
-            guard let data = doc.data() else {
-                // No data — default to full access
-                tier = .tierD
-                isLoaded = true
-                return
+            let profile = try await getAgeProfile(userId: userId)
+            await MainActor.run {
+                currentUserTier = profile.tier
+                currentUserAge = profile.age
+                needsVerification = profile.needsVerification
             }
-
-            // Prefer the server-set `ageTier` field (written by Cloud Functions / admin SDK)
-            if let raw = data["ageTier"] as? String, let serverTier = AgeTier(rawValue: raw) {
-                tier = serverTier
-            } else if let birthYear = data["birthYear"] as? Int {
-                // Fallback: compute from stored birth year
-                let age = Calendar.current.component(.year, from: Date()) - birthYear
-                tier = AgeTier.tier(forAge: age)
-            } else {
-                // No ageTier or birthYear on this account. These are existing accounts
-                // created before the age assurance system was added. Treat as adults (tierD)
-                // so existing users are not locked out. New signups always write ageTier via
-                // the onboarding flow, so this fallback only applies to legacy/dev accounts.
-                tier = .tierD
+            dlog("✅ Age tier loaded: \(profile.tier.rawValue), age: \(profile.age)")
+        } catch let error as AgeAssuranceError where error == .profileNotFound {
+            // MIGRATION: User pre-dates the age assurance system (existed before this
+            // feature was built) or skipped DOB entry during onboarding. We cannot
+            // fail-closed to .teen for these users because it permanently locks them
+            // out of DMs and other adult features they already had access to.
+            //
+            // Strategy: create a declared-adult stub profile so the app treats them
+            // as adult immediately, and also write ageTier:"tierD" to the main user
+            // doc so Firestore rules (callerAgeTier / callerCanUseDMs) allow DMs.
+            // The stub uses a synthetic DOB of exactly 25 years ago; actual DOB
+            // collection can happen later via the account settings flow.
+            dlog("⚠️ Age profile not found for user — migrating pre-existing user to adult tier")
+            await migrateExistingUserToAdult(userId: userId)
+            await MainActor.run {
+                currentUserTier = .adult
+                needsVerification = false
             }
-
-            isLoaded = true
         } catch {
-            dlog("❌ AgeAssuranceService: Failed to load tier — \(error)")
-            // On a transient Firestore error, default to the most restrictive safe tier
-            // rather than granting full adult access. The gate will re-evaluate on next load.
-            tier = .tierB
-            isLoaded = false  // Leave false so the next app foreground triggers a retry
+            dlog("⚠️ Failed to load age tier: \(error.localizedDescription)")
+            // Transient network errors: preserve the last-known tier rather than
+            // defaulting to adult. If no tier has ever been set, .teen is safe default.
+            await MainActor.run {
+                if currentUserTier == .adult && currentUserAge == 0 {
+                    // Never loaded before — fail closed
+                    currentUserTier = .teen
+                }
+                // Otherwise preserve existing cached tier across transient errors
+            }
+        }
+    }
+    
+    /// Store user's date of birth during sign-up (BEFORE account creation)
+    func setDateOfBirth(
+        userId: String,
+        dateOfBirth: Date,
+        countryCode: String = "US"
+    ) async throws {
+        // Validate age meets minimum requirement
+        let age = Calendar.current.dateComponents([.year], from: dateOfBirth, to: Date()).year ?? 0
+        guard age >= AppConfig.Legal.minimumAge else {
+            throw AgeAssuranceError.underMinimumAge(minimum: AppConfig.Legal.minimumAge, actual: age)
+        }
+        
+        // Create age profile
+        let profile = UserAgeProfile(
+            dateOfBirth: dateOfBirth,
+            countryCode: countryCode,
+            verificationMethod: .dateOfBirth
+        )
+        
+        // Store in private subcollection (encrypted at rest by Firestore)
+        try await db.collection("users")
+            .document(userId)
+            .collection("private")
+            .document("age_assurance")
+            .setData(try Firestore.Encoder().encode(profile))
+        
+        // Log event
+        try await logVerificationEvent(
+            AgeVerificationEvent(
+                userId: userId,
+                eventType: .ageCollected,
+                method: .dateOfBirth,
+                newTier: profile.tier
+            )
+        )
+        
+        // Update cache
+        ageProfileCache[userId] = (profile, Date())
+        
+        // Update published properties
+        await MainActor.run {
+            currentUserTier = profile.tier
+            currentUserAge = profile.age
+        }
+        
+        dlog("✅ Date of birth stored for user \(userId): tier=\(profile.tier.rawValue)")
+    }
+    
+    /// Migrate a pre-existing user (who has no age_assurance doc) to adult tier.
+    /// Creates a stub profile with a synthetic DOB 25 years ago and writes
+    /// ageTier:"tierD" to the main user document so Firestore rules allow DMs.
+    /// Called automatically when loadTier() finds no profile.
+    private func migrateExistingUserToAdult(userId: String) async {
+        // Synthetic DOB: 25 years ago (well above the 18+ threshold).
+        let twentyFiveYearsAgo = Calendar.current.date(
+            byAdding: .year, value: -25, to: Date()
+        ) ?? Date()
+
+        let profile = UserAgeProfile(
+            dateOfBirth: twentyFiveYearsAgo,
+            countryCode: "US",
+            verificationMethod: .dateOfBirth
+        )
+
+        do {
+            // 1. Write the private age_assurance document so the app stops
+            //    showing the "profile not found" warning on every launch.
+            try await db.collection("users")
+                .document(userId)
+                .collection("private")
+                .document("age_assurance")
+                .setData(try Firestore.Encoder().encode(profile))
+
+            // 2. Write ageTier to the main user document so Firestore rules
+            //    (callerAgeTier / callerCanUseDMs) return tierD for this user.
+            try await db.collection("users")
+                .document(userId)
+                .setData(["ageTier": "tierD"], merge: true)
+
+            // Update cache so subsequent calls in this session skip the fetch.
+            ageProfileCache[userId] = (profile, Date())
+
+            await MainActor.run {
+                currentUserAge = profile.age
+            }
+            dlog("✅ Age migration complete: user \(userId) set to adult (tierD)")
+        } catch {
+            dlog("⚠️ Age migration failed (non-fatal): \(error.localizedDescription)")
         }
     }
 
-    /// Called when user signs out
-    func reset() {
-        tier = .tierB
-        isLoaded = false
+    /// Get age profile for user
+    func getAgeProfile(userId: String) async throws -> UserAgeProfile {
+        // Check cache first
+        if let cached = ageProfileCache[userId],
+           Date().timeIntervalSince(cached.timestamp) < cacheDuration {
+            return cached.profile
+        }
+        
+        // Fetch from Firestore
+        let doc = try await db.collection("users")
+            .document(userId)
+            .collection("private")
+            .document("age_assurance")
+            .getDocument()
+        
+        guard let profile = try? doc.data(as: UserAgeProfile.self) else {
+            throw AgeAssuranceError.profileNotFound
+        }
+        
+        // Update cache
+        ageProfileCache[userId] = (profile, Date())
+        
+        return profile
     }
-
-    // MARK: - Age at Signup
-
-    /// Validate a birth date entered during signup.
-    /// Returns the tier, or nil if the date is in the future.
-    static func tier(forBirthDate date: Date) -> AgeTier? {
-        let now = Date()
-        guard date < now else { return nil }
-        let age = Calendar.current.dateComponents([.year], from: date, to: now).year ?? 0
-        return AgeTier.tier(forAge: age)
-    }
-
-    // MARK: - Onboarding Gate
-
-    /// Returns true if the signup should be blocked (user is under 13).
-    static func shouldBlockSignup(birthDate: Date) -> Bool {
-        return tier(forBirthDate: birthDate) == .blocked
-    }
-
-    // MARK: - Private Helpers
-
-    private func checkFollows(from userId: String, to targetId: String) async -> Bool {
+    
+    /// Check if user can access a feature (age-gated)
+    func canAccess(feature: AgeRestrictedFeature, userId: String? = nil) async -> Bool {
+        // Use cached tier if available
+        if userId == nil || userId == Auth.auth().currentUser?.uid {
+            return currentUserTier.canAccess(feature: feature)
+        }
+        
+        // Fetch tier for other user
+        guard let userId = userId else { return false }
         do {
-            let snap = try await db.collection("users").document(userId)
-                .collection("following").document(targetId).getDocument()
-            return snap.exists
+            let profile = try await getAgeProfile(userId: userId)
+            return profile.canAccess(feature: feature)
         } catch {
-            return false
+            dlog("⚠️ Failed to check feature access: \(error.localizedDescription)")
+            return false  // Fail closed for safety
+        }
+    }
+    
+    /// Request age verification (triggered by suspicious activity or age change)
+    func requestVerification(
+        userId: String,
+        reason: String,
+        method: AgeVerificationMethod = .governmentID
+    ) async throws {
+        var profile = try await getAgeProfile(userId: userId)
+        
+        // Check verification cooldown
+        if let lastAttempt = profile.lastVerificationAttempt {
+            let elapsed = Date().timeIntervalSince(lastAttempt)
+            if elapsed < config.verificationCooldown {
+                let remaining = Int(config.verificationCooldown - elapsed)
+                throw AgeAssuranceError.verificationCooldown(remainingSeconds: remaining)
+            }
+        }
+        
+        // Check max attempts
+        if profile.verificationAttempts >= config.maxVerificationAttempts {
+            throw AgeAssuranceError.maxAttemptsExceeded
+        }
+        
+        // Update profile
+        profile.verificationStatus = AMENAgeVerificationStatus.pending
+        profile.verificationAttempts += 1
+        profile.lastVerificationAttempt = Date()
+        profile.updatedAt = Date()
+        
+        // Save to Firestore
+        try await db.collection("users")
+            .document(userId)
+            .collection("private")
+            .document("age_assurance")
+            .setData(try Firestore.Encoder().encode(profile))
+        
+        // Log event
+        try await logVerificationEvent(
+            AgeVerificationEvent(
+                userId: userId,
+                eventType: .verificationRequested,
+                method: method,
+                success: true
+            )
+        )
+        
+        // Invalidate cache
+        ageProfileCache.removeValue(forKey: userId)
+        
+        dlog("📋 Age verification requested for user \(userId): \(reason)")
+    }
+    
+    /// Update AI risk score (background detection)
+    func updateAIRiskScore(userId: String, score: Double) async throws {
+        var profile = try await getAgeProfile(userId: userId)
+        
+        let previousScore = profile.aiRiskScore
+        profile.aiRiskScore = score
+        profile.updatedAt = Date()
+        
+        // If score crosses threshold, trigger verification
+        if score > config.aiRiskThreshold && previousScore <= config.aiRiskThreshold {
+            profile.verificationStatus = AMENAgeVerificationStatus.flagged
+            
+            try await logVerificationEvent(
+                AgeVerificationEvent(
+                    userId: userId,
+                    eventType: .aiFlagged,
+                    success: true
+                )
+            )
+            
+            dlog("🚨 AI flagged user \(userId) as potentially underage (score: \(score))")
+        }
+        
+        // Save to Firestore
+        try await db.collection("users")
+            .document(userId)
+            .collection("private")
+            .document("age_assurance")
+            .setData(try Firestore.Encoder().encode(profile))
+        
+        // Invalidate cache
+        ageProfileCache.removeValue(forKey: userId)
+    }
+    
+    /// Handle age change request (triggers verification for teen→adult)
+    func requestAgeChange(
+        userId: String,
+        newDateOfBirth: Date
+    ) async throws {
+        let profile = try await getAgeProfile(userId: userId)
+        
+        let oldAge = profile.age
+        let newAge = Calendar.current.dateComponents([.year], from: newDateOfBirth, to: Date()).year ?? 0
+        
+        // Validate new age
+        guard newAge >= AppConfig.Legal.minimumAge else {
+            throw AgeAssuranceError.underMinimumAge(minimum: AppConfig.Legal.minimumAge, actual: newAge)
+        }
+        
+        // If changing from teen to adult, require verification
+        if oldAge < 18 && newAge >= 18 {
+            try await requestVerification(
+                userId: userId,
+                reason: "Age change from \(oldAge) to \(newAge)",
+                method: .governmentID
+            )
+            throw AgeAssuranceError.verificationRequired
+        }
+        
+        // Otherwise allow change
+        // CRITICAL-2 FIX: Update the stored DOB so the computed age property stays
+        // consistent with the tier. Previously this was commented out because
+        // dateOfBirth was `let`; it is now `var` in UserAgeProfile.
+        var updatedProfile = profile
+        updatedProfile.dateOfBirth = newDateOfBirth
+        // Recompute tier from the updated DOB rather than hardcoding 18 as the only threshold.
+        if newAge < AppConfig.Legal.minimumAge {
+            updatedProfile.tier = .underMinimum
+        } else if newAge < 18 {
+            updatedProfile.tier = .teen
+        } else {
+            updatedProfile.tier = .adult
+        }
+        updatedProfile.updatedAt = Date()
+        
+        try await db.collection("users")
+            .document(userId)
+            .collection("private")
+            .document("age_assurance")
+            .setData(try Firestore.Encoder().encode(updatedProfile))
+        
+        // Log event
+        try await logVerificationEvent(
+            AgeVerificationEvent(
+                userId: userId,
+                eventType: .ageChanged,
+                previousTier: profile.tier,
+                newTier: updatedProfile.tier
+            )
+        )
+        
+        // Invalidate cache
+        ageProfileCache.removeValue(forKey: userId)
+        
+        dlog("✅ Age changed for user \(userId): \(oldAge) → \(newAge)")
+    }
+    
+    /// Log feature block event (for analytics)
+    func logFeatureBlocked(
+        userId: String,
+        feature: AgeRestrictedFeature
+    ) async {
+        do {
+            try await logVerificationEvent(
+                AgeVerificationEvent(
+                    userId: userId,
+                    eventType: .featureBlocked,
+                    success: false,
+                    failureReason: "Blocked: \(feature)"
+                )
+            )
+        } catch {
+            dlog("⚠️ Failed to log feature block: \(error.localizedDescription)")
+        }
+    }
+    
+    // MARK: - Private Helpers
+    
+    private func logVerificationEvent(_ event: AgeVerificationEvent) async throws {
+        // Store in Firestore age_verification_events collection for audit trail
+        try await db.collection("age_verification_events")
+            .document(UUID().uuidString)
+            .setData(try Firestore.Encoder().encode(event))
+    }
+    
+    /// Clear cache (called on sign-out)
+    func clearCache() {
+        ageProfileCache.removeAll()
+        currentUserTier = .adult
+        currentUserAge = 0
+        needsVerification = false
+    }
+}
+
+// MARK: - Age Assurance Errors
+
+enum AgeAssuranceError: LocalizedError, Equatable {
+    case profileNotFound
+    case underMinimumAge(minimum: Int, actual: Int)
+    case verificationRequired
+    case verificationCooldown(remainingSeconds: Int)
+    case maxAttemptsExceeded
+    case invalidDateOfBirth
+    
+    var errorDescription: String? {
+        switch self {
+        case .profileNotFound:
+            return "Age profile not found. Please contact support."
+        case .underMinimumAge(let minimum, let actual):
+            return "You must be at least \(minimum) years old to use AMEN. You are \(actual) years old."
+        case .verificationRequired:
+            return "Age verification required. Please verify your age to continue."
+        case .verificationCooldown(let remaining):
+            let hours = remaining / 3600
+            return "Please wait \(hours) hours before requesting verification again."
+        case .maxAttemptsExceeded:
+            return "Maximum verification attempts exceeded. Please contact support."
+        case .invalidDateOfBirth:
+            return "Invalid date of birth. Please enter a valid date."
         }
     }
 }
 
-// MARK: - AgeGate View Modifier
+// MARK: - Age Tier Extension
 
-/// Wraps a feature view with an age gate.
-/// Usage: `.ageGated(feature: .dms)`
-struct AgeGateModifier: ViewModifier {
-    enum GatedFeature {
-        case dms, dating, discovery
-        var displayName: String {
-            switch self {
-            case .dms:       return "Direct Messages"
-            case .dating:    return "Christian Dating"
-            case .discovery: return "People Discovery"
-            }
-        }
-    }
-
-    let feature: GatedFeature
-    private var ageService: AgeAssuranceService { AgeAssuranceService.shared }
-
-    private var isAllowed: Bool {
-        // While the tier hasn't been loaded from Firestore yet, pass through.
-        // The real gate check happens once isLoaded == true.
-        guard ageService.isLoaded else { return true }
+extension AMENAgeAssuranceTier {
+    func canAccess(feature: AgeRestrictedFeature) -> Bool {
         switch feature {
-        case .dms:       return ageService.canUseDMs
-        case .dating:    return ageService.canUseDating
-        case .discovery: return ageService.canAppearInDiscovery
+        case .directMessages:
+            return self.canAccessDMs
+        case .publicProfile:
+            return self != .underMinimum
+        case .sensitiveContent, .commerce, .liveStreaming:
+            return self == .adult
         }
     }
+}
 
+// MARK: - Age Gating View Modifier
+
+import SwiftUI
+
+struct AgeGatedModifier: ViewModifier {
+    let feature: AgeRestrictedFeature
+    
+    @StateObject private var ageService = AgeAssuranceService.shared
+    @State private var canAccess: Bool = false
+    @State private var showBlockedAlert: Bool = false
+    
     func body(content: Content) -> some View {
-        if isAllowed {
-            content
-        } else {
-            AgeGateBlockedView(featureName: feature.displayName)
+        content
+            .task {
+                canAccess = await ageService.canAccess(feature: feature)
+            }
+            .onChange(of: ageService.currentUserTier) { _, _ in
+                Task {
+                    canAccess = await ageService.canAccess(feature: feature)
+                }
+            }
+            .disabled(!canAccess)
+            .opacity(canAccess ? 1.0 : 0.5)
+            .overlay {
+                if !canAccess {
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            showBlockedAlert = true
+                            Task {
+                                if let userId = Auth.auth().currentUser?.uid {
+                                    await ageService.logFeatureBlocked(userId: userId, feature: feature)
+                                }
+                            }
+                        }
+                }
+            }
+            .alert("Feature Restricted", isPresented: $showBlockedAlert) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(getBlockedMessage())
+            }
+    }
+    
+    private func getBlockedMessage() -> String {
+        switch feature {
+        case .directMessages:
+            return "Direct messaging is only available for users 18 and older."
+        case .publicProfile:
+            return "You must be at least \(AppConfig.Legal.minimumAge) to have a public profile."
+        case .sensitiveContent:
+            return "This content is only available for users 18 and older."
+        case .commerce:
+            return "Commerce features are only available for users 18 and older."
+        case .liveStreaming:
+            return "Live streaming is only available for users 18 and older."
         }
     }
 }
 
 extension View {
-    func ageGated(feature: AgeGateModifier.GatedFeature) -> some View {
-        modifier(AgeGateModifier(feature: feature))
-    }
-}
-
-// MARK: - AgeGateBlockedView
-
-struct AgeGateBlockedView: View {
-    let featureName: String
-
-    var body: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "hand.raised.fill")
-                .font(.systemScaled(48))
-                .foregroundStyle(.secondary)
-            Text("\(featureName) Unavailable")
-                .font(.title3)
-                .fontWeight(.semibold)
-            Text("This feature is not available for your account.\nVisit Settings for more information.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(.systemGroupedBackground))
-    }
-}
-
-// MARK: - AccountLockedView (Under-13 / Blocked Tier Full-Screen Gate)
-
-/// Shown as a full-screen overlay when the authenticated user's ageTier is "blocked"
-/// (age < 13). Prevents all app access and prompts the user to sign out.
-struct AccountLockedView: View {
-    var body: some View {
-        ZStack {
-            Color(.systemBackground).ignoresSafeArea()
-
-            VStack(spacing: 28) {
-                Spacer()
-
-                Image(systemName: "lock.shield.fill")
-                    .font(.systemScaled(64))
-                    .foregroundStyle(.red.opacity(0.85))
-                    .symbolEffect(.pulse)
-
-                VStack(spacing: 12) {
-                    Text("Account Locked")
-                        .font(.title2)
-                        .fontWeight(.bold)
-
-                    Text("AMEN is designed for users 13 and older.\n\nThis account does not meet the minimum age requirement and has been restricted.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 32)
-                }
-
-                Button {
-                    try? Auth.auth().signOut()
-                } label: {
-                    Label("Sign Out", systemImage: "rectangle.portrait.and.arrow.right")
-                        .font(.headline)
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(Color.accentColor, in: RoundedRectangle(cornerRadius: 14))
-                        .padding(.horizontal, 32)
-                }
-                .buttonStyle(.plain)
-
-                Spacer()
-            }
-        }
+    func ageGated(feature: AgeRestrictedFeature) -> some View {
+        modifier(AgeGatedModifier(feature: feature))
     }
 }

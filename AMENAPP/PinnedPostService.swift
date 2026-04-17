@@ -16,7 +16,7 @@ class PinnedPostService: ObservableObject {
     static let shared = PinnedPostService()
     
     @Published private(set) var pinnedPostIds: Set<String> = []
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     private init() {}
     

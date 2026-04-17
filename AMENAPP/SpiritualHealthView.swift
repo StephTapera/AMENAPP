@@ -91,7 +91,7 @@ final class SpiritualHealthStore: ObservableObject {
     @Published var currentStreak: Int = 0
     @Published var isLoading = false
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var checkInListener: ListenerRegistration?
     private var reflectionListener: ListenerRegistration?
 
@@ -898,13 +898,13 @@ struct SpiritualHealthView: View {
                         .frame(width: 44, height: 44)
                     Image(systemName: "sparkles")
                         .font(.systemScaled(18, weight: .semibold))
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.primary)
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Faith Wrapped")
                         .font(.systemScaled(15, weight: .semibold))
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.primary)
                     Text("Your season, gently told back to you")
                         .font(.systemScaled(12))
                         .foregroundStyle(.secondary)

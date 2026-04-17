@@ -214,7 +214,7 @@ struct BereanChatsListView: View {
         }
         .buttonStyle(.plain)
         .fullScreenCover(isPresented: $showNewConversation) {
-            BereanAIAssistantView()
+            BereanChatView()
         }
     }
 

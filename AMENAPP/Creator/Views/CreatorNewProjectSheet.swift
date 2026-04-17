@@ -12,7 +12,7 @@ struct CreatorNewProjectSheet: View {
             CreatorGlassCard {
                 TextField("Project title", text: $title)
                     .font(AMENFont.medium(14))
-                    .foregroundStyle(Color.black)
+                    .foregroundStyle(.primary)
             }
 
             CreatorGlassCard {

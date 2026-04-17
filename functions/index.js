@@ -738,7 +738,7 @@ exports.bereanNotificationText = berean.bereanNotificationText;
 exports.bereanReportTriage = berean.bereanReportTriage;
 exports.bereanRankingLabels = berean.bereanRankingLabels;
 exports.bereanGenericProxy = berean.bereanGenericProxy;
-exports.bereanChatProxy = berean.bereanChatProxy;
+// exports.bereanChatProxy = berean.bereanChatProxy; // DISABLED: Using TypeScript version from Backend/functions
 exports.deleteAccount = berean.deleteAccount;
 
 // ============================================================================
@@ -748,7 +748,7 @@ exports.deleteAccount = berean.deleteAccount;
 // ============================================================================
 const genkit = require("./genkitFunctions");
 
-exports.generateDailyVerse = genkit.generateDailyVerse;
+// generateDailyVerse is now owned by the Backend/functions (creator codebase) — removed to prevent duplicate function conflict
 exports.generateVerseReflection = genkit.generateVerseReflection;
 exports.generateNotificationText = genkit.generateNotificationText;
 exports.summarizeNotifications = genkit.summarizeNotifications;
@@ -1041,10 +1041,11 @@ exports.onNewPrayerFellowshipCheck  = onNewPrayerFellowshipCheck;
 // Client Swift code must NEVER call api.openai.com directly.
 // The OPENAI_API_KEY lives only in Firebase Secret Manager (never on-device).
 // Run: firebase functions:secrets:set OPENAI_API_KEY
+// NOTE: openAIProxy and whisperProxy now use TypeScript versions from Backend/functions
 // ============================================================================
 const openAIFunctions = require("./openAIFunctions");
-exports.openAIProxy           = openAIFunctions.openAIProxy;
-exports.whisperProxy          = openAIFunctions.whisperProxy;
+// exports.openAIProxy           = openAIFunctions.openAIProxy; // DISABLED: Using TypeScript version from Backend/functions
+// exports.whisperProxy          = openAIFunctions.whisperProxy; // DISABLED: Using TypeScript version from Backend/functions
 exports.transcribeAudio       = openAIFunctions.transcribeAudio;
 exports.smartSuggestionsProxy = openAIFunctions.smartSuggestionsProxy;
 
@@ -1145,3 +1146,24 @@ exports.trackTemplateUsage         = trackTemplateUsage;
 // Scheduled post publisher
 const { publishScheduledPosts } = require('./scheduledPostPublisher');
 exports.publishScheduledPosts = publishScheduledPosts;
+
+// ============================================================================
+// ACTION THREADS — Support workflows attached to posts (System 8)
+//   onActionThreadCreated          — trigger: validate thread, record trust event
+//   onActionStepCompleted          — trigger: notify participants on step completion
+//   processActionThreadReminders   — scheduled hourly: send step reminders
+//   cleanupExpiredActionThreads    — scheduled daily 4 AM: expire stale threads
+// ============================================================================
+const actionThreads = require("./actionThreadFunctions");
+exports.onActionThreadCreated        = actionThreads.onActionThreadCreated;
+exports.onActionStepCompleted        = actionThreads.onActionStepCompleted;
+exports.processActionThreadReminders = actionThreads.processActionThreadReminders;
+exports.cleanupExpiredActionThreads  = actionThreads.cleanupExpiredActionThreads;
+
+// Topic Enrichment (System 11) — server-side fallback for post topic tagging
+const topicEnrichment = require("./topicEnrichment");
+exports.enrichPostTopics = topicEnrichment.enrichPostTopics;
+
+// Media State Cleanup (System 12) — daily cleanup of expired resume positions
+const mediaCleanup = require("./mediaStateCleanup");
+exports.cleanupMediaResumeState = mediaCleanup.cleanupMediaResumeState;

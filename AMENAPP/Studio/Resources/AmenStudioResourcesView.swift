@@ -46,11 +46,11 @@ struct AmenStudioResourcesView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("AMEN Studio")
                 .font(AMENFont.bold(32))
-                .foregroundStyle(Color.black)
+                .foregroundStyle(.primary)
 
             Text("Resources")
                 .font(AMENFont.semiBold(18))
-                .foregroundStyle(Color.black.opacity(0.75))
+                .foregroundStyle(.secondary)
 
             AmenStudioSearchBar(placeholder: "Search templates, packs, songs")
 
@@ -71,7 +71,7 @@ struct AmenStudioResourcesView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Quick starts")
                 .font(AMENFont.semiBold(16))
-                .foregroundStyle(Color.black.opacity(0.72))
+                .foregroundStyle(.secondary)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
@@ -89,7 +89,7 @@ struct AmenStudioResourcesView: View {
             HStack {
                 Text("Browse resources")
                     .font(AMENFont.semiBold(16))
-                    .foregroundStyle(Color.black.opacity(0.72))
+                    .foregroundStyle(.secondary)
 
                 Spacer()
 
@@ -110,7 +110,7 @@ struct AmenStudioResourcesView: View {
             HStack {
                 Text("Recent work")
                     .font(AMENFont.semiBold(16))
-                    .foregroundStyle(Color.black.opacity(0.72))
+                    .foregroundStyle(.secondary)
 
                 Spacer()
 
@@ -167,11 +167,11 @@ private struct AmenStudioSearchBar: View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(Color.black.opacity(0.5))
+                .foregroundStyle(.secondary)
 
             TextField(placeholder, text: $text)
                 .font(AMENFont.medium(14))
-                .foregroundStyle(Color.black)
+                .foregroundStyle(.primary)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
@@ -186,18 +186,18 @@ private struct AmenStudioQuickStartCard: View {
         VStack(alignment: .leading, spacing: 10) {
             Text(quickStart.accent.uppercased())
                 .font(AMENFont.semiBold(11))
-                .foregroundStyle(Color.black.opacity(0.4))
+                .foregroundStyle(.tertiary)
                 .padding(.vertical, 6)
                 .padding(.horizontal, 10)
                 .amenGlassSurface(shape: .capsule, background: .quiet, placement: .inline)
 
             Text(quickStart.title)
                 .font(AMENFont.semiBold(18))
-                .foregroundStyle(Color.black)
+                .foregroundStyle(.primary)
 
             Text(quickStart.subtitle)
                 .font(AMENFont.medium(12))
-                .foregroundStyle(Color.black.opacity(0.55))
+                .foregroundStyle(.secondary)
         }
         .padding(16)
         .frame(width: 180)
@@ -213,13 +213,13 @@ private struct AmenStudioResourceSectionCard: View {
             Text(section.title.uppercased())
                 .font(AMENFont.semiBold(11))
                 .tracking(2)
-                .foregroundStyle(Color.black.opacity(0.4))
+                .foregroundStyle(.tertiary)
 
             AmenStudioFlowLayout(spacing: 8) {
                 ForEach(section.items, id: \.self) { item in
                     Text(item)
                         .font(AMENFont.medium(13))
-                        .foregroundStyle(Color.black.opacity(0.75))
+                        .foregroundStyle(.secondary)
                         .padding(.vertical, 8)
                         .padding(.horizontal, 12)
                         .amenGlassSurface(shape: .capsule, background: .quiet, placement: .inline)
@@ -239,11 +239,11 @@ private struct AmenStudioRecentCard: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(item.title)
                     .font(AMENFont.semiBold(15))
-                    .foregroundStyle(Color.black)
+                    .foregroundStyle(.primary)
 
                 Text("\(item.kind) · \(item.time)")
                     .font(AMENFont.medium(12))
-                    .foregroundStyle(Color.black.opacity(0.5))
+                    .foregroundStyle(.secondary)
             }
 
             Spacer()

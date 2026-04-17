@@ -176,21 +176,38 @@ enum SupportPromptType: String, Codable, Sendable {
     case crisisHelpRespectful         // Respectful immediate help offer (elevated/acute)
     case giveRelevantPrivate          // Giving recommendation (only when stable)
     case recoveryReinforcementSoft    // Gentle recovery acknowledgment
+    case noteCareSummary              // Post-save care summary for notes / church notes
+    case churchCareRoute              // Find a Church routing from support context
+    case practicalAidBridge           // Financial / food / housing aid bridge
 }
 
 /// The in-app surface where a support intervention may occur.
 enum SupportSurface: String, Codable, Sendable {
     case postComposer
+    case postDraft
     case postSubmitSheet
+    case postPublished
+    case commentDraft
+    case commentPublished
+    case dmDraft
+    case dmThread
     case prayerComposer
+    case prayerRequest
+    case prayerRequestCard
     case notesComposer
+    case note
+    case churchNote
+    case testimony
+    case bereanChat
+    case search
+    case findChurch
     case resourcesTab
     case crisisScreen
     case givingScreen
-    case messageThread
+    case notification
+    case reportFlow
     case profileSupportSheet
     case feedWhileScrolling
-    case prayerRequestCard
 }
 
 /// What happened with a given intervention.

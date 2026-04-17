@@ -113,7 +113,7 @@ final class BereanShieldService: ObservableObject {
     @Published var lastAnalysis: ShieldAnalysis? = nil
     @Published var lastError: ShieldAnalysisError? = nil
 
-    private let functions = Functions.functions()
+    private lazy var functions = Functions.functions()
 
     private init() {}
 

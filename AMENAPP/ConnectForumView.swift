@@ -261,7 +261,7 @@ struct ConnectForumView: View {
     // MARK: - Data
 
     private func loadThreads() async {
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         do {
             let snap = try await db.collection("forumThreads")
                 .order(by: "lastActivityAt", descending: true)
@@ -404,7 +404,7 @@ struct ForumThreadDetailView: View {
     }
 
     private func loadReplies() async {
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         do {
             let snap = try await db.collection("forumThreads")
                 .document(thread.id)
@@ -440,7 +440,7 @@ struct ForumThreadDetailView: View {
         replyText = ""
 
         Task {
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
             let encoded = try? Firestore.Encoder().encode(reply)
             if let encoded {
                 try? await db.collection("forumThreads")
@@ -520,7 +520,7 @@ struct CreateForumThreadSheet: View {
             category: category
         )
         Task {
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
             let encoded = try? Firestore.Encoder().encode(thread)
             if let encoded {
                 try? await db.collection("forumThreads").document(thread.id).setData(encoded)

@@ -11,7 +11,7 @@ struct NeededThisButton: View {
     @State private var isInFlight = false
     @State private var checked = false
 
-    private let db = Firestore.firestore()
+    private var db: Firestore { Firestore.firestore() }
 
     var body: some View {
         Button {

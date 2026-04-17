@@ -18,7 +18,7 @@ final class NotificationAggregationService: ObservableObject {
     
     static let shared = NotificationAggregationService()
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     // MARK: - Foreground Suppression State
     

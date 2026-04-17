@@ -234,14 +234,38 @@ struct WorshipSongPickerSheet: View {
 
     private func addSong(_ song: WorshipSongResult) {
         addedIDs.insert(song.uniqueKey)
+        let provider: MusicProvider = song.source == .spotify ? .spotify : .appleMusic
+        let providerID: String
+        let deepLinkURL: String?
+        let webURL: String?
+
+        switch song.source {
+        case .spotify:
+            providerID = song.spotifyTrackID ?? song.uniqueKey
+            deepLinkURL = song.spotifyTrackID.map { "spotify:track:\($0)" }
+            webURL = song.spotifyTrackURL
+        case .appleMusic:
+            providerID = song.musicKitID ?? song.uniqueKey
+            deepLinkURL = song.appleMusicURL
+            webURL = song.appleMusicURL
+        }
+
         let ref = WorshipSongReference(
+            provider: provider,
+            entityType: .song,
+            providerID: providerID,
             title: song.title,
             artist: song.artist,
+            subtitle: song.artist,
             musicKitID: song.musicKitID,
             appleMusicURL: song.appleMusicURL,
             albumArtURL: song.albumArtURL,
             spotifyTrackID: song.spotifyTrackID,
-            spotifyTrackURL: song.spotifyTrackURL
+            spotifyTrackURL: song.spotifyTrackURL,
+            deepLinkURL: deepLinkURL,
+            webURL: webURL,
+            requiresSubscription: song.source == .appleMusic,
+            requiresAppInstall: song.source == .spotify
         )
         onAdd(ref)
         // For Apple Music songs, start playback so the user can preview
@@ -525,49 +549,19 @@ private struct WorshipSongRow: View {
     let noteId: String?
     var onRemove: ((WorshipSongReference) -> Void)?
 
-    @ObservedObject private var vm = WorshipNowPlayingViewModel.shared
-    @State private var isLoading = false
-
-    private var isSpotify: Bool { song.spotifyTrackID != nil }
-    private var isCurrentSong: Bool {
-        vm.currentSong?.title == song.title && vm.currentSong?.artist == song.artist
-    }
-    private var isPlaying: Bool { isCurrentSong && vm.isPlaying }
-    private var spotifyGreen: Color { Color(hex: "1DB954") }
+    @Environment(\.openURL) private var openURL
+    @State private var showUnavailableAlert = false
 
     var body: some View {
         HStack(spacing: 10) {
-            // Album art with source badge
-            ZStack(alignment: .bottomTrailing) {
-                Group {
-                    if let urlStr = song.albumArtURL, let url = URL(string: urlStr) {
-                        AsyncImage(url: url) { phase in
-                            if case .success(let img) = phase {
-                                img.resizable().scaledToFill()
-                            } else { artFallback }
-                        }
-                    } else { artFallback }
-                }
-                .frame(width: 32, height: 32)
-                .clipShape(RoundedRectangle(cornerRadius: 7))
-
-                Circle()
-                    .fill(isSpotify ? spotifyGreen : Color.purple)
-                    .frame(width: 10, height: 10)
-                    .overlay(
-                        Text(isSpotify ? "S" : "♪")
-                            .font(.systemScaled(5.5, weight: .black))
-                            .foregroundStyle(.white)
-                    )
-                    .offset(x: 3, y: 3)
-            }
+            artworkView
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(song.title)
                     .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(.white)
                     .lineLimit(1)
-                Text(song.artist)
+                Text(statusLine)
                     .font(.systemScaled(11))
                     .foregroundStyle(.white.opacity(0.5))
                     .lineLimit(1)
@@ -576,24 +570,11 @@ private struct WorshipSongRow: View {
             Spacer(minLength: 0)
 
             Button { handlePlayTap() } label: {
-                ZStack {
-                    if isLoading {
-                        ProgressView().scaleEffect(0.6).tint(.white)
-                    } else if isSpotify {
-                        Image(systemName: "arrow.up.right")
-                            .font(.systemScaled(11, weight: .semibold))
-                            .foregroundStyle(spotifyGreen)
-                    } else {
-                        Image(systemName: isPlaying ? "pause.fill" : "play.fill")
-                            .font(.systemScaled(11, weight: .semibold))
-                            .foregroundStyle(isCurrentSong ? Color.purple : .white.opacity(0.7))
-                    }
-                }
+                Image(systemName: trailingIcon)
+                    .font(.systemScaled(11, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.78))
                 .frame(width: 28, height: 28)
-                .background(Circle().fill(
-                    isSpotify ? spotifyGreen.opacity(0.15) :
-                    (isCurrentSong ? Color.purple.opacity(0.2) : Color.white.opacity(0.08))
-                ))
+                .background(Circle().fill(Color.white.opacity(0.08)))
             }
             .buttonStyle(.plain)
 
@@ -613,45 +594,81 @@ private struct WorshipSongRow: View {
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
         .overlay(
             RoundedRectangle(cornerRadius: 16)
-                .strokeBorder(
-                    isCurrentSong ? Color.purple.opacity(0.45) : Color.white.opacity(0.1),
-                    lineWidth: 0.5
-                )
+                .strokeBorder(Color.white.opacity(0.1), lineWidth: 0.5)
         )
-        .animation(.spring(response: 0.3, dampingFraction: 0.75), value: isCurrentSong)
+        .alert("Music Unavailable", isPresented: $showUnavailableAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("This attachment can’t be opened right now. Try another link or remove it from this note.")
+        }
+    }
+
+    private var artworkView: some View {
+        Group {
+            if let urlStr = song.albumArtURL, let url = URL(string: urlStr) {
+                AsyncImage(url: url) { phase in
+                    if case .success(let img) = phase {
+                        img.resizable().scaledToFill()
+                    } else {
+                        artFallback
+                    }
+                }
+            } else {
+                artFallback
+            }
+        }
+        .frame(width: 32, height: 32)
+        .clipShape(RoundedRectangle(cornerRadius: 7))
     }
 
     private var artFallback: some View {
         RoundedRectangle(cornerRadius: 7)
-            .fill(isSpotify ? spotifyGreen.opacity(0.15) : Color.purple.opacity(0.2))
+            .fill(Color.white.opacity(0.08))
             .overlay(
-                Image(systemName: isPlaying ? "waveform" : "music.note")
+                Image(systemName: "music.note")
                     .font(.systemScaled(12))
-                    .foregroundStyle(isSpotify ? spotifyGreen : Color.purple)
-                    .symbolEffect(.variableColor.iterative, isActive: isPlaying)
+                    .foregroundStyle(.white.opacity(0.74))
             )
     }
 
+    private var statusLine: String {
+        let base = song.subtitle ?? song.artist
+        let helper = song.availabilityState.helperText
+        return base.isEmpty ? helper : "\(base) · \(helper)"
+    }
+
+    private var trailingIcon: String {
+        switch song.availabilityState {
+        case .unavailable:
+            return "exclamationmark.circle"
+        case .accountRequired:
+            return "lock.circle"
+        case .viewOnly:
+            return "arrow.up.right.circle"
+        case .readyToOpen:
+            return "arrow.up.right"
+        }
+    }
+
+    private var preferredURL: URL? {
+        guard let deepLinkURL = song.deepLinkURL, let url = URL(string: deepLinkURL) else {
+            return nil
+        }
+        return UIApplication.shared.canOpenURL(url) ? url : nil
+    }
+
+    private var webFallbackURL: URL? {
+        guard let webURL = song.webURL else { return nil }
+        return URL(string: webURL)
+    }
+
     private func handlePlayTap() {
-        if isSpotify {
-            let deepLink = song.spotifyTrackURL ?? (song.spotifyTrackID.map { "spotify:track:\($0)" } ?? "")
-            let webFallback = song.spotifyTrackID.map { "https://open.spotify.com/track/\($0)" } ?? ""
-            if let url = URL(string: deepLink), UIApplication.shared.canOpenURL(url) {
-                UIApplication.shared.open(url)
-            } else if let url = URL(string: webFallback), !webFallback.isEmpty {
-                UIApplication.shared.open(url)
-            }
+        if let preferredURL {
+            openURL(preferredURL)
+        } else if let webFallbackURL {
+            openURL(webFallbackURL)
         } else {
-            let svc = WorshipMusicService.shared
-            if isCurrentSong {
-                svc.pauseResume()
-            } else {
-                isLoading = true
-                Task {
-                    await svc.playSong(title: song.title, artist: song.artist, churchNoteId: noteId)
-                    await MainActor.run { isLoading = false }
-                }
-            }
+            showUnavailableAlert = true
         }
     }
 }

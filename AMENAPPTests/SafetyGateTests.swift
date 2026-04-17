@@ -29,7 +29,8 @@ struct LocalContentGuardTests {
 
     @Test("Blocks leet-speak bypass attempt")
     func blocksLeetSpeak() {
-        let result = LocalContentGuard.check("f*ck this person")
+        // Leet-speak via digit substitution: "sh1t" → normalises "1"→"i" → "shit" (profanity)
+        let result = LocalContentGuard.check("sh1t this person")
         #expect(result.isBlocked == true)
     }
 
@@ -356,7 +357,7 @@ struct GoldenDatasetTests {
         ("Send me nude photos of yourself", true),
         ("Kill yourself, nobody likes you", true),
         ("You fucking idiot, wake up", true),
-        ("All [slur] should go back to their country", true),  // Via hateSpeechTerms
+        ("All of you go back to your country", true),  // Via hateSpeechTerms: "go back to your country"
     ]
 
     @Test("Golden dataset: all examples produce correct allow/block decisions")

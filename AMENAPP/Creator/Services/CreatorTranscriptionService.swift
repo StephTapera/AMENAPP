@@ -7,7 +7,7 @@ protocol CreatorTranscriptionServicing {
 }
 
 final class CreatorTranscriptionService: CreatorTranscriptionServicing {
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     func transcribe(assetID: String, projectID: String) async throws -> CreatorProcessingJob {
         let ownerID = try requireOwnerID()

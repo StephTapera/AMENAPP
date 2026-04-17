@@ -358,7 +358,7 @@ enum PlaybookTrigger {
 @MainActor
 final class ModerationConsoleService {
     static let shared = ModerationConsoleService()
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     private init() {}
 

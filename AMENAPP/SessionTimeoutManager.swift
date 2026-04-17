@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import FirebaseCore
 import FirebaseAuth
 import UIKit
 import Combine
@@ -49,6 +50,7 @@ class SessionTimeoutManager: ObservableObject {
     // MARK: - Initialization
 
     private init() {
+        guard FirebaseApp.app() != nil else { return }
         setupActivityMonitoring()
         checkAuthState()
     }
@@ -563,7 +565,7 @@ struct SessionTimeoutWarningView: View {
                             Text("Stay Signed In")
                                 .font(.custom("OpenSans-Bold", size: 15))
                         }
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.primary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
                         .background(
@@ -682,7 +684,8 @@ class AppReadyStateManager: ObservableObject {
         // If a user session is already cached, start with the overlay visible.
         // This means the overlay is already `true` before ContentView renders its body,
         // so there is only ever ONE loading state — no dual-screen flicker.
-        isShowingLoadingScreen = Auth.auth().currentUser != nil
+        // Guard: Auth.auth() crashes if Firebase is not configured (test host).
+        isShowingLoadingScreen = FirebaseApp.app() != nil && Auth.auth().currentUser != nil
     }
 
     /// Called when a user signs in (fresh install, sign-out + sign-back-in, update).

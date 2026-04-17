@@ -59,7 +59,7 @@ extension AIBibleStudyView {
             throw NSError(domain: "AIBibleStudy", code: -1, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
         }
 
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
 
         // Create conversation document
         let conversationData: [String: Any] = [
@@ -102,7 +102,7 @@ extension AIBibleStudyView {
         guard let userId = Auth.auth().currentUser?.uid else { return }
 
         do {
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
             let snapshot = try await db.collection("aiBibleStudyConversations")
                 .whereField("userId", isEqualTo: userId)
                 .order(by: "createdAt", descending: true)

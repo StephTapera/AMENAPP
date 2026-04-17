@@ -24,7 +24,7 @@ class VergeViewModel: ObservableObject {
 
     // MARK: - Private
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var roomsListener: ListenerRegistration?
 
     // MARK: - Rooms Listener

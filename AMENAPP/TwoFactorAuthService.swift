@@ -31,7 +31,7 @@ class TwoFactorAuthService: ObservableObject {
     /// True when backup code count is low (≤ 2 remaining)
     var isBackupCodesLow: Bool { (backupCodesRemaining ?? Int.max) <= 2 }
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     // UserDefaults keys (only non-PII)
     private let udEnabledKey = "twoFactorAuthEnabled"

@@ -201,7 +201,7 @@ class OpenAIService: ObservableObject {
 
     /// All OpenAI calls are proxied through the "openAIProxy" Cloud Function.
     /// The API key never leaves the server.
-    private let functions = Functions.functions()
+    private lazy var functions = Functions.functions()
     private let modelID = "gpt-4o"
 
     // One active stream at a time — cancel previous before starting new one.

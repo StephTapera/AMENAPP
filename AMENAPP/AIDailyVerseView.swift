@@ -124,10 +124,10 @@ struct DailyVerseBannerView: View {
         VStack(spacing: 2) {
             Text(dayString)
                 .font(.systemScaled(24, weight: .semibold))
-                .foregroundStyle(Color.black.opacity(0.85))
+                .foregroundStyle(.primary)
             Text(monthString)
                 .font(.systemScaled(10, weight: .semibold))
-                .foregroundStyle(Color.black.opacity(0.45))
+                .foregroundStyle(.tertiary)
                 .tracking(1.1)
         }
         .frame(width: 44)
@@ -138,7 +138,7 @@ struct DailyVerseBannerView: View {
             Text("DAILY VERSE")
                 .font(.systemScaled(9, weight: .semibold))
                 .tracking(1.1)
-                .foregroundStyle(Color.black.opacity(0.55))
+                .foregroundStyle(.secondary)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
                 .background(
@@ -151,7 +151,7 @@ struct DailyVerseBannerView: View {
             Button(action: toggleExpanded) {
                 Image(systemName: "chevron.right")
                     .font(.systemScaled(12, weight: .semibold))
-                    .foregroundStyle(Color.black.opacity(0.45))
+                    .foregroundStyle(.tertiary)
                     .rotationEffect(.degrees(isExpanded ? 90 : 0))
                     .frame(width: 24, height: 24)
             }
@@ -183,7 +183,7 @@ struct DailyVerseBannerView: View {
                 .tint(Color.black.opacity(0.5))
             Text("Loading verse...")
                 .font(.systemScaled(12, weight: .regular))
-                .foregroundStyle(Color.black.opacity(0.5))
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -195,7 +195,7 @@ struct DailyVerseBannerView: View {
                 Text("Load Verse")
                     .font(.systemScaled(12, weight: .semibold))
             }
-            .foregroundStyle(Color.black.opacity(0.6))
+            .foregroundStyle(.secondary)
         }
         .buttonStyle(.plain)
     }
@@ -276,7 +276,7 @@ struct VerseContentView: View {
         VStack(alignment: .leading, spacing: 6) {
             Text(verse.text)
                 .font(.custom("OpenSans-Regular", size: 13))
-                .foregroundStyle(Color.black.opacity(0.85))
+                .foregroundStyle(.primary)
                 .lineSpacing(4)
                 .lineLimit(isExpanded ? nil : collapsedLineLimit)
                 .truncationMode(.tail)
@@ -284,11 +284,11 @@ struct VerseContentView: View {
 
             Text(verse.reference)
                 .font(.custom("OpenSans-SemiBold", size: 11))
-                .foregroundStyle(Color.black.opacity(0.6))
+                .foregroundStyle(.secondary)
 
             Text("Tap to reflect")
                 .font(.custom("OpenSans-SemiBold", size: 10))
-                .foregroundStyle(Color.black.opacity(0.45))
+                .foregroundStyle(.tertiary)
         }
         .contentShape(Rectangle())
         .onTapGesture { onToggle() }
@@ -327,11 +327,11 @@ struct ExpandableSection: View {
                     HStack {
                         Text(didSaveToday ? "Saved Today" : "Save Today")
                             .font(.systemScaled(12, weight: .semibold))
-                            .foregroundStyle(Color.black.opacity(0.7))
+                            .foregroundStyle(.secondary)
                         Spacer()
                         Image(systemName: didSaveToday ? "checkmark" : "bookmark")
                             .font(.systemScaled(11, weight: .semibold))
-                            .foregroundStyle(Color.black.opacity(0.5))
+                            .foregroundStyle(.secondary)
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 9)

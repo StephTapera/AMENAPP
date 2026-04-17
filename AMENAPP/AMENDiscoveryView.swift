@@ -40,8 +40,10 @@ struct AMENDiscoveryView: View {
     @StateObject private var service = DiscoveryService.shared
     @ObservedObject private var followService = FollowService.shared
     @StateObject private var trendingService = TrendingService.shared
-    @StateObject private var disasterVM = DisasterResourcesViewModel()
-    @StateObject private var feedService = DiscoverFeedService()
+    // PERF FIX: Use the shared singleton so the Firestore listener persists across
+    // tab navigations instead of being recreated and re-fetching on every switch.
+    @ObservedObject private var disasterVM = DisasterResourcesViewModel.shared
+    @StateObject private var feedService = DiscoveryLandingFeedService()
 
     // Universal search view-model — owns 8-collection Firestore search + ranking
     @StateObject private var searchVM = UniversalSearchViewModel()
@@ -118,7 +120,7 @@ struct AMENDiscoveryView: View {
                                     showBereanAI = true
                                 },
                                 topics: DiscoverMode.allCases.map { mode in
-                                    DiscoverPillItem(
+                                    AmenDiscoverPillItem(
                                         title: mode.rawValue,
                                         systemImage: mode.icon,
                                         isActive: selectedMode == mode,
@@ -148,7 +150,7 @@ struct AMENDiscoveryView: View {
 
                     // Scope filter tab bar — shown when search is active
                     if isSearchFocused || !searchText.isEmpty {
-                        SearchScopeTabBar(selected: $searchVM.searchScope)
+                        EnhancedSearchScopeTabBar(selected: $searchVM.searchScope)
                             .background(.ultraThinMaterial)
                             .zIndex(9)
                             .transition(.move(edge: .top).combined(with: .opacity))
@@ -165,7 +167,7 @@ struct AMENDiscoveryView: View {
                 }
             }
             .fullScreenCover(isPresented: $showBereanAI) {
-                BereanAIAssistantView()
+                BereanChatView()
             }
             .fullScreenCover(isPresented: $showMediaViewer, onDismiss: {
                 withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.72))) {
@@ -259,60 +261,32 @@ struct AMENDiscoveryView: View {
                 .transition(.move(edge: .leading).combined(with: .opacity))
             }
 
-            // Search field
-            HStack(spacing: 8) {
-                Image(systemName: "magnifyingglass")
-                    .font(.systemScaled(15, weight: .medium))
-                    .foregroundStyle(.secondary)
-
-                TextField(searchPlaceholder, text: $searchText)
-                    .font(AMENFont.regular(16))
-                    .focused($isSearchFocused)
-                    .submitLabel(.search)
-                    .onSubmit {
-                        Task { await service.submitSearch(searchText) }
-                        searchVM.scheduleSearch(query: searchText)
-                    }
-                    .onChange(of: searchText) { _, newValue in
-                        service.setQuery(newValue)
-                        // 350ms debounce for 8-collection universal search
-                        searchVM.scheduleSearch(query: newValue)
-                    }
-                    .onChange(of: isSearchFocused) { _, focused in
-                        if focused {
-                            HapticManager.impact(style: .light)
-                        }
-                    }
-
-                if !searchText.isEmpty {
-                    Button {
-                        searchText = ""
-                        service.clearSearch()
-                        searchVM.scheduleSearch(query: "")
-                        isSearchFocused = false
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.systemScaled(15))
-                            .foregroundStyle(.secondary)
-                    }
-                    .buttonStyle(.plain)
+            // Unified Liquid Glass search capsule
+            AmenSmartCapsule(
+                text: $searchText,
+                placeholder: searchPlaceholder,
+                style: .discover,
+                isFocused: $isSearchFocused,
+                onSubmit: {
+                    Task { await service.submitSearch(searchText) }
+                    searchVM.scheduleSearch(query: searchText)
+                },
+                onClear: {
+                    searchText = ""
+                    service.clearSearch()
+                    searchVM.scheduleSearch(query: "")
+                    isSearchFocused = false
+                }
+            )
+            .onChange(of: searchText) { _, newValue in
+                service.setQuery(newValue)
+                searchVM.scheduleSearch(query: newValue)
+            }
+            .onChange(of: isSearchFocused) { _, focused in
+                if focused {
+                    HapticManager.impact(style: .light)
                 }
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(.ultraThinMaterial)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .fill(Color.white.opacity(0.55))
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5)
-                    )
-                    .shadow(color: .black.opacity(0.06), radius: 12, x: 0, y: 4)
-            )
 
             // Berean AI button — labeled capsule so users know what it does
             if !isSearchFocused && searchText.isEmpty {
@@ -568,7 +542,7 @@ struct AMENDiscoveryView: View {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 12) {
                                 ForEach(Array(feedService.youtubeVideos.enumerated()), id: \.element.id) { idx, video in
-                                    DiscoverVideoCard(video: video)
+                                    DiscoveryLandingVideoCard(video: video)
                                         .discoveryCardEntry(index: idx + 6)
                                 }
                             }
@@ -586,7 +560,7 @@ struct AMENDiscoveryView: View {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 12) {
                                 ForEach(Array(feedService.newsItems.enumerated()), id: \.element.id) { idx, item in
-                                    DiscoverNewsCard(item: item)
+                                    DiscoveryLandingNewsCard(item: item)
                                         .discoveryCardEntry(index: idx + 10)
                                 }
                             }
@@ -610,6 +584,13 @@ struct AMENDiscoveryView: View {
             .padding(.top, 8)
         }
         .scrollDismissesKeyboard(.interactively)
+        .refreshable {
+            disasterVM.loadDisasters()
+            await feedService.loadAll()
+            if trendingService.topIdeas.isEmpty || !trendingService.isLoading {
+                try? await trendingService.fetchTopIdeas()
+            }
+        }
         .onAppear {
             disasterVM.loadDisasters()
             Task { await feedService.loadAll() }
@@ -1296,7 +1277,7 @@ private struct DiscoverMediaViewer: View {
                             .foregroundStyle(.secondary)
                     } else {
                         ForEach(Array(videos.enumerated()), id: \.element.id) { _, video in
-                            DiscoverVideoCard(video: video)
+                            DiscoveryLandingVideoCard(video: video)
                         }
                     }
                 }
@@ -1325,7 +1306,7 @@ private struct DiscoverMediaViewer: View {
 }
 
 private struct DiscoverHeroStack: View {
-    @ObservedObject var feedService: DiscoverFeedService
+    @ObservedObject var feedService: DiscoveryLandingFeedService
     @Binding var currentIndex: Int
     let onAskBerean: () -> Void
 
@@ -1335,13 +1316,13 @@ private struct DiscoverHeroStack: View {
                 .tag(0)
 
             if let news = feedService.newsItems.first {
-                DiscoverNewsCard(item: news)
+                DiscoveryLandingNewsCard(item: news)
                     .frame(maxWidth: .infinity)
                     .tag(1)
             }
 
             if let video = feedService.youtubeVideos.first {
-                DiscoverVideoCard(video: video)
+                DiscoveryLandingVideoCard(video: video)
                     .frame(maxWidth: .infinity)
                     .tag(2)
             }
@@ -1840,7 +1821,7 @@ struct FollowSuggestionSkeletonCard: View {
 // MARK: - Verse Hero Card
 
 struct VerseHeroCard: View {
-    let verse: DailyVerseData
+    let verse: DiscoveryLandingDailyVerseData
     @State private var isSaved = false
     @State private var isPressed = false
 
@@ -1978,7 +1959,7 @@ struct VerseHeroCard: View {
 
 // MARK: - Video Card
 
-struct DiscoverVideoCard: View {
+struct DiscoveryLandingVideoCard: View {
     let video: YoutubeVideoItem
     @State private var isPressed = false
 
@@ -2007,7 +1988,7 @@ struct DiscoverVideoCard: View {
                         .overlay(
                             Image(systemName: "play.fill")
                                 .font(.systemScaled(16, weight: .semibold))
-                                .foregroundStyle(.black)
+                                .foregroundStyle(.primary)
                                 .offset(x: 2)
                         )
                 )
@@ -2078,7 +2059,7 @@ struct DiscoverVideoCard: View {
 
 // MARK: - News Card
 
-struct DiscoverNewsCard: View {
+struct DiscoveryLandingNewsCard: View {
     let item: NewsItem
     @State private var isPressed = false
 
@@ -2257,7 +2238,7 @@ struct DiscoverDiscussionCard: View {
 
 // MARK: - New Data Models
 
-struct DailyVerseData: Identifiable {
+struct DiscoveryLandingDailyVerseData: Identifiable {
     let id = UUID()
     let reference: String
     let text: String
@@ -2312,13 +2293,13 @@ struct DiscussionItem: Identifiable {
     let participantCount: Int
 }
 
-// MARK: - DiscoverFeedService
+// MARK: - DiscoveryLandingFeedService
 
 @MainActor
-class DiscoverFeedService: ObservableObject {
-    static let shared = DiscoverFeedService()
+class DiscoveryLandingFeedService: ObservableObject {
+    static let shared = DiscoveryLandingFeedService()
 
-    @Published var dailyVerse: DailyVerseData?
+    @Published var dailyVerse: DiscoveryLandingDailyVerseData?
     @Published var youtubeVideos: [YoutubeVideoItem] = []
     @Published var newsItems: [NewsItem] = []
     @Published var unsplashPhotos: [UnsplashPhoto] = []
@@ -2365,7 +2346,7 @@ class DiscoverFeedService: ObservableObject {
                let verseData = json["data"] as? [String: Any],
                let content = verseData["content"] as? String,
                let refData = verseData["reference"] as? String {
-                dailyVerse = DailyVerseData(
+                dailyVerse = DiscoveryLandingDailyVerseData(
                     reference: refData,
                     text: content.trimmingCharacters(in: .whitespacesAndNewlines),
                     bookName: "",
@@ -2391,7 +2372,7 @@ class DiscoverFeedService: ObservableObject {
             ("Romans 5:8", "But God demonstrates his own love for us in this: While we were still sinners, Christ died for us.", "New Testament"),
         ]
         let fb = fallback[todayIndex]
-        dailyVerse = DailyVerseData(
+        dailyVerse = DiscoveryLandingDailyVerseData(
             reference: fb.ref,
             text: fb.text,
             bookName: "",
@@ -2479,7 +2460,7 @@ class DiscoverFeedService: ObservableObject {
     }
 
     private func loadBibleStudies() async {
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         do {
             let snap = try await db.collection("studies").limit(to: 6).getDocuments()
             let fetched = snap.documents.compactMap { doc -> BibleStudyItem? in
@@ -2512,7 +2493,7 @@ class DiscoverFeedService: ObservableObject {
     }
 
     private func loadDiscussions() async {
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         do {
             let snap = try await db.collection("discussions").order(by: "participantCount", descending: true).limit(to: 5).getDocuments()
             let fetched = snap.documents.compactMap { doc -> DiscussionItem? in

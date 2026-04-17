@@ -61,66 +61,9 @@ class PushNotificationHandler: NSObject, ObservableObject {
     // MARK: - Notification Tap
 
     func handleNotificationTap(_ response: UNNotificationResponse) {
-        let userInfo = response.notification.request.content.userInfo
         dlog("👆 User tapped notification")
-
-        guard let type = userInfo["type"] as? String else {
-            dlog("⚠️ No notification type found")
-            return
-        }
-
-        // Resolve the intended deep link
-        var intendedLink: NotificationDeepLink?
-        switch type {
-        case "follow", "follow_request_accepted":
-            if let actorId = userInfo["actorId"] as? String {
-                intendedLink = .profile(userId: actorId)
-            }
-        case "amen", "comment", "reply", "mention", "tag", "repost":
-            if let postId = userInfo["postId"] as? String {
-                intendedLink = .post(postId: postId)
-            }
-        case "message_request_accepted", "dm", "message":
-            if let actorId = userInfo["actorId"] as? String {
-                intendedLink = .conversation(userId: actorId)
-            }
-        default:
-            dlog("⚠️ Unknown notification type: \(type)")
-        }
-
-        // ── Shabbat gate ──────────────────────────────────────────────────
-        // On Sunday with Shabbat active, redirect blocked notifications to
-        // the Resources tab instead of opening the blocked content.
-        if let link = intendedLink {
-            let feature = link.requiredFeature
-            if case .blocked = AppAccessController.shared.canAccess(feature) {
-                ShabbatModeService.shared.logBlocked(feature: feature, route: "push_notification/\(type)")
-                dlog("🚫 PushNotificationHandler: notification tap blocked by Shabbat Mode (type=\(type))")
-                // Navigate to Resources tab — gate view will be shown
-                NotificationCenter.default.post(name: .shabbatDeepLinkBlocked, object: nil,
-                                                userInfo: ["blockedRoute": "notification/\(type)"])
-                // Still mark as read
-                if let notificationId = userInfo["notificationId"] as? String {
-                    Task { try? await NotificationService.shared.markAsRead(notificationId) }
-                }
-                return
-            }
-        }
-        // ─────────────────────────────────────────────────────────────────
-
-        pendingDeepLink = intendedLink
-
-        // P0 FIX: Route to the correct tab via NotificationDeepLinkRouter.
-        // pendingDeepLink was set above but ContentView never observed it.
-        // Calling routeFromPushPayload publishes activeDestination which
-        // NotificationNavigationHandler (applied in ContentView) observes.
-        NotificationDeepLinkRouter.shared.routeFromPushPayload(userInfo)
-
-        // Mark notification as read if we have the ID
-        if let notificationId = userInfo["notificationId"] as? String {
-            Task {
-                try? await NotificationService.shared.markAsRead(notificationId)
-            }
+        Task { @MainActor in
+            await NotificationOpenCoordinator.shared.handleNotificationResponse(response)
         }
     }
 

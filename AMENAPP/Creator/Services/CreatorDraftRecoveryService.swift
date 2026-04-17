@@ -7,7 +7,7 @@ protocol CreatorDraftRecoveryServicing {
 }
 
 final class CreatorDraftRecoveryService: CreatorDraftRecoveryServicing {
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     func recoverLastProject(ownerID: String) async throws -> CreatorProject? {
         let snapshot = try await db.collection("users")

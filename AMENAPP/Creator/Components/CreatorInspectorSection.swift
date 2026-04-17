@@ -13,7 +13,7 @@ struct CreatorInspectorSection<Content: View>: View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
                 .font(AMENFont.semiBold(13))
-                .foregroundStyle(Color.black.opacity(0.6))
+                .foregroundStyle(.secondary)
 
             content
         }

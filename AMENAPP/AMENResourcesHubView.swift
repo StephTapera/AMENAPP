@@ -808,7 +808,7 @@ private struct StackingMediaCard: View {
                             Text(isNowPlaying ? "Pause" : "Play")
                                 .font(.systemScaled(14, weight: .semibold))
                         }
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.primary)
                         .padding(.horizontal, 18)
                         .padding(.vertical, 10)
                         .background(Capsule().fill(.white))

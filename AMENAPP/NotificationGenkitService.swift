@@ -24,7 +24,7 @@ class NotificationGenkitService: ObservableObject {
     @Published var isProcessing = false
     @Published var lastError: Error?
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private let functions = Functions.functions(region: "us-central1")
     
     init() {
@@ -274,7 +274,7 @@ class NotificationGenkitService: ObservableObject {
         try await sendPushNotification(token: fcmToken, content: content)
         
         // Mark individual notifications as sent in batch
-        try await markNotificationsAsBatched(notificationIds: summary.notificationIds)
+        try await markNotificationsAsBatched(userId: userId, notificationIds: summary.notificationIds)
         
         dlog("✅ Batch notification summary sent")
     }
@@ -385,15 +385,23 @@ class NotificationGenkitService: ObservableObject {
         // Merge custom data
         notificationData.merge(customData) { _, new in new }
         
-        try await db.collection("notifications").addDocument(data: notificationData)
+        try await db
+            .collection("users")
+            .document(recipientId)
+            .collection("notifications")
+            .addDocument(data: notificationData)
         dlog("✅ Notification saved to Firestore")
     }
     
-    private func markNotificationsAsBatched(notificationIds: [String]) async throws {
+    private func markNotificationsAsBatched(userId: String, notificationIds: [String]) async throws {
         let batch = db.batch()
         
         for id in notificationIds {
-            let ref = db.collection("notifications").document(id)
+            let ref = db
+                .collection("users")
+                .document(userId)
+                .collection("notifications")
+                .document(id)
             batch.updateData(["batched": true, "batchedAt": FieldValue.serverTimestamp()], forDocument: ref)
         }
         

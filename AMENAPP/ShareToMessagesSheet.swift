@@ -219,7 +219,7 @@ struct ShareToMessagesSheet: View {
             
             Text(user.initials)
                 .font(.custom("OpenSans-Bold", size: 16))
-                .foregroundStyle(.black)
+                .foregroundStyle(.primary)
         }
     }
     

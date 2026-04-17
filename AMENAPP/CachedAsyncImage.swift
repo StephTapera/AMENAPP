@@ -2,105 +2,98 @@
 //  CachedAsyncImage.swift
 //  AMENAPP
 //
-//  Fast loading async image with in-memory caching
+//  Performant async image loading with in-memory caching
+//  Uses existing ImageCache for efficient memory management
 //
 
 import SwiftUI
 
-/// Async image with caching for faster loading
+// MARK: - Cached Async Image
+
 struct CachedAsyncImage<Content: View, Placeholder: View>: View {
     let url: URL?
+    let size: CGSize
     let content: (Image) -> Content
     let placeholder: () -> Placeholder
     
-    @State private var loadedImage: Image?
+    @State private var loadedImage: UIImage?
     @State private var isLoading = false
+    @State private var hasFailed = false
     
     init(
         url: URL?,
+        size: CGSize = CGSize(width: 600, height: 600),
         @ViewBuilder content: @escaping (Image) -> Content,
         @ViewBuilder placeholder: @escaping () -> Placeholder
     ) {
         self.url = url
+        self.size = size
         self.content = content
         self.placeholder = placeholder
     }
     
     var body: some View {
         Group {
-            if let loadedImage = loadedImage {
-                content(loadedImage)
+            if let image = loadedImage {
+                content(Image(uiImage: image))
+                    .transition(.opacity)
+            } else if hasFailed || url == nil {
+                placeholder()
+                    .overlay(
+                        Image(systemName: "photo")
+                            .font(.system(size: 24))
+                            .foregroundStyle(.secondary.opacity(0.3))
+                    )
             } else {
                 placeholder()
+                    .overlay(
+                        ProgressView()
+                            .progressViewStyle(.circular)
+                            .tint(.secondary)
+                    )
             }
         }
         .task(id: url) {
-            // Load image when URL changes
             await loadImage()
         }
-        // Image loading handled by task
     }
     
-    @MainActor
     private func loadImage() async {
-        guard let url = url else { return }
-        guard !isLoading else { return }
-
-        let urlString = url.absoluteString
-
-        // Check cache first — instant return, no network needed
-        if let cachedImage = ProfileImageCache.shared.image(for: urlString) {
-            loadedImage = cachedImage
-            return
+        guard !isLoading, let url = url else { return }
+        
+        await MainActor.run {
+            isLoading = true
+            hasFailed = false
         }
-
-        isLoading = true
-        defer { isLoading = false }
-
-        do {
-            let (data, _) = try await URLSession.shared.data(from: url)
-            guard !Task.isCancelled else { return }
-
-            // PERF: Decode UIImage off the main thread to avoid hitch during scroll.
-            // Task.detached escapes @MainActor; we hop back via MainActor.run to assign.
-            let image: Image? = await Task.detached(priority: .userInitiated) {
-                #if os(iOS)
-                guard let uiImage = UIImage(data: data) else { return nil }
-                // UIImage(data:) decompresses lazily — force decode now on background thread
-                // by drawing into a graphics context so the main thread never stalls.
-                let size = uiImage.size
-                guard size.width > 0, size.height > 0 else { return Image(uiImage: uiImage) }
-                let format = UIGraphicsImageRendererFormat()
-                format.scale = uiImage.scale
-                let decoded = UIGraphicsImageRenderer(size: size, format: format).image { _ in
-                    uiImage.draw(at: .zero)
+        
+        // Use existing ImageCache
+        if let image = await ImageCache.shared.loadImage(url: url.absoluteString, size: size) {
+            await MainActor.run {
+                withAnimation(.easeOut(duration: 0.25)) {
+                    loadedImage = image
                 }
-                return Image(uiImage: decoded)
-                #elseif os(macOS)
-                guard let nsImage = NSImage(data: data) else { return nil }
-                return Image(nsImage: nsImage)
-                #endif
-            }.value
-
-            guard !Task.isCancelled, let image else { return }
-
-            // Back on @MainActor — assign and cache
-            loadedImage = image
-            ProfileImageCache.shared.setImage(image, for: urlString)
-        } catch {
-            // Cancelled or network error — silently ignore
+                isLoading = false
+            }
+        } else {
+            await MainActor.run {
+                isLoading = false
+                hasFailed = true
+            }
         }
     }
 }
 
-// Convenience initializer for SwiftUI
-extension CachedAsyncImage where Content == Image, Placeholder == Color {
-    init(url: URL?) {
+// MARK: - Convenience Initializer
+
+extension CachedAsyncImage where Placeholder == Color {
+    init(
+        url: URL?,
+        @ViewBuilder content: @escaping (Image) -> Content
+    ) {
         self.init(
             url: url,
-            content: { $0 },
-            placeholder: { Color.gray.opacity(0.2) }
+            content: content,
+            placeholder: { Color(.systemGray6) }
         )
     }
 }
-

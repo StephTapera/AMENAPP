@@ -20,10 +20,11 @@ final class TranslationSettingsManager: ObservableObject {
 
     @Published private(set) var preferences: UserLanguagePreferences = .default
     @Published private(set) var isLoaded = false
+    @Published private(set) var preferredTranslationMode: TranslationMode = .literal
 
     // MARK: - Private
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private let localKey = "amen.translation.preferences"
     private var listenerRegistration: ListenerRegistration?
 
@@ -31,6 +32,11 @@ final class TranslationSettingsManager: ObservableObject {
 
     private init() {
         loadLocalPreferences()
+        // Load preferred translation mode from UserDefaults
+        if let modeRaw = UserDefaults.standard.string(forKey: "amen.translation.preferredMode"),
+           let mode = TranslationMode(rawValue: modeRaw) {
+            preferredTranslationMode = mode
+        }
         Task { await loadFromFirestore() }
     }
 
@@ -51,6 +57,11 @@ final class TranslationSettingsManager: ObservableObject {
         // Never auto-translate if user understands the language
         if preferences.understoodLanguages.contains(detectedLang) { return false }
 
+        // Per-language auto-translate override (e.g. always auto-translate Spanish)
+        if let perLangOverride = preferences.perLanguageAutoTranslate[detectedLang], perLangOverride {
+            return true
+        }
+
         switch preferences.contentTranslationMode {
         case .auto:
             switch contentType {
@@ -69,12 +80,24 @@ final class TranslationSettingsManager: ObservableObject {
     }
 
     /// Whether to show the "See Translation" button at all.
-    func shouldOfferTranslation(detectedLang: String, contentType: TranslatableContentType) -> Bool {
+    /// - Parameters:
+    ///   - detectedLang: The detected language of the content
+    ///   - contentType: The type of content being evaluated
+    ///   - confidence: Optional language detection confidence (0.0–1.0). When provided and
+    ///     smart visibility is enabled, the button is hidden if confidence is below the threshold.
+    func shouldOfferTranslation(detectedLang: String, contentType: TranslatableContentType, confidence: Double? = nil) -> Bool {
         guard TranslationFeatureFlags.shared.isEnabled(for: contentType) else { return false }
         guard preferences.contentTranslationMode != .never else { return false }
         let userLang = preferences.appLanguage
         guard detectedLang != userLang else { return false }
         if preferences.understoodLanguages.contains(detectedLang) { return false }
+
+        // Smart visibility: suppress if detection confidence is below threshold
+        if let conf = confidence,
+           TranslationFeatureFlags.shared.smartTranslationVisibilityEnabled {
+            guard conf >= preferences.smartVisibilityMinConfidence else { return false }
+        }
+
         return true
     }
 
@@ -126,6 +149,59 @@ final class TranslationSettingsManager: ObservableObject {
     func removeUnderstoodLanguage(_ code: String) async {
         var updated = preferences
         updated.understoodLanguages.removeAll(where: { $0 == code })
+        updated.updatedAt = Date()
+        await persist(updated)
+    }
+
+    /// Update preferred translation mode (original/literal/natural/contextual).
+    /// Syncs to both UserDefaults (fast local) and Firestore (cross-device).
+    func update(translationMode: TranslationMode) async {
+        preferredTranslationMode = translationMode
+        UserDefaults.standard.set(translationMode.rawValue, forKey: "amen.translation.preferredMode")
+        var updated = preferences
+        updated.defaultTranslationMode = translationMode
+        updated.updatedAt = Date()
+        await persist(updated)
+    }
+
+    func update(creationLanguage: String?) async {
+        var updated = preferences
+        updated.creationLanguage = creationLanguage
+        updated.updatedAt = Date()
+        await persist(updated)
+    }
+
+    func update(sideBySideEnabled: Bool) async {
+        var updated = preferences
+        updated.sideBySideEnabled = sideBySideEnabled
+        updated.updatedAt = Date()
+        await persist(updated)
+    }
+
+    func update(smartVisibilityMinConfidence: Double) async {
+        var updated = preferences
+        updated.smartVisibilityMinConfidence = max(0.0, min(1.0, smartVisibilityMinConfidence))
+        updated.updatedAt = Date()
+        await persist(updated)
+    }
+
+    func update(adaptiveAutoTranslate: Bool) async {
+        var updated = preferences
+        updated.adaptiveAutoTranslate = adaptiveAutoTranslate
+        updated.updatedAt = Date()
+        await persist(updated)
+    }
+
+    func setPerLanguageAutoTranslate(languageCode: String, enabled: Bool) async {
+        var updated = preferences
+        updated.perLanguageAutoTranslate[languageCode] = enabled
+        updated.updatedAt = Date()
+        await persist(updated)
+    }
+
+    func removePerLanguageAutoTranslate(languageCode: String) async {
+        var updated = preferences
+        updated.perLanguageAutoTranslate.removeValue(forKey: languageCode)
         updated.updatedAt = Date()
         await persist(updated)
     }

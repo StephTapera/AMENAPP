@@ -162,7 +162,7 @@ final class ModerationIngestService {
         editCount: Int
     ) async {
         guard let uid = Auth.auth().currentUser?.uid else { return }
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         let contentId = "\(uid)_\(Int(Date().timeIntervalSince1970 * 1000))"
 
         let event: [String: Any] = [

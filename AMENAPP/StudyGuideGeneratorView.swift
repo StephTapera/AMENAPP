@@ -48,7 +48,7 @@ final class StudyGuideService: ObservableObject {
     @Published var isGenerating = false
     @Published var error: String?
 
-    private let functions = Functions.functions()
+    private lazy var functions = Functions.functions()
 
     func generate(from note: ChurchNote) async {
         isGenerating = true

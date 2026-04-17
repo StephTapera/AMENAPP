@@ -44,7 +44,7 @@ class RepliesViewModel: ObservableObject {
     
     private let pageSize = 20
     private var lastDocument: DocumentSnapshot?
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     /// Fetch replies for a specific user
     /// Since comments are in Realtime Database, we'll fetch posts the user has interacted with

@@ -36,7 +36,7 @@ struct HighlightActionCapsule: View {
                 Text(title)
                     .font(AMENFont.semiBold(12))
             }
-            .foregroundStyle(.black)
+            .foregroundStyle(.primary)
         }
         .buttonStyle(.plain)
     }

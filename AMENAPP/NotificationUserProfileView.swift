@@ -224,7 +224,7 @@ class NotificationProfileViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var error: Error?
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     func loadProfile(userId: String) async {
         isLoading = true

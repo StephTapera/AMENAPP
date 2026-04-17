@@ -22,7 +22,7 @@ class SpacesViewModel: ObservableObject {
         case trending = "Trending"
     }
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var listener: ListenerRegistration?
 
     var filteredSpaces: [AMENSpace] {
@@ -158,7 +158,7 @@ class SpaceFeedViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var selectedContentType: SpacePost.ContentType? = nil
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var listener: ListenerRegistration?
 
     var filtered: [SpacePost] {

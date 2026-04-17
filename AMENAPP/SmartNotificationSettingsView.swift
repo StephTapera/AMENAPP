@@ -787,7 +787,7 @@ class NotificationSettingsViewModel: ObservableObject {
 
     // MARK: Persistence
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     func loadPreferences() async {
         guard let userId = Auth.auth().currentUser?.uid else { return }

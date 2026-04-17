@@ -218,7 +218,7 @@ struct FCMDebugView: View {
         guard let userId = Auth.auth().currentUser?.uid else { return }
         
         do {
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
             let doc = try await db.collection("users").document(userId).getDocument()
             
             if let token = doc.data()?["fcmToken"] as? String {

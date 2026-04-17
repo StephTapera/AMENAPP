@@ -18,7 +18,7 @@ extension FirebaseMessagingService {
     /// Check if two users follow each other
     /// UPDATED: Use /follows collection instead of subcollections
     func checkFollowStatus(userId1: String, userId2: String) async throws -> (user1FollowsUser2: Bool, user2FollowsUser1: Bool) {
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         
         // Check if user1 follows user2
         async let user1FollowsQuery = db.collection("follows")

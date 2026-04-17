@@ -10,7 +10,7 @@ final class TestimonyStrengthService: ObservableObject {
     @Published var scriptureCount: Int = 0
     @Published var isAtMax: Bool = false
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var listener: ListenerRegistration?
 
     func startListening(postId: String) {

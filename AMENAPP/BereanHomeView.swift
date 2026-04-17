@@ -184,7 +184,7 @@ struct BereanHomeView: View {
         }
         .onAppear { viewModel.refreshSessions() }
         .sheet(isPresented: $showNewChat) {
-            BereanAIAssistantView()
+            BereanChatView()
         }
         .sheet(isPresented: $showSettings) {
             BereanAISettingsView()

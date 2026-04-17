@@ -164,7 +164,7 @@ final class AMENConnectMembershipStore: ObservableObject {
     @Published var myListings: [UserMarketplaceListing] = []
     @Published var aiMatches: [AIConnectMatch] = []
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var listener: ListenerRegistration?
 
     private init() {}

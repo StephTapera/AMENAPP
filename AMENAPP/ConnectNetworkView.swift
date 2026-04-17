@@ -207,7 +207,7 @@ struct ConnectNetworkView: View {
             isLoading = false
             return
         }
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         do {
             let snap = try await db.collection("users")
                 .limit(to: 50)

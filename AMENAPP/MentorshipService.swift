@@ -11,8 +11,8 @@ final class MentorshipService: ObservableObject {
     static let shared = MentorshipService()
     private init() {}
 
-    private let db = Firestore.firestore()
-    private let functions = Functions.functions()
+    private lazy var db = Firestore.firestore()
+    private lazy var functions = Functions.functions()
 
     // MARK: - Mentors
     func fetchMentors(specialty: String? = nil) async throws -> [Mentor] {

@@ -81,7 +81,7 @@ struct PrivacySettingsView: View {
     @State private var showSuccessAlert = false
     @State private var errorMessage: String?
 
-    private let db = Firestore.firestore()
+    private var db: Firestore { Firestore.firestore() }
 
     var body: some View {
         privacyScrollView

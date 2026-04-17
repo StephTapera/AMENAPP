@@ -19,7 +19,7 @@ class SLOTracker {
     static let shared = SLOTracker()
 
     private var events: [String: (successes: Int, failures: Int)] = [:]
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     private init() {}
 

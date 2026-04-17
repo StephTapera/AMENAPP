@@ -78,7 +78,7 @@ class ViralityPredictorService {
     func loadPatterns() async {
         guard !patternsLoaded else { return }
 
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
 
         // Fetch last 500 posts with engagement data
         guard let snapshot = try? await db.collection("posts")

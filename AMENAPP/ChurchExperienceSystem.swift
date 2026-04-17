@@ -417,7 +417,7 @@ struct ChurchExperienceComposer: View {
                     VStack(spacing: 1) {
                         Text(churchName)
                             .font(AMENFont.semiBold(14))
-                            .foregroundStyle(Color.black)
+                            .foregroundStyle(.primary)
                         Text("Share your experience")
                             .font(AMENFont.regular(11))
                             .foregroundStyle(Color(white: 0.55))
@@ -476,7 +476,7 @@ struct ChurchExperienceComposer: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text("How was your visit overall?")
                     .font(AMENFont.bold(20))
-                    .foregroundStyle(Color.black)
+                    .foregroundStyle(.primary)
                     .padding(.horizontal, 24)
 
                 HStack(spacing: 8) {
@@ -496,7 +496,7 @@ struct ChurchExperienceComposer: View {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Would you return?")
                     .font(AMENFont.semiBold(16))
-                    .foregroundStyle(Color.black)
+                    .foregroundStyle(.primary)
                     .padding(.horizontal, 24)
 
                 HStack(spacing: 10) {
@@ -536,7 +536,7 @@ struct ChurchExperienceComposer: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text("What stood out?")
                     .font(AMENFont.semiBold(16))
-                    .foregroundStyle(Color.black)
+                    .foregroundStyle(.primary)
                     .padding(.horizontal, 24)
 
                 signalChipsGrid(signals: ChurchExperienceSignal.allCases.filter { $0.isPositive })
@@ -546,7 +546,7 @@ struct ChurchExperienceComposer: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Anything to note? (optional)")
                     .font(AMENFont.semiBold(16))
-                    .foregroundStyle(Color.black)
+                    .foregroundStyle(.primary)
                     .padding(.horizontal, 24)
 
                 signalChipsGrid(signals: ChurchExperienceSignal.allCases.filter { !$0.isPositive })
@@ -582,7 +582,7 @@ struct ChurchExperienceComposer: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Rate the experience")
                     .font(AMENFont.bold(20))
-                    .foregroundStyle(Color.black)
+                    .foregroundStyle(.primary)
                 Text("Optional — helps future visitors know what to expect.")
                     .font(AMENFont.regular(13))
                     .foregroundStyle(Color(white: 0.55))
@@ -614,7 +614,7 @@ struct ChurchExperienceComposer: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Who would you recommend this church for?")
                     .font(AMENFont.bold(20))
-                    .foregroundStyle(Color.black)
+                    .foregroundStyle(.primary)
                 Text("Select all that apply.")
                     .font(AMENFont.regular(13))
                     .foregroundStyle(Color(white: 0.55))
@@ -648,7 +648,7 @@ struct ChurchExperienceComposer: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Anything future visitors should know?")
                     .font(AMENFont.bold(20))
-                    .foregroundStyle(Color.black)
+                    .foregroundStyle(.primary)
                 Text("Optional — your own experience, your own words.")
                     .font(AMENFont.regular(13))
                     .foregroundStyle(Color(white: 0.55))
@@ -734,7 +734,7 @@ struct ChurchExperienceComposer: View {
             }
             TextEditor(text: text)
                 .font(AMENFont.regular(14))
-                .foregroundStyle(Color.black)
+                .foregroundStyle(.primary)
                 .frame(minHeight: minHeight)
                 .padding(8)
                 .scrollContentBackground(.hidden)
@@ -889,7 +889,7 @@ struct ChurchExperienceConcernFlow: View {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Report a concern")
                                 .font(AMENFont.bold(22))
-                                .foregroundStyle(Color.black)
+                                .foregroundStyle(.primary)
                             Text("This will be sent privately to the AMEN moderation team. It will not be published.")
                                 .font(AMENFont.regular(14))
                                 .foregroundStyle(Color(white: 0.5))
@@ -905,12 +905,12 @@ struct ChurchExperienceConcernFlow: View {
                                     HStack {
                                         Text(cat.rawValue)
                                             .font(AMENFont.regular(15))
-                                            .foregroundStyle(Color.black)
+                                            .foregroundStyle(.primary)
                                         Spacer()
                                         if selectedCategory == cat {
                                             Image(systemName: "checkmark")
                                                 .font(.systemScaled(13, weight: .semibold))
-                                                .foregroundStyle(Color.black)
+                                                .foregroundStyle(.primary)
                                         }
                                     }
                                     .padding(.horizontal, 18)
@@ -938,7 +938,7 @@ struct ChurchExperienceConcernFlow: View {
                                 }
                                 TextEditor(text: $concernText)
                                     .font(AMENFont.regular(14))
-                                    .foregroundStyle(Color.black)
+                                    .foregroundStyle(.primary)
                                     .frame(minHeight: 120)
                                     .padding(8)
                                     .scrollContentBackground(.hidden)
@@ -981,7 +981,7 @@ struct ChurchExperienceConcernFlow: View {
                 ToolbarItem(placement: .principal) {
                     Text(churchName)
                         .font(AMENFont.semiBold(14))
-                        .foregroundStyle(Color.black)
+                        .foregroundStyle(.primary)
                 }
             }
         }
@@ -1027,7 +1027,7 @@ struct ChurchReputationCard: View {
             HStack {
                 Text("Visitor insights")
                     .font(AMENFont.bold(16))
-                    .foregroundStyle(Color.black)
+                    .foregroundStyle(.primary)
                 Spacer()
                 if !publishedEntries.isEmpty {
                     Text("\(publishedEntries.count) visit\(publishedEntries.count == 1 ? "" : "s")")
@@ -1108,7 +1108,7 @@ struct ChurchReputationCard: View {
             Button(action: onShareExperience) {
                 Text("Share your experience")
                     .font(AMENFont.semiBold(14))
-                    .foregroundStyle(Color.black)
+                    .foregroundStyle(.primary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 11)
                     .glassCard(cornerRadius: 12)
@@ -1179,7 +1179,7 @@ struct ChurchExperienceListView: View {
             if !publishedEntries.isEmpty {
                 Text("Visitor experiences")
                     .font(AMENFont.bold(16))
-                    .foregroundStyle(Color.black)
+                    .foregroundStyle(.primary)
                     .padding(.horizontal, 2)
 
                 ForEach(publishedEntries) { entry in
@@ -1218,7 +1218,7 @@ struct ChurchExperienceListView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(entry.authorName)
                         .font(AMENFont.semiBold(13))
-                        .foregroundStyle(Color.black)
+                        .foregroundStyle(.primary)
                     Text(entry.isFirstTimeVisitor ? "First-time visitor" : "Returning visitor")
                         .font(AMENFont.regular(11))
                         .foregroundStyle(Color(white: 0.55))

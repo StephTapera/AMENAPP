@@ -127,7 +127,7 @@ final class AMENConnectAIMatchEngine {
 
     func scanRecentPostsForCurrentUser() async -> [AIConnectMatch] {
         guard let uid = Auth.auth().currentUser?.uid else { return [] }
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         do {
             let snap = try await db.collection("posts")
                 .whereField("authorId", isEqualTo: uid)
@@ -154,7 +154,7 @@ final class AMENConnectAIMatchEngine {
 
         // Store intent signals to Firestore
         guard let uid = Auth.auth().currentUser?.uid else { return }
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         for match in matches.prefix(3) {
             var signal = IntentSignal()
             signal.uid = uid

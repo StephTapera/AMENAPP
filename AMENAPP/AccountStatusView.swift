@@ -67,7 +67,7 @@ struct AccountStatusView: View {
     @State private var selectedAction: ModerationHistoryAction?
     @State private var showAppealSheet = false
 
-    private let db = Firestore.firestore()
+    private var db: Firestore { Firestore.firestore() }
 
     var body: some View {
         ScrollView {
@@ -404,7 +404,7 @@ struct AppealSubmissionSheet: View {
     @State private var showConfirmation = false
     @State private var errorMessage: String?
 
-    private let db = Firestore.firestore()
+    private var db: Firestore { Firestore.firestore() }
 
     var body: some View {
         NavigationStack {

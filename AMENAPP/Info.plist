@@ -50,21 +50,29 @@
 		<string>fetch</string>
 		<string>processing</string>
 	</array>
+	<!-- API keys come from Config.xcconfig (gitignored). Values are substituted at
+	     build time via $(VAR_NAME). Never hardcode secrets in Info.plist directly —
+	     they are readable from the app bundle with `strings` or `plutil`. -->
 	<key>FEED_RANKING_URL</key>
 	<string>$(FEED_RANKING_URL)</string>
 	<key>SEARCH_SERVICE_URL</key>
 	<string>$(SEARCH_SERVICE_URL)</string>
 	<key>YOUVERSION_API_KEY</key>
 	<string>$(YOUVERSION_API_KEY)</string>
-	<!-- REVENUECAT_API_KEY intentionally removed — StudioSubscriptionService is disabled.
-	     PremiumManager (StoreKit 2) is the single source of truth for all entitlements.
-	     If RevenueCat is re-enabled, key must be set in Secrets.xcconfig, not Info.plist. -->
 	<key>YOUTUBE_API_KEY</key>
 	<string>$(YOUTUBE_API_KEY)</string>
 	<key>SPOTIFY_CLIENT_ID</key>
 	<string>$(SPOTIFY_CLIENT_ID)</string>
 	<key>SPOTIFY_CLIENT_SECRET</key>
 	<string>$(SPOTIFY_CLIENT_SECRET)</string>
+	<key>GOOGLE_VISION_API_KEY</key>
+	<string>$(GOOGLE_VISION_API_KEY)</string>
+	<key>VERTEX_AI_KEY</key>
+	<string>$(VERTEX_AI_KEY)</string>
+	<key>CLAUDE_API_KEY</key>
+	<string>$(CLAUDE_API_KEY)</string>
+	<key>OPENAI_API_KEY</key>
+	<string>$(OPENAI_API_KEY)</string>
 	<key>NSUserActivityTypes</key>
 	<array>
 		<string>INSendMessageIntent</string>
@@ -79,6 +87,8 @@
 	<string>AMEN uses the camera to take photos for posts, messages, and your profile picture.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>AMEN uses your location to find nearby churches and faith communities.</string>
+	<key>NSContactsUsageDescription</key>
+	<string>AMEN uses your contacts to help you find friends who are already on the app. No contact information is stored on our servers.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>AMEN uses the microphone to let you compose posts, prayers, and messages by voice.</string>
 	<key>NSCalendarsUsageDescription</key>

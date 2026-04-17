@@ -14,11 +14,16 @@ struct SupportSignal: Identifiable, Codable, Sendable {
     var signalType: SupportSignalType
     var sourceType: String             // "post", "prayer", "note", "behavior", "search"
     var sourceId: String?              // Opaque reference only (no raw content)
+    var surface: SupportSurface?
     var weight: Double                 // Adjusted weight 0.0–1.0
     var confidence: Double             // Classifier confidence 0.0–1.0
+    var domains: [ResourceSupportDomain]
     var themes: [SupportTheme]
+    var riskTier: SupportRiskTier?
+    var helpingSomeoneElse: Bool
     var direction: SignalDirection
     var reasonCode: SupportReasonCode
+    var reasoningCodes: [SupportReasonCode]
     var createdAt: Date
     var expiresAt: Date?
 
@@ -41,9 +46,14 @@ extension SupportSignal {
         type: SupportSignalType,
         sourceType: String,
         sourceId: String? = nil,
+        surface: SupportSurface? = nil,
+        domains: [ResourceSupportDomain] = [],
         themes: [SupportTheme] = [],
         confidence: Double = 0.7,
         reasonCode: SupportReasonCode = .recentVulnerablePost,
+        reasoningCodes: [SupportReasonCode] = [],
+        riskTier: SupportRiskTier? = nil,
+        helpingSomeoneElse: Bool = false,
         ttlDays: Int = 14
     ) -> SupportSignal {
         SupportSignal(
@@ -51,11 +61,16 @@ extension SupportSignal {
             signalType: type,
             sourceType: sourceType,
             sourceId: sourceId,
+            surface: surface,
             weight: type.defaultWeight,
             confidence: confidence,
+            domains: domains,
             themes: themes,
+            riskTier: riskTier,
+            helpingSomeoneElse: helpingSomeoneElse,
             direction: type.direction,
             reasonCode: reasonCode,
+            reasoningCodes: reasoningCodes.isEmpty ? [reasonCode] : reasoningCodes,
             createdAt: Date(),
             expiresAt: Calendar.current.date(byAdding: .day, value: ttlDays, to: Date())
         )

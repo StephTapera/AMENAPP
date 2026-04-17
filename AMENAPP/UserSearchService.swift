@@ -17,7 +17,7 @@ import Combine
 class UserSearchService: ObservableObject {
     static let shared = UserSearchService()
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private let searchResultsLimit = 50
     
     @Published var searchResults: [FirebaseSearchUser] = []

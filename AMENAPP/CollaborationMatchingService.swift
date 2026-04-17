@@ -22,7 +22,7 @@ class CollaborationMatchingService: ObservableObject {
     @Published var suggestedCollaborators: [UserMatch] = []
     @Published var isLoading = false
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private let filteringService = SmartIdeaFilteringService.shared
     
     // MARK: - User Match Model

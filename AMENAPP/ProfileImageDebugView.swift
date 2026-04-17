@@ -96,7 +96,7 @@ struct ProfileImageDebugView: View {
         }
         
         do {
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
             let userDoc = try await db.collection("users").document(userId).getDocument()
             
             if let userData = userDoc.data() {

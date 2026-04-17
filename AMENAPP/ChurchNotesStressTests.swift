@@ -203,7 +203,7 @@ class ChurchNotesStressTests: ObservableObject {
         // Note: Actual offline testing requires network simulation
         // This tests that Firestore offline persistence is enabled
         
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         let settings = db.settings
         
         guard settings.cacheSettings is PersistentCacheSettings else {

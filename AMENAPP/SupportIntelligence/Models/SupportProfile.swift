@@ -29,11 +29,15 @@ struct SupportProfile: Codable, Sendable {
 
     // MARK: - Resource Priority
     var resourcePriority: [String]             // Ordered list of resource type keys
+    var recommendedDomains: [ResourceSupportDomain]
+    var suggestedActions: [SupportAction]
 
     // MARK: - Mode
     var givingSuppressed: Bool
     var supportMode: SupportMode
     var forFriendModeEligible: Bool
+    var trustedContactsEnabled: Bool
+    var followUpsEnabled: Bool
 
     // MARK: - Meta
     var lastAnalyzedAt: Date?
@@ -58,9 +62,13 @@ struct SupportProfile: Codable, Sendable {
             promptCooldownUntil: nil,
             promptFatigueScore: 0.0,
             resourcePriority: [],
+            recommendedDomains: [],
+            suggestedActions: [],
             givingSuppressed: false,
             supportMode: .quietMonitoring,
             forFriendModeEligible: false,
+            trustedContactsEnabled: false,
+            followUpsEnabled: false,
             lastAnalyzedAt: nil,
             lastEscalatedAt: nil,
             lastDeescalatedAt: nil,

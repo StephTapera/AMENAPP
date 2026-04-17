@@ -79,7 +79,7 @@ struct TappableUserHeader: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(authorName)
                         .font(.custom("OpenSans-Bold", size: 15))
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.primary)
                     
                     Text(timeAgo)
                         .font(.custom("OpenSans-Regular", size: 13))
@@ -121,7 +121,7 @@ struct TappableAvatarName: View {
                 
                 Text(name)
                     .font(.custom("OpenSans-Bold", size: 14))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
             }
         }
         .buttonStyle(PlainButtonStyle())

@@ -9,7 +9,7 @@
 
 import Foundation
 import Combine
-import Search
+import AlgoliaSearch
 
 // MARK: - AnyCodable → [String: Any] helper
 // AnyCodable's inner `.value` lives in the `Core` module which cannot be imported directly.
@@ -37,7 +37,23 @@ class AlgoliaSearchService: ObservableObject {
     // In-flight task tracking — cancels previous search before starting a new one
     // to prevent noReachableHosts errors from concurrent cancelled requests.
     private var activeSearchTask: Task<Void, Never>?
-    
+
+    // MEDIUM FIX: 5-minute result cache for user-suggestion and post-search queries.
+    // Typing "christian podcasts" (18 chars) previously fired up to 18 Algolia RPCs.
+    // With the 350ms debounce in DiscoveryService the hot path is already reduced, but
+    // clearing and re-typing the same query still misses the debounce window.
+    // The cache key is "<method>:<query_lowercased>" so suggestion + full-search hits
+    // share independent entries. TTL is 300s — short enough to stay fresh, long enough
+    // to eliminate duplicate calls within a single search session.
+    private struct CacheEntry<T> {
+        let value: T
+        let expiry: Date
+        var isExpired: Bool { Date() > expiry }
+    }
+    private var suggestionsCache: [String: CacheEntry<[AlgoliaUserSuggestion]>] = [:]
+    private var userSearchCache:  [String: CacheEntry<[AlgoliaUser]>] = [:]
+    private let cacheTTL: TimeInterval = 300   // 5 minutes
+
     private init() {
         setupAlgoliaClient()
     }
@@ -78,6 +94,12 @@ class AlgoliaSearchService: ObservableObject {
 
         // Bail out immediately if a newer search has already cancelled this task.
         try Task.checkCancellation()
+
+        // Serve from cache when available (same query re-typed within 5 minutes).
+        let cacheKey = "suggest:\(query.lowercased())"
+        if let hit = suggestionsCache[cacheKey], !hit.isExpired {
+            return hit.value
+        }
 
         guard let client = client else {
             throw NSError(
@@ -131,6 +153,8 @@ class AlgoliaSearchService: ObservableObject {
                 )
             }
             
+            // Store in cache before returning so re-typed queries skip the RPC.
+            suggestionsCache[cacheKey] = CacheEntry(value: suggestions, expiry: Date().addingTimeInterval(cacheTTL))
             return suggestions
             
         } catch is CancellationError {
@@ -152,6 +176,12 @@ class AlgoliaSearchService: ObservableObject {
 
         // Bail out immediately if a newer search has already cancelled this task.
         try Task.checkCancellation()
+
+        // Serve from cache for repeated identical queries within the TTL window.
+        let cacheKey = "users:\(query.lowercased())"
+        if let hit = userSearchCache[cacheKey], !hit.isExpired {
+            return hit.value
+        }
 
         guard let client = client else {
             throw NSError(
@@ -215,6 +245,7 @@ class AlgoliaSearchService: ObservableObject {
             }
             
             dlog("✅ Algolia found \(users.count) users for '\(query)'")
+            userSearchCache[cacheKey] = CacheEntry(value: users, expiry: Date().addingTimeInterval(cacheTTL))
             return users
 
         } catch is CancellationError {

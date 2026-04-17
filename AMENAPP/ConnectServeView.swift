@@ -234,7 +234,7 @@ struct ConnectServeView: View {
     // MARK: - Data
 
     private func loadOpportunities() async {
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         do {
             let snap = try await db.collection("serveOpportunities")
                 .order(by: "createdAt", descending: true)
@@ -254,7 +254,7 @@ struct ConnectServeView: View {
         guard let uid = Auth.auth().currentUser?.uid else { return }
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         Task {
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
             // Store signup in a subcollection to avoid unbounded in-document array.
             try? await db.collection("serveOpportunities").document(opp.id)
                 .collection("signups").document(uid)
@@ -334,7 +334,7 @@ struct CreateServeSheet: View {
             spotsAvailable: Int(spots) ?? 0
         )
         Task {
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
             let encoded = try? Firestore.Encoder().encode(opp)
             if let encoded {
                 try? await db.collection("serveOpportunities").document(opp.id).setData(encoded)

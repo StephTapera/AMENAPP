@@ -12,7 +12,6 @@ struct PrayerStatusTrackView: View {
     @State private var isUpdating = false
     @State private var pulseScale: CGFloat = 1.0
 
-    private let db = Firestore.firestore()
     private let stages = ["praying", "believing", "answered"]
     private let stageLabels = ["Praying", "Believing", "Answered"]
     private let charcoal = Color(red: 0.110, green: 0.110, blue: 0.102) // #1c1c1a
@@ -181,7 +180,7 @@ struct PrayerStatusTrackView: View {
         status = newStatus
         Task {
             defer { isUpdating = false }
-            try? await db.collection("posts").document(post.firestoreId)
+            try? await Firestore.firestore().collection("posts").document(post.firestoreId)
                 .updateData(["prayerStatus": newStatus])
             if newStatus == "answered" { onAnswered() }
         }

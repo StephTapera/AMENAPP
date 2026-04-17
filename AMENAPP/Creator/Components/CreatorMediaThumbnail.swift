@@ -27,7 +27,7 @@ struct CreatorMediaThumbnail: View {
                                 .scaledToFill()
                         case .failure:
                             Image(systemName: "photo")
-                                .foregroundStyle(Color.black.opacity(0.4))
+                                .foregroundStyle(.secondary)
                         @unknown default:
                             EmptyView()
                         }

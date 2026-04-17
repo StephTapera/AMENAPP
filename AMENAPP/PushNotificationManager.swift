@@ -22,7 +22,7 @@ class PushNotificationManager: NSObject, ObservableObject {
     @Published var fcmToken: String?
     @Published var notificationPermissionGranted = false
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var fcmTokenObserver: NSObjectProtocol?
     
     // P0 FIX: Prevent duplicate FCM setup

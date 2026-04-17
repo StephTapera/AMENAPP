@@ -17,7 +17,7 @@ import FirebaseAuth
 class SampleDataGenerator {
     static let shared = SampleDataGenerator()
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     // MARK: - Sample Posts Data
 

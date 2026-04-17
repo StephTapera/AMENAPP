@@ -105,7 +105,7 @@ struct AmenOptionsSheet: View {
                             if let title {
                                 Text(title)
                                     .font(.systemScaled(18, weight: .semibold))
-                                    .foregroundStyle(.black)
+                                    .foregroundStyle(.primary)
                             }
                             if let subtitle {
                                 Text(subtitle)

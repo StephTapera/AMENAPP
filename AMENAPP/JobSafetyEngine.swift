@@ -96,7 +96,7 @@ struct JobSafetyScore {
 final class JobSafetyEngine {
     static let shared = JobSafetyEngine()
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var cachedDecisions: [String: (JobSafetyDecision, Date)] = [:]
     private let cacheTTL: TimeInterval = 300  // 5 minutes
 

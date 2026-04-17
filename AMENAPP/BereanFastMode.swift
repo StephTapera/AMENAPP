@@ -79,7 +79,7 @@ class BereanFastMode: ObservableObject {
     // Multi-tier cache
     private var memoryCache: [String: CachedBereanAnswer] = [:]
     private var localVerseCache: [String: LocalVerseSnippet] = [:]
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     // Cache configuration
     private let memoryCacheTTL: TimeInterval = 3600      // 1 hour

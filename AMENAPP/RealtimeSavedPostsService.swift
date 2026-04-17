@@ -226,9 +226,13 @@ class RealtimeSavedPostsService: ObservableObject {
                 if let post = try await FirebasePostService.shared.fetchPostById(postId: postId) {
                     posts.append(post)
                 } else {
-                    // Post document doesn't exist (deleted or not found) — remove stale save record
+                    // Post was deleted — remove the stale RTDB entry so it doesn't
+                    // reappear on the next launch and waste Firestore reads.
                     dlog("⚠️ Post \(postId) not found in Firestore — removing from saved cache")
                     await MainActor.run { savedPostIds.remove(postId) }
+                    if let userId = Auth.auth().currentUser?.uid {
+                        try? await database.child("user_saved_posts").child(userId).child(postId).removeValue()
+                    }
                 }
             } catch let error as NSError {
                 // ✅ Handle offline errors gracefully

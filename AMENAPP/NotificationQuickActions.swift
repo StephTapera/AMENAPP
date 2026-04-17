@@ -20,7 +20,7 @@ class NotificationQuickReplyService: ObservableObject {
     @Published var isPosting = false
     @Published var error: NotificationQuickReplyError?
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private let interactionsService = PostInteractionsService.shared
     
     private init() {}

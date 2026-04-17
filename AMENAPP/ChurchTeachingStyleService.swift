@@ -56,7 +56,7 @@ final class ChurchTeachingStyleService: ObservableObject {
     @Published var isLoading = false
 
     private let db        = Firestore.firestore()
-    private let functions = Functions.functions()
+    private lazy var functions = Functions.functions()
 
     // MARK: - Load
 

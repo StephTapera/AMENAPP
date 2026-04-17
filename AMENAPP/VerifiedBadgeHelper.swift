@@ -26,7 +26,7 @@ class VerifiedBadgeHelper: ObservableObject {
     // Cache of verified users to avoid repeated Firestore queries
     @Published private var verifiedUsersCache: [String: VerificationType] = [:]
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     private init() {}
     

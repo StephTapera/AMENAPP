@@ -10,15 +10,35 @@ import FirebaseFunctions
 
 @MainActor
 class ReasoningViewModel: ObservableObject {
+    enum ThreadLoadState: Equatable {
+        case idle
+        case loading
+        case loaded
+        case empty
+        case unavailable(message: String)
+        case error(message: String)
+    }
+
+    enum SubmissionState: Equatable {
+        case idle
+        case posting
+        case success(nodeId: String?)
+        case pendingModeration
+        case failed(message: String)
+    }
+
     @Published var discussion: Discussion = .empty
     @Published var nodes: [DiscussionNode] = []
     @Published var isLoadingFrame = false
     @Published var isPostingNode = false
     @Published var manipulationFlags: [String] = []
+    @Published var loadState: ThreadLoadState = .idle
+    @Published var submissionState: SubmissionState = .idle
+    @Published var threadOpenEntrySource: String?
 
     let postId: String
     let postText: String
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var discussionListener: ListenerRegistration?
     private var nodesListener: ListenerRegistration?
 
@@ -37,6 +57,8 @@ class ReasoningViewModel: ObservableObject {
     // MARK: - Load or Create Discussion
 
     func loadOrCreate() async {
+        loadState = .loading
+        track("thread_viewed", ["postId": postId, "source": threadOpenEntrySource ?? "unknown"])
         // Check if discussion exists for this post
         let snap = try? await db.collection("discussions")
             .whereField("originalPostId", isEqualTo: postId)
@@ -46,7 +68,9 @@ class ReasoningViewModel: ObservableObject {
         if let doc = snap?.documents.first,
            let disc = try? doc.data(as: Discussion.self) {
             discussion = disc
+            discussion.id = doc.documentID
             startListeningToNodes(discussionId: doc.documentID)
+            loadState = .loaded
         } else {
             // Create new — generate AI frame
             await generateDiscussionFrame()
@@ -55,6 +79,7 @@ class ReasoningViewModel: ObservableObject {
 
     private func generateDiscussionFrame() async {
         isLoadingFrame = true
+        loadState = .loading
         defer { isLoadingFrame = false }
 
         let system = """
@@ -78,7 +103,10 @@ class ReasoningViewModel: ObservableObject {
               let text = dict["text"] as? String,
               let data = text.data(using: .utf8),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-        else { return }
+        else {
+            loadState = .error(message: "We couldn’t build this discussion right now.")
+            return
+        }
 
         let claim       = json["claim"] as? String ?? postText.prefix(100).description
         let steelFor    = json["steelManFor"] as? String ?? ""
@@ -104,7 +132,9 @@ class ReasoningViewModel: ObservableObject {
             aiFactualVsValues: fvv, viewUpdateCount: 0,
             participantIds: [], status: .open
         )
+        discussion.id = ref.documentID
         startListeningToNodes(discussionId: ref.documentID)
+        loadState = .loaded
     }
 
     private func startListeningToNodes(discussionId: String) {
@@ -118,6 +148,9 @@ class ReasoningViewModel: ObservableObject {
                         self?.nodes = snap?.documents.compactMap {
                             try? $0.data(as: DiscussionNode.self)
                         } ?? []
+                        if let strongSelf = self {
+                            strongSelf.loadState = strongSelf.nodes.isEmpty ? .empty : .loaded
+                        }
                     }
                 }
             }
@@ -126,6 +159,7 @@ class ReasoningViewModel: ObservableObject {
     // MARK: - Pre-screen argument for manipulation
 
     func screenArgument(_ text: String) async {
+        track("check_argument_tapped", ["postId": postId, "length": "\(text.count)"])
         manipulationFlags = []
         let system = """
         You are a logical integrity checker. Identify any logical fallacies in this argument. \
@@ -140,21 +174,33 @@ class ReasoningViewModel: ObservableObject {
               let raw = dict["text"] as? String,
               let data = raw.data(using: .utf8),
               let flags = try? JSONSerialization.jsonObject(with: data) as? [String]
-        else { return }
+        else {
+            track("check_argument_failed", ["postId": postId])
+            return
+        }
         manipulationFlags = flags
+        track("check_argument_completed", ["postId": postId, "flagCount": "\(flags.count)"])
     }
 
     // MARK: - Post argument node
 
-    func postNode(claim: String, evidence: [String], type: DiscussionNode.NodeType, parentId: String?) async {
+    @discardableResult
+    func postNode(claim: String, evidence: [String], type: DiscussionNode.NodeType, parentId: String?) async -> SubmissionState {
         guard let uid = Auth.auth().currentUser?.uid,
-              let discussionId = discussion.id else { return }
+              let discussionId = discussion.id else {
+            let failed: SubmissionState = .failed(message: "This discussion is unavailable right now.")
+            submissionState = failed
+            return failed
+        }
         isPostingNode = true
+        submissionState = .posting
         defer { isPostingNode = false }
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        track("post_attempted", ["postId": postId, "type": type.rawValue])
 
         let depth = parentId == nil ? 0 : (nodes.first { $0.id == parentId }?.depth ?? 0) + 1
-        try? await db.collection("discussionNodes").addDocument(data: [
+        do {
+            let doc = try await db.collection("discussionNodes").addDocument(data: [
             "discussionId": discussionId,
             "authorId": uid,
             "parentNodeId": parentId as Any,
@@ -167,9 +213,24 @@ class ReasoningViewModel: ObservableObject {
             "createdAt": FieldValue.serverTimestamp()
         ])
 
-        if type == .viewUpdate {
-            try? await db.collection("discussions").document(discussionId)
-                .updateData(["viewUpdateCount": FieldValue.increment(Int64(1))])
+            if type == .viewUpdate {
+                try? await db.collection("discussions").document(discussionId)
+                    .updateData(["viewUpdateCount": FieldValue.increment(Int64(1))])
+            }
+
+            let result: SubmissionState = manipulationFlags.isEmpty ? .success(nodeId: doc.documentID) : .pendingModeration
+            submissionState = result
+            track("post_succeeded", [
+                "postId": postId,
+                "type": type.rawValue,
+                "pendingModeration": manipulationFlags.isEmpty ? "false" : "true"
+            ])
+            return result
+        } catch {
+            let failed = SubmissionState.failed(message: "We couldn’t post your view. Try again.")
+            submissionState = failed
+            track("post_failed", ["postId": postId, "type": type.rawValue])
+            return failed
         }
     }
 
@@ -178,6 +239,25 @@ class ReasoningViewModel: ObservableObject {
     func upvote(nodeId: String) async {
         try? await db.collection("discussionNodes").document(nodeId)
             .updateData(["votes": FieldValue.increment(Int64(1))])
+    }
+
+    func resetSubmissionState() {
+        submissionState = .idle
+    }
+
+    func retryLoad() async {
+        discussion = .empty
+        nodes = []
+        discussionListener?.remove()
+        nodesListener?.remove()
+        discussionListener = nil
+        nodesListener = nil
+        await loadOrCreate()
+    }
+
+    private func track(_ event: String, _ properties: [String: String] = [:]) {
+        let payload = properties.map { "\($0.key)=\($0.value)" }.joined(separator: " ")
+        dlog("[DiscussionThread] \(event) \(payload)")
     }
 
     deinit {

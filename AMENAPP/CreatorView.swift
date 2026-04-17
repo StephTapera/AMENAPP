@@ -118,7 +118,7 @@ final class CreatorStore: ObservableObject {
     @Published var followedCreatorIDs: Set<String> = []
     @Published var isLoading = false
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var listeners: [ListenerRegistration] = []
 
     private init() {}

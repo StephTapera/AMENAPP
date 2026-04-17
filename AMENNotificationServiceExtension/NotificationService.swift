@@ -2,34 +2,61 @@
 //  NotificationService.swift
 //  AMENNotificationServiceExtension
 //
-//  Created by Steph on 3/19/26.
+//  Mutates incoming push payloads for safe preview display.
 //
 
 import UserNotifications
 
-class NotificationService: UNNotificationServiceExtension {
+final class AMENNotificationServiceExtensionHandler: UNNotificationServiceExtension {
+    private var contentHandler: ((UNNotificationContent) -> Void)?
+    private var bestAttemptContent: UNMutableNotificationContent?
 
-    var contentHandler: ((UNNotificationContent) -> Void)?
-    var bestAttemptContent: UNMutableNotificationContent?
-
-    override func didReceive(_ request: UNNotificationRequest, withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void) {
+    override func didReceive(
+        _ request: UNNotificationRequest,
+        withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void
+    ) {
         self.contentHandler = contentHandler
         bestAttemptContent = (request.content.mutableCopy() as? UNMutableNotificationContent)
-        
-        if let bestAttemptContent = bestAttemptContent {
-            // Modify the notification content here...
-            bestAttemptContent.title = "\(bestAttemptContent.title) [modified]"
-            
-            contentHandler(bestAttemptContent)
+
+        guard let bestAttemptContent else {
+            contentHandler(request.content)
+            return
         }
+
+        let userInfo = bestAttemptContent.userInfo
+        let safetyState = (userInfo["safetyState"] as? String) ?? "clear"
+
+        if safetyState == "guarded" || safetyState == "moderated" || safetyState == "restricted" {
+            bestAttemptContent.body = "Open AMEN to review this update safely."
+        }
+
+        if let actorName = userInfo["actorName"] as? String,
+           let type = userInfo["type"] as? String,
+           bestAttemptContent.title == "AMEN" {
+            bestAttemptContent.title = title(for: type, actorName: actorName)
+        }
+
+        contentHandler(bestAttemptContent)
     }
-    
+
     override func serviceExtensionTimeWillExpire() {
-        // Called just before the extension will be terminated by the system.
-        // Use this as an opportunity to deliver your "best attempt" at modified content, otherwise the original push payload will be used.
-        if let contentHandler = contentHandler, let bestAttemptContent =  bestAttemptContent {
+        if let contentHandler, let bestAttemptContent {
             contentHandler(bestAttemptContent)
         }
     }
 
+    private func title(for type: String, actorName: String) -> String {
+        switch type {
+        case "new_message", "message", "message_request":
+            return "\(actorName) sent you a message"
+        case "reply_to_comment", "reply":
+            return "\(actorName) replied to you"
+        case "comment_on_post", "comment":
+            return "\(actorName) commented on your post"
+        case "follow", "follow_request_approved":
+            return "\(actorName) interacted with you"
+        default:
+            return "AMEN"
+        }
+    }
 }

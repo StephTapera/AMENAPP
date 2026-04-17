@@ -119,7 +119,7 @@ final class StudioSubscriptionService: ObservableObject {
     var packages: [Package] { offerings?.current?.availablePackages ?? [] }
     #endif
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     private init() {
         configureRevenueCat()

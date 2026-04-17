@@ -64,7 +64,7 @@ class SocialLinksService: ObservableObject {
     @Published var isLoading = false
     @Published var error: String?
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private let firebaseManager = FirebaseManager.shared
     
     private init() {}

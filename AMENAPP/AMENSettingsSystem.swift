@@ -2131,15 +2131,40 @@ struct FamilySafetySettingsView: View {
 // MARK: - 14. Support & Transparency
 
 struct SupportTransparencySettingsView: View {
+    @Environment(\.openURL) private var openURL
+
+    private let helpCenterURL = URL(string: "https://amenapp.com/help")!
+
+    private func openSupportEmail(subject: String, body: String) {
+        let subjectEncoded = subject.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        let bodyEncoded = body.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        guard let url = URL(string: "mailto:support@amenapp.com?subject=\(subjectEncoded)&body=\(bodyEncoded)") else {
+            return
+        }
+        openURL(url)
+    }
+
     var body: some View {
         STDetailScaffold(title: "Support & Transparency") {
             SettingsSectionHeader(title: "Help")
             STGroup {
-                SettingsNavigationRow(icon: "questionmark.circle", title: "Help Center", badge: "Web")
+                SettingsNavigationRow(icon: "questionmark.circle", title: "Help Center", badge: "Web") {
+                    openURL(helpCenterURL)
+                }
                 STDivider()
-                SettingsNavigationRow(icon: "flag", title: "Report a Problem", subtitle: "Bugs, feedback, abuse")
+                SettingsNavigationRow(icon: "flag", title: "Report a Problem", subtitle: "Bugs, feedback, abuse") {
+                    openSupportEmail(
+                        subject: "AMEN App Problem Report",
+                        body: "Describe the issue you ran into:\n\nDevice:\niOS Version:\nSteps to reproduce:\n"
+                    )
+                }
                 STDivider()
-                Button {} label: {
+                Button {
+                    openSupportEmail(
+                        subject: "AMEN Support Request",
+                        body: "How can we help?\n\n"
+                    )
+                } label: {
                     HStack(spacing: 14) {
                         Image(systemName: "envelope")
                             .font(.systemScaled(15, weight: .medium))

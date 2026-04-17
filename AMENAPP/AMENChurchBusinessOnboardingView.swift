@@ -89,7 +89,7 @@ final class ChurchBusinessOnboardingViewModel: ObservableObject {
         defer { isSubmitting = false }
         
         do {
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
             
             // Create organization profile document
             let orgData: [String: Any] = [

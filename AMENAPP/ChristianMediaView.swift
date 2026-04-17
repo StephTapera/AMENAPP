@@ -119,7 +119,7 @@ struct ChristianMediaView: View {
                 }
             }
         }
-        .preferredColorScheme(.light)
+        .preferredColorScheme(nil)
         .sheet(isPresented: $showBereanSheet) {
             BereanAIAssistantView(initialQuery: bereanQuery)
         }

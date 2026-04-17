@@ -18,7 +18,7 @@ import Combine
 class ActionableNotificationService: ObservableObject {
     static let shared = ActionableNotificationService()
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private let router = SmartNotificationRouter.shared
 
     // MARK: - Public Send API

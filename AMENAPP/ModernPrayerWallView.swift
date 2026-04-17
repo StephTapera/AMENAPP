@@ -88,6 +88,9 @@ struct ModernPrayerWallView: View {
                 }
                 .padding(.vertical)
             }
+            .refreshable {
+                await viewModel.loadPrayers()
+            }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -307,12 +310,18 @@ private struct ModernPrayerCard: View {
 
 private struct NewPrayerSheet: View {
     @Environment(\.dismiss) var dismiss
+    @ObservedObject private var supportDetectionService = SupportDetectionService.shared
+    @ObservedObject private var supportActionExecutor = SupportActionExecutor.shared
     let onSubmit: (String, PrayerWallCategory, Bool) async -> Void
     
     @State private var content = ""
     @State private var selectedCategory: PrayerWallCategory = .requests
     @State private var isAnonymous = false
     @State private var isSubmitting = false
+    @State private var supportDraftTask: Task<Void, Never>?
+    @State private var supportDraftPayload: SupportInterventionPayload?
+    @State private var showSupportDraftSheet = false
+    @State private var bypassSupportGate = false
     
     var body: some View {
         NavigationStack {
@@ -321,8 +330,33 @@ private struct NewPrayerSheet: View {
                     TextEditor(text: $content)
                         .frame(minHeight: 150)
                         .font(.custom("OpenSans-Regular", size: 15))
+                        .onChange(of: content) { _, newValue in
+                            scheduleSupportDraftAnalysis(for: newValue)
+                        }
                 } header: {
                     Text("Your Prayer")
+                }
+
+                if let payload = supportDraftPayload {
+                    Section {
+                        switch payload.presentationMode {
+                        case .chips(let chips):
+                            SupportChipsRowView(
+                                chips: chips,
+                                onTap: handleSupportAction(_:),
+                                onDismiss: dismissSupportPrompt
+                            )
+                        case .inlineCard(let model):
+                            SupportInlineCardView(
+                                model: model,
+                                actions: payload.actions,
+                                onTap: handleSupportAction(_:),
+                                onDismiss: dismissSupportPrompt
+                            )
+                        case .none, .sheet:
+                            EmptyView()
+                        }
+                    }
                 }
                 
                 Section {
@@ -348,6 +382,11 @@ private struct NewPrayerSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Post") {
                         Task {
+                            let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
+                            if shouldPresentSupportGate(for: trimmed) {
+                                showSupportDraftSheet = true
+                                return
+                            }
                             isSubmitting = true
                             await onSubmit(content, selectedCategory, isAnonymous)
                             dismiss()
@@ -357,6 +396,87 @@ private struct NewPrayerSheet: View {
                 }
             }
         }
+        .sheet(isPresented: $showSupportDraftSheet) {
+            if let payload = supportDraftPayload,
+               case .sheet(let model) = payload.presentationMode {
+                SupportInterventionSheetView(
+                    model: model,
+                    actions: payload.actions,
+                    onAction: handleSupportAction(_:),
+                    onDismiss: dismissSupportPrompt,
+                    onContinue: continueAfterSupportPrompt
+                )
+            }
+        }
+        .onDisappear {
+            supportDraftTask?.cancel()
+            supportDraftTask = nil
+        }
+        .supportDestinationSheet()
+    }
+
+    private func scheduleSupportDraftAnalysis(for text: String) {
+        supportDraftTask?.cancel()
+        bypassSupportGate = false
+
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            supportDraftPayload = nil
+            return
+        }
+
+        supportDraftTask = Task {
+            try? await Task.sleep(nanoseconds: 450_000_000)
+            guard !Task.isCancelled else { return }
+
+            let payload = await supportDetectionService.analyzeSupport(
+                surface: .prayerRequest,
+                text: trimmed,
+                metadata: [
+                    "category": selectedCategory.rawValue,
+                    "isAnonymous": isAnonymous ? "true" : "false"
+                ]
+            )
+
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                supportDraftPayload = payload
+                if let payload {
+                    supportDetectionService.record(payload: payload, outcome: .shown)
+                }
+            }
+        }
+    }
+
+    private func handleSupportAction(_ action: SupportAction) {
+        guard let payload = supportDraftPayload else { return }
+        supportActionExecutor.execute(action, from: .prayerRequest)
+        supportDetectionService.record(payload: payload, outcome: .engaged)
+        showSupportDraftSheet = false
+    }
+
+    private func dismissSupportPrompt() {
+        if let payload = supportDraftPayload {
+            supportDetectionService.record(payload: payload, outcome: .dismissed)
+        }
+        supportDraftPayload = nil
+        showSupportDraftSheet = false
+    }
+
+    private func continueAfterSupportPrompt() {
+        bypassSupportGate = true
+        showSupportDraftSheet = false
+    }
+
+    private func shouldPresentSupportGate(for text: String) -> Bool {
+        guard !bypassSupportGate,
+              let payload = supportDraftPayload,
+              payload.analyzedText == text,
+              case .sheet = payload.presentationMode else {
+            return false
+        }
+
+        return true
     }
 }
 
@@ -424,7 +544,7 @@ class PrayerWallViewModel: ObservableObject {
     @Published var activePrayerWarriors = 0
     @Published var answeredToday = 0
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     func loadPrayers() async {
         do {

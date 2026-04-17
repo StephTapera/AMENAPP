@@ -48,7 +48,7 @@ struct TrendingItem: Identifiable {
 class SearchService: ObservableObject {
     static let shared = SearchService()
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private let firebaseManager = FirebaseManager.shared
     
     @Published var isSearching = false

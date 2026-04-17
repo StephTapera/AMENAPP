@@ -26,7 +26,7 @@ struct NoteSummary: Codable {
 @MainActor
 class AINoteSummarizationService: ObservableObject {
     static let shared = AINoteSummarizationService()
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     // ✅ FIX CR-12: Published error state for UI
     @Published var lastError: String?

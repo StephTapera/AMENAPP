@@ -101,7 +101,7 @@ struct TestimoniesView: View {
                         HStack {
                             Text("#Testimonies")
                                 .font(AMENFont.bold(24))
-                                .foregroundStyle(.black)
+                                .foregroundStyle(.primary)
 
                             Spacer()
 
@@ -309,7 +309,7 @@ struct TestimoniesView: View {
                     HStack {
                         Text("Browse by Category")
                             .font(AMENFont.bold(16))
-                            .foregroundStyle(.black)
+                            .foregroundStyle(.primary)
                         
                         Spacer()
                         
@@ -419,6 +419,16 @@ struct TestimoniesView: View {
                 ForEach(displayPosts, id: \.id) { post in
                     let index = displayPosts.firstIndex(where: { $0.id == post.id }) ?? 0
                     testimonyRow(post: post, index: index, total: displayPosts.count, allCount: allPosts.count)
+
+                    // Suggested testimony voices rail — after the 3rd testimony
+                    if index == 2 {
+                        FeedPostDivider()
+                        TestimoniesSuggestedRailView()
+                            .background(Color(.systemBackground))
+                            .padding(.vertical, 8)
+                            .clipped()
+                        FeedPostDivider()
+                    }
                 }
 
                 // Loading indicator for pagination
@@ -1410,7 +1420,7 @@ struct TestimonyCommentSection: View {
                             } label: {
                                 Image(systemName: "arrow.up.circle.fill")
                                     .font(.systemScaled(24))
-                                    .foregroundStyle(.black)
+                                    .foregroundStyle(.primary)
                             }
                         } else {
                             Button {
@@ -1816,7 +1826,7 @@ struct TestimonyFullCommentSheet: View {
             } label: {
                 Image(systemName: "arrow.up.circle.fill")
                     .font(.systemScaled(28))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
             }
             .buttonStyle(.plain)
         } else {

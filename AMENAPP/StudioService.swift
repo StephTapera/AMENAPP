@@ -42,7 +42,7 @@ final class StudioDataService: ObservableObject {
     // Unread inquiry count (for badge)
     @Published var unreadInquiryCount: Int = 0
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var listeners: [ListenerRegistration] = []
     private var isListening = false
 

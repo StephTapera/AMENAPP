@@ -23,13 +23,20 @@ struct SelectablePostTextView: UIViewRepresentable {
         textView.textContainer.lineFragmentPadding = 0
         textView.delegate = context.coordinator
         textView.dataDetectorTypes = []
+        textView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        textView.setContentHuggingPriority(.defaultLow, for: .horizontal)
         textView.tintColor = UIColor(red: 0.97, green: 0.86, blue: 0.25, alpha: 1.0)
         textView.linkTextAttributes = [
             .foregroundColor: UIColor.label,
             .underlineStyle: 0
         ]
-        textView.onSelectionChange = { selection in
-            context.coordinator.handleSelectionChange(selection)
+        // FIX #17: Capture coordinator weakly to prevent a retain cycle.
+        // The HighlightSelectableTextView holds onSelectionChange strongly. Without
+        // [weak coordinator], the UITextView → closure → Coordinator reference prevents
+        // the Coordinator from being released when SwiftUI removes the representable.
+        let coordinator = context.coordinator
+        textView.onSelectionChange = { [weak coordinator] selection in
+            coordinator?.handleSelectionChange(selection)
         }
         textView.onMentionTap = onMentionTap
         textView.onTextTap = onTextTap
@@ -45,6 +52,13 @@ struct SelectablePostTextView: UIViewRepresentable {
         if selection == nil, uiView.selectedTextRange != nil {
             uiView.selectedTextRange = nil
         }
+    }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: HighlightSelectableTextView, context: Context) -> CGSize? {
+        let width = proposal.width ?? uiView.bounds.width
+        guard width > 0 else { return nil }
+        let fittingSize = uiView.sizeThatFits(CGSize(width: width, height: CGFloat.greatestFiniteMagnitude))
+        return CGSize(width: width, height: fittingSize.height)
     }
 
     private func applyLineLimit(to textView: UITextView) {
@@ -64,6 +78,11 @@ struct SelectablePostTextView: UIViewRepresentable {
     final class Coordinator: NSObject, UITextViewDelegate {
         private let parent: SelectablePostTextView
         private var lastText: String = ""
+        // MEDIUM FIX: Haptic feedback on text selection change.
+        // selectionFeedback is lazily prepared once and reused so that
+        // UISelectionFeedbackGenerator does not have to warm up on every
+        // delegate callback (which fires at ~60Hz during drag selection).
+        private let selectionFeedback = UISelectionFeedbackGenerator()
 
         init(_ parent: SelectablePostTextView) {
             self.parent = parent
@@ -105,6 +124,12 @@ struct SelectablePostTextView: UIViewRepresentable {
 
         func textViewDidChangeSelection(_ textView: UITextView) {
             guard let textView = textView as? HighlightSelectableTextView else { return }
+            // Emit selection haptic only when the user has actually selected a range
+            // (not on every cursor move or programmatic nil-clear). Checking for a
+            // non-empty selectedTextRange avoids firing on simple taps.
+            if let range = textView.selectedTextRange, !range.isEmpty {
+                selectionFeedback.selectionChanged()
+            }
             textView.reportSelection()
         }
 
@@ -149,7 +174,14 @@ final class HighlightSelectableTextView: UITextView {
 
     required init?(coder: NSCoder) {
         super.init(coder: coder)
-        addGestureRecognizer(tapGesture)
+        // CRITICAL FIX: Do NOT call addGestureRecognizer(tapGesture) here.
+        // tapGesture is a lazy var — the same UITapGestureRecognizer instance is
+        // already registered by override init(frame:textContainer:). Calling
+        // addGestureRecognizer with the same recognizer a second time adds it
+        // twice to gestureRecognizers, causing every tap to fire handleTap()
+        // twice (double mention navigation, double onTextTap callbacks).
+        // UIKit view restoration routes through init?(coder:) directly, so this
+        // was a real double-fire path in production.
     }
 
     override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {

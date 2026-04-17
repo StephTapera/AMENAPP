@@ -7,7 +7,7 @@ protocol CreatorPublishServicing {
 }
 
 final class CreatorPublishService: CreatorPublishServicing {
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     func publish(projectID: String, targets: [CreatorPublishTarget]) async throws -> CreatorProcessingJob {
         let ownerID = try requireOwnerID()

@@ -17,49 +17,56 @@
 import SwiftUI
 import Combine
 
-// MARK: - Design tokens (preserved from original)
+// MARK: - Design tokens (Liquid Glass)
 
-private let neuBG    = Color(red: 0.94, green: 0.94, blue: 0.96)
-private let neuDark  = Color(red: 0.78, green: 0.78, blue: 0.82).opacity(0.8)
-private let neuLight = Color.white.opacity(0.95)
-private let accentR  = Color(red: 0.98, green: 0.42, blue: 0.32)
-private let accentB  = Color(red: 0.35, green: 0.40, blue: 0.90)
+private let glassBG = Color.white
+private let glassOverlay = Color.white.opacity(0.6)
+private let textPrimary = Color.black
+private let textSecondary = Color.black.opacity(0.5)
+private let textTertiary = Color.black.opacity(0.35)
+private let accentBlue = Color(red: 0.00, green: 0.48, blue: 1.00) // iOS blue
+private let dividerColor = Color.black.opacity(0.08)
 
-// MARK: - Neumorphic modifiers (preserved)
+// MARK: - Liquid Glass modifiers
 
-private struct NeuRaised: ViewModifier {
+private struct LiquidGlassBackground: ViewModifier {
     var radius: CGFloat = 14
     func body(content: Content) -> some View {
         content
-            .background(neuBG)
-            .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
-            .shadow(color: neuDark,  radius: 7, x: 4, y: 4)
-            .shadow(color: neuLight, radius: 7, x: -4, y: -4)
-    }
-}
-
-private struct NeuPressed: ViewModifier {
-    var radius: CGFloat = 14
-    func body(content: Content) -> some View {
-        content
-            .background(neuBG)
-            .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
-            .overlay(
+            .background(
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .stroke(neuDark, lineWidth: 1.5).blur(radius: 1).offset(x: 1.5, y: 1.5)
-                    .mask(RoundedRectangle(cornerRadius: radius, style: .continuous))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .stroke(neuLight, lineWidth: 1.5).blur(radius: 1).offset(x: -1.5, y: -1.5)
-                    .mask(RoundedRectangle(cornerRadius: radius, style: .continuous))
+                    .fill(glassOverlay)
+                    .background(
+                        RoundedRectangle(cornerRadius: radius, style: .continuous)
+                            .fill(.ultraThinMaterial)
+                    )
+                    .overlay(
+                        // Subtle top highlight
+                        RoundedRectangle(cornerRadius: radius, style: .continuous)
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        Color.white.opacity(0.6),
+                                        Color.white.opacity(0.2),
+                                        Color.clear
+                                    ],
+                                    startPoint: .top,
+                                    endPoint: .init(x: 0.5, y: 0.3)
+                                )
+                            )
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: radius, style: .continuous)
+                            .strokeBorder(Color.white.opacity(0.5), lineWidth: 0.5)
+                    )
+                    .shadow(color: .black.opacity(0.04), radius: 8, y: 4)
+                    .shadow(color: .black.opacity(0.02), radius: 4, y: 2)
             )
     }
 }
 
 extension View {
-    fileprivate func neuRaised(_ r: CGFloat = 14) -> some View { modifier(NeuRaised(radius: r)) }
-    fileprivate func neuPressed(_ r: CGFloat = 14) -> some View { modifier(NeuPressed(radius: r)) }
+    fileprivate func liquidGlass(_ r: CGFloat = 14) -> some View { modifier(LiquidGlassBackground(radius: r)) }
 }
 
 // MARK: - Models
@@ -89,7 +96,7 @@ enum BibleTranslation: String, CaseIterable {
 // MARK: - Local Verse Library (API fallback)
 // 100+ curated popular verses for offline / bad-key scenarios.
 
-private enum LocalVerseLibrary {
+enum LocalVerseLibrary {
     struct Entry {
         let reference: String
         let text: String
@@ -346,39 +353,47 @@ struct AttachVerseSheet: View {
 
     var body: some View {
         ZStack {
-            neuBG.ignoresSafeArea()
+            // White background
+            glassBG.ignoresSafeArea()
 
             VStack(spacing: 0) {
                 // Drag handle
                 Capsule()
-                    .fill(neuDark)
-                    .frame(width: 36, height: 4)
+                    .fill(textTertiary)
+                    .frame(width: 36, height: 5)
                     .padding(.top, 12)
-                    .padding(.bottom, 4)
+                    .padding(.bottom, 8)
 
                 headerBar
                     .padding(.horizontal, 20)
-                    .padding(.top, 8)
+                    .padding(.top, 4)
+                    .padding(.bottom, 8)
+
+                // Divider under header
+                Rectangle()
+                    .fill(dividerColor)
+                    .frame(height: 0.5)
+                    .padding(.horizontal, 20)
 
                 translationPicker
-                    .padding(.top, 16)
+                    .padding(.top, 20)
                     .padding(.horizontal, 20)
 
                 searchField
-                    .padding(.top, 14)
+                    .padding(.top, 16)
                     .padding(.horizontal, 20)
 
                 // Local fallback notice — subtle, only when API not available
                 if vm.usingLocalFallback && vm.hasSearched {
                     HStack(spacing: 6) {
                         Image(systemName: "wifi.slash")
-                            .font(.systemScaled(10))
-                        Text("Showing offline results · Add a valid API key for full search")
-                            .font(.systemScaled(11))
+                            .font(.systemScaled(10, weight: .medium))
+                        Text("Showing offline results")
+                            .font(.systemScaled(11, weight: .medium))
                     }
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(textSecondary)
                     .padding(.horizontal, 20)
-                    .padding(.top, 8)
+                    .padding(.top, 10)
                     .transition(.opacity)
                 }
 
@@ -415,11 +430,8 @@ struct AttachVerseSheet: View {
         HStack {
             Button { animateDismiss() } label: {
                 Text("Cancel")
-                    .font(.systemScaled(15, weight: .medium))
-                    .foregroundColor(.secondary)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .neuRaised(12)
+                    .font(.systemScaled(17))
+                    .foregroundColor(accentBlue)
             }
             .buttonStyle(.plain)
 
@@ -427,7 +439,7 @@ struct AttachVerseSheet: View {
 
             Text("Attach Verse")
                 .font(.systemScaled(17, weight: .semibold))
-                .foregroundColor(Color(white: 0.18))
+                .foregroundColor(textPrimary)
 
             Spacer()
 
@@ -440,139 +452,190 @@ struct AttachVerseSheet: View {
                 }
             } label: {
                 Text("Attach")
-                    .font(.systemScaled(15, weight: .semibold))
-                    .foregroundColor(vm.selectedVerse != nil ? accentB : Color(white: 0.6))
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .background(vm.selectedVerse != nil ? accentB.opacity(0.12) : neuBG)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .shadow(color: vm.selectedVerse != nil ? accentB.opacity(0.15) : .clear, radius: 6, x: 0, y: 3)
+                    .font(.systemScaled(17, weight: .semibold))
+                    .foregroundColor(vm.selectedVerse != nil ? accentBlue : textTertiary)
             }
             .buttonStyle(.plain)
             .disabled(vm.selectedVerse == nil)
-            .animation(.spring(response: 0.3), value: vm.selectedVerse != nil)
+            .animation(.easeOut(duration: 0.15), value: vm.selectedVerse != nil)
         }
     }
 
     // MARK: - Translation Picker
 
     private var translationPicker: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(BibleTranslation.allCases, id: \.self) { t in
-                    Button {
-                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
-                            vm.selectedTranslation = t
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Bible Version")
+                .font(.systemScaled(13, weight: .semibold))
+                .foregroundColor(textSecondary)
+            
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(BibleTranslation.allCases, id: \.self) { t in
+                        Button {
+                            withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.75))) {
+                                vm.selectedTranslation = t
+                            }
+                            if vm.hasSearched { vm.search() }
+                        } label: {
+                            Text(t.rawValue)
+                                .font(.systemScaled(15, weight: vm.selectedTranslation == t ? .semibold : .medium))
+                                .foregroundColor(vm.selectedTranslation == t ? .white : textPrimary)
+                                .padding(.horizontal, 18)
+                                .padding(.vertical, 10)
+                                .background(
+                                    Group {
+                                        if vm.selectedTranslation == t {
+                                            Capsule()
+                                                .fill(accentBlue)
+                                        } else {
+                                            Capsule()
+                                                .fill(glassOverlay)
+                                                .background(
+                                                    Capsule()
+                                                        .fill(.ultraThinMaterial)
+                                                )
+                                                .overlay(
+                                                    Capsule()
+                                                        .strokeBorder(dividerColor, lineWidth: 0.5)
+                                                )
+                                        }
+                                    }
+                                )
+                                .shadow(
+                                    color: vm.selectedTranslation == t ? accentBlue.opacity(0.3) : .black.opacity(0.04),
+                                    radius: vm.selectedTranslation == t ? 8 : 4,
+                                    y: vm.selectedTranslation == t ? 4 : 2
+                                )
                         }
-                        if vm.hasSearched { vm.search() }
-                    } label: {
-                        Text(t.rawValue)
-                            .font(.systemScaled(13, weight: .semibold))
-                            .foregroundColor(vm.selectedTranslation == t ? .white : Color(white: 0.4))
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 9)
-                            .background(vm.selectedTranslation == t ? accentB : neuBG)
-                            .clipShape(Capsule())
-                            .shadow(
-                                color: vm.selectedTranslation == t ? accentB.opacity(0.35) : neuDark,
-                                radius: vm.selectedTranslation == t ? 8 : 5,
-                                x: vm.selectedTranslation == t ? 0 : 3,
-                                y: vm.selectedTranslation == t ? 4 : 3
-                            )
-                            .shadow(
-                                color: vm.selectedTranslation == t ? .clear : neuLight,
-                                radius: 5, x: -3, y: -3
-                            )
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
             }
-            .padding(.horizontal, 20)
         }
-        .padding(.horizontal, -20)
     }
 
     // MARK: - Search Field
 
     private var searchField: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "magnifyingglass")
-                .foregroundColor(inputFocused ? accentB : .secondary)
-                .font(.systemScaled(15, weight: inputFocused ? .semibold : .regular))
-                .animation(.spring(response: 0.2), value: inputFocused)
-
-            TextField("Search: John 3:16 · fear not · verse about peace", text: $vm.searchText)
-                .font(.systemScaled(14))
-                .foregroundColor(Color(white: 0.2))
-                .focused($inputFocused)
-                .autocorrectionDisabled()
-                .submitLabel(.search)
-                .onSubmit { vm.search() }
-                .onChange(of: vm.searchText) { _, _ in vm.search() }
-
-            if !vm.searchText.isEmpty {
-                Button {
-                    vm.searchText = ""
-                    vm.results = []
-                    vm.hasSearched = false
-                    vm.selectedVerse = nil
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(.secondary)
-                        .font(.systemScaled(15))
-                }
-                .transition(.scale.combined(with: .opacity))
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 4) {
+                Image(systemName: "magnifyingglass")
+                    .font(.systemScaled(13, weight: .semibold))
+                    .foregroundColor(textSecondary)
+                Text("Search")
+                    .font(.systemScaled(13, weight: .semibold))
+                    .foregroundColor(textSecondary)
             }
+            
+            HStack(spacing: 12) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundColor(inputFocused ? accentBlue : textTertiary)
+                    .font(.systemScaled(16, weight: .medium))
+                    .animation(.easeOut(duration: 0.15), value: inputFocused)
+
+                TextField("Try \"John 3:16\" or \"hope\"", text: $vm.searchText)
+                    .font(.systemScaled(17))
+                    .foregroundColor(textPrimary)
+                    .focused($inputFocused)
+                    .autocorrectionDisabled()
+                    .submitLabel(.search)
+                    .onSubmit { vm.search() }
+                    .onChange(of: vm.searchText) { _, _ in vm.search() }
+
+                if !vm.searchText.isEmpty {
+                    Button {
+                        vm.searchText = ""
+                        vm.results = []
+                        vm.hasSearched = false
+                        vm.selectedVerse = nil
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(textTertiary)
+                            .font(.systemScaled(16))
+                    }
+                    .transition(.scale.combined(with: .opacity))
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(glassOverlay)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(.ultraThinMaterial)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .strokeBorder(
+                                inputFocused ? accentBlue.opacity(0.5) : dividerColor,
+                                lineWidth: inputFocused ? 1.5 : 0.5
+                            )
+                    )
+                    .shadow(color: .black.opacity(inputFocused ? 0.06 : 0.03), radius: 8, y: 4)
+            )
+            .animation(.easeOut(duration: 0.15), value: inputFocused)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 13)
-        .background(neuBG)
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(inputFocused ? accentB.opacity(0.4) : Color.clear, lineWidth: 1.5)
-        )
-        .shadow(color: neuDark, radius: 6, x: 3, y: 3)
-        .shadow(color: neuLight, radius: 6, x: -3, y: -3)
-        .animation(.spring(response: 0.25), value: inputFocused)
     }
 
     // MARK: - Empty Prompt
 
     private var emptyPrompt: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: 20) {
             Spacer()
+            
+            // Icon
             ZStack {
                 Circle()
-                    .fill(accentB.opacity(0.08))
-                    .frame(width: 80, height: 80)
+                    .fill(accentBlue.opacity(0.08))
+                    .frame(width: 72, height: 72)
                 Image(systemName: "book.closed.fill")
-                    .font(.systemScaled(34, weight: .light))
-                    .foregroundColor(accentB.opacity(0.6))
+                    .font(.systemScaled(28, weight: .medium))
+                    .foregroundColor(accentBlue)
             }
             .padding(.top, 20)
-            Text("Search by keyword or reference")
-                .font(.systemScaled(16, weight: .medium))
-                .foregroundColor(Color(white: 0.4))
-            VStack(spacing: 10) {
-                ForEach(vm.suggestions, id: \.self) { s in
-                    Button {
-                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
-                            vm.selectSuggestion(s)
-                        }
-                    } label: {
-                        Text("\"\(s)\"")
-                            .font(.systemScaled(14, weight: .medium))
-                            .foregroundColor(accentB)
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 11)
-                            .background(accentB.opacity(0.08))
-                            .clipShape(Capsule())
-                            .shadow(color: accentB.opacity(0.1), radius: 6, x: 0, y: 3)
-                    }
-                    .buttonStyle(.plain)
-                }
+            
+            VStack(spacing: 6) {
+                Text("Find the perfect verse")
+                    .font(.systemScaled(20, weight: .semibold))
+                    .foregroundColor(textPrimary)
+                Text("Search by reference or keyword")
+                    .font(.systemScaled(15))
+                    .foregroundColor(textSecondary)
             }
+            
+            // Suggestions
+            VStack(spacing: 12) {
+                Text("Try these:")
+                    .font(.systemScaled(13, weight: .medium))
+                    .foregroundColor(textTertiary)
+                    .padding(.top, 8)
+                
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 140))], spacing: 10) {
+                    ForEach(vm.suggestions, id: \.self) { s in
+                        Button {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
+                                vm.selectSuggestion(s)
+                            }
+                        } label: {
+                            Text(s)
+                                .font(.systemScaled(15, weight: .medium))
+                                .foregroundColor(accentBlue)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 10)
+                                .frame(maxWidth: .infinity)
+                                .background(
+                                    Capsule()
+                                        .fill(accentBlue.opacity(0.08))
+                                )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 20)
+            }
+            
             Spacer()
         }
         .transition(.opacity.combined(with: .scale(scale: 0.96)))
@@ -581,23 +644,24 @@ struct AttachVerseSheet: View {
     // MARK: - Loading
 
     private var loadingView: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 18) {
             Spacer()
-            HStack(spacing: 8) {
+            HStack(spacing: 6) {
                 ForEach(0..<3, id: \.self) { i in
                     Circle()
-                        .fill(accentB.opacity(0.5))
+                        .fill(accentBlue)
                         .frame(width: 8, height: 8)
-                        .scaleEffect(vm.isLoading ? 1.4 : 1.0)
+                        .scaleEffect(vm.isLoading ? 1.3 : 1.0)
+                        .opacity(vm.isLoading ? 1.0 : 0.3)
                         .animation(
-                            .easeInOut(duration: 0.5).repeatForever().delay(Double(i) * 0.15),
+                            .easeInOut(duration: 0.6).repeatForever().delay(Double(i) * 0.2),
                             value: vm.isLoading
                         )
                 }
             }
             Text("Searching scriptures…")
-                .font(.systemScaled(14))
-                .foregroundColor(.secondary)
+                .font(.systemScaled(15, weight: .medium))
+                .foregroundColor(textSecondary)
             Spacer()
         }
         .transition(.opacity)
@@ -606,17 +670,18 @@ struct AttachVerseSheet: View {
     // MARK: - Empty State
 
     private var emptyState: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 16) {
             Spacer()
             Image(systemName: "magnifyingglass")
-                .font(.systemScaled(30))
-                .foregroundColor(Color(white: 0.6))
+                .font(.systemScaled(32, weight: .medium))
+                .foregroundColor(textTertiary)
             Text("No verses found")
-                .font(.systemScaled(16, weight: .medium))
-                .foregroundColor(Color(white: 0.4))
-            Text("Try a different keyword or verse reference")
-                .font(.systemScaled(13))
-                .foregroundColor(.secondary)
+                .font(.systemScaled(18, weight: .semibold))
+                .foregroundColor(textPrimary)
+            Text("Try a different keyword or reference")
+                .font(.systemScaled(15))
+                .foregroundColor(textSecondary)
+                .multilineTextAlignment(.center)
             Spacer()
         }
         .transition(.opacity.combined(with: .scale(scale: 0.96)))
@@ -645,55 +710,79 @@ struct AttachVerseSheet: View {
                 vm.selectedVerse = isSelected ? nil : verse
             }
         } label: {
-            HStack(alignment: .top, spacing: 12) {
-                VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .top, spacing: 14) {
+                VStack(alignment: .leading, spacing: 8) {
+                    // Reference and translation
                     HStack(spacing: 8) {
                         Text(verse.reference)
-                            .font(.systemScaled(14, weight: .bold))
-                            .foregroundColor(isSelected ? accentB : Color(white: 0.2))
+                            .font(.systemScaled(16, weight: .semibold))
+                            .foregroundColor(textPrimary)
+                        
                         Text(verse.translation)
-                            .font(.systemScaled(10, weight: .semibold))
-                            .foregroundColor(isSelected ? accentB : accentR)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background((isSelected ? accentB : accentR).opacity(0.1))
-                            .clipShape(RoundedRectangle(cornerRadius: 4))
+                            .font(.systemScaled(11, weight: .bold))
+                            .foregroundColor(isSelected ? accentBlue : textSecondary)
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 3)
+                            .background(
+                                Capsule()
+                                    .fill(isSelected ? accentBlue.opacity(0.12) : Color.black.opacity(0.05))
+                            )
                     }
+                    
+                    // Verse text
                     Text(verse.text)
-                        .font(.systemScaled(13))
-                        .foregroundColor(Color(white: isSelected ? 0.2 : 0.4))
-                        .lineLimit(3)
+                        .font(.systemScaled(15))
+                        .foregroundColor(textSecondary)
+                        .lineSpacing(2)
+                        .lineLimit(4)
                         .fixedSize(horizontal: false, vertical: true)
                 }
+                
                 Spacer()
+                
+                // Selection indicator
                 ZStack {
                     Circle()
-                        .fill(isSelected ? accentB : neuBG)
-                        .frame(width: 26, height: 26)
-                        .shadow(color: isSelected ? accentB.opacity(0.3) : neuDark, radius: 4, x: 2, y: 2)
-                        .shadow(color: isSelected ? .clear : neuLight, radius: 4, x: -2, y: -2)
+                        .strokeBorder(
+                            isSelected ? accentBlue : dividerColor,
+                            lineWidth: isSelected ? 2 : 1.5
+                        )
+                        .frame(width: 24, height: 24)
+                    
                     if isSelected {
+                        Circle()
+                            .fill(accentBlue)
+                            .frame(width: 24, height: 24)
+                        
                         Image(systemName: "checkmark")
-                            .font(.systemScaled(11, weight: .bold))
+                            .font(.systemScaled(10, weight: .bold))
                             .foregroundColor(.white)
                             .transition(.scale.combined(with: .opacity))
                     }
                 }
                 .animation(.spring(response: 0.25), value: isSelected)
             }
-            .padding(16)
-            .background(isSelected ? accentB.opacity(0.06) : neuBG)
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(isSelected ? accentB.opacity(0.3) : Color.clear, lineWidth: 1.5)
+            .padding(18)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(isSelected ? accentBlue.opacity(0.05) : glassOverlay)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(.ultraThinMaterial)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .strokeBorder(
+                                isSelected ? accentBlue.opacity(0.4) : dividerColor,
+                                lineWidth: isSelected ? 1.5 : 0.5
+                            )
+                    )
+                    .shadow(
+                        color: isSelected ? accentBlue.opacity(0.15) : .black.opacity(0.03),
+                        radius: isSelected ? 12 : 6,
+                        y: isSelected ? 6 : 3
+                    )
             )
-            .shadow(color: isSelected ? accentB.opacity(0.12) : neuDark,
-                    radius: isSelected ? 10 : 6,
-                    x: isSelected ? 0 : 3,
-                    y: isSelected ? 5 : 3)
-            .shadow(color: isSelected ? .clear : neuLight, radius: 6, x: -3, y: -3)
-            .scaleEffect(isSelected ? 1.01 : 1.0)
         }
         .buttonStyle(.plain)
         .transition(.asymmetric(
@@ -726,41 +815,38 @@ struct AttachedVerseBadge: View {
     @State private var appear = false
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
             Image(systemName: "book.closed.fill")
-                .font(.systemScaled(13))
-                .foregroundColor(accentB)
+                .font(.systemScaled(14, weight: .medium))
+                .foregroundColor(accentBlue)
 
-            VStack(alignment: .leading, spacing: 1) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text(verse.reference)
-                    .font(.systemScaled(12, weight: .bold))
-                    .foregroundColor(accentB)
+                    .font(.systemScaled(14, weight: .semibold))
+                    .foregroundColor(textPrimary)
                 Text(verse.text)
-                    .font(.systemScaled(11))
-                    .foregroundColor(Color(white: 0.4))
+                    .font(.systemScaled(13))
+                    .foregroundColor(textSecondary)
                     .lineLimit(2)
             }
 
             Spacer()
 
             Button { onRemove() } label: {
-                Image(systemName: "xmark")
-                    .font(.systemScaled(11, weight: .semibold))
-                    .foregroundColor(.secondary)
-                    .frame(width: 24, height: 24)
-                    .background(neuBG)
-                    .clipShape(Circle())
-                    .shadow(color: neuDark, radius: 3, x: 2, y: 2)
-                    .shadow(color: neuLight, radius: 3, x: -2, y: -2)
+                Image(systemName: "xmark.circle.fill")
+                    .font(.systemScaled(20))
+                    .foregroundColor(textTertiary)
             }
             .buttonStyle(.plain)
         }
-        .padding(12)
-        .background(accentB.opacity(0.06))
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(accentB.opacity(0.2), lineWidth: 1)
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(accentBlue.opacity(0.08))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .strokeBorder(accentBlue.opacity(0.2), lineWidth: 0.5)
+                )
         )
         .scaleEffect(appear ? 1 : 0.85)
         .opacity(appear ? 1 : 0)
@@ -773,7 +859,7 @@ struct AttachedVerseBadge: View {
 // MARK: - Preview
 
 #Preview {
-    Color(red: 0.94, green: 0.94, blue: 0.96)
+    Color.white
         .ignoresSafeArea()
         .sheet(isPresented: .constant(true)) {
             AttachVerseSheet { verse in

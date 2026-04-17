@@ -165,8 +165,12 @@ struct AccountSettingsView: View {
     @State private var ageTierRaw: String? = nil
 
     private var ageTierDisplayName: String {
-        guard let raw = ageTierRaw, let tier = AgeTier(rawValue: raw) else { return "Unknown" }
-        return tier.displayName
+        guard let raw = ageTierRaw, let tier = AMENAgeAssuranceTier(rawValue: raw) else { return "Unknown" }
+        switch tier {
+        case .underMinimum: return "Under Minimum"
+        case .teen: return "Teen"
+        case .adult: return "Adult"
+        }
     }
     
     var body: some View {
@@ -1368,7 +1372,7 @@ struct AccountSettingsView: View {
         guard let currentUserId = Auth.auth().currentUser?.uid else { return }
         
         do {
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
             let userDoc = try await db.collection("users").document(currentUserId).getDocument()
             
             if let isPrivate = userDoc.data()?["isPrivateAccount"] as? Bool {
@@ -1393,7 +1397,7 @@ struct AccountSettingsView: View {
         haptic.impactOccurred()
         
         do {
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
             try await db.collection("users").document(currentUserId).updateData([
                 "isPrivateAccount": newValue
             ])

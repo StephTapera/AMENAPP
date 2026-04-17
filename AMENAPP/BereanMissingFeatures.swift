@@ -460,7 +460,7 @@ struct VoiceInputView: View {
                                     Text("Use Text")
                                 }
                                 .font(.systemScaled(16, weight: .semibold))
-                                .foregroundStyle(.black)
+                                .foregroundStyle(.primary)
                                 .padding(.horizontal, 24)
                                 .padding(.vertical, 14)
                                 .background(
@@ -820,7 +820,7 @@ struct BereanReportIssueView: View {
     private func submitReport() {
         isSubmitting = true
         Task {
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
             _ = try? await db.collection("bereanFeedback").addDocument(data: [
                 "userId": Auth.auth().currentUser?.uid ?? "anonymous",
                 "messageContent": message.content,

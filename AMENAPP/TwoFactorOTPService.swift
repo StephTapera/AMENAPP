@@ -20,7 +20,7 @@ class TwoFactorOTPService: ObservableObject {
 
     // MARK: - Private Properties
 
-    private let functions = Functions.functions()
+    private lazy var functions = Functions.functions()
 
     private init() {}
 
@@ -121,6 +121,12 @@ class TwoFactorOTPService: ObservableObject {
             }
 
             dlog("✅ 2FA OTP verified successfully")
+
+            // AUTH-03: Force-refresh the Firebase ID token so the twoFaSessionExpiry
+            // custom claim (set by verify2FAOTP CF) is included in all subsequent
+            // Firestore writes. Without this, rules see the old token (missing the
+            // claim) for up to 1 hour and would deny operations that require 2FA.
+            _ = try? await Auth.auth().currentUser?.getIDTokenResult(forcingRefresh: true)
 
             // Clear local state
             self.otpId = nil

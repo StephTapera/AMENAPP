@@ -63,7 +63,7 @@ struct BereanAction: Codable, Identifiable {
     }
 }
 
-struct ActionSuggestion {
+struct BereanActionSuggestion {
     let title: String
     let type: BereanAction.ActionType
     let urgency: Int   // 1 (low) to 3 (high)
@@ -79,7 +79,7 @@ final class BereanActionEngine: ObservableObject {
     @Published var actions: [BereanAction] = []
     @Published var pendingActions: [BereanAction] = []
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var listener: ListenerRegistration?
 
     private init() {}
@@ -184,8 +184,8 @@ final class BereanActionEngine: ObservableObject {
     // MARK: - Extraction
 
     /// Extract up to 3 action suggestions from an AI response by parsing imperative sentences and numbered steps.
-    func extractActions(from aiResponse: String, source: BereanAction.ActionSource) -> [ActionSuggestion] {
-        var suggestions: [ActionSuggestion] = []
+    func extractActions(from aiResponse: String, source: BereanAction.ActionSource) -> [BereanActionSuggestion] {
+        var suggestions: [BereanActionSuggestion] = []
 
         let lines = aiResponse
             .components(separatedBy: "\n")
@@ -238,7 +238,7 @@ final class BereanActionEngine: ObservableObject {
             guard found || isImperativeSentence(cleaned) else { continue }
 
             let urgency = urgencyScore(for: cleaned)
-            suggestions.append(ActionSuggestion(
+            suggestions.append(BereanActionSuggestion(
                 title: String(cleaned.prefix(100)),
                 type: matched,
                 urgency: urgency

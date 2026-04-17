@@ -120,7 +120,7 @@ final class BereanAccountabilityService: ObservableObject {
     @Published var weeklyReflectionCard: WeeklyReflectionCard? = nil
     @Published var isLoaded: Bool = false
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var listener: ListenerRegistration?
 
     // Firestore: users/{uid}/bereanAccountability/profile

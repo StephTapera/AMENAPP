@@ -101,7 +101,7 @@ struct VideoTranscriptSheetView: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(videoTitle)
                     .font(.systemScaled(16, weight: .semibold))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
                     .lineLimit(1)
 
                 Text(preacherName)
@@ -335,7 +335,7 @@ struct VideoTranscriptSheetView: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(moment.title)
                     .font(.systemScaled(14, weight: .semibold))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
                     .lineLimit(2)
 
                 Text(formatTimestamp(moment.offsetSeconds))

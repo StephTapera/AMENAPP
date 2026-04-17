@@ -12,6 +12,8 @@ enum SupportReasonCode: String, Codable, Sendable, CaseIterable {
     // Content signals
     case recentVulnerablePost
     case repeatedDistressLanguage
+    case activeSelfHarmPhrase
+    case hopelessnessWithRecency
     case prayerForPeacePattern
     case prayerForStrengthPattern
     case crisisLanguageStrong
@@ -22,6 +24,14 @@ enum SupportReasonCode: String, Codable, Sendable, CaseIterable {
     case burnoutLanguage
     case anxietyLanguage
     case hopelessnessLanguage
+    case financialDistressPhrase
+    case foodHousingDistressPhrase
+    case churchHurtIntent
+    case counselingSeekingPhrase
+    case communitySeekingPhrase
+    case indirectConcernForOtherPerson
+    case prayerForUrgentNeed
+    case notePatternHighDistress
 
     // Behavioral signals
     case supportContentDwell
@@ -30,6 +40,9 @@ enum SupportReasonCode: String, Codable, Sendable, CaseIterable {
     case distressPersistence
     case abruptBehaviorShift
     case repeatedSupportSearch
+    case repeatedDistressBehavior
+    case repeatedLateNightUsage
+    case rapidDeleteReeditPattern
 
     // Positive / recovery signals
     case groundingCompleted
@@ -50,6 +63,9 @@ enum SupportReasonCode: String, Codable, Sendable, CaseIterable {
     case recentInterventionCooldown
     case recoveryBackoffActive
     case classifierLowConfidence
+    case severityEscalatedBySurface
+    case dismissedSimilarInterventionRecently
+    case locationAwareChurchCareAvailable
 
     // Meta
     case noSignalsSufficient

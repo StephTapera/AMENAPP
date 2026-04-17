@@ -1192,7 +1192,7 @@ struct PostDetailView: View {
     private func loadRecentReactors() async {
         guard let currentUid = Auth.auth().currentUser?.uid else { return }
         let stablePostId = post.firestoreId
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         let rtdb = Database.database().reference()
 
         // 1. Fetch top 8 reactor user IDs from RTDB amens node, ordered by timestamp desc

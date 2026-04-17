@@ -66,6 +66,10 @@ struct SignInView: View {
 
     // Remember Me
     @State private var rememberMe = SessionTimeoutManager.shared.isRememberMeEnabled()
+    
+    // Age Assurance (NEW)
+    @State private var showDOBCollection = false
+    @State private var dateOfBirth = Date()
 
     enum SignUpMethod {
         case email
@@ -86,6 +90,16 @@ struct SignInView: View {
         mainContent
             .ignoresSafeArea()
             .modifier(AlertsModifier(viewModel: viewModel, showResetSuccess: $showResetSuccess, showEmailLinkSent: $showEmailLinkSent))
+            .fullScreenCover(isPresented: $showDOBCollection) {
+                DateOfBirthCollectionView(
+                    dateOfBirth: $dateOfBirth,
+                    isPresented: $showDOBCollection
+                ) { selectedDate in
+                    Task {
+                        await createAccountWithDOB(selectedDate: selectedDate)
+                    }
+                }
+            }
             .modifier(SheetsModifier(
                 showPasswordReset: $showPasswordReset,
                 showPasswordlessSignIn: $showPasswordlessSignIn,
@@ -750,27 +764,9 @@ struct SignInView: View {
                     }
                 }
             } else {
-                // Sign-up flow: email OR phone (based on selected method)
-                if signUpMethod == .phone {
-                    // Phone sign-up with OTP
-                    dlog("📱 Phone sign-up - Sending OTP")
-                    await viewModel.sendPhoneVerificationCode(phoneNumber: phoneNumber)
-                    
-                    await MainActor.run {
-                        otpSentAt = Date()
-                        otpAttempts = 0
-                        showOTPVerification = true
-                        startOTPTimer()
-                    }
-                } else {
-                    // Email sign-up with password
-                    dlog("📧 Email sign-up initiated")
-                    await viewModel.signUp(
-                        email: email,
-                        password: password,
-                        displayName: displayName,
-                        username: username
-                    )
+                // Sign-up flow: FIRST collect DOB, THEN create account
+                await MainActor.run {
+                    showDOBCollection = true
                 }
             }
         }
@@ -1085,7 +1081,7 @@ struct SignInView: View {
             
             do {
                 // Direct Firestore query (case-insensitive)
-                let db = Firestore.firestore()
+                lazy var db = Firestore.firestore()
                 let snapshot = try await db.collection("users")
                     .whereField("usernameLowercase", isEqualTo: cleaned.lowercased())
                     .limit(to: 1)
@@ -1125,7 +1121,7 @@ struct SignInView: View {
     }
     
     private func lookupUserByPhone(_ phoneNumber: String) async -> (displayName: String, username: String)? {
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         
         // Format phone to E.164 for consistent lookup
         let formattedPhone = formatPhoneNumberForLookup(phoneNumber)
@@ -1501,6 +1497,55 @@ struct SignInView: View {
         default: return .strong
         }
     }
+    
+    // MARK: - Age Assurance
+    
+    /// Create account with DOB (called after user confirms age)
+    private func createAccountWithDOB(selectedDate: Date) async {
+        // Validate age FIRST (critical safety check)
+        let age = Calendar.current.dateComponents([.year], from: selectedDate, to: Date()).year ?? 0
+        guard age >= AppConfig.Legal.minimumAge else {
+            await MainActor.run {
+                viewModel.errorMessage = "You must be \(AppConfig.Legal.minimumAge) or older to create an account"
+                viewModel.showError = true
+                showDOBCollection = false
+            }
+            return
+        }
+        
+        dlog("✅ Age verified: \(age) years old")
+        
+        // Now create account based on sign-up method
+        if signUpMethod == .phone {
+            // Phone sign-up with OTP
+            dlog("📱 Phone sign-up - Sending OTP")
+            await viewModel.sendPhoneVerificationCode(phoneNumber: phoneNumber)
+            
+            await MainActor.run {
+                otpSentAt = Date()
+                otpAttempts = 0
+                showOTPVerification = true
+                showDOBCollection = false
+                startOTPTimer()
+            }
+        } else {
+            // Email sign-up with password
+            dlog("📧 Email sign-up initiated with DOB")
+            
+            // Call modified signUp that includes DOB
+            await viewModel.signUpWithDOB(
+                email: email,
+                password: password,
+                displayName: displayName,
+                username: username,
+                dateOfBirth: selectedDate
+            )
+            
+            await MainActor.run {
+                showDOBCollection = false
+            }
+        }
+    }
 }
 
 // MARK: - View Modifiers
@@ -1760,11 +1805,11 @@ struct PasswordResetSheet: View {
                 VStack(spacing: 8) {
                     Text("Reset Password")
                         .font(AMENFont.bold(24))
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.primary)
 
                     Text("Enter your email address and we'll send you instructions to reset your password")
                         .font(AMENFont.regular(14))
-                        .foregroundStyle(.black.opacity(0.6))
+                        .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 20)
                 }
@@ -1902,11 +1947,11 @@ struct PasswordlessSignInSheet: View {
                 VStack(spacing: 8) {
                     Text("Sign in with Magic Link ✨")
                         .font(AMENFont.bold(24))
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.primary)
                     
                     Text("Enter your email and we'll send you a magic link to sign in instantly - no password needed!")
                         .font(AMENFont.regular(14))
-                        .foregroundStyle(.black.opacity(0.6))
+                        .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 20)
                 }

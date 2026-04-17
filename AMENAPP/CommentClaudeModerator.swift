@@ -13,7 +13,7 @@ actor CommentClaudeModerator {
     static let shared = CommentClaudeModerator()
     private init() {}
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     // MARK: - Moderation result
 

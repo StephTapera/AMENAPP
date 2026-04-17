@@ -11,7 +11,7 @@ struct CreatorProjectDetailView: View {
                 CreatorGlassCard {
                     Text("Project status: \(project.status.rawValue)")
                         .font(AMENFont.medium(14))
-                        .foregroundStyle(Color.black.opacity(0.6))
+                        .foregroundStyle(.secondary)
                 }
 
                 CreatorPrimaryCTA(title: "Open editor") {}

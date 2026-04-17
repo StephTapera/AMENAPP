@@ -798,7 +798,7 @@ struct BereanAIAssistantView: View {
             case .verseDetail(let verse):
                 VerseDetailView(verseReference: verse)
             case .onboarding:
-                BereanOnboardingView {
+                BereanFullOnboardingView {
                     activeModal = nil
                 }
             case .selahView(let msg):
@@ -2576,7 +2576,7 @@ struct BereanAIAssistantView: View {
     /// Saves a Berean response as a personal prayer reflection in Firestore.
     private func saveMessageToPrayer(_ message: BereanMessage) {
         guard let uid = Auth.auth().currentUser?.uid else { return }
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         let data: [String: Any] = [
             "userId": uid,
             "content": message.content,
@@ -4449,7 +4449,7 @@ struct BereanSendButton: View {
                 // Icon
                 Image(systemName: "arrow.up")
                     .font(.systemScaled(18, weight: .bold))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
                     .scaleEffect(isAnimating ? 0.85 : 1.0)
                     .offset(y: isAnimating ? -2 : 0)
             }
@@ -5921,7 +5921,7 @@ struct ShareToFeedSheet: View {
                 Text("Share to Feed")
                     .font(AMENFont.bold(16))
             }
-            .foregroundStyle(.black)
+            .foregroundStyle(.primary)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 16)
             .background(shareButtonBackground)
@@ -6090,7 +6090,7 @@ struct BereanPremiumUpgradeView: View {
                     Text("Upgrade to Pro")
                         .font(AMENFont.bold(18))
                 }
-                .foregroundStyle(.black)
+                .foregroundStyle(.primary)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 18)
                 .background(

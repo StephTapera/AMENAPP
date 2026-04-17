@@ -10,31 +10,352 @@
 import Foundation
 import FirebaseFirestore
 
-/// A worship song reference saved inside a Church Note.
-/// Lightweight — only stores the identifiers needed to reconstruct playback.
+// MARK: - Note Formatting Range
+
+/// Represents a rich text formatting span within note content.
+struct NoteFormattingRange: Codable, Identifiable, Hashable {
+    var id: String
+    var start: Int
+    var length: Int
+    var style: NoteTextStyle
+
+    init(start: Int, length: Int, style: NoteTextStyle) {
+        self.id = UUID().uuidString
+        self.start = start
+        self.length = length
+        self.style = style
+    }
+}
+
+enum NoteTextStyle: String, Codable, Hashable, CaseIterable {
+    case bold
+    case italic
+    case highlight
+    case redAccent
+    case scribble
+    case heading
+
+    var displayName: String {
+        switch self {
+        case .bold: return "Bold"
+        case .italic: return "Italic"
+        case .highlight: return "Highlight"
+        case .redAccent: return "Accent"
+        case .scribble: return "Scribble"
+        case .heading: return "Heading"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .bold: return "bold"
+        case .italic: return "italic"
+        case .highlight: return "highlighter"
+        case .redAccent: return "paintbrush.pointed"
+        case .scribble: return "scribble.variable"
+        case .heading: return "textformat.size"
+        }
+    }
+}
+
+// MARK: - Note Semantic Block
+
+/// Semantic blocks that can be inserted into notes.
+enum NoteSemanticBlock: String, CaseIterable {
+    case takeaway
+    case prayer
+    case actionStep
+    case pastorQuote
+    case reflection
+    case scripture
+
+    var displayName: String {
+        switch self {
+        case .takeaway: return "Takeaway"
+        case .prayer: return "Prayer"
+        case .actionStep: return "Action"
+        case .pastorQuote: return "Quote"
+        case .reflection: return "Reflection"
+        case .scripture: return "Scripture"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .takeaway: return "lightbulb.fill"
+        case .prayer: return "hands.sparkles.fill"
+        case .actionStep: return "checkmark.circle.fill"
+        case .pastorQuote: return "quote.opening"
+        case .reflection: return "heart.text.clipboard.fill"
+        case .scripture: return "book.fill"
+        }
+    }
+
+    var prefix: String {
+        switch self {
+        case .takeaway: return "\n\n💡 Key Takeaway: "
+        case .prayer: return "\n\n🙏 Prayer: "
+        case .actionStep: return "\n\n✅ Action Step: "
+        case .pastorQuote: return "\n\n💬 Pastor Quote: "
+        case .reflection: return "\n\n✨ Reflection: "
+        case .scripture: return "\n\n📖 Scripture: "
+        }
+    }
+}
+
+// MARK: - Scripture Theme Suggestion
+
+/// Maps common sermon themes to suggested scripture references.
+struct ScriptureThemeSuggestion {
+    let theme: String
+    let reference: String
+    let shortText: String
+
+    static let suggestions: [ScriptureThemeSuggestion] = [
+        .init(theme: "grace", reference: "Ephesians 2:8", shortText: "For by grace you have been saved through faith"),
+        .init(theme: "faith", reference: "Hebrews 11:1", shortText: "Faith is the substance of things hoped for"),
+        .init(theme: "anxiety", reference: "Philippians 4:6", shortText: "Do not be anxious about anything"),
+        .init(theme: "worry", reference: "Philippians 4:6", shortText: "Do not be anxious about anything"),
+        .init(theme: "waiting", reference: "Isaiah 40:31", shortText: "They who wait for the Lord shall renew their strength"),
+        .init(theme: "love", reference: "1 Corinthians 13:4", shortText: "Love is patient, love is kind"),
+        .init(theme: "strength", reference: "Philippians 4:13", shortText: "I can do all things through Christ"),
+        .init(theme: "fear", reference: "Isaiah 41:10", shortText: "Fear not, for I am with you"),
+        .init(theme: "peace", reference: "John 14:27", shortText: "Peace I leave with you; my peace I give you"),
+        .init(theme: "forgiveness", reference: "Colossians 3:13", shortText: "Forgive as the Lord forgave you"),
+        .init(theme: "hope", reference: "Romans 15:13", shortText: "May the God of hope fill you with all joy"),
+        .init(theme: "trust", reference: "Proverbs 3:5", shortText: "Trust in the Lord with all your heart"),
+        .init(theme: "purpose", reference: "Jeremiah 29:11", shortText: "For I know the plans I have for you"),
+        .init(theme: "joy", reference: "Nehemiah 8:10", shortText: "The joy of the Lord is your strength"),
+        .init(theme: "wisdom", reference: "James 1:5", shortText: "If any of you lacks wisdom, let him ask God"),
+        .init(theme: "comfort", reference: "2 Corinthians 1:3-4", shortText: "The God of all comfort"),
+        .init(theme: "perseverance", reference: "James 1:12", shortText: "Blessed is the one who perseveres under trial"),
+        .init(theme: "healing", reference: "Psalm 147:3", shortText: "He heals the brokenhearted"),
+        .init(theme: "provision", reference: "Matthew 6:33", shortText: "Seek first his kingdom"),
+        .init(theme: "identity", reference: "2 Corinthians 5:17", shortText: "If anyone is in Christ, the new creation has come"),
+    ]
+
+    /// Find suggestions matching keywords in the given text.
+    static func suggest(for text: String, limit: Int = 3) -> [ScriptureThemeSuggestion] {
+        let lower = text.lowercased()
+        return suggestions
+            .filter { lower.contains($0.theme) }
+            .prefix(limit)
+            .map { $0 }
+    }
+}
+
+enum MusicProvider: String, Codable, CaseIterable, Hashable {
+    case appleMusic
+    case spotify
+
+    var displayName: String {
+        switch self {
+        case .appleMusic: return "Apple Music"
+        case .spotify: return "Spotify"
+        }
+    }
+}
+
+enum MusicEntityType: String, Codable, CaseIterable, Hashable {
+    case song
+    case album
+    case playlist
+    case artist
+}
+
+enum MusicAttachmentAvailabilityState: String, Hashable {
+    case readyToOpen
+    case viewOnly
+    case accountRequired
+    case unavailable
+
+    var helperText: String {
+        switch self {
+        case .readyToOpen: return "Open in app"
+        case .viewOnly: return "View link"
+        case .accountRequired: return "Account may be required"
+        case .unavailable: return "Track unavailable"
+        }
+    }
+}
+
+/// A normalized worship music attachment saved inside a Church Note.
+/// Backward-compatible with older Apple Music / Spotify fields already stored in Firestore.
 struct WorshipSongReference: Codable, Identifiable, Hashable {
-    var id: String           // UUID, locally generated
+    var id: String
+    var provider: MusicProvider
+    var entityType: MusicEntityType
+    var providerID: String
     var title: String
     var artist: String
-    var musicKitID: String?  // MusicKit catalog ID for direct playback
-    var appleMusicURL: String?
-    var albumArtURL: String?
-    var spotifyTrackID: String?   // Spotify track ID
-    var spotifyTrackURL: String?  // spotify:track:ID deep link
+    var subtitle: String?
+    var musicKitID: String?
+    var deepLinkURL: String?
+    var webURL: String?
+    var artworkURL: String?
+    var previewURL: String?
+    var explicit: Bool?
+    var durationMs: Int?
+    var requiresSubscription: Bool?
+    var requiresAppInstall: Bool?
     var addedAt: Date
 
-    init(title: String, artist: String, musicKitID: String? = nil,
-         appleMusicURL: String? = nil, albumArtURL: String? = nil,
-         spotifyTrackID: String? = nil, spotifyTrackURL: String? = nil) {
-        self.id = UUID().uuidString
+    var albumArtURL: String? { artworkURL }
+    var appleMusicURL: String? { provider == .appleMusic ? webURL : nil }
+    var spotifyTrackID: String? { provider == .spotify ? providerID : nil }
+    var spotifyTrackURL: String? { provider == .spotify ? deepLinkURL : nil }
+
+    var availabilityState: MusicAttachmentAvailabilityState {
+        if deepLinkURL == nil && webURL == nil {
+            return .unavailable
+        }
+        if requiresSubscription == true || requiresAppInstall == true {
+            return .accountRequired
+        }
+        if deepLinkURL == nil {
+            return .viewOnly
+        }
+        return .readyToOpen
+    }
+
+    var providerBadgeText: String { provider.displayName }
+
+    init(
+        id: String = UUID().uuidString,
+        provider: MusicProvider? = nil,
+        entityType: MusicEntityType = .song,
+        providerID: String? = nil,
+        title: String,
+        artist: String,
+        subtitle: String? = nil,
+        musicKitID: String? = nil,
+        appleMusicURL: String? = nil,
+        albumArtURL: String? = nil,
+        spotifyTrackID: String? = nil,
+        spotifyTrackURL: String? = nil,
+        deepLinkURL: String? = nil,
+        webURL: String? = nil,
+        previewURL: String? = nil,
+        explicit: Bool? = nil,
+        durationMs: Int? = nil,
+        requiresSubscription: Bool? = nil,
+        requiresAppInstall: Bool? = nil,
+        addedAt: Date = Date()
+    ) {
+        let resolvedProvider = provider
+            ?? (spotifyTrackID != nil || spotifyTrackURL != nil ? .spotify : .appleMusic)
+        let resolvedProviderID = providerID
+            ?? spotifyTrackID
+            ?? musicKitID
+            ?? UUID().uuidString
+
+        self.id = id
+        self.provider = resolvedProvider
+        self.entityType = entityType
+        self.providerID = resolvedProviderID
         self.title = title
         self.artist = artist
+        self.subtitle = subtitle
         self.musicKitID = musicKitID
-        self.appleMusicURL = appleMusicURL
-        self.albumArtURL = albumArtURL
-        self.spotifyTrackID = spotifyTrackID
-        self.spotifyTrackURL = spotifyTrackURL
-        self.addedAt = Date()
+        self.deepLinkURL = deepLinkURL ?? spotifyTrackURL ?? appleMusicURL
+        self.webURL = webURL ?? appleMusicURL ?? Self.spotifyTrackWebURL(from: spotifyTrackID)
+        self.artworkURL = albumArtURL
+        self.previewURL = previewURL
+        self.explicit = explicit
+        self.durationMs = durationMs
+        self.requiresSubscription = requiresSubscription ?? (resolvedProvider == .appleMusic ? true : nil)
+        self.requiresAppInstall = requiresAppInstall ?? (resolvedProvider == .spotify ? true : nil)
+        self.addedAt = addedAt
+    }
+
+    private static func spotifyTrackWebURL(from trackID: String?) -> String? {
+        guard let trackID, !trackID.isEmpty else { return nil }
+        return "https://open.spotify.com/track/\(trackID)"
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case provider
+        case entityType
+        case providerID
+        case title
+        case artist
+        case subtitle
+        case musicKitID
+        case deepLinkURL
+        case webURL
+        case artworkURL
+        case previewURL
+        case explicit
+        case durationMs
+        case requiresSubscription
+        case requiresAppInstall
+        case addedAt
+        case appleMusicURL
+        case albumArtURL
+        case spotifyTrackID
+        case spotifyTrackURL
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+
+        let legacySpotifyTrackID = try c.decodeIfPresent(String.self, forKey: .spotifyTrackID)
+        let legacySpotifyTrackURL = try c.decodeIfPresent(String.self, forKey: .spotifyTrackURL)
+        let legacyAppleMusicURL = try c.decodeIfPresent(String.self, forKey: .appleMusicURL)
+        let legacyAlbumArtURL = try c.decodeIfPresent(String.self, forKey: .albumArtURL)
+        let decodedProvider = try c.decodeIfPresent(MusicProvider.self, forKey: .provider)
+            ?? (legacySpotifyTrackID != nil || legacySpotifyTrackURL != nil ? .spotify : .appleMusic)
+
+        id = try c.decodeIfPresent(String.self, forKey: .id) ?? UUID().uuidString
+        provider = decodedProvider
+        entityType = try c.decodeIfPresent(MusicEntityType.self, forKey: .entityType) ?? .song
+        title = try c.decodeIfPresent(String.self, forKey: .title) ?? ""
+        artist = try c.decodeIfPresent(String.self, forKey: .artist) ?? ""
+        subtitle = try c.decodeIfPresent(String.self, forKey: .subtitle)
+        musicKitID = try c.decodeIfPresent(String.self, forKey: .musicKitID)
+        deepLinkURL = try c.decodeIfPresent(String.self, forKey: .deepLinkURL) ?? legacySpotifyTrackURL ?? legacyAppleMusicURL
+        webURL = try c.decodeIfPresent(String.self, forKey: .webURL)
+            ?? legacyAppleMusicURL
+            ?? Self.spotifyTrackWebURL(from: legacySpotifyTrackID)
+        artworkURL = try c.decodeIfPresent(String.self, forKey: .artworkURL) ?? legacyAlbumArtURL
+        previewURL = try c.decodeIfPresent(String.self, forKey: .previewURL)
+        explicit = try c.decodeIfPresent(Bool.self, forKey: .explicit)
+        durationMs = try c.decodeIfPresent(Int.self, forKey: .durationMs)
+        requiresSubscription = try c.decodeIfPresent(Bool.self, forKey: .requiresSubscription)
+        requiresAppInstall = try c.decodeIfPresent(Bool.self, forKey: .requiresAppInstall)
+        addedAt = try c.decodeIfPresent(Date.self, forKey: .addedAt) ?? Date()
+        providerID = try c.decodeIfPresent(String.self, forKey: .providerID)
+            ?? legacySpotifyTrackID
+            ?? musicKitID
+            ?? UUID().uuidString
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(provider, forKey: .provider)
+        try c.encode(entityType, forKey: .entityType)
+        try c.encode(providerID, forKey: .providerID)
+        try c.encode(title, forKey: .title)
+        try c.encode(artist, forKey: .artist)
+        try c.encodeIfPresent(subtitle, forKey: .subtitle)
+        try c.encodeIfPresent(musicKitID, forKey: .musicKitID)
+        try c.encodeIfPresent(deepLinkURL, forKey: .deepLinkURL)
+        try c.encodeIfPresent(webURL, forKey: .webURL)
+        try c.encodeIfPresent(artworkURL, forKey: .artworkURL)
+        try c.encodeIfPresent(previewURL, forKey: .previewURL)
+        try c.encodeIfPresent(explicit, forKey: .explicit)
+        try c.encodeIfPresent(durationMs, forKey: .durationMs)
+        try c.encodeIfPresent(requiresSubscription, forKey: .requiresSubscription)
+        try c.encodeIfPresent(requiresAppInstall, forKey: .requiresAppInstall)
+        try c.encode(addedAt, forKey: .addedAt)
+
+        // Legacy keys preserved for older surfaces and Firestore consumers.
+        try c.encodeIfPresent(appleMusicURL, forKey: .appleMusicURL)
+        try c.encodeIfPresent(albumArtURL, forKey: .albumArtURL)
+        try c.encodeIfPresent(spotifyTrackID, forKey: .spotifyTrackID)
+        try c.encodeIfPresent(spotifyTrackURL, forKey: .spotifyTrackURL)
     }
 }
 
@@ -98,6 +419,19 @@ struct ChurchNote: Identifiable, Codable, Hashable {
     // Feature 7: Attachments
     var attachmentCount: Int        // Cached count of attachments
 
+    // Personal Growth Fields
+    var actionStepThisWeek: String?     // Concrete action from sermon
+    var prayerFromSermon: String?        // Prayer captured during service
+    var shouldRevisit: Bool              // User toggle for revisit reminder
+    var revisitDate: Date?               // When to revisit this note
+    var growthReflection: String?        // "What God is teaching me"
+
+    // Semantic blocks (expressive formatting)
+    var blocks: [ChurchNoteBlock]  // Semantic blocks (takeaway, prayer, quote, etc.)
+
+    // Formatting metadata
+    var formattingRanges: [NoteFormattingRange]  // Rich text formatting spans
+
     // Coding keys for Firestore
     enum CodingKeys: String, CodingKey {
         case id
@@ -130,6 +464,13 @@ struct ChurchNote: Identifiable, Codable, Hashable {
         case hasTranscript
         case linkedNoteIds
         case attachmentCount
+        case actionStepThisWeek
+        case prayerFromSermon
+        case shouldRevisit
+        case revisitDate
+        case growthReflection
+        case blocks
+        case formattingRanges
     }
     
     // Initializer with defaults
@@ -163,7 +504,14 @@ struct ChurchNote: Identifiable, Codable, Hashable {
         audioRecordingURL: String? = nil,
         hasTranscript: Bool = false,
         linkedNoteIds: [String] = [],
-        attachmentCount: Int = 0
+        attachmentCount: Int = 0,
+        actionStepThisWeek: String? = nil,
+        prayerFromSermon: String? = nil,
+        shouldRevisit: Bool = false,
+        revisitDate: Date? = nil,
+        growthReflection: String? = nil,
+        blocks: [ChurchNoteBlock] = [],
+        formattingRanges: [NoteFormattingRange] = []
     ) {
         self.id = id
         self.userId = userId
@@ -196,6 +544,13 @@ struct ChurchNote: Identifiable, Codable, Hashable {
         self.hasTranscript = hasTranscript
         self.linkedNoteIds = linkedNoteIds
         self.attachmentCount = attachmentCount
+        self.actionStepThisWeek = actionStepThisWeek
+        self.prayerFromSermon = prayerFromSermon
+        self.shouldRevisit = shouldRevisit
+        self.revisitDate = revisitDate
+        self.growthReflection = growthReflection
+        self.blocks = blocks
+        self.formattingRanges = formattingRanges
     }
     
     // Custom Decodable init to handle older Firestore documents that were created
@@ -233,6 +588,13 @@ struct ChurchNote: Identifiable, Codable, Hashable {
         hasTranscript      = try c.decodeIfPresent(Bool.self, forKey: .hasTranscript) ?? false
         linkedNoteIds      = try c.decodeIfPresent([String].self, forKey: .linkedNoteIds) ?? []
         attachmentCount    = try c.decodeIfPresent(Int.self, forKey: .attachmentCount) ?? 0
+        actionStepThisWeek = try c.decodeIfPresent(String.self, forKey: .actionStepThisWeek)
+        prayerFromSermon   = try c.decodeIfPresent(String.self, forKey: .prayerFromSermon)
+        shouldRevisit      = try c.decodeIfPresent(Bool.self, forKey: .shouldRevisit) ?? false
+        revisitDate        = try c.decodeIfPresent(Date.self, forKey: .revisitDate)
+        growthReflection   = try c.decodeIfPresent(String.self, forKey: .growthReflection)
+        blocks             = try c.decodeIfPresent([ChurchNoteBlock].self, forKey: .blocks) ?? []
+        formattingRanges   = try c.decodeIfPresent([NoteFormattingRange].self, forKey: .formattingRanges) ?? []
     }
 
     // Hashable conformance

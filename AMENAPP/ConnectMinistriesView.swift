@@ -211,7 +211,7 @@ struct ConnectMinistriesView: View {
     // MARK: - Data
 
     private func loadMinistries() async {
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         do {
             let snap = try await db.collection("ministries")
                 .order(by: "memberCount", descending: true)
@@ -231,7 +231,7 @@ struct ConnectMinistriesView: View {
         guard let uid = Auth.auth().currentUser?.uid else { return }
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         Task {
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
             // Store membership in a subcollection to avoid unbounded in-document array.
             try? await db.collection("ministries").document(ministry.id)
                 .collection("members").document(uid)

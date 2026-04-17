@@ -226,7 +226,7 @@ final class ChurchSeasonalEventService: ObservableObject {
     @Published private(set) var holidayEvents: [ChurchSeasonalEvent] = []
     @Published private(set) var isLoading = false
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private let cacheKey = "church_seasonal_events_v1"
     private let cacheTTL: TimeInterval = 1800 // 30 minutes
 

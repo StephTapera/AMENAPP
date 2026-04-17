@@ -25,7 +25,7 @@ final class BereanVoiceSessionService: ObservableObject {
     // MARK: Dependencies
     // -------------------------------------------------------------------------
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     // -------------------------------------------------------------------------
     // MARK: Published State

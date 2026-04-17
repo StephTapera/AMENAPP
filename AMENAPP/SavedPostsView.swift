@@ -256,11 +256,9 @@ struct SavedPostsView: View {
                 } else {
                     ForEach(posts) { post in
                         PostCard(post: post)
-                            .padding(.vertical, 8)
 
-                        if post.id != posts.last?.id {
-                            Divider()
-                                .padding(.leading, 16)
+                        if AMENFeatureFlags.shared.postDividerEnabled {
+                            FeedPostDivider()
                         }
                     }
                 }

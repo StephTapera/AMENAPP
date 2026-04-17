@@ -19,7 +19,7 @@ class HeyFeedPreferencesService: ObservableObject {
     @Published var isLoading = false
     @Published var lastRefreshTime: Date?
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var listener: ListenerRegistration?
     
     private init() {

@@ -88,7 +88,7 @@ final class OnboardingViewModel: ObservableObject {
     @Published var result: OnboardingResult?
     @Published var onboardingComplete: Bool = false
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var userId: String = Auth.auth().currentUser?.uid ?? "demo_user"
 
     var canAdvance: Bool { answers[currentStep] != nil }

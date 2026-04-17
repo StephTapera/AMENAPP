@@ -14,7 +14,7 @@ struct RoleAwareComposerPresetBar: View {
                             .padding(.horizontal, 14)
                             .padding(.vertical, 10)
                             .background(.ultraThinMaterial)
-                            .foregroundStyle(.black)
+                            .foregroundStyle(.primary)
                             .clipShape(Capsule())
                     }
                 }

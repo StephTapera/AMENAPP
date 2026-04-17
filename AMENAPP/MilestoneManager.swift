@@ -28,7 +28,7 @@ class MilestoneManager: ObservableObject {
     @Published var activeMilestone: AMENMilestone?
     @Published var showSheet = false
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var shownMilestoneIds: Set<String> = []
 
     private init() {}

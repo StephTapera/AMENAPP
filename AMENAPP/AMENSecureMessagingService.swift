@@ -111,7 +111,7 @@ final class AMENSecureMessagingService: ObservableObject {
     static let shared = AMENSecureMessagingService()
     private init() {}
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private let encryption = AMENEncryptionService.shared
     private let safety = AMENMessageSafetyEngine.shared
     private let trust = AMENTrustScoreService.shared

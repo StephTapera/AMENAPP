@@ -78,7 +78,7 @@ struct GDPRConsentView: View {
                             } else {
                                 Text(NSLocalizedString("gdpr.agree", comment: ""))
                                     .font(.headline)
-                                    .foregroundStyle(.black)
+                                    .foregroundStyle(.primary)
                             }
                         }
                         .frame(maxWidth: .infinity)

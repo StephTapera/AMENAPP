@@ -294,7 +294,7 @@ final class RepeatOffenderCache {
     static let shared = RepeatOffenderCache()
     private var cachedValue: Bool = false
     private var lastFetched: Date = .distantPast
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private let cacheInterval: TimeInterval = 300  // 5 min
 
     private init() {}

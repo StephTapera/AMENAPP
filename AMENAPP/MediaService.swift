@@ -5,7 +5,7 @@ import Foundation
 // MARK: - API Keys (never hardcoded)
 private enum MediaAPIKeys {
     static var youtube: String {
-        Bundle.main.object(forInfoDictionaryKey: "YOUTUBE_API_KEY") as? String ?? ""
+        (Bundle.main.object(forInfoDictionaryKey: "YOUTUBE_API_KEY") as? String ?? "").trimmingCharacters(in: .whitespaces)
     }
 }
 

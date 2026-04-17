@@ -25,7 +25,7 @@ final class ChurchEnhancementStore: ObservableObject {
     // churchId → enhancement data
     @Published private var data: [String: ChurchEnhancementData] = [:]
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var listeners: [String: ListenerRegistration] = [:]
 
     func data(for churchId: String) -> ChurchEnhancementData? {

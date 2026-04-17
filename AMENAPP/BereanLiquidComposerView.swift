@@ -64,7 +64,16 @@ struct BereanLiquidComposerView: View {
             }
         }
         .onChange(of: isFocused) { _, focused in
-            if focused && composerVM.state != .typing {
+            // MEDIUM FIX: Guard against overwriting active states.
+            // Previously, any focus event while .voiceReady or .streaming was active
+            // would overwrite the state — e.g. tapping the text field during voice
+            // recording would cancel .voiceReady and switch to .focused, silently
+            // dropping the voice session. Only transition to .focused from truly idle
+            // states (.idle, .scrollingCompact, .expandedActions).
+            let isOverridable = composerVM.state == .idle
+                || composerVM.state == .scrollingCompact
+                || composerVM.state == .expandedActions
+            if focused && isOverridable {
                 composerVM.setState(.focused)
             } else if !focused && composerVM.state == .focused {
                 composerVM.setState(.idle)
@@ -73,29 +82,54 @@ struct BereanLiquidComposerView: View {
     }
     
     // MARK: - Main Composer
-    
+
+    /// Lerp helper: a + (b - a) * t
+    private func lerp(_ a: CGFloat, _ b: CGFloat, _ t: CGFloat) -> CGFloat {
+        a + (b - a) * min(max(t, 0), 1)
+    }
+
     private var mainComposer: some View {
-        HStack(spacing: 0) {
-            // Plus button
+        let p = composerVM.collapseProgress
+
+        // Multi-breakpoint interpolated values
+        let verticalPad  = lerp(12, 10, p)
+        let cornerRadius = lerp(28, 24, p)
+        let scaleValue   = lerp(1.0, 0.96, p)
+        let opacityValue = lerp(1.0, 0.90, p)
+        // glass opacity blends between idle and compact opacity targets
+        let glassOpacity = lerp(
+            CGFloat(composerVM.state.composerOpacity),
+            CGFloat(BereanComposerState.scrollingCompact.composerOpacity),
+            p
+        )
+        let shadowOpacity = lerp(
+            CGFloat(composerVM.state.shadowOpacity),
+            CGFloat(BereanComposerState.scrollingCompact.shadowOpacity),
+            p
+        )
+
+        return HStack(spacing: 0) {
+            // Plus button — shrinks slightly under collapse
             plusButton
                 .padding(.trailing, 10)
-            
-            // Input field
+                .scaleEffect(lerp(1.0, 0.88, p), anchor: .center)
+
+            // Input field — placeholder crossfades to short form during collapse
             inputField
-            
+
             // Right controls
             rightControls
                 .padding(.leading, 10)
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, composerVM.state.isCompact ? 10 : 12)
+        .padding(.vertical, verticalPad)
         .liquidGlass(
-            opacity: composerVM.state.composerOpacity,
-            shadowOpacity: composerVM.state.shadowOpacity,
-            cornerRadius: composerVM.state.isCompact ? 24 : 28
+            opacity: Double(glassOpacity),
+            shadowOpacity: Double(shadowOpacity),
+            cornerRadius: cornerRadius
         )
-        .scaleEffect(composerVM.state.isCompact ? 0.96 : 1.0)
-        .opacity(composerVM.state.isCompact ? 0.9 : 1.0)
+        .scaleEffect(scaleValue)
+        .opacity(Double(opacityValue))
         .composerCompression(composerVM.state == .typing || isFocused)
     }
     
@@ -122,9 +156,28 @@ struct BereanLiquidComposerView: View {
         .buttonStyle(PlainButtonStyle())
         .overlay(alignment: .top) {
             if showActions {
-                actionCloud
-                    .offset(y: -60)
-                    .transition(.scale.combined(with: .opacity))
+                // Dynamic offset: keep the cloud visible on small screens (SE: 667pt)
+                // with the keyboard raised. We need to fit within the space above
+                // the composer, which shrinks as keyboardHeight grows.
+                // actionCloudHeight ≈ 6 actions × 52pt + 24pt padding ≈ 336pt
+                // On SE with keyboard (291pt): available ≈ 667 - 291 - composerHeight - safeAreas
+                // We cap at -240 for very small phones and use -300 on large ones.
+                GeometryReader { geo in
+                    Color.clear
+                        .onAppear {}
+                        .overlay(alignment: .top) {
+                            let windowHeight = UIScreen.main.bounds.height
+                            let composerBottom = windowHeight - keyboardHeight
+                            // Available space above the composer (rough, without safe insets)
+                            let availableAbove = composerBottom - geo.frame(in: .global).maxY
+                            // Clamp the cloud upward: never more than availableAbove - 16pt margin
+                            let maxOffset = -(max(min(availableAbove - 16, 300), 180))
+                            actionCloud
+                                .offset(y: maxOffset)
+                                .transition(.scale.combined(with: .opacity))
+                        }
+                }
+                .frame(width: 0, height: 0) // GeometryReader doesn't affect layout
             }
         }
     }
@@ -184,8 +237,15 @@ struct BereanLiquidComposerView: View {
     // MARK: - Input Field
     
     private var inputField: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Auto-growing text editor
+        // HIGH FIX: textHeight was @State private var textHeight: CGFloat = 40 with
+        // no update path — the TextEditor was always capped at exactly 40pt regardless
+        // of content. Fix: overlay a hidden Text mirror behind the TextEditor and use
+        // a GeometryReader background to measure its natural height, then write that
+        // back to textHeight via preference. This is a pure-SwiftUI approach that
+        // doesn't require UIKit introspection.
+        let maxHeight: CGFloat = UIScreen.main.bounds.height < 700 ? 80 : 120
+
+        return VStack(alignment: .leading, spacing: 0) {
             ZStack(alignment: .topLeading) {
                 if messageText.isEmpty {
                     Text(placeholderText)
@@ -194,14 +254,44 @@ struct BereanLiquidComposerView: View {
                         .padding(.horizontal, 4)
                         .padding(.vertical, 10)
                 }
-                
+
+                // Hidden text mirror — same font, same horizontal padding — used only
+                // to measure the natural height of the content. The "+ 20" accounts
+                // for the vertical padding (10pt top + 10pt bottom) that TextEditor
+                // adds around its content by default.
+                Text(messageText.isEmpty ? " " : messageText)
+                    .font(AMENFont.regular(16))
+                    .padding(.horizontal, 4)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .hidden()
+                    .background(
+                        GeometryReader { geo in
+                            Color.clear
+                                .preference(
+                                    key: TextHeightPreferenceKey.self,
+                                    value: geo.size.height + 20
+                                )
+                        }
+                    )
+
                 TextEditor(text: $messageText)
                     .font(AMENFont.regular(16))
                     .foregroundStyle(.primary)
                     .scrollContentBackground(.hidden)
                     .background(Color.clear)
-                    .frame(height: min(max(40, textHeight), 120))
+                    // Cap adapts to screen: SE (667pt) → 80pt, larger → 120pt.
+                    // Prevents the composer from consuming the entire visible area
+                    // when the keyboard is raised on small devices.
+                    .frame(height: min(max(40, textHeight), maxHeight))
                     .focused($isFocused)
+            }
+        }
+        .onPreferenceChange(TextHeightPreferenceKey.self) { measuredHeight in
+            let clamped = min(max(40, measuredHeight), maxHeight)
+            if abs(clamped - textHeight) > 1 {
+                withAnimation(.easeOut(duration: 0.15)) {
+                    textHeight = clamped
+                }
             }
         }
         .padding(.horizontal, 14)
@@ -249,6 +339,9 @@ struct BereanLiquidComposerView: View {
         }
         .buttonStyle(PlainButtonStyle())
         .transition(.scale.combined(with: .opacity))
+        // CRITICAL FIX: VoiceOver was announcing "Image, button" with no context.
+        .accessibilityLabel("Send message")
+        .accessibilityHint("Sends your message to Berean")
     }
     
     private var micButton: some View {
@@ -281,6 +374,7 @@ struct BereanLiquidComposerView: View {
                 Circle()
                     .fill(Color.red.opacity(0.12))
                     .frame(width: 36, height: 36)
+
                 
                 Image(systemName: "stop.fill")
                     .font(.system(size: 14, weight: .semibold))
@@ -289,6 +383,9 @@ struct BereanLiquidComposerView: View {
         }
         .buttonStyle(PlainButtonStyle())
         .transition(.scale.combined(with: .opacity))
+        // CRITICAL FIX: VoiceOver was announcing "Image, button" with no context.
+        .accessibilityLabel("Stop generation")
+        .accessibilityHint("Stops Berean's current response")
     }
     
     private var voiceWaveform: some View {
@@ -314,6 +411,17 @@ struct BereanLiquidComposerView: View {
                 .foregroundStyle(.primary)
         }
         .floatingPill()
+    }
+}
+
+// MARK: - Text Height Preference Key
+
+/// Propagates the measured height of the hidden Text mirror upward to the
+/// inputField view so that textHeight can track content size in real time.
+private struct TextHeightPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 40
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
     }
 }
 

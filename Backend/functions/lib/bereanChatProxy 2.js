@@ -1,0 +1,128 @@
+"use strict";
+/**
+ * bereanChatProxy.ts
+ *
+ * Anthropic Claude proxy for Berean AI assistant.
+ * Routes requests from ClaudeService.swift through Firebase Cloud Functions
+ * to api.anthropic.com, keeping the API key secure in Firebase Secret Manager.
+ *
+ * Setup:
+ *   firebase functions:secrets:set ANTHROPIC_API_KEY
+ *
+ * Model Selection:
+ *   - Haiku (claude-3-haiku-20240307): Real-time interactions, fast responses
+ *   - Sonnet (claude-3-5-sonnet-20241022): Scholar/debater modes, deep analysis
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.bereanChatProxy = void 0;
+const https_1 = require("firebase-functions/v2/https");
+const params_1 = require("firebase-functions/params");
+const anthropicApiKey = (0, params_1.defineSecret)("ANTHROPIC_API_KEY");
+/**
+ * Berean AI Chat Proxy
+ * Proxies Claude API calls with secure API key management
+ */
+exports.bereanChatProxy = (0, https_1.onCall)({
+    secrets: [anthropicApiKey],
+    timeoutSeconds: 60,
+    memory: "256MiB",
+}, async (request) => {
+    // Verify authentication
+    if (!request.auth) {
+        throw new Error("User must be authenticated to use Berean AI");
+    }
+    const data = request.data;
+    const context = request;
+    const { message, conversationHistory = [], maxTokens = 2000, temperature = 0.7, mode = "shepherd", systemPromptSuffix, } = data;
+    // Validate input
+    if (!message || typeof message !== "string" || message.trim().length === 0) {
+        throw new Error("Message is required and must be a non-empty string");
+    }
+    // Get API key from secret
+    const apiKey = anthropicApiKey.value();
+    if (!apiKey) {
+        console.error("❌ ANTHROPIC_API_KEY not configured");
+        throw new Error("Berean AI is not configured. Please contact support.");
+    }
+    try {
+        // Select model based on mode
+        const model = mode === "scholar" || mode === "debater"
+            ? "claude-3-5-sonnet-20241022"
+            : "claude-3-haiku-20240307";
+        // Build system prompt
+        let systemPrompt = buildSystemPrompt(mode);
+        if (systemPromptSuffix) {
+            systemPrompt += `\n\n${systemPromptSuffix}`;
+        }
+        // Build messages array
+        const messages = [
+            ...conversationHistory.slice(-12), // Limit history to last 12 messages
+            { role: "user", content: message },
+        ];
+        // Call Claude API
+        const response = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "x-api-key": apiKey,
+                "anthropic-version": "2023-06-01",
+            },
+            body: JSON.stringify({
+                model,
+                max_tokens: maxTokens,
+                temperature,
+                system: systemPrompt,
+                messages,
+            }),
+        });
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`❌ Claude API error: ${response.status}`, errorText);
+            throw new Error(`Claude API error: ${response.status}`);
+        }
+        const result = await response.json();
+        // Extract text from response
+        const responseText = result.content?.[0]?.text || "";
+        // Log usage for monitoring
+        console.log(`✅ Berean AI (${model}) - User: ${context.auth.uid} - Tokens: ${result.usage?.output_tokens || 0}`);
+        return {
+            response: responseText,
+            model,
+            usage: result.usage,
+        };
+    }
+    catch (error) {
+        console.error("❌ Berean Chat Proxy error:", error);
+        throw new Error("Failed to process Berean AI request");
+    }
+});
+/**
+ * Build system prompt based on Berean mode
+ */
+function buildSystemPrompt(mode) {
+    const basePrompt = `You are Berean AI, a compassionate Biblical assistant for the AMEN Christian social app.
+Your purpose is to help believers understand Scripture, grow in faith, and apply God's Word to their lives.
+
+Core Principles:
+- Always cite Scripture references (e.g., John 3:16, Psalm 23:1-6)
+- Be encouraging, compassionate, and Christ-centered
+- Acknowledge multiple theological perspectives when appropriate
+- Refer complex theological questions to local church leaders
+- Never claim to replace personal Bible study or pastoral guidance`;
+    const modePrompts = {
+        shepherd: `${basePrompt}
+
+Mode: Shepherd - You are encouraging and pastoral. Guide users gently toward Scripture and practical application.`,
+        scholar: `${basePrompt}
+
+Mode: Scholar - You provide deeper theological analysis with historical context, original language insights, and cross-references. Maintain academic rigor while being accessible.`,
+        debater: `${basePrompt}
+
+Mode: Debater - You engage in respectful theological dialogue, exploring different perspectives and challenging assumptions with Scripture. Ask probing questions and encourage critical thinking.`,
+        prayer: `${basePrompt}
+
+Mode: Prayer Guide - Help users craft meaningful prayers based on Scripture. Suggest Biblical prayer patterns and relevant passages for their situation.`,
+    };
+    return modePrompts[mode] || modePrompts.shepherd;
+}
+//# sourceMappingURL=bereanChatProxy%202.js.map

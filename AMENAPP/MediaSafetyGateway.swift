@@ -54,7 +54,7 @@ enum MediaSafetyDecision {
 final class MediaSafetyGateway {
     static let shared = MediaSafetyGateway()
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     // Rate tracking: userId → (count, windowStart)
     private var mediaSendRates: [String: (count: Int, windowStart: Date)] = [:]

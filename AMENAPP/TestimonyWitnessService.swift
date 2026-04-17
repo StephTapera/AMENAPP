@@ -8,7 +8,7 @@ import FirebaseFirestore
 final class TestimonyWitnessService: ObservableObject {
     @Published var activeWitnesses: [WitnessPresence] = []
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var listener: ListenerRegistration?
     private var currentPostId: String?
 

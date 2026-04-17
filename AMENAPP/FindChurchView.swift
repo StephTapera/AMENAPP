@@ -130,6 +130,11 @@ private enum FindChurchSheet: Identifiable {
     case churchDetail(Church)
     case planningChecklist(Church)
     case comparison([Church])
+    case churchNoteCreation(Church)
+    case churchAssist(state: ChurchVisitState, churchName: String, churchId: String)
+    case postVisitReflection(churchName: String, visitSession: ChurchVisitSession?)
+    case postCardDraft(Church, ChurchPostCardType)
+    case churchJourney(Church)
 
     var id: String {
         switch self {
@@ -140,6 +145,11 @@ private enum FindChurchSheet: Identifiable {
         case .churchDetail(let c): return "churchDetail_\(c.id)"
         case .planningChecklist(let c): return "planningChecklist_\(c.id)"
         case .comparison: return "comparison"
+        case .churchNoteCreation(let c): return "churchNote_\(c.id)"
+        case .churchAssist(let state, _, let churchId): return "churchAssist_\(state.rawValue)_\(churchId)"
+        case .postVisitReflection(let churchName, let visitSession): return "postVisitReflection_\(churchName)_\(visitSession?.id ?? "none")"
+        case .postCardDraft(let c, let t): return "postCard_\(c.id)_\(t.rawValue)"
+        case .churchJourney(let c): return "churchJourney_\(c.id)"
         }
     }
 }
@@ -165,6 +175,11 @@ struct FindChurchView: View {
     @State private var filtersCollapsed = false
     @State private var headerCollapsed = false
     @State private var headerHidden = false
+    
+    /// Drives QuickFilterBar compression — 0 = fully visible, 1 = fully hidden
+    private var filterCompressionProgress: CGFloat {
+        min(max((-scrollOffset) / 50, 0), 1.0)
+    }
     @State private var currentLocationName = "Locating..."
     // P0 FIX: Removed duplicate search state variables (isPerformingSearch, isSearching)
     // Single source of truth: searchTask != nil means searching
@@ -205,6 +220,7 @@ struct FindChurchView: View {
     @State private var showFirstVisitCompanion = false
     @State private var selectedChurchForVisit: VisitCompanionChurch?
     @Environment(\.dismiss) private var dismiss
+    @StateObject private var churchAssist = ChurchAssistViewModel.shared
     
     // AI Recommendations
     @State private var aiRecommendations: [ChurchRecommendation] = []
@@ -1098,11 +1114,12 @@ struct FindChurchView: View {
                                 withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
                                     showFilters.toggle()
                                 }
-                            },
+                            }, 
                             onRefresh: locationManager.isAuthorized ? { performRealSearch() } : nil,
                             onBack: { dismiss() },
                             isMapMode: showMapView,
-                            onMapToggle: { withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.8))) { showMapView.toggle() } }
+                            onMapToggle: { withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.8))) { showMapView.toggle() } },
+                            compressionProgress: filterCompressionProgress
                         )
                         
                         // Minimal filter chips (shown when expanded)
@@ -1121,12 +1138,18 @@ struct FindChurchView: View {
                         }
                         
                         // Quick Action Filters (Smart & Interactive)
+                        // Compresses progressively as user scrolls into the church list
                         if !filteredChurches.isEmpty && !showFilters {
                             QuickFilterBar(
                                 selectedFilter: $selectedQuickFilter,
                                 visitedCount: userPreferences.visitedChurches.count,
                                 savedCount: savedChurchIds.count
                             )
+                            .opacity(1.0 - filterCompressionProgress)
+                            .scaleEffect(y: 1.0 - filterCompressionProgress * 0.15, anchor: .top)
+                            .frame(height: max(0, (1.0 - filterCompressionProgress) * 44), alignment: .top)
+                            .clipped()
+                            .animation(Motion.adaptive(.interactiveSpring(response: 0.22, dampingFraction: 0.78)), value: filterCompressionProgress)
                             .transition(.move(edge: .top).combined(with: .opacity))
                         }
                         
@@ -1186,6 +1209,15 @@ struct FindChurchView: View {
                             // Church list with smooth animations
                             ScrollView(showsIndicators: false) {
                                 LazyVStack(spacing: 16) {
+                                    // Scroll offset tracker — drives QuickFilterBar compression
+                                    GeometryReader { geo in
+                                        Color.clear.preference(
+                                            key: ScrollOffsetPreferenceKey.self,
+                                            value: geo.frame(in: .named("churchScroll")).minY
+                                        )
+                                    }
+                                    .frame(height: 0)
+                                    
                                     // Subtle stats at the top
                                     if locationManager.isAuthorized && hasChurchData {
                                         MinimalStatsRow(
@@ -1236,6 +1268,7 @@ struct FindChurchView: View {
                                                                 )
                                                             )
                                                             .frame(width: 44, height: 44)
+                                                            .shadow(color: Color.purple.opacity(0.16), radius: 10, y: 4)
                                                         
                                                         Image(systemName: "sparkles")
                                                             .font(.systemScaled(20, weight: .semibold))
@@ -1259,23 +1292,13 @@ struct FindChurchView: View {
                                                         .foregroundStyle(Color(red: 0.4, green: 0.4, blue: 0.4))
                                                 }
                                                 .padding(16)
-                                                .background(
-                                                    RoundedRectangle(cornerRadius: 16)
-                                                        .fill(Color.white)
-                                                        .overlay(
-                                                            RoundedRectangle(cornerRadius: 16)
-                                                                .strokeBorder(
-                                                                    LinearGradient(
-                                                                        colors: [.purple.opacity(0.2), .pink.opacity(0.2)],
-                                                                        startPoint: .topLeading,
-                                                                        endPoint: .bottomTrailing
-                                                                    ),
-                                                                    lineWidth: 1.5
-                                                                )
-                                                        )
-                                                        .shadow(color: .purple.opacity(0.1), radius: 8, y: 4)
+                                                .findChurchGlassSurface(cornerRadius: FindChurchDesignTokens.cardCornerRadius, emphasized: showAIRecommendations)
+                                                .glassEffect(
+                                                    GlassEffectStyle.regular.tint(.purple.opacity(showAIRecommendations ? 0.08 : 0.05)),
+                                                    in: RoundedRectangle(cornerRadius: FindChurchDesignTokens.cardCornerRadius, style: .continuous)
                                                 )
                                             }
+                                            .buttonStyle(FindChurchTactileButtonStyle())
                                             
                                             if showAIRecommendations {
                                                 if isLoadingAIRecommendations {
@@ -1330,6 +1353,7 @@ struct FindChurchView: View {
                                             isSaved: savedChurchIds.contains(church.id),
                                             isVisited: userPreferences.visitedChurches.contains(church.id),
                                             isExpanded: expandedChurchId == church.id,
+                                            isDimmed: expandedChurchId != nil && expandedChurchId != church.id,
                                             onTap: {
                                                 withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
                                                     selectedChurch = church
@@ -1339,6 +1363,13 @@ struct FindChurchView: View {
                                             onExpand: {
                                                 withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
                                                     expandedChurchId = expandedChurchId == church.id ? nil : church.id
+                                                }
+                                                // Track interest when expanding
+                                                if expandedChurchId == church.id {
+                                                    ChurchInteractionService.shared.recordInterested(
+                                                        churchId: church.id.uuidString,
+                                                        churchName: church.name
+                                                    )
                                                 }
                                             },
                                             onSave: { toggleSave(church) },
@@ -1351,12 +1382,18 @@ struct FindChurchView: View {
                                                         plannedAttendanceChurchId = nil
                                                     } else {
                                                         plannedAttendanceChurchId = church.id
-                                                        scheduleSundayMorningReminder(for: church)
+                                                        addToSchedule(church)
                                                         activeSheet = .planningChecklist(church)
                                                     }
                                                 }
                                             }
                                         )
+                                        .onAppear {
+                                            ChurchInteractionService.shared.recordDiscovered(
+                                                churchId: church.id.uuidString,
+                                                churchName: church.name
+                                            )
+                                        }
                                         .transition(.asymmetric(
                                             insertion: .scale(scale: 0.95).combined(with: .opacity),
                                             removal: .opacity
@@ -1373,6 +1410,12 @@ struct FindChurchView: View {
                                 .padding(.bottom, 80)
                             }
                             .scrollTargetBehavior(.viewAligned(limitBehavior: .alwaysByFew))
+                            .coordinateSpace(name: "churchScroll")
+                            .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
+                                withAnimation(.interactiveSpring(response: 0.2, dampingFraction: 0.8)) {
+                                    scrollOffset = value
+                                }
+                            }
                             .refreshable {
                                 await refreshChurchSearch()
                             }
@@ -1417,6 +1460,42 @@ struct FindChurchView: View {
             .sheet(isPresented: $showCheckInSheet) {
                 checkInSheetContent
             }
+            .overlay(alignment: .bottom) {
+                if ChurchAssistFeatureFlags.effective(ChurchAssistFeatureFlags.enableChurchAssistPill),
+                   churchAssist.showPill,
+                   churchAssist.currentVisitState != .none {
+                    ChurchAssistPill(
+                        state: churchAssist.currentVisitState,
+                        churchName: churchAssist.currentChurchName,
+                        onTap: { prompt in
+                            Task {
+                                await churchAssist.handlePromptAction(prompt)
+                            }
+                        },
+                        onDismiss: {
+                            Task {
+                                await churchAssist.dismissPrompt()
+                            }
+                        }
+                    )
+                    .padding(.bottom, 20)
+                }
+            }
+            .overlay(alignment: .bottomTrailing) {
+                if ChurchAssistFeatureFlags.effective(ChurchAssistFeatureFlags.enableServiceMode),
+                   churchAssist.showServiceMode {
+                    ServiceModeOverlay(
+                        churchName: churchAssist.currentChurchName,
+                        onCapture: handleServiceModeAction,
+                        onDismiss: {
+                            Task {
+                                await churchAssist.dismissPrompt()
+                            }
+                        }
+                    )
+                    .padding(.bottom, 32)
+                }
+            }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(.hidden, for: .navigationBar)
             .toolbar(.hidden, for: .tabBar)
@@ -1449,6 +1528,12 @@ struct FindChurchView: View {
             loadUserPreferences()
             // Detect spiritual season (cached 7 days, runs silently)
             Task { await SpiritualSeasonService.shared.detectIfNeeded() }
+            Task {
+                if let userId = Auth.auth().currentUser?.uid {
+                    await churchAssist.setup(userId: userId)
+                    churchAssist.syncMonitoredChurches(persistenceManager.savedChurches)
+                }
+            }
             
             // Update map to user location if available
             if let userLoc = userLocation {
@@ -1463,6 +1548,26 @@ struct FindChurchView: View {
                 // Set initial location name
                 currentLocationName = "Locating..."
             }
+        }
+        .onChange(of: persistenceManager.savedChurches.map(\.id)) { _, _ in
+            churchAssist.syncMonitoredChurches(persistenceManager.savedChurches)
+        }
+        .onChange(of: churchAssist.showSheet) { _, isShowing in
+            guard isShowing else { return }
+            activeSheet = .churchAssist(
+                state: churchAssist.currentVisitState,
+                churchName: churchAssist.currentChurchName,
+                churchId: churchAssist.currentChurchId
+            )
+            churchAssist.consumeSheetRequest()
+        }
+        .onChange(of: churchAssist.showPostVisitReflection) { _, isShowing in
+            guard isShowing else { return }
+            activeSheet = .postVisitReflection(
+                churchName: churchAssist.currentChurchName,
+                visitSession: ChurchVisitSessionManager.shared.currentSession
+            )
+            churchAssist.consumeSheetRequest()
         }
         .onDisappear {
             // Cancel any pending search tasks to prevent memory leaks
@@ -1516,6 +1621,7 @@ struct FindChurchView: View {
                 performRealSearch()
             }
         }
+        .preferredColorScheme(.light)
     }
     
     // MARK: - Helper Methods
@@ -1603,6 +1709,7 @@ struct FindChurchView: View {
                 church: church,
                 isSaved: savedChurchIds.contains(church.id),
                 isVisited: userPreferences.visitedChurches.contains(church.id),
+                visitInsights: churchAssist.visitInsights,
                 onSave: { toggleSave(church) },
                 onGetDirections: { openDirections(to: church) },
                 onCall: { callChurch(church) },
@@ -1615,7 +1722,15 @@ struct FindChurchView: View {
                     addToSchedule(church)
                     activeSheet = .schedule
                 },
+                onStartChurchNotes: {
+                    activeSheet = .churchNoteCreation(church)
+                },
                 onPlanFirstVisit: {
+                    if let userId = Auth.auth().currentUser?.uid {
+                        Task {
+                            await churchAssist.preparePlanningAssist(for: church, userId: userId)
+                        }
+                    }
                     let visitChurch = VisitCompanionChurch(from: church)
                     activeSheet = .firstVisit(visitChurch)
                 }
@@ -1635,6 +1750,51 @@ struct FindChurchView: View {
                 churches: churches,
                 onClose: { activeSheet = nil }
             )
+        case .churchNoteCreation(let church):
+            ChurchNotesQuickStartView(
+                churchId: church.id.uuidString,
+                churchName: church.name,
+                serviceDate: Date()
+            ) { template in
+                startChurchNote(from: church, template: template)
+            }
+        case .churchAssist(let state, let churchName, let churchId):
+            ChurchAssistSheet(
+                state: state,
+                churchName: churchName,
+                visitSession: ChurchVisitSessionManager.shared.currentSession
+            ) { prompt in
+                handleChurchAssistAction(prompt, churchId: churchId)
+            }
+            .onDisappear {
+                churchAssist.clearPresentationState()
+            }
+        case .postVisitReflection(let churchName, let visitSession):
+            PostVisitReflectionView(
+                churchName: churchName,
+                visitSession: visitSession
+            )
+            .onDisappear {
+                churchAssist.clearPresentationState()
+            }
+        case .postCardDraft(let church, let type):
+            ChurchPostCardComposerSheet(
+                churchId: church.id.uuidString,
+                churchName: church.name,
+                type: type
+            )
+        case .churchJourney(let church):
+            NavigationStack {
+                ScrollView {
+                    ChurchJourneyTimelineView(
+                        churchId: church.id.uuidString,
+                        churchName: church.name
+                    )
+                    .padding(.top, 16)
+                }
+                .navigationTitle("Church Journey")
+                .navigationBarTitleDisplayMode(.inline)
+            }
         }
     }
 
@@ -1647,6 +1807,79 @@ struct FindChurchView: View {
             let churches: [Church] = filteredChurches.filter { selectedChurchesForComparison.contains($0.id) }
             activeSheet = .comparison(churches)
             showComparisonView = false
+        }
+    }
+
+    private func handleChurchAssistAction(_ prompt: ChurchAssistPromptType, churchId: String) {
+        switch prompt {
+        case .planningToAttend, .arrivedNeedsNotes, .inServiceCaptureVerse, .inServicePrayerThought:
+            if let church = churchForAssist(churchId: churchId) {
+                activeSheet = .churchNoteCreation(church)
+            }
+        case .compareServices:
+            activeSheet = .schedule
+        case .firstVisitCompanion, .arrivedChecklist:
+            if let church = churchForAssist(churchId: churchId) {
+                activeSheet = .planningChecklist(church)
+            }
+        case .postVisitReflection, .postVisitShare:
+            activeSheet = .postVisitReflection(
+                churchName: churchAssist.currentChurchName,
+                visitSession: ChurchVisitSessionManager.shared.currentSession
+            )
+        case .revisitSuggestion:
+            if let church = churchForAssist(churchId: churchId) {
+                addToSchedule(church)
+                activeSheet = .schedule
+            }
+        }
+    }
+
+    private func handleServiceModeAction(_ action: ServiceModeAction) {
+        guard let church = churchForAssist(churchId: churchAssist.currentChurchId) else { return }
+        switch action {
+        case .captureVerse, .startNote, .prayerThought:
+            activeSheet = .churchNoteCreation(church)
+        case .saveTakeaway:
+            activeSheet = .postVisitReflection(
+                churchName: church.name,
+                visitSession: ChurchVisitSessionManager.shared.currentSession
+            )
+        }
+    }
+
+    private func churchForAssist(churchId: String) -> Church? {
+        persistenceManager.savedChurches.first(where: { $0.id.uuidString == churchId }) ??
+        filteredChurches.first(where: { $0.id.uuidString == churchId })
+    }
+
+    private func startChurchNote(from church: Church, template: ChurchNoteTemplate) {
+        Task {
+            let visitTemplate: ChurchVisitNoteTemplate
+            switch template {
+            case .blank:
+                visitTemplate = .sermonCapture
+            case .structured:
+                visitTemplate = .sermonCapture
+            case .verse:
+                visitTemplate = .sermonCapture
+            case .prayer:
+                visitTemplate = .postVisitReflection
+            }
+
+            do {
+                let note = try await ChurchReflectionService.shared.createNoteFromTemplate(
+                    template: visitTemplate,
+                    churchId: church.id.uuidString,
+                    churchName: church.name
+                )
+                if let noteId = note.id {
+                    await ChurchVisitSessionManager.shared.attachNote(noteId: noteId)
+                }
+                ToastManager.shared.success("Church note started")
+            } catch {
+                ToastManager.shared.info("Could not start a church note")
+            }
         }
     }
 
@@ -1781,6 +2014,7 @@ struct FindChurchView: View {
         withAnimation {
             if savedChurchIds.contains(church.id) {
                 persistenceManager.removeChurch(church)
+                churchAssist.syncMonitoredChurches(persistenceManager.savedChurches.filter { $0.id != church.id })
                 // Remove all notifications when unsaving
                 ChurchNotificationManager.shared.removeNotifications(for: church)
                 
@@ -1789,8 +2023,16 @@ struct FindChurchView: View {
                 haptic.notificationOccurred(.warning)
             } else {
                 persistenceManager.saveChurch(church)
+                churchAssist.registerChurch(id: church.id.uuidString, name: church.name)
+                churchAssist.syncMonitoredChurches(persistenceManager.savedChurches)
                 // Schedule smart notifications for service times
                 scheduleSmartNotifications(for: church)
+                
+                // Track interaction
+                ChurchInteractionService.shared.recordSaved(
+                    churchId: church.id.uuidString,
+                    churchName: church.name
+                )
                 
                 // Haptic feedback
                 let haptic = UINotificationFeedbackGenerator()
@@ -1841,13 +2083,27 @@ struct FindChurchView: View {
     }
     
     func openDirections(to church: Church) {
+        // Guard against (0, 0) coordinates — these indicate missing location data
+        // from Firestore and would navigate to the ocean off the coast of Africa.
+        // CLLocationCoordinate2DIsValid also rejects out-of-range values (±90°/±180°).
+        let coord = church.coordinate
+        guard CLLocationCoordinate2DIsValid(coord),
+              abs(coord.latitude) > 0.001 || abs(coord.longitude) > 0.001 else {
+            // Fall back to address-based search in Maps
+            let encoded = church.address.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+            if let url = URL(string: "https://maps.apple.com/?q=\(encoded)") {
+                UIApplication.shared.open(url)
+            }
+            return
+        }
+
         // Haptic feedback
         let haptic = UIImpactFeedbackGenerator(style: .medium)
         haptic.impactOccurred()
-        
+
         let mapItem = MKMapItem(location: CLLocation(
-            latitude: church.coordinate.latitude,
-            longitude: church.coordinate.longitude
+            latitude: coord.latitude,
+            longitude: coord.longitude
         ), address: nil)
         mapItem.name = church.name
         mapItem.openInMaps(launchOptions: [MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDriving])
@@ -1995,7 +2251,7 @@ struct FindChurchView: View {
 
     private func postCheckInToFeed(church: Church, thought: String) {
         guard let uid = FirebaseAuth.Auth.auth().currentUser?.uid else { return }
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         let text = thought.isEmpty
             ? "Checked in at \(church.name) 🙏"
             : thought
@@ -2033,6 +2289,12 @@ struct FindChurchView: View {
         // Auto-save to schedule
         if !savedChurchIds.contains(church.id) {
             toggleSave(church)
+        }
+
+        if let userId = Auth.auth().currentUser?.uid {
+            Task {
+                await churchAssist.preparePlanningAssist(for: church, userId: userId)
+            }
         }
         
         // Schedule notification
@@ -3339,7 +3601,7 @@ struct ChurchCard: View {
                             Text("Directions")
                                 .font(AMENFont.bold(14))
                         }
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.primary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
                         .background(
@@ -3876,6 +4138,53 @@ struct ComparisonRow: View {
     }
 }
 
+private struct FindChurchGlassSurfaceModifier: ViewModifier {
+    let cornerRadius: CGFloat
+    let isEmphasized: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .background(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(Color.white.opacity(isEmphasized ? 0.88 : 0.78))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                            .stroke(
+                                LinearGradient(
+                                    colors: [
+                                        Color.white.opacity(isEmphasized ? 0.92 : 0.72),
+                                        Color.black.opacity(isEmphasized ? 0.09 : 0.05)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: isEmphasized ? 1 : 0.8
+                            )
+                    )
+                    .shadow(
+                        color: Color.black.opacity(isEmphasized ? 0.1 : 0.06),
+                        radius: isEmphasized ? 22 : 16,
+                        y: isEmphasized ? 10 : 6
+                    )
+            )
+    }
+}
+
+private extension View {
+    func findChurchGlassSurface(cornerRadius: CGFloat = 18, emphasized: Bool = false) -> some View {
+        modifier(FindChurchGlassSurfaceModifier(cornerRadius: cornerRadius, isEmphasized: emphasized))
+    }
+}
+
+private struct FindChurchTactileButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
+            .brightness(configuration.isPressed ? -0.02 : 0)
+            .animation(Motion.adaptive(.interactiveSpring(response: 0.22, dampingFraction: 0.78)), value: configuration.isPressed)
+    }
+}
+
 // MARK: - Minimal Modern Components
 
 /// Minimal header with clean search - inspired by design
@@ -3889,79 +4198,67 @@ struct MinimalChurchHeader: View {
     var onBack: () -> Void
     var isMapMode: Bool = false
     var onMapToggle: () -> Void = {}
+    var compressionProgress: CGFloat = 0
     @FocusState private var isSearchFocused: Bool
     
     var body: some View {
-        VStack(spacing: 16) {
-            // Title with location and back button
-            HStack {
-                // Back button
+        let titleSize = 32 - (compressionProgress * 6)
+        let verticalSpacing = 16 - (compressionProgress * 5)
+        let containerPadding = 18 - (compressionProgress * 4)
+        let searchPadding = 15 - (compressionProgress * 3)
+
+        VStack(spacing: verticalSpacing) {
+            HStack(alignment: .top) {
                 Button(action: onBack) {
                     Image(systemName: "chevron.left")
-                        .font(.systemScaled(20, weight: .semibold))
-                        .foregroundStyle(Color(red: 0.3, green: 0.3, blue: 0.3))
-                        .frame(width: 32, height: 32)
+                        .font(.systemScaled(18, weight: .semibold))
+                        .foregroundStyle(Color(red: 0.24, green: 0.24, blue: 0.24))
+                        .frame(width: 36, height: 36)
+                        .background(Circle().fill(Color.white.opacity(0.5)))
                 }
-                
-                VStack(alignment: .leading, spacing: 4) {
+                .buttonStyle(FindChurchTactileButtonStyle())
+
+                VStack(alignment: .leading, spacing: max(2, 4 - compressionProgress * 2)) {
                     Text("Find Church")
-                        .font(.systemScaled(32, weight: .bold, design: .default))
-                        .foregroundStyle(Color(red: 0.15, green: 0.15, blue: 0.15))
-                    
-                    // Show current location
+                        .font(.systemScaled(titleSize, weight: .bold, design: .default))
+                        .foregroundStyle(Color(red: 0.12, green: 0.12, blue: 0.12))
+
                     if isLocationAuthorized {
                         HStack(spacing: 6) {
                             Image(systemName: "location.fill")
                                 .font(.systemScaled(11, weight: .medium))
                             Text(locationText)
-                                .font(.systemScaled(13, weight: .medium))
+                                .font(.systemScaled(13 - compressionProgress, weight: .medium))
                                 .lineLimit(1)
                         }
-                        .foregroundStyle(Color(red: 0.5, green: 0.5, blue: 0.5))
+                        .foregroundStyle(Color(red: 0.46, green: 0.46, blue: 0.46))
                     }
                 }
-                
+
                 Spacer()
-                
-                HStack(spacing: 12) {
-                    // Refresh button
+
+                HStack(spacing: 10) {
                     if let refresh = onRefresh, isLocationAuthorized {
-                        Button(action: refresh) {
-                            Image(systemName: "arrow.clockwise")
-                                .font(.systemScaled(18, weight: .medium))
-                                .foregroundStyle(Color(red: 0.3, green: 0.3, blue: 0.3))
-                        }
+                        headerIconButton(symbol: "arrow.clockwise", action: refresh)
                     }
 
-                    // Map toggle button
-                    Button(action: onMapToggle) {
-                        Image(systemName: isMapMode ? "list.bullet" : "map")
-                            .font(.systemScaled(20, weight: .medium))
-                            .foregroundStyle(Color(red: 0.3, green: 0.3, blue: 0.3))
-                    }
-
-                    // Filter button
-                    Button(action: onFilterTap) {
-                        Image(systemName: "line.3.horizontal.decrease.circle")
-                            .font(.systemScaled(24, weight: .regular))
-                            .foregroundStyle(Color(red: 0.3, green: 0.3, blue: 0.3))
-                    }
+                    headerIconButton(symbol: isMapMode ? "list.bullet" : "map", action: onMapToggle)
+                    headerIconButton(symbol: "line.3.horizontal.decrease.circle", action: onFilterTap, font: .systemScaled(21, weight: .regular))
                 }
             }
-            
-            // Clean search bar
+
             HStack(spacing: 12) {
                 Image(systemName: "magnifyingglass")
                     .font(.systemScaled(16, weight: .medium))
-                    .foregroundStyle(Color(red: 0.5, green: 0.5, blue: 0.5))
-                
+                    .foregroundStyle(Color(red: 0.48, green: 0.48, blue: 0.48))
+
                 TextField("Search churches...", text: $searchText)
                     .font(.systemScaled(16, weight: .regular))
-                    .foregroundStyle(Color(red: 0.2, green: 0.2, blue: 0.2))
+                    .foregroundStyle(Color(red: 0.16, green: 0.16, blue: 0.16))
                     .focused($isSearchFocused)
                     .submitLabel(.search)
                     .onSubmit(onSearchSubmit)
-                
+
                 if !searchText.isEmpty {
                     Button {
                         withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
@@ -3972,30 +4269,60 @@ struct MinimalChurchHeader: View {
                             .font(.systemScaled(16))
                             .foregroundStyle(Color(red: 0.5, green: 0.5, blue: 0.5))
                     }
+                    .buttonStyle(FindChurchTactileButtonStyle())
                     .transition(.scale.combined(with: .opacity))
                 }
             }
-            .padding()
+            .padding(.horizontal, 16)
+            .padding(.vertical, searchPadding)
             .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(.ultraThinMaterial)
+                Capsule(style: .continuous)
+                    .fill(Color.white.opacity(isSearchFocused ? 0.92 : 0.78))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .strokeBorder(
-                                LinearGradient(
-                                    colors: [Color.white.opacity(0.5), Color.white.opacity(0.1)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 1
-                            )
+                        Capsule(style: .continuous)
+                            .stroke(Color.white.opacity(isSearchFocused ? 0.9 : 0.65), lineWidth: 0.9)
                     )
-                    .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 4)
+                    .shadow(color: Color.black.opacity(isSearchFocused ? 0.08 : 0.04), radius: isSearchFocused ? 18 : 10, y: isSearchFocused ? 8 : 4)
             )
+            .glassEffect(.subtle, in: Capsule(style: .continuous))
         }
+        .padding(.horizontal, containerPadding)
+        .padding(.vertical, containerPadding)
+        .background(
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .fill(Color.white.opacity(0.72 + (compressionProgress * 0.14)))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 28, style: .continuous)
+                        .stroke(
+                            LinearGradient(
+                                colors: [
+                                    Color.white.opacity(0.96),
+                                    Color.black.opacity(0.06)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 0.9
+                        )
+                )
+                .shadow(color: Color.black.opacity(0.08), radius: 20, y: 8)
+        )
+        .glassEffect(.regular.tint(.white.opacity(0.06)), in: RoundedRectangle(cornerRadius: 28, style: .continuous))
         .padding(.horizontal, 20)
         .padding(.top, 12)
         .padding(.bottom, 8)
+    }
+
+    @ViewBuilder
+    private func headerIconButton(symbol: String, action: @escaping () -> Void, font: Font = .systemScaled(18, weight: .medium)) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(font)
+                .foregroundStyle(Color(red: 0.28, green: 0.28, blue: 0.28))
+                .frame(width: 34, height: 34)
+                .background(Circle().fill(Color.white.opacity(0.48)))
+        }
+        .buttonStyle(FindChurchTactileButtonStyle())
     }
 }
 
@@ -4025,13 +4352,16 @@ struct MinimalFilterRow: View {
                         Text("Saved")
                             .font(.systemScaled(14, weight: .medium))
                     }
-                    .foregroundStyle(showSavedOnly ? Color.white : Color(red: 0.3, green: 0.3, blue: 0.3))
+                    .foregroundStyle(showSavedOnly ? Color.white : .primary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 8)
-                    .background(
-                        Capsule()
-                            .fill(showSavedOnly ? Color(red: 0.2, green: 0.2, blue: 0.2) : Color(white: 0.96))
-                    )
+                    .background {
+                        if showSavedOnly {
+                            Capsule().fill(Color.accentColor)
+                        } else {
+                            Capsule().fill(.clear).glassEffect(.subtle, in: Capsule())
+                        }
+                    }
                 }
                 
                 // Sort menu
@@ -4059,13 +4389,10 @@ struct MinimalFilterRow: View {
                         Image(systemName: "chevron.down")
                             .font(.systemScaled(10, weight: .semibold))
                     }
-                    .foregroundStyle(Color(red: 0.3, green: 0.3, blue: 0.3))
+                    .foregroundStyle(.primary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 8)
-                    .background(
-                        Capsule()
-                            .fill(Color(white: 0.96))
-                    )
+                    .glassEffect(.subtle, in: Capsule())
                 }
                 
                 // Radius menu
@@ -4095,13 +4422,10 @@ struct MinimalFilterRow: View {
                         Image(systemName: "chevron.down")
                             .font(.systemScaled(10, weight: .semibold))
                     }
-                    .foregroundStyle(Color(red: 0.3, green: 0.3, blue: 0.3))
+                    .foregroundStyle(.primary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 8)
-                    .background(
-                        Capsule()
-                            .fill(Color(white: 0.96))
-                    )
+                    .glassEffect(.subtle, in: Capsule())
                 }
                 
                 // Family mode toggle
@@ -4116,13 +4440,16 @@ struct MinimalFilterRow: View {
                         Text("Family Mode")
                             .font(.systemScaled(14, weight: .medium))
                     }
-                    .foregroundStyle(familyModeEnabled ? Color.white : Color(red: 0.3, green: 0.3, blue: 0.3))
+                    .foregroundStyle(familyModeEnabled ? Color.white : .primary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 8)
-                    .background(
-                        Capsule()
-                            .fill(familyModeEnabled ? Color(red: 0.2, green: 0.2, blue: 0.2) : Color(white: 0.96))
-                    )
+                    .background {
+                        if familyModeEnabled {
+                            Capsule().fill(Color.accentColor)
+                        } else {
+                            Capsule().fill(.clear).glassEffect(.subtle, in: Capsule())
+                        }
+                    }
                 }
 
                 // Accessibility filters
@@ -4152,13 +4479,10 @@ struct MinimalFilterRow: View {
                         Image(systemName: "chevron.down")
                             .font(.systemScaled(10, weight: .semibold))
                     }
-                    .foregroundStyle(Color(red: 0.3, green: 0.3, blue: 0.3))
+                    .foregroundStyle(.primary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 8)
-                    .background(
-                        Capsule()
-                            .fill(Color(white: 0.96))
-                    )
+                    .glassEffect(.subtle, in: Capsule())
                 }
 
                 // Denomination filters with info buttons
@@ -4171,13 +4495,16 @@ struct MinimalFilterRow: View {
                         } label: {
                             Text(denomination.rawValue)
                                 .font(.systemScaled(14, weight: .medium))
-                                .foregroundStyle(selectedDenomination == denomination ? Color.white : Color(red: 0.3, green: 0.3, blue: 0.3))
+                                .foregroundStyle(selectedDenomination == denomination ? Color.white : .primary)
                                 .padding(.horizontal, 14)
                                 .padding(.vertical, 8)
-                                .background(
-                                    Capsule()
-                                        .fill(selectedDenomination == denomination ? Color(red: 0.2, green: 0.2, blue: 0.2) : Color(white: 0.96))
-                                )
+                                .background {
+                                    if selectedDenomination == denomination {
+                                        Capsule().fill(Color.accentColor)
+                                    } else {
+                                        Capsule().fill(.clear).glassEffect(.subtle, in: Capsule())
+                                    }
+                                }
                         }
                         
                         // Info button for denominations (not "All")
@@ -4445,7 +4772,13 @@ struct MinimalStatsRow: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             
             Rectangle()
-                .fill(Color(white: 0.9))
+                .fill(
+                    LinearGradient(
+                        colors: [Color.black.opacity(0.04), Color.black.opacity(0.1), Color.black.opacity(0.04)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
                 .frame(width: 1, height: 40)
             
             VStack(alignment: .leading, spacing: 4) {
@@ -4460,11 +4793,7 @@ struct MinimalStatsRow: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(18)
-        .background(
-            RoundedRectangle(cornerRadius: 14)
-                .fill(Color.white)
-                .shadow(color: Color.black.opacity(0.03), radius: 16, y: 6)
-        )
+        .findChurchGlassSurface(cornerRadius: 20, emphasized: true)
     }
 }
 
@@ -4636,14 +4965,21 @@ struct QuickFilterBar: View {
                             Text(filter.rawValue)
                                 .font(.systemScaled(14, weight: .medium))
                         }
-                        .foregroundStyle(selectedFilter == filter ? Color.white : Color(red: 0.3, green: 0.3, blue: 0.3))
+                        .foregroundStyle(selectedFilter == filter ? Color.white : Color(red: 0.28, green: 0.28, blue: 0.28))
                         .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .background(
-                            Capsule()
-                                .fill(selectedFilter == filter ? Color(red: 0.2, green: 0.2, blue: 0.2) : Color(white: 0.96))
-                        )
+                        .padding(.vertical, 9)
+                        .background {
+                            Capsule(style: .continuous)
+                                .fill(selectedFilter == filter ? Color(red: 0.16, green: 0.16, blue: 0.16) : Color.white.opacity(0.72))
+                                .overlay(
+                                    Capsule(style: .continuous)
+                                        .stroke(Color.white.opacity(selectedFilter == filter ? 0.18 : 0.74), lineWidth: 0.8)
+                                )
+                                .shadow(color: Color.black.opacity(selectedFilter == filter ? 0.12 : 0.04), radius: selectedFilter == filter ? 12 : 8, y: selectedFilter == filter ? 6 : 3)
+                        }
+                        .glassEffect(selectedFilter == filter ? .regular.tint(.white.opacity(0.08)) : .subtle, in: Capsule(style: .continuous))
                     }
+                    .buttonStyle(FindChurchTactileButtonStyle())
                 }
             }
             .padding(.horizontal, 20)
@@ -4744,6 +5080,7 @@ struct EnhancedMinimalChurchCard: View {
     let isSaved: Bool
     let isVisited: Bool
     var isExpanded: Bool
+    var isDimmed: Bool = false
     var onTap: () -> Void       // opens full detail sheet
     var onExpand: () -> Void    // toggles inline expansion
     var onSave: () -> Void
@@ -4821,7 +5158,7 @@ struct EnhancedMinimalChurchCard: View {
                                     .font(.systemScaled(20, weight: .medium))
                                     .foregroundStyle(Color(red: 0.2, green: 0.2, blue: 0.2))
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(FindChurchTactileButtonStyle())
                             Image(systemName: "chevron.down")
                                 .font(.systemScaled(14, weight: .semibold))
                                 .foregroundStyle(Color(.systemGray3))
@@ -4861,7 +5198,7 @@ struct EnhancedMinimalChurchCard: View {
                             .background(.ultraThinMaterial, in: Capsule())
                             .overlay(Capsule().strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(FindChurchTactileButtonStyle())
                         Button(action: onShare) {
                             HStack(spacing: 4) {
                                 Image(systemName: "square.and.arrow.up").font(.systemScaled(11))
@@ -4872,7 +5209,7 @@ struct EnhancedMinimalChurchCard: View {
                             .background(.ultraThinMaterial, in: Capsule())
                             .overlay(Capsule().strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(FindChurchTactileButtonStyle())
                     }
                 }
                 .padding(18)
@@ -4881,7 +5218,9 @@ struct EnhancedMinimalChurchCard: View {
 
             // Expanded content
             if isExpanded {
-                Divider().padding(.horizontal, 18)
+                Divider()
+                    .overlay(Color.black.opacity(0.05))
+                    .padding(.horizontal, 18)
                 VStack(alignment: .leading, spacing: 16) {
                     // Service schedule chips
                     VStack(alignment: .leading, spacing: 8) {
@@ -4935,7 +5274,7 @@ struct EnhancedMinimalChurchCard: View {
                             .frame(maxWidth: .infinity).padding(.vertical, 12)
                             .background(RoundedRectangle(cornerRadius: 12).fill(Color(red: 0.15, green: 0.15, blue: 0.15)))
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(FindChurchTactileButtonStyle())
 
                     // Plan attendance button
                     Button(action: onPlanAttendance) {
@@ -4946,16 +5285,18 @@ struct EnhancedMinimalChurchCard: View {
                             .frame(maxWidth: .infinity).padding(.vertical, 12)
                             .background(RoundedRectangle(cornerRadius: 12).fill(isPlanned ? Color.green.opacity(0.1) : Color(.systemGray6)))
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(FindChurchTactileButtonStyle())
                 }
                 .padding(.horizontal, 18).padding(.vertical, 16)
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
-        .shadow(color: .black.opacity(0.04), radius: 20, y: 8)
-        .animation(.spring(response: 0.4, dampingFraction: 0.7), value: isExpanded)
+        .findChurchGlassSurface(cornerRadius: FindChurchDesignTokens.cardCornerRadius, emphasized: isExpanded || isPlanned)
+        .glassEffect(GlassEffectStyle.regular.tint(.white.opacity(isExpanded ? 0.08 : 0.04)), in: RoundedRectangle(cornerRadius: FindChurchDesignTokens.cardCornerRadius, style: .continuous))
+        .scaleEffect(isExpanded ? 1.0 : (isDimmed ? 0.98 : 0.995))
+        .opacity(isDimmed ? 0.74 : 1.0)
+        .animation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7)), value: isExpanded)
+        .animation(Motion.adaptive(.spring(response: 0.32, dampingFraction: 0.8)), value: isDimmed)
         .onAppear {
             // Fetch church fit score
             Task {
@@ -5004,17 +5345,30 @@ struct EnhancedChurchDetailSheet: View {
     let church: Church
     let isSaved: Bool
     let isVisited: Bool
+    let visitInsights: ChurchVisitInsights?
     var onSave: () -> Void
     var onGetDirections: () -> Void
     var onCall: () -> Void
     var onShare: () -> Void
     var onCheckIn: () -> Void
     var onAddToSchedule: () -> Void
+    var onStartChurchNotes: () -> Void
     var onPlanFirstVisit: () -> Void
     @AppStorage("profileChurchId") private var profileChurchId: String = ""
     @AppStorage("profileChurchName") private var profileChurchName: String = ""
     @AppStorage("profileChurchVisibility") private var profileChurchVisibility: String = "private"
+    @StateObject private var enhancementStore = ChurchEnhancementStore.shared
     @Environment(\.dismiss) private var dismiss
+
+    private var firstVisitGuide: FirstVisitGuideData? {
+        enhancementStore.data(for: church.id.uuidString)?.firstVisitGuide
+    }
+
+    private var shouldShowVisitMemory: Bool {
+        guard let visitInsights else { return false }
+        return visitInsights.lastVisitedChurchId == church.id.uuidString ||
+            visitInsights.favoriteChurchIds.contains(church.id.uuidString)
+    }
     
     var body: some View {
         NavigationStack {
@@ -5047,6 +5401,12 @@ struct EnhancedChurchDetailSheet: View {
                                 )
                             }
                         }
+
+                        ChurchCapsuleView(
+                            churchName: church.name,
+                            serviceDate: Date(),
+                            onTap: nil
+                        )
                     }
                     
                     // Primary action buttons
@@ -5131,6 +5491,26 @@ struct EnhancedChurchDetailSheet: View {
                             )
                         }
                     }
+
+                    Button(action: onStartChurchNotes) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "note.text")
+                                .font(.systemScaled(16, weight: .semibold))
+                            Text("Start Church Notes")
+                                .font(.systemScaled(15, weight: .semibold))
+                        }
+                        .foregroundStyle(Color(red: 0.2, green: 0.2, blue: 0.2))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 13)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(.ultraThinMaterial)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .strokeBorder(Color.black.opacity(0.08), lineWidth: 0.8)
+                                )
+                        )
+                    }
                     
                     // Add to profile (optional)
                     Menu {
@@ -5188,6 +5568,26 @@ struct EnhancedChurchDetailSheet: View {
                                 .fill(Color(red: 0.2, green: 0.2, blue: 0.2))
                         )
                     }
+
+                    if let guide = firstVisitGuide, !guide.isStale {
+                        FirstVisitCompanionCard(
+                            churchName: church.name,
+                            parkingInfo: guide.parking,
+                            entranceInfo: guide.arrivalTip,
+                            kidsCheckIn: false,
+                            expectedDurationMinutes: nil,
+                            serviceStyle: nil,
+                            accessibilityFeatures: []
+                        )
+                    }
+
+                    if shouldShowVisitMemory, let visitInsights {
+                        VisitMemoryCard(
+                            insights: visitInsights,
+                            lastReflectionSnippet: visitInsights.topReflectionThemes.first,
+                            isSaved: isSaved
+                        )
+                    }
                     
                     Divider()
                     
@@ -5231,6 +5631,9 @@ struct EnhancedChurchDetailSheet: View {
             }
             .background(Color(white: 0.98))
             .navigationBarTitleDisplayMode(.inline)
+            .onAppear {
+                enhancementStore.observe(churchId: church.id.uuidString)
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
@@ -5658,6 +6061,7 @@ struct JourneyInsightCard: View {
 struct AIRecommendationCard: View {
     let recommendation: ChurchRecommendation
     let onTap: () -> Void
+    @State private var revealHighlights = false
     
     var body: some View {
         Button(action: onTap) {
@@ -5684,17 +6088,22 @@ struct AIRecommendationCard: View {
                     VStack(spacing: 4) {
                         Text("\(Int(recommendation.matchScore))%")
                             .font(.systemScaled(20, weight: .bold))
-                            .foregroundStyle(.purple)
+                            .foregroundStyle(Color(red: 0.66, green: 0.2, blue: 0.62))
                         Text("Match")
                             .font(.systemScaled(11, weight: .medium))
                             .foregroundStyle(Color(red: 0.5, green: 0.5, blue: 0.5))
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10)
-                            .fill(Color.purple.opacity(0.08))
-                    )
+                    .background {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(Color.white.opacity(0.7))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .stroke(Color.white.opacity(0.65), lineWidth: 0.8)
+                            )
+                    }
+                    .glassEffect(.subtle, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
                 
                 // Why recommended section
@@ -5711,7 +6120,7 @@ struct AIRecommendationCard: View {
                         ForEach(recommendation.reasons.prefix(3), id: \.self) { reason in
                             HStack(alignment: .top, spacing: 8) {
                                 Circle()
-                                    .fill(Color.purple.opacity(0.6))
+                                    .fill(Color(red: 0.66, green: 0.2, blue: 0.62).opacity(0.6))
                                     .frame(width: 4, height: 4)
                                     .padding(.top, 6)
                                 
@@ -5720,6 +6129,8 @@ struct AIRecommendationCard: View {
                                     .foregroundStyle(Color(red: 0.3, green: 0.3, blue: 0.3))
                                     .lineLimit(2)
                             }
+                            .opacity(revealHighlights ? 1 : 0)
+                            .offset(y: revealHighlights ? 0 : 6)
                         }
                     }
                 }
@@ -5730,37 +6141,48 @@ struct AIRecommendationCard: View {
                         ForEach(recommendation.highlights.prefix(3), id: \.self) { highlight in
                             Text(highlight)
                                 .font(.systemScaled(11, weight: .medium))
-                                .foregroundStyle(.purple)
+                                .foregroundStyle(Color(red: 0.66, green: 0.2, blue: 0.62))
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 5)
-                                .background(
-                                    Capsule()
-                                        .fill(Color.purple.opacity(0.1))
-                                )
+                                .background {
+                                    Capsule(style: .continuous)
+                                        .fill(Color.white.opacity(0.7))
+                                        .overlay(
+                                            Capsule(style: .continuous)
+                                                .stroke(Color(red: 0.66, green: 0.2, blue: 0.62).opacity(0.14), lineWidth: 0.8)
+                                        )
+                                }
+                                .glassEffect(.subtle, in: Capsule(style: .continuous))
                                 .lineLimit(1)
+                                .opacity(revealHighlights ? 1 : 0)
+                                .blur(radius: revealHighlights ? 0 : 2)
                         }
                     }
                 }
             }
             .padding(16)
-            .background(
-                RoundedRectangle(cornerRadius: 14)
-                    .fill(Color.white)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14)
-                            .strokeBorder(
-                                LinearGradient(
-                                    colors: [.purple.opacity(0.15), .pink.opacity(0.15)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 1
-                            )
+            .findChurchGlassSurface(cornerRadius: 18, emphasized: true)
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [
+                                Color(red: 0.66, green: 0.2, blue: 0.62).opacity(0.16),
+                                Color(red: 0.96, green: 0.35, blue: 0.58).opacity(0.12)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
                     )
-                    .shadow(color: .purple.opacity(0.08), radius: 6, y: 3)
             )
         }
-        .buttonStyle(PlainButtonStyle())
+        .buttonStyle(FindChurchTactileButtonStyle())
+        .onAppear {
+            withAnimation(Motion.adaptive(.spring(response: 0.45, dampingFraction: 0.82))) {
+                revealHighlights = true
+            }
+        }
     }
 }
 
@@ -5802,7 +6224,7 @@ private struct ReturnVisitSuggestionCard: View {
             Spacer()
             Button(actionTitle, action: onAction)
                 .font(.systemScaled(12, weight: .semibold))
-                .foregroundStyle(.black)
+                .foregroundStyle(.primary)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
                 .background(Capsule().fill(Color(white: 0.95)))
@@ -6000,6 +6422,7 @@ struct PlanningChecklistView: View {
     @State private var arrivalPlanned = false
     @State private var kidsCheckInReviewed = false
     @State private var quietModeReady = false
+    @State private var animateChecklist = false
 
     var body: some View {
         VStack(spacing: 16) {
@@ -6090,7 +6513,19 @@ struct PlanningChecklistView: View {
         }
         .padding(.horizontal, 20)
         .padding(.top, 24)
-        .background(Color.white)
+        .background(
+            LinearGradient(
+                colors: [Color.white, Color(white: 0.985)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        )
+        .presentationBackground(.clear)
+        .onAppear {
+            withAnimation(Motion.adaptive(.spring(response: 0.45, dampingFraction: 0.84))) {
+                animateChecklist = true
+            }
+        }
     }
 
     private func checklistRow(
@@ -6116,16 +6551,11 @@ struct PlanningChecklistView: View {
             }
             .padding(.vertical, 12)
             .padding(.horizontal, 12)
-            .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(.ultraThinMaterial)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5)
-                    )
-            )
+            .findChurchGlassSurface(cornerRadius: 16, emphasized: isDone)
+            .offset(y: animateChecklist ? 0 : 10)
+            .opacity(animateChecklist ? 1 : 0)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(FindChurchTactileButtonStyle())
     }
 }
 
@@ -6204,4 +6634,3 @@ struct ChurchCheckInSheet: View {
 #Preview {
     FindChurchView()
 }
-

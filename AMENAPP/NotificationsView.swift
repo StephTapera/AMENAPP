@@ -13,6 +13,7 @@ import UserNotifications
 import FirebaseFirestore
 import FirebaseAuth
 import Combine
+import FirebaseFunctions
 
 struct NotificationsView: View {
     @Environment(\.dismiss) var dismiss
@@ -23,6 +24,7 @@ struct NotificationsView: View {
     private let priorityEngine = NotificationPriorityEngine.shared
     @ObservedObject private var deduplicator = SmartNotificationDeduplicator.shared
     @State private var selectedFilter: NotificationFilter = .all
+    @State private var activityTab: NotificationActivityTab = .all
     @State private var showFollowRequests = false
     @State private var isRefreshing = false
     @State private var showSettings = false
@@ -40,6 +42,10 @@ struct NotificationsView: View {
     @State private var quickActionNotification: AppNotification?
     @State private var quickReplyText = ""
 
+    // Mark-all-read error state
+    @State private var showMarkAllReadError = false
+    @State private var markAllReadError: String = ""
+
     // P1 PERF FIX: Cache sorted+grouped results so they aren't recomputed on every render.
     // Updated only when source notifications or the selected filter actually change.
     @State private var cachedGroupedNotifications: [NotificationGroup] = []
@@ -48,6 +54,12 @@ struct NotificationsView: View {
     // Suppresses the onChange debounce during the synchronous onAppear rebuild
     // to avoid a double-rebuild (and resulting flash) each time the view opens.
     @State private var suppressNextDebounce = false
+    // Scroll offset for top-edge frosted blur
+    @State private var notifScrollOffset: CGFloat = 0
+
+    // V2: Visibility tracking for seenAt state machine
+    @State private var pendingSeenIds: Set<String> = []
+    @State private var seenFlushTask: Task<Void, Never>?
 
     enum NotificationFilter: String, CaseIterable {
         case all           = "All"
@@ -87,6 +99,24 @@ struct NotificationsView: View {
         // P0 FIX: Filter out self-notifications (user shouldn't see their own actions)
         if let currentUserId = Auth.auth().currentUser?.uid {
             notifications = notifications.filter { $0.actorId != currentUserId }
+        }
+
+        // System 14: Pre-filter by activity tab when enhanced notifications enabled
+        if AMENFeatureFlags.shared.enhancedNotificationsEnabled {
+            switch activityTab {
+            case .all:
+                break
+            case .follows:
+                notifications = notifications.filter {
+                    $0.type == .follow || $0.type == .followRequestAccepted
+                }
+            case .mentions:
+                notifications = notifications.filter { $0.type == .mention }
+            case .replies:
+                notifications = notifications.filter {
+                    $0.type == .comment || $0.type == .reply
+                }
+            }
         }
 
         switch selectedFilter {
@@ -177,10 +207,19 @@ struct NotificationsView: View {
                 .onChange(of: selectedFilter) { _, _ in
                     rebuildGroupedNotifications()
                 }
+                .onChange(of: activityTab) { _, _ in
+                    rebuildGroupedNotifications()
+                }
                 .navigationDestination(for: NotificationNavigationDestinations.NotificationDestination.self) { destination in
                     navigationDestinationView(destination)
                 }
                 .alert("Error", isPresented: errorBinding, actions: alertActions, message: alertMessage)
+                .alert("Couldn't mark all as read", isPresented: $showMarkAllReadError) {
+                    Button("Try Again") { markAllAsRead() }
+                    Button("Dismiss", role: .cancel) {}
+                } message: {
+                    Text("Some notifications may still appear unread. Please try again.")
+                }
         }
     }
     
@@ -188,41 +227,67 @@ struct NotificationsView: View {
 
     @ViewBuilder
     private var contentView: some View {
-        ScrollView {
-            LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
+        ZStack(alignment: .top) {
+            ScrollView {
+                LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
 
-                // ── Header ──────────────────────────────────────────────────
-                headerSection
-                    .padding(.horizontal)
-                    .padding(.top)
-                    .padding(.bottom, 4)
+                    // Zero-height scroll offset reader for top blur
+                    GeometryReader { geo in
+                        Color.clear.preference(
+                            key: ScrollOffsetPreferenceKey.self,
+                            value: geo.frame(in: .named("notifScroll")).minY
+                        )
+                    }
+                    .frame(height: 0)
 
-                // ── Follow Requests ─────────────────────────────────────────
-                if !followRequestsViewModel.requests.isEmpty {
-                    followRequestsButton
+                    // ── Header ──────────────────────────────────────────────────
+                    headerSection
+                        .padding(.horizontal)
+                        .padding(.top)
                         .padding(.bottom, 4)
+
+                    // ── Follow Requests ─────────────────────────────────────────
+                    if !followRequestsViewModel.requests.isEmpty {
+                        followRequestsButton
+                            .padding(.bottom, 4)
+                    }
+
+                    // ── Activity Tabs (System 14) ────────────────────────────────
+                    if AMENFeatureFlags.shared.enhancedNotificationsEnabled {
+                        NotificationActivityTabs(selectedTab: $activityTab)
+                    }
+
+                    // ── Filter Pills ─────────────────────────────────────────────
+                    modernFilterSection
+                        .padding(.bottom, 8)
+
+                    // ── Content ──────────────────────────────────────────────────
+                    if notificationService.isLoading {
+                        skeletonRows
+                    } else if groupedNotifications.isEmpty && !notificationService.notifications.isEmpty {
+                        skeletonRows
+                    } else if groupedNotifications.isEmpty {
+                        emptyStateView
+                            .frame(maxWidth: .infinity)
+                    } else {
+                        notificationSections
+                    }
                 }
-
-                // ── Filter Pills ─────────────────────────────────────────────
-                modernFilterSection
-                    .padding(.bottom, 8)
-
-                // ── Content ──────────────────────────────────────────────────
-                if notificationService.isLoading {
-                    skeletonRows
-                } else if groupedNotifications.isEmpty && !notificationService.notifications.isEmpty {
-                    skeletonRows
-                } else if groupedNotifications.isEmpty {
-                    emptyStateView
-                        .frame(maxWidth: .infinity)
-                } else {
-                    notificationSections
+                .padding(.bottom, 32)
+            }
+            .coordinateSpace(name: "notifScroll")
+            .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
+                if abs(value - notifScrollOffset) >= 1 {
+                    notifScrollOffset = value
                 }
             }
-            .padding(.bottom, 32)
-        }
-        .refreshable {
-            await refreshNotifications()
+            .refreshable {
+                await refreshNotifications()
+            }
+
+            // ── Top-edge frosted blur ─────────────────────────────────
+            ScrollEdgeTopBlurOverlay(scrollOffset: notifScrollOffset)
+                .ignoresSafeArea(edges: .top)
         }
     }
     
@@ -392,31 +457,61 @@ struct NotificationsView: View {
         ForEach(timeSectionedNotifications, id: \.label) { section in
             SwiftUI.Section {
                 ForEach(section.groups) { group in
-                    GroupedNotificationRow(
-                        group: group,
-                        onDismiss: {
-                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
-                                removeGroup(group)
+                    if AMENFeatureFlags.shared.enhancedNotificationsEnabled {
+                        EnhancedNotificationGroupRow(
+                            group: group,
+                            onDismiss: {
+                                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
+                                    removeGroup(group)
+                                }
+                            },
+                            onMarkAsRead: {
+                                markGroupAsRead(group)
+                            },
+                            onTap: {
+                                handleGroupTap(group)
+                            },
+                            onLongPress: {
+                                showQuickActions(for: group)
+                            },
+                            onAvatarTap: { actorId in
+                                NotificationTapHandler.shared.execute(
+                                    .profile(userID: actorId),
+                                    navigationPath: $navigationPath
+                                )
                             }
-                        },
-                        onMarkAsRead: {
-                            markGroupAsRead(group)
-                        },
-                        onTap: {
-                            handleGroupTap(group)
-                        },
-                        onLongPress: {
-                            showQuickActions(for: group)
-                        },
-                        onAvatarTap: { actorId in
-                            NotificationTapHandler.shared.execute(
-                                .profile(userID: actorId),
-                                navigationPath: $navigationPath
-                            )
-                        }
-                    )
-                    .id(group.id)
-                    .transition(.opacity.animation(.easeOut(duration: 0.15)))
+                        )
+                        .id(group.id)
+                        .transition(.opacity.animation(.easeOut(duration: 0.15)))
+                        .onAppear { trackRowSeen(group: group) }
+                    } else {
+                        GroupedNotificationRow(
+                            group: group,
+                            onDismiss: {
+                                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
+                                    removeGroup(group)
+                                }
+                            },
+                            onMarkAsRead: {
+                                markGroupAsRead(group)
+                            },
+                            onTap: {
+                                handleGroupTap(group)
+                            },
+                            onLongPress: {
+                                showQuickActions(for: group)
+                            },
+                            onAvatarTap: { actorId in
+                                NotificationTapHandler.shared.execute(
+                                    .profile(userID: actorId),
+                                    navigationPath: $navigationPath
+                                )
+                            }
+                        )
+                        .id(group.id)
+                        .transition(.opacity.animation(.easeOut(duration: 0.15)))
+                        .onAppear { trackRowSeen(group: group) }
+                    }
                 }
             } header: {
                 NotificationSectionHeader(label: section.label)
@@ -507,9 +602,14 @@ struct NotificationsView: View {
         if cachedGroupedNotifications.isEmpty && !notificationService.notifications.isEmpty {
             rebuildGroupedNotifications()
         }
+        // Zero the badge immediately so the suppression window is active before the
+        // Firestore listener fires (listener fires ~100ms after startListening, but
+        // the suppression window must already be set or the stale count wins the race).
+        clearBadgeCount()
+        dlog("🔔 [NOTIF] Badge cleared immediately on appear (suppression window started)")
         // Auto-mark all notifications as read when the screen is opened (like Instagram/Threads).
         markAllAsRead()
-        dlog("🔔 [NOTIF] markAllAsRead called (badge cleared after writes land)")
+        dlog("🔔 [NOTIF] markAllAsRead called (badge already cleared)")
         
         // Load follow requests and priority scores
         Task { @MainActor in
@@ -550,8 +650,54 @@ struct NotificationsView: View {
         rebuildTask = nil
         
         dlog("🛑 NotificationsView: Cleaned up all listeners")
+
+        // Flush any pending seenAt writes before leaving
+        flushPendingSeenIds()
     }
-    
+
+    // MARK: - V2 Row Visibility Tracking (seenAt)
+
+    /// Called when a notification row appears in the viewport.
+    /// Batches notification IDs and flushes after a 1-second debounce.
+    private func trackRowSeen(group: NotificationGroup) {
+        // Collect unseen notification IDs from this group
+        for notification in group.notifications {
+            guard let notifId = notification.id, !notifId.isEmpty else { continue }
+            // Only track notifications that haven't been seen yet
+            guard notification.seenAt == nil else { continue }
+            pendingSeenIds.insert(notifId)
+        }
+
+        // Debounce the flush (1 second, max 20 per batch)
+        seenFlushTask?.cancel()
+        seenFlushTask = Task {
+            try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+            guard !Task.isCancelled else { return }
+            await MainActor.run { flushPendingSeenIds() }
+        }
+    }
+
+    /// Writes batched seenAt timestamps to Firestore via the callable function.
+    private func flushPendingSeenIds() {
+        guard !pendingSeenIds.isEmpty else { return }
+
+        let idsToFlush = Array(pendingSeenIds.prefix(20))
+        pendingSeenIds.subtract(idsToFlush)
+
+        Task {
+            do {
+                // Call the server-side markNotificationsSeen callable
+                let callable = Functions.functions().httpsCallable("markNotificationsSeen")
+                let _ = try await callable.call(["notificationIds": idsToFlush])
+                dlog("🔔 [SEEN] Flushed \(idsToFlush.count) seenAt writes")
+            } catch {
+                dlog("⚠️ [SEEN] Failed to flush seenAt: \(error.localizedDescription)")
+                // Re-add failed IDs for retry on next flush
+                pendingSeenIds.formUnion(idsToFlush)
+            }
+        }
+    }
+
     // MARK: - Group Actions
     
     private func handleGroupTap(_ group: NotificationGroup) {
@@ -906,13 +1052,37 @@ struct NotificationsView: View {
     
     private func markAllAsRead() {
         dlog("🔔 [NOTIF] markAllAsRead — unreadCount before=\(notificationService.unreadCount)")
-        // Badge is cleared AFTER Firestore writes land to prevent the BadgeCountManager
-        // notificationsListener from re-reading stale unread docs and flipping the
-        // app icon badge back from 0 to the old count (0→8 race condition).
+        // Badge is already cleared in handleOnAppear() before this runs, so the
+        // BadgeCountManager suppression window is active before the Firestore listener fires.
         Task {
-            try? await notificationService.markAllAsRead()
-            dlog("🔔 [NOTIF] markAllAsRead complete — unreadCount after=\(notificationService.unreadCount)")
-            clearBadgeCount()
+            do {
+                // RACE FIX: markAllAsRead is called from onAppear at the same time as
+                // startListening(). The snapshot listener fires ~100ms later, so
+                // notifications may be empty when we arrive here — causing the guard
+                // inside markAllAsRead to return early and the badge to stay stuck.
+                // Wait up to 1.5 s for the first snapshot to land; if isLoading is
+                // still true or the array is empty after that, proceed anyway (it will
+                // be a no-op and the real count will be corrected by the listener).
+                if notificationService.notifications.isEmpty || notificationService.isLoading {
+                    let deadline = Date().addingTimeInterval(1.5)
+                    while Date() < deadline {
+                        if !notificationService.notifications.isEmpty && !notificationService.isLoading { break }
+                        try await Task.sleep(nanoseconds: 100_000_000) // 100 ms
+                    }
+                }
+                try await notificationService.markAllAsRead()
+                dlog("🔔 [NOTIF] markAllAsRead complete — unreadCount after=\(notificationService.unreadCount)")
+                // Badge was already cleared on appear; suppression window handles the listener race.
+            } catch {
+                // A batch chunk failed — local state may be partially updated.
+                // Show an alert so the user knows some notifications may still
+                // appear unread and can retry.
+                dlog("❌ [NOTIF] markAllAsRead error: \(error)")
+                await MainActor.run {
+                    markAllReadError = error.localizedDescription
+                    showMarkAllReadError = true
+                }
+            }
         }
     }
     
@@ -1589,7 +1759,7 @@ class NotificationProfileCache: ObservableObject {
     
     private var listeners: [String: ListenerRegistration] = [:]
     private let maxConcurrentListeners = 50
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     private init() {
         // Private initializer for singleton pattern

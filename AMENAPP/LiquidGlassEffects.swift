@@ -109,7 +109,7 @@ struct SuccessChipPresenter: ViewModifier {
                         Text(chip.text)
                             .font(.system(size: 12, weight: .medium))
                     }
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
                     .background(
@@ -148,7 +148,7 @@ struct FloatingStatusPillView: View {
             Text(text)
                 .font(.system(size: 12, weight: .medium))
         }
-        .foregroundStyle(.black)
+        .foregroundStyle(.primary)
         .padding(.horizontal, 12)
         .padding(.vertical, 7)
         .background(

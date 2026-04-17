@@ -27,7 +27,7 @@ class PostTranslationService: ObservableObject {
     @Published var isTranslating = false
     @Published var translationCache: [String: CachedTranslation] = [:]
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     let deviceLanguage: String = {
         if #available(iOS 16, *) {
             return Locale.current.language.languageCode?.identifier ?? "en"
@@ -98,9 +98,21 @@ class PostTranslationService: ObservableObject {
         }
 
         // 2. Apple Translation session — headless (no SwiftUI view needed).
-        // init(installedSource:target:) requires on-device language models; throws if not installed.
+        // Check LanguageAvailability first; init(installedSource:target:) only works
+        // with pre-downloaded models.
         let sourceLang = Locale.Language(identifier: sourceLanguage)
         let targetLang = Locale.Language(identifier: targetLanguage)
+
+        let availability = LanguageAvailability()
+        let status = await availability.status(from: sourceLang, to: targetLang)
+
+        guard status == .installed else {
+            throw NSError(domain: "PostTranslationService", code: 2, userInfo: [
+                NSLocalizedDescriptionKey: status == .supported
+                    ? "Language models not downloaded yet. Use .translationTask() to prompt download."
+                    : "Language pair \(sourceLanguage) → \(targetLanguage) is unsupported."
+            ])
+        }
 
         let translated: String = try await withCheckedThrowingContinuation { continuation in
             Task { @MainActor in

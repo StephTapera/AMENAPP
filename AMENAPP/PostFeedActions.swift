@@ -108,7 +108,7 @@ struct WhyAmISeeingThisSheet: View {
                 }
             }
             .sheet(isPresented: $showFeedControls) {
-                HeyFeedControlsSheet()
+                YourFeedView()
             }
         }
     }

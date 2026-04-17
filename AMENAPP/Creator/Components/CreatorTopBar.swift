@@ -18,7 +18,7 @@ struct CreatorTopBar: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
                     .font(AMENFont.bold(24))
-                    .foregroundStyle(Color.black)
+                    .foregroundStyle(.primary)
 
                 if let subtitle {
                     Text(subtitle)

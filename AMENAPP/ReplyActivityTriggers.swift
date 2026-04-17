@@ -33,7 +33,7 @@ final class ReplyActivityTriggers {
     static let shared = ReplyActivityTriggers()
     private init() {}
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     // MARK: - Notification Trigger (comment / mention / DM arrival)
 

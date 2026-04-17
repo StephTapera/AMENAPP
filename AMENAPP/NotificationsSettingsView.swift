@@ -58,7 +58,7 @@ struct NotificationsSettingsView: View {
     @State private var isSaving = false
     @State private var showPermissionAlert = false
 
-    private let db = Firestore.firestore()
+    private var db: Firestore { Firestore.firestore() }
 
     private var notificationStatusRow: some View {
         HStack {

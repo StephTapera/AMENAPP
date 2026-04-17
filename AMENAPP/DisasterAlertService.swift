@@ -13,7 +13,7 @@ actor DisasterAlertService {
     static let shared = DisasterAlertService()
     private init() {}
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     // MARK: - System Prompt
 

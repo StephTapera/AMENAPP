@@ -399,7 +399,7 @@ struct MinimalAuthenticationView: View {
                         Text(formTitle)
                             .font(.systemScaled(40, weight: .light))
                             .lineSpacing(2)
-                            .foregroundStyle(.black)
+                            .foregroundStyle(.primary)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.horizontal, 32)
                             .animation(.easeOut(duration: 0.5).delay(0.08), value: isLogin)
@@ -1128,7 +1128,7 @@ private struct EditorialInputField: View {
                     }
                 }
                 .font(.systemScaled(16, weight: .regular))
-                .foregroundStyle(.black)
+                .foregroundStyle(.primary)
                 .autocorrectionDisabled()
 
                 if showPasswordToggle {
@@ -1262,11 +1262,11 @@ private struct EditorialSocialButton: View {
             HStack(spacing: 10) {
                 Image(systemName: systemIcon)
                     .font(.systemScaled(16, weight: .regular))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
 
                 Text(title)
                     .font(.systemScaled(14, weight: .regular))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)

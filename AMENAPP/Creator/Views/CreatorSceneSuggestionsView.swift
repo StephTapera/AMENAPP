@@ -9,7 +9,7 @@ struct CreatorSceneSuggestionsView: View {
                 CreatorGlassCard {
                     Text(suggestion.title)
                         .font(AMENFont.medium(13))
-                        .foregroundStyle(Color.black.opacity(0.7))
+                        .foregroundStyle(.secondary)
                 }
             }
         }

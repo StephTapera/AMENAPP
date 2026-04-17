@@ -20,7 +20,32 @@ struct ProfilePost: Identifiable {
     var replies: Int
     let postType: PostType?  // Type of post
     let createdAt: Date  // ✅ NEW: For chronological sorting
-    
+    var imageURLs: [String]? = nil  // Media URLs for grid view
+    var verseReference: String? = nil  // Verse attachment for media tile badge
+    var authorName: String? = nil  // Author name for media detail
+    var authorProfileImageURL: String? = nil  // Avatar for media detail
+
+    /// Whether this post contains at least one media URL.
+    var hasMedia: Bool {
+        guard let urls = imageURLs else { return false }
+        return !urls.isEmpty
+    }
+
+    /// Number of media items.
+    var mediaCount: Int { imageURLs?.count ?? 0 }
+
+    /// Whether this is a carousel (multi-image) post.
+    var isCarousel: Bool { mediaCount > 1 }
+
+    /// Primary thumbnail URL.
+    var primaryThumbnailURL: String? { imageURLs?.first }
+
+    /// Build a PostMediaContainer for viewer use.
+    var mediaContainer: PostMediaContainer? {
+        guard hasMedia, let urls = imageURLs else { return nil }
+        return PostMediaContainer.fromImageURLs(urls)
+    }
+
     enum PostType: String {
         case prayer = "Prayer"
         case testimony = "Testimony"
@@ -87,6 +112,7 @@ struct UserProfile {
     var initials: String
     var profileImageURL: String?
     var interests: [String]
+    var profileTopics: [String] = []
     var socialLinks: [UserSocialLink]
     var followersCount: Int
     var followingCount: Int
@@ -165,34 +191,84 @@ enum UserProfileTab: String, CaseIterable {
     }
 }
 
+// MARK: - Profile Design Tokens
+
+/// Unified design tokens for the Liquid Glass profile experience.
+/// Shared across header, action rail, tabs, post cards, and all states.
+enum ProfileDesignTokens {
+    // Canvas & surfaces
+    static let canvasBackground = Color(red: 0.975, green: 0.970, blue: 0.965)          // Soft warm off-white
+    static let cardBackground = Color.white.opacity(0.82)                                 // Translucent white glass
+    static let elevatedSurface = Color.white.opacity(0.72)                                // Slightly more translucent
+    static let cardCornerRadius: CGFloat = 20
+    static let innerCornerRadius: CGFloat = 14
+
+    // Borders & shadows
+    static let hairlineBorder = Color.black.opacity(0.06)
+    static let hairlineWidth: CGFloat = 0.5
+    static let cardShadow = Color.black.opacity(0.04)
+    static let cardShadowRadius: CGFloat = 12.0
+    static let cardShadowY: CGFloat = 4.0
+
+    // Typography colors
+    static let textPrimary = Color(white: 0.10)       // Near-black
+    static let textSecondary = Color(white: 0.35)      // Softened charcoal
+    static let textTertiary = Color(white: 0.55)       // Lighter gray
+
+    // Spacing
+    static let sectionGap: CGFloat = 6                 // Gap between connected glass sections
+    static let horizontalPadding: CGFloat = 16
+    static let contentInset: CGFloat = 16
+
+    // Divider
+    static let dividerOpacity: Double = 0.08
+    static let dividerHeight: CGFloat = 0.5
+
+    /// Standard glass card background + border + shadow modifier
+    static func glassCard() -> some View {
+        RoundedRectangle(cornerRadius: cardCornerRadius, style: .continuous)
+            .fill(.ultraThinMaterial)
+            .overlay(
+                RoundedRectangle(cornerRadius: cardCornerRadius, style: .continuous)
+                    .fill(cardBackground)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: cardCornerRadius, style: .continuous)
+                    .strokeBorder(hairlineBorder, lineWidth: hairlineWidth)
+            )
+            .shadow(color: cardShadow, radius: cardShadowRadius, y: cardShadowY)
+    }
+}
+
+/// View modifier that applies the Liquid Glass card styling.
+struct ProfileGlassCardModifier: ViewModifier {
+    var cornerRadius: CGFloat = ProfileDesignTokens.cardCornerRadius
+    func body(content: Content) -> some View {
+        content
+            .background(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                            .fill(ProfileDesignTokens.cardBackground)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                            .strokeBorder(ProfileDesignTokens.hairlineBorder, lineWidth: ProfileDesignTokens.hairlineWidth)
+                    )
+                    .shadow(color: ProfileDesignTokens.cardShadow, radius: ProfileDesignTokens.cardShadowRadius, y: ProfileDesignTokens.cardShadowY)
+            )
+    }
+}
+
+extension View {
+    func profileGlassCard(cornerRadius: CGFloat = ProfileDesignTokens.cardCornerRadius) -> some View {
+        modifier(ProfileGlassCardModifier(cornerRadius: cornerRadius))
+    }
+}
+
 /// User Profile View - For viewing other users' profiles
-/// Threads-inspired with Black & White Design
-///
-/// **🎯 PRODUCTION-READY ENHANCEMENTS RECOMMENDED:**
-///
-/// **1. Post Preview with Tap-to-Expand**
-///    - Currently: Posts are limited to 4 lines but have no expansion
-///    - Improvement: Add "See More" button for truncated posts
-///    - Benefit: Better content discovery while maintaining clean layout
-///    - Implementation: Add `@State var expandedPosts: Set<String>` and toggle logic
-///
-/// **2. Profile Action Analytics & Tracking**
-///    - Currently: No tracking of user interactions on profile
-///    - Improvement: Track follows, unfollows, message attempts, blocks, reports
-///    - Benefit: Understand user engagement patterns and improve UX
-///    - Implementation: Add `ProfileAnalyticsService.track(event:userId:)` calls
-///
-/// **3. Swipe Actions on Post Cards**
-///    - Currently: Must tap buttons for like/comment actions
-///    - Improvement: Add swipe-to-amen (right) and swipe-to-comment (left)
-///    - Benefit: Faster interactions, more mobile-native feel
-///    - Implementation: Wrap cards in SwiftUI `.swipeActions()` or custom gesture
-///
-/// **Additional Considerations:**
-/// - Post cards now use compact glassmorphic design (smaller, translucent)
-/// - Amen button has NO count display (minimalist approach)
-/// - Comment button shows badge count only when > 0
-/// - All designs use black and white color scheme exclusively
+/// Liquid Glass Design System
 ///
 struct UserProfileView: View {
     let userId: String // In a real app, this would be used to fetch the user's data
@@ -205,6 +281,8 @@ struct UserProfileView: View {
     
     @Environment(\.dismiss) var dismiss
     @State private var selectedTab: UserProfileTab = .posts
+    @State private var feedViewMode: FeedViewMode = .posts
+    @StateObject private var mediaFeedVM = MediaFeedViewModel()
     @State private var isLoading = true
     @State private var isRefreshing = false
     @State private var showFullScreenAvatar = false
@@ -258,6 +336,9 @@ struct UserProfileView: View {
     // Mutuals
     @StateObject private var mutualsVM = MutualsViewModel()
     @State private var showMutualsSheet = false
+
+    // Suggested Follows (System 13)
+    @State private var showSuggestedFollows = false
 
     // Additional production-ready states
     @State private var showShareSheet = false
@@ -321,9 +402,13 @@ struct UserProfileView: View {
                             await mutualsVM.load(profileUID: userId)
                         }
 
-                    // Mutuals strip — shown between header and tabs when mutuals exist.
-                    // Privacy: hidden when viewing own profile (mutualsVM returns [] for self).
-                    if mutualsVM.isLoading || !mutualsVM.mutuals.isEmpty {
+                    // Mutual context: use richer MutualContextRow when enabled,
+                    // otherwise fall back to the original MutualsAvatarStrip.
+                    if AMENFeatureFlags.shared.mutualContextRowEnabled {
+                        MutualContextRow(userId: userId)
+                            .padding(.horizontal, ProfileDesignTokens.horizontalPadding)
+                            .padding(.top, ProfileDesignTokens.sectionGap)
+                    } else if mutualsVM.isLoading || !mutualsVM.mutuals.isEmpty {
                         MutualsAvatarStrip(
                             mutuals: mutualsVM.mutuals,
                             isLoading: mutualsVM.isLoading,
@@ -376,12 +461,12 @@ struct UserProfileView: View {
             .refreshable {
                 await refreshProfile()
             }
-            .background(Color(.systemGroupedBackground))
+            .background(ProfileDesignTokens.canvasBackground)
             .navigationTitle(profileData?.username ?? "")
             .navigationBarTitleDisplayMode(.inline)
             // Suppress the dark hairline separator that appears when the view
             // is presented as a sheet or pushed inside another NavigationStack.
-            .toolbarBackground(Color(.systemGroupedBackground), for: .navigationBar)
+            .toolbarBackground(ProfileDesignTokens.canvasBackground, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -393,7 +478,7 @@ struct UserProfileView: View {
                             } label: {
                                 Image(systemName: "chevron.left")
                                     .font(.systemScaled(18, weight: .semibold))
-                                    .foregroundStyle(.black)
+                                    .foregroundStyle(.primary)
                             }
                             .buttonStyle(.plain)
                         }
@@ -479,6 +564,11 @@ struct UserProfileView: View {
                 if !shareItems.isEmpty {
                     ActivityViewController(activityItems: shareItems)
                 }
+            }
+            .sheet(isPresented: $showSuggestedFollows) {
+                SuggestedFollowsSheet(
+                    viewModel: SuggestedFollowsViewModel(profileUserId: userId)
+                )
             }
             .alert("Error", isPresented: $showErrorAlert) {
                 Button("OK") { errorMessage = "" }
@@ -611,7 +701,7 @@ struct UserProfileView: View {
         ListenerRegistry.shared.removeListener(key: listenerKey)
         
         // Listen to Firestore user document for count updates
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         followerCountListener = ListenerRegistry.shared.getOrCreateListener(key: listenerKey) {
             db.collection("users").document(userId)
                 .addSnapshotListener { snapshot, error in
@@ -700,7 +790,7 @@ struct UserProfileView: View {
         let postsKey = ListenerRegistry.shared.postsListenerKey(userId: userId)
         
         // ✅ Firestore snapshot listener for real-time posts
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         postsListener = ListenerRegistry.shared.getOrCreateListener(key: postsKey) {
             db.collection("posts")
                 .whereField("authorId", isEqualTo: userId)
@@ -739,7 +829,11 @@ struct UserProfileView: View {
                         likes: data["amenCount"] as? Int ?? 0,
                         replies: data["commentCount"] as? Int ?? 0,
                         postType: postType,
-                        createdAt: timestamp.dateValue()
+                        createdAt: timestamp.dateValue(),
+                        imageURLs: data["imageURLs"] as? [String],
+                        verseReference: data["verseReference"] as? String,
+                        authorName: data["authorName"] as? String ?? self.profileData?.name,
+                        authorProfileImageURL: data["authorProfileImageURL"] as? String ?? self.profileData?.profileImageURL
                     )
                 }
                 
@@ -809,7 +903,7 @@ struct UserProfileView: View {
         dlog("🔧 Attempting to fix follower counts for user: \(userId)")
         
         do {
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
             
             // Count actual followers
             let followersSnapshot = try await db.collection("follows")
@@ -889,7 +983,7 @@ struct UserProfileView: View {
             }
             
             // Fetch user profile directly from Firestore
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
             
             dlog("📡 Attempting to fetch document from Firestore...")
             let userDoc = try await db.collection("users").document(userId).getDocument()
@@ -925,6 +1019,7 @@ struct UserProfileView: View {
             let profileImageURL: String? = (data["profileImageURL"] as? String)
                 ?? (data["photoURL"] as? String)
             let interests = data["interests"] as? [String] ?? []
+            let profileTopics = data["profileTopics"] as? [String] ?? []
             
             // ✅ FIX: Ensure counts are never negative
             var followersCount = data["followersCount"] as? Int ?? 0
@@ -980,6 +1075,7 @@ struct UserProfileView: View {
                 initials: String(initials),
                 profileImageURL: profileImageURL,
                 interests: interests,
+                profileTopics: profileTopics,
                 socialLinks: (data["socialLinks"] as? [[String: Any]] ?? []).compactMap { linkData -> UserSocialLink? in
                     guard let platformStr = linkData["platform"] as? String,
                           let username   = linkData["username"]  as? String,
@@ -1033,20 +1129,16 @@ struct UserProfileView: View {
             }
 
             // Fetch user's content — posts are gated by privacy, reposts run in parallel.
-            // P0-C FIX: Use withThrowingTaskGroup instead of async let tuple-await to avoid
-            // swift_task_dealloc crash when the parent .task {} is cancelled on view disappear.
+            // Reposts are stored in Realtime Database and may return Permission Denied if
+            // RTDB rules haven't been deployed yet. Isolate that failure so a denied repost
+            // fetch never aborts the Firestore post load.
             dlog("📥 Starting parallel fetch for posts and reposts...")
-            try await withThrowingTaskGroup(of: Void.self) { group in
-                group.addTask { [self, forceServerFetch] in
-                    let fetched = try await fetchUserPosts(page: 1, forceServerFetch: forceServerFetch)
-                    await MainActor.run { self.posts = fetched }
-                }
-                group.addTask { [self] in
-                    let fetched = try await fetchUserReposts()
-                    await MainActor.run { self.reposts = fetched }
-                }
-                try await group.waitForAll()
-            }
+            async let postsTask   = fetchUserPosts(page: 1, forceServerFetch: forceServerFetch)
+            async let repostsTask = fetchUserRepostsSafe()
+
+            let (fetchedPosts, fetchedReposts) = try await (postsTask, repostsTask)
+            posts   = fetchedPosts
+            reposts = fetchedReposts
             
             dlog("✅ Parallel fetch completed:")
             dlog("   - Posts: \(posts.count)")
@@ -1155,7 +1247,11 @@ struct UserProfileView: View {
                 likes: post.amenCount,
                 replies: post.commentCount,
                 postType: postType,
-                createdAt: post.createdAt  // ✅ Include timestamp for sorting
+                createdAt: post.createdAt,  // ✅ Include timestamp for sorting
+                imageURLs: post.imageURLs,
+                verseReference: post.verseReference,
+                authorName: post.authorName,
+                authorProfileImageURL: post.authorProfileImageURL
             )
         }
     }
@@ -1219,6 +1315,12 @@ struct UserProfileView: View {
         return []
     }
     
+    /// Non-throwing wrapper — returns an empty array instead of propagating
+    /// Permission Denied or other RTDB errors that shouldn't abort the profile load.
+    private func fetchUserRepostsSafe() async -> [UserProfileRepost] {
+        do { return try await fetchUserReposts() } catch { return [] }
+    }
+
     private func fetchUserReposts() async throws -> [UserProfileRepost] {
         dlog("📥 Fetching reposts for user: \(userId)")
         
@@ -1576,7 +1678,7 @@ struct UserProfileView: View {
     private func refreshFollowerCount() async {
         do {
             // Fetch updated counts from Firestore directly
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
             let userDoc = try await db.collection("users").document(userId).getDocument()
             
             guard let data = userDoc.data() else { return }
@@ -2062,8 +2164,8 @@ struct UserProfileView: View {
                             // Name with private account badge
                             HStack(spacing: 8) {
                                 Text(profileData.name)
-                                    .font(AMENFont.bold(28))
-                                    .foregroundStyle(.primary)
+                                    .font(AMENFont.bold(26))
+                                    .foregroundStyle(ProfileDesignTokens.textPrimary)
                                 
                                 // Private account indicator
                                 if profileData.isPrivateAccount {
@@ -2087,14 +2189,21 @@ struct UserProfileView: View {
                             if isFollowedByThisUser && !isBlocked && !isBlockedBy {
                                 Text("Follows you")
                                     .font(AMENFont.regular(12))
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(ProfileDesignTokens.textSecondary)
                                     .padding(.horizontal, 8)
                                     .padding(.vertical, 3)
                                     .background(
                                         Capsule()
-                                            .fill(Color(UIColor.secondarySystemFill))
+                                            .fill(ProfileDesignTokens.elevatedSurface)
+                                            .overlay(
+                                                Capsule()
+                                                    .strokeBorder(ProfileDesignTokens.hairlineBorder, lineWidth: ProfileDesignTokens.hairlineWidth)
+                                            )
                                     )
                             }
+
+                            // NOTE: Presence indicator removed from profile per privacy spec.
+                            // Other users should not see if someone is active from the profile page.
                             
                             // Bio URL Link (moved to top)
                             if let bioURL = profileData.bioURL, !bioURL.isEmpty, let bioURLParsed = URL(string: bioURL) {
@@ -2102,60 +2211,23 @@ struct UserProfileView: View {
                                     HStack(spacing: 6) {
                                         Image(systemName: "link.circle.fill")
                                             .font(.systemScaled(11, weight: .semibold))
-                                            .foregroundStyle(.primary)
+                                            .foregroundStyle(ProfileDesignTokens.textSecondary)
 
                                         Text(bioURL.replacingOccurrences(of: "https://", with: "")
                                                 .replacingOccurrences(of: "http://", with: ""))
                                             .font(AMENFont.semiBold(11))
-                                            .foregroundStyle(.primary)
+                                            .foregroundStyle(ProfileDesignTokens.textSecondary)
                                             .lineLimit(1)
                                     }
                                     .padding(.horizontal, 10)
                                     .padding(.vertical, 6)
                                     .background(
-                                        ZStack {
-                                            // Base frosted glass layer
-                                            Capsule()
-                                                .fill(.ultraThinMaterial)
-
-                                            // Inner glow effect (white from top)
-                                            Capsule()
-                                                .fill(
-                                                    LinearGradient(
-                                                        colors: [
-                                                            Color.white.opacity(0.5),
-                                                            Color.white.opacity(0.2),
-                                                            Color.clear
-                                                        ],
-                                                        startPoint: .top,
-                                                        endPoint: .bottom
-                                                    )
-                                                )
-
-                                            // Rim light (highlight on edges)
-                                            Capsule()
-                                                .strokeBorder(
-                                                    LinearGradient(
-                                                        colors: [
-                                                            Color.white.opacity(0.7),
-                                                            Color.white.opacity(0.4),
-                                                            Color.white.opacity(0.2)
-                                                        ],
-                                                        startPoint: .topLeading,
-                                                        endPoint: .bottomTrailing
-                                                    ),
-                                                    lineWidth: 1.5
-                                                )
-
-                                            // Outer border (black)
-                                            Capsule()
-                                                .strokeBorder(
-                                                    Color.black.opacity(0.25),
-                                                    lineWidth: 1
-                                                )
-                                                .padding(0.5)
-                                        }
-                                        .shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 2)
+                                        Capsule()
+                                            .fill(ProfileDesignTokens.elevatedSurface)
+                                            .overlay(
+                                                Capsule()
+                                                    .strokeBorder(ProfileDesignTokens.hairlineBorder, lineWidth: ProfileDesignTokens.hairlineWidth)
+                                            )
                                     )
                                 }
                             }
@@ -2163,35 +2235,52 @@ struct UserProfileView: View {
                         
                         Spacer()
                         
-                        // Avatar (tappable for full screen)
+                        // Avatar (tappable for full screen) — Liquid Glass elevated ring
                         Button {
                             showFullScreenAvatar = true
                         } label: {
                             ZStack {
+                                // Outer glass ring
                                 Circle()
-                                    .fill(Color.black)
-                                    .frame(width: 80, height: 80)
-                                
+                                    .fill(ProfileDesignTokens.cardBackground)
+                                    .overlay(
+                                        Circle()
+                                            .strokeBorder(ProfileDesignTokens.hairlineBorder, lineWidth: ProfileDesignTokens.hairlineWidth)
+                                    )
+                                    .shadow(color: ProfileDesignTokens.cardShadow, radius: 8, y: 3)
+                                    .frame(width: 86, height: 86)
+
+                                // Inner avatar
                                 if let profileImageURL = profileData.profileImageURL, !profileImageURL.isEmpty {
                                     CachedAsyncImage(url: URL(string: profileImageURL)) { image in
                                         image
                                             .resizable()
                                             .scaledToFill()
-                                            .frame(width: 80, height: 80)
+                                            .frame(width: 78, height: 78)
                                             .clipShape(Circle())
                                     } placeholder: {
-                                        ZStack {
-                                            Text(profileData.initials)
-                                                .font(AMENFont.bold(28))
-                                                .foregroundStyle(.white)
-                                            ProgressView()
-                                                .tint(.white)
-                                        }
+                                        Circle()
+                                            .fill(Color(white: 0.90))
+                                            .frame(width: 78, height: 78)
+                                            .overlay(
+                                                ZStack {
+                                                    Text(profileData.initials)
+                                                        .font(AMENFont.bold(26))
+                                                        .foregroundStyle(ProfileDesignTokens.textSecondary)
+                                                    ProgressView()
+                                                        .tint(ProfileDesignTokens.textTertiary)
+                                                }
+                                            )
                                     }
                                 } else {
-                                    Text(profileData.initials)
-                                        .font(AMENFont.bold(28))
-                                        .foregroundStyle(.white)
+                                    Circle()
+                                        .fill(Color(white: 0.90))
+                                        .frame(width: 78, height: 78)
+                                        .overlay(
+                                            Text(profileData.initials)
+                                                .font(AMENFont.bold(26))
+                                                .foregroundStyle(ProfileDesignTokens.textSecondary)
+                                        )
                                 }
                             }
                         }
@@ -2203,7 +2292,7 @@ struct UserProfileView: View {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(profileData.bio)
                                 .font(AMENFont.regular(15))
-                                .foregroundStyle(.primary)
+                                .foregroundStyle(ProfileDesignTokens.textPrimary)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .lineSpacing(4)
                                 .lineLimit(bioExpanded ? nil : 3)
@@ -2217,16 +2306,25 @@ struct UserProfileView: View {
                                 } label: {
                                     Text(bioExpanded ? "less" : "more")
                                         .font(AMENFont.semiBold(13))
-                                        .foregroundStyle(.secondary)
+                                        .foregroundStyle(ProfileDesignTokens.textTertiary)
                                 }
                                 .buttonStyle(.plain)
                             }
                         }
                     }
                     
-                    // Interests
-                    if !profileData.interests.isEmpty {
-                        InterestTagsView(interests: profileData.interests)
+                    // Topics & Interests — tappable, navigate to topic feed
+                    if !profileData.profileTopics.isEmpty || !profileData.interests.isEmpty {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 6) {
+                                ForEach(profileData.profileTopics, id: \.self) { topic in
+                                    TopicPillView(rawTopic: topic)
+                                }
+                                ForEach(profileData.interests, id: \.self) { interest in
+                                    TopicPillView(rawTopic: interest)
+                                }
+                            }
+                        }
                     }
                     
                     // Social Links
@@ -2332,6 +2430,10 @@ struct UserProfileView: View {
                                 .accessibilityLabel(messageBlocked ? "Follow to send a message" : "Send message to \(profileData.name)")
                                 .accessibilityHint(messageBlocked ? "You must follow this person first" : "Double tap to open a conversation")
                                 .transition(.scale.combined(with: .opacity))
+
+                                // Suggested Follows (System 13)
+                                SuggestedFollowsButton(isPresented: $showSuggestedFollows)
+                                    .transition(.scale.combined(with: .opacity))
                             }
                         }
                         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: shouldShowToolbarButtons)
@@ -2379,15 +2481,15 @@ struct UserProfileView: View {
                         .animation(.spring(response: 0.4, dampingFraction: 0.8), value: isHidden)
                     }
                 }
-                .padding(16)
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
-                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
-                .padding(.horizontal, 16)
+                .padding(ProfileDesignTokens.contentInset)
+                .profileGlassCard()
+                .padding(.horizontal, ProfileDesignTokens.horizontalPadding)
                 .padding(.top, 8)
             } else {
                 // Loading placeholder
-                LoadingStateView()
+                SkeletonProfileHeader()
+                    .padding(.horizontal, ProfileDesignTokens.horizontalPadding)
+                    .padding(.top, 8)
             }
         }
     }
@@ -2418,13 +2520,13 @@ struct UserProfileView: View {
                             Text(tab.rawValue)
                                 .font(AMENFont.bold(15))
                         }
-                        .foregroundStyle(selectedTab == tab ? .black : .black.opacity(0.4))
+                        .foregroundStyle(selectedTab == tab ? ProfileDesignTokens.textPrimary : ProfileDesignTokens.textTertiary)
                         
                         // Active indicator with smooth animation
                         if selectedTab == tab {
                             Capsule()
-                                .fill(Color.black)
-                                .frame(height: 3)
+                                .fill(ProfileDesignTokens.textPrimary)
+                                .frame(height: 2.5)
                                 .matchedGeometryEffect(id: "tab", in: tabNamespace)
                         } else {
                             Capsule()
@@ -2444,11 +2546,9 @@ struct UserProfileView: View {
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
-        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
-        .padding(.horizontal, 16)
-        .padding(.top, 8)
+        .profileGlassCard()
+        .padding(.horizontal, ProfileDesignTokens.horizontalPadding)
+        .padding(.top, ProfileDesignTokens.sectionGap)
         .accessibilityElement(children: .contain)
     }
     
@@ -2499,44 +2599,75 @@ struct UserProfileView: View {
         VStack(spacing: 20) {
             Image(systemName: "lock.fill")
                 .font(.systemScaled(44, weight: .semibold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(ProfileDesignTokens.textTertiary)
 
             VStack(spacing: 8) {
                 Text("This account is private")
                     .font(AMENFont.bold(18))
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(ProfileDesignTokens.textPrimary)
 
                 if followRequestPending {
                     Text("Your follow request is pending approval.")
                         .font(AMENFont.regular(15))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(ProfileDesignTokens.textSecondary)
                         .multilineTextAlignment(.center)
                 } else {
                     Text("Follow this account to see their posts, prayer requests, and testimonies.")
                         .font(AMENFont.regular(15))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(ProfileDesignTokens.textSecondary)
                         .multilineTextAlignment(.center)
                 }
             }
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 40)
-        .padding(.horizontal, 16)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
-        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
-        .padding(.horizontal, 16)
-        .padding(.top, 16)
+        .padding(.horizontal, ProfileDesignTokens.contentInset)
+        .profileGlassCard()
+        .padding(.horizontal, ProfileDesignTokens.horizontalPadding)
+        .padding(.top, ProfileDesignTokens.sectionGap)
     }
     
+    @ViewBuilder
     private var postsTabContent: some View {
-        UserPostsContentView(
-            posts: posts,
-            hasMorePosts: hasMorePosts,
-            isLoadingMore: isLoadingMore,
-            selectedPostForComments: $selectedPostForComments,
-            showCommentsSheet: $showCommentsSheet
-        )
+        VStack(spacing: 0) {
+            if AMENFeatureFlags.shared.feedViewModeSwitcherEnabled {
+                FeedViewModeSwitcher(selectedMode: $feedViewMode)
+                    .padding(.horizontal, ProfileDesignTokens.horizontalPadding)
+                    .padding(.top, 8)
+                    .padding(.bottom, 4)
+                    .onChange(of: feedViewMode) { _, newMode in
+                        AMENAnalyticsService.shared.track(.mediaModeSwitched(toMode: newMode.rawValue))
+                        mediaFeedVM.persistMode(newMode)
+                        if newMode == .media {
+                            mediaFeedVM.ingestProfilePosts(posts)
+                        }
+                    }
+            }
+
+            if feedViewMode == .media && AMENFeatureFlags.shared.feedViewModeSwitcherEnabled {
+                MediaOnlyFeedView(viewModel: mediaFeedVM) { postId in
+                    AMENAnalyticsService.shared.track(.mediaDetailJumpedToPost(postId: postId))
+                }
+                .transition(.opacity.animation(.easeOut(duration: 0.15)))
+                .id("media")
+                .onAppear {
+                    mediaFeedVM.ingestProfilePosts(posts)
+                }
+                .onChange(of: posts.count) { _, _ in
+                    mediaFeedVM.ingestProfilePosts(posts)
+                }
+            } else {
+                UserPostsContentView(
+                    posts: posts,
+                    hasMorePosts: hasMorePosts,
+                    isLoadingMore: isLoadingMore,
+                    selectedPostForComments: $selectedPostForComments,
+                    showCommentsSheet: $showCommentsSheet
+                )
+                .transition(.opacity.animation(.easeOut(duration: 0.15)))
+                .id("posts")
+            }
+        }
     }
     
     private var repostsTabContent: some View {
@@ -2592,7 +2723,16 @@ struct UserPostsContentView: View {
                             toggleExpanded(postId: posts[index].id)
                         }
                     )
-                    
+
+                    if AMENFeatureFlags.shared.postDividerEnabled {
+                        FeedPostDivider(
+                            leadingInset: ProfileDesignTokens.horizontalPadding + 16,
+                            trailingInset: ProfileDesignTokens.horizontalPadding + 16,
+                            opacity: ProfileDesignTokens.dividerOpacity + 0.04,
+                            verticalPadding: 0
+                        )
+                    }
+
                     // Smart prefetch trigger - loads 5 posts before reaching end
                     if scrollManager.shouldPrefetch(currentIndex: index, totalCount: posts.count, threshold: 5) && hasMorePosts {
                         Color.clear
@@ -2618,7 +2758,7 @@ struct UserPostsContentView: View {
                 }
             }
         }
-        .background(Color(white: 0.98))
+        .background(ProfileDesignTokens.canvasBackground)
         .padding(.top, 12)
         .onDisappear {
             scrollManager.cancel()
@@ -2715,16 +2855,16 @@ struct UserProfileReplyCard: View {
                 HStack(spacing: 6) {
                     Image(systemName: "arrowshape.turn.up.left")
                         .font(.systemScaled(10))
-                        .foregroundStyle(.black.opacity(0.4))
+                        .foregroundStyle(.tertiary)
                     
                     Text("Replying to \(originalAuthor)")
                         .font(AMENFont.semiBold(12))
-                        .foregroundStyle(.black.opacity(0.5))
+                        .foregroundStyle(.secondary)
                 }
                 
                 Text(originalContent)
                     .font(AMENFont.regular(14))
-                    .foregroundStyle(.black.opacity(0.5))
+                    .foregroundStyle(.secondary)
                     .lineSpacing(3)
             }
             .padding(12)
@@ -2736,13 +2876,13 @@ struct UserProfileReplyCard: View {
             // Reply Content
             Text(replyContent)
                 .font(AMENFont.regular(15))
-                .foregroundStyle(.black)
+                .foregroundStyle(.primary)
                 .lineSpacing(4)
             
             // Timestamp
             Text(timestamp)
                 .font(AMENFont.regular(13))
-                .foregroundStyle(.black.opacity(0.4))
+                .foregroundStyle(.tertiary)
         }
         .padding(20)
     }
@@ -2846,7 +2986,7 @@ struct UserRepostsContentView: View {
                 }
             }
         }
-        .background(Color(white: 0.98))
+        .background(ProfileDesignTokens.canvasBackground)
         .padding(.top, 12)
     }
 }
@@ -2880,11 +3020,11 @@ struct UnifiedFeedContentView: View {
                             HStack(spacing: 6) {
                                 Image(systemName: "arrow.2.squarepath")
                                     .font(.systemScaled(12, weight: .semibold))
-                                    .foregroundStyle(.black.opacity(0.4))
+                                    .foregroundStyle(.tertiary)
                                 
                                 Text("Reposted from \(item.originalAuthor ?? "Unknown")")
                                     .font(AMENFont.semiBold(12))
-                                    .foregroundStyle(.black.opacity(0.5))
+                                    .foregroundStyle(.secondary)
                             }
                             .padding(.horizontal, 20)
                             .padding(.top, 16)
@@ -2905,7 +3045,7 @@ struct UnifiedFeedContentView: View {
                 }
             }
         }
-        .background(Color(.systemGroupedBackground))
+        .background(ProfileDesignTokens.canvasBackground)
         .padding(.top, 12)
         .sheet(isPresented: $showCommentsSheet) {
             if let post = selectedPostForComments {
@@ -2978,7 +3118,7 @@ struct UnifiedFeedItemCard: View {
             // Post content
             Text(item.content)
                 .font(AMENFont.regular(15))
-                .foregroundStyle(.black)
+                .foregroundStyle(.primary)
                 .lineSpacing(4)
                 .lineLimit(isExpanded ? nil : 4)
                 .animation(.easeInOut(duration: 0.3), value: isExpanded)
@@ -2994,7 +3134,7 @@ struct UnifiedFeedItemCard: View {
                         Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
                             .font(.systemScaled(10, weight: .semibold))
                     }
-                    .foregroundStyle(.black.opacity(0.5))
+                    .foregroundStyle(.secondary)
                 }
             }
             
@@ -3002,7 +3142,7 @@ struct UnifiedFeedItemCard: View {
             HStack {
                 Text(item.timestamp)
                     .font(AMENFont.regular(13))
-                    .foregroundStyle(.black.opacity(0.4))
+                    .foregroundStyle(.tertiary)
                 
                 Spacer()
                 
@@ -3018,7 +3158,7 @@ struct UnifiedFeedItemCard: View {
                             if item.likes > 0 {
                                 Text("\(item.likes)")
                                     .font(AMENFont.semiBold(13))
-                                    .foregroundStyle(.black.opacity(0.6))
+                                    .foregroundStyle(.secondary)
                             }
                         }
                     }
@@ -3028,12 +3168,12 @@ struct UnifiedFeedItemCard: View {
                         HStack(spacing: 6) {
                             Image(systemName: "bubble.left")
                                 .font(.systemScaled(16, weight: .semibold))
-                                .foregroundStyle(.black.opacity(0.6))
+                                .foregroundStyle(.secondary)
                             
                             if item.replies > 0 {
                                 Text("\(item.replies)")
                                     .font(AMENFont.semiBold(13))
-                                    .foregroundStyle(.black.opacity(0.6))
+                                    .foregroundStyle(.secondary)
                             }
                         }
                     }
@@ -3079,37 +3219,37 @@ struct ReadOnlyProfilePostCard: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Post content - Expandable (matches OpenTable PostCard design)
+            // Post content - Expandable
             Text(post.content)
-                .font(AMENFont.regular(16))  // ✅ Increased from 14 to 16 to match PostCard
-                .foregroundStyle(.primary)  // ✅ Changed from .black to .primary for consistency
-                .lineSpacing(6)  // ✅ Increased from 4 to 6 to match PostCard
+                .font(AMENFont.regular(16))
+                .foregroundStyle(ProfileDesignTokens.textPrimary)
+                .lineSpacing(6)
                 .padding(.horizontal, 16)
                 .padding(.top, 14)
-                .lineLimit(isExpanded ? nil : 10)  // ✅ Changed from 4 to 10 lines to match PostCard
-                .animation(.easeInOut(duration: 0.3), value: isExpanded)  // ✅ NEW: Smooth expansion
+                .lineLimit(isExpanded ? nil : 10)
+                .animation(.easeInOut(duration: 0.3), value: isExpanded)
             
-            // "Show more" button (matches OpenTable PostCard design)
+            // "Show more" button
             if needsExpansion && !isExpanded {
                 Button {
                     onToggleExpand()
                 } label: {
                     Text("Show more")
-                        .font(AMENFont.semiBold(14))  // ✅ Matches PostCard
-                        .foregroundStyle(.black)  // ✅ Matches PostCard
+                        .font(AMENFont.semiBold(14))
+                        .foregroundStyle(ProfileDesignTokens.textSecondary)
                 }
                 .buttonStyle(PlainButtonStyle())
                 .padding(.horizontal, 16)
                 .padding(.top, 6)
             }
             
-            // Time stamp with post type indicator - Smaller
+            // Time stamp with post type indicator
             HStack(spacing: 6) {
                 Text(post.timestamp)
                     .font(AMENFont.regular(11))
-                    .foregroundStyle(.black.opacity(0.5))
+                    .foregroundStyle(ProfileDesignTokens.textTertiary)
                 
-                // Post type indicator - Minimal black and white
+                // Post type indicator
                 if let postType = post.postType {
                     HStack(spacing: 3) {
                         Image(systemName: postType.icon)
@@ -3117,34 +3257,38 @@ struct ReadOnlyProfilePostCard: View {
                         Text(postType.rawValue)
                             .font(AMENFont.semiBold(9))
                     }
-                    .foregroundStyle(.black.opacity(0.6))
+                    .foregroundStyle(ProfileDesignTokens.textSecondary)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 3)
                     .background(
                         Capsule()
-                            .strokeBorder(.black.opacity(0.15), lineWidth: 0.5)
+                            .fill(ProfileDesignTokens.elevatedSurface)
+                            .overlay(
+                                Capsule()
+                                    .strokeBorder(ProfileDesignTokens.hairlineBorder, lineWidth: ProfileDesignTokens.hairlineWidth)
+                            )
                     )
                 }
             }
             .padding(.horizontal, 16)
             .padding(.top, 6)
             
-            // Interaction buttons - Minimal, production-ready
+            // Interaction buttons - Liquid Glass
             HStack(spacing: 16) {
-                // Amen Button (NO COUNT - just icon)
+                // Amen Button
                 Button {
                     onLike()
                 } label: {
                     Image(systemName: isLiked ? "hands.clap.fill" : "hands.clap")
                         .font(.systemScaled(16, weight: .medium))
-                        .foregroundStyle(isLiked ? .black : .black.opacity(0.4))
+                        .foregroundStyle(isLiked ? ProfileDesignTokens.textPrimary : ProfileDesignTokens.textTertiary)
                         .frame(width: 32, height: 32)
                         .background(
                             Circle()
-                                .fill(.ultraThinMaterial)
+                                .fill(ProfileDesignTokens.elevatedSurface)
                                 .overlay(
                                     Circle()
-                                        .strokeBorder(.black.opacity(0.08), lineWidth: 0.5)
+                                        .strokeBorder(ProfileDesignTokens.hairlineBorder, lineWidth: ProfileDesignTokens.hairlineWidth)
                                 )
                         )
                 }
@@ -3152,25 +3296,24 @@ struct ReadOnlyProfilePostCard: View {
                 .scaleEffect(isLiked ? 1.1 : 1.0)
                 .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isLiked)
                 
-                // Comment Button - Production ready with count badge
+                // Comment Button with count badge
                 Button {
                     onReply()
                 } label: {
                     ZStack(alignment: .topTrailing) {
                         Image(systemName: "bubble.left")
                             .font(.systemScaled(16, weight: .medium))
-                            .foregroundStyle(.black.opacity(0.4))
+                            .foregroundStyle(ProfileDesignTokens.textTertiary)
                             .frame(width: 32, height: 32)
                             .background(
                                 Circle()
-                                    .fill(.ultraThinMaterial)
+                                    .fill(ProfileDesignTokens.elevatedSurface)
                                     .overlay(
                                         Circle()
-                                            .strokeBorder(.black.opacity(0.08), lineWidth: 0.5)
+                                            .strokeBorder(ProfileDesignTokens.hairlineBorder, lineWidth: ProfileDesignTokens.hairlineWidth)
                                     )
                             )
                         
-                        // Comment count badge (only if > 0)
                         if post.replies > 0 {
                             Text("\(post.replies)")
                                 .font(AMENFont.bold(9))
@@ -3179,7 +3322,7 @@ struct ReadOnlyProfilePostCard: View {
                                 .padding(.vertical, 2)
                                 .background(
                                     Capsule()
-                                        .fill(Color.black)
+                                        .fill(ProfileDesignTokens.textPrimary)
                                 )
                                 .offset(x: 8, y: -4)
                         }
@@ -3193,14 +3336,14 @@ struct ReadOnlyProfilePostCard: View {
                 } label: {
                     Image(systemName: "square.and.arrow.up")
                         .font(.systemScaled(16, weight: .medium))
-                        .foregroundStyle(.black.opacity(0.4))
+                        .foregroundStyle(ProfileDesignTokens.textTertiary)
                         .frame(width: 32, height: 32)
                         .background(
                             Circle()
-                                .fill(.ultraThinMaterial)
+                                .fill(ProfileDesignTokens.elevatedSurface)
                                 .overlay(
                                     Circle()
-                                        .strokeBorder(.black.opacity(0.08), lineWidth: 0.5)
+                                        .strokeBorder(ProfileDesignTokens.hairlineBorder, lineWidth: ProfileDesignTokens.hairlineWidth)
                                 )
                         )
                 }
@@ -3208,32 +3351,30 @@ struct ReadOnlyProfilePostCard: View {
                 
                 Spacer()
                 
-                // Like count indicator (subtle, right-aligned)
+                // Like count indicator
                 if post.likes > 0 {
                     Text("\(post.likes)")
                         .font(AMENFont.semiBold(11))
-                        .foregroundStyle(.black.opacity(0.4))
+                        .foregroundStyle(ProfileDesignTokens.textTertiary)
                 }
             }
             .padding(.horizontal, 16)
-            .padding(.top, 12)  // ✅ Matches PostCard spacing
+            .padding(.top, 12)
             .padding(.bottom, 14)
         }
         .background(
-            RoundedRectangle(cornerRadius: 0, style: .continuous)  // ✅ Matches ProfileView - flat design
-                .fill(Color(.systemBackground))  // ✅ Adaptive background
+            RoundedRectangle(cornerRadius: ProfileDesignTokens.innerCornerRadius, style: .continuous)
+                .fill(ProfileDesignTokens.cardBackground)
+                .overlay(
+                    RoundedRectangle(cornerRadius: ProfileDesignTokens.innerCornerRadius, style: .continuous)
+                        .strokeBorder(ProfileDesignTokens.hairlineBorder, lineWidth: ProfileDesignTokens.hairlineWidth)
+                )
+                .shadow(color: ProfileDesignTokens.cardShadow, radius: 6, y: 2)
         )
-        .overlay(
-            // Minimal bottom separator like ProfileView
-            Rectangle()
-                .fill(Color.black.opacity(0.08))
-                .frame(height: 0.5),
-            alignment: .bottom
-        )
-        .pressableCard(scale: 0.985)  // ✅ Matches PostCard press animation
-        .padding(.horizontal, 16)
-        .padding(.top, 8)
-        .padding(.bottom, 4)
+        .pressableCard(scale: 0.985)
+        .padding(.horizontal, ProfileDesignTokens.horizontalPadding)
+        .padding(.top, 4)
+        .padding(.bottom, 2)
         .contentShape(Rectangle())
         // ✅ NEW: Swipe gesture for quick actions
         .offset(x: swipeOffset)
@@ -3288,7 +3429,7 @@ struct ReadOnlyProfilePostCard: View {
             
             Image(systemName: "hands.clap.fill")
                 .font(.systemScaled(24, weight: .semibold))
-                .foregroundStyle(.black.opacity(0.6))
+                .foregroundStyle(.secondary)
         }
     }
     
@@ -3301,7 +3442,7 @@ struct ReadOnlyProfilePostCard: View {
             
             Image(systemName: "bubble.left.fill")
                 .font(.systemScaled(24, weight: .semibold))
-                .foregroundStyle(.black.opacity(0.6))
+                .foregroundStyle(.secondary)
         }
     }
     
@@ -3385,30 +3526,30 @@ struct UserProfileEmptyStateView: View {
     
     var body: some View {
         VStack(spacing: 20) {
-            // Neumorphic icon container
+            // Liquid Glass icon container
             ZStack {
                 Circle()
-                    .fill(
-                        Color(white: 0.95)
-                            .shadow(.inner(color: Color.black.opacity(0.1), radius: 8, x: 4, y: 4))
-                            .shadow(.inner(color: Color.white.opacity(0.8), radius: 8, x: -4, y: -4))
+                    .fill(ProfileDesignTokens.elevatedSurface)
+                    .overlay(
+                        Circle()
+                            .strokeBorder(ProfileDesignTokens.hairlineBorder, lineWidth: ProfileDesignTokens.hairlineWidth)
                     )
-                    .frame(width: 100, height: 100)
-                    .shadow(color: .black.opacity(0.1), radius: 20, x: 0, y: 10)
+                    .shadow(color: ProfileDesignTokens.cardShadow, radius: 10, y: 4)
+                    .frame(width: 80, height: 80)
                 
                 Image(systemName: icon)
-                    .font(.systemScaled(40, weight: .medium))
-                    .foregroundStyle(.black.opacity(0.3))
+                    .font(.systemScaled(32, weight: .medium))
+                    .foregroundStyle(ProfileDesignTokens.textTertiary)
             }
             
             VStack(spacing: 8) {
                 Text(title)
-                    .font(AMENFont.bold(20))
-                    .foregroundStyle(.black)
+                    .font(AMENFont.bold(18))
+                    .foregroundStyle(ProfileDesignTokens.textPrimary)
                 
                 Text(message)
                     .font(AMENFont.regular(15))
-                    .foregroundStyle(.black.opacity(0.5))
+                    .foregroundStyle(ProfileDesignTokens.textTertiary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 40)
             }
@@ -3568,7 +3709,7 @@ struct FollowersListView: View {
                 }
                 .padding(.vertical, 20)
             }
-            .background(Color(white: 0.98))
+            .background(ProfileDesignTokens.canvasBackground)
             .navigationTitle(type.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -3655,11 +3796,11 @@ struct UserListRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(user.name)
                     .font(AMENFont.bold(16))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
                 
                 Text("@\(user.username)")
                     .font(AMENFont.regular(14))
-                    .foregroundStyle(.black.opacity(0.5))
+                    .foregroundStyle(.secondary)
             }
             
             Spacer()
@@ -3668,7 +3809,7 @@ struct UserListRow: View {
             if isCurrentUser {
                 Text("You")
                     .font(AMENFont.semiBold(14))
-                    .foregroundStyle(.black.opacity(0.4))
+                    .foregroundStyle(.tertiary)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
             } else {
@@ -3773,11 +3914,11 @@ struct ReportUserView: View {
                         
                         Text("Report \(userName)")
                             .font(AMENFont.bold(24))
-                            .foregroundStyle(.black)
+                            .foregroundStyle(.primary)
                         
                         Text("Help us understand what's happening")
                             .font(AMENFont.regular(15))
-                            .foregroundStyle(.black.opacity(0.6))
+                            .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
                     }
                     .padding(.top, 20)
@@ -3786,7 +3927,7 @@ struct ReportUserView: View {
                     VStack(alignment: .leading, spacing: 16) {
                         Text("Why are you reporting this account?")
                             .font(AMENFont.bold(16))
-                            .foregroundStyle(.black)
+                            .foregroundStyle(.primary)
                         
                         ForEach(UserReportReason.allCases, id: \.self) { reason in
                             ReportReasonRow(
@@ -3806,7 +3947,7 @@ struct ReportUserView: View {
                         VStack(alignment: .leading, spacing: 12) {
                             Text("Additional Details (Optional)")
                                 .font(AMENFont.bold(16))
-                                .foregroundStyle(.black)
+                                .foregroundStyle(.primary)
                             
                             TextEditor(text: $description)
                                 .font(AMENFont.regular(15))
@@ -3849,7 +3990,7 @@ struct ReportUserView: View {
                     // Info Text
                     Text("Your report is anonymous. If someone is in immediate danger, call local emergency services.")
                         .font(AMENFont.regular(13))
-                        .foregroundStyle(.black.opacity(0.5))
+                        .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 40)
                         .padding(.top, 20)
@@ -3907,7 +4048,7 @@ struct ReportReasonRow: View {
                 
                 Text(reason.rawValue)
                     .font(AMENFont.semiBold(15))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
                 
                 Spacer()
                 
@@ -3940,13 +4081,13 @@ struct StatView: View {
     
     var body: some View {
         HStack(spacing: 4) {
-            Text(label.capitalized)
-                .font(AMENFont.regular(13))
-                .foregroundStyle(.secondary)
-            
             Text(count)
-                .font(AMENFont.regular(13))
-                .foregroundStyle(.secondary)
+                .font(AMENFont.bold(15))
+                .foregroundStyle(ProfileDesignTokens.textPrimary)
+            
+            Text(label)
+                .font(AMENFont.regular(14))
+                .foregroundStyle(ProfileDesignTokens.textTertiary)
         }
     }
 }
@@ -3960,11 +4101,11 @@ struct InterestTagsView: View {
                 HStack(spacing: 6) {
                     Image(systemName: "sparkles")
                         .font(.systemScaled(12))
-                        .foregroundStyle(.black.opacity(0.5))
+                        .foregroundStyle(.secondary)
                     
                     Text("Interests")
                         .font(AMENFont.semiBold(13))
-                        .foregroundStyle(.black.opacity(0.5))
+                        .foregroundStyle(.secondary)
                 }
                 
                 AMENFlowLayout(spacing: 8) {
@@ -3988,7 +4129,7 @@ struct HandDrawnInterestTag: View {
     var body: some View {
         Text(interest)
             .font(AMENFont.semiBold(13))
-            .foregroundStyle(.black)
+            .foregroundStyle(.primary)
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
             .background(
@@ -4098,11 +4239,11 @@ struct SocialLinksView: View {
                 HStack(spacing: 6) {
                     Image(systemName: "link")
                         .font(.systemScaled(12))
-                        .foregroundStyle(.black.opacity(0.5))
+                        .foregroundStyle(ProfileDesignTokens.textTertiary)
 
                     Text("Social Links")
                         .font(AMENFont.semiBold(13))
-                        .foregroundStyle(.black.opacity(0.5))
+                        .foregroundStyle(ProfileDesignTokens.textTertiary)
                 }
 
                 VStack(spacing: 8) {
@@ -4121,13 +4262,13 @@ struct SocialLinksView: View {
 
                                 Text("@\(link.username)")
                                     .font(AMENFont.semiBold(14))
-                                    .foregroundStyle(.black)
+                                    .foregroundStyle(.primary)
 
                                 Spacer()
 
                                 Image(systemName: "arrow.up.right")
                                     .font(.systemScaled(12, weight: .semibold))
-                                    .foregroundStyle(.black.opacity(0.3))
+                                    .foregroundStyle(.tertiary)
                             }
                             .padding(.horizontal, 12)
                             .padding(.vertical, 10)
@@ -4161,7 +4302,7 @@ struct ProfileRepostCard: View {
                 Text("Reposted from \(originalAuthor)")
                     .font(AMENFont.semiBold(10))
             }
-            .foregroundStyle(.black.opacity(0.5))
+            .foregroundStyle(.secondary)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
             .background(
@@ -4183,7 +4324,7 @@ struct ProfileRepostCard: View {
             // Time stamp
             Text(timestamp)
                 .font(AMENFont.regular(11))
-                .foregroundStyle(.black.opacity(0.5))
+                .foregroundStyle(.secondary)
                 .padding(.horizontal, 16)
                 .padding(.top, 6)
             
@@ -4195,7 +4336,7 @@ struct ProfileRepostCard: View {
                 } label: {
                     Image(systemName: "hands.clap")
                         .font(.systemScaled(16, weight: .medium))
-                        .foregroundStyle(.black.opacity(0.4))
+                        .foregroundStyle(.tertiary)
                         .frame(width: 32, height: 32)
                         .background(
                             Circle()
@@ -4216,7 +4357,7 @@ struct ProfileRepostCard: View {
                     ZStack(alignment: .topTrailing) {
                         Image(systemName: "bubble.left")
                             .font(.systemScaled(16, weight: .medium))
-                            .foregroundStyle(.black.opacity(0.4))
+                            .foregroundStyle(.tertiary)
                             .frame(width: 32, height: 32)
                             .background(
                                 Circle()
@@ -4251,7 +4392,7 @@ struct ProfileRepostCard: View {
                 } label: {
                     Image(systemName: "square.and.arrow.up")
                         .font(.systemScaled(16, weight: .medium))
-                        .foregroundStyle(.black.opacity(0.4))
+                        .foregroundStyle(.tertiary)
                         .frame(width: 32, height: 32)
                         .background(
                             Circle()
@@ -4271,7 +4412,7 @@ struct ProfileRepostCard: View {
                 if likes > 0 {
                     Text("\(likes)")
                         .font(AMENFont.semiBold(11))
-                        .foregroundStyle(.black.opacity(0.4))
+                        .foregroundStyle(.tertiary)
                 }
             }
             .padding(.horizontal, 16)
@@ -4302,7 +4443,7 @@ struct LoadingStateView: View {
             
             Text("Loading...")
                 .font(AMENFont.regular(14))
-                .foregroundStyle(.black.opacity(0.5))
+                .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 60)
@@ -4367,23 +4508,23 @@ struct SkeletonProfileCard: View {
             // Content placeholder
             VStack(alignment: .leading, spacing: 8) {
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(Color.gray.opacity(0.2))
+                    .fill(Color.black.opacity(0.06))
                     .frame(height: 16)
                 
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(Color.gray.opacity(0.2))
+                    .fill(Color.black.opacity(0.06))
                     .frame(height: 16)
                     .frame(maxWidth: .infinity * 0.8)
                 
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(Color.gray.opacity(0.2))
+                    .fill(Color.black.opacity(0.06))
                     .frame(height: 16)
                     .frame(maxWidth: .infinity * 0.6)
             }
             
             // Timestamp placeholder
             RoundedRectangle(cornerRadius: 6)
-                .fill(Color.gray.opacity(0.15))
+                .fill(Color.black.opacity(0.04))
                 .frame(width: 80, height: 12)
             
             // Buttons placeholder
@@ -4391,23 +4532,19 @@ struct SkeletonProfileCard: View {
                 ForEach(0..<2) { _ in
                     HStack(spacing: 6) {
                         Circle()
-                            .fill(Color.gray.opacity(0.2))
+                            .fill(Color.black.opacity(0.06))
                             .frame(width: 20, height: 20)
                         
                         RoundedRectangle(cornerRadius: 4)
-                            .fill(Color.gray.opacity(0.2))
+                            .fill(Color.black.opacity(0.06))
                             .frame(width: 30, height: 12)
                     }
                 }
             }
         }
-        .padding(20)
-        .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(Color(.systemBackground))
-                .shadow(color: .black.opacity(0.06), radius: 12, y: 4)
-        )
-        .padding(.horizontal, 20)
+        .padding(ProfileDesignTokens.contentInset)
+        .profileGlassCard()
+        .padding(.horizontal, ProfileDesignTokens.horizontalPadding)
         .padding(.vertical, 8)
         .shimmerEffect()
     }
@@ -4420,55 +4557,57 @@ struct SkeletonProfileHeader: View {
             HStack(alignment: .top, spacing: 16) {
                 VStack(alignment: .leading, spacing: 8) {
                     RoundedRectangle(cornerRadius: 8)
-                        .fill(Color.gray.opacity(0.2))
+                        .fill(Color.black.opacity(0.06))
                         .frame(width: 150, height: 24)
                     
                     RoundedRectangle(cornerRadius: 6)
-                        .fill(Color.gray.opacity(0.15))
+                        .fill(Color.black.opacity(0.04))
                         .frame(width: 100, height: 16)
                 }
                 
                 Spacer()
                 
                 Circle()
-                    .fill(Color.gray.opacity(0.2))
+                    .fill(Color.black.opacity(0.06))
                     .frame(width: 80, height: 80)
             }
             
             VStack(alignment: .leading, spacing: 8) {
                 RoundedRectangle(cornerRadius: 6)
-                    .fill(Color.gray.opacity(0.15))
+                    .fill(Color.black.opacity(0.04))
                     .frame(height: 14)
                 
                 RoundedRectangle(cornerRadius: 6)
-                    .fill(Color.gray.opacity(0.15))
+                    .fill(Color.black.opacity(0.04))
                     .frame(height: 14)
                     .frame(maxWidth: .infinity * 0.7)
             }
             
             HStack(spacing: 24) {
                 RoundedRectangle(cornerRadius: 6)
-                    .fill(Color.gray.opacity(0.15))
+                    .fill(Color.black.opacity(0.04))
                     .frame(width: 100, height: 16)
                 
                 RoundedRectangle(cornerRadius: 6)
-                    .fill(Color.gray.opacity(0.15))
+                    .fill(Color.black.opacity(0.04))
                     .frame(width: 100, height: 16)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             
             HStack(spacing: 12) {
                 RoundedRectangle(cornerRadius: 20)
-                    .fill(Color.gray.opacity(0.2))
+                    .fill(Color.black.opacity(0.06))
                     .frame(height: 44)
                 
                 RoundedRectangle(cornerRadius: 20)
-                    .fill(Color.gray.opacity(0.2))
+                    .fill(Color.black.opacity(0.06))
                     .frame(height: 44)
             }
         }
-        .padding(20)
-        .background(Color(white: 0.98))
+        .padding(ProfileDesignTokens.contentInset)
+        .profileGlassCard()
+        .padding(.horizontal, ProfileDesignTokens.horizontalPadding)
+        .padding(.top, 8)
         .shimmerEffect()
     }
 }
@@ -4692,11 +4831,11 @@ struct ErrorRecoveryView: View {
             VStack(spacing: 8) {
                 Text("Oops!")
                     .font(AMENFont.bold(22))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
                 
                 Text(error)
                     .font(AMENFont.regular(15))
-                    .foregroundStyle(.black.opacity(0.6))
+                    .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .lineSpacing(4)
                     .padding(.horizontal, 32)
@@ -4735,7 +4874,7 @@ struct ErrorRecoveryView: View {
                         onDismiss()
                     }
                     .font(AMENFont.semiBold(15))
-                    .foregroundStyle(.black.opacity(0.6))
+                    .foregroundStyle(.secondary)
                 }
             }
             .padding(.horizontal, 32)
@@ -4835,7 +4974,7 @@ struct InlineErrorBanner: View {
             
             Text(message)
                 .font(AMENFont.regular(13))
-                .foregroundStyle(.black.opacity(0.7))
+                .foregroundStyle(.secondary)
                 .lineLimit(2)
             
             Spacer()
@@ -4882,11 +5021,11 @@ struct PrivacyStatusBadge: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 10)
         .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(color.opacity(0.1))
+            RoundedRectangle(cornerRadius: ProfileDesignTokens.innerCornerRadius)
+                .fill(ProfileDesignTokens.elevatedSurface)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .strokeBorder(color.opacity(0.3), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: ProfileDesignTokens.innerCornerRadius)
+                        .strokeBorder(color.opacity(0.2), lineWidth: ProfileDesignTokens.hairlineWidth)
                 )
         )
     }
@@ -5117,35 +5256,39 @@ extension UserProfileView {
         return UIImage(cgImage: cgImage)
     }
     
-    /// Compact avatar view for toolbar
+    /// Compact avatar view for toolbar — Liquid Glass mini ring
     private func compactAvatarView(profileData: UserProfile) -> some View {
         Group {
             if let imageURL = profileData.profileImageURL, !imageURL.isEmpty, let url = URL(string: imageURL) {
-                // ✅ PERFORMANCE: Use CachedAsyncImage for instant loading on scroll
                 CachedAsyncImage(url: url) { image in
                     image
                         .resizable()
                         .scaledToFill()
-                        .frame(width: 32, height: 32)
+                        .frame(width: 30, height: 30)
                         .clipShape(Circle())
+                        .overlay(
+                            Circle()
+                                .strokeBorder(ProfileDesignTokens.hairlineBorder, lineWidth: ProfileDesignTokens.hairlineWidth)
+                        )
                 } placeholder: {
-                    Circle().fill(Color.black)
-                        .frame(width: 32, height: 32)
+                    Circle().fill(Color(white: 0.90))
+                        .frame(width: 30, height: 30)
                         .overlay(
                             Text(profileData.initials)
-                                .font(AMENFont.bold(12))
-                                .foregroundStyle(.white)
+                                .font(AMENFont.bold(11))
+                                .foregroundStyle(ProfileDesignTokens.textSecondary)
                         )
                 }
             } else {
-                Circle().fill(Color.black).frame(width: 32, height: 32)
+                Circle().fill(Color(white: 0.90)).frame(width: 30, height: 30)
                     .overlay(
                         Text(profileData.initials)
-                            .font(AMENFont.bold(12))
-                            .foregroundStyle(.white)
+                            .font(AMENFont.bold(11))
+                            .foregroundStyle(ProfileDesignTokens.textSecondary)
                     )
             }
         }
+        .shadow(color: ProfileDesignTokens.cardShadow, radius: 4, y: 2)
     }
 }
 

@@ -60,7 +60,7 @@ final class ChurchNoteTabViewModel: ObservableObject {
 
     private let organizeService = ChurchNotesOrganizeService.shared
     private let captureService = ChurchNotesSermonCaptureService.shared
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     init(note: ChurchNote) {
         self.note = note

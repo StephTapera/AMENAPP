@@ -1,623 +1,439 @@
 // SuggestedForYouModule.swift
 // AMENAPP
 //
-// Compact "Suggested for you" horizontal rail — injected after the 3rd post
-// in OpenTable (Everyone mode). Threads/Instagram density, AMEN Liquid Glass style.
+// Thin wrapper for the OpenTable feed's "Suggested for you" rail.
+// All logic is now delegated to the extracted shared framework:
+//   SuggestedRailModels, SuggestedRailService, SuggestedRailViewModel,
+//   SuggestionFollowButton, SuggestionAvatarView, SuggestionSkeletonCard.
 //
-// Architecture:
-//   SuggestedForYouModule        — section container (hide/show, header, rail)
-//   SuggestionCard               — individual compact card
-//   SuggestionSkeletonCard       — loading placeholder
-//   SuggestionsViewModel         — fetch, follow, dismiss, hide/show state
-//   SuggestionsService           — Firestore fetch + ranking
+// This file preserves the same public API so existing call sites
+// (e.g. ContentView.swift) continue to work unchanged.
 
 import SwiftUI
-import FirebaseAuth
-import FirebaseFirestore
-
-// MARK: - Model
-
-enum SuggestionAccountType: String {
-    case personal, church, creator, business, ministry, official
-    var badge: String? {
-        switch self {
-        case .church:    return "Church"
-        case .creator:   return "Creator"
-        case .ministry:  return "Ministry"
-        case .business:  return "Business"
-        case .official:  return nil
-        case .personal:  return nil
-        }
-    }
-}
-
-struct SuggestionItem: Identifiable {
-    let id: String
-    let displayName: String
-    let handle: String
-    let avatarURL: String?
-    let isVerified: Bool
-    let accountType: SuggestionAccountType
-    let reasonText: String          // "3 mutuals follow", "Near you", etc.
-    let mutualCount: Int            // 0 = not shown
-    let distanceText: String?       // churches only
-
-    // Initials fallback
-    var initials: String {
-        displayName.components(separatedBy: " ")
-            .compactMap { $0.first }
-            .map { String($0) }
-            .joined()
-            .prefix(2)
-            .uppercased()
-    }
-}
-
-// MARK: - Analytics hooks (fire-and-forget stubs — wire to real analytics later)
-
-private func trackSuggestionEvent(_ name: String, id: String) {
-    // e.g. AnalyticsService.shared.log(name, parameters: ["user_id": id])
-}
-
-// MARK: - Service
-
-@MainActor
-final class SuggestionsService {
-    static let shared = SuggestionsService()
-    private let db = Firestore.firestore()
-
-    func fetchSuggestions(limit: Int = 12) async -> [SuggestionItem] {
-        guard let currentUID = Auth.auth().currentUser?.uid else { return [] }
-
-        let alreadyFollowing = FollowService.shared.following
-        let dismissed = SuggestionsViewModel.loadDismissed()
-
-        do {
-            // Fetch highest-follower-count users as a basic signal
-            let snap = try await db.collection("users")
-                .order(by: "followersCount", descending: true)
-                .limit(to: limit * 3) // over-fetch to account for filtering
-                .getDocuments()
-
-            var items: [SuggestionItem] = []
-            for doc in snap.documents {
-                let d = doc.data()
-                let uid = doc.documentID
-                guard uid != currentUID,
-                      !alreadyFollowing.contains(uid),
-                      !dismissed.contains(uid)
-                else { continue }
-
-                let displayName = d["displayName"] as? String
-                    ?? d["username"] as? String
-                    ?? "AMEN User"
-                let handle = d["username"] as? String ?? uid
-                let avatar = d["profileImageURL"] as? String
-                    ?? d["photoURL"] as? String
-                let verified = d["isVerified"] as? Bool ?? false
-                let followersCount = d["followersCount"] as? Int ?? 0
-                let accountTypeRaw = d["accountType"] as? String ?? "personal"
-                let accountType = SuggestionAccountType(rawValue: accountTypeRaw) ?? .personal
-                let mutuals = d["mutualFollowersCount"] as? Int ?? 0
-
-                let reason = buildReason(
-                    mutuals: mutuals,
-                    accountType: accountType,
-                    followersCount: followersCount,
-                    distanceText: d["distanceText"] as? String
-                )
-
-                items.append(SuggestionItem(
-                    id: uid,
-                    displayName: displayName,
-                    handle: handle,
-                    avatarURL: avatar,
-                    isVerified: verified,
-                    accountType: accountType,
-                    reasonText: reason,
-                    mutualCount: mutuals,
-                    distanceText: d["distanceText"] as? String
-                ))
-
-                if items.count == limit { break }
-            }
-            return items
-        } catch {
-            return []
-        }
-    }
-
-    private func buildReason(
-        mutuals: Int,
-        accountType: SuggestionAccountType,
-        followersCount: Int,
-        distanceText: String?
-    ) -> String {
-        if mutuals >= 3 { return "\(mutuals) mutuals follow" }
-        if mutuals > 0 { return "\(mutuals) mutual follows" }
-        if let dist = distanceText, !dist.isEmpty { return dist }
-        switch accountType {
-        case .church:    return "Church near your community"
-        case .creator:   return "Popular faith creator"
-        case .ministry:  return "Active ministry"
-        case .business:  return "Faith-based business"
-        case .official:  return "Official AMEN account"
-        case .personal:
-            if followersCount > 5_000 { return "Popular in AMEN" }
-            return "Suggested for you"
-        }
-    }
-}
-
-// MARK: - ViewModel
-
-@MainActor
-final class SuggestionsViewModel: ObservableObject {
-    @Published var items: [SuggestionItem] = []
-    @Published var isLoading = true
-    @Published var isModuleHidden = false
-    @Published var followedIds: Set<String> = []
-
-    private static let dismissedKey = "amen_dismissed_suggestions"
-    private static let hiddenKey    = "amen_suggestions_hidden"
-
-    init() {
-        isModuleHidden = UserDefaults.standard.bool(forKey: Self.hiddenKey)
-    }
-
-    func load() async {
-        guard !isModuleHidden else { isLoading = false; return }
-        isLoading = true
-        items = await SuggestionsService.shared.fetchSuggestions()
-        isLoading = false
-    }
-
-    func dismiss(id: String) {
-        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.82))) {
-            items.removeAll { $0.id == id }
-        }
-        var set = Self.loadDismissed()
-        set.insert(id)
-        UserDefaults.standard.set(Array(set), forKey: Self.dismissedKey)
-        trackSuggestionEvent("suggestion_dismiss", id: id)
-    }
-
-    func hideModule() {
-        withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.85))) {
-            isModuleHidden = true
-        }
-        UserDefaults.standard.set(true, forKey: Self.hiddenKey)
-        trackSuggestionEvent("suggestions_hide_module", id: "")
-    }
-
-    func restoreModule() {
-        UserDefaults.standard.set(false, forKey: Self.hiddenKey)
-        withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.85))) {
-            isModuleHidden = false
-        }
-        trackSuggestionEvent("suggestions_restore_module", id: "")
-        Task { await load() }
-    }
-
-    func follow(id: String) async {
-        followedIds.insert(id) // optimistic
-        trackSuggestionEvent("suggestion_follow_tap", id: id)
-        do {
-            try await FollowService.shared.followUser(userId: id)
-            trackSuggestionEvent("suggestion_follow_success", id: id)
-            // Remove from rail after short delay so user sees the state change
-            try? await Task.sleep(nanoseconds: 900_000_000)
-            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.82))) {
-                items.removeAll { $0.id == id }
-            }
-        } catch {
-            followedIds.remove(id) // revert on failure
-            trackSuggestionEvent("suggestion_follow_failure", id: id)
-        }
-    }
-
-    static func loadDismissed() -> Set<String> {
-        let stored = UserDefaults.standard.stringArray(forKey: dismissedKey) ?? []
-        return Set(stored)
-    }
-}
 
 // MARK: - Module Container
 
 struct SuggestedForYouModule: View {
-    @StateObject private var vm = SuggestionsViewModel()
+    @StateObject private var vm = SuggestedRailViewModel(surface: .openTable)
+    @State private var profileSheetUserId: String?
 
     var body: some View {
         Group {
             if vm.isModuleHidden {
                 hiddenBanner
-            } else if vm.isLoading {
+            } else if vm.isLoading && vm.items.isEmpty {
                 loadingRail
             } else if vm.items.isEmpty {
-                EmptyView() // nothing to show
+                EmptyView()
             } else {
                 loadedModule
             }
         }
         .task { await vm.load() }
+        .sheet(item: $profileSheetUserId) { userId in
+            UserProfileView(userId: userId, showsDismissButton: true)
+        }
     }
 
-    // MARK: Loaded state
+    // MARK: - Loaded State
 
     private var loadedModule: some View {
         VStack(alignment: .leading, spacing: 10) {
-            // Header
-            HStack {
-                Text("Suggested for you")
-                    .font(.systemScaled(15, weight: .semibold))
-                    .foregroundStyle(.primary)
-                Spacer()
-                Button {
-                    HapticManager.impact(style: .light)
-                    vm.hideModule()
-                } label: {
-                    Text("Hide")
-                        .font(.systemScaled(13, weight: .regular))
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Hide suggestions")
-            }
-            .padding(.horizontal, 16)
-
-            // Horizontal rail
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: 10) {
-                    ForEach(vm.items) { item in
-                        SuggestionCard(
-                            item: item,
-                            isFollowing: vm.followedIds.contains(item.id),
-                            onFollow: {
-                                HapticManager.impact(style: .medium)
-                                Task { await vm.follow(id: item.id) }
-                            },
-                            onDismiss: {
-                                HapticManager.impact(style: .light)
-                                vm.dismiss(id: item.id)
-                            },
-                            onOpenProfile: {
-                                trackSuggestionEvent("suggestion_open_profile", id: item.id)
-                                // Navigation hook — wire to ProfileView navigation if needed
-                            }
-                        )
-                        .transition(.asymmetric(
-                            insertion: .opacity.combined(with: .scale(scale: 0.92)),
-                            removal: .opacity.combined(with: .scale(scale: 0.82))
-                        ))
-                    }
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 2)
-            }
-            .scrollClipDisabled()
+            sectionHeader
+            horizontalRail
         }
-        .padding(.vertical, 12)
+        .padding(.vertical, 14)
+        .onAppear {
+            AMENAnalyticsService.shared.track(.suggestionsRailSeen(count: vm.items.count))
+        }
     }
 
-    // MARK: Loading skeleton
+    private var sectionHeader: some View {
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Suggested for you")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.primary)
+
+                Text("Based on community, trust, and shared activity")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            Button {
+                HapticManager.impact(style: .light)
+                vm.hideModule()
+            } label: {
+                Text("Hide")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Hide suggestions")
+        }
+        .padding(.horizontal, 16)
+    }
+
+    private var horizontalRail: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            LazyHStack(spacing: 10) {
+                ForEach(vm.items) { item in
+                    SuggestedAccountCardView(
+                        item: item,
+                        followState: vm.effectiveFollowState(for: item.id),
+                        isLoadingFollow: vm.isLoadingFollow(for: item.id),
+                        onFollow: {
+                            HapticManager.impact(style: .medium)
+                            Task { await vm.follow(id: item.id) }
+                        },
+                        onCancelRequest: {
+                            HapticManager.impact(style: .light)
+                            Task { await vm.cancelRequest(id: item.id) }
+                        },
+                        onUnfollow: {
+                            HapticManager.impact(style: .light)
+                            Task { await vm.unfollow(id: item.id) }
+                        },
+                        onDismiss: {
+                            HapticManager.impact(style: .light)
+                            vm.dismiss(id: item.id)
+                        },
+                        onOpenProfile: {
+                            HapticManager.impact(style: .light)
+                            AMENAnalyticsService.shared.track(.suggestionProfileOpen(suggestedUserId: item.id))
+                            profileSheetUserId = item.id
+                        },
+                        onView: {
+                            HapticManager.impact(style: .light)
+                            AMENAnalyticsService.shared.track(.suggestionProfileOpen(suggestedUserId: item.id))
+                            profileSheetUserId = item.id
+                        }
+                    )
+                    .transition(.asymmetric(
+                        insertion: .opacity.combined(with: .scale(scale: 0.92)),
+                        removal: .opacity.combined(with: .scale(scale: 0.82).combined(with: .offset(y: 8)))
+                    ))
+                    .onAppear {
+                        vm.loadMoreIfNeeded(currentItem: item)
+                        if let position = vm.items.firstIndex(where: { $0.id == item.id }) {
+                            AMENAnalyticsService.shared.track(.suggestionImpression(
+                                suggestedUserId: item.id,
+                                position: position,
+                                reasonType: item.reasonType.rawValue
+                            ))
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 2)
+        }
+        .scrollClipDisabled()
+    }
+
+    // MARK: - Loading Skeleton
 
     private var loadingRail: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(Color(.systemFill))
-                    .frame(width: 130, height: 14)
+                VStack(alignment: .leading, spacing: 4) {
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color(.systemFill))
+                        .frame(width: 130, height: 14)
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(Color(.systemFill).opacity(0.6))
+                        .frame(width: 200, height: 10)
+                }
                 Spacer()
             }
             .padding(.horizontal, 16)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 10) {
-                    ForEach(0..<3, id: \.self) { _ in
+                    ForEach(0..<4, id: \.self) { _ in
                         SuggestionSkeletonCard()
                     }
                 }
                 .padding(.horizontal, 16)
             }
         }
-        .padding(.vertical, 12)
+        .padding(.vertical, 14)
     }
 
-    // MARK: Hidden banner
+    // MARK: - Hidden Banner
 
     private var hiddenBanner: some View {
         HStack(spacing: 10) {
             Text("Suggestions hidden")
-                .font(.systemScaled(13))
+                .font(.system(size: 13))
                 .foregroundStyle(.secondary)
             Spacer()
             Button("Show again") {
                 HapticManager.impact(style: .light)
                 vm.restoreModule()
             }
-            .font(.systemScaled(13, weight: .medium))
+            .font(.system(size: 13, weight: .medium))
             .foregroundStyle(.primary)
             .accessibilityLabel("Show suggestions again")
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
-        .background(Color(.secondarySystemBackground).opacity(0.6))
+        .background(Color(.secondarySystemBackground).opacity(0.5))
         .buttonStyle(.plain)
     }
 }
 
-// MARK: - Suggestion Card
+// MARK: - String+Identifiable for sheet binding
 
-private struct SuggestionCard: View {
+extension String: @retroactive Identifiable {
+    public var id: String { self }
+}
+
+// MARK: - Suggested Account Card
+
+struct SuggestedAccountCardView: View {
     let item: SuggestionItem
-    let isFollowing: Bool
+    let followState: FollowStateManager.FollowState
+    let isLoadingFollow: Bool
     let onFollow: () -> Void
+    let onCancelRequest: () -> Void
+    let onUnfollow: () -> Void
     let onDismiss: () -> Void
     let onOpenProfile: () -> Void
+    let onView: () -> Void
+
+    @State private var showUnfollowConfirm = false
+
+    private let cardWidth: CGFloat = 168
+    private let cardHeight: CGFloat = 240
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
-            // Glass card body
-            cardContent
-                .accessibilityElement(children: .combine)
-                .accessibilityLabel("\(item.displayName), @\(item.handle). \(item.reasonText)")
-
-            // Dismiss X
-            Button(action: onDismiss) {
-                Image(systemName: "xmark")
-                    .font(.systemScaled(10, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 22, height: 22)
-                    .background(
-                        Circle()
-                            .fill(Color(.systemFill))
-                    )
-            }
-            .buttonStyle(.plain)
-            .padding(8)
-            .accessibilityLabel("Dismiss \(item.displayName)")
+            cardBody
+            dismissButton
         }
-        .frame(width: 158)
+        .frame(width: cardWidth)
+        .confirmationDialog("Unfollow @\(item.handle)?", isPresented: $showUnfollowConfirm, titleVisibility: .visible) {
+            Button("Unfollow", role: .destructive) {
+                onUnfollow()
+            }
+            Button("Cancel", role: .cancel) {}
+        }
     }
 
-    private var cardContent: some View {
+    // MARK: - Card Body
+
+    private var cardBody: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // ── Avatar + name block ──────────────────────────────────────
-            VStack(alignment: .leading, spacing: 6) {
-                // Avatar
-                Button(action: onOpenProfile) {
-                    SuggestionAvatarView(item: item, size: 44)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("View \(item.displayName)'s profile")
+            identitySection
+                .padding(.horizontal, 12)
+                .padding(.top, 14)
 
-                // Name + verified badge
-                HStack(spacing: 4) {
-                    Text(item.displayName)
-                        .font(.systemScaled(13, weight: .semibold))
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-                    if item.isVerified {
-                        Image(systemName: "checkmark.seal.fill")
-                            .font(.systemScaled(11))
-                            .foregroundStyle(Color.accentColor)
-                    }
-                }
+            reasonSection
+                .padding(.horizontal, 12)
+                .padding(.top, 6)
 
-                // Handle
-                Text("@\(item.handle)")
-                    .font(.systemScaled(12))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-
-                // Reason
-                Text(item.reasonText)
-                    .font(.systemScaled(11))
-                    .foregroundStyle(.secondary.opacity(0.85))
-                    .lineLimit(1)
-
-                // Account type badge (optional)
-                if let badge = item.accountType.badge {
-                    Text(badge)
-                        .font(.systemScaled(10, weight: .medium))
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 3)
-                        .background(
-                            Capsule()
-                                .fill(Color(.systemFill))
-                        )
-                }
+            if item.mutualCount > 0 || item.contextLine != nil {
+                mutualContextRow
+                    .padding(.horizontal, 12)
+                    .padding(.top, 5)
             }
-            .padding(.horizontal, 12)
-            .padding(.top, 14)
-            .padding(.bottom, 10)
 
             Spacer(minLength: 0)
 
-            // ── Follow button ────────────────────────────────────────────
-            SuggestionFollowButton(isFollowing: isFollowing, action: onFollow)
+            actionButtons
                 .padding(.horizontal, 10)
                 .padding(.bottom, 12)
         }
-        .frame(width: 158, height: 200)
-        .background {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(Color.white.opacity(0.60))
-                )
-                .overlay(
-                    // Subtle top highlight
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [Color.white.opacity(0.50), Color.clear],
-                                startPoint: .top,
-                                endPoint: .init(x: 0.5, y: 0.35)
-                            )
-                        )
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.72), lineWidth: 0.75)
-                )
-        }
-        .shadow(color: .black.opacity(0.07), radius: 10, x: 0, y: 3)
-        .shadow(color: .black.opacity(0.03), radius: 2, x: 0, y: 1)
+        .frame(width: cardWidth, height: cardHeight)
+        .background { glassBackground }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(item.displayName), @\(item.handle). \(item.reasonText)")
     }
-}
 
-// MARK: - Follow Button
+    // MARK: - Identity Section
 
-private struct SuggestionFollowButton: View {
-    let isFollowing: Bool
-    let action: () -> Void
-    @State private var isPressed = false
-
-    var body: some View {
-        Button(action: action) {
-            HStack {
-                Spacer()
-                Text(isFollowing ? "Following" : "Follow")
-                    .font(.systemScaled(13, weight: .semibold))
-                    .foregroundStyle(isFollowing ? Color.primary : Color.white)
-                Spacer()
+    private var identitySection: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Button(action: onOpenProfile) {
+                SuggestionAvatarView(item: item, size: 48)
             }
-            .frame(height: 32)
-            .background {
-                if isFollowing {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(.ultraThinMaterial)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .fill(Color.white.opacity(0.65))
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .strokeBorder(Color(.separator).opacity(0.5), lineWidth: 0.75)
-                        )
-                } else {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(Color.black.opacity(isPressed ? 0.80 : 1.0))
+            .buttonStyle(.plain)
+
+            HStack(spacing: 3) {
+                Text(item.displayName)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+
+                if item.isVerified {
+                    Image(systemName: "checkmark.seal.fill")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Color.accentColor)
                 }
             }
-            .scaleEffect(isPressed ? 0.97 : 1.0)
-            .animation(.spring(response: 0.22, dampingFraction: 0.80), value: isPressed)
-            .animation(.spring(response: 0.25, dampingFraction: 0.80), value: isFollowing)
+
+            Text("@\(item.handle)")
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
         }
-        .buttonStyle(.plain)
-        ._onButtonGesture(pressing: { isPressed = $0 }, perform: {})
-        .accessibilityLabel(isFollowing ? "Following \("")" : "Follow")
-        .disabled(isFollowing)
     }
-}
 
-// MARK: - Avatar View
+    // MARK: - Reason Section
 
-private struct SuggestionAvatarView: View {
-    let item: SuggestionItem
-    let size: CGFloat
+    private var reasonSection: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(item.reasonText)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(.secondary.opacity(0.9))
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
 
-    var body: some View {
-        ZStack {
-            Circle()
-                .fill(avatarBackground)
-                .frame(width: size, height: size)
+            if let badge = item.accountType.badge {
+                Text(badge)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Capsule().fill(Color(.systemFill)))
+                    .padding(.top, 2)
+            }
+        }
+    }
 
-            if let url = item.avatarURL.flatMap(URL.init) {
-                AsyncImage(url: url) { phase in
+    // MARK: - Mutual Context Row
+
+    private var mutualContextRow: some View {
+        HStack(spacing: 4) {
+            if !item.mutualAvatarURLs.isEmpty {
+                mutualAvatarStack
+            }
+
+            if let context = item.contextLine {
+                Text(context)
+                    .font(.system(size: 10))
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
+            } else if item.mutualCount > 0 {
+                Text("Mutuals · community")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
+            }
+        }
+    }
+
+    private var mutualAvatarStack: some View {
+        HStack(spacing: -6) {
+            ForEach(Array(item.mutualAvatarURLs.prefix(3).enumerated()), id: \.offset) { index, urlString in
+                AsyncImage(url: URL(string: urlString)) { phase in
                     switch phase {
                     case .success(let image):
-                        image
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: size, height: size)
-                            .clipShape(Circle())
+                        image.resizable().scaledToFill()
                     default:
-                        Text(item.initials)
-                            .font(.systemScaled(size * 0.35, weight: .semibold))
-                            .foregroundStyle(.white)
+                        Circle().fill(Color(.systemGray5))
                     }
                 }
-            } else {
-                Text(item.initials)
-                    .font(.systemScaled(size * 0.35, weight: .semibold))
-                    .foregroundStyle(.white)
-            }
-
-            // Verified ring
-            if item.isVerified {
-                Circle()
-                    .strokeBorder(Color.accentColor, lineWidth: 2)
-                    .frame(width: size, height: size)
+                .frame(width: 16, height: 16)
+                .clipShape(Circle())
+                .overlay(Circle().strokeBorder(Color.white, lineWidth: 1))
+                .zIndex(Double(3 - index))
             }
         }
-        .frame(width: size, height: size)
     }
 
-    private var avatarBackground: some ShapeStyle {
-        switch item.accountType {
-        case .church:    return AnyShapeStyle(LinearGradient(colors: [Color(hex: "10B981"), Color(hex: "34D399")], startPoint: .topLeading, endPoint: .bottomTrailing))
-        case .creator:   return AnyShapeStyle(LinearGradient(colors: [Color(hex: "EC4899"), Color(hex: "F472B6")], startPoint: .topLeading, endPoint: .bottomTrailing))
-        case .ministry:  return AnyShapeStyle(LinearGradient(colors: [Color(hex: "6B48FF"), Color(hex: "8B5CF6")], startPoint: .topLeading, endPoint: .bottomTrailing))
-        case .business:  return AnyShapeStyle(LinearGradient(colors: [Color(hex: "F59E0B"), Color(hex: "FBBF24")], startPoint: .topLeading, endPoint: .bottomTrailing))
-        case .official:  return AnyShapeStyle(Color.black)
-        case .personal:  return AnyShapeStyle(LinearGradient(colors: [Color(.systemGray3), Color(.systemGray4)], startPoint: .topLeading, endPoint: .bottomTrailing))
+    // MARK: - Action Buttons
+
+    private var actionButtons: some View {
+        HStack(spacing: 6) {
+            SuggestionFollowButton(
+                state: followState,
+                isLoading: isLoadingFollow,
+                onFollow: onFollow,
+                onCancelRequest: onCancelRequest,
+                onUnfollow: {
+                    showUnfollowConfirm = true
+                }
+            )
+
+            Button(action: onView) {
+                Text("View")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.primary)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 30)
+                    .background {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(.ultraThinMaterial)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    .fill(Color.white.opacity(0.55))
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    .strokeBorder(Color(.separator).opacity(0.4), lineWidth: 0.5)
+                            )
+                    }
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("View \(item.displayName)'s profile")
         }
     }
-}
 
-// MARK: - Skeleton Card
+    // MARK: - Dismiss Button
 
-private struct SuggestionSkeletonCard: View {
-    @State private var shimmer = false
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            // Avatar placeholder
-            Circle()
-                .fill(Color(.systemFill))
-                .frame(width: 44, height: 44)
-
-            // Name placeholder
-            RoundedRectangle(cornerRadius: 4)
-                .fill(Color(.systemFill))
-                .frame(width: 90, height: 12)
-
-            // Handle placeholder
-            RoundedRectangle(cornerRadius: 4)
-                .fill(Color(.systemFill))
-                .frame(width: 60, height: 10)
-
-            // Reason placeholder
-            RoundedRectangle(cornerRadius: 4)
-                .fill(Color(.systemFill))
-                .frame(width: 110, height: 10)
-
-            Spacer(minLength: 0)
-
-            // Button placeholder
-            RoundedRectangle(cornerRadius: 10)
-                .fill(Color(.systemFill))
-                .frame(height: 32)
-                .padding(.horizontal, 0)
-        }
-        .padding(.horizontal, 12)
-        .padding(.top, 14)
-        .padding(.bottom, 12)
-        .frame(width: 158, height: 200)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color(.secondarySystemBackground))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.50), lineWidth: 0.75)
+    private var dismissButton: some View {
+        Button(action: onDismiss) {
+            Image(systemName: "xmark")
+                .font(.system(size: 9, weight: .bold))
+                .foregroundStyle(.secondary.opacity(0.7))
+                .frame(width: 20, height: 20)
+                .background(
+                    Circle()
+                        .fill(.ultraThinMaterial)
+                        .overlay(
+                            Circle()
+                                .fill(Color(.systemBackground).opacity(0.55))
+                        )
+                        .overlay(
+                            Circle()
+                                .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
+                        )
                 )
-        )
-        .opacity(shimmer ? 0.55 : 1.0)
-        .animation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true), value: shimmer)
-        .onAppear { shimmer = true }
+                .shadow(color: .black.opacity(0.06), radius: 3, y: 1)
+        }
+        .buttonStyle(.plain)
+        .padding(8)
+        .accessibilityLabel("Dismiss \(item.displayName)")
+    }
+
+    // MARK: - Glass Background
+
+    private var glassBackground: some View {
+        RoundedRectangle(cornerRadius: 20, style: .continuous)
+            .fill(.ultraThinMaterial)
+            .overlay(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(Color.white.opacity(0.62))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.white.opacity(0.45), Color.clear],
+                            startPoint: .top,
+                            endPoint: .init(x: 0.5, y: 0.3)
+                        )
+                    )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.70), lineWidth: 0.75)
+            )
+            .shadow(color: .black.opacity(0.06), radius: 12, x: 0, y: 4)
+            .shadow(color: .black.opacity(0.02), radius: 2, x: 0, y: 1)
     }
 }

@@ -14,7 +14,7 @@ import UIKit
 class SecurityService: ObservableObject {
     static let shared = SecurityService()
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     @Published var loginHistory: [LoginRecord] = []
     @Published var activeSessions: [ActiveSession] = []

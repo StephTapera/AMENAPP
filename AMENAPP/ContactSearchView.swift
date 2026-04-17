@@ -313,7 +313,7 @@ struct ContactSearchView: View {
     private func loadSuggestedUsers() async {
         guard let currentUserId = Auth.auth().currentUser?.uid else { return }
         do {
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
             // Fetch users the current user follows as suggestions
             let snapshot = try await db.collection("follows")
                 .whereField("followerId", isEqualTo: currentUserId)
@@ -345,7 +345,7 @@ struct ContactSearchView: View {
     private func loadRecentContacts() async {
         guard let currentUserId = Auth.auth().currentUser?.uid else { return }
         do {
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
             // Fetch recent 1:1 conversation partners
             let snapshot = try await db.collection("conversations")
                 .whereField("participantIds", arrayContains: currentUserId)

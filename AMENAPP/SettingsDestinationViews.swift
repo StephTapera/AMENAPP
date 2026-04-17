@@ -189,7 +189,7 @@ struct MutedAccountsView: View {
 
     private func loadMutedUsers() async {
         guard let uid = Auth.auth().currentUser?.uid else { isLoading = false; return }
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         do {
             let doc = try await db.collection("users").document(uid).getDocument()
             let ids = doc.data()?["mutedUsers"] as? [String] ?? []
@@ -215,7 +215,7 @@ struct MutedAccountsView: View {
     private func unmute(userId: String) {
         guard let uid = Auth.auth().currentUser?.uid else { return }
         mutedUsers.removeAll { $0.id == userId }
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         db.collection("users").document(uid).updateData([
             "mutedUsers": FieldValue.arrayRemove([userId])
         ])
@@ -352,7 +352,7 @@ struct HiddenWordsSettingsView: View {
 
     private func load() async {
         guard let uid = Auth.auth().currentUser?.uid else { isLoading = false; return }
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         let doc = try? await db.collection("users").document(uid).getDocument()
         hiddenWords = doc?.data()?["hiddenWords"] as? [String] ?? []
         filterPosts = doc?.data()?["hiddenWordFilterPosts"] as? Bool ?? true
@@ -1080,7 +1080,7 @@ struct DefaultPostSettingsView: View {
 
     private func loadSettings() async {
         guard let uid = Auth.auth().currentUser?.uid else { isLoading = false; return }
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         let doc = try? await db.collection("users").document(uid).getDocument()
         let data = doc?.data()
         blockedKeywords = data?["commentBlockedKeywords"] as? [String] ?? []

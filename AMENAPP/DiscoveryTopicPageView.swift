@@ -19,8 +19,6 @@ struct DiscoveryTopicPageView: View {
 
     enum Segment: String, CaseIterable { case top = "Top", latest = "Latest" }
 
-    private let db = Firestore.firestore()
-
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
@@ -234,7 +232,7 @@ struct DiscoveryTopicPageView: View {
 
         // Load top posts by engagement
         do {
-            let topSnapshot = try await db.collection("posts")
+            let topSnapshot = try await Firestore.firestore().collection("posts")
                 .whereField("topicTag", isEqualTo: topic.canonicalSlug)
                 .whereField("visibility", isEqualTo: "everyone")
                 .order(by: "amenCount", descending: true)
@@ -244,7 +242,7 @@ struct DiscoveryTopicPageView: View {
             topPosts = topSnapshot.documents.compactMap { makePost(from: $0) }
 
             // Load latest posts by date
-            let latestSnapshot = try await db.collection("posts")
+            let latestSnapshot = try await Firestore.firestore().collection("posts")
                 .whereField("topicTag", isEqualTo: topic.canonicalSlug)
                 .whereField("visibility", isEqualTo: "everyone")
                 .order(by: "createdAt", descending: true)

@@ -15,7 +15,7 @@ import FirebaseFirestore
 class PollService: ObservableObject {
     static let shared = PollService()
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     private init() {}
 

@@ -521,7 +521,7 @@ class NotificationPostViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var error: Error?
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     func loadPost(postId: String) async {
         isLoading = true

@@ -38,7 +38,7 @@ final class PostPinningService: ObservableObject {
     @Published var pinnedPostId: String? = nil
     @Published var pinnedRecord: PinnedPostRecord? = nil
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     private init() {}
 

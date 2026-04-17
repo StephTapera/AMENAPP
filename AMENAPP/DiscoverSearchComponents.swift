@@ -44,7 +44,7 @@ final class UniversalSearchViewModel: ObservableObject {
 
     // MARK: Private
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var searchTask: Task<Void, Never>?
     private var debounceTask: Task<Void, Never>?
     private let recentKey = "amen_recent_searches"
@@ -331,6 +331,7 @@ final class UniversalSearchViewModel: ObservableObject {
         do {
             let snap = try await db.collection("posts")
                 .whereField("contentTokens", arrayContainsAny: Array(tokens.prefix(10)))
+                .whereField("visibility", isEqualTo: "everyone")
                 .limit(to: 10)
                 .getDocuments()
             return snap.documents.compactMap { doc -> DiscoveryPost? in
@@ -550,9 +551,9 @@ struct UniversalSearchResultsView: View {
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
-                // PART 4: Berean AI answer card — shown for question-style queries
+                // PART 4: Enhanced Berean AI answer card — shown for question-style queries
                 if viewModel.bereanAnswerLoading || !viewModel.bereanAnswer.isEmpty {
-                    BereanSearchAnswerCard(
+                    EnhancedAIAnswerCard(
                         query: query,
                         answer: viewModel.bereanAnswer,
                         isLoading: viewModel.bereanAnswerLoading,
@@ -565,10 +566,10 @@ struct UniversalSearchResultsView: View {
                     .padding(.top, 8)
                 }
 
-                // PART 3: Top profile card — shown when people results exist
+                // PART 3: Enhanced top profile card — shown when people results exist
                 if let topPerson = viewModel.scopedPeople.first,
                    viewModel.searchScope == .forYou || viewModel.searchScope == .people {
-                    SearchTopProfileCard(
+                    EnhancedProfileCard(
                         person: topPerson,
                         previewPosts: viewModel.results.posts,
                         onFollow: {

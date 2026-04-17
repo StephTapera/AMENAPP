@@ -12,7 +12,7 @@ final class CreationDraftService: ObservableObject {
     static let shared = CreationDraftService()
     private init() {}
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     @Published var activeDrafts: [CreationDraft] = []
     @Published var isLoading = false

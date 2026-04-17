@@ -86,7 +86,7 @@ struct SpiritualNeedsRouterView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("What are you looking for?")
                     .font(AMENFont.bold(20))
-                    .foregroundStyle(Color.black)
+                    .foregroundStyle(.primary)
                 Text("Select up to 3 — we'll find churches that match.")
                     .font(AMENFont.regular(13))
                     .foregroundStyle(Color(white: 0.55))
@@ -240,7 +240,7 @@ struct PostVisitReflectionCard: View {
                 HStack {
                     Text("How was your visit?")
                         .font(AMENFont.bold(18))
-                        .foregroundStyle(Color.black)
+                        .foregroundStyle(.primary)
                     Spacer()
                     // Dismiss
                     Button(action: onDismiss) {
@@ -359,7 +359,7 @@ struct PostVisitReflectionCard: View {
         HStack {
             Text(question)
                 .font(AMENFont.regular(14))
-                .foregroundStyle(Color.black)
+                .foregroundStyle(.primary)
             Spacer()
             HStack(spacing: 6) {
                 yesNoButton(label: "Yes", value: true,  binding: answer)
@@ -399,11 +399,11 @@ struct PostVisitReflectionCard: View {
             HStack(spacing: 14) {
                 Image(systemName: icon)
                     .font(.systemScaled(16))
-                    .foregroundStyle(Color.black)
+                    .foregroundStyle(.primary)
                     .frame(width: 22)
                 Text(label)
                     .font(AMENFont.regular(15))
-                    .foregroundStyle(Color.black)
+                    .foregroundStyle(.primary)
                 Spacer()
                 Image(systemName: "chevron.right")
                     .font(.systemScaled(12, weight: .semibold))
@@ -465,7 +465,7 @@ struct VisitTogetherView: View {
             HStack {
                 Text("Go with someone")
                     .font(AMENFont.bold(16))
-                    .foregroundStyle(Color.black)
+                    .foregroundStyle(.primary)
                 Spacer()
             }
             .padding(.horizontal, 20)
@@ -571,13 +571,13 @@ struct VisitTogetherView: View {
             HStack(spacing: 14) {
                 Image(systemName: icon)
                     .font(.systemScaled(17))
-                    .foregroundStyle(Color.black)
+                    .foregroundStyle(.primary)
                     .frame(width: 22)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(label)
                         .font(AMENFont.semiBold(14))
-                        .foregroundStyle(Color.black)
+                        .foregroundStyle(.primary)
                     Text(detail)
                         .font(AMENFont.regular(12))
                         .foregroundStyle(Color(white: 0.55))
@@ -621,7 +621,7 @@ struct ChurchInviteComposer: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Invite someone to visit")
                             .font(AMENFont.bold(20))
-                            .foregroundStyle(Color.black)
+                            .foregroundStyle(.primary)
                         Text("\(church.name) · \(church.serviceTime)")
                             .font(AMENFont.regular(14))
                             .foregroundStyle(Color(white: 0.55))
@@ -649,7 +649,7 @@ struct ChurchInviteComposer: View {
                             }
                             TextEditor(text: $messageText)
                                 .font(AMENFont.regular(14))
-                                .foregroundStyle(Color.black)
+                                .foregroundStyle(.primary)
                                 .frame(height: 80)
                                 .padding(8)
                                 .scrollContentBackground(.hidden)
@@ -721,7 +721,7 @@ struct OpenTablePostComposer: View {
                         HStack(spacing: 6) {
                             Text("#OpenTable")
                                 .font(AMENFont.bold(20))
-                                .foregroundStyle(Color.black)
+                                .foregroundStyle(.primary)
                         }
                         Text("Let the community know you're visiting — someone might join you.")
                             .font(AMENFont.regular(13))
@@ -734,7 +734,7 @@ struct OpenTablePostComposer: View {
                     ZStack(alignment: .topLeading) {
                         TextEditor(text: $postText)
                             .font(AMENFont.regular(15))
-                            .foregroundStyle(Color.black)
+                            .foregroundStyle(.primary)
                             .frame(minHeight: 120)
                             .padding(10)
                             .scrollContentBackground(.hidden)
@@ -797,7 +797,7 @@ struct OpenTablePostComposer: View {
                 ToolbarItem(placement: .principal) {
                     Text("#OpenTable")
                         .font(AMENFont.semiBold(14))
-                        .foregroundStyle(Color.black)
+                        .foregroundStyle(.primary)
                 }
             }
         }
@@ -826,7 +826,7 @@ struct ChurchVisitCard: View {
 
                     Text(church.name)
                         .font(AMENFont.bold(20))
-                        .foregroundStyle(Color.black)
+                        .foregroundStyle(.primary)
 
                     Text(church.serviceTime)
                         .font(AMENFont.regular(14))

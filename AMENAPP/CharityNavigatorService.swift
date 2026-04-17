@@ -49,7 +49,7 @@ class CharityNavigatorService: ObservableObject {
     // REPLACE with your actual Charity Navigator API key
     private let apiKey = "YOUR_CHARITY_NAVIGATOR_API_KEY"
     private let baseURL = "https://api.charitynavigator.org/v2"
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private let cacheTTLDays: Double = 30
 
     @Published var ratings: [String: CharityRating] = [:]

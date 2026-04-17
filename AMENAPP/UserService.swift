@@ -226,9 +226,9 @@ class LegacyUserService: ObservableObject {
     @Published var isLoading = false
     @Published var error: String?
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private let firebaseManager = FirebaseManager.shared
-    private let storage = Storage.storage()
+    private lazy var storage = Storage.storage()
     
     private var userListener: ListenerRegistration?
     

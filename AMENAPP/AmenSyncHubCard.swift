@@ -41,7 +41,7 @@ struct AmenSyncHubCard: View {
 
                         Text("NEW")
                             .font(.custom("OpenSans-Bold", size: 9))
-                            .foregroundStyle(.black)
+                            .foregroundStyle(.primary)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 3)
                             .background(

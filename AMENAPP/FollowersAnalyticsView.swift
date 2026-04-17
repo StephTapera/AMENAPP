@@ -327,7 +327,7 @@ struct FollowerStatCard: View {
             
             Text(value)
                 .font(.custom("OpenSans-Bold", size: 32))
-                .foregroundStyle(.black)
+                .foregroundStyle(.primary)
             
             Text(label)
                 .font(.custom("OpenSans-Regular", size: 14))
@@ -400,7 +400,7 @@ struct TopFollowerRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(user.displayName)
                     .font(.custom("OpenSans-Bold", size: 15))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
                 
                 Text("@\(user.username)")
                     .font(.custom("OpenSans-Regular", size: 13))
@@ -451,7 +451,7 @@ struct MutualFollowerCard: View {
                 
                 Text(user.displayName)
                     .font(.custom("OpenSans-SemiBold", size: 13))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
                     .lineLimit(1)
                 
                 Text("@\(user.username)")
@@ -499,7 +499,7 @@ struct InsightCard: View {
                 
                 Text(value)
                     .font(.custom("OpenSans-Bold", size: 22))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
                 
                 if let trend = trend {
                     Text(trend)

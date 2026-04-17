@@ -23,7 +23,7 @@ import FirebaseFirestore
 final class AccountDeactivationService {
 
     static let shared = AccountDeactivationService()
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     private init() {}
 

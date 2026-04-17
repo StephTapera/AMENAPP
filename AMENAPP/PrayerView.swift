@@ -78,7 +78,7 @@ struct PrayerView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("#Prayer")
                             .font(AMENFont.bold(24))
-                            .foregroundStyle(.black)
+                            .foregroundStyle(.primary)
                         Text("Pray together, grow together")
                             .font(AMENFont.regular(12))
                             .foregroundStyle(.secondary)
@@ -150,6 +150,16 @@ struct PrayerView: View {
                     ForEach(displayPosts, id: \.id) { post in
                         let index = displayPosts.firstIndex(where: { $0.id == post.id }) ?? 0
                         prayerRow(post: post, index: index, total: displayPosts.count, allCount: allPosts.count)
+
+                        // Suggested prayer connections rail — after the 3rd prayer
+                        if index == 2 {
+                            FeedPostDivider()
+                            PrayerSuggestedRailView()
+                                .background(Color(.systemBackground))
+                                .padding(.vertical, 8)
+                                .clipped()
+                            FeedPostDivider()
+                        }
                     }
 
                     // Pagination spinner
@@ -1024,7 +1034,7 @@ struct CompletionCelebrationView: View {
                 } label: {
                     Text("Continue")
                         .font(AMENFont.bold(16))
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.primary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
                         .background(
@@ -1219,7 +1229,7 @@ struct PrayerGroupsView: View {
                         Text("Create Prayer Group")
                             .font(AMENFont.bold(16))
                     }
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
                     .background(
@@ -1818,11 +1828,11 @@ struct PrayerPostCard: View {
         VStack(alignment: .leading, spacing: 2) {
             Text(authorName)
                 .font(AMENFont.bold(15))
-                .foregroundStyle(.black)
+                .foregroundStyle(.primary)
             
             Text(timeAgo)
                 .font(AMENFont.regular(12))
-                .foregroundStyle(.black.opacity(0.5))
+                .foregroundStyle(.secondary)
         }
     }
     
@@ -2532,13 +2542,13 @@ struct PrayerCommentSection: View {
         HStack {
             Text("Prayer Responses")
                 .font(AMENFont.bold(13))
-                .foregroundStyle(.black.opacity(0.7))
+                .foregroundStyle(.secondary)
             
             Spacer()
             
             Text("\(comments.count)")
                 .font(AMENFont.bold(12))
-                .foregroundStyle(.black.opacity(0.5))
+                .foregroundStyle(.secondary)
         }
     }
     
@@ -2600,10 +2610,10 @@ struct PrayerCommentSection: View {
         VStack(spacing: 8) {
             Text("Be the first to pray")
                 .font(AMENFont.semiBold(14))
-                .foregroundStyle(.black.opacity(0.5))
+                .foregroundStyle(.secondary)
             Text("Share your prayer or encouragement")
                 .font(AMENFont.regular(12))
-                .foregroundStyle(.black.opacity(0.4))
+                .foregroundStyle(.tertiary)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 20)
@@ -2667,7 +2677,7 @@ struct PrayerCommentSection: View {
         HStack(spacing: 8) {
             TextField("Share encouragement...", text: $commentText, axis: .vertical)
                 .font(AMENFont.regular(14))
-                .foregroundStyle(.black)
+                .foregroundStyle(.primary)
                 .lineLimit(1...4)
                 .focused($isCommentFocused)
                 .padding(.leading, 14)
@@ -2703,7 +2713,7 @@ struct PrayerCommentSection: View {
             } label: {
                 Image(systemName: "book.closed")
                     .font(.systemScaled(16))
-                    .foregroundStyle(.black.opacity(0.4))
+                    .foregroundStyle(.tertiary)
             }
         }
         .padding(.trailing, 8)
@@ -2725,7 +2735,7 @@ struct PrayerCommentSection: View {
                     } else {
                         Image(systemName: "arrow.up.circle.fill")
                             .font(.systemScaled(32))
-                            .foregroundStyle(.black)
+                            .foregroundStyle(.primary)
                     }
                 }
             }
@@ -2826,7 +2836,7 @@ struct PrayerCommentSection: View {
             throw NSError(domain: "PrayerView", code: -1, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
         }
         
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         let userDoc = try await db.collection("users").document(userId).getDocument()
         
         if let username = userDoc.data()?["username"] as? String {
@@ -2947,7 +2957,7 @@ struct PrayerCommentRow: View {
                         .overlay(
                             Text(comment.authorInitials)
                                 .font(AMENFont.bold(12))
-                                .foregroundStyle(.black.opacity(0.7))
+                                .foregroundStyle(.secondary)
                         )
                 }
             } else {
@@ -2957,7 +2967,7 @@ struct PrayerCommentRow: View {
                     .overlay(
                         Text(comment.authorInitials)
                             .font(AMENFont.bold(12))
-                            .foregroundStyle(.black.opacity(0.7))
+                            .foregroundStyle(.secondary)
                     )
             }
             
@@ -2967,20 +2977,20 @@ struct PrayerCommentRow: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(comment.authorName)
                             .font(AMENFont.bold(13))
-                            .foregroundStyle(.black.opacity(0.8))
+                            .foregroundStyle(.primary)
                         
                         Text(comment.authorUsername)
                             .font(AMENFont.regular(11))
-                            .foregroundStyle(.black.opacity(0.5))
+                            .foregroundStyle(.secondary)
                     }
                     
                     Text("•")
                         .font(AMENFont.regular(11))
-                        .foregroundStyle(.black.opacity(0.3))
+                        .foregroundStyle(.tertiary)
                     
                     Text(comment.createdAt.timeAgoDisplay())
                         .font(AMENFont.regular(11))
-                        .foregroundStyle(.black.opacity(0.5))
+                        .foregroundStyle(.secondary)
                     
                     Spacer()
                     
@@ -2995,7 +3005,7 @@ struct PrayerCommentRow: View {
                         } label: {
                             Image(systemName: "ellipsis")
                                 .font(.systemScaled(12, weight: .semibold))
-                                .foregroundStyle(.black.opacity(0.4))
+                                .foregroundStyle(.tertiary)
                         }
                     }
                 }
@@ -3003,7 +3013,7 @@ struct PrayerCommentRow: View {
                 // Content
                 Text(comment.content)
                     .font(AMENFont.regular(13))
-                    .foregroundStyle(.black.opacity(0.8))
+                    .foregroundStyle(.primary)
                     .lineSpacing(3)
                 
                 // Actions (Production-Ready with Error Handling)
@@ -3206,7 +3216,7 @@ struct QuickPrayerChip: View {
         Button(action: action) {
             Text(text)
                 .font(AMENFont.semiBold(12))
-                .foregroundStyle(.black.opacity(0.7))
+                .foregroundStyle(.secondary)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
                 .background(
@@ -3259,7 +3269,7 @@ struct PrayerWallView: View {
                 HStack {
                     Text("Prayer Wall")
                         .font(AMENFont.bold(28))
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.primary)
                     
                     Spacer()
                     
@@ -3268,7 +3278,7 @@ struct PrayerWallView: View {
                     } label: {
                         Image(systemName: "xmark.circle.fill")
                             .font(.systemScaled(28))
-                            .foregroundStyle(.black.opacity(0.3))
+                            .foregroundStyle(.tertiary)
                     }
                 }
                 .padding()
@@ -3276,7 +3286,7 @@ struct PrayerWallView: View {
                 // Search bar
                 HStack(spacing: 12) {
                     Image(systemName: "magnifyingglass")
-                        .foregroundStyle(.black.opacity(0.4))
+                        .foregroundStyle(.tertiary)
                     
                     TextField("Search prayers...", text: $searchText)
                         .font(AMENFont.regular(15))
@@ -3373,13 +3383,13 @@ struct PrayerWallCard: View {
             // Title
             Text(post.title)
                 .font(AMENFont.bold(14))
-                .foregroundStyle(.black)
+                .foregroundStyle(.primary)
                 .lineLimit(2)
             
             // Excerpt
             Text(post.excerpt)
                 .font(AMENFont.regular(12))
-                .foregroundStyle(.black.opacity(0.6))
+                .foregroundStyle(.secondary)
                 .lineLimit(3)
             
             Spacer()
@@ -3392,7 +3402,7 @@ struct PrayerWallCard: View {
                     // Author
                     Text(post.author)
                         .font(AMENFont.semiBold(11))
-                        .foregroundStyle(.black.opacity(0.5))
+                        .foregroundStyle(.secondary)
                     
                     Spacer()
                     
@@ -3403,7 +3413,7 @@ struct PrayerWallCard: View {
                         Text("\(post.prayCount + (hasPrayed ? 1 : 0))")
                             .font(AMENFont.bold(11))
                     }
-                    .foregroundStyle(.black.opacity(0.5))
+                    .foregroundStyle(.secondary)
                 }
             }
             
@@ -3503,6 +3513,7 @@ struct SmartPrayerChatView: View {
     @State private var showPrayerTemplates = false
     @State private var messages: [PrayerChatMessage] = []
     @FocusState private var isMessageFieldFocused: Bool
+    @State private var showConversationActions = false
     
     var body: some View {
         NavigationView {
@@ -3515,7 +3526,7 @@ struct SmartPrayerChatView: View {
                         } label: {
                             Image(systemName: "chevron.left")
                                 .font(.systemScaled(18, weight: .semibold))
-                                .foregroundStyle(.black)
+                                .foregroundStyle(.primary)
                         }
                         
                         Circle()
@@ -3530,7 +3541,7 @@ struct SmartPrayerChatView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(authorInfo.name)
                                 .font(AMENFont.bold(16))
-                                .foregroundStyle(.black)
+                                .foregroundStyle(.primary)
                             
                             HStack(spacing: 4) {
                                 Circle()
@@ -3539,16 +3550,18 @@ struct SmartPrayerChatView: View {
                                 
                                 Text("Active now")
                                     .font(AMENFont.regular(12))
-                                    .foregroundStyle(.black.opacity(0.5))
+                                    .foregroundStyle(.secondary)
                             }
                         }
                         
                         Spacer()
                         
-                        Button {} label: {
+                        Button {
+                            showConversationActions = true
+                        } label: {
                             Image(systemName: "ellipsis")
                                 .font(.systemScaled(18, weight: .semibold))
-                                .foregroundStyle(.black)
+                                .foregroundStyle(.primary)
                                 .rotationEffect(.degrees(90))
                         }
                     }
@@ -3577,7 +3590,7 @@ struct SmartPrayerChatView: View {
                                 VStack(spacing: 16) {
                                     Text("Start of conversation")
                                         .font(AMENFont.regular(12))
-                                        .foregroundStyle(.black.opacity(0.4))
+                                        .foregroundStyle(.tertiary)
                                         .padding(.top, 20)
                                     
                                     PrayerChatBubble(
@@ -3694,7 +3707,7 @@ struct SmartPrayerChatView: View {
                             
                             TextField("Send encouragement...", text: $messageText, axis: .vertical)
                                 .font(AMENFont.regular(15))
-                                .foregroundStyle(.black)
+                                .foregroundStyle(.primary)
                                 .lineLimit(1...4)
                                 .focused($isMessageFieldFocused)
                                 .padding(.horizontal, 16)
@@ -3712,7 +3725,7 @@ struct SmartPrayerChatView: View {
                                 Button { sendMessage() } label: {
                                     Image(systemName: "arrow.up.circle.fill")
                                         .font(.systemScaled(36))
-                                        .foregroundStyle(.black)
+                                        .foregroundStyle(.primary)
                                 }
                                 .transition(.scale.combined(with: .opacity))
                             }
@@ -3729,6 +3742,28 @@ struct SmartPrayerChatView: View {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 withAnimation { showPrayerTemplates = true }
             }
+        }
+        .confirmationDialog("Conversation Actions", isPresented: $showConversationActions, titleVisibility: .visible) {
+            Button(showQuickResponses ? "Hide Quick Responses" : "Show Quick Responses") {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
+                    showQuickResponses.toggle()
+                    if showQuickResponses { showPrayerTemplates = false }
+                }
+            }
+            Button(showPrayerTemplates ? "Hide Prayer Templates" : "Show Prayer Templates") {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
+                    showPrayerTemplates.toggle()
+                    if showPrayerTemplates { showQuickResponses = false }
+                }
+            }
+            if !messages.isEmpty {
+                Button("Clear Conversation", role: .destructive) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
+                        messages.removeAll()
+                    }
+                }
+            }
+            Button("Cancel", role: .cancel) {}
         }
     }
     
@@ -3791,7 +3826,7 @@ struct PrayerContextCard: View {
                         
                         Text("Prayer Request")
                             .font(AMENFont.bold(12))
-                            .foregroundStyle(.black.opacity(0.7))
+                            .foregroundStyle(.secondary)
                     }
                     
                     Spacer()
@@ -3801,13 +3836,13 @@ struct PrayerContextCard: View {
                     } label: {
                         Image(systemName: "xmark")
                             .font(.systemScaled(10, weight: .semibold))
-                            .foregroundStyle(.black.opacity(0.4))
+                            .foregroundStyle(.tertiary)
                     }
                 }
                 
                 Text(content)
                     .font(AMENFont.regular(13))
-                    .foregroundStyle(.black.opacity(0.7))
+                    .foregroundStyle(.secondary)
                     .lineLimit(3)
                     .lineSpacing(4)
             }
@@ -3857,7 +3892,7 @@ struct PrayerChatBubble: View {
                 if !message.isFromCurrentUser {
                     Text(authorName)
                         .font(AMENFont.bold(12))
-                        .foregroundStyle(.black.opacity(0.5))
+                        .foregroundStyle(.secondary)
                         .padding(.leading, 4)
                 }
                 
@@ -3874,7 +3909,7 @@ struct PrayerChatBubble: View {
                 
                 Text(message.timestamp.formatted(date: .omitted, time: .shortened))
                     .font(AMENFont.regular(11))
-                    .foregroundStyle(.black.opacity(0.4))
+                    .foregroundStyle(.tertiary)
                     .padding(.horizontal, 4)
             }
             
@@ -3895,7 +3930,7 @@ struct QuickResponseChip: View {
         Button(action: action) {
             Text(text)
                 .font(AMENFont.semiBold(13))
-                .foregroundStyle(.black.opacity(0.7))
+                .foregroundStyle(.secondary)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
                 .background(
@@ -3928,7 +3963,7 @@ struct PrayerTemplateChip: View {
                 
                 Text(title)
                     .font(AMENFont.bold(13))
-                    .foregroundStyle(.black.opacity(0.8))
+                    .foregroundStyle(.primary)
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 8)

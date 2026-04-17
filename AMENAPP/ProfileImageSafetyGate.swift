@@ -50,7 +50,7 @@ enum ProfileImageSafetyDecision {
 final class ProfileImageSafetyGate {
     static let shared = ProfileImageSafetyGate()
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     private init() {}
 

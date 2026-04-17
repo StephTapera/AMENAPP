@@ -7,7 +7,7 @@ protocol CreatorSubtitleServicing {
 }
 
 final class CreatorSubtitleService: CreatorSubtitleServicing {
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     func generateSubtitles(projectID: String, transcriptID: String) async throws -> CreatorSubtitleTrack {
         let ownerID = try requireOwnerID()

@@ -58,7 +58,7 @@ final class DiscoveryService: ObservableObject {
 
     // MARK: - Dependencies
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private let algolia = AlgoliaSearchService.shared
 
     // MARK: - Internal State
@@ -605,8 +605,13 @@ final class DiscoveryService: ObservableObject {
             ))
         }
 
-        // People from Algolia (fast) — skip if task was cancelled between keystrokes
-        guard !Task.isCancelled else { return }
+        // People from Algolia (fast) — skip if task was cancelled between keystrokes.
+        // MEDIUM FIX: Require at least 3 characters before hitting the Algolia API.
+        // A single character like "J" returns a huge result set that is immediately
+        // replaced as the user continues typing, causing visible flicker and wasting
+        // Algolia quota. Local suggestions (recents, topics) are served above regardless
+        // of query length since they read from in-memory data.
+        guard !Task.isCancelled, query.count >= 3 else { return }
         if let algoliaResults = try? await algolia.getUserSuggestions(query: query, limit: 3) {
             let peopleSuggestions = algoliaResults.map { u in
                 TypeaheadSuggestion(

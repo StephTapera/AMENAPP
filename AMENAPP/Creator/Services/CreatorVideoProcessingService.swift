@@ -9,8 +9,8 @@ protocol CreatorVideoProcessingServicing {
 }
 
 final class CreatorVideoProcessingService: CreatorVideoProcessingServicing {
-    private let db = Firestore.firestore()
-    private let functions = Functions.functions()
+    private lazy var db = Firestore.firestore()
+    private lazy var functions = Functions.functions()
 
     func createProxy(for asset: CreatorAsset) async throws -> CreatorProcessingJob {
         let job = try await createJob(projectID: asset.projectID, assetID: asset.id, type: .proxy)

@@ -16,7 +16,7 @@ final class SmartNotificationEngine {
     
     static let shared = SmartNotificationEngine()
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     // MARK: - User Engagement Data
     
@@ -113,6 +113,12 @@ final class SmartNotificationEngine {
             return 18.0  // Prayer support is meaningful engagement
         case .message, .messageRequest:
             return 0.0  // ✅ P0-1: These are filtered from feed, should never appear here
+        case .actionThreadInvite:
+            return 24.0  // Support flow invites are high priority
+        case .actionThreadUpdate:
+            return 16.0  // Thread progress updates are helpful
+        case .actionThreadReminder:
+            return 14.0  // Reminders are lower urgency
         case .unknown:
             return 5.0
         }

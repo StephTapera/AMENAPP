@@ -32,7 +32,7 @@ struct NotificationSettingsView: View {
     @State private var errorMessage: String?
     @State private var showPermissionAlert = false
     
-    private let db = Firestore.firestore()
+    private var db: Firestore { Firestore.firestore() }
     
     var body: some View {
         ZStack {

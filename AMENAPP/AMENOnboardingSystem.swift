@@ -225,7 +225,8 @@ struct ONBPrimaryButton: View {
                 }
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 56)
+            // HIGH FIX: minHeight so button grows with Dynamic Type at AX sizes
+            .frame(minHeight: 56)
             .background(
                 RoundedRectangle(cornerRadius: ONB.ctaRadius, style: .continuous)
                     .fill(isEnabled ? ONB.inkPrimary : ONB.inkTertiary)
@@ -259,7 +260,8 @@ struct ONBSecondaryButton: View {
                 .font(.systemScaled(15, weight: .medium))
                 .foregroundStyle(ONB.inkSecondary)
                 .frame(maxWidth: .infinity)
-                .frame(height: 48)
+                // HIGH FIX: minHeight so secondary button grows with Dynamic Type
+                .frame(minHeight: 48)
                 .background(
                     RoundedRectangle(cornerRadius: ONB.ctaRadius, style: .continuous)
                         .strokeBorder(ONB.inkRule, lineWidth: 1.5)

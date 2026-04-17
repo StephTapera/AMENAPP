@@ -36,7 +36,7 @@ final class SceneBuilderViewModel: ObservableObject {
 
     // MARK: - Private
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var draftAutoSaveTask: Task<Void, Never>?
     private var generationTask: Task<Void, Never>?
     private var refinementTask: Task<Void, Never>?

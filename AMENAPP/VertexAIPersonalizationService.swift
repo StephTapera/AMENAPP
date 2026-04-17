@@ -70,7 +70,7 @@ struct NotificationPrediction: Codable {
 /// ML-powered personalization using Vertex AI
 class VertexAIPersonalizationService {
     static let shared = VertexAIPersonalizationService()
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     // Vertex AI Configuration from Firebase Remote Config
     private var vertexAIProjectId: String {

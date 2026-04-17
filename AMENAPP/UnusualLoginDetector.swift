@@ -18,7 +18,7 @@ final class UnusualLoginDetector {
     static let shared = UnusualLoginDetector()
     private init() {}
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     // MARK: - Check Login Device
 

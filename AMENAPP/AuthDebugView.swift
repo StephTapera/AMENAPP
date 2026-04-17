@@ -292,7 +292,7 @@ struct AuthDebugView: View {
         
         // Test 2: Auth Instance
         log("🔍 Test 2: Auth Instance")
-        let auth = Auth.auth()
+        lazy var auth = Auth.auth()
         log("✅ Auth instance created")
         log("   Auth domain: \(auth.app?.options.projectID ?? "unknown")")
         
@@ -317,7 +317,7 @@ struct AuthDebugView: View {
         
         // Test 5: Firestore Connection
         log("🔍 Test 5: Firestore Connection")
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         do {
             // Try to read from Firestore
             let testRef = db.collection("_test_").document("connection_test")
@@ -403,7 +403,7 @@ struct AuthDebugView: View {
                 log("📝 Creating account with email: \(testEmail)")
                 log("   Password length: \(testPassword.count) characters")
                 
-                let auth = Auth.auth()
+                lazy var auth = Auth.auth()
                 let result = try await auth.createUser(withEmail: testEmail, password: testPassword)
                 
                 log("✅ SUCCESS! User created")
@@ -412,7 +412,7 @@ struct AuthDebugView: View {
                 
                 // Create Firestore profile
                 log("📝 Creating Firestore profile...")
-                let db = Firestore.firestore()
+                lazy var db = Firestore.firestore()
                 try await db.collection("users").document(result.user.uid).setData([
                     "displayName": testDisplayName,
                     "email": testEmail,
@@ -502,7 +502,7 @@ struct AuthDebugView: View {
                 
                 log("📝 Signing in with email: \(testEmail)")
                 
-                let auth = Auth.auth()
+                lazy var auth = Auth.auth()
                 let result = try await auth.signIn(withEmail: testEmail, password: testPassword)
                 
                 log("✅ SUCCESS! Signed in")
@@ -512,7 +512,7 @@ struct AuthDebugView: View {
                 
                 // Check Firestore profile
                 log("🔍 Checking Firestore profile...")
-                let db = Firestore.firestore()
+                lazy var db = Firestore.firestore()
                 let doc = try await db.collection("users").document(result.user.uid).getDocument()
                 
                 if doc.exists {
@@ -615,7 +615,7 @@ struct AuthDebugView: View {
         
         Task {
             do {
-                let db = Firestore.firestore()
+                lazy var db = Firestore.firestore()
                 
                 // Check authentication
                 guard Auth.auth().currentUser != nil else {
@@ -723,7 +723,7 @@ struct AuthDebugView: View {
         log("🗑️ Clearing sample users...")
         
         Task {
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
 
             // Check authentication
             guard Auth.auth().currentUser != nil else {

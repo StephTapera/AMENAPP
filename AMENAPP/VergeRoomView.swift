@@ -420,7 +420,7 @@ private class VergeMessagesViewModel: ObservableObject {
 
     @Published var messages: [VergeMessage] = []
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var listener: ListenerRegistration?
 
     func startListening(roomId: String) async {

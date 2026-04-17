@@ -17,9 +17,10 @@ final class ChurchVisitSessionManager: ObservableObject {
     @Published private(set) var currentSession: ChurchVisitSession?
     @Published private(set) var currentState: ChurchVisitState = .none
     @Published private(set) var assistState: ChurchAssistState = .defaultState
+    @Published private(set) var currentUserId: String?
 
     // MARK: - Private
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var sessionListener: ListenerRegistration?
 
     private init() {}
@@ -28,6 +29,7 @@ final class ChurchVisitSessionManager: ObservableObject {
 
     /// Create a new planning session and persist to Firestore.
     func startPlanning(churchId: String, userId: String) async {
+        currentUserId = userId
         let session = ChurchVisitSession(
             churchId: churchId,
             userId: userId,
@@ -232,6 +234,7 @@ final class ChurchVisitSessionManager: ObservableObject {
 
     /// Load assist state from Firestore.
     func loadAssistState(userId: String) async {
+        currentUserId = userId
         do {
             let doc = try await db
                 .collection("users").document(userId)

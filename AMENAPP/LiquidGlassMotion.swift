@@ -307,7 +307,12 @@ private struct GlassSheetContainer<C: View>: View {
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
         .presentationCornerRadius(32)
-        .presentationBackground(.regularMaterial)
+        .presentationBackground(.clear)
+        // HIGH FIX: The custom ZStack backdrop overlay can allow VoiceOver to
+        // navigate behind the sheet surface to dimmed content. Adding the .isModal
+        // trait constrains VoiceOver focus to this view's subtree, equivalent to
+        // setting accessibilityViewIsModal = true in UIKit.
+        .accessibilityAddTraits(.isModal)
     }
 
     private func stageIn() {

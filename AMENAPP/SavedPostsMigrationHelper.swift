@@ -25,7 +25,7 @@ struct SavedPostsMigrationHelper {
         
         dlog("🔄 Starting migration from Firestore to RTDB...")
         
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         let rtdbService = RealtimeSavedPostsService.shared
         
         // Fetch saved posts from Firestore
@@ -88,7 +88,7 @@ struct SavedPostsMigrationHelper {
         
         dlog("🗑️ Cleaning up Firestore saved posts...")
         
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         
         let snapshot = try await db.collection("savedPosts")
             .whereField("userId", isEqualTo: userId)
@@ -116,7 +116,7 @@ struct SavedPostsMigrationHelper {
         
         dlog("🔍 Verifying migration...")
         
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         let rtdbService = RealtimeSavedPostsService.shared
         
         // Count in Firestore

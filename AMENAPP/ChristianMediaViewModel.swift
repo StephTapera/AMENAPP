@@ -93,7 +93,7 @@ final class ChristianMediaViewModel: ObservableObject {
             return
         }
 
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         do {
             let snapshot = try await db.collection("users")
                 .document(uid)
@@ -148,7 +148,7 @@ final class ChristianMediaViewModel: ObservableObject {
 
         guard let uid = Auth.auth().currentUser?.uid else { return }
 
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         let historyRef = db.collection("users")
             .document(uid)
             .collection("mediaHistory")
@@ -184,7 +184,7 @@ final class ChristianMediaViewModel: ObservableObject {
             return
         }
 
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         let bookmarkRef = db.collection("users")
             .document(uid)
             .collection("bookmarkedMedia")
@@ -236,7 +236,7 @@ final class ChristianMediaViewModel: ObservableObject {
     func markCompleted(_ item: MediaItem) {
         guard let uid = Auth.auth().currentUser?.uid else { return }
 
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         db.collection("users")
             .document(uid)
             .collection("mediaHistory")

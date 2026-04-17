@@ -16,6 +16,7 @@
 import Foundation
 import FirebaseFirestore
 import FirebaseAuth
+import FirebaseFunctions
 
 // MARK: - Report Reason
 
@@ -139,180 +140,73 @@ enum SafetyPromptType {
 final class SafetyReportingService {
     static let shared = SafetyReportingService()
 
-    private let db = Firestore.firestore()
-    private let reports: CollectionReference
-    private let userSafetyRecords: CollectionReference
-    private let moderationQueue: CollectionReference
+    private lazy var db = Firestore.firestore()
+    // HIGH-3 FIX: Reports are no longer written directly to Firestore from the client.
+    // The submitReport Cloud Function handles all validation, escalation tier computation,
+    // deduplication, rate limiting, and the Firestore write via admin SDK.
+    // Direct client writes to userReports are now blocked (allow create: if false).
+    private lazy var functions = Functions.functions()
 
-    // ── Client-side rate limiting ──────────────────────────────────────────────
-    // Prevents report flooding: no more than 10 reports per reporter in any
-    // rolling 10-minute window, regardless of target.  Tier 1 reports are
-    // always allowed through (urgent safety concerns must not be throttled).
-    private var recentReportTimestamps: [Date] = []
-    private let rateLimitWindow:   TimeInterval = 600   // 10 minutes
-    private let rateLimitMaxCount: Int          = 10    // max reports in window
-
-    private init() {
-        reports = db.collection("reports")
-        userSafetyRecords = db.collection("userSafetyRecords")
-        moderationQueue = db.collection("moderationQueue")
-    }
+    private init() {}
 
     // MARK: - Submit Report
 
     /// Submit a block+report. This is the primary entry point from the one-tap UI.
     ///
     /// Steps:
-    ///   0. Client-side rate limit (non-Tier-1 only — urgent reports always pass)
-    ///   1. Deduplicate (same reporter+reported pair within 24h → skip)
-    ///   2. Write report document with evidence snapshot
-    ///   3. If blockImmediately: update reporter's block list in Firestore
-    ///   4. Execute escalation playbook based on report reason
+    ///   1. Call submitReport Cloud Function — validates reason, deduplicates, verifies
+    ///      evidence, computes escalationTier + priority server-side, writes the report,
+    ///      and triggers the escalation playbook on the server.
+    ///   2. If blockImmediately: write the local block record (client-owned collection).
     func submitReport(_ submission: ReportSubmission) async -> ReportResult {
-        // 0. Client-side rate limit — allow Tier 1 (urgent) through unconditionally
-        if submission.reason.escalationTier > 1 {
-            let now = Date()
-            // Drop timestamps outside the rolling window
-            recentReportTimestamps = recentReportTimestamps.filter {
-                now.timeIntervalSince($0) < rateLimitWindow
-            }
-            if recentReportTimestamps.count >= rateLimitMaxCount {
-                dlog("⚠️ [Safety] Report rate limit hit for reporter \(submission.reporterId) — throttling")
-                return .alreadyReported
-            }
-            recentReportTimestamps.append(now)
-        }
-
-        // 1. Deduplicate within 24h
-        let isDuplicate = await checkDuplicate(
-            reporterId: submission.reporterId,
-            reportedUserId: submission.reportedUserId
-        )
-        if isDuplicate {
-            return .alreadyReported
-        }
-
-        let reportId = UUID().uuidString
-
-        // 2. Write report document
-        let reportData: [String: Any] = [
-            "reportId": reportId,
-            "reporterId": submission.reporterId,
-            "reportedUserId": submission.reportedUserId,
-            "conversationId": submission.conversationId,
-            "reason": submission.reason.rawValue,
-            "escalationTier": submission.reason.escalationTier,
-            "priorityLevel": submission.reason.priorityLevel,
+        let payload: [String: Any] = [
+            "reportedUserId":    submission.reportedUserId,
+            "conversationId":    submission.conversationId,
+            "reason":            submission.reason.rawValue,
             "evidenceMessageIds": submission.evidenceMessageIds,
             "additionalContext": submission.additionalContext ?? "",
-            "status": "pending_review",
-            "submittedAt": FieldValue.serverTimestamp(),
-            "reviewedAt": NSNull(),
-            "reviewerId": NSNull(),
-            "actionTaken": NSNull()
+            "blockImmediately":  submission.blockImmediately
         ]
 
         do {
-            try await reports.document(reportId).setData(reportData)
-        } catch {
+            let callable = functions.httpsCallable("submitReport")
+            let result = try await callable.call(payload)
+
+            // Extract the server-assigned reportId from the response
+            guard let data = result.data as? [String: Any],
+                  let reportId = data["reportId"] as? String else {
+                // Function succeeded but returned an unexpected shape; treat as success
+                // with a fallback ID so callers aren't blocked.
+                dlog("⚠️ [Safety] submitReport returned unexpected data shape")
+                return .success(reportId: UUID().uuidString)
+            }
+
+            // Immediate block is applied client-side (reporter owns their own block list)
+            if submission.blockImmediately {
+                await blockUser(
+                    blockerId: submission.reporterId,
+                    blockedId: submission.reportedUserId
+                )
+            }
+
+            return .success(reportId: reportId)
+
+        } catch let error as NSError {
+            // Map well-known HttpsError codes to meaningful results
+            if error.domain == FunctionsErrorDomain {
+                let code = FunctionsErrorCode(rawValue: error.code)
+                if code == .alreadyExists {
+                    // Server dedup: same reporter+reported pair within 24h
+                    return .alreadyReported
+                }
+                if code == .resourceExhausted {
+                    // Server rate limit: > 10 reports / hour
+                    dlog("⚠️ [Safety] submitReport rate-limited by server")
+                    return .alreadyReported
+                }
+            }
+            dlog("❌ [Safety] submitReport failed: \(error.localizedDescription)")
             return .failure(error)
-        }
-
-        // 3. Immediate block if requested
-        if submission.blockImmediately {
-            await blockUser(
-                blockerId: submission.reporterId,
-                blockedId: submission.reportedUserId
-            )
-        }
-
-        // 4. Execute escalation playbook (async — does not block return)
-        Task.detached(priority: .userInitiated) { [weak self] in
-            await self?.executeEscalationPlaybook(
-                reportId: reportId,
-                submission: submission
-            )
-        }
-
-        return .success(reportId: reportId)
-    }
-
-    // MARK: - Escalation Playbooks
-
-    /// Executes the appropriate escalation playbook based on report tier and reported user's history.
-    private func executeEscalationPlaybook(
-        reportId: String,
-        submission: ReportSubmission
-    ) async {
-        let reportedId = submission.reportedUserId
-
-        // Fetch prior report count against this user
-        let priorReportCount = await fetchPriorReportCount(userId: reportedId)
-
-        switch submission.reason.escalationTier {
-
-        case 1:
-            // TIER 1: Suspected minor exploitation / trafficking / threat / sextortion
-            // → Immediate account freeze + preserve evidence + priority 5 queue entry
-            await freezeReportedAccount(
-                userId: reportedId,
-                reason: submission.reason.rawValue,
-                reportId: reportId
-            )
-            await preserveEvidence(
-                userId: reportedId,
-                conversationId: submission.conversationId,
-                evidenceMessageIds: submission.evidenceMessageIds
-            )
-            await writeEscalationQueueEntry(
-                reportId: reportId,
-                submission: submission,
-                action: "immediate_freeze",
-                priority: 5
-            )
-
-        case 2:
-            // TIER 2: Solicitation / off-platform / financial scam / violence
-            // → If 2+ reports: freeze. Otherwise: hold all messages + priority 3 review.
-            if priorReportCount >= 2 {
-                await freezeReportedAccount(
-                    userId: reportedId,
-                    reason: "\(submission.reason.rawValue) (multiple reports)",
-                    reportId: reportId
-                )
-            } else {
-                await holdAllPendingMessages(userId: reportedId, conversationId: submission.conversationId)
-            }
-            await writeEscalationQueueEntry(
-                reportId: reportId,
-                submission: submission,
-                action: priorReportCount >= 2 ? "freeze_multi_report" : "hold_messages",
-                priority: 3
-            )
-
-        default:
-            // TIER 3: Harassment / hate / spam / unwanted contact
-            // → If 3+ reports: freeze. Otherwise: standard review queue.
-            if priorReportCount >= 3 {
-                await freezeReportedAccount(
-                    userId: reportedId,
-                    reason: "Repeated reports: \(submission.reason.rawValue)",
-                    reportId: reportId
-                )
-                await writeEscalationQueueEntry(
-                    reportId: reportId,
-                    submission: submission,
-                    action: "freeze_repeated",
-                    priority: 3
-                )
-            } else {
-                await writeEscalationQueueEntry(
-                    reportId: reportId,
-                    submission: submission,
-                    action: "standard_review",
-                    priority: 1
-                )
-            }
         }
     }
 
@@ -369,107 +263,15 @@ final class SafetyReportingService {
 
     // MARK: - Helpers
 
-    private func checkDuplicate(reporterId: String, reportedUserId: String) async -> Bool {
-        let cutoff = Date().addingTimeInterval(-86400)  // 24h window
-        do {
-            let snapshot = try await reports
-                .whereField("reporterId", isEqualTo: reporterId)
-                .whereField("reportedUserId", isEqualTo: reportedUserId)
-                .whereField("submittedAt", isGreaterThan: Timestamp(date: cutoff))
-                .limit(to: 1)
-                .getDocuments()
-            return !snapshot.documents.isEmpty
-        } catch {
-            // Fail CLOSED on network error — return false to allow the report through.
-            // We'd rather accept a rare duplicate than drop a legitimate safety report.
-            // The server-side Cloud Function applies its own dedup before acting.
-            return false
-        }
-    }
-
-    private func fetchPriorReportCount(userId: String) async -> Int {
-        do {
-            let snapshot = try await reports
-                .whereField("reportedUserId", isEqualTo: userId)
-                .whereField("status", isNotEqualTo: "dismissed")
-                .getDocuments()
-            return snapshot.documents.count
-        } catch {
-            return 0
-        }
-    }
-
     private func blockUser(blockerId: String, blockedId: String) async {
         guard !blockerId.isEmpty, !blockedId.isEmpty else { return }
+        // The reporter's own block subcollection is client-owned — the reporter
+        // can only write to their own userId path (enforced by Firestore rules).
         _ = try? await db.collection("users").document(blockerId)
             .collection("blocks").document(blockedId)
             .setData([
                 "blockedUserId": blockedId,
                 "blockedAt": FieldValue.serverTimestamp()
             ])
-    }
-
-    private func freezeReportedAccount(
-        userId: String,
-        reason: String,
-        reportId: String
-    ) async {
-        guard !userId.isEmpty else { return }
-        _ = try? await userSafetyRecords.document(userId).setData([
-            "accountStatus": "frozen",
-            "frozenUntil": 0,  // Indefinite
-            "frozenReason": "Reported: \(reason)",
-            "frozenByReportId": reportId,
-            "requiresManualReview": true,
-            "frozenAt": FieldValue.serverTimestamp(),
-            "canDeleteMessages": false,
-            "canChangeUsername": false
-        ], merge: true)
-    }
-
-    private func preserveEvidence(
-        userId: String,
-        conversationId: String,
-        evidenceMessageIds: [String]
-    ) async {
-        guard !userId.isEmpty else { return }
-        _ = try? await db.collection("evidencePreservation").addDocument(data: [
-            "userId": userId,
-            "conversationId": conversationId,
-            "evidenceMessageIds": evidenceMessageIds,
-            "preservedAt": FieldValue.serverTimestamp(),
-            "retentionDays": 90  // 90-day evidence hold
-        ])
-    }
-
-    private func holdAllPendingMessages(userId: String, conversationId: String) async {
-        guard !userId.isEmpty else { return }
-        // Flag all future messages from this user in this conversation as held
-        _ = try? await db.collection("userSafetyRecords").document(userId).setData([
-            "holdMessagesInConversation": conversationId,
-            "messageHoldStartedAt": FieldValue.serverTimestamp()
-        ], merge: true)
-    }
-
-    private func writeEscalationQueueEntry(
-        reportId: String,
-        submission: ReportSubmission,
-        action: String,
-        priority: Int
-    ) async {
-        _ = try? await moderationQueue.addDocument(data: [
-            "reportId": reportId,
-            "reportedUserId": submission.reportedUserId,
-            "reporterId": submission.reporterId,
-            "conversationId": submission.conversationId,
-            "reason": submission.reason.rawValue,
-            "escalationTier": submission.reason.escalationTier,
-            "action": action,
-            "priorityLevel": priority,
-            "status": "pending_review",
-            "createdAt": FieldValue.serverTimestamp(),
-            "reviewedAt": NSNull(),
-            "reviewerId": NSNull()
-        ])
     }
 }

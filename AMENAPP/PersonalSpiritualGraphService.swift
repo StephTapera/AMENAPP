@@ -259,7 +259,7 @@ final class PersonalSpiritualGraphService: ObservableObject {
     @Published private(set) var currentSnapshot: SpiritualGraphSnapshot?
     @Published private(set) var isLoading = false
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private let snapshotCacheKey = "psg_snapshot_v1"
     private let snapshotCacheTTL: TimeInterval = 3600 // 1 hour
 

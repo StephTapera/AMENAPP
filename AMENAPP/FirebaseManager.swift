@@ -20,19 +20,18 @@ import CryptoKit
 class FirebaseManager {
     static let shared = FirebaseManager()
     
-    let auth: Auth
-    let firestore: Firestore
-    let storage: Storage
+    // Lazy so Firebase is not accessed until first use. This prevents a crash
+    // when the test host accesses FirebaseManager.shared before FirebaseApp.configure().
+    lazy var auth: Auth = Auth.auth()
+    lazy var firestore: Firestore = Firestore.firestore()
+    lazy var storage: Storage = Storage.storage()
     private let bootstrapLock = NSLock()
     private var bootstrapTasks: [String: Task<[String: Any], Error>] = [:]
     
     private init() {
-        self.auth = Auth.auth()
-        self.firestore = Firestore.firestore()
-        self.storage = Storage.storage()
-        
         // ✅ Firestore settings are configured in AppDelegate.swift
         // (must be set ONCE, immediately after FirebaseApp.configure())
+        // NOTE: Auth/Firestore/Storage are lazy — accessed only on first use.
         dlog("✅ FirebaseManager initialized")
     }
     
@@ -163,23 +162,43 @@ class FirebaseManager {
         }
         
         do {
-            try await firestore.collection(CollectionPath.users)
-                .document(user.uid)
-                .setData(finalUserData)
+            // Issue 6 FIX: Claim the username atomically using a Firestore transaction.
+            // The pre-flight uniqueness check (query /users where username == x) is NOT
+            // transactional — two devices can both pass the check and race to write the
+            // same username. The transaction below makes the claim atomic:
+            //   1. Inside the transaction, read /usernameLookup/{username}.
+            //   2. If it already exists (and belongs to a different uid), abort — the
+            //      username is taken.
+            //   3. Otherwise write both /users/{uid} and /usernameLookup/{username} in
+            //      the same transaction commit, so they succeed or fail together.
+            let userDoc = firestore.collection(CollectionPath.users).document(user.uid)
+            let lookupDoc = firestore.collection("usernameLookup").document(finalUsername)
 
-            dlog("✅ FirebaseManager: User profile created successfully!")
-
-            // ── Username lookup index — public read, enables username availability checks ──
-            // SECURITY FIX: Store only uid (not email) to prevent unauthenticated email enumeration.
-            // Username-based sign-in must be handled server-side via a Cloud Function.
-            do {
-                try await firestore.collection("usernameLookup")
-                    .document(finalUsername)
-                    .setData(["uid": user.uid])
-                dlog("✅ FirebaseManager: Username lookup index written")
-            } catch {
-                dlog("⚠️ FirebaseManager: Username lookup index write failed (non-critical): \(error)")
+            try await firestore.runTransaction { transaction, errorPointer in
+                do {
+                    let lookupSnap = try transaction.getDocument(lookupDoc)
+                    if lookupSnap.exists,
+                       let existingUid = lookupSnap.data()?["uid"] as? String,
+                       existingUid != user.uid {
+                        // Username already claimed by another user — abort.
+                        let error = NSError(
+                            domain: "FirebaseManager",
+                            code: 409,
+                            userInfo: [NSLocalizedDescriptionKey: "Username '\(finalUsername)' is already taken."]
+                        )
+                        errorPointer?.pointee = error
+                        return nil
+                    }
+                    // Username is available — write both documents atomically.
+                    transaction.setData(finalUserData, forDocument: userDoc)
+                    transaction.setData(["uid": user.uid], forDocument: lookupDoc)
+                } catch let fetchError as NSError {
+                    errorPointer?.pointee = fetchError
+                }
+                return nil
             }
+
+            dlog("✅ FirebaseManager: User profile + username claim committed atomically")
 
             // ⭐️ Sync to Algolia for instant search
             do {

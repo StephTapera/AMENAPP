@@ -332,7 +332,7 @@ private struct AmenIntelligenceBanner: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Ranked for meaning, not noise")
                     .font(.systemScaled(15, weight: .semibold))
-                    .foregroundStyle(Color.black)
+                    .foregroundStyle(.primary)
                 Text("Discover through scripture, communities, and faith")
                     .font(.systemScaled(13, weight: .regular))
                     .foregroundStyle(Color.black.opacity(0.60))
@@ -417,7 +417,7 @@ private struct DiscoveryGridCard: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.title)
                     .font(.systemScaled(13, weight: .semibold))
-                    .foregroundStyle(Color.black)
+                    .foregroundStyle(.primary)
                     .lineLimit(2)
                 Text(item.subtitle)
                     .font(.systemScaled(11, weight: .regular))
@@ -518,7 +518,7 @@ struct AmenDiscoverView: View {
 
                 Text("Find people, truth, and\nmeaningful content.")
                     .font(.systemScaled(28, weight: .bold))
-                    .foregroundStyle(Color.black)
+                    .foregroundStyle(.primary)
                     .lineSpacing(2)
             }
             .padding(.horizontal, 20)
@@ -543,7 +543,7 @@ struct AmenDiscoverView: View {
 
                 TextField("Search people, verses, communities...", text: $searchText)
                     .font(.systemScaled(16, weight: .regular))
-                    .foregroundStyle(Color.black)
+                    .foregroundStyle(.primary)
                     .tint(Color.black)
                     .submitLabel(.search)
                     .onSubmit {
@@ -627,7 +627,7 @@ struct AmenDiscoverView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Trending Moments")
                 .font(.systemScaled(18, weight: .semibold))
-                .foregroundStyle(Color.black)
+                .foregroundStyle(.primary)
                 .padding(.horizontal, 20)
 
             ScrollView(.horizontal, showsIndicators: false) {
@@ -648,7 +648,7 @@ struct AmenDiscoverView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Explore by Type")
                 .font(.systemScaled(18, weight: .semibold))
-                .foregroundStyle(Color.black)
+                .foregroundStyle(.primary)
                 .padding(.horizontal, 20)
 
             ScrollView(.horizontal, showsIndicators: false) {
@@ -709,7 +709,7 @@ struct AmenDiscoverView: View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Discover")
                 .font(.systemScaled(18, weight: .semibold))
-                .foregroundStyle(Color.black)
+                .foregroundStyle(.primary)
                 .padding(.horizontal, 20)
 
             LazyVGrid(columns: gridColumns, spacing: 12) {

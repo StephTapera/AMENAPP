@@ -176,7 +176,7 @@ struct AccountSetupChecklistView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Let's set up your \(accountType.rawValue) account")
                             .font(AMENFont.bold(22))
-                            .foregroundStyle(.black)
+                            .foregroundStyle(.primary)
                         Text(subtitle)
                             .font(AMENFont.regular(14))
                             .foregroundStyle(.black.opacity(0.55))
@@ -421,7 +421,7 @@ struct SetupCompletionCard: View {
                     VStack(spacing: 5) {
                         Text("Your account is ready")
                             .font(AMENFont.bold(18))
-                            .foregroundStyle(.black)
+                            .foregroundStyle(.primary)
 
                         Text(completionCopy)
                             .font(AMENFont.regular(13))
@@ -480,7 +480,7 @@ struct AccountSetupContinuationCard: View {
                         HStack {
                             Text("\(completedCount) of \(totalCount) setup items complete")
                                 .font(AMENFont.semiBold(13))
-                                .foregroundStyle(.black)
+                                .foregroundStyle(.primary)
                             Spacer()
                             Button(action: {
                                 withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.82))) {
@@ -514,7 +514,7 @@ struct AccountSetupContinuationCard: View {
                             HStack {
                                 Text("Continue setup")
                                     .font(AMENFont.semiBold(13))
-                                    .foregroundStyle(.black)
+                                    .foregroundStyle(.primary)
                                 Image(systemName: "arrow.right")
                                     .font(.systemScaled(12, weight: .semibold))
                                     .foregroundStyle(.black.opacity(0.6))

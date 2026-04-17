@@ -110,7 +110,7 @@ class BereanIntentRouter: ObservableObject {
     @Published var isProcessing = false
     
     private let answerEngine = BereanAnswerEngine.shared
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var sessions: [String: BereanSession] = [:]
     
     private init() {}

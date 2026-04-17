@@ -19,7 +19,7 @@ class EphemeralStoriesService: ObservableObject {
     @Published var myStory: [StoryItem] = []
     @Published var isLoading = false
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private let collection = "stories"
     private let ttl: TimeInterval = 86400 // 24 hours
 

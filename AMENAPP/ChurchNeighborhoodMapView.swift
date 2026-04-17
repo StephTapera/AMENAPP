@@ -37,7 +37,7 @@ final class ChurchNeighborhoodService: ObservableObject {
     @Published var isLoading = false
     @Published var topNeighborhoodName: String?
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     var totalCount: Int { zipData.reduce(0) { $0 + $1.count } }
 

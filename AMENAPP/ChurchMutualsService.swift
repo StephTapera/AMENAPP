@@ -38,7 +38,7 @@ final class ChurchMutualsService: ObservableObject {
     @Published private(set) var error: Error?
 
     // Firestore reference placeholder:
-    // private let db = Firestore.firestore()
+    // private lazy var db = Firestore.firestore()
 
     // MARK: - Nested Types
 

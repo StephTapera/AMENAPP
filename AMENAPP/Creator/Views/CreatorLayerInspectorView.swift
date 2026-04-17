@@ -9,7 +9,7 @@ struct CreatorLayerInspectorView: View {
                 CreatorInspectorSection(title: layer.kind.rawValue.capitalized) {
                     Text(layer.payloadRef ?? "No payload")
                         .font(AMENFont.medium(12))
-                        .foregroundStyle(Color.black.opacity(0.6))
+                        .foregroundStyle(.secondary)
                 }
             }
         }

@@ -9,7 +9,7 @@ protocol CreatorSceneServicing {
 }
 
 final class CreatorSceneService: CreatorSceneServicing {
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     func fetchScenes(projectID: String) async throws -> [CreatorScene] {
         let ownerID = try requireOwnerID()

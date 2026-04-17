@@ -8,7 +8,7 @@ protocol CreatorTemplateServicing {
 }
 
 final class CreatorTemplateService: CreatorTemplateServicing {
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     func fetchTemplates(projectType: CreatorProjectType?) async throws -> [CreatorTemplate] {
         var query: Query = db.collection("creatorTemplates")

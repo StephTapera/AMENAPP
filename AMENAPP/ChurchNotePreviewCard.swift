@@ -8,6 +8,7 @@
 
 import SwiftUI
 import FirebaseFirestore
+import UIKit
 
 // MARK: - Church Note Pill (Feed)
 
@@ -200,18 +201,13 @@ struct ChurchEventCapsulePill: View {
 /// Tappable music pill for a worship song reference — opens Spotify or Apple Music.
 struct WorshipMusicPill: View {
     let song: WorshipSongReference
+    @Environment(\.openURL) private var openURL
+    @State private var showUnavailableAlert = false
 
     var body: some View {
         Button(action: openMusic) {
             HStack(spacing: 10) {
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .fill(musicPlatformColor.opacity(0.85))
-                    .frame(width: 32, height: 32)
-                    .overlay(
-                        Image(systemName: "music.note")
-                            .font(.systemScaled(13, weight: .semibold))
-                            .foregroundStyle(.white)
-                    )
+                artworkView
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(song.title)
@@ -219,7 +215,7 @@ struct WorshipMusicPill: View {
                         .foregroundStyle(.primary)
                         .lineLimit(1)
 
-                    Text(song.artist)
+                    Text(statusLine)
                         .font(.systemScaled(12))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
@@ -227,49 +223,142 @@ struct WorshipMusicPill: View {
 
                 Spacer(minLength: 4)
 
-                // Platform indicator
-                Image(systemName: platformIcon)
-                    .font(.systemScaled(16, weight: .medium))
-                    .foregroundStyle(musicPlatformColor)
+                Text(song.providerBadgeText)
+                    .font(.systemScaled(10, weight: .semibold))
+                    .foregroundStyle(.primary.opacity(0.72))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
+                    .background(
+                        Capsule()
+                            .fill(Color.white.opacity(0.56))
+                            .overlay(
+                                Capsule()
+                                    .strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5)
+                            )
+                    )
 
-                Image(systemName: "chevron.right")
+                Image(systemName: trailingIcon)
                     .font(.systemScaled(11, weight: .semibold))
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(song.availabilityState == .unavailable ? .secondary : .tertiary)
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .background(liquidGlassPill)
+            .padding(.vertical, 9)
+            .background(musicCapsuleBackground)
         }
         .buttonStyle(.plain)
         .pressableButton()
+        .contextMenu {
+            if let url = preferredURL {
+                Button("Open in \(song.provider.displayName)") {
+                    openURL(url)
+                }
+            }
+
+            if let url = webFallbackURL, url != preferredURL {
+                Button("View on \(song.provider.displayName)") {
+                    openURL(url)
+                }
+            }
+
+            if let link = (webFallbackURL ?? preferredURL)?.absoluteString {
+                Button("Copy Link") {
+                    UIPasteboard.general.string = link
+                }
+            }
+        }
+        .alert("Music Unavailable", isPresented: $showUnavailableAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("This attachment can’t be opened right now. Try updating the link or reopening it later.")
+        }
     }
 
-    private var hasSpotify: Bool { song.spotifyTrackID != nil }
-    private var hasAppleMusic: Bool { song.appleMusicURL != nil }
-
-    private var musicPlatformColor: Color {
-        if hasSpotify { return Color(red: 0.11, green: 0.73, blue: 0.33) }
-        if hasAppleMusic { return .pink }
-        return .secondary
+    private var preferredURL: URL? {
+        guard let deepLinkURL = song.deepLinkURL, let url = URL(string: deepLinkURL) else {
+            return nil
+        }
+        return UIApplication.shared.canOpenURL(url) ? url : nil
     }
 
-    private var platformIcon: String {
-        if hasSpotify { return "play.circle.fill" }
-        if hasAppleMusic { return "music.note.list" }
-        return "play.circle"
+    private var webFallbackURL: URL? {
+        guard let webURL = song.webURL else { return nil }
+        return URL(string: webURL)
+    }
+
+    private var trailingIcon: String {
+        switch song.availabilityState {
+        case .unavailable:
+            return "exclamationmark.circle"
+        case .accountRequired:
+            return "lock.circle"
+        case .viewOnly:
+            return "arrow.up.right.circle"
+        case .readyToOpen:
+            return "chevron.right"
+        }
+    }
+
+    private var statusLine: String {
+        let base = song.subtitle ?? song.artist
+        let helper = song.availabilityState.helperText
+        return base.isEmpty ? helper : "\(base) · \(helper)"
+    }
+
+    private var artworkView: some View {
+        Group {
+            if let artworkURL = song.artworkURL, let url = URL(string: artworkURL) {
+                AsyncImage(url: url) { phase in
+                    if case let .success(image) = phase {
+                        image.resizable().scaledToFill()
+                    } else {
+                        fallbackArtwork
+                    }
+                }
+            } else {
+                fallbackArtwork
+            }
+        }
+        .frame(width: 28, height: 28)
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+
+    private var fallbackArtwork: some View {
+        RoundedRectangle(cornerRadius: 8, style: .continuous)
+            .fill(Color.black.opacity(0.08))
+            .overlay(
+                Image(systemName: "music.note")
+                    .font(.systemScaled(11, weight: .semibold))
+                    .foregroundStyle(.primary.opacity(0.7))
+            )
+    }
+
+    private var musicCapsuleBackground: some View {
+        Capsule(style: .continuous)
+            .fill(.ultraThinMaterial)
+            .overlay(
+                Capsule(style: .continuous)
+                    .fill(Color.white.opacity(0.62))
+            )
+            .overlay(
+                Capsule(style: .continuous)
+                    .strokeBorder(Color.black.opacity(0.06), lineWidth: 0.6)
+            )
+            .shadow(color: .black.opacity(0.06), radius: 10, y: 3)
     }
 
     private func openMusic() {
-        if let spotifyId = song.spotifyTrackID,
-           let url = URL(string: "spotify:track:\(spotifyId)") {
-            UIApplication.shared.open(url, options: [:]) { opened in
-                if !opened, let webURL = URL(string: "https://open.spotify.com/track/\(spotifyId)") {
-                    UIApplication.shared.open(webURL)
-                }
-            }
-        } else if let urlString = song.appleMusicURL, let url = URL(string: urlString) {
-            UIApplication.shared.open(url)
+        if let preferredURL {
+            openURL(preferredURL)
+            return
         }
+
+        if let webFallbackURL {
+            openURL(webFallbackURL)
+            return
+        }
+
+        HapticManager.notification(type: .warning)
+        showUnavailableAlert = true
     }
 }
 

@@ -12,7 +12,7 @@ import FirebaseFirestore
 class UserProfileImageCache {
     static let shared = UserProfileImageCache()
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     private init() {}
     

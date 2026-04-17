@@ -60,6 +60,7 @@ struct LegacyPost: Identifiable, Codable, Hashable {
 }
 
 // MARK: - Mock Data
+#if DEBUG
 extension LegacyPost {
     static let mockPosts: [LegacyPost] = [
         LegacyPost(
@@ -119,3 +120,4 @@ extension LegacyPost {
         )
     ]
 }
+#endif

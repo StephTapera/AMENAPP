@@ -74,6 +74,32 @@ enum AMENAnalyticsEvent {
     // Account
     case accountTypeSelected(type: String)
 
+    // Media Feed Mode
+    case mediaModeSwitched(toMode: String)
+    case mediaGridTileOpened(postId: String)
+    case mediaDetailClosed
+    case mediaDetailJumpedToPost(postId: String)
+    case mediaGridEmptyStateViewed
+    case mediaFilterChanged(filter: String)
+
+    // Suggested Accounts
+    case suggestionImpression(suggestedUserId: String, position: Int, reasonType: String)
+    case suggestionFollowTap(suggestedUserId: String, position: Int)
+    case suggestionFollowSuccess(suggestedUserId: String)
+    case suggestionFollowFailure(suggestedUserId: String)
+    case suggestionProfileOpen(suggestedUserId: String)
+    case suggestionDismiss(suggestedUserId: String)
+    case suggestionsRailSeen(count: Int)
+    case suggestionsModuleHidden
+    case suggestionsModuleRestored
+    case suggestionPeekOpen(suggestedUserId: String, surface: String)
+    case suggestionPeekExpand(suggestedUserId: String, surface: String)
+    case suggestionFullProfileOpen(suggestedUserId: String, surface: String)
+    case suggestionRailHidden(surface: String)
+    case suggestionRailRestored(surface: String)
+    case suggestionShowFewer(surface: String)
+    case suggestionWhyShown(surface: String)
+
     var name: String {
         switch self {
         case .feedSessionStarted: return "feed_session_started"
@@ -108,6 +134,28 @@ enum AMENAnalyticsEvent {
         case .studioInquirySent: return "studio_inquiry_sent"
         case .studioJobApplied: return "studio_job_applied"
         case .accountTypeSelected: return "account_type_selected"
+        case .mediaModeSwitched: return "media_mode_switched"
+        case .mediaGridTileOpened: return "media_grid_tile_opened"
+        case .mediaDetailClosed: return "media_detail_closed"
+        case .mediaDetailJumpedToPost: return "media_detail_jumped_to_post"
+        case .mediaGridEmptyStateViewed: return "media_grid_empty_state_viewed"
+        case .mediaFilterChanged: return "media_filter_changed"
+        case .suggestionImpression: return "suggestion_impression"
+        case .suggestionFollowTap: return "suggestion_follow_tap"
+        case .suggestionFollowSuccess: return "suggestion_follow_success"
+        case .suggestionFollowFailure: return "suggestion_follow_failure"
+        case .suggestionProfileOpen: return "suggestion_profile_open"
+        case .suggestionDismiss: return "suggestion_dismiss"
+        case .suggestionsRailSeen: return "suggestions_rail_seen"
+        case .suggestionsModuleHidden: return "suggestions_module_hidden"
+        case .suggestionsModuleRestored: return "suggestions_module_restored"
+        case .suggestionPeekOpen: return "suggestion_peek_open"
+        case .suggestionPeekExpand: return "suggestion_peek_expand"
+        case .suggestionFullProfileOpen: return "suggestion_full_profile_open"
+        case .suggestionRailHidden: return "suggestion_rail_hidden"
+        case .suggestionRailRestored: return "suggestion_rail_restored"
+        case .suggestionShowFewer: return "suggestion_show_fewer"
+        case .suggestionWhyShown: return "suggestion_why_shown"
         }
     }
 
@@ -133,6 +181,42 @@ enum AMENAnalyticsEvent {
             return ["topic_slug": slug]
         case .accountTypeSelected(let type):
             return ["account_type": type]
+        case .mediaModeSwitched(let mode):
+            return ["to_mode": mode]
+        case .mediaGridTileOpened(let postId):
+            return ["post_id": postId]
+        case .mediaDetailJumpedToPost(let postId):
+            return ["post_id": postId]
+        case .mediaFilterChanged(let filter):
+            return ["filter": filter]
+        case .suggestionImpression(let userId, let position, let reason):
+            return ["suggested_user_id": userId, "position": position, "reason_type": reason]
+        case .suggestionFollowTap(let userId, let position):
+            return ["suggested_user_id": userId, "position": position]
+        case .suggestionFollowSuccess(let userId):
+            return ["suggested_user_id": userId]
+        case .suggestionFollowFailure(let userId):
+            return ["suggested_user_id": userId]
+        case .suggestionProfileOpen(let userId):
+            return ["suggested_user_id": userId]
+        case .suggestionDismiss(let userId):
+            return ["suggested_user_id": userId]
+        case .suggestionsRailSeen(let count):
+            return ["suggestion_count": count]
+        case .suggestionPeekOpen(let userId, let surface):
+            return ["suggested_user_id": userId, "surface": surface]
+        case .suggestionPeekExpand(let userId, let surface):
+            return ["suggested_user_id": userId, "surface": surface]
+        case .suggestionFullProfileOpen(let userId, let surface):
+            return ["suggested_user_id": userId, "surface": surface]
+        case .suggestionRailHidden(let surface):
+            return ["surface": surface]
+        case .suggestionRailRestored(let surface):
+            return ["surface": surface]
+        case .suggestionShowFewer(let surface):
+            return ["surface": surface]
+        case .suggestionWhyShown(let surface):
+            return ["surface": surface]
         default:
             return [:]
         }
@@ -146,7 +230,7 @@ final class AMENAnalyticsService {
 
     static let shared = AMENAnalyticsService()
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private let flags = AMENFeatureFlags.shared
 
     // P2 FIX: Session ID — a UUID generated fresh on each app foreground session.

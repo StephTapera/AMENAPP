@@ -36,7 +36,7 @@ final class BereanSemanticSearchService: ObservableObject {
     @Published var isSearching = false
     @Published var isIndexing  = false
 
-    private let functions = Functions.functions()
+    private lazy var functions = Functions.functions()
     private let db        = Firestore.firestore()
 
     // In-memory embedding cache: noteId → [Double]

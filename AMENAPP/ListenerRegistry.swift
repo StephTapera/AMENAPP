@@ -28,7 +28,7 @@ class ListenerRegistry {
     /// Active listeners keyed by identifier (e.g., "profile:{userId}", "followers:{userId}")
     private var activeListeners: [String: ListenerRegistration] = [:]
     
-    private init() {}
+    init() {}
     
     /// Get existing listener or create new one
     /// - Parameters:

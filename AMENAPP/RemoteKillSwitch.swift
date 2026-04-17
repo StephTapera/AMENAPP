@@ -8,6 +8,7 @@
 
 import Foundation
 import Combine
+import FirebaseCore
 import FirebaseRemoteConfig
 
 @MainActor
@@ -30,6 +31,10 @@ class RemoteKillSwitch: ObservableObject {
     }
 
     func loadFlags() {
+        // Guard: Firebase may not be configured yet (SwiftUI initializes @StateObject
+        // before AppDelegate.application(_:didFinishLaunchingWithOptions:) runs).
+        // Default values (all enabled) are already set via property initializers.
+        guard FirebaseApp.app() != nil else { return }
         let config = RemoteConfig.remoteConfig()
 
         feedEnabled = config.configValue(forKey: "kill_feed_enabled").boolValue

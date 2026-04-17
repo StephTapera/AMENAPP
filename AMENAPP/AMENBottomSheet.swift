@@ -157,6 +157,12 @@ final class AMENSheetController: ObservableObject {
         if velocityTracker.count > 8 { velocityTracker.removeFirst() }
 
         let raw = value.translation.height
+        if keyboardHeight > 0 && raw > 0 {
+            // Resist sheet-dismiss drags while the keyboard is active so the
+            // focused input remains anchored above the keyboard.
+            dragOffset = raw * 0.18
+            return
+        }
         // Add rubber-band resistance when dragging beyond the topmost snap point
         let topLimit = topSnap
         let liveOffset = currentOffset + raw

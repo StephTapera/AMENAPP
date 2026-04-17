@@ -91,7 +91,7 @@ final class EventsStore: ObservableObject {
     @Published var myHostedEvents: [FaithEvent] = []
     @Published var isLoaded = false
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var listener: ListenerRegistration?
 
     private init() {}

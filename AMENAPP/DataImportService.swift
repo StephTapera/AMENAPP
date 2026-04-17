@@ -39,7 +39,7 @@ final class DataImportService: ObservableObject {
 
     // MARK: - Private
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private let importers: [ArchiveImporter] = [
         InstagramArchiveImporter(),
         TwitterArchiveImporter(),

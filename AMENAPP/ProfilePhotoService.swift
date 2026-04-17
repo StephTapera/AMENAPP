@@ -23,8 +23,8 @@ class ProfilePhotoService: ObservableObject {
     @Published var uploadProgress: Double = 0.0
     @Published var error: String?
     
-    private let storage = Storage.storage()
-    private let db = Firestore.firestore()
+    private lazy var storage = Storage.storage()
+    private lazy var db = Firestore.firestore()
     private let firebaseManager = FirebaseManager.shared
     
     private init() {}

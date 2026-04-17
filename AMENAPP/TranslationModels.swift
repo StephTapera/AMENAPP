@@ -64,6 +64,7 @@ struct TranslationVariant: Codable, Equatable {
 enum TranslationEngine: String, Codable {
     case gcpV3 = "gcp-v3"               // Google Cloud Translation v3 (server-side)
     case appleOnDevice = "apple-on-device" // Apple Translation framework (iOS 17.4+)
+    case claudeLLM = "claude-llm"        // Claude LLM refinement (natural/contextual modes)
     case unknown = "unknown"
 }
 
@@ -171,6 +172,34 @@ struct UserLanguagePreferences: Codable, Equatable {
     /// When was this last updated
     var updatedAt: Date
 
+    // MARK: - Extended Language Preferences
+
+    /// Language the user writes posts in (nil = same as appLanguage)
+    var creationLanguage: String?
+
+    /// Languages to translate content INTO (default: [appLanguage])
+    var preferredTranslationLanguages: [String]
+
+    /// User's preferred translation quality mode
+    var defaultTranslationMode: TranslationMode
+
+    /// Show original + translated text stacked together
+    var sideBySideEnabled: Bool
+
+    /// Minimum language detection confidence to show "See translation" (0.0–1.0)
+    var smartVisibilityMinConfidence: Double
+
+    /// Per-source-language auto-translate overrides (e.g. ["es": true, "fr": false])
+    var perLanguageAutoTranslate: [String: Bool]
+
+    /// Let the system learn from usage patterns to suggest auto-translate
+    var adaptiveAutoTranslate: Bool
+
+    /// The effective creation language (falls back to appLanguage if nil)
+    var effectiveCreationLanguage: String {
+        creationLanguage ?? appLanguage
+    }
+
     static var `default`: UserLanguagePreferences {
         let appLang: String = {
             if #available(iOS 16, *) {
@@ -186,8 +215,65 @@ struct UserLanguagePreferences: Codable, Equatable {
             autoTranslateComments: false,
             showOriginalAlongTranslation: true,
             understoodLanguages: [],
-            updatedAt: Date()
+            updatedAt: Date(),
+            creationLanguage: nil,
+            preferredTranslationLanguages: [appLang],
+            defaultTranslationMode: .literal,
+            sideBySideEnabled: false,
+            smartVisibilityMinConfidence: 0.55,
+            perLanguageAutoTranslate: [:],
+            adaptiveAutoTranslate: false
         )
+    }
+
+    // Custom Codable for backward compatibility with existing Firestore documents
+    enum CodingKeys: String, CodingKey {
+        case appLanguage, contentTranslationMode, autoTranslatePosts, autoTranslateComments
+        case showOriginalAlongTranslation, understoodLanguages, updatedAt
+        case creationLanguage, preferredTranslationLanguages, defaultTranslationMode
+        case sideBySideEnabled, smartVisibilityMinConfidence, perLanguageAutoTranslate
+        case adaptiveAutoTranslate
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        appLanguage = try container.decode(String.self, forKey: .appLanguage)
+        contentTranslationMode = try container.decode(ContentTranslationMode.self, forKey: .contentTranslationMode)
+        autoTranslatePosts = try container.decode(Bool.self, forKey: .autoTranslatePosts)
+        autoTranslateComments = try container.decode(Bool.self, forKey: .autoTranslateComments)
+        showOriginalAlongTranslation = try container.decode(Bool.self, forKey: .showOriginalAlongTranslation)
+        understoodLanguages = try container.decode([String].self, forKey: .understoodLanguages)
+        updatedAt = try container.decode(Date.self, forKey: .updatedAt)
+        // New fields — decode with defaults for backward compat
+        creationLanguage = try container.decodeIfPresent(String.self, forKey: .creationLanguage)
+        preferredTranslationLanguages = try container.decodeIfPresent([String].self, forKey: .preferredTranslationLanguages) ?? [appLanguage]
+        defaultTranslationMode = try container.decodeIfPresent(TranslationMode.self, forKey: .defaultTranslationMode) ?? .literal
+        sideBySideEnabled = try container.decodeIfPresent(Bool.self, forKey: .sideBySideEnabled) ?? false
+        smartVisibilityMinConfidence = try container.decodeIfPresent(Double.self, forKey: .smartVisibilityMinConfidence) ?? 0.55
+        perLanguageAutoTranslate = try container.decodeIfPresent([String: Bool].self, forKey: .perLanguageAutoTranslate) ?? [:]
+        adaptiveAutoTranslate = try container.decodeIfPresent(Bool.self, forKey: .adaptiveAutoTranslate) ?? false
+    }
+
+    init(appLanguage: String, contentTranslationMode: ContentTranslationMode, autoTranslatePosts: Bool,
+         autoTranslateComments: Bool, showOriginalAlongTranslation: Bool, understoodLanguages: [String],
+         updatedAt: Date, creationLanguage: String? = nil, preferredTranslationLanguages: [String]? = nil,
+         defaultTranslationMode: TranslationMode = .literal, sideBySideEnabled: Bool = false,
+         smartVisibilityMinConfidence: Double = 0.55, perLanguageAutoTranslate: [String: Bool] = [:],
+         adaptiveAutoTranslate: Bool = false) {
+        self.appLanguage = appLanguage
+        self.contentTranslationMode = contentTranslationMode
+        self.autoTranslatePosts = autoTranslatePosts
+        self.autoTranslateComments = autoTranslateComments
+        self.showOriginalAlongTranslation = showOriginalAlongTranslation
+        self.understoodLanguages = understoodLanguages
+        self.updatedAt = updatedAt
+        self.creationLanguage = creationLanguage
+        self.preferredTranslationLanguages = preferredTranslationLanguages ?? [appLanguage]
+        self.defaultTranslationMode = defaultTranslationMode
+        self.sideBySideEnabled = sideBySideEnabled
+        self.smartVisibilityMinConfidence = smartVisibilityMinConfidence
+        self.perLanguageAutoTranslate = perLanguageAutoTranslate
+        self.adaptiveAutoTranslate = adaptiveAutoTranslate
     }
 }
 
@@ -268,6 +354,7 @@ enum TranslationDisplayError: Equatable {
     case serviceUnavailable
     case contentRestricted
     case rateLimited
+    case languageDownloadNeeded
 
     var userFacingMessage: String {
         switch self {
@@ -276,6 +363,7 @@ enum TranslationDisplayError: Equatable {
         case .serviceUnavailable: return "Translation unavailable right now"
         case .contentRestricted: return "This content can't be translated"
         case .rateLimited: return "Too many requests — try again shortly"
+        case .languageDownloadNeeded: return "Downloading language models…"
         }
     }
 }

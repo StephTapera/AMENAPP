@@ -8,6 +8,7 @@
 //
 
 import Foundation
+import FirebaseCore
 import FirebaseFirestore
 import FirebaseAuth
 import Combine
@@ -34,7 +35,7 @@ final class NotificationService: ObservableObject {
     
     // MARK: - Private Properties
     
-    let db = Firestore.firestore()  // Changed from private to internal for extension access
+    lazy var db = Firestore.firestore()  // Changed from private to internal for extension access
     private var listener: ListenerRegistration?
     private var topLevelListener: ListenerRegistration?  // Listens to /notifications collection for client-written notifications
     private var notificationObserver: NSObjectProtocol?
@@ -56,6 +57,7 @@ final class NotificationService: ObservableObject {
     // MARK: - Initialization
     
     private init() {
+        guard FirebaseApp.app() != nil else { return }
         setupNotificationObservers()
         loadAIPreference()
     }
@@ -128,9 +130,14 @@ final class NotificationService: ObservableObject {
     }
     
     private func updateBadgeCount() async {
-        // P0 FIX: Use immediateUpdate for user-triggered actions (no debounce)
-        // This ensures badge updates instantly when user marks notifications as read
-        await BadgeCountManager.shared.immediateUpdate()
+        // BADGE FIX: After markAllAsRead(), we know notifications are 0 — call
+        // clearNotifications() instead of immediateUpdate(). immediateUpdate() was
+        // clearing the suppression window and then querying Firestore immediately,
+        // which could still return stale read:false docs (local Firestore cache hasn't
+        // settled yet), causing the badge to flip back to the old count.
+        // clearNotifications() optimistically zeros the badge and schedules a
+        // post-suppression re-query (after 5.5s) once writes have fully propagated.
+        BadgeCountManager.shared.clearNotifications()
     }
     
     // MARK: - Start Listening to Notifications
@@ -187,26 +194,9 @@ final class NotificationService: ObservableObject {
                 }
             }
         
-        // Listener 2: top-level /notifications collection (written by client-side interactions
-        // such as lightbulb/amen reactions — filtered by userId field)
-        #if DEBUG
-        Task { @MainActor in ListenerCounter.shared.attach("notifications-toplevel") }
-        #endif
-        topLevelListener = db.collection("notifications")
-            .whereField("userId", isEqualTo: userId)
-            .order(by: "createdAt", descending: true)
-            .limit(to: maxNotifications)
-            .addSnapshotListener { [weak self] snapshot, firestoreError in
-                guard let self = self else { return }
-                
-                Task { @MainActor [weak self] in
-                    guard let self = self else { return }
-                    guard firestoreError == nil, let documents = snapshot?.documents else { return }
-                    // Store this source's latest docs and schedule a debounced merge.
-                    self.topLevelDocs = documents
-                    self.scheduleMerge()
-                }
-            }
+        // Top-level /notifications is no longer used by the client.
+        // Keep the cache empty to avoid merging stale data.
+        topLevelDocs = []
     }
     
     /// Schedule a coalesced merge of both listener caches with a 100 ms debounce.
@@ -558,6 +548,7 @@ final class NotificationService: ObservableObject {
         }
         var totalCommitted = 0
         
+        let now = Timestamp(date: Date())
         for chunk in chunks {
             let batch = db.batch()
             for notification in chunk {
@@ -566,7 +557,14 @@ final class NotificationService: ObservableObject {
                     .document(userId)
                     .collection("notifications")
                     .document(id)
-                batch.setData(["read": true], forDocument: ref, merge: true)
+                // BADGE FIX: also set seenAt so the server-side unseenCount
+                // (which counts docs where seenAt == null) reaches 0 after
+                // markAllAsRead. Without this, reconcileNotificationCount
+                // returns the old count and drift recovery overrides the badge
+                // back to the stale number.
+                var fields: [String: Any] = ["read": true]
+                if notification.seenAt == nil { fields["seenAt"] = now }
+                batch.setData(fields, forDocument: ref, merge: true)
             }
             try await batch.commit()
             totalCommitted += chunk.count
@@ -578,6 +576,10 @@ final class NotificationService: ObservableObject {
         }
         unreadCount = 0
         await updateBadgeCount()
+        // BADGE FIX: trigger an immediate server-count reconcile so the
+        // notificationState/inbox.unseenCount is corrected before the
+        // 10-second drift recovery timer fires and overrides the badge.
+        BadgeCountManager.shared.triggerReconciliation()
         
         dlog("✅ Marked \(totalCommitted) notifications as read")
     }
@@ -979,11 +981,45 @@ struct AppNotification: Identifiable, Codable, Hashable {
     var actors: [NotificationActor]?  // List of all users who performed this action
     var actorCount: Int?  // Total number of actors (for "Alex and 5 others")
     let updatedAt: Timestamp?  // Last update time (different from createdAt)
-    
+
+    // ✅ V2: State machine — seen/opened/dismissed (separate from read/unread)
+    var seenAt: Timestamp?        // Set when notification row becomes visible in viewport
+    var openedAt: Timestamp?      // Set when user taps the notification
+    var dismissedAt: Timestamp?   // Set when user swipes to dismiss
+
+    // ✅ V2: Server-side routing with fallback chains
+    var targetRouteType: String?       // Primary route type (e.g., "post_comment")
+    var routePayload: [String: String]?  // Primary route payload
+    var fallbackRouteType: String?     // Fallback if primary target is gone
+    var fallbackRoutePayload: [String: String]?  // Fallback payload
+    var schemaVersion: String?         // "2" for v2 notifications
+    var deepLinkVersion: String?       // "1" for current route format
+
+    // ✅ V2: Content invalidation & push tracking
+    var invalidTarget: Bool?           // True if referenced content was deleted/blocked
+    var pushDelivered: Bool?           // Whether FCM push was successfully sent
+    var pushDeliveredAt: Timestamp?    // When push was delivered
+
+    // ✅ V2: Notification state machine
+    enum NotificationState {
+        case unseen, seen, opened, dismissed
+    }
+
+    var notificationState: NotificationState {
+        if dismissedAt != nil { return .dismissed }
+        if openedAt != nil { return .opened }
+        if seenAt != nil { return .seen }
+        return .unseen
+    }
+
     enum CodingKeys: String, CodingKey {
         case userId, type, actorId, actorName, actorUsername, actorProfileImageURL
         case postId, commentId, parentCommentId, conversationId, prayerId, noteId, commentText, read, createdAt, priority, groupId, idempotencyKey
         case actors, actorCount, updatedAt
+        case seenAt, openedAt, dismissedAt
+        case targetRouteType, routePayload, fallbackRouteType, fallbackRoutePayload
+        case schemaVersion, deepLinkVersion
+        case invalidTarget, pushDelivered, pushDeliveredAt
     }
     
     // MARK: - Custom Decoding
@@ -1018,6 +1054,24 @@ struct AppNotification: Identifiable, Codable, Hashable {
         actors = try? container.decodeIfPresent([NotificationActor].self, forKey: .actors)
         actorCount = try? container.decodeIfPresent(Int.self, forKey: .actorCount)
         updatedAt = try? container.decodeIfPresent(Timestamp.self, forKey: .updatedAt)
+
+        // V2: State machine fields
+        seenAt = try? container.decodeIfPresent(Timestamp.self, forKey: .seenAt)
+        openedAt = try? container.decodeIfPresent(Timestamp.self, forKey: .openedAt)
+        dismissedAt = try? container.decodeIfPresent(Timestamp.self, forKey: .dismissedAt)
+
+        // V2: Server-side routing
+        targetRouteType = try? container.decodeIfPresent(String.self, forKey: .targetRouteType)
+        routePayload = try? container.decodeIfPresent([String: String].self, forKey: .routePayload)
+        fallbackRouteType = try? container.decodeIfPresent(String.self, forKey: .fallbackRouteType)
+        fallbackRoutePayload = try? container.decodeIfPresent([String: String].self, forKey: .fallbackRoutePayload)
+        schemaVersion = try? container.decodeIfPresent(String.self, forKey: .schemaVersion)
+        deepLinkVersion = try? container.decodeIfPresent(String.self, forKey: .deepLinkVersion)
+
+        // V2: Content invalidation & push tracking
+        invalidTarget = try? container.decodeIfPresent(Bool.self, forKey: .invalidTarget)
+        pushDelivered = try? container.decodeIfPresent(Bool.self, forKey: .pushDelivered)
+        pushDeliveredAt = try? container.decodeIfPresent(Timestamp.self, forKey: .pushDeliveredAt)
     }
     
     // MARK: - Notification Type
@@ -1038,6 +1092,9 @@ struct AppNotification: Identifiable, Codable, Hashable {
         case churchNoteShared   = "church_note_shared"    // When someone shares a church note with you
         case churchNoteReplied  = "church_note_replied"   // When someone replies to your church note
         case prayerSupported    = "prayer_supported"      // When someone prays for your prayer request
+        case actionThreadInvite = "action_thread_invite"  // Invited to a support workflow
+        case actionThreadUpdate = "action_thread_update"  // Update in a support workflow you're in
+        case actionThreadReminder = "action_thread_reminder" // Scheduled reminder for a support workflow
         case unknown = "unknown"
         
         init(from decoder: Decoder) throws {
@@ -1057,6 +1114,9 @@ struct AppNotification: Identifiable, Codable, Hashable {
             case .prayerReminder, .prayerAnswered, .prayerSupported: return "hands.sparkles"
             case .churchNoteShared, .churchNoteReplied: return "book.fill"
             case .message, .messageRequest, .messageRequestAccepted: return "envelope.fill"
+            case .actionThreadInvite:             return "person.2.circle.fill"
+            case .actionThreadUpdate:             return "arrow.triangle.2.circlepath"
+            case .actionThreadReminder:           return "bell.badge.clock.fill"
             case .unknown:                        return "bell.fill"
             }
         }
@@ -1072,6 +1132,7 @@ struct AppNotification: Identifiable, Codable, Hashable {
             case .prayerReminder, .prayerAnswered, .prayerSupported: return .purple
             case .churchNoteShared, .churchNoteReplied: return .orange
             case .message, .messageRequest, .messageRequestAccepted: return .blue
+            case .actionThreadInvite, .actionThreadUpdate, .actionThreadReminder: return .teal
             case .unknown:                        return .secondary
             }
         }
@@ -1080,7 +1141,8 @@ struct AppNotification: Identifiable, Codable, Hashable {
         var filterCategory: String {
             switch self {
             case .follow, .followRequestAccepted: return "follows"
-            case .comment, .reply, .repost:       return "conversations"
+            case .comment, .reply, .repost:                              return "conversations"
+            case .actionThreadInvite, .actionThreadUpdate, .actionThreadReminder: return "actionThreads"
             case .mention:                        return "mentions"
             case .prayerReminder, .prayerAnswered, .prayerSupported: return "prayer"
             case .churchNoteShared, .churchNoteReplied: return "churchNotes"
@@ -1102,6 +1164,9 @@ struct AppNotification: Identifiable, Codable, Hashable {
             case .churchNoteShared:               return 60
             case .prayerAnswered:                 return 55
             case .prayerReminder:                 return 50
+            case .actionThreadInvite:             return 85
+            case .actionThreadUpdate:             return 55
+            case .actionThreadReminder:           return 60
             case .repost:                         return 45
             case .amen:                           return 40
             case .messageRequestAccepted:         return 30
@@ -1188,6 +1253,12 @@ struct AppNotification: Identifiable, Codable, Hashable {
             return "replied to your church note"
         case .prayerSupported:
             return "is praying for you"
+        case .actionThreadInvite:
+            return "invited you to a support flow"
+        case .actionThreadUpdate:
+            return "updated a support flow you're in"
+        case .actionThreadReminder:
+            return "You have a support flow reminder"
         case .message:
             return "sent you a message"  // ✅ P0-1: Filtered from feed
         case .messageRequest:
@@ -1217,6 +1288,12 @@ struct AppNotification: Identifiable, Codable, Hashable {
             return "checkmark.seal.fill"
         case .prayerSupported:
             return "hands.sparkles.fill"
+        case .actionThreadInvite:
+            return "person.2.circle.fill"
+        case .actionThreadUpdate:
+            return "arrow.triangle.2.circlepath"
+        case .actionThreadReminder:
+            return "bell.badge.clock.fill"
         case .followRequestAccepted:
             return "person.fill.checkmark"  // ✅ NEW
         case .messageRequestAccepted:
@@ -1260,6 +1337,12 @@ struct AppNotification: Identifiable, Codable, Hashable {
             return .purple
         case .prayerSupported:
             return .indigo
+        case .actionThreadInvite:
+            return .teal
+        case .actionThreadUpdate:
+            return .teal
+        case .actionThreadReminder:
+            return .cyan
         case .message:
             return .blue  // ✅ P0-1: Filtered from feed
         case .messageRequest:

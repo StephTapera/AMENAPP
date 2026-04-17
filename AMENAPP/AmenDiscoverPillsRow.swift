@@ -8,7 +8,7 @@ import SwiftUI
 
 // MARK: - Model
 
-struct DiscoverPillItem: Identifiable, Hashable {
+struct AmenDiscoverPillItem: Identifiable, Hashable {
     let id = UUID()
     let title: String
     let systemImage: String?
@@ -16,7 +16,7 @@ struct DiscoverPillItem: Identifiable, Hashable {
     let action: () -> Void
 
     func hash(into hasher: inout Hasher) { hasher.combine(id) }
-    static func == (lhs: DiscoverPillItem, rhs: DiscoverPillItem) -> Bool { lhs.id == rhs.id }
+    static func == (lhs: AmenDiscoverPillItem, rhs: AmenDiscoverPillItem) -> Bool { lhs.id == rhs.id }
 }
 
 // MARK: - Main Pills Row
@@ -25,7 +25,11 @@ struct AmenDiscoverPillsRow: View {
     let searchPlaceholder: String
     let onSearchTap: () -> Void
     let onAskBereanTap: () -> Void
-    let topics: [DiscoverPillItem]
+    let topics: [AmenDiscoverPillItem]
+
+    // MEDIUM FIX: Track focused pill index so accessibilityScrollAction can scroll
+    // the horizontal rail one item at a time for VoiceOver and Switch Control users.
+    @State private var focusedPillIndex: Int = 0
 
     var body: some View {
         VStack(spacing: 14) {
@@ -44,7 +48,8 @@ struct AmenDiscoverPillsRow: View {
                         Spacer(minLength: 0)
                     }
                     .padding(.horizontal, 16)
-                    .frame(height: 56)
+                    // Vertical padding scales with Dynamic Type instead of fixed height.
+                    .padding(.vertical, 18)
                     .background(AmenPillBackground())
                 }
                 .buttonStyle(AmenPillPressStyle())
@@ -61,7 +66,7 @@ struct AmenDiscoverPillsRow: View {
                             .lineLimit(1)
                     }
                     .padding(.horizontal, 16)
-                    .frame(height: 56)
+                    .padding(.vertical, 18)
                     .background(
                         AmenPillBackground(
                             topColor: Color.purple.opacity(0.12),
@@ -73,14 +78,43 @@ struct AmenDiscoverPillsRow: View {
                 .buttonStyle(AmenPillPressStyle())
             }
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
-                    ForEach(topics) { topic in
-                        AmenTopicPill(item: topic)
+            // MEDIUM FIX: Wrap in ScrollViewReader so accessibilityScrollAction can
+            // programmatically scroll to the previous/next pill by ID.
+            ScrollViewReader { proxy in
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        ForEach(Array(topics.enumerated()), id: \.element.id) { index, topic in
+                            AmenTopicPill(item: topic)
+                                .id(topic.id)
+                        }
+                    }
+                    .padding(.horizontal, 1)
+                }
+                // MEDIUM FIX: VoiceOver swipe-left/right scrolls the rail one pill at a time.
+                .accessibilityScrollAction { edge in
+                    switch edge {
+                    case .leading:
+                        let newIndex = max(focusedPillIndex - 1, 0)
+                        focusedPillIndex = newIndex
+                        if newIndex < topics.count {
+                            withAnimation { proxy.scrollTo(topics[newIndex].id, anchor: .leading) }
+                        }
+                    case .trailing:
+                        let newIndex = min(focusedPillIndex + 1, topics.count - 1)
+                        focusedPillIndex = newIndex
+                        if newIndex < topics.count {
+                            withAnimation { proxy.scrollTo(topics[newIndex].id, anchor: .trailing) }
+                        }
+                    default:
+                        break
                     }
                 }
-                .padding(.horizontal, 1)
             }
+            // Allow the parent vertical ScrollView to receive vertical gestures
+            // simultaneously. Without this, the horizontal ScrollView captures
+            // all pan gestures and the parent page cannot scroll when the user
+            // starts a drag over the pills row.
+            .simultaneousGesture(DragGesture(minimumDistance: 0))
         }
     }
 }
@@ -88,7 +122,7 @@ struct AmenDiscoverPillsRow: View {
 // MARK: - Single Topic Pill
 
 struct AmenTopicPill: View {
-    let item: DiscoverPillItem
+    let item: AmenDiscoverPillItem
 
     var body: some View {
         Button(action: item.action) {
@@ -104,7 +138,7 @@ struct AmenTopicPill: View {
             }
             .foregroundStyle(item.isActive ? Color.white : Color.black.opacity(0.82))
             .padding(.horizontal, 18)
-            .frame(height: 48)
+            .padding(.vertical, 14)
             .background {
                 if item.isActive {
                     Capsule()

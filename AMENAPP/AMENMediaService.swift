@@ -12,7 +12,7 @@ import Foundation
 private enum MediaAPIConfig {
     /// Set YOUTUBE_API_KEY in Config.xcconfig
     static var youtubeAPIKey: String {
-        Bundle.main.object(forInfoDictionaryKey: "YOUTUBE_API_KEY") as? String ?? ""
+        (Bundle.main.object(forInfoDictionaryKey: "YOUTUBE_API_KEY") as? String ?? "").trimmingCharacters(in: .whitespaces)
     }
     /// Set SPOTIFY_CLIENT_ID / SPOTIFY_CLIENT_SECRET in Config.xcconfig
     static var spotifyClientID: String {

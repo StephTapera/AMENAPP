@@ -351,7 +351,7 @@ class MLNotificationClassifier: ObservableObject {
 
     private func checkUserHistory(userId: String) async -> Double {
         // Check if user has history of spam/harassment reports
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
 
         do {
             let doc = try await db.collection("users").document(userId)

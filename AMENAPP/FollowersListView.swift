@@ -26,9 +26,9 @@ struct SocialFollowersListView: View {
     let listType: ListType
     
     @Environment(\.dismiss) var dismiss
-    @ObservedObject private var socialService = SocialService.shared
+    @ObservedObject private var followersService = FollowersService.shared
     @ObservedObject private var followService = FollowService.shared
-    @State private var users: [UserModel] = []
+    @State private var users: [FollowUser] = []
     @State private var isLoading = true
     
     var body: some View {
@@ -101,7 +101,7 @@ struct SocialFollowersListView: View {
             
             Text(listType == .followers ? "No Followers Yet" : "Not Following Anyone")
                 .font(AMENFont.bold(20))
-                .foregroundStyle(.black)
+                .foregroundStyle(.primary)
             
             Text(listType == .followers ? 
                  "When people follow you, they'll appear here" :
@@ -122,10 +122,10 @@ struct SocialFollowersListView: View {
         do {
             switch listType {
             case .followers:
-                users = try await socialService.fetchFollowers(for: userId)
+                users = try await followersService.fetchFollowers(userId: userId)
                 dlog("✅ Loaded \(users.count) followers")
             case .following:
-                users = try await socialService.fetchFollowing(for: userId)
+                users = try await followersService.fetchFollowing(userId: userId)
                 dlog("✅ Loaded \(users.count) following")
             }
         } catch {
@@ -139,7 +139,7 @@ struct SocialFollowersListView: View {
 
 /// Row view for displaying a user in the list
 private struct SocialUserRowView: View {
-    let user: UserModel
+    let user: FollowUser
 
     @ObservedObject private var followService = FollowService.shared
     @State private var isFollowing = false
@@ -149,22 +149,21 @@ private struct SocialUserRowView: View {
     var currentUserId: String? { Auth.auth().currentUser?.uid }
 
     var isCurrentUser: Bool {
-        guard let userId = user.id, let currentUserId = currentUserId else { return false }
-        return userId == currentUserId
+        return user.id == currentUserId
     }
 
     var body: some View {
         Button {
-            guard let uid = user.id, !uid.isEmpty, !isCurrentUser else { return }
+            guard !user.id.isEmpty, !isCurrentUser else { return }
             showProfile = true
         } label: {
             HStack(spacing: 16) {
                 avatarView
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(user.displayName)
+                    Text(user.name)
                         .font(AMENFont.bold(16))
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.primary)
 
                     Text("@\(user.username)")
                         .font(AMENFont.regular(14))
@@ -190,9 +189,7 @@ private struct SocialUserRowView: View {
             await checkFollowStatus()
         }
         .sheet(isPresented: $showProfile) {
-            if let uid = user.id {
-                UserProfileView(userId: uid, showsDismissButton: true)
-            }
+            UserProfileView(userId: user.id, showsDismissButton: true)
         }
     }
     
@@ -255,12 +252,11 @@ private struct SocialUserRowView: View {
     }
     
     private func checkFollowStatus() async {
-        guard let userId = user.id else { return }
-        isFollowing = await followService.isFollowing(userId: userId)
+        isFollowing = await followService.isFollowing(userId: user.id)
     }
     
     private func toggleFollow() {
-        guard let userId = user.id else { return }
+        let userId = user.id
         
         // Prevent double-tapping
         guard !isLoading else {

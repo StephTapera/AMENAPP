@@ -85,7 +85,7 @@ final class BereanRecipientProtectionService: ObservableObject {
     @Published var pendingMediaRequests: [MediaConsentRequest] = []
     @Published var showComfortShieldFor: String? = nil   // conversationId
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     private init() {}
 

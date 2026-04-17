@@ -5,6 +5,10 @@ export const enforceCreatorEntitlement = functions.https.onCall(async (data, con
     if (!context.auth) {
         throw new functions.https.HttpsError("unauthenticated", "Auth required");
     }
+    // 5.1 FIX: App Check enforcement.
+    if (context.app == undefined) {
+        throw new functions.https.HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
+    }
 
     const ownerID = context.auth.uid;
     const entitlementRef = admin.firestore().collection("creatorEntitlements").doc(ownerID);

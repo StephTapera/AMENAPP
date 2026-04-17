@@ -157,7 +157,7 @@ final class ModerationPipeline: ObservableObject {
     static let shared = ModerationPipeline()
 
     private let riskAnalyzer = ContentRiskAnalyzer.shared
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private let flags = AMENFeatureFlags.shared
 
     @Published private(set) var totalEvaluated: Int = 0
@@ -466,7 +466,7 @@ final class ModerationPipeline: ObservableObject {
 final class UserReportService {
 
     static let shared = UserReportService()
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     enum ReportCategory: String, CaseIterable, Identifiable {
         case spam = "spam"
@@ -534,7 +534,7 @@ final class UserReportService {
 final class TrustScoreService {
 
     static let shared = TrustScoreService()
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private let flags = AMENFeatureFlags.shared
 
     enum UserTrustLevel: String {

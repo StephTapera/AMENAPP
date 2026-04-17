@@ -31,7 +31,7 @@ extension HTTPSCallable {
     /// which appeared to guard against cancellation but actually did nothing — the empty
     /// `onCancel` fired as a notification only, and cancellation continued propagating
     /// into Firebase's internal async-let, causing a fatal Swift Concurrency abort.
-    func safeCall(_ data: Any? = nil) async throws -> HTTPSCallableResult {
+    @preconcurrency func safeCall(_ data: Any? = nil) async throws -> HTTPSCallableResult {
         // Task.init creates an UNSTRUCTURED task:
         //   - Inherits current actor (stays on MainActor if called from @MainActor)
         //   - Does NOT inherit the calling task's cancellation token (SE-0304)
@@ -41,7 +41,7 @@ extension HTTPSCallable {
         //   - The outer task throws CancellationError at the next check point
         //   - The inner Firebase task continues running and completes silently
         //   - No asyncLet_finish_after_task_completion crash
-        let task = Task {
+        let task = Task { @Sendable in
             try await self.call(data)
         }
         return try await task.value

@@ -29,7 +29,7 @@ struct AMENAuthLandingView: View {
     // Button press states
     @State private var applePressed = false
     @State private var googlePressed = false
-    @State private var emailBg = Color(white: 0.957)   // #F4F4F4
+    @State private var emailBg = Color(.secondarySystemBackground)
 
     // Email flows
     @State private var showEmailSignUp = false
@@ -41,8 +41,7 @@ struct AMENAuthLandingView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                // Pure white background to match logo's white background
-                Color.white.ignoresSafeArea()
+                Color(.systemBackground).ignoresSafeArea()
 
                 VStack(spacing: 0) {
                     // ── Logo zone ──────────────────────────────────────────
@@ -60,7 +59,7 @@ struct AMENAuthLandingView: View {
                         Text("AMEN")
                             .font(.systemScaled(22, weight: .black))
                             .tracking(7)
-                            .foregroundStyle(Color.black)
+                            .foregroundStyle(.primary)
                             .opacity(wordOpacity)
                     }
 
@@ -149,7 +148,7 @@ struct AMENAuthLandingView: View {
                 Spacer()
                 Text("Continue with Google")
                     .font(.systemScaled(15, weight: .semibold))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
                 Spacer()
                 Color.clear.frame(width: 52)
             }
@@ -191,13 +190,13 @@ struct AMENAuthLandingView: View {
             HStack(spacing: 0) {
                 Image(systemName: "envelope")
                     .font(.systemScaled(16, weight: .medium))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
                     .padding(.leading, 18)
                     .frame(width: 52, alignment: .leading)
                 Spacer()
                 Text("Sign up with email")
                     .font(.systemScaled(14, weight: .semibold))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
                 Spacer()
                 Color.clear.frame(width: 52)
             }
@@ -220,7 +219,7 @@ struct AMENAuthLandingView: View {
             } label: {
                 Text("Sign in")
                     .font(.systemScaled(12, weight: .semibold))
-                    .foregroundStyle(Color.black)
+                    .foregroundStyle(.primary)
             }
             .buttonStyle(.plain)
         }

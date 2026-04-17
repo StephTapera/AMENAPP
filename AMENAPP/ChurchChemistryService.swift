@@ -37,7 +37,7 @@ final class ChurchChemistryService: ObservableObject {
     @Published var contactsAuthorized = false
     @Published var showPermissionPrompt = false
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var hashedContactNumbers: Set<String> = []
 
     // MARK: - Permission prompt state

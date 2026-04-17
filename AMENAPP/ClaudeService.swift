@@ -33,7 +33,7 @@ final class ClaudeService: ObservableObject {
 
     // MARK: - Configuration
 
-    private let functions = Functions.functions()
+    private lazy var functions = Functions.functions()
     private var currentTask: Task<Void, Never>?
 
     // 15-minute TTL, 50-entry LRU (history-free queries only).
@@ -204,15 +204,16 @@ final class ClaudeService: ObservableObject {
         }
         
         let callable = functions.httpsCallable("bereanChatProxy")
+        // bereanChatProxy v2 expects: message, systemPromptSuffix, maxTokens, mode
         let params: [String: Any] = [
-            "systemPrompt": systemPrompt,
-            "userMessage": userMessage,
+            "message": userMessage,
+            "systemPromptSuffix": systemPrompt,
             "maxTokens": maxTokens,
         ]
         do {
             let result = try await callable.call(params)
             guard let data = result.data as? [String: Any],
-                  let text = data["text"] as? String else {
+                  let text = (data["response"] as? String) ?? (data["text"] as? String) else {
                 throw OpenAIServiceError.invalidResponse
             }
             return text
@@ -221,12 +222,20 @@ final class ClaudeService: ObservableObject {
             if nsError.domain == "com.firebase.functions" {
                 let currentUser = Auth.auth().currentUser
                 if nsError.code == 7 || nsError.code == 16 {
-                    dlog("❌ bereanChatProxy auth failed (code: \(nsError.code))")
+                    dlog("❌ bereanChatProxy rejected (code: \(nsError.code))")
                     dlog("   Current user: \(currentUser?.uid ?? "NONE")")
                     dlog("   User email: \(currentUser?.email ?? "none")")
                     dlog("   Email verified: \(currentUser?.isEmailVerified ?? false)")
-                    dlog("   → This means Firebase Functions rejected the request due to missing/invalid auth token")
-                    dlog("   → Try: 1) Sign out and sign back in, 2) Check Firebase Console Functions logs")
+                    #if targetEnvironment(simulator)
+                    dlog("   → Running on SIMULATOR: code 16 is almost certainly App Check failure.")
+                    dlog("   → Fix: Go to Firebase Console → App Check → Apps → iOS → Debug Tokens")
+                    dlog("   →      Add the debug token printed at launch (look for 'AppCheckDebugToken' in logs)")
+                    dlog("   →      Until registered, bereanChatProxy (enforceAppCheck: true) rejects all simulator calls.")
+                    #else
+                    dlog("   → code 7 = unauthenticated (no Firebase Auth session).")
+                    dlog("   → code 16 = App Check or auth token invalid. Try signing out and back in.")
+                    dlog("   → Check Firebase Console → Functions → Logs for server-side details.")
+                    #endif
                     
                     // Return a more specific error for auth failures
                     throw OpenAIServiceError.unauthorized

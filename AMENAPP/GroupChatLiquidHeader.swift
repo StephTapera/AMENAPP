@@ -66,7 +66,7 @@ struct GroupChatLiquidHeader: View {
     private func loadParticipants() {
         guard let currentUserId = Auth.auth().currentUser?.uid else { return }
         
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         db.collection("conversations")
             .document(conversationId)
             .getDocument { snapshot, error in
@@ -86,7 +86,7 @@ struct GroupChatLiquidHeader: View {
     // MARK: - Load Single Participant
     
     private func loadParticipantData(participantId: String) {
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         db.collection("users")
             .document(participantId)
             .getDocument { snapshot, error in
@@ -119,7 +119,7 @@ struct GroupChatLiquidHeader: View {
         // Prevent duplicate listeners
         guard profileListeners[userId] == nil else { return }
         
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         let listener = db.collection("users")
             .document(userId)
             .addSnapshotListener { snapshot, error in

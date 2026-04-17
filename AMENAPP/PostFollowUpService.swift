@@ -375,7 +375,7 @@ final class PostFollowUpService: ObservableObject {
         //   }
         //
         // Firebase/Firestore alternative:
-        //   let db = Firestore.firestore()
+        //   lazy var db = Firestore.firestore()
         //   let batch = db.batch()
         //   newFollowUps.forEach { followUp in
         //     let ref = db.collection("followUps").document(followUp.id)
@@ -397,7 +397,7 @@ final class PostFollowUpService: ObservableObject {
         //   Response: { "followUps": [ PostFollowUp JSON array ] }
         //
         // Firebase alternative:
-        //   let db = Firestore.firestore()
+        //   lazy var db = Firestore.firestore()
         //   let snapshot = try await db.collection("followUps")
         //     .whereField("userId", isEqualTo: userId)
         //     .whereField("isDismissed", isEqualTo: false)

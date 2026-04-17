@@ -179,9 +179,10 @@ struct GlassEffectStyle {
 struct GlassEffectModifier: ViewModifier {
     let style: GlassEffectStyle
     let shape: AnyShape?
-    
+
     @State private var isPressed = false
-    
+    @Environment(\.colorScheme) private var colorScheme
+
     func body(content: Content) -> some View {
         if let shape = shape {
             content
@@ -194,52 +195,75 @@ struct GlassEffectModifier: ViewModifier {
                 .background(glassBackground())
         }
     }
-    
+
     @ViewBuilder
     private func glassBackground() -> some View {
+        // PERF: Collapsed to 2 layers. See original comment for rationale.
+        // Dark-mode calibration: white overlays are dramatically reduced so the
+        // glass feels like smoked/refined dark glass rather than milky frosted white.
+        // Light-mode behavior is unchanged.
+        let isDark = colorScheme == .dark
+
+        // Gradient highlight: bright in light, barely-there in dark
+        let gradStartOpacity = isDark ? style.intensity * 0.45 : style.intensity * 0.80
+        let gradEndOpacity   = isDark ? style.intensity * 0.15 : style.intensity * 0.30
+
+        // Stroke: visible contour in both modes; slightly brighter in dark for definition
+        let strokeStart = isDark ? style.strokeOpacity * 1.1 : style.strokeOpacity
+        let strokeEnd   = isDark ? style.strokeOpacity * 0.6 : style.strokeOpacity * 0.5
+
+        // Depth pooling: more visible in dark mode
+        let depthOpacity = isDark ? style.intensity * 1.8 : style.intensity
+
         ZStack {
-            // Base frosted glass layer
-            RoundedRectangle(cornerRadius: 0)
+            // Layer 1 — GPU-composited backdrop blur (cannot be merged)
+            Rectangle()
                 .fill(.ultraThinMaterial)
-                .opacity(0.8)
-            
-            // Dark tinted overlay for depth
-            RoundedRectangle(cornerRadius: 0)
-                .fill(Color.black.opacity(style.intensity))
-            
-            // Optional color tint
-            if let tint = style.tintColor {
-                RoundedRectangle(cornerRadius: 0)
-                    .fill(tint.opacity(0.15))
-            }
-            
-            // Gradient overlay for liquid effect
-            RoundedRectangle(cornerRadius: 0)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color.white.opacity(style.intensity * 0.8),
-                            Color.white.opacity(style.intensity * 0.3)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
+                .opacity(isDark ? 0.92 : 0.80)
+
+            // Layer 2 — All decorative fills in one Canvas pass
+            Canvas { context, size in
+                let rect = CGRect(origin: .zero, size: size)
+
+                // Depth overlay (darker in dark mode for depth, lighter in light)
+                context.fill(Path(rect), with: .color(.black.opacity(depthOpacity)))
+
+                // Optional color tint
+                if let tint = style.tintColor {
+                    context.fill(Path(rect), with: .color(tint.opacity(isDark ? 0.08 : 0.15)))
+                }
+
+                // Highlight gradient — the core "glass" look
+                // In dark mode this is very subtle; in light mode it's the bright gloss
+                context.fill(
+                    Path(rect),
+                    with: .linearGradient(
+                        Gradient(colors: [
+                            .white.opacity(gradStartOpacity),
+                            .white.opacity(gradEndOpacity)
+                        ]),
+                        startPoint: CGPoint(x: rect.minX, y: rect.minY),
+                        endPoint: CGPoint(x: rect.maxX, y: rect.maxY)
                     )
                 )
-            
-            // Subtle border for definition
-            RoundedRectangle(cornerRadius: 0)
-                .strokeBorder(
-                    LinearGradient(
-                        colors: [
-                            Color.white.opacity(style.strokeOpacity),
-                            Color.white.opacity(style.strokeOpacity * 0.5)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
+
+                // Border stroke — provides contour definition on both backgrounds
+                let inset = style.strokeWidth / 2
+                context.stroke(
+                    Path(rect.insetBy(dx: inset, dy: inset)),
+                    with: .linearGradient(
+                        Gradient(colors: [
+                            .white.opacity(strokeStart),
+                            .white.opacity(strokeEnd)
+                        ]),
+                        startPoint: CGPoint(x: rect.minX, y: rect.minY),
+                        endPoint: CGPoint(x: rect.maxX, y: rect.maxY)
                     ),
                     lineWidth: style.strokeWidth
                 )
+            }
         }
+        .drawingGroup()
         .scaleEffect(style.isInteractive && isPressed ? 0.98 : 1.0)
         .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
         .onTapGesture {
@@ -298,6 +322,157 @@ private struct ScrollReactiveGlassModifier: ViewModifier {
                 )
                 .ignoresSafeArea(edges: .bottom)
             }
+    }
+}
+
+// MARK: - Scroll-Edge Top Blur
+
+/// UIKit bridge for the top-edge blur — wraps UIVisualEffectView for GPU-composited
+/// CABackdropLayer rendering. Separate from ScrollReactiveGlass's private copy so
+/// both top and bottom overlays can use the same technique independently.
+private struct TopEdgeBlurView: UIViewRepresentable {
+    let style: UIBlurEffect.Style
+    func makeUIView(context: Context) -> UIVisualEffectView {
+        UIVisualEffectView(effect: UIBlurEffect(style: style))
+    }
+    func updateUIView(_ uiView: UIVisualEffectView, context: Context) {}
+}
+
+/// A LinearGradient that goes opaque (top) → transparent (bottom).
+/// Mirror of FadeUpMask — applied so the material fades OUT toward content.
+private struct FadeDownMask: View {
+    /// 0 = fully transparent everywhere, 1 = full gradient from opaque→clear
+    let intensity: CGFloat
+
+    var body: some View {
+        LinearGradient(
+            stops: [
+                .init(color: .black.opacity(intensity),        location: 0.0),
+                .init(color: .black.opacity(0.82 * intensity), location: 0.25),
+                .init(color: .black.opacity(0.45 * intensity), location: 0.55),
+                .init(color: .black.opacity(0.0),              location: 0.85),
+                .init(color: .clear,                           location: 1.0)
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+    }
+}
+
+/// Top-anchored frosted glass overlay that fades in as the user scrolls down.
+/// Designed for screens with hidden navigation bars where content scrolls
+/// into the status bar area (Messages, Notifications, Resources).
+///
+/// Architecture matches `DynamicGlassOverlay` — GPU-composited UIVisualEffectView
+/// behind a gradient mask, driven by a single CGFloat scroll offset.
+struct ScrollEdgeTopBlurOverlay: View {
+    /// Raw scroll offset — positive = bouncing above top, negative = scrolled down.
+    let scrollOffset: CGFloat
+
+    /// Height of the blur panel in points. Default covers status bar + ~20pt breathing room.
+    var panelHeight: CGFloat = 72
+
+    /// Scroll distance (pts) over which effect ramps from 0→1.
+    var rampDistance: CGFloat = 100
+
+    /// Minimum intensity at rest (0 = invisible until scroll).
+    var baseIntensity: CGFloat = 0.0
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var intensity: CGFloat {
+        let scrolledDown = max(0, -scrollOffset)
+        let progress = min(scrolledDown / rampDistance, 1.0)
+        return baseIntensity + (1.0 - baseIntensity) * progress
+    }
+
+    private var tintOpacity: Double {
+        colorScheme == .dark
+            ? Double(intensity) * 0.04
+            : Double(intensity) * 0.18
+    }
+
+    var body: some View {
+        if intensity > 0.01 {
+            ZStack {
+                // Layer 1: GPU-composited blur
+                TopEdgeBlurView(style: colorScheme == .dark ? .systemUltraThinMaterialDark
+                                                            : .systemUltraThinMaterialLight)
+
+                // Layer 2: Subtle tint wash
+                Color(colorScheme == .dark ? .systemBackground : .white)
+                    .opacity(tintOpacity)
+
+                // Layer 3: Very subtle bottom-edge separator
+                VStack(spacing: 0) {
+                    Spacer()
+                    Rectangle()
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color.clear,
+                                    Color.primary.opacity(0.05 * intensity)
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .frame(height: 12)
+                }
+            }
+            .frame(height: panelHeight)
+            .mask(FadeDownMask(intensity: intensity))
+            .allowsHitTesting(false)
+            .animation(.linear(duration: 0.016), value: intensity)
+        }
+    }
+}
+
+/// Convenience ViewModifier: attaches a `ScrollEdgeTopBlurOverlay` to the top
+/// of any view. The caller must supply the current scroll offset.
+///
+/// Usage:
+/// ```swift
+/// ZStack(alignment: .top) {
+///     ScrollView { ... }
+///     // modifier reads scrollOffset binding
+/// }
+/// .scrollEdgeTopBlur(scrollOffset: scrollOffset)
+/// ```
+struct ScrollEdgeTopBlurModifier: ViewModifier {
+    let scrollOffset: CGFloat
+    var panelHeight: CGFloat = 72
+    var rampDistance: CGFloat = 100
+
+    func body(content: Content) -> some View {
+        content
+            .overlay(alignment: .top) {
+                ScrollEdgeTopBlurOverlay(
+                    scrollOffset: scrollOffset,
+                    panelHeight: panelHeight,
+                    rampDistance: rampDistance
+                )
+                .ignoresSafeArea(edges: .top)
+            }
+    }
+}
+
+extension View {
+    /// Adds a scroll-edge frosted glass blur at the top of the view.
+    /// - Parameters:
+    ///   - scrollOffset: Current scroll offset (positive = above origin, negative = scrolled down)
+    ///   - panelHeight: Height of the blur panel (default 72pt)
+    ///   - rampDistance: Scroll distance for full intensity (default 100pt)
+    func scrollEdgeTopBlur(
+        scrollOffset: CGFloat,
+        panelHeight: CGFloat = 72,
+        rampDistance: CGFloat = 100
+    ) -> some View {
+        self.modifier(ScrollEdgeTopBlurModifier(
+            scrollOffset: scrollOffset,
+            panelHeight: panelHeight,
+            rampDistance: rampDistance
+        ))
     }
 }
 

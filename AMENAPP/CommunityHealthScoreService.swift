@@ -27,7 +27,7 @@ struct CommunityHealthScore {
 
 class CommunityHealthScoreService {
     static let shared = CommunityHealthScoreService()
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var scoreCache: [String: (score: CommunityHealthScore, cachedAt: Date)] = [:]
 
     private init() {}

@@ -17,7 +17,7 @@ import Combine
 class NestedCommentService: ObservableObject {
     static let shared = NestedCommentService()
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     // MARK: - Comment Model with Nesting
     
@@ -277,7 +277,11 @@ class NestedCommentService: ObservableObject {
         ]
         
         do {
-            try await db.collection("notifications").addDocument(data: notificationData)
+            try await db
+                .collection("users")
+                .document(userId)
+                .collection("notifications")
+                .addDocument(data: notificationData)
         } catch {
             dlog("❌ Failed to send mention notification: \(error)")
         }
@@ -308,7 +312,11 @@ class NestedCommentService: ObservableObject {
                 "read": false
             ]
             
-            try await db.collection("notifications").addDocument(data: notificationData)
+            try await db
+                .collection("users")
+                .document(parentAuthorId)
+                .collection("notifications")
+                .addDocument(data: notificationData)
         } catch {
             dlog("❌ Failed to send reply notification: \(error)")
         }

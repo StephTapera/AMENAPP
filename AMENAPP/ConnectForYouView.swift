@@ -218,7 +218,7 @@ struct ConnectForYouView: View {
     // MARK: - Data Loading
 
     private func loadRecentEvents() async {
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         do {
             let snap = try await db.collection("faithEvents")
                 .whereField("isPublic", isEqualTo: true)

@@ -161,8 +161,8 @@ final class SermonWeekTransformationService: ObservableObject {
     @Published private(set) var activePlans: [SermonWeekPlan] = []
     @Published private(set) var isGenerating = false
 
-    private let db = Firestore.firestore()
-    private let functions = Functions.functions()
+    private lazy var db = Firestore.firestore()
+    private lazy var functions = Functions.functions()
     private let localStorageKey = "sermon_week_plans_v1"
     private let maxActivePlans = 5
 

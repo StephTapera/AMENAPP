@@ -3877,6 +3877,7 @@ struct CommunityResource: Identifiable {
 }
 
 // MARK: - Sample Data
+#if DEBUG
 let sampleMessages: [ChatMessage] = [
     ChatMessage(
         id: UUID(),
@@ -3921,6 +3922,7 @@ let samplePrayerRequests: [CommunityPrayerRequest] = [
         prayerCount: 42
     )
 ]
+#endif
 
 let sampleResources: [CommunityResource] = [
     CommunityResource(

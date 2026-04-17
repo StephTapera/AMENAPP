@@ -6,6 +6,13 @@ export const recordCreatorAnalytics = functions.https.onCall(async (data, contex
         throw new functions.https.HttpsError("unauthenticated", "Auth required");
     }
 
+    if (context.app == undefined) {
+        throw new functions.https.HttpsError(
+            "failed-precondition",
+            "The function must be called from an App Check verified app."
+        );
+    }
+
     const ownerID = context.auth.uid;
     const dayKey = String(data?.dayKey ?? "");
     const event = String(data?.event ?? "");

@@ -72,7 +72,7 @@ enum ViewerRelationship: Equatable {
 final class PrivacyAccessControl: ObservableObject {
     static let shared = PrivacyAccessControl()
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var cache: [String: CachedRelationship] = [:]
     private let cacheExpirySeconds: TimeInterval = 60
 

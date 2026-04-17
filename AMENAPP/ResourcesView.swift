@@ -11,6 +11,7 @@ import FirebaseAuth
 struct ResourcesView: View {
     @ObservedObject private var greetingService = GreetingService.shared
     @ObservedObject private var featureFlags = AMENFeatureFlags.shared
+    @ObservedObject private var supportCoordinator = SupportIntelligenceCoordinator.shared
     @State private var searchText = ""
     @State private var selectedCategory: ResourceCategory = .all
     @FocusState private var isSearchFocused: Bool
@@ -26,23 +27,25 @@ struct ResourcesView: View {
     @State private var keyboardHideToken: NSObjectProtocol?
     // P1 FIX: Store AI search task so it can be cancelled on disappear.
     @State private var aiSearchTask: Task<Void, Never>?
+    @State private var supportAnalysisTask: Task<Void, Never>?
     // Scroll-collapse — same pattern as MessagesView
     @State private var scrollOffset: CGFloat = 0
     @State private var showHeader: Bool = true
     @Environment(\.tabBarVisible) private var tabBarVisible
     
+    /// Drives category pills compression — 0 = fully visible, 1 = fully hidden
+    private var pillsCompression: CGFloat {
+        min(max((-scrollOffset - 10) / 60, 0), 1.0)
+    }
+    
     enum ResourceCategory: String, CaseIterable {
         case all = "All"
-        case communities = "Communities"
         case mentalHealth = "Mental Health"
         case crisis = "Crisis"
         case giving = "Giving"
-        case reading = "Reading"
-        case listening = "Listening"
         case community = "Community"
         case tools = "Tools"
         case learning = "Learning"
-        case opportunities = "Opportunities"
     }
     
     var filteredResources: [ResourceItem] {
@@ -113,6 +116,10 @@ struct ResourcesView: View {
                     }
                 }
                 .coordinateSpace(name: "resourcesScroll")
+                .refreshable {
+                    greetingService.refreshGreeting()
+                    _ = await DailyVerseGenkitService.shared.generatePersonalizedDailyVerse()
+                }
                 .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
                     handleScrollOffset(value)
                 }
@@ -122,6 +129,7 @@ struct ResourcesView: View {
                     }
                 )
             }
+            .scrollEdgeTopBlur(scrollOffset: scrollOffset)
             .navigationBarHidden(true)
             .scrollDismissesKeyboard(.interactively)
             .animation(.easeOut(duration: 0.15), value: searchFilteredResources.count)
@@ -134,6 +142,11 @@ struct ResourcesView: View {
                 // P1 FIX: Cancel any in-flight AI search when view disappears.
                 aiSearchTask?.cancel()
                 aiSearchTask = nil
+                supportAnalysisTask?.cancel()
+                supportAnalysisTask = nil
+            }
+            .onChange(of: searchText) { _, query in
+                handleSupportSearchChange(query)
             }
         }
     }
@@ -235,6 +248,11 @@ struct ResourcesView: View {
             
             categoryPillsView
                 .padding(.bottom, 8)
+                .opacity(1.0 - pillsCompression)
+                .scaleEffect(y: 1.0 - pillsCompression * 0.15, anchor: .top)
+                .frame(height: max(0, (1.0 - pillsCompression) * 52), alignment: .top)
+                .clipped()
+                .animation(Motion.adaptive(.interactiveSpring(response: 0.22, dampingFraction: 0.78)), value: pillsCompression)
         }
         .background(Color(.systemBackground))
     }
@@ -345,8 +363,8 @@ struct ResourcesView: View {
                     .fill(
                         LinearGradient(
                             colors: [
-                                Color.white.opacity(0.1),
-                                Color.white.opacity(0.05)
+                                AmenTheme.Colors.glassHighlightTop,
+                                AmenTheme.Colors.glassHighlightBottom
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
@@ -358,8 +376,8 @@ struct ResourcesView: View {
                     .stroke(
                         LinearGradient(
                             colors: [
-                                Color.white.opacity(searchText.isEmpty ? 0.2 : 0.4),
-                                Color.white.opacity(searchText.isEmpty ? 0.1 : 0.2)
+                                AmenTheme.Colors.glassStroke.opacity(searchText.isEmpty ? 0.7 : 1.0),
+                                AmenTheme.Colors.glassStroke.opacity(searchText.isEmpty ? 0.35 : 0.6)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
@@ -372,8 +390,8 @@ struct ResourcesView: View {
             // ✨ Subtle shining animation border
             ShiningBorderView(isActive: true)
         )
-        .shadow(color: .black.opacity(0.06), radius: 12, x: 0, y: 4)
-        .shadow(color: .black.opacity(0.04), radius: 4, x: 0, y: 2)
+        .shadow(color: AmenTheme.Colors.shadowCard.opacity(0.75), radius: 12, x: 0, y: 4)
+        .shadow(color: AmenTheme.Colors.shadowCard.opacity(0.45), radius: 4, x: 0, y: 2)
         .padding(.horizontal)
         .animation(.easeOut(duration: 0.15), value: searchText.isEmpty)
     }
@@ -394,86 +412,38 @@ struct ResourcesView: View {
                 DisasterResourcesSection()
             }
 
-            // ── AMEN Studio ──
-            if featureFlags.studioEnabled, (selectedCategory == .all || selectedCategory == .tools || selectedCategory == .learning) {
-                resourceSection(title: "AMEN Studio", subtitle: "Create with clarity") {
-                    NavigationLink(destination: AmenStudioResourcesView()) {
-                        HStack(spacing: 14) {
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(LinearGradient(
-                                        colors: [Color.black.opacity(0.9), Color.black.opacity(0.7)],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    ))
-                                    .frame(width: 44, height: 44)
-                                Image(systemName: "sparkles")
-                                    .font(.systemScaled(18, weight: .semibold))
-                                    .foregroundColor(.white)
-                            }
-
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text("Studio Resources")
-                                    .font(.systemScaled(16, weight: .semibold))
-                                    .foregroundColor(.primary)
-                                Text("Templates, packs, and creator tools")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-
-                            Spacer()
-
-                            Image(systemName: "chevron.right")
-                                .font(.systemScaled(13, weight: .semibold))
-                                .foregroundColor(.secondary)
-                        }
-                        .padding(14)
-                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 16)
-                                .stroke(Color.black.opacity(0.08), lineWidth: 1)
-                        )
-                    }
-                    .buttonStyle(ResourceCardPressStyle())
-                }
-            }
-
-            // ── Communities — Spaces ──
-            if selectedCategory == .all || selectedCategory == .communities {
-                resourceSection(title: "Communities", subtitle: "Find your people") {
-                    VStack(spacing: 10) {
-                        // Spaces — entry row
-                        NavigationLink(destination: SpacesDiscoveryView()) {
-                            HStack(spacing: 14) {
-                                ZStack {
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .fill(LinearGradient(
-                                            colors: [Color(hex: "6B48FF"), Color(hex: "C084FC")],
-                                            startPoint: .topLeading, endPoint: .bottomTrailing
-                                        ))
-                                        .frame(width: 44, height: 44)
-                                    Image(systemName: "person.3.fill")
-                                        .font(.systemScaled(18))
-                                        .foregroundColor(.white)
+            if supportSectionVisible {
+                resourceSection(title: "For You", subtitle: supportSectionSubtitle) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        if !supportDomains.isEmpty {
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 8) {
+                                    ForEach(supportDomains, id: \.rawValue) { domain in
+                                        Text(supportDomainLabel(domain))
+                                            .font(AMENFont.semiBold(12))
+                                            .foregroundStyle(AmenTheme.Colors.textPrimary)
+                                            .padding(.horizontal, 12)
+                                            .padding(.vertical, 8)
+                                            .background(
+                                                Capsule()
+                                                    .fill(AmenTheme.Colors.surfaceGrouped)
+                                                    .overlay(
+                                                        Capsule()
+                                                            .stroke(AmenTheme.Colors.borderSoft, lineWidth: 0.75)
+                                                    )
+                                            )
+                                    }
                                 }
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text("Spaces")
-                                        .font(.systemScaled(16, weight: .semibold))
-                                        .foregroundColor(.primary)
-                                    Text("Join AI-curated faith communities")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                }
-                                Spacer()
-                                Image(systemName: "chevron.right")
-                                    .font(.systemScaled(13, weight: .semibold))
-                                    .foregroundColor(.secondary)
+                                .padding(.horizontal, 20)
                             }
-                            .padding(14)
-                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
-                            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color(hex: "6B48FF").opacity(0.2), lineWidth: 1))
                         }
-                        .buttonStyle(ResourceCardPressStyle())
+
+                        VStack(spacing: 10) {
+                            ForEach(supportSectionActions) { action in
+                                supportActionView(action)
+                            }
+                        }
+                        .padding(.horizontal, 20)
                     }
                 }
             }
@@ -589,7 +559,7 @@ struct ResourcesView: View {
             }
 
             // ── AMEN Connect ──
-            if selectedCategory == .all || selectedCategory == .community || selectedCategory == .opportunities {
+            if selectedCategory == .all || selectedCategory == .community {
                 resourceSection(title: "Connect", subtitle: "Acts 2:42") {
                     NavigationLink(destination: AMENConnectView()) {
                         AMENConnectBanner()
@@ -641,7 +611,7 @@ struct ResourcesView: View {
             }
             
             // ── Grow + Journey + Wisdom + Media ── compact rows ──────────
-            if selectedCategory == .all || selectedCategory == .learning || selectedCategory == .community || selectedCategory == .reading || selectedCategory == .listening {
+            if selectedCategory == .all || selectedCategory == .learning || selectedCategory == .community {
                 resourceSection(title: "Faith & Learning") {
                     VStack(spacing: 10) {
                         // Walk With Christ
@@ -656,170 +626,9 @@ struct ResourcesView: View {
                             }
                             .buttonStyle(ResourceCardPressStyle())
                         }
-
-                        // Spiritual Timeline
-                        if selectedCategory == .all || selectedCategory == .learning || selectedCategory == .community {
-                            NavigationLink(destination: SpiritualTimelineView()) {
-                                CompactResourceRow(
-                                    icon: "clock.arrow.circlepath",
-                                    iconColors: [Color(hex: "6B48FF"), Color(hex: "8B5CF6")],
-                                    title: "Spiritual Timeline",
-                                    subtitle: "AI-powered personal faith milestones"
-                                )
-                            }
-                            .buttonStyle(ResourceCardPressStyle())
-                        }
-
-                        // Faith Wrapped
-                        if selectedCategory == .all || selectedCategory == .learning || selectedCategory == .community {
-                            NavigationLink(destination: SpiritualJourneySelectionView()) {
-                                CompactResourceRow(
-                                    icon: "sparkles",
-                                    iconColors: [Color(hex: "111827"), Color(hex: "6B7280")],
-                                    title: "Faith Wrapped",
-                                    subtitle: "Your season, gently told back to you"
-                                )
-                            }
-                            .buttonStyle(ResourceCardPressStyle())
-                        }
-
-                        // Wisdom Library
-                        if selectedCategory == .all || selectedCategory == .reading || selectedCategory == .learning {
-                            NavigationLink(destination: WisdomLibraryView()) {
-                                CompactResourceRow(
-                                    icon: "books.vertical.fill",
-                                    iconColors: [Color(hex: "F59E0B"), Color(hex: "FBBF24")],
-                                    title: "Wisdom Library",
-                                    subtitle: "Books, studies & reading plans"
-                                )
-                            }
-                            .buttonStyle(ResourceCardPressStyle())
-                        }
-
-                        // Christian Media
-                        if selectedCategory == .all || selectedCategory == .listening || selectedCategory == .learning {
-                            NavigationLink(destination: ChristianMediaView()) {
-                                CompactResourceRow(
-                                    icon: "play.circle.fill",
-                                    iconColors: [Color(hex: "EF4444"), Color(hex: "F87171")],
-                                    title: "Media",
-                                    subtitle: "Sermons, podcasts & worship"
-                                )
-                            }
-                            .buttonStyle(ResourceCardPressStyle())
-                        }
                     }
                 }
             }
-
-            // ── Build & Serve ── two consolidated cards ───────────────────
-            if selectedCategory == .all || selectedCategory == .community || selectedCategory == .learning || selectedCategory == .tools {
-                resourceSection(title: "Build & Serve") {
-                    HStack(spacing: 12) {
-                        // Serve — ministry, mentorship, events, church tools
-                        VStack(alignment: .leading, spacing: 10) {
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 10)
-                                    .fill(LinearGradient(
-                                        colors: [Color(hex: "6B48FF").opacity(0.85), Color(hex: "8B5CF6").opacity(0.60)],
-                                        startPoint: .topLeading, endPoint: .bottomTrailing
-                                    ))
-                                    .frame(width: 38, height: 38)
-                                Image(systemName: "hands.sparkles.fill")
-                                    .font(.systemScaled(16, weight: .medium))
-                                    .foregroundColor(.white)
-                            }
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text("Serve")
-                                    .font(.systemScaled(14, weight: .semibold))
-                                    .foregroundColor(.primary)
-                                Text("Mentorship · Events · Church Tools · Spiritual Health")
-                                    .font(.systemScaled(10))
-                                    .foregroundColor(.secondary)
-                                    .lineLimit(2)
-                            }
-                            Spacer()
-                            NavigationLink(destination: MentorshipView()) {
-                                HStack(spacing: 3) {
-                                    Text("Explore")
-                                        .font(.systemScaled(11, weight: .medium))
-                                        .foregroundColor(Color(hex: "6B48FF"))
-                                    Image(systemName: "arrow.right")
-                                        .font(.systemScaled(9, weight: .semibold))
-                                        .foregroundColor(Color(hex: "6B48FF"))
-                                }
-                            }
-                        }
-                        .padding(14)
-                        .frame(maxWidth: .infinity, minHeight: 130, alignment: .leading)
-                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 18)
-                                .strokeBorder(
-                                    LinearGradient(
-                                        colors: [Color(hex: "6B48FF").opacity(0.35), Color.white.opacity(0.10)],
-                                        startPoint: .topLeading, endPoint: .bottomTrailing
-                                    ),
-                                    lineWidth: 0.75
-                                )
-                        )
-                        .shadow(color: Color(hex: "6B48FF").opacity(0.08), radius: 12, x: 0, y: 4)
-                        .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
-
-                        // Build — create, studio, 242 hub
-                        VStack(alignment: .leading, spacing: 10) {
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 10)
-                                    .fill(LinearGradient(
-                                        colors: [Color(hex: "EC4899").opacity(0.85), Color(hex: "F472B6").opacity(0.60)],
-                                        startPoint: .topLeading, endPoint: .bottomTrailing
-                                    ))
-                                    .frame(width: 38, height: 38)
-                                Image(systemName: "pencil.and.ruler.fill")
-                                    .font(.systemScaled(16, weight: .medium))
-                                    .foregroundColor(.white)
-                            }
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text("Create")
-                                    .font(.systemScaled(14, weight: .semibold))
-                                    .foregroundColor(.primary)
-                                Text("Creator Hub · Studio · 242 Hub")
-                                    .font(.systemScaled(10))
-                                    .foregroundColor(.secondary)
-                                    .lineLimit(2)
-                            }
-                            Spacer()
-                            NavigationLink(destination: CreatorView()) {
-                                HStack(spacing: 3) {
-                                    Text("Explore")
-                                        .font(.systemScaled(11, weight: .medium))
-                                        .foregroundColor(Color(hex: "EC4899"))
-                                    Image(systemName: "arrow.right")
-                                        .font(.systemScaled(9, weight: .semibold))
-                                        .foregroundColor(Color(hex: "EC4899"))
-                                }
-                            }
-                        }
-                        .padding(14)
-                        .frame(maxWidth: .infinity, minHeight: 130, alignment: .leading)
-                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 18)
-                                .strokeBorder(
-                                    LinearGradient(
-                                        colors: [Color(hex: "EC4899").opacity(0.35), Color.white.opacity(0.10)],
-                                        startPoint: .topLeading, endPoint: .bottomTrailing
-                                    ),
-                                    lineWidth: 0.75
-                                )
-                        )
-                        .shadow(color: Color(hex: "EC4899").opacity(0.08), radius: 12, x: 0, y: 4)
-                        .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
-                    }
-                    .padding(.horizontal, 20)
-                }
-            }
-
 
             // ── Search Results ────────────────────────────────────────────
             if !searchText.isEmpty {
@@ -918,6 +727,251 @@ struct ResourcesView: View {
             
             content()
         }
+    }
+
+    private var supportSectionVisible: Bool {
+        featureFlags.resourcesIntelligenceEnabled && (!supportSectionActions.isEmpty || !supportDomains.isEmpty)
+    }
+
+    private var supportSectionActions: [SupportAction] {
+        let latestActions = supportCoordinator.lastDecision?.actions ?? []
+        if !latestActions.isEmpty {
+            return Array(latestActions.prefix(4))
+        }
+        return Array(supportCoordinator.currentProfile.suggestedActions.prefix(4))
+    }
+
+    private var supportDomains: [ResourceSupportDomain] {
+        let latestDomains = supportCoordinator.lastDecision?.domains ?? []
+        if !latestDomains.isEmpty {
+            return Array(latestDomains.prefix(3))
+        }
+        return Array(supportCoordinator.currentProfile.recommendedDomains.prefix(3))
+    }
+
+    private var supportSectionSubtitle: String {
+        if let decision = supportCoordinator.lastDecision, !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return supportPromptCopy(for: decision)
+        }
+        return "Quietly shaped by your recent searches and care context"
+    }
+
+    private func handleSupportSearchChange(_ query: String) {
+        supportAnalysisTask?.cancel()
+
+        guard featureFlags.resourcesIntelligenceEnabled else { return }
+
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count >= 3 else { return }
+
+        supportAnalysisTask = Task {
+            try? await Task.sleep(nanoseconds: 350_000_000)
+            guard !Task.isCancelled else { return }
+            _ = await supportCoordinator.analyze(text: trimmed, surface: .search)
+        }
+    }
+
+    private func supportPromptCopy(for decision: SupportRouteDecision) -> String {
+        switch decision.promptType {
+        case .crisisHelpRespectful:
+            return "Immediate support options, kept private and calm"
+        case .forFriendGuideSoft:
+            return "Guidance for helping someone else without overstepping"
+        case .noteCareSummary:
+            return "Care and next steps based on what you have been reflecting on"
+        case .practicalAidBridge:
+            return "Practical help, church support, and next steps in one place"
+        case .prayerSupportBridge, .churchCareRoute, .wellnessGroundingSubtle, .postAftercareGentle, .reachOutTrustedSoft, .giveRelevantPrivate, .recoveryReinforcementSoft:
+            return "The right mix of prayer, people, and practical support"
+        case nil:
+            return "Quietly shaped by your recent searches and care context"
+        }
+    }
+
+    private func supportDomainLabel(_ domain: ResourceSupportDomain) -> String {
+        switch domain {
+        case .crisisImmediate:
+            return "Immediate Help"
+        case .emotionalWellness:
+            return "Wellness"
+        case .anxietyStress:
+            return "Anxiety & Stress"
+        case .depressionHopelessness:
+            return "Hopelessness"
+        case .griefLoss:
+            return "Grief"
+        case .lonelinessCommunity:
+            return "Community"
+        case .churchHurt:
+            return "Church Hurt"
+        case .counselingTherapy:
+            return "Counseling"
+        case .marriageRelationships:
+            return "Relationships"
+        case .addictionRecovery:
+            return "Recovery"
+        case .financialNeed:
+            return "Financial Help"
+        case .foodHousingNeed:
+            return "Food & Housing"
+        case .pastoralCare:
+            return "Pastoral Care"
+        case .prayerSupport:
+            return "Prayer"
+        case .accountability:
+            return "Accountability"
+        case .bibleGuidance:
+            return "Bible Guidance"
+        case .serviceVolunteer:
+            return "Serve"
+        case .givingNonprofits:
+            return "Giving"
+        case .helpingSomeoneElse:
+            return "Helping Someone"
+        case .newcomerChurchDiscovery:
+            return "Find a Church"
+        }
+    }
+
+    @ViewBuilder
+    private func supportActionView(_ action: SupportAction) -> some View {
+        switch action.type {
+        case .openFindChurch, .shareWithPastorOrCareTeam:
+            NavigationLink(destination: FindChurchView()) {
+                IntelligentSupportActionCard(
+                    icon: "mappin.and.ellipse",
+                    title: action.title,
+                    subtitle: "Find churches, ministries, and care nearby.",
+                    tint: Color(hex: "10B981")
+                )
+            }
+            .buttonStyle(ResourceCardPressStyle())
+        case .openCounselingResources, .openSupportGroups, .openGroundingExercise, .openBreathingTool:
+            NavigationLink(destination: MentalHealthDetailView()) {
+                IntelligentSupportActionCard(
+                    icon: "heart.text.square.fill",
+                    title: action.title,
+                    subtitle: "Open calming tools, counseling paths, and wellness support.",
+                    tint: Color(hex: "22C55E")
+                )
+            }
+            .buttonStyle(ResourceCardPressStyle())
+        case .openNonprofitResources:
+            NavigationLink(destination: GivingNonprofitsDetailView()) {
+                IntelligentSupportActionCard(
+                    icon: "heart.circle.fill",
+                    title: action.title,
+                    subtitle: "Practical aid, benevolence, and trusted nonprofit actions.",
+                    tint: Color(hex: "2563EB")
+                )
+            }
+            .buttonStyle(ResourceCardPressStyle())
+        case .openBerean:
+            NavigationLink(destination: BereanLandingView()) {
+                IntelligentSupportActionCard(
+                    icon: "sparkles.rectangle.stack.fill",
+                    title: action.title,
+                    subtitle: "Let Berean help translate this moment into next steps.",
+                    tint: Color(hex: "7C3AED")
+                )
+            }
+            .buttonStyle(ResourceCardPressStyle())
+        case .messageTrustedContact:
+            NavigationLink(destination: TrustedCircleView()) {
+                IntelligentSupportActionCard(
+                    icon: "person.2.circle.fill",
+                    title: action.title,
+                    subtitle: "Reach out to your trusted circle with calm, editable support prompts.",
+                    tint: Color(hex: "A855F7")
+                )
+            }
+            .buttonStyle(ResourceCardPressStyle())
+        case .openPrayerFlow, .convertToPrivatePrayer:
+            NavigationLink(
+                destination: PlaceholderResourceView(
+                    title: "Prayer Support",
+                    description: "Turn this moment into a private prayer flow with grounded next steps.",
+                    icon: "hands.sparkles.fill",
+                    iconColor: Color(hex: "F59E0B")
+                )
+            ) {
+                IntelligentSupportActionCard(
+                    icon: "hands.sparkles.fill",
+                    title: action.title,
+                    subtitle: "Move this into prayer without losing the practical next step.",
+                    tint: Color(hex: "F59E0B")
+                )
+            }
+            .buttonStyle(ResourceCardPressStyle())
+        case .saveToPrivateNotes, .viewResourcePlan:
+            NavigationLink(destination: ChurchNotesView()) {
+                IntelligentSupportActionCard(
+                    icon: "note.text",
+                    title: action.title,
+                    subtitle: "Keep it private, reflect, and return when you are ready.",
+                    tint: Color(hex: "F97316")
+                )
+            }
+            .buttonStyle(ResourceCardPressStyle())
+        case .openHelpingSomeoneElse:
+            NavigationLink(
+                destination: PlaceholderResourceView(
+                    title: "Helping Someone Else",
+                    description: "Guidance for caring well, what to say, and when to escalate urgently.",
+                    icon: "person.2.wave.2.fill",
+                    iconColor: Color(hex: "EC4899")
+                )
+            ) {
+                IntelligentSupportActionCard(
+                    icon: "person.2.wave.2.fill",
+                    title: action.title,
+                    subtitle: "Signs to watch for, message templates, and safe escalation paths.",
+                    tint: Color(hex: "EC4899")
+                )
+            }
+            .buttonStyle(ResourceCardPressStyle())
+        case .call988:
+            Button {
+                openSupportURL("tel://988")
+            } label: {
+                IntelligentSupportActionCard(
+                    icon: "phone.fill",
+                    title: action.title,
+                    subtitle: "Immediate crisis support through the 988 Lifeline.",
+                    tint: Color(hex: "DC2626")
+                )
+            }
+            .buttonStyle(.plain)
+        case .text988, .textCrisisLine:
+            Button {
+                openSupportURL("sms:988")
+            } label: {
+                IntelligentSupportActionCard(
+                    icon: "message.fill",
+                    title: action.title,
+                    subtitle: "Text-based crisis help when calling feels too heavy.",
+                    tint: Color(hex: "DC2626")
+                )
+            }
+            .buttonStyle(.plain)
+        case .call911:
+            Button {
+                openSupportURL("tel://911")
+            } label: {
+                IntelligentSupportActionCard(
+                    icon: "cross.case.fill",
+                    title: action.title,
+                    subtitle: "Emergency services for immediate danger.",
+                    tint: Color(hex: "B91C1C")
+                )
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private func openSupportURL(_ rawValue: String) {
+        guard let url = URL(string: rawValue) else { return }
+        UIApplication.shared.open(url)
     }
     
     // MARK: - Keyboard Handling
@@ -1044,7 +1098,7 @@ struct ResourcesView: View {
                         .padding(.vertical, 10)
                         .background(
                             Capsule()
-                                .fill(Color.blue)
+                                .fill(AmenTheme.Colors.buttonPrimary)
                         )
                 }
                 .padding(.top, 8)
@@ -1053,8 +1107,8 @@ struct ResourcesView: View {
         .frame(maxWidth: .infinity)
         .padding(40)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
-        .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
-        .shadow(color: .black.opacity(0.04), radius: 8, y: 3)
+        .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(AmenTheme.Colors.borderSoft, lineWidth: 0.5))
+        .shadow(color: AmenTheme.Colors.shadowCard, radius: 8, y: 3)
         .padding(.horizontal)
     }
 }
@@ -1098,7 +1152,7 @@ struct CompactResourceRow: View {
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
         .overlay(
             RoundedRectangle(cornerRadius: 14)
-                .strokeBorder(Color(white: 0.88).opacity(0.6), lineWidth: 0.5)
+                .strokeBorder(AmenTheme.Colors.borderSoft, lineWidth: 0.5)
         )
         .padding(.horizontal, 20)
     }
@@ -1858,67 +1912,6 @@ struct ResourceItem: Identifiable {
 
 // MARK: - Resource Data (Expanded for Search)
 let allResources: [ResourceItem] = [
-    // Reading Resources
-    ResourceItem(
-        icon: "book.fill",
-        iconColor: .blue,
-        title: "Bible App",
-        description: "Read, study, and share scripture with YouVersion",
-        category: "Reading"
-    ),
-    ResourceItem(
-        icon: "book.pages.fill",
-        iconColor: .green,
-        title: "Essential Books",
-        description: "Recommended Christian books and literature",
-        category: "Reading"
-    ),
-    ResourceItem(
-        icon: "newspaper.fill",
-        iconColor: .blue,
-        title: "Faith Articles",
-        description: "Curated articles on faith, culture, and technology",
-        category: "Reading"
-    ),
-    ResourceItem(
-        icon: "book.closed.fill",
-        iconColor: .indigo,
-        title: "Study Guides",
-        description: "In-depth Bible study resources and guides",
-        category: "Reading"
-    ),
-    
-    // Listening Resources
-    ResourceItem(
-        icon: "mic.fill",
-        iconColor: .red,
-        title: "Sermons",
-        description: "Powerful sermons from Christian leaders worldwide",
-        category: "Listening"
-    ),
-    ResourceItem(
-        icon: "headphones",
-        iconColor: .indigo,
-        title: "Podcasts",
-        description: "Faith-based podcasts for spiritual growth",
-        category: "Listening"
-    ),
-    ResourceItem(
-        icon: "hands.sparkles.fill",
-        iconColor: .purple,
-        title: "Pray.com",
-        description: "Guided prayers, sleep stories, and worship music",
-        category: "Listening"
-    ),
-    
-    // Community Resources
-    ResourceItem(
-        icon: "person.3.fill",
-        iconColor: .blue,
-        title: "Private Communities",
-        description: "Join your church, university, or organization",
-        category: "Community"
-    ),
     ResourceItem(
         icon: "building.2.fill",
         iconColor: .purple,
@@ -1936,25 +1929,17 @@ let allResources: [ResourceItem] = [
     ResourceItem(
         icon: "person.2.fill",
         iconColor: .green,
-        title: "Christian Community",
-        description: "Connect with believers in your area",
+        title: "AMEN Connect",
+        description: "Connect with believers, ministries, and local opportunities",
         category: "Community"
     ),
     
-    // Tools & Apps
     ResourceItem(
-        icon: "sparkles",
+        icon: "figure.walk",
         iconColor: .orange,
-        title: "Faith & Tech",
-        description: "Explore how technology enhances faith journeys",
-        category: "Tools"
-    ),
-    ResourceItem(
-        icon: "app.badge.fill",
-        iconColor: .purple,
-        title: "Recommended Apps",
-        description: "Top Christian apps for your spiritual journey",
-        category: "Tools"
+        title: "Walk With Christ",
+        description: "Discipleship journey and devotionals for daily growth",
+        category: "Learning"
     ),
     
     // Crisis & Support
@@ -1982,27 +1967,12 @@ let allResources: [ResourceItem] = [
         category: "Giving"
     ),
     
-    // Learning
     ResourceItem(
-        icon: "brain.head.profile",
-        iconColor: .purple,
-        title: "Bible Study Tools",
-        description: "Commentaries, concordances, and study aids",
-        category: "Learning"
-    ),
-    ResourceItem(
-        icon: "graduationcap.fill",
-        iconColor: .blue,
-        title: "Theology Courses",
-        description: "Learn doctrine and theology from trusted sources",
-        category: "Learning"
-    ),
-    ResourceItem(
-        icon: "book.and.wrench.fill",
+        icon: "cross.case.fill",
         iconColor: .orange,
-        title: "Discipleship Resources",
-        description: "Materials for spiritual growth and maturity",
-        category: "Learning"
+        title: "Church Tools",
+        description: "Church notes and discovery tools for Sunday and beyond",
+        category: "Tools"
     )
 ]
 
@@ -2793,6 +2763,54 @@ struct MinimalResourceCard: View {
             .shadow(color: .black.opacity(0.05), radius: 6, y: 2)
         }
         .buttonStyle(PlainButtonStyle())
+    }
+}
+
+struct IntelligentSupportActionCard: View {
+    let icon: String
+    let title: String
+    let subtitle: String
+    let tint: Color
+
+    var body: some View {
+        HStack(spacing: 14) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(tint.opacity(0.14))
+                    .frame(width: 46, height: 46)
+
+                Image(systemName: icon)
+                    .font(.systemScaled(18, weight: .semibold))
+                    .foregroundStyle(tint)
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(AMENFont.semiBold(15))
+                    .foregroundStyle(.primary)
+
+                Text(subtitle)
+                    .font(AMENFont.regular(12))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer()
+
+            Image(systemName: "arrow.right")
+                .font(.systemScaled(12, weight: .semibold))
+                .foregroundStyle(tint)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 18)
+                .fill(AmenTheme.Colors.surfaceCard)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18)
+                        .stroke(AmenTheme.Colors.borderSoft, lineWidth: 0.8)
+                )
+        )
     }
 }
 

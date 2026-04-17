@@ -91,7 +91,7 @@ struct EnhancedCommentRow: View {
                 // Content
                 Text(comment.content)
                     .font(.custom("OpenSans-Regular", size: isReply ? 13 : 14))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 // Reactions Display (if any reactions exist)
@@ -258,7 +258,7 @@ struct EnhancedCommentRow: View {
         guard let commentId = comment.id,
               let userId = FirebaseManager.shared.currentUser?.uid else { return }
 
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         let postId = comment.postId
         let reactionsCollection = db
             .collection("posts").document(postId)
@@ -290,7 +290,7 @@ struct EnhancedCommentRow: View {
 
     private func loadReactions() async {
         guard let commentId = comment.id else { return }
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         let postId = comment.postId
         let userId = FirebaseManager.shared.currentUser?.uid ?? ""
 
@@ -536,7 +536,7 @@ private struct CommentHeader: View {
         HStack(spacing: 8) {
             Text(comment.authorName)
                 .font(.custom("OpenSans-SemiBold", size: isReply ? 13 : 14))
-                .foregroundStyle(.black)
+                .foregroundStyle(.primary)
 
             Text(comment.authorUsername.hasPrefix("@") ? comment.authorUsername : "@\(comment.authorUsername)")
                 .font(.custom("OpenSans-Regular", size: isReply ? 11 : 12))

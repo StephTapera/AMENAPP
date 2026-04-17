@@ -67,8 +67,8 @@ final class ChurchAIService: ObservableObject {
     @Published private(set) var lastError: Error?
 
     // Firestore / Functions placeholders:
-    // private let db = Firestore.firestore()
-    // private let functions = Functions.functions()
+    // private lazy var db = Firestore.firestore()
+    // private lazy var functions = Functions.functions()
     // private let berean = BereanCoreService.shared
 
     // MARK: - Default Prompts

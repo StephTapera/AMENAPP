@@ -52,7 +52,7 @@ struct CreatePostView: View {
     @State private var postBtnState: PostButtonMorphState = .idle
     @State private var uploadState: UploadVisualState = .idle
     @State private var showDraftsSheet = false
-    @State private var showFirstPostGuidelinesPrompt = false
+    @State private var showGuidelinesGate = false
     @State private var scheduledDate: Date?
     @State private var showingErrorAlert = false
     @State private var errorMessage = ""
@@ -71,6 +71,7 @@ struct CreatePostView: View {
     @State private var autoSaveTask: Task<Void, Never>?
     @State private var mentionSearchTask: Task<Void, Never>?
     @StateObject private var linkController = ComposerLinkPreviewController()
+    @StateObject private var insightEngine = ComposerInsightEngine.shared
     @State private var showMentionSuggestions = false
     @State private var mentionSuggestions: [AlgoliaUser] = []
     @State private var currentMentionQuery = ""
@@ -121,10 +122,13 @@ struct CreatePostView: View {
     @State private var postVisibility: Post.PostVisibility = .everyone
     @State private var showingAudienceSheet = false
 
-    // Scripture verse
+    // Scripture verse - two-stage Liquid Glass drawer
     @State private var attachedVerseReference: String = ""
     @State private var attachedVerseText: String = ""
     @State private var showingVersePickerSheet = false
+    
+    // Scripture attachment ViewModel (new structured system)
+    @StateObject private var verseAttachmentVM = VerseAttachmentViewModel()
 
     // Church tag
     @State private var taggedChurchId: String = ""
@@ -172,6 +176,12 @@ struct CreatePostView: View {
     @State private var bereanToneSuggestion: String?
     @State private var isLoadingBereanTone = false
     @State private var showBereanToneSheet = false
+    @ObservedObject private var supportDetectionService = SupportDetectionService.shared
+    @ObservedObject private var supportActionExecutor = SupportActionExecutor.shared
+    @State private var supportDraftPayload: SupportInterventionPayload?
+    @State private var supportDraftTask: Task<Void, Never>?
+    @State private var showSupportDraftSheet = false
+    @State private var bypassSupportDraftGate = false
     
     // MARK: - New Features (Phase 1-3)
     
@@ -325,10 +335,35 @@ struct CreatePostView: View {
             }
 
             textEditorView
+            supportDraftPresentation
             
             versePreviewBadge
             
+            // Inline scripture suggestion (appears while typing)
+            if verseAttachmentVM.showInlineSuggestion, let verse = verseAttachmentVM.inlineSuggestedVerse, verseAttachmentVM.attachedScripture == nil {
+                InlineScriptureSuggestionBar(
+                    verse: verse,
+                    label: verseAttachmentVM.inlineSuggestionLabel,
+                    onAttach: {
+                        verseAttachmentVM.attachVerse(verse, source: .inlineSuggestion)
+                        attachedVerseReference = verse.reference
+                        attachedVerseText = verse.text
+                    },
+                    onDismiss: {
+                        verseAttachmentVM.dismissInlineSuggestion()
+                    },
+                    onSeeRelated: {
+                        verseAttachmentVM.openMiniAttach(draftText: postText)
+                    }
+                )
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
+                .padding(.horizontal, -4)
+            }
+            
             taggedUsersChips
+
+            // MARK: - Smart Composition Cues
+            composerSuggestionRow
 
             // Topic tag selector (required for OpenTable/Prayer)
             if selectedCategory == .openTable || selectedCategory == .prayer || selectedCategory == .testimonies {
@@ -403,14 +438,14 @@ struct CreatePostView: View {
     
     // MARK: - Compose Input Row (extracted to reduce type-checker complexity)
     private var composeInputRow: some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .top, spacing: 8) {
             // Thread connector line
             VStack(spacing: 0) {
                 Rectangle()
                     .fill(Color.primary.opacity(0.1))
                     .frame(width: 1)
             }
-            .frame(width: 44) // aligned under avatar
+            .frame(width: 36) // tighter alignment under avatar
             .padding(.top, 4)
 
             // Text input — clean, no borders
@@ -608,7 +643,7 @@ struct CreatePostView: View {
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .navigationBarLeading) {
-            Button("Cancel") {
+            Button {
                 isTextFieldFocused = false
                 let hasContent = !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                     || !selectedImageData.isEmpty
@@ -619,9 +654,15 @@ struct CreatePostView: View {
                 } else {
                     dismiss()
                 }
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "chevron.left")
+                        .font(.systemScaled(17, weight: .semibold))
+                    Text("Back")
+                        .font(.systemScaled(17, weight: .regular))
+                }
+                .foregroundStyle(.primary)
             }
-            .font(.systemScaled(16, weight: .regular))
-            .foregroundStyle(.primary)
             .confirmationDialog("", isPresented: $showCancelConfirmation, titleVisibility: .hidden) {
                 Button("Save Draft") {
                     shouldPersistDraftOnExit = false
@@ -758,15 +799,7 @@ struct CreatePostView: View {
                 PostAudienceSheet(selectedVisibility: $postVisibility)
                     .presentationDetents([.medium])
             }
-            .sheet(isPresented: $showingVersePickerSheet) {
-                AttachVerseSheet { verse in
-                    attachedVerseReference = verse.reference
-                    attachedVerseText = verse.text
-                    showingVersePickerSheet = false
-                }
-                .presentationDetents([.medium, .large])
-                .presentationDragIndicator(.hidden)
-            }
+
             .sheet(isPresented: $showingChurchTagSheet) {
                 PostChurchTagSheet(
                     taggedChurchId: $taggedChurchId,
@@ -860,10 +893,60 @@ struct CreatePostView: View {
     private func applyFinalModifiers<Content: View>(_ content: Content) -> some View {
         content
         .interactiveDismissDisabled(!postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !selectedImageData.isEmpty || !linkURL.isEmpty || cameraImage != nil || showingPoll)
+        // Verse drawer — top-level so it doesn't conflict with other sheets
+        .verseDrawer(isPresented: $showingVersePickerSheet) { verse in
+            attachedVerseReference = verse.reference
+            attachedVerseText = verse.text
+            verseAttachmentVM.attachVerse(verse, source: .manualSearch)
+        }
+        // Scripture detail route (from pill tap)
+        .fullScreenCover(isPresented: $verseAttachmentVM.showScriptureDetail) {
+            if let ctx = verseAttachmentVM.scriptureDetailContext {
+                ScriptureDetailRoute(context: ctx) {
+                    verseAttachmentVM.dismissScriptureDetail()
+                }
+            }
+        }
+        // Quick replace drawer
+        .sheet(isPresented: $verseAttachmentVM.showQuickReplace) {
+            if let attachment = verseAttachmentVM.attachedScripture {
+                QuickReplaceVerseDrawer(
+                    currentAttachment: attachment,
+                    replaceResults: verseAttachmentVM.quickReplaceResults,
+                    onReplace: { newVerse in
+                        verseAttachmentVM.attachVerse(newVerse, source: .replace)
+                        attachedVerseReference = newVerse.reference
+                        attachedVerseText = newVerse.text
+                    },
+                    onOpenFullSearch: {
+                        verseAttachmentVM.dismissQuickReplace()
+                        showingVersePickerSheet = true
+                    },
+                    onDismiss: {
+                        verseAttachmentVM.dismissQuickReplace()
+                    }
+                )
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
+                .presentationCornerRadius(28)
+            }
+        }
         // Camera sheet — native UIImagePickerController for instant capture
         .sheet(isPresented: $showingCamera) {
             CameraImagePicker(image: $cameraImage)
                 .ignoresSafeArea()
+        }
+        .sheet(isPresented: $showSupportDraftSheet) {
+            if let payload = supportDraftPayload,
+               case .sheet(let model) = payload.presentationMode {
+                SupportInterventionSheetView(
+                    model: model,
+                    actions: payload.actions,
+                    onAction: handleSupportDraftAction(_:),
+                    onDismiss: dismissSupportDraftPrompt,
+                    onContinue: continuePostAfterSupportPrompt
+                )
+            }
         }
         .alert(errorTitle, isPresented: $showingErrorAlert) {
             // P1-6 FIX: Show retry button for network/upload errors
@@ -892,11 +975,19 @@ struct CreatePostView: View {
         } message: {
             Text("AMEN is a community for authentic, personal sharing. We noticed this content may not be written in your own words.\n\nPlease share your personal thoughts, experiences, and reflections. We want to hear from you, not from AI tools.")
         }
-        .sheet(isPresented: $showFirstPostGuidelinesPrompt) {
-            CommunityGuidelinesPrompt {
-                showFirstPostGuidelinesPrompt = false
-                // Re-call publishPost after user acknowledges
-                publishPost()
+        .overlay {
+            if showGuidelinesGate {
+                CommunityGuidelinesGateView(
+                    onAccept: {
+                        showGuidelinesGate = false
+                        // Re-call publishPost after user acknowledges
+                        publishPost()
+                    },
+                    onCancel: {
+                        showGuidelinesGate = false
+                    }
+                )
+                .transition(.opacity)
             }
         }
         .task {
@@ -927,6 +1018,8 @@ struct CreatePostView: View {
             // after the TextEditor's UITextView is torn down (prevents RTIInputSystemClient SIGABRT)
             mentionSearchTask?.cancel()
             mentionSearchTask = nil
+            supportDraftTask?.cancel()
+            supportDraftTask = nil
             
             // Cancel pending link preview
             linkController.reset()
@@ -935,6 +1028,7 @@ struct CreatePostView: View {
             delayedTasks.forEach { $0.cancel() }
             delayedTasks.removeAll()
         }
+        .supportDestinationSheet()
         .alert("Recover Draft?", isPresented: $showDraftRecovery) {
             Button("Recover") {
                 if let draft = recoveredDraft {
@@ -992,11 +1086,34 @@ struct CreatePostView: View {
         return filled.count >= 2
     }
     
-    // P2 FIX: Verse attachment preview badge
+    // P2 FIX: Verse attachment preview badge (Liquid Glass)
     @ViewBuilder
     private var versePreviewBadge: some View {
-        if !attachedVerseReference.isEmpty {
-            VerseBadgeView(
+        if let attachment = verseAttachmentVM.attachedScripture {
+            AttachedScripturePill(
+                attachment: attachment,
+                onTap: {
+                    verseAttachmentVM.openScriptureDetail(from: .composer)
+                },
+                onReplace: {
+                    verseAttachmentVM.openQuickReplace()
+                },
+                onRemove: {
+                    verseAttachmentVM.removeAttachment()
+                    attachedVerseReference = ""
+                    attachedVerseText = ""
+                },
+                onViewChapter: {
+                    verseAttachmentVM.openScriptureDetail(from: .composer)
+                },
+                onCopyReference: {
+                    UIPasteboard.general.string = attachment.canonicalReference
+                }
+            )
+            .transition(.opacity.combined(with: .move(edge: .top)))
+        } else if !attachedVerseReference.isEmpty {
+            // Legacy fallback for existing data
+            LiquidGlassAttachedVerseBadge(
                 reference: attachedVerseReference,
                 text: attachedVerseText,
                 onRemove: {
@@ -1004,6 +1121,9 @@ struct CreatePostView: View {
                         attachedVerseReference = ""
                         attachedVerseText = ""
                     }
+                },
+                onEdit: {
+                    showingVersePickerSheet = true
                 }
             )
             .transition(.opacity.combined(with: .move(edge: .top)))
@@ -1020,7 +1140,57 @@ struct CreatePostView: View {
             .transition(.opacity.combined(with: .move(edge: .top)))
         }
     }
-    
+
+    // MARK: - Smart Composition Cues
+
+    @ViewBuilder
+    private var composerSuggestionRow: some View {
+        let result = insightEngine.result
+        let suggestions = [result.primarySuggestion].compactMap { $0 } + result.secondarySuggestions
+        if !suggestions.isEmpty && result.confidence >= 0.3 {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(suggestions, id: \.rawValue) { action in
+                        ComposerCuePill(action: action) {
+                            handleCueTap(action)
+                        }
+                    }
+                }
+                .padding(.horizontal, 4)
+            }
+            .padding(.vertical, 4)
+            .transition(.asymmetric(
+                insertion: .move(edge: .bottom).combined(with: .opacity),
+                removal: .opacity
+            ))
+            .animation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.78)), value: suggestions.map(\.rawValue))
+        }
+    }
+
+    private func handleCueTap(_ action: ComposerSuggestedAction) {
+        HapticManager.impact(style: .light)
+        switch action {
+        case .attachVerse:
+            showingVersePickerSheet = true
+        case .addTopicTag:
+            showingTopicTagSheet = true
+        case .addCalendarDate:
+            showingScheduleSheet = true
+        case .switchToThread:
+            break // Future: thread mode toggle
+        case .tagPeople:
+            showingTagPeopleSheet = true
+        case .adjustAudience:
+            showingAudienceSheet = true
+        case .addImage:
+            showingImagePicker = true
+        case .addPoll:
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
+                showingPoll = true
+            }
+        }
+    }
+
     private var characterCountText: String {
         "\(postText.count) / 500"
     }
@@ -1385,56 +1555,41 @@ struct CreatePostView: View {
     }
 
     /// Inline attachment icons (Threads-style: simple gray icons in a row)
+    /// The SF Symbol name the engine recommends highlighting, if any.
+    private var recommendedAttachmentIcon: String? {
+        insightEngine.result.primarySuggestion?.attachmentBarIcon
+    }
+
+    @ViewBuilder
     private var threadsAttachmentBar: some View {
+        let recommended = recommendedAttachmentIcon
         HStack(spacing: 20) {
-            Button { showingImagePicker = true } label: {
-                Image(systemName: "photo")
-                    .font(.systemScaled(18, weight: .light))
-                    .foregroundStyle(.secondary)
-            }
-            .buttonStyle(.plain)
-
-            Button { showingCamera = true } label: {
-                Image(systemName: "camera")
-                    .font(.systemScaled(18, weight: .light))
-                    .foregroundStyle(.secondary)
-            }
-            .buttonStyle(.plain)
-
-            Button {
+            attachmentBarIcon("photo", recommended: recommended) { showingImagePicker = true }
+            attachmentBarIcon("camera", recommended: recommended) { showingCamera = true }
+            attachmentBarIcon("chart.bar.xaxis", recommended: recommended) {
                 withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                     showingPoll.toggle()
                 }
-            } label: {
-                Image(systemName: "chart.bar.xaxis")
-                    .font(.systemScaled(18, weight: .light))
-                    .foregroundStyle(.secondary)
             }
-            .buttonStyle(.plain)
-
-            Button { showingVersePickerSheet = true } label: {
-                Image(systemName: "text.book.closed")
-                    .font(.systemScaled(18, weight: .light))
-                    .foregroundStyle(.secondary)
-            }
-            .buttonStyle(.plain)
-
-            Button { showingLinkSheet = true } label: {
-                Image(systemName: "link")
-                    .font(.systemScaled(18, weight: .light))
-                    .foregroundStyle(.secondary)
-            }
-            .buttonStyle(.plain)
-
-            Button { showingScheduleSheet = true } label: {
-                Image(systemName: "calendar")
-                    .font(.systemScaled(18, weight: .light))
-                    .foregroundStyle(.secondary)
-            }
-            .buttonStyle(.plain)
+            attachmentBarIcon("text.book.closed", recommended: recommended) { showingVersePickerSheet = true }
+            attachmentBarIcon("link", recommended: recommended) { showingLinkSheet = true }
+            attachmentBarIcon("calendar", recommended: recommended) { showingScheduleSheet = true }
 
             Spacer()
         }
+    }
+
+    @ViewBuilder
+    private func attachmentBarIcon(_ icon: String, recommended: String?, action: @escaping () -> Void) -> some View {
+        let isHighlighted = (icon == recommended)
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.systemScaled(18, weight: .light))
+                .foregroundStyle(isHighlighted ? Color.primary.opacity(0.85) : .secondary.opacity(0.55))
+                .scaleEffect(isHighlighted ? 1.08 : 1.0)
+                .animation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75)), value: isHighlighted)
+        }
+        .buttonStyle(.plain)
     }
 
     /// Bottom bar: reply options + action icons + character count + context panels
@@ -1488,6 +1643,20 @@ struct CreatePostView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 14)
                 .transition(.opacity)
+            }
+
+            // ── Readiness hint ──────────────────────────────────────────────
+            if insightEngine.result.readinessState == .tooShort {
+                HStack(spacing: 5) {
+                    Image(systemName: "text.badge.plus")
+                        .font(.systemScaled(10, weight: .medium))
+                    Text("Want to add more context?")
+                        .font(AMENFont.regular(11))
+                }
+                .foregroundStyle(Color.primary.opacity(0.45))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 14)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
 
             // ── Main icon row ─────────────────────────────────────────────
@@ -1544,6 +1713,11 @@ struct CreatePostView: View {
                     .transition(.scale.combined(with: .opacity))
                 }
 
+                // Compose language detection chip
+                if AMENFeatureFlags.shared.creationLanguageEnabled {
+                    ComposeLanguageChip(text: postText)
+                }
+
                 // Character count — shows early but stays calm until near limit
                 if postText.count > 250 {
                     Text("\(postText.count)/500")
@@ -1568,18 +1742,27 @@ struct CreatePostView: View {
         .frame(maxWidth: .infinity)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(.ultraThinMaterial)
+                .fill(.regularMaterial)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(Color.primary.opacity(0.12), lineWidth: 0.5)
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [Color.white.opacity(0.55), Color.white.opacity(0.10)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 0.5
+                        )
                 )
                 .shadow(color: .black.opacity(0.08), radius: 8, y: 4)
         )
+        .opacity(insightEngine.result.readinessState == .empty ? 0.85 : 1.0)
         .padding(.horizontal, 12)
         .padding(.bottom, 6)
-        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: hasSensitiveContent)
-        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: shouldShowVerseSuggestion)
+        .animation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.8)), value: hasSensitiveContent)
+        .animation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8)), value: shouldShowVerseSuggestion)
         .animation(.easeOut(duration: 0.2), value: selectedImageData.count)
+        .animation(.easeOut(duration: 0.2), value: insightEngine.result.readinessState)
     }
 
     private var bottomToolbar: some View {
@@ -1823,6 +2006,12 @@ struct CreatePostView: View {
                 .disabled(!canPost || isPublishing || isUploadingImages)
                 .accessibilityLabel(scheduledDate != nil ? "Schedule post" : "Publish post")
                 .modifier(ShakeEffect(shakes: shakePublishButton ? 3 : 0))
+                .shadow(
+                    color: insightEngine.result.readinessState == .ready
+                        ? Color(hex: "6B48FF").opacity(0.35) : .clear,
+                    radius: 8, y: 0
+                )
+                .animation(.easeInOut(duration: 0.4), value: insightEngine.result.readinessState == .ready)
                 .padding(.trailing, 4)
             }
             .padding(.horizontal, 4)
@@ -2041,58 +2230,70 @@ struct CreatePostView: View {
                     .background(Capsule().fill(Color.gray.opacity(0.1)))
             }
 
-            Button {
-                withAnimation(.easeOut(duration: 0.2)) {
+            if let attachment = verseAttachmentVM.attachedScripture {
+                // New Liquid Glass pill design
+                AttachedScripturePill(
+                    attachment: attachment,
+                    onTap: {
+                        verseAttachmentVM.openScriptureDetail(from: .composer)
+                    },
+                    onReplace: {
+                        verseAttachmentVM.openQuickReplace()
+                    },
+                    onRemove: {
+                        verseAttachmentVM.removeAttachment()
+                        attachedVerseReference = ""
+                        attachedVerseText = ""
+                    },
+                    onViewChapter: {
+                        verseAttachmentVM.openScriptureDetail(from: .composer)
+                    },
+                    onCopyReference: {
+                        UIPasteboard.general.string = attachment.canonicalReference
+                    }
+                )
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            } else if !attachedVerseReference.isEmpty {
+                // Legacy fallback
+                LiquidGlassAttachedVerseBadge(
+                    reference: attachedVerseReference,
+                    text: attachedVerseText,
+                    onRemove: {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
+                            attachedVerseReference = ""
+                            attachedVerseText = ""
+                        }
+                    },
+                    onEdit: { showingVersePickerSheet = true }
+                )
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            } else {
+                // Empty state — attach CTA
+                Button {
                     showingVersePickerSheet = true
-                }
-            } label: {
-                HStack {
-                    if attachedVerseReference.isEmpty {
+                } label: {
+                    HStack {
                         Text("Attach a Bible verse")
                             .font(AMENFont.regular(15))
                             .foregroundStyle(.secondary)
-                    } else {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(attachedVerseReference)
-                                .font(AMENFont.bold(15))
-                                .foregroundStyle(.primary)
-                            if !attachedVerseText.isEmpty {
-                                Text(attachedVerseText)
-                                    .font(AMENFont.regular(13))
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(2)
-                            }
-                        }
-                    }
-                    Spacer()
-                    if !attachedVerseReference.isEmpty {
-                        Button {
-                            withAnimation {
-                                attachedVerseReference = ""
-                                attachedVerseText = ""
-                            }
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.systemScaled(16))
-                                .foregroundStyle(.secondary)
-                        }
-                        .buttonStyle(.plain)
-                    } else {
+                        Spacer()
                         Image(systemName: "chevron.right")
                             .font(.systemScaled(14, weight: .semibold))
                             .foregroundStyle(.secondary)
                     }
+                    .padding(14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color(.systemGray6))
+                    )
                 }
-                .padding(14)
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(Color(.systemGray6))
-                )
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
         }
         .padding(.horizontal, 20)
         .padding(.top, 4)
+        .animation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.78)), value: verseAttachmentVM.attachedScripture != nil)
+        .animation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.78)), value: attachedVerseReference.isEmpty)
     }
 
     // MARK: - Church Tag
@@ -2185,8 +2386,20 @@ struct CreatePostView: View {
                                 detectHashtags(in: snapshot)
                             }
                             linkController.handleTextChange(newValue)
+                            // Smart composition insight analysis
+                            insightEngine.analyzeText(
+                                newValue,
+                                category: selectedCategory.rawValue,
+                                hasVerse: !attachedVerseReference.isEmpty,
+                                hasTopicTag: !selectedTopicTag.isEmpty,
+                                hasPoll: showingPoll,
+                                hasImages: !selectedImageData.isEmpty
+                            )
                             // P1-4: Debounced autosave — saves 3s after user stops typing
                             scheduleAutosave()
+                            // Scripture intent detection for inline suggestions
+                            verseAttachmentVM.analyzeDraftText(newValue)
+                            scheduleSupportDraftAnalysis(for: newValue)
                         }
                     
                     // Placeholder overlay
@@ -2219,7 +2432,32 @@ struct CreatePostView: View {
                 taggedUsersChipsView
             }
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, 4)
+    }
+
+    @ViewBuilder
+    private var supportDraftPresentation: some View {
+        if let payload = supportDraftPayload {
+            switch payload.presentationMode {
+            case .none, .sheet:
+                EmptyView()
+            case .chips(let chips):
+                SupportChipsRowView(
+                    chips: chips,
+                    onTap: handleSupportDraftAction(_:),
+                    onDismiss: dismissSupportDraftPrompt
+                )
+                .padding(.horizontal, 4)
+            case .inlineCard(let model):
+                SupportInlineCardView(
+                    model: model,
+                    actions: payload.actions,
+                    onTap: handleSupportDraftAction(_:),
+                    onDismiss: dismissSupportDraftPrompt
+                )
+                .padding(.horizontal, 4)
+            }
+        }
     }
     
     private var taggedUsersChipsView: some View {
@@ -2788,7 +3026,8 @@ struct CreatePostView: View {
             category: selectedCategory.rawValue,
             topicTag: selectedTopicTag.isEmpty ? nil : selectedTopicTag,
             linkURL: linkURL.isEmpty ? nil : linkURL,
-            visibility: postVisibility.rawValue
+            visibility: postVisibility.rawValue,
+            scriptureAttachment: verseAttachmentVM.attachedScripture
         )
 
         guard showNotice else { return }
@@ -2822,17 +3061,82 @@ struct CreatePostView: View {
         }
     }
 
+    private func scheduleSupportDraftAnalysis(for text: String) {
+        supportDraftTask?.cancel()
+        bypassSupportDraftGate = false
+
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            supportDraftPayload = nil
+            return
+        }
+
+        supportDraftTask = Task {
+            try? await Task.sleep(nanoseconds: 450_000_000)
+            guard !Task.isCancelled else { return }
+
+            let payload = await supportDetectionService.analyzeSupport(
+                surface: .postDraft,
+                text: trimmed,
+                metadata: [
+                    "category": selectedCategory.rawValue,
+                    "hasImages": selectedImageData.isEmpty ? "false" : "true",
+                    "hasVerse": attachedVerseReference.isEmpty ? "false" : "true"
+                ]
+            )
+
+            guard !Task.isCancelled else { return }
+
+            await MainActor.run {
+                supportDraftPayload = payload
+                if let payload {
+                    supportDetectionService.record(payload: payload, outcome: .shown)
+                }
+            }
+        }
+    }
+
+    private func handleSupportDraftAction(_ action: SupportAction) {
+        guard let payload = supportDraftPayload else { return }
+        supportActionExecutor.execute(action, from: .postDraft)
+        supportDetectionService.record(payload: payload, outcome: .engaged)
+        showSupportDraftSheet = false
+    }
+
+    private func dismissSupportDraftPrompt() {
+        if let payload = supportDraftPayload {
+            supportDetectionService.record(payload: payload, outcome: .dismissed)
+        }
+        supportDraftPayload = nil
+        showSupportDraftSheet = false
+    }
+
+    private func continuePostAfterSupportPrompt() {
+        bypassSupportDraftGate = true
+        showSupportDraftSheet = false
+        publishPost()
+    }
+
+    private func shouldPresentSupportDraftGate(for text: String) -> Bool {
+        guard !bypassSupportDraftGate,
+              let payload = supportDraftPayload,
+              payload.analyzedText == text,
+              case .sheet = payload.presentationMode else {
+            return false
+        }
+
+        return true
+    }
+
     private func publishPost() {
         dlog("🔵 publishPost() called")
         dlog("   isPublishing: \(isPublishing)")
         dlog("   canPost: \(canPost)")
 
-        // First-post community guidelines prompt (shown once, gated by UserDefaults)
-        let hasSeenGuidelinesKey = "hasSeenFirstPostGuidelines"
-        if !UserDefaults.standard.bool(forKey: hasSeenGuidelinesKey) {
-            showFirstPostGuidelinesPrompt = true
-            UserDefaults.standard.set(true, forKey: hasSeenGuidelinesKey)
-            return  // publishPost() will be called again after user dismisses the prompt
+        // Smart community guidelines gate — checks first post, session, 30-day inactivity
+        if CommunityGuidelinesEligibilityService.shared.shouldShowGuidelines {
+            showGuidelinesGate = true
+            return  // publishPost() will be called again after user acknowledges
         }
 
         // Cancel auto-save immediately — no point saving a post that's about to be published
@@ -2879,6 +3183,21 @@ struct CreatePostView: View {
             return
         }
         
+        // OFFLINE FIX: Block post submission when device has no network.
+        // Firestore offline persistence does NOT queue creates reliably — the
+        // write may silently succeed locally but never reach the server if the
+        // connection drops before the document propagates. Surface an explicit
+        // error so the user knows to retry after reconnecting.
+        if !AMENNetworkMonitor.shared.isConnected {
+            showError(
+                title: "You're Offline",
+                message: "Your post couldn't be sent — please check your connection and try again.",
+                isRetryable: true,
+                retry: { self.publishPost() }
+            )
+            return
+        }
+
         // Set idempotency token immediately to block concurrent duplicates
         inFlightPostId = UUID().uuidString
         
@@ -2907,6 +3226,12 @@ struct CreatePostView: View {
                 title: "Post Too Long",
                 message: "Your post is \(sanitizedContent.count - 500) characters over the limit. Please shorten it to 500 characters or less."
             )
+            return
+        }
+
+        if shouldPresentSupportDraftGate(for: sanitizedContent) {
+            inFlightPostId = nil
+            showSupportDraftSheet = true
             return
         }
         
@@ -3496,7 +3821,14 @@ struct CreatePostView: View {
                 }
 
                 // ✅ Attached scripture verse (from verse picker)
-                if !attachedVerseReference.isEmpty {
+                if let attachment = verseAttachmentVM.attachedScripture {
+                    // New structured format
+                    postData["verseReference"] = attachment.canonicalReference
+                    postData["verseText"] = attachment.previewText
+                    postData["scriptureAttachment"] = attachment.firestoreData
+                    dlog("   📖 Verse attached (structured): \(attachment.canonicalReference)")
+                } else if !attachedVerseReference.isEmpty {
+                    // Legacy fallback
                     postData["verseReference"] = attachedVerseReference
                     if !attachedVerseText.isEmpty {
                         postData["verseText"] = attachedVerseText
@@ -3643,6 +3975,14 @@ struct CreatePostView: View {
                         )
                     }
                 }
+
+                Task { @MainActor in
+                    await IntelligentSocialPipeline.shared.handlePostCreated(
+                        post: newPost,
+                        authenticitySignals: signals,
+                        currentSurface: "post_creation"
+                    )
+                }
                 
                 // P0-2 FIX: Only dismiss AFTER Firestore confirms success
                 await MainActor.run {
@@ -3668,16 +4008,19 @@ struct CreatePostView: View {
                     withAnimation {
                         showingSuccessNotice = true
                     }
+
+                    // Record post for community guidelines eligibility tracking
+                    CommunityGuidelinesEligibilityService.shared.recordPostPublished()
                     
                     // P0-2 FIX: Critical - cancellable dismiss task
                     scheduleDelayedAction(seconds: 0.15) {
-                        dlog("👋 Dismissing CreatePostView (safe after Firestore)")
+                        dlog("Dismissing CreatePostView (safe after Firestore)")
                         dismiss()
                     }
                     
                     // Reset publishing state
                     isPublishing = false
-                    dlog("✅ Post creation flow completed!")
+                    dlog("Post creation flow completed!")
                 }
                 
                 // Success! Sync to Algolia for search (non-blocking background task)
@@ -4145,11 +4488,13 @@ struct CreatePostView: View {
                 shouldPersistDraftOnExit = false
                 withAnimation { showingSuccessNotice = true }
                 HapticManager.notification(type: .success)
-                dlog("🧵 [Thread DEBUG] Scheduling dismiss...")
+                // Record post for community guidelines eligibility tracking
+                CommunityGuidelinesEligibilityService.shared.recordPostPublished()
+                dlog("[Thread] Scheduling dismiss...")
                 scheduleDelayedAction(seconds: 0.15) { dismiss() }
             }
 
-            dlog("✅ [Thread] All \(threadCount) posts published successfully")
+            dlog("[Thread] All \(threadCount) posts published successfully")
         }
     }
 
@@ -4555,7 +4900,7 @@ struct CirclePostButton: View {
                 if showCheck {
                     Image(systemName: "checkmark")
                         .font(.systemScaled(14, weight: .bold))
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.primary)
                         .transition(.scale.combined(with: .opacity))
                 }
             }
@@ -6190,7 +6535,9 @@ struct ConsolidatedToolbar: View {
                     .font(.systemScaled(18, weight: .semibold))
                     .foregroundStyle(Color.primary.opacity(0.6))
                     .frame(width: 36, height: 36)
+                    .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
@@ -8369,7 +8716,7 @@ struct PostChurchTagSheet: View {
     @State private var searchTask: Task<Void, Never>?
     @FocusState private var searchFocused: Bool
 
-    private let db = Firestore.firestore()
+    private var db: Firestore { Firestore.firestore() }
 
     var body: some View {
         NavigationStack {
@@ -8642,7 +8989,7 @@ struct LiquidGlassPostButtonAnimated: View {
                         .frame(width: 22, height: 22)
                     Image(systemName: "arrow.up")
                         .font(.systemScaled(12, weight: .bold))
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.primary)
                 }
                 Text("Post")
                     .font(.systemScaled(min(max(height * 0.30, 17), 19), weight: .bold))
@@ -8682,7 +9029,7 @@ struct LiquidGlassPostButtonAnimated: View {
 
             Text("\(Int(progress * 100))%")
                 .font(.systemScaled(13, weight: .bold))
-                .foregroundStyle(.black)
+                .foregroundStyle(.primary)
         }
         .frame(width: size, height: size)
     }
@@ -8769,6 +9116,44 @@ struct LiquidGlassPostButtonAnimated: View {
     }
 }
 
+// MARK: - Composer Cue Pill
+
+private struct ComposerCuePill: View {
+    let action: ComposerSuggestedAction
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 5) {
+                Image(systemName: action.icon)
+                    .font(.systemScaled(11, weight: .semibold))
+                Text(action.label)
+                    .font(AMENFont.semiBold(12))
+            }
+            .foregroundStyle(Color.primary.opacity(0.72))
+            .padding(.horizontal, AmenSpacing.chipH)
+            .padding(.vertical, AmenSpacing.chipV)
+            .background(
+                Capsule()
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        Capsule()
+                            .strokeBorder(
+                                LinearGradient(
+                                    colors: [Color.white.opacity(0.55), Color.white.opacity(0.10)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 0.5
+                            )
+                    )
+            )
+            .clipShape(Capsule())
+        }
+        .buttonStyle(ScaleButtonStyle())
+    }
+}
+
 // MARK: - Demo Preview Screen
 
 struct LiquidGlassPostButtonDemoView: View {
@@ -8782,7 +9167,7 @@ struct LiquidGlassPostButtonDemoView: View {
                 VStack(spacing: 8) {
                     Text("Liquid Glass Post Button")
                         .font(.systemScaled(28, weight: .bold))
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.primary)
                     Text("White background, black text, native-feeling glass, responsive across phones.")
                         .font(.systemScaled(15, weight: .medium))
                         .foregroundStyle(.black.opacity(0.45))

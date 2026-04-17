@@ -75,30 +75,36 @@ public enum FirebaseMessagingError: LocalizedError {
 public class FirebaseMessagingService: ObservableObject {
     public static let shared = FirebaseMessagingService()
     
-    internal let db = Firestore.firestore()
-    internal let storage = Storage.storage()
+    internal lazy var db = Firestore.firestore()
+    internal lazy var storage = Storage.storage()
     
     @Published var conversations: [ChatConversation] = []
     @Published var archivedConversations: [ChatConversation] = []
     @Published var isLoading = false
     @Published var lastError: FirebaseMessagingError?
+    // OFFLINE FIX: Track when conversation list was last successfully populated
+    // so MessagesView can show a "Last updated X ago" freshness indicator offline.
+    @Published var conversationsLastLoadedAt: Date?
     
     // Error tracking for failed messages
     @Published var failedMessages: [String: (text: String, error: FirebaseMessagingError)] = [:]
     @Published var isOffline = false
 
-    // FIX 1: Retry queue entry (persisted across app restart via UserDefaults)
+    // SECURITY FIX: Retry queue entry persists ONLY metadata — no message text.
+    // Message text is held in-memory only (retryTextCache) and is lost on app restart.
+    // This prevents plaintext messages from leaking via device backups or shared devices.
     struct RetryQueueEntry: Codable {
         let messageId: String
         let conversationId: String
-        let text: String
         let attempt: Int
         let nextRetryAt: Date
     }
 
-    // FIX 1: Published so UI can reflect auto-retry state
+    // Published so UI can reflect auto-retry state
     @Published var retryingMessageIds: Set<String> = []
     private var retryQueue: [RetryQueueEntry] = []
+    /// In-memory-only cache of message text for retry entries. Never persisted to disk.
+    private var retryTextCache: [String: String] = [:]
     private var retryTimer: Timer?
     private static let retryQueueKey = "messaging_retry_queue"
 
@@ -108,6 +114,7 @@ public class FirebaseMessagingService: ObservableObject {
     var typingListeners: [String: ListenerRegistration] = [:]
     private var isListeningToConversations = false
     private var conversationsPermissionRetryCount = 0
+    private var archivedConversationsPermissionRetryCount = 0
 
     // Message pagination state
     private var lastDocuments: [String: DocumentSnapshot] = [:] // conversationId: lastDoc
@@ -121,6 +128,7 @@ public class FirebaseMessagingService: ObservableObject {
         // Note: Offline persistence is already configured in AppDelegate
         // Do NOT configure cache settings here - it must be done immediately after FirebaseApp.configure()
         dlog("✅ FirebaseMessagingService initialized (using global Firestore settings)")
+        guard FirebaseApp.app() != nil else { return }
         loadRetryQueue()
         startRetryTimer()
         NotificationCenter.default.addObserver(
@@ -140,13 +148,14 @@ public class FirebaseMessagingService: ObservableObject {
         let entry = RetryQueueEntry(
             messageId: messageId,
             conversationId: conversationId,
-            text: text,
             attempt: attempt,
             nextRetryAt: Date().addingTimeInterval(delaySeconds)
         )
         // Remove any existing entry for this messageId before re-queuing
         retryQueue.removeAll { $0.messageId == messageId }
         retryQueue.append(entry)
+        // Keep text in-memory only — never written to UserDefaults
+        retryTextCache[messageId] = text
         saveRetryQueue()
         dlog("🔁 Retry queued: \(messageId) attempt \(attempt) in \(Int(delaySeconds))s")
     }
@@ -160,14 +169,25 @@ public class FirebaseMessagingService: ObservableObject {
         for entry in due {
             retryQueue.removeAll { $0.messageId == entry.messageId }
 
+            // Text is only available in-memory. If the app restarted, we can't
+            // recover it — drop the entry. Firestore offline persistence will
+            // handle redelivery of the original write if it was cached.
+            guard let text = retryTextCache[entry.messageId] else {
+                retryTextCache.removeValue(forKey: entry.messageId)
+                retryingMessageIds.remove(entry.messageId)
+                dlog("⚠️ Retry entry \(entry.messageId) dropped — text not in memory (app restarted)")
+                continue
+            }
+
             if entry.attempt >= 5 {
                 // Permanently failed: mark in failedMessages, remove from queue
                 failedMessages[entry.messageId] = (
-                    text: entry.text,
+                    text: text,
                     error: .networkError(NSError(domain: "retry", code: -1,
                         userInfo: [NSLocalizedDescriptionKey: "Message failed after 5 attempts"]))
                 )
                 retryingMessageIds.remove(entry.messageId)
+                retryTextCache.removeValue(forKey: entry.messageId)
                 dlog("❌ Message permanently failed after 5 attempts: \(entry.messageId)")
                 continue
             }
@@ -177,29 +197,64 @@ public class FirebaseMessagingService: ObservableObject {
                 do {
                     try await self.sendMessage(
                         conversationId: entry.conversationId,
-                        text: entry.text,
+                        text: text,
                         clientMessageId: entry.messageId
                     )
                     await MainActor.run {
                         self.retryingMessageIds.remove(entry.messageId)
                         self.failedMessages.removeValue(forKey: entry.messageId)
+                        self.retryTextCache.removeValue(forKey: entry.messageId)
                     }
                     dlog("✅ Retry succeeded: \(entry.messageId) on attempt \(entry.attempt + 1)")
                 } catch {
+                    let isNonRetryable = Self.isNonRetryableError(error)
                     await MainActor.run {
                         self.retryingMessageIds.remove(entry.messageId)
-                        self.scheduleRetry(
-                            for: entry.messageId,
-                            conversationId: entry.conversationId,
-                            text: entry.text,
-                            attempt: entry.attempt + 1
-                        )
+                        if isNonRetryable {
+                            // Permission / input / blocked errors will never succeed — fail immediately
+                            self.failedMessages[entry.messageId] = (
+                                text: text,
+                                error: (error as? FirebaseMessagingError) ?? .networkError(error)
+                            )
+                            self.retryTextCache.removeValue(forKey: entry.messageId)
+                            dlog("🛑 Non-retryable error for \(entry.messageId) — stopping retries: \(error.localizedDescription)")
+                        } else {
+                            self.scheduleRetry(
+                                for: entry.messageId,
+                                conversationId: entry.conversationId,
+                                text: text,
+                                attempt: entry.attempt + 1
+                            )
+                        }
                     }
-                    dlog("⚠️ Retry failed: \(entry.messageId), scheduling attempt \(entry.attempt + 1)")
+                    if !isNonRetryable {
+                        dlog("⚠️ Retry failed: \(entry.messageId), scheduling attempt \(entry.attempt + 1)")
+                    }
                 }
             }
         }
         saveRetryQueue()
+    }
+
+    /// Returns true for errors that will never succeed on retry (permission, auth, blocked, invalid input).
+    static func isNonRetryableError(_ error: Error) -> Bool {
+        if let msgError = error as? FirebaseMessagingError {
+            switch msgError {
+            case .permissionDenied, .invalidInput, .userBlocked,
+                 .notAuthenticated, .selfConversation, .followRequired,
+                 .messagesNotAllowed, .invalidUserId:
+                return true
+            case .networkError, .uploadFailed, .conversationNotFound,
+                 .messageNotFound, .customError:
+                return false
+            }
+        }
+        // Check underlying NSError for Firestore permission denied (code 7)
+        let nsError = error as NSError
+        if nsError.domain == "FIRFirestoreErrorDomain" && nsError.code == 7 {
+            return true
+        }
+        return false
     }
 
     private func startRetryTimer() {
@@ -218,8 +273,11 @@ public class FirebaseMessagingService: ObservableObject {
         guard let data = UserDefaults.standard.data(forKey: Self.retryQueueKey),
               let queue = try? JSONDecoder().decode([RetryQueueEntry].self, from: data)
         else { return }
+        // Loaded entries have no in-memory text — they will be dropped when
+        // processRetryQueue() runs and finds no matching retryTextCache entry.
+        // This is by design: we never persist message text to disk.
         retryQueue = queue
-        dlog("📥 Loaded \(retryQueue.count) pending retry(s) from UserDefaults")
+        dlog("📥 Loaded \(retryQueue.count) pending retry metadata from UserDefaults (text not persisted)")
     }
     
     // P0-5 FIX: Clean up all message listeners on deallocation
@@ -230,6 +288,11 @@ public class FirebaseMessagingService: ObservableObject {
         conversationsListener?.remove()
         archivedConversationsListener?.remove()
         messagesListeners.values.forEach { $0.remove() }
+        // FIX: Also remove per-conversation typing listeners.
+        // Each conversation the user opens registers one Firestore typing listener via
+        // startListeningToTyping(); without this, those listeners outlive the service,
+        // firing callbacks into a deallocated object and exhausting the RTDB connection quota.
+        typingListeners.values.forEach { $0.remove() }
     }
     
     // MARK: - Current User
@@ -322,6 +385,17 @@ public class FirebaseMessagingService: ObservableObject {
         // Skip if already listening (prevents redundant calls)
         if isListeningToConversations {
             dlog("⏭️ Already listening to conversations, skipping redundant call")
+            return
+        }
+
+        // Skip if a permission-error retry backoff is in progress.
+        // When a permission-denied error occurs, the listener is detached
+        // (isListeningToConversations = false) but the retry counter is incremented.
+        // External callers (ContentView, MessagesView, etc.) see isListeningToConversations==false
+        // and restart the cycle, resetting the counter to 0 and causing an infinite loop.
+        // Guard against this by bailing out whenever a backoff is pending.
+        if conversationsPermissionRetryCount > 0 {
+            dlog("⏭️ Conversations listener: skipping restart — permission-error retry backoff in progress (\(conversationsPermissionRetryCount)/3)")
             return
         }
         
@@ -458,6 +532,7 @@ public class FirebaseMessagingService: ObservableObject {
                 
                 // P0-2 FIX: Convert to sorted array (already deduplicated)
                 self.conversations = conversationsDict.values.sorted { $0.timestamp > $1.timestamp }
+                self.conversationsLastLoadedAt = Date()  // OFFLINE FIX: stamp successful load
 
                 self.isLoading = false
 
@@ -504,29 +579,39 @@ public class FirebaseMessagingService: ObservableObject {
             lastError = .notAuthenticated
             return
         }
-        
+
         // Stop existing listener to prevent duplicates
         stopListeningToArchivedConversations()
-        
+        // Reset retry counter on fresh start (e.g. tab re-appear or explicit call)
+        archivedConversationsPermissionRetryCount = 0
+
         dlog("👂 Starting real-time listener for archived conversations")
-        
+
         archivedConversationsListener = db.collection("conversations")
             .whereField("participantIds", arrayContains: currentUserId)
             .order(by: "updatedAt", descending: true)
             .limit(to: 50)
             .addSnapshotListener { [weak self] snapshot, error in
                 guard let self = self else { return }
-                
+
                 if let error = error {
                     dlog("❌ Error fetching archived conversations: \(error)")
                     let nsError = error as NSError
                     if nsError.domain == "FIRFirestoreErrorDomain" && nsError.code == 7 {
-                        dlog("⚠️ Archived conversations: permission denied — will retry after auth settles")
-                        Task { @MainActor [weak self] in
-                            guard let self = self else { return }
-                            try? await Task.sleep(nanoseconds: 2_500_000_000)
-                            self.stopListeningToArchivedConversations()
-                            self.startListeningToArchivedConversations()
+                        self.archivedConversationsListener?.remove()
+                        self.archivedConversationsListener = nil
+                        guard Auth.auth().currentUser != nil else { return }
+                        if self.archivedConversationsPermissionRetryCount < 3 {
+                            self.archivedConversationsPermissionRetryCount += 1
+                            let delay = UInt64(self.archivedConversationsPermissionRetryCount) * 2_000_000_000
+                            dlog("⚠️ Archived conversations: permission denied — retry \(self.archivedConversationsPermissionRetryCount)/3 in \(self.archivedConversationsPermissionRetryCount * 2)s")
+                            Task { @MainActor [weak self] in
+                                guard let self = self else { return }
+                                try? await Task.sleep(nanoseconds: delay)
+                                self._retryArchivedConversationsListener()
+                            }
+                        } else {
+                            dlog("⏹️ Archived conversations: max retries reached, stopping")
                         }
                     }
                     return
@@ -591,6 +676,58 @@ public class FirebaseMessagingService: ObservableObject {
         archivedConversationsListener = nil
         dlog("🔇 Stopped listening to archived conversations")
     }
+
+    /// Internal retry helper — re-attaches the archived conversations listener
+    /// without resetting the retry counter (unlike the public startListening method).
+    private func _retryArchivedConversationsListener() {
+        guard isAuthenticated, Auth.auth().currentUser != nil else { return }
+        archivedConversationsListener?.remove()
+        archivedConversationsListener = db.collection("conversations")
+            .whereField("participantIds", arrayContains: currentUserId)
+            .order(by: "updatedAt", descending: true)
+            .limit(to: 50)
+            .addSnapshotListener { [weak self] snapshot, error in
+                guard let self = self else { return }
+                if let error = error {
+                    let nsError = error as NSError
+                    if nsError.domain == "FIRFirestoreErrorDomain" && nsError.code == 7 {
+                        self.archivedConversationsListener?.remove()
+                        self.archivedConversationsListener = nil
+                        guard Auth.auth().currentUser != nil else { return }
+                        if self.archivedConversationsPermissionRetryCount < 3 {
+                            self.archivedConversationsPermissionRetryCount += 1
+                            let delay = UInt64(self.archivedConversationsPermissionRetryCount) * 2_000_000_000
+                            dlog("⚠️ Archived conversations: permission denied — retry \(self.archivedConversationsPermissionRetryCount)/3 in \(self.archivedConversationsPermissionRetryCount * 2)s")
+                            Task { @MainActor [weak self] in
+                                guard let self = self else { return }
+                                try? await Task.sleep(nanoseconds: delay)
+                                self._retryArchivedConversationsListener()
+                            }
+                        } else {
+                            dlog("⏹️ Archived conversations: max retries reached, stopping")
+                        }
+                    }
+                    return
+                }
+                guard let documents = snapshot?.documents else { return }
+                var archivedDict: [String: ChatConversation] = [:]
+                for doc in documents {
+                    guard let firebaseConv = try? doc.data(as: FirebaseConversation.self),
+                          let convId = firebaseConv.id else { continue }
+                    guard let archivedBy = firebaseConv.archivedByArray,
+                          archivedBy.contains(self.currentUserId) else { continue }
+                    if let deletedBy = firebaseConv.deletedBy,
+                       deletedBy[self.currentUserId] == true { continue }
+                    archivedDict[convId] = firebaseConv.toConversation()
+                }
+                let uniqueArchived = Array(archivedDict.values)
+                    .sorted { $0.timestamp > $1.timestamp }
+                dlog("✅ Loaded \(uniqueArchived.count) unique archived conversations")
+                Task { @MainActor [weak self] in
+                    self?.archivedConversations = uniqueArchived
+                }
+            }
+    }
     
     /// Create a new conversation
     func createConversation(
@@ -611,6 +748,32 @@ public class FirebaseMessagingService: ObservableObject {
         var allParticipantIds = participantIds
         if !allParticipantIds.contains(currentUserId) {
             allParticipantIds.append(currentUserId)
+        }
+        
+        // ✅ MESSAGE SETTINGS: Check if sender has permission to create message request
+        // For 1-on-1 conversations only (groups are exempt from this check)
+        if !isGroup && allParticipantIds.count == 2 {
+            let recipientId = allParticipantIds.first(where: { $0 != currentUserId }) ?? ""
+            
+            do {
+                let canSend = try await MessageSettingsService.shared.canUserSendMessageRequest(
+                    from: currentUserId,
+                    to: recipientId
+                )
+                
+                if !canSend {
+                    dlog("❌ Message request blocked by recipient's settings")
+                    throw FirebaseMessagingError.messagesNotAllowed
+                }
+                
+                dlog("✅ Message request permission granted")
+            } catch is FirebaseMessagingError {
+                // Re-throw messaging errors
+                throw FirebaseMessagingError.messagesNotAllowed
+            } catch {
+                // Log but don't block on settings service errors (fail open for now)
+                dlog("⚠️ Could not check message settings: \(error.localizedDescription)")
+            }
         }
 
         // P0 FIX: Use deterministic ID for 1-on-1 conversations to prevent
@@ -1795,20 +1958,29 @@ public class FirebaseMessagingService: ObservableObject {
     func markMessagesAsRead(conversationId: String, messageIds: [String]) async throws {
         guard !messageIds.isEmpty else { return }
         
+        // ✅ MESSAGE SETTINGS: Check if user allows read receipts
+        let allowReadReceipts = MessageSettingsService.shared.settings.allowReadReceipts
+        
         let batch = db.batch()
         
-        for messageId in messageIds {
-            let messageRef = db.collection("conversations")
-                .document(conversationId)
-                .collection("messages")
-                .document(messageId)
-            
-            batch.updateData([
-                "readBy": FieldValue.arrayUnion([currentUserId])
-            ], forDocument: messageRef)
+        // Only update readBy field if user allows read receipts
+        if allowReadReceipts {
+            for messageId in messageIds {
+                let messageRef = db.collection("conversations")
+                    .document(conversationId)
+                    .collection("messages")
+                    .document(messageId)
+                
+                batch.updateData([
+                    "readBy": FieldValue.arrayUnion([currentUserId])
+                ], forDocument: messageRef)
+            }
+            dlog("📱 [ReadReceipts] Marked \(messageIds.count) messages as read (receipts enabled)")
+        } else {
+            dlog("📱 [ReadReceipts] Skipped read receipt for \(messageIds.count) messages (receipts disabled)")
         }
         
-        // Reset unread count for current user in conversation
+        // Always reset unread count (internal state) regardless of read receipt setting
         let conversationRef = db.collection("conversations").document(conversationId)
         batch.updateData([
             "unreadCounts.\(currentUserId)": 0
@@ -1816,7 +1988,7 @@ public class FirebaseMessagingService: ObservableObject {
         
         try await batch.commit()
         
-        dlog("✅ Marked \(messageIds.count) messages as read and cleared unread count")
+        dlog("✅ Cleared unread count for conversation")
     }
     
     // P1-1 FIX: Clear unread badge immediately when opening thread
@@ -1852,19 +2024,27 @@ public class FirebaseMessagingService: ObservableObject {
     
     /// Update typing status
     func updateTypingStatus(conversationId: String, isTyping: Bool) async throws {
+        // ✅ MESSAGE SETTINGS: Check if user allows typing indicators
+        let allowTypingIndicators = MessageSettingsService.shared.settings.showTypingIndicators
+        
         let typingRef = db.collection("conversations")
             .document(conversationId)
             .collection("typing")
             .document(currentUserId)
         
-        if isTyping {
+        if isTyping && allowTypingIndicators {
             try await typingRef.setData([
                 "userId": currentUserId,
                 "userName": currentUserName,
                 "timestamp": Timestamp(date: Date())
             ])
+            dlog("📱 [TypingIndicator] Sent typing indicator (enabled)")
         } else {
+            // Always delete typing status when not typing OR when disabled
             try await typingRef.delete()
+            if !allowTypingIndicators && isTyping {
+                dlog("📱 [TypingIndicator] Skipped typing indicator (disabled)")
+            }
         }
     }
     

@@ -10,7 +10,7 @@
 import Foundation
 import Combine
 import FirebaseFirestore
-import Search
+import AlgoliaSearch
 
 // MARK: - Algolia Record Models
 
@@ -52,7 +52,7 @@ class AlgoliaSyncService {
     private var writeClient: SearchClient?
     private let usersIndexName = "users"
     private let postsIndexName = "posts"
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     // MARK: - Initialization
     

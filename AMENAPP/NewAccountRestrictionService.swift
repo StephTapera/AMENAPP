@@ -93,7 +93,7 @@ struct RateLimitResult {
 class NewAccountRestrictionService: ObservableObject {
     static let shared = NewAccountRestrictionService()
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     @Published var currentUserTier: AccountAgeTier = .mature
     @Published var dailyFollowCount: Int = 0
     @Published var dailyCommentCount: Int = 0

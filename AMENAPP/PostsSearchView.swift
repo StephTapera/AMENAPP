@@ -122,7 +122,7 @@ struct PostsSearchView: View {
             }
         }
         .sheet(isPresented: $showHeyFeedControls) {
-            HeyFeedControlsSheet()
+            YourFeedView()
         }
     }
     
@@ -609,7 +609,7 @@ class PostsSearchViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var hasMore = true
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var lastDocument: DocumentSnapshot?
     private let pageSize = 20
     
@@ -627,6 +627,7 @@ class PostsSearchViewModel: ObservableObject {
         // Otherwise, load from Firestore with category filter
         do {
             var query: Query = db.collection("posts")
+                .whereField("visibility", isEqualTo: "everyone")
             
             // Apply category filter with smart algorithms
             switch category {
@@ -707,6 +708,7 @@ class PostsSearchViewModel: ObservableObject {
         do {
             // Fetch more posts for better search results (200 posts)
             let snapshot = try await db.collection("posts")
+                .whereField("visibility", isEqualTo: "everyone")
                 .order(by: "createdAt", descending: true)
                 .limit(to: 200)
                 .getDocuments()
@@ -827,6 +829,7 @@ class PostsSearchViewModel: ObservableObject {
                     for chunk in chunks {
                         let snap = try await db.collection("posts")
                             .whereField(FieldPath.documentID(), in: chunk)
+                            .whereField("visibility", isEqualTo: "everyone")
                             .getDocuments()
                         fetchedPosts += snap.documents.compactMap { try? $0.data(as: Post.self) }
                     }

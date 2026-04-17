@@ -229,7 +229,7 @@ final class FeedSessionQualityTracker {
     private func logSessionQuality() {
         guard let uid = Auth.auth().currentUser?.uid else { return }
         let quality = computeQuality()
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         Task.detached(priority: .background) {
             try? await db
                 .collection("users").document(uid)

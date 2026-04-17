@@ -215,7 +215,7 @@ struct AccountLinkingView: View {
                         if linkedProviders.contains("apple.com") {
                             HStack {
                                 Image(systemName: "apple.logo")
-                                    .foregroundStyle(.black)
+                                    .foregroundStyle(.primary)
                                     .frame(width: 24)
 
                                 Text("Apple")

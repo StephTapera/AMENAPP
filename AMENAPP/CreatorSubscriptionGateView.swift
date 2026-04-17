@@ -327,7 +327,7 @@ struct CreatorSubscriptionGateLegacyView: View {
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         Task {
             guard let uid = Auth.auth().currentUser?.uid else { isSubscribing = false; return }
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
             try? await db.collection("creatorSubscriptions").addDocument(data: [
                 "subscriberId": uid,
                 "creatorId":    creator.id,

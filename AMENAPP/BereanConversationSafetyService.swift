@@ -134,7 +134,7 @@ final class BereanConversationSafetyService: ObservableObject {
     // Timestamps for rapid-burst detection
     private var recentSendTimestamps: [Date] = []
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     private init() {}
 

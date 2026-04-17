@@ -136,7 +136,7 @@ final class MentorshipStore: ObservableObject {
     @Published var pendingRequests: [MentorRequest] = []
     @Published var isLoaded = false
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var listeners: [ListenerRegistration] = []
 
     private init() {}

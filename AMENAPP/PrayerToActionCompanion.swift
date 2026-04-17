@@ -163,7 +163,7 @@ class PrayerToActionCompanion: ObservableObject {
     @Published var analyses: [String: PrayerAnalysis] = [:]  // prayerId -> analysis
     @Published var isProcessing = false
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     private init() {}
     

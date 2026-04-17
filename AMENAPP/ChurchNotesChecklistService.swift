@@ -116,7 +116,7 @@ final class ChurchNotesChecklistService: ObservableObject {
     @Published var isLoading = false
     @Published var lastError: Error?
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var listeners: [String: ListenerRegistration] = [:]
 
     private init() {}

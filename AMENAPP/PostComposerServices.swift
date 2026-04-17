@@ -8,10 +8,7 @@ extension Color {
     /// Thread connector line color (Threads-style)
     static let amenThreadLine = Color.primary.opacity(0.1)
 
-    /// Glass fill for liquid glass surfaces
-    static let amenGlassFill = Color.white.opacity(0.08)
-
-    /// Glass border highlight
+    /// Glass border highlight (hardcoded legacy — use AmenTheme.Colors.glassStroke for new code)
     static let amenGlassBorder = Color.white.opacity(0.18)
 }
 

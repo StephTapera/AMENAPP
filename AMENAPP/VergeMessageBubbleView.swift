@@ -205,7 +205,7 @@ struct VergeMessageBubbleView: View {
 
     private func addReaction(_ emoji: String) {
         guard let msgId = message.id else { return }
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         let ref = db.collection("vergeMessages").document(msgId)
         let key = "reactions.\(emoji)"
         ref.updateData([key: FieldValue.increment(Int64(1))])

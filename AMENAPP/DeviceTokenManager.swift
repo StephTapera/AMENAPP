@@ -19,7 +19,7 @@ final class DeviceTokenManager: ObservableObject {
     
     static let shared = DeviceTokenManager()
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     // MARK: - Token State
 
@@ -36,11 +36,21 @@ final class DeviceTokenManager: ObservableObject {
     // double-write to Firestore.
     private var lastRegistrationTime: Date?
     private let registrationDebounceInterval: TimeInterval = 10  // seconds
+
+    // NotificationCenter observer tokens — stored so they can be removed in deinit
+    // and avoided being orphaned if the singleton is ever torn down.
+    private var fcmTokenObserver: NSObjectProtocol?
+    private var didBecomeActiveObserver: NSObjectProtocol?
     
     // MARK: - Initialization
     
     private init() {
         setupTokenRefreshObserver()
+    }
+
+    deinit {
+        if let o = fcmTokenObserver { NotificationCenter.default.removeObserver(o) }
+        if let o = didBecomeActiveObserver { NotificationCenter.default.removeObserver(o) }
     }
     
     // MARK: - Token Registration
@@ -281,8 +291,9 @@ final class DeviceTokenManager: ObservableObject {
     }
     
     private func setupTokenRefreshObserver() {
-        // Listen for FCM token refresh events
-        NotificationCenter.default.addObserver(
+        // Listen for FCM token refresh events.
+        // Store the returned token so deinit can call removeObserver(_:).
+        fcmTokenObserver = NotificationCenter.default.addObserver(
             forName: Notification.Name("FCMTokenRefreshed"),
             object: nil,
             queue: .main
@@ -294,8 +305,9 @@ final class DeviceTokenManager: ObservableObject {
             }
         }
         
-        // Listen for app becoming active (check for token refresh)
-        NotificationCenter.default.addObserver(
+        // Listen for app becoming active (check for token refresh).
+        // Store the returned token so deinit can call removeObserver(_:).
+        didBecomeActiveObserver = NotificationCenter.default.addObserver(
             forName: UIApplication.didBecomeActiveNotification,
             object: nil,
             queue: .main

@@ -151,16 +151,21 @@ class PrayerEchoService {
         }
 
         // Keep the Firestore stoneCount counter (a simple Int field, not an array).
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         let ref = db.collection("posts").document(postId)
         let delta = alreadyEchoed ? Int64(-1) : Int64(1)
         try? await ref.updateData(["stoneCount": FieldValue.increment(delta)])
 
         // Notify author on new echo.
         if !alreadyEchoed && post.authorId != uid {
-            let notifRef = db.collection("notifications").document()
+            let notifRef = db
+                .collection("users")
+                .document(post.authorId)
+                .collection("notifications")
+                .document()
             try? await notifRef.setData([
                 "type": "prayerEcho",
+                "userId": post.authorId,
                 "toUserId": post.authorId,
                 "fromUserId": uid,
                 "postId": postId,
@@ -215,7 +220,7 @@ class TestimonyTimelineService {
 
     func markAnswered(prayerPostId: String, testimonyContent: String) async {
         guard Auth.auth().currentUser?.uid != nil else { return }
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         // Update original prayer to answered status
         try? await db.collection("posts").document(prayerPostId).updateData([
             "topicTag": "Answered Prayer",
@@ -309,7 +314,7 @@ class ChurchPulseService: ObservableObject {
 
     func load(churchId: String) {
         isLoading = true
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
 
         // Active prayers for this church
         db.collection("posts")
@@ -665,7 +670,7 @@ class BurdenMatchService: ObservableObject {
 
     func checkForMatches() {
         guard let uid = Auth.auth().currentUser?.uid else { return }
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
 
         // Get current user's recent prayer topics
         db.collection("posts")
@@ -705,7 +710,7 @@ class BurdenMatchService: ObservableObject {
 
     func acceptMatch(with userId: String) {
         guard let uid = Auth.auth().currentUser?.uid else { return }
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         // Record match
         db.collection("burdenMatches").addDocument(data: [
             "users": [uid, userId],

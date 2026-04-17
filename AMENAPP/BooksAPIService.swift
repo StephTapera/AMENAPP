@@ -17,7 +17,7 @@ final class FirebaseBooksService {
     static let shared = FirebaseBooksService()
     
     private let firestore = Firestore.firestore()
-    private let auth = Auth.auth()
+    private lazy var auth = Auth.auth()
     
     // Collection references
     private var booksCollection: CollectionReference {

@@ -1200,7 +1200,7 @@ struct OnboardingView: View {
                 isSaving = false
                 return
             }
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
 
             let birthYear = Calendar.current.component(.year, from: birthDate)
             let trimmedDisplayName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)

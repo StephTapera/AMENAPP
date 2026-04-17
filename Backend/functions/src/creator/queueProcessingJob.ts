@@ -7,6 +7,13 @@ export const queueProcessingJob = functions.https.onCall(async (data, context) =
         throw new functions.https.HttpsError("unauthenticated", "Auth required");
     }
 
+    if (context.app == undefined) {
+        throw new functions.https.HttpsError(
+            "failed-precondition",
+            "The function must be called from an App Check verified app."
+        );
+    }
+
     const ownerID = context.auth.uid;
     const projectID = String(data?.projectID ?? "");
     const type = String(data?.type ?? "");

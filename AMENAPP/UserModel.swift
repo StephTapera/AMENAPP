@@ -396,7 +396,7 @@ class UserService: ObservableObject {
     
     /// Check if username is available
     func isUsernameAvailable(_ username: String) async throws -> Bool {
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         let query = db.collection(FirebaseManager.CollectionPath.users)
             .whereField("username", isEqualTo: username.lowercased())
             .limit(to: 1)

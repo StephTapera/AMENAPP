@@ -66,7 +66,7 @@ struct JourneyTimelineCardView: View {
                     if !snapshot.topTopics.isEmpty {
                         HStack(spacing: 6) {
                             ForEach(snapshot.topTopics.prefix(3), id: \.self) { topic in
-                                TopicPillView(label: topic, color: accentColor)
+                                JourneyTopicPillView(label: topic, color: accentColor)
                             }
                         }
                     }
@@ -106,7 +106,7 @@ struct JourneyTimelineCardView: View {
 
 // MARK: - Topic Pill
 
-private struct TopicPillView: View {
+private struct JourneyTopicPillView: View {
     let label: String
     let color: Color
 

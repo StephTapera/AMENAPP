@@ -65,7 +65,7 @@ struct Message {
 
 class UserServiceExtensions {
     static let shared = UserServiceExtensions()
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     private init() {}
     
@@ -93,7 +93,7 @@ extension FollowService {
     
     /// Check if two users follow each other (mutual follow)
     func areFollowingEachOther(userId1: String, userId2: String) async throws -> Bool {
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         
         let follow1 = try await db.collection("follows")
             .whereField("followerId", isEqualTo: userId1)
@@ -128,7 +128,7 @@ extension FollowService {
 
 class MessagingPermissionService {
     static let shared = MessagingPermissionService()
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     /// Check if current user can message another user and if it's limited
     func canMessageUser(_ targetUserId: String) async throws -> (canMessage: Bool, isLimited: Bool) {
@@ -245,7 +245,7 @@ extension FirebaseMessagingService {
             )
         }
         
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
 
         // Check for existing 1-on-1 conversation before creating a new one
         let existing = try await db.collection("conversations")
@@ -282,7 +282,7 @@ extension FirebaseMessagingService {
             throw NSError(domain: "Auth", code: -1, userInfo: [NSLocalizedDescriptionKey: "Not authenticated"])
         }
         
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         
         // Get conversation
         let conversation = try await db.collection("conversations")

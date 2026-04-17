@@ -8,7 +8,7 @@ protocol CreatorBrandKitServicing {
 }
 
 final class CreatorBrandKitService: CreatorBrandKitServicing {
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     func fetchBrandKits(ownerID: String) async throws -> [CreatorBrandKit] {
         let snapshot = try await db.collection("users")

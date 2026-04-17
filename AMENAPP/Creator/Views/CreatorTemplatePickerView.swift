@@ -14,7 +14,7 @@ struct CreatorTemplatePickerView: View {
                             if let subtitle = template.subtitle {
                                 Text(subtitle)
                                     .font(AMENFont.medium(12))
-                                    .foregroundStyle(Color.black.opacity(0.6))
+                                    .foregroundStyle(.secondary)
                             }
                         }
                     }

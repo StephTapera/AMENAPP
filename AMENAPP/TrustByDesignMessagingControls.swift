@@ -162,7 +162,7 @@ struct RepeatedContactAttempt: Codable {
 class TrustByDesignService: ObservableObject {
     static let shared = TrustByDesignService()
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     @Published var userSettings: TrustPrivacySettings?
     @Published var messageRequests: [Conversation] = []  // Use existing Conversation model

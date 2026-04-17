@@ -120,7 +120,7 @@ final class ChurchNotesAttachmentService: ObservableObject {
     @Published var lastError: Error?
 
     private let db      = Firestore.firestore()
-    private let storage = Storage.storage()
+    private lazy var storage = Storage.storage()
 
     private init() {}
 

@@ -25,7 +25,7 @@ enum MediaType {
 
 class CloudStorageService {
     static let shared = CloudStorageService()
-    private let storage = Storage.storage()
+    private lazy var storage = Storage.storage()
     
     private init() {}
     

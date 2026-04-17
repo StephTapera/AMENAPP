@@ -22,7 +22,7 @@ struct CreatorEditorView: View {
             CreatorGlassCard {
                 TextField("Project title", text: $viewModel.project.title)
                     .font(AMENFont.semiBold(16))
-                    .foregroundStyle(Color.black)
+                    .foregroundStyle(.primary)
             }
 
             if let coverURL = viewModel.project.coverImageURL, let url = URL(string: coverURL) {
@@ -30,7 +30,7 @@ struct CreatorEditorView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Cover")
                             .font(AMENFont.semiBold(13))
-                            .foregroundStyle(Color.black.opacity(0.6))
+                            .foregroundStyle(.secondary)
 
                         AsyncImage(url: url) { phase in
                             switch phase {
@@ -42,7 +42,7 @@ struct CreatorEditorView: View {
                                     .scaledToFill()
                             case .failure:
                                 Image(systemName: "photo")
-                                    .foregroundStyle(Color.black.opacity(0.4))
+                                    .foregroundStyle(.tertiary)
                             @unknown default:
                                 EmptyView()
                             }
@@ -63,7 +63,7 @@ struct CreatorEditorView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Canvas")
                         .font(AMENFont.semiBold(16))
-                        .foregroundStyle(Color.black.opacity(0.6))
+                        .foregroundStyle(.secondary)
 
                     if let selectedID = viewModel.selectedAssetID,
                        let selectedAsset = viewModel.assets.first(where: { $0.id == selectedID }),
@@ -78,7 +78,7 @@ struct CreatorEditorView: View {
                                     .scaledToFill()
                             case .failure:
                                 Image(systemName: "photo")
-                                    .foregroundStyle(Color.black.opacity(0.4))
+                                    .foregroundStyle(.tertiary)
                             @unknown default:
                                 EmptyView()
                             }
@@ -88,7 +88,7 @@ struct CreatorEditorView: View {
                     } else {
                         Text("Add media to start")
                             .font(AMENFont.medium(13))
-                            .foregroundStyle(Color.black.opacity(0.45))
+                            .foregroundStyle(.tertiary)
                             .frame(maxWidth: .infinity, minHeight: 240)
                             .background(Color.black.opacity(0.04))
                             .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
@@ -105,13 +105,13 @@ struct CreatorEditorView: View {
                         VStack(alignment: .leading, spacing: 10) {
                             Text("Timeline")
                                 .font(AMENFont.semiBold(14))
-                                .foregroundStyle(Color.black.opacity(0.6))
+                                .foregroundStyle(.secondary)
 
                             if selectedAsset.type == .video {
                                 VStack(alignment: .leading, spacing: 8) {
                                     Text("Trim in / out")
                                         .font(AMENFont.medium(12))
-                                        .foregroundStyle(Color.black.opacity(0.6))
+                                        .foregroundStyle(.secondary)
 
                                     CreatorTimelineGridView(asset: selectedAsset, trimStart: $trimStart, trimEnd: $trimEnd)
 

@@ -19,7 +19,7 @@ final class MockCommentServiceTests: XCTestCase {
         let comment = try await sut.addComment(postId: "p1", content: "Hello", mentionedUserIds: nil, post: post)
 
         XCTAssertEqual(sut.comments["p1"]?.count, 1)
-        XCTAssertEqual(comment.text, "Hello")
+        XCTAssertEqual(comment.content, "Hello")
     }
 
     func testAddCommentThrowsWhenStubbedToFail() async {
@@ -97,10 +97,12 @@ final class MockPostInteractionsServiceTests: XCTestCase {
         let sut = MockPostInteractionsService()
 
         try await sut.toggleLightbulb(postId: "p2")
-        XCTAssertTrue(await sut.hasLitLightbulb(postId: "p2"))
+        let litAfterFirst = await sut.hasLitLightbulb(postId: "p2")
+        XCTAssertTrue(litAfterFirst)
 
         try await sut.toggleLightbulb(postId: "p2")
-        XCTAssertFalse(await sut.hasLitLightbulb(postId: "p2"))
+        let litAfterSecond = await sut.hasLitLightbulb(postId: "p2")
+        XCTAssertFalse(litAfterSecond)
     }
 
     func testToggleRepostReturnsAddedState() async throws {
@@ -199,17 +201,7 @@ final class MockFollowServiceTests: XCTestCase {
 final class MockNotificationServiceTests: XCTestCase {
 
     private func makeNotification(id: String, isRead: Bool = false) -> AppNotification {
-        AppNotification(
-            id: id,
-            type: .newFollower,
-            actorId: "actor",
-            actorName: "Actor",
-            actorProfileImageURL: nil,
-            postId: nil,
-            message: "test",
-            isRead: isRead,
-            timestamp: Date()
-        )
+        AppNotification.makeTest(id: id, read: isRead)
     }
 
     func testMarkAsReadSetsFlag() async throws {
@@ -219,7 +211,7 @@ final class MockNotificationServiceTests: XCTestCase {
 
         try await sut.markAsRead("n1")
 
-        XCTAssertTrue(sut.notifications.first(where: { $0.id == "n1" })?.isRead == true)
+        XCTAssertTrue(sut.notifications.first(where: { $0.id == "n1" })?.read == true)
         XCTAssertEqual(sut.unreadCount, 1)
     }
 
@@ -231,7 +223,7 @@ final class MockNotificationServiceTests: XCTestCase {
         try await sut.markAllAsRead()
 
         XCTAssertEqual(sut.unreadCount, 0)
-        XCTAssertTrue(sut.notifications.allSatisfy { $0.isRead })
+        XCTAssertTrue(sut.notifications.allSatisfy { $0.read })
     }
 
     func testDeleteNotificationRemovesIt() async throws {
@@ -273,10 +265,9 @@ private extension Post {
             id: UUID(uuidString: id) ?? UUID(),
             authorId: "testAuthor",
             authorName: "Test Author",
+            authorInitials: "TA",
             content: "Test content",
-            category: .openTable,
-            timestamp: Date(),
-            isPrivate: false
+            category: .openTable
         )
     }
 }

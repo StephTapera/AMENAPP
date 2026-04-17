@@ -154,7 +154,7 @@ enum VideoAttachmentService {
 
                 // 4. Build Firestore document
                 let messageId = UUID().uuidString
-                let db = Firestore.firestore()
+                lazy var db = Firestore.firestore()
                 let messageData: [String: Any] = [
                     "id": messageId,
                     "text": "",

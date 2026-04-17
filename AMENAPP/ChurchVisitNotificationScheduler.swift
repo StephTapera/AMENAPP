@@ -314,11 +314,30 @@ class ChurchVisitNotificationScheduler: ObservableObject {
             options: []
         )
         
+        // Follow-up growth loop actions
+        let reflectAction = UNNotificationAction(
+            identifier: "OPEN_REFLECTION",
+            title: "Write Reflection",
+            options: [.foreground]
+        )
+        let skipAction = UNNotificationAction(
+            identifier: "SKIP_FOLLOWUP",
+            title: "Skip",
+            options: []
+        )
+        let followUpCategory = UNNotificationCategory(
+            identifier: "CHURCH_FOLLOWUP",
+            actions: [reflectAction, skipAction],
+            intentIdentifiers: [],
+            options: []
+        )
+
         // Register all categories
         notificationCenter.setNotificationCategories([
             reminderCategory,
             dayOfCategory,
-            postNoteCategory
+            postNoteCategory,
+            followUpCategory
         ])
         
         Logger.debug("Registered church visit notification categories")
@@ -327,6 +346,126 @@ class ChurchVisitNotificationScheduler: ObservableObject {
     // MARK: - Static Setup (for AppDelegate)
     
     /// Static method to setup notification categories during app initialization
+    // MARK: - Follow-up Growth Loop Notifications
+
+    /// Schedules "How was your visit?" — 2 hours after service.
+    /// Deep links to amen://church/{churchId}/reflect
+    func scheduleFollowUpSameDay(
+        church: VisitCompanionChurch,
+        serviceDate: Date,
+        visitPlanId: String
+    ) async throws -> String {
+        let notificationId = "followup_sameday_\(visitPlanId)"
+        notificationCenter.removePendingNotificationRequests(withIdentifiers: [notificationId])
+
+        // 2 hours after service start
+        let triggerDate = serviceDate.addingTimeInterval(2 * 3600)
+        guard triggerDate > Date() else { throw NotificationSchedulerError.reminderDateInPast }
+
+        let content = UNMutableNotificationContent()
+        content.title = "How was your visit?"
+        content.body = "Share your first impressions of \(church.name) while they're fresh."
+        content.sound = .default
+        content.categoryIdentifier = "CHURCH_FOLLOWUP"
+        content.userInfo = [
+            "type": "church_followup",
+            "visit_plan_id": visitPlanId,
+            "church_id": church.id ?? "",
+            "church_name": church.name,
+            "deep_link": "amen://church/\(church.id ?? "")/reflect"
+        ]
+
+        let trigger = UNCalendarNotificationTrigger(
+            dateMatching: Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: triggerDate),
+            repeats: false
+        )
+
+        let request = UNNotificationRequest(identifier: notificationId, content: content, trigger: trigger)
+        try await notificationCenter.add(request)
+        Logger.debug("Scheduled same-day follow-up for \(triggerDate)")
+        return notificationId
+    }
+
+    /// Schedules "What stayed with you?" — next day at 9 AM.
+    func scheduleFollowUpNextDay(
+        church: VisitCompanionChurch,
+        serviceDate: Date,
+        visitPlanId: String
+    ) async throws -> String {
+        let notificationId = "followup_nextday_\(visitPlanId)"
+        notificationCenter.removePendingNotificationRequests(withIdentifiers: [notificationId])
+
+        guard let triggerDate = Calendar.current.date(byAdding: .day, value: 1, to: serviceDate)
+            .flatMap({ Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: $0) })
+        else { throw NotificationSchedulerError.reminderDateInPast }
+
+        guard triggerDate > Date() else { throw NotificationSchedulerError.reminderDateInPast }
+
+        let content = UNMutableNotificationContent()
+        content.title = "What stayed with you?"
+        content.body = "Take a moment to capture what resonated from your visit to \(church.name)."
+        content.sound = .default
+        content.categoryIdentifier = "CHURCH_FOLLOWUP"
+        content.userInfo = [
+            "type": "church_followup",
+            "visit_plan_id": visitPlanId,
+            "church_id": church.id ?? "",
+            "church_name": church.name,
+            "deep_link": "amen://church/\(church.id ?? "")/reflect"
+        ]
+
+        let trigger = UNCalendarNotificationTrigger(
+            dateMatching: Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: triggerDate),
+            repeats: false
+        )
+
+        let request = UNNotificationRequest(identifier: notificationId, content: content, trigger: trigger)
+        try await notificationCenter.add(request)
+        Logger.debug("Scheduled next-day follow-up for \(triggerDate)")
+        return notificationId
+    }
+
+    /// Schedules "Would you return?" — 3 days after service at 9 AM.
+    func scheduleFollowUpThreeDays(
+        church: VisitCompanionChurch,
+        serviceDate: Date,
+        visitPlanId: String
+    ) async throws -> String {
+        let notificationId = "followup_3day_\(visitPlanId)"
+        notificationCenter.removePendingNotificationRequests(withIdentifiers: [notificationId])
+
+        guard let triggerDate = Calendar.current.date(byAdding: .day, value: 3, to: serviceDate)
+            .flatMap({ Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: $0) })
+        else { throw NotificationSchedulerError.reminderDateInPast }
+
+        guard triggerDate > Date() else { throw NotificationSchedulerError.reminderDateInPast }
+
+        let content = UNMutableNotificationContent()
+        content.title = "Would you return?"
+        content.body = "You visited \(church.name) recently. Would you like to plan a return visit?"
+        content.sound = .default
+        content.categoryIdentifier = "CHURCH_FOLLOWUP"
+        content.userInfo = [
+            "type": "church_followup",
+            "visit_plan_id": visitPlanId,
+            "church_id": church.id ?? "",
+            "church_name": church.name,
+            "deep_link": "amen://church/\(church.id ?? "")/reflect"
+        ]
+
+        let trigger = UNCalendarNotificationTrigger(
+            dateMatching: Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: triggerDate),
+            repeats: false
+        )
+
+        let request = UNNotificationRequest(identifier: notificationId, content: content, trigger: trigger)
+        try await notificationCenter.add(request)
+        Logger.debug("Scheduled 3-day follow-up for \(triggerDate)")
+        return notificationId
+    }
+
+    // MARK: - Notification Categories (Static)
+
     /// Called from AppDelegate.setupPushNotifications()
     static func setupVisitPlanNotificationCategories() {
         let notificationCenter = UNUserNotificationCenter.current()

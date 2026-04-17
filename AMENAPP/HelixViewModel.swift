@@ -16,7 +16,7 @@ class HelixViewModel: ObservableObject {
     @Published var workflowRuns: [HelixWorkflowRun] = []
     @Published var isLoading = false
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var nodesListener: ListenerRegistration?
     private var workflowsListener: ListenerRegistration?
 

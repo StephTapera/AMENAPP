@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import FirebaseCore
 import FirebaseFunctions
 import Combine
 
@@ -14,7 +15,7 @@ import Combine
 class CloudFunctionsService: ObservableObject {
     static let shared = CloudFunctionsService()
     
-    private let functions = Functions.functions()
+    private lazy var functions = Functions.functions()
     
     private init() {
         // Uncomment to use local emulator for testing

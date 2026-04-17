@@ -25,8 +25,8 @@ extension Color {
     /// Pure black for maximum contrast
     static let amenBlack = Color.black
     
-    /// Elevated surface color
-    static let amenSurface = Color.white.opacity(0.05)
+    /// Elevated surface color — adaptive
+    static var amenSurface: Color { AmenTheme.Colors.surfaceElevated }
     
     // MARK: - Accent Colors
     // NOTE: These are now defined in AmenAdaptiveColors.swift with dark/light mode support
@@ -35,18 +35,19 @@ extension Color {
     // amenGold, amenBronze, amenSilver defined in AmenAdaptiveColors.swift
     
     // MARK: - Text Colors
-    
-    /// Primary text - Pure white
-    static let amenTextPrimary = Color.white
-    
-    /// Secondary text - 70% white
-    static let amenTextSecondary = Color.white.opacity(0.7)
-    
-    /// Tertiary text - 50% white
-    static let amenTextTertiary = Color.white.opacity(0.5)
-    
-    /// Quaternary text - 30% white (subtle)
-    static let amenTextQuaternary = Color.white.opacity(0.3)
+    // Redirected to AmenTheme adaptive tokens — auto-adapt for light/dark mode.
+
+    /// Primary text — adaptive (was .white, broke light mode)
+    static var amenTextPrimary: Color    { AmenTheme.Colors.textPrimary }
+
+    /// Secondary text — adaptive
+    static var amenTextSecondary: Color  { AmenTheme.Colors.textSecondary }
+
+    /// Tertiary text — adaptive
+    static var amenTextTertiary: Color   { AmenTheme.Colors.textTertiary }
+
+    /// Quaternary text — adaptive
+    static var amenTextQuaternary: Color { AmenTheme.Colors.textQuaternary }
     
     // MARK: - Semantic Colors
     // NOTE: These are now defined in AmenAdaptiveColors.swift with dark/light mode support

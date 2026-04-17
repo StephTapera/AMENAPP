@@ -71,7 +71,7 @@ class DiscoveryViewModel: ObservableObject {
     private var lastDocument: DocumentSnapshot?
     private let pageSize = 30
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var searchTask: Task<Void, Never>?
     private var connectionsCache: (following: Set<String>, followers: Set<String>)?
     // Fix #5: subscription to FollowService
@@ -140,7 +140,7 @@ class DiscoveryViewModel: ObservableObject {
     func loadTrendingFromFirestore() async {
         // Static is already loaded in init(); Firestore results replace when ready.
         defer { isLoadingTrending = false }
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
 
         // 1. Try the curated `trending` collection (managed by Cloud Functions)
         do {
@@ -190,6 +190,7 @@ class DiscoveryViewModel: ObservableObject {
                     do {
                         let snap = try await db.collection("posts")
                             .whereField("topicTag", isEqualTo: topic.title)
+                            .whereField("visibility", isEqualTo: "everyone")
                             .count
                             .getAggregation(source: .server)
                         count = snap.count.intValue

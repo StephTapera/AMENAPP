@@ -47,7 +47,7 @@ final class ChurchDNAService: ObservableObject {
     @Published var updatedAt: Date?
 
     private let db        = Firestore.firestore()
-    private let functions = Functions.functions()
+    private lazy var functions = Functions.functions()
 
     func load(churchId: String) async {
         // Try Firestore cache first
@@ -218,8 +218,6 @@ private struct DNAAxisDetailSheet: View {
     @State private var quotes: [String] = []
     @State private var isLoading = true
 
-    private let db = Firestore.firestore()
-
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text(axis.displayName)
@@ -270,7 +268,7 @@ private struct DNAAxisDetailSheet: View {
         defer { isLoading = false }
         do {
             let keyword = axis.displayName.lowercased()
-            let snap = try await db.collection("notes")
+            let snap = try await Firestore.firestore().collection("notes")
                 .whereField("churchId", isEqualTo: churchId)
                 .order(by: "createdAt", descending: true)
                 .limit(to: 20)

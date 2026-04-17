@@ -19,7 +19,7 @@ class NotificationHelper {
     static let shared = NotificationHelper()
     
     private let genkitService = NotificationGenkitService.shared
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     // MARK: - Simple Notification Methods
     
@@ -313,8 +313,10 @@ class NotificationHelper {
     }
     
     private func fetchPendingNotifications(userId: String) async throws -> [PendingNotification] {
-        let snapshot = try await db.collection("notifications")
-            .whereField("userId", isEqualTo: userId)
+        let snapshot = try await db
+            .collection("users")
+            .document(userId)
+            .collection("notifications")
             .whereField("read", isEqualTo: false)
             .whereField("batched", isEqualTo: false)
             .order(by: "createdAt", descending: true)

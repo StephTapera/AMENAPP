@@ -30,7 +30,7 @@ struct PhotoInsight: Codable {
 class PhotoInsightsService {
     static let shared = PhotoInsightsService()
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     // SECURITY: API key is NOT stored on the client.
     // Vision API calls must be proxied through Firebase Cloud Functions.
 

@@ -300,7 +300,7 @@ struct ReactivationPromptView: View {
                     Text("AMEN")
                         .font(.systemScaled(22, weight: .black))
                         .tracking(7)
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.primary)
                 }
 
                 Spacer().frame(height: 48)

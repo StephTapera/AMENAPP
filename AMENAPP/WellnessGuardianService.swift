@@ -10,6 +10,7 @@ import Foundation
 import SwiftUI
 import Combine
 import FirebaseAuth
+import FirebaseCore
 import FirebaseFirestore
 
 @MainActor
@@ -24,7 +25,6 @@ class WellnessGuardianService: ObservableObject {
     @Published var dailyUsageMinutes = 0
     @Published var weeklyUsageMinutes = 0
     
-    private let db = Firestore.firestore()
     private var breakCheckTimer: Timer?
 
     // Tracks when the last reminder was dismissed so we don't re-fire immediately
@@ -59,6 +59,11 @@ class WellnessGuardianService: ObservableObject {
     private init() {
         // PERF: Don't call loadTodaysUsage() here — auth is not yet resolved
         // at init time. Usage is loaded lazily on first trackSessionStart() call.
+    }
+
+    private var db: Firestore? {
+        guard FirebaseApp.app() != nil else { return nil }
+        return Firestore.firestore()
     }
 
     // MARK: - Session Tracking
@@ -217,6 +222,7 @@ class WellnessGuardianService: ObservableObject {
     
     private func loadTodaysUsage() {
         Task {
+            guard let db else { return }
             guard let userId = Auth.auth().currentUser?.uid else { return }
             
             let today = Calendar.current.startOfDay(for: Date())
@@ -246,6 +252,9 @@ class WellnessGuardianService: ObservableObject {
     }
     
     func getWeeklyStats() async -> WellnessStats {
+        guard let db else {
+            return WellnessStats(todayMinutes: 0, weekMinutes: 0, longestStreak: 0, breaksTaken: 0, averageDailyMinutes: 0)
+        }
         guard let userId = Auth.auth().currentUser?.uid else {
             return WellnessStats(todayMinutes: 0, weekMinutes: 0, longestStreak: 0, breaksTaken: 0, averageDailyMinutes: 0)
         }
@@ -289,6 +298,7 @@ class WellnessGuardianService: ObservableObject {
     // MARK: - Firestore Logging
     
     private func saveSessionToFirestore(duration: TimeInterval, scrollCount: Int) {
+        guard let db else { return }
         guard let userId = Auth.auth().currentUser?.uid else { return }
         // Capture startTime before the async task — sessionStartTime is set to nil
         // synchronously after this call returns, so the force-unwrap inside the task
@@ -308,6 +318,7 @@ class WellnessGuardianService: ObservableObject {
     }
     
     private func logBreakTaken() async throws {
+        guard let db else { return }
         guard let userId = Auth.auth().currentUser?.uid else { return }
         
         try await db.collection("users").document(userId)
@@ -468,7 +479,7 @@ struct WellnessBreakReminderView: View {
         VStack(spacing: 6) {
             Text("Time to Reset")
                 .font(.systemScaled(22, weight: .semibold))
-                .foregroundStyle(Color.black)
+                .foregroundStyle(.primary)
 
             Text("You’ve spent \\(minutesUsed) minutes today.")
                 .font(.systemScaled(13, weight: .regular))
@@ -533,7 +544,7 @@ struct WellnessBreakReminderView: View {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(suggestion.title)
                                         .font(.systemScaled(14, weight: .medium))
-                                        .foregroundStyle(Color.black)
+                                        .foregroundStyle(.primary)
                                     Text(suggestion.subtitle)
                                         .font(.systemScaled(11, weight: .regular))
                                         .foregroundStyle(Color.black.opacity(0.5))

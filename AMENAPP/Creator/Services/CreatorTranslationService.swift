@@ -7,7 +7,7 @@ protocol CreatorTranslationServicing {
 }
 
 final class CreatorTranslationService: CreatorTranslationServicing {
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     func translate(track: CreatorSubtitleTrack, targetLanguage: String) async throws -> CreatorSubtitleTrack {
         let ownerID = try requireOwnerID()

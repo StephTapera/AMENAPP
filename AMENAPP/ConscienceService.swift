@@ -14,8 +14,8 @@ final class ConscienceService {
     static let shared = ConscienceService()
     private init() {}
 
-    private let db = Firestore.firestore()
-    private let functions = Functions.functions()
+    private lazy var db = Firestore.firestore()
+    private lazy var functions = Functions.functions()
 
     // MARK: - Fetch / Upsert
 

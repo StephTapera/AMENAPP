@@ -39,7 +39,7 @@ final class TimeCapsuleManager: ObservableObject {
     @Published var selectedDeliverAt: Date = Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date()
     @Published var showDatePicker: Bool = false
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     private init() {}
 

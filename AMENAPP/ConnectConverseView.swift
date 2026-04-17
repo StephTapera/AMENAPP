@@ -193,7 +193,7 @@ struct ConnectConverseView: View {
     // MARK: - Data
 
     private func loadTopics() async {
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         do {
             let snap = try await db.collection("conversations")
                 .order(by: "createdAt", descending: true)
@@ -271,7 +271,7 @@ struct CreateConversationSheet: View {
             category: category
         )
         Task {
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
             let encoded = try? Firestore.Encoder().encode(topic)
             if let encoded {
                 try? await db.collection("conversations").document(topic.id).setData(encoded)

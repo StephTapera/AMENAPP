@@ -9,7 +9,7 @@ struct CreatorSubtitleEditorView: View {
                 CreatorGlassCard {
                     Text(track.segments[index].text)
                         .font(AMENFont.medium(12))
-                        .foregroundStyle(Color.black.opacity(0.7))
+                        .foregroundStyle(.secondary)
                 }
             }
         }

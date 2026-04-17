@@ -115,7 +115,7 @@ struct MinorSafetyPolicy {
 final class MinorSafetyService {
     static let shared = MinorSafetyService()
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var userProfileCache: [String: UserSafetyProfile] = [:]
 
     private init() {}

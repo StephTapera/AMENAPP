@@ -237,7 +237,7 @@ class ModerationService: ObservableObject {
     @Published var blockedUsers: Set<String> = []
     @Published var mutedUsers: Set<String> = []
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private let firebaseManager = FirebaseManager.shared
 
     private init() {}
@@ -426,13 +426,26 @@ class ModerationService: ObservableObject {
             reason: reason
         )
 
-        // setData(merge: true) is idempotent — safe to call even if the doc exists
+        // Write to both stores atomically so the block is immediately visible to:
+        //   1. antiHarassmentEnforcement.ts  →  blockedUsers/{blockerId}_{blockedId}  (top-level)
+        //   2. Firestore security rules callerIsNotBlocked()  →  users/{uid}/blockedUsers/{blockedId}
+        // The createBlock Cloud Function does the same dual-write; this path handles direct
+        // calls from ModerationService without going through the CF (e.g. from PostCard).
         let blockData = try Firestore.Encoder().encode(block)
-        try await db.collection(FirebaseManager.CollectionPath.blockedUsers)
-            .document(docId)
-            .setData(blockData, merge: true)
+        let batch = db.batch()
+        batch.setData(blockData, forDocument:
+            db.collection(FirebaseManager.CollectionPath.blockedUsers).document(docId),
+            merge: true)
+        batch.setData(
+            ["blockedAt": FieldValue.serverTimestamp()],
+            forDocument: db.collection("users")
+                .document(currentUserId)
+                .collection("blockedUsers")
+                .document(userId),
+            merge: true)
+        try await batch.commit()
 
-        dlog("✅ User blocked successfully")
+        dlog("✅ User blocked successfully (both stores updated)")
 
         // Update local cache first so UI reflects state immediately
         blockedUsers.insert(userId)

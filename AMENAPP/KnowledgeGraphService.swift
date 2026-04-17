@@ -167,7 +167,7 @@ final class RelatedContentService {
 
     static let shared = RelatedContentService()
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private let flags = AMENFeatureFlags.shared
 
     // Local cache: sourceId → RelatedContentBundle

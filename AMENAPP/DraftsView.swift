@@ -605,7 +605,8 @@ struct EditDraftView: View {
             topicTag: draft.topicTag,
             linkURL: draft.linkURL,
             visibility: draft.visibility,
-            savedAt: Date()
+            savedAt: Date(),
+            scriptureAttachment: draft.scriptureAttachment
         )
         onUpdate(updatedDraft)
 
@@ -642,7 +643,10 @@ struct EditDraftView: View {
             visibility: postVisibility,
             allowComments: true,
             imageURLs: nil,
-            linkURL: draft.linkURL
+            linkURL: draft.linkURL,
+            verseReference: draft.scriptureAttachment?.canonicalReference,
+            verseText: draft.scriptureAttachment?.previewText,
+            scriptureAttachment: draft.scriptureAttachment
         )
 
         DraftsManager.shared.deleteDraft(draft)

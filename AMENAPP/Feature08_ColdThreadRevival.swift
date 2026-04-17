@@ -30,7 +30,7 @@ final class ColdThreadRevivalManager: ObservableObject {
 
     @Published var pendingNudge: RevivalNudge?
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var listener: ListenerRegistration?
 
     @AppStorage("shownRevivalNudgeIds") private var shownNudgeIdsRaw: String = ""

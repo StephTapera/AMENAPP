@@ -15,15 +15,26 @@ import Combine
 class YouVersionBibleService: ObservableObject {
     static let shared = YouVersionBibleService()
     
-    private let apiKey: String = BundleConfig.string(forKey: "YOUVERSION_API_KEY") ?? ""
+    private let apiKey: String = (BundleConfig.string(forKey: "YOUVERSION_API_KEY") ?? "").trimmingCharacters(in: .whitespaces)
     private let baseURL = "https://api.scripture.api.bible/v1"
     
     @Published var isLoading = false
     
     // Cache for fetched verses
     private var verseCache: [String: YouVersionVerse] = [:]
-    
-    private init() {}
+
+    // Circuit breaker: after 3 consecutive 401s, disable API calls for the session
+    // to prevent log spam from a misconfigured key.
+    private var consecutive401Count = 0
+    private let circuitBreakerThreshold = 3
+    private var circuitOpen = false
+
+    private init() {
+        if apiKey.isEmpty {
+            dlog("⚠️ YouVersionBibleService: YOUVERSION_API_KEY not configured — verse fetching disabled")
+            circuitOpen = true
+        }
+    }
     
     // MARK: - Fetch Scripture
     
@@ -37,6 +48,11 @@ class YouVersionBibleService: ObservableObject {
             return convertToScripturePassage(cached, reference: reference, version: version)
         }
         
+        // Circuit breaker: stop calling if API key is missing or repeatedly rejected
+        guard !circuitOpen else {
+            throw YouVersionError.apiError
+        }
+
         isLoading = true
         defer { isLoading = false }
         
@@ -69,12 +85,23 @@ class YouVersionBibleService: ObservableObject {
         }
 
         guard httpResponse.statusCode == 200 else {
-            dlog("❌ YouVersion: Fetch API returned status \(httpResponse.statusCode) for \(reference)")
-            if let responseString = String(data: data, encoding: .utf8) {
-                dlog("   Response: \(responseString)")
+            if httpResponse.statusCode == 401 {
+                consecutive401Count += 1
+                dlog("❌ YouVersion: 401 Unauthorized for \(reference) (attempt \(consecutive401Count)/\(circuitBreakerThreshold)) — check YOUVERSION_API_KEY in BundleConfig")
+                if consecutive401Count >= circuitBreakerThreshold {
+                    circuitOpen = true
+                    dlog("🛑 YouVersion: Circuit breaker opened after \(circuitBreakerThreshold) consecutive 401s — disabling API calls for this session")
+                }
+            } else {
+                dlog("❌ YouVersion: Fetch API returned status \(httpResponse.statusCode) for \(reference)")
+                if let responseString = String(data: data, encoding: .utf8) {
+                    dlog("   Response: \(responseString)")
+                }
             }
             throw YouVersionError.apiError
         }
+        // Successful response — reset circuit breaker counter
+        consecutive401Count = 0
 
         // Parse response
         let decoder = JSONDecoder()
@@ -253,6 +280,7 @@ class YouVersionBibleService: ObservableObject {
     
     /// Search for verses containing keywords
     func searchVerses(query: String, version: ScripturePassage.BibleVersion = .esv, limit: Int = 10) async throws -> [ScripturePassage] {
+        guard !circuitOpen else { throw YouVersionError.apiError }
         dlog("🔍 YouVersion: Searching '\(query)'...")
         
         let bibleId = getBibleId(for: version)
@@ -274,9 +302,18 @@ class YouVersionBibleService: ObservableObject {
         }
 
         guard httpResponse.statusCode == 200 else {
-            dlog("❌ YouVersion: Search API returned status \(httpResponse.statusCode)")
-            if let responseString = String(data: data, encoding: .utf8) {
-                dlog("   Response: \(responseString)")
+            if httpResponse.statusCode == 401 {
+                consecutive401Count += 1
+                dlog("❌ YouVersion: Search 401 Unauthorized (attempt \(consecutive401Count)/\(circuitBreakerThreshold)) — check YOUVERSION_API_KEY")
+                if consecutive401Count >= circuitBreakerThreshold {
+                    circuitOpen = true
+                    dlog("🛑 YouVersion: Circuit breaker opened — disabling API calls for this session")
+                }
+            } else {
+                dlog("❌ YouVersion: Search API returned status \(httpResponse.statusCode)")
+                if let responseString = String(data: data, encoding: .utf8) {
+                    dlog("   Response: \(responseString)")
+                }
             }
             throw YouVersionError.apiError
         }

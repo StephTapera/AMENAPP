@@ -235,7 +235,7 @@ struct ReportAndBlockSheet: View {
     }
     
     private func submitReportToFirestore() async throws {
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         
         guard let currentUserId = Auth.auth().currentUser?.uid else {
             throw NSError(domain: "ReportError", code: 401, userInfo: [NSLocalizedDescriptionKey: "Not authenticated"])

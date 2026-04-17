@@ -37,7 +37,7 @@ final class PrayerRecapViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var userId: String { Auth.auth().currentUser?.uid ?? "demo_user" }
 
     func load() {

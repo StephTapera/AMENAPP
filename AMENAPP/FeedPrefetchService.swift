@@ -17,7 +17,7 @@ class FeedPrefetchService: ObservableObject {
     @Published var prefetchedPosts: [Post] = []
     private var lastSyncTimestamp: Date?
     private var isPrefetching = false
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     private init() {}
 
@@ -36,6 +36,7 @@ class FeedPrefetchService: ObservableObject {
 
             guard let snapshot = try? await db.collection("posts")
                 .whereField("createdAt", isLessThan: Timestamp(date: lastTimestamp))
+                .whereField("visibility", isEqualTo: "everyone")
                 .order(by: "createdAt", descending: true)
                 .limit(to: 10)
                 .getDocuments() else { return }
@@ -85,6 +86,7 @@ class FeedPrefetchService: ObservableObject {
 
         guard let snapshot = try? await db.collection("posts")
             .whereField("updatedAt", isGreaterThan: Timestamp(date: since))
+            .whereField("visibility", isEqualTo: "everyone")
             .order(by: "updatedAt", descending: true)
             .limit(to: 50)
             .getDocuments() else { return [] }

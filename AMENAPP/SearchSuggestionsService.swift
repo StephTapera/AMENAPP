@@ -42,7 +42,7 @@ class SearchSuggestionsService {
     var suggestions: [SearchSuggestion] = []
     var isLoading = false
     
-    private let db = Firestore.firestore()
+    private var db: Firestore { Firestore.firestore() }
     private var searchTask: Task<Void, Never>?
     
     // Local cache for fast suggestions

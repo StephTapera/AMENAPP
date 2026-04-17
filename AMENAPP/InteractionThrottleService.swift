@@ -19,7 +19,7 @@ class InteractionThrottleService: ObservableObject {
     @Published var isThrottlingEnabled = true
     @Published var detectionStats = ThrottleStats()
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     // Track user interactions
     private var interactionHistory: [String: [InteractionRecord]] = [:] // userId -> records

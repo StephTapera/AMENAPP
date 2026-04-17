@@ -213,7 +213,7 @@ struct WriterNoteView: View {
             // Title input
             TextField("", text: $title, prompt: Text("Note Title").foregroundStyle(Color.black.opacity(0.25)))
                 .font(.systemScaled(36, weight: .bold))
-                .foregroundStyle(Color.black)
+                .foregroundStyle(.primary)
                 .tint(.blue)
                 .focused($focusedField, equals: .title)
                 .padding(.horizontal, 20)
@@ -367,7 +367,7 @@ struct WriterNoteView: View {
                 
                 TextEditor(text: $content)
                     .font(.systemScaled(18, weight: .regular))
-                    .foregroundStyle(Color.black)
+                    .foregroundStyle(.primary)
                     .lineSpacing(6)
                     .scrollContentBackground(.hidden)
                     .frame(minHeight: 400)
@@ -472,7 +472,7 @@ struct CleanTextField: View {
             
             TextField(placeholder, text: $text)
                 .font(.systemScaled(17, weight: .medium))
-                .foregroundStyle(Color.black)
+                .foregroundStyle(.primary)
                 .tint(.blue)
                 .focused(focusedField, equals: field)
         }

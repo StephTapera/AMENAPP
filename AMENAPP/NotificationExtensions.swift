@@ -13,6 +13,10 @@ extension Notification.Name {
     /// Posted when a conversation should be opened
     /// UserInfo should contain: ["conversationId": String]
     static let openConversation = Notification.Name("openConversation")
+    
+    /// Posted when a group join link should be opened
+    /// UserInfo should contain: ["token": String]
+    static let openGroupJoinLink = Notification.Name("openGroupJoinLink")
 
     /// Posted when the Berean Live Activity "Go Deeper" button is tapped
     /// UserInfo: ["postID": String]

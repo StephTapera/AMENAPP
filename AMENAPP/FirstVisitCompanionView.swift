@@ -295,7 +295,7 @@ struct FirstVisitCompanionView: View {
     @State private var expanded: AccordionSection? = .church
 
     private enum AccordionSection: Equatable {
-        case church, expect, service, date, reminders
+        case church, expect, service, date, reminders, checklist, createNote, preparePostCard
     }
 
     var body: some View {
@@ -355,6 +355,36 @@ struct FirstVisitCompanionView: View {
                         onTap: { toggle(.reminders) }
                     ) {
                         remindersExpanded
+                    }
+
+                    // ── YOUR CHECKLIST ──────────────────────────────────────
+                    AccordionRow(
+                        title: "Your Checklist",
+                        meta: "\(viewModel.checklist.completedCount)/\(viewModel.checklist.totalCount)",
+                        isExpanded: expanded == .checklist,
+                        onTap: { toggle(.checklist) }
+                    ) {
+                        checklistExpanded
+                    }
+
+                    // ── CREATE A NOTE ───────────────────────────────────────
+                    AccordionRow(
+                        title: "Create a Note",
+                        meta: nil,
+                        isExpanded: expanded == .createNote,
+                        onTap: { toggle(.createNote) }
+                    ) {
+                        createNoteExpanded
+                    }
+
+                    // ── PREPARE POSTCARD ────────────────────────────────────
+                    AccordionRow(
+                        title: "Prepare PostCard",
+                        meta: nil,
+                        isExpanded: expanded == .preparePostCard,
+                        onTap: { toggle(.preparePostCard) }
+                    ) {
+                        preparePostCardExpanded
                     }
 
                     // ── ACTION AREA ─────────────────────────────────────────
@@ -815,6 +845,209 @@ struct FirstVisitCompanionView: View {
         }
         .padding(.horizontal, PVTokens.hPad)
         .padding(.vertical, 14)
+    }
+
+    // MARK: - Checklist Expanded
+
+    private var checklistExpanded: some View {
+        VStack(spacing: 0) {
+            // Progress bar
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("\(Int(viewModel.checklist.completionPercentage * 100))% READY")
+                        .font(.systemScaled(10, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(PVTokens.accent)
+                        .kerning(0.6)
+                    Spacer()
+                    Text("\(viewModel.checklist.completedCount) OF \(viewModel.checklist.totalCount)")
+                        .font(.systemScaled(10, weight: .medium, design: .monospaced))
+                        .foregroundStyle(PVTokens.tertiary)
+                        .kerning(0.4)
+                }
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule()
+                            .fill(PVTokens.surface)
+                            .frame(height: 4)
+                        Capsule()
+                            .fill(PVTokens.accent)
+                            .frame(width: geo.size.width * viewModel.checklist.completionPercentage, height: 4)
+                            .animation(PVTokens.expandSpring, value: viewModel.checklist.completionPercentage)
+                    }
+                }
+                .frame(height: 4)
+            }
+            .padding(.horizontal, PVTokens.hPad)
+            .padding(.bottom, 16)
+
+            // Checklist items
+            ForEach(Array(viewModel.checklist.displayItems.enumerated()), id: \.element.key) { idx, item in
+                Button {
+                    withAnimation(PVTokens.expandSpring) {
+                        viewModel.updateChecklistItem(key: item.key, value: !item.isComplete)
+                    }
+                } label: {
+                    HStack(spacing: 16) {
+                        Image(systemName: item.isComplete ? "checkmark.circle.fill" : "circle")
+                            .font(.systemScaled(18, weight: .light))
+                            .foregroundStyle(item.isComplete ? PVTokens.accent : PVTokens.tertiary)
+                            .frame(width: 24)
+
+                        HStack(spacing: 8) {
+                            Image(systemName: item.icon)
+                                .font(.systemScaled(13, weight: .light))
+                                .foregroundStyle(item.isComplete ? PVTokens.accent.opacity(0.7) : PVTokens.tertiary)
+                                .frame(width: 18)
+                            Text(item.label)
+                                .font(PVTokens.bodyFont)
+                                .foregroundStyle(item.isComplete ? PVTokens.secondary : PVTokens.primary)
+                                .strikethrough(item.isComplete, color: PVTokens.tertiary)
+                        }
+
+                        Spacer()
+                    }
+                    .padding(.horizontal, PVTokens.hPad)
+                    .padding(.vertical, 12)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+
+                if idx < viewModel.checklist.totalCount - 1 {
+                    ThinDivider()
+                        .padding(.horizontal, PVTokens.hPad)
+                }
+            }
+        }
+    }
+
+    // MARK: - Create Note Expanded
+
+    private var createNoteExpanded: some View {
+        VStack(spacing: 0) {
+            Text("START WITH A TEMPLATE")
+                .font(.systemScaled(10, weight: .semibold, design: .monospaced))
+                .foregroundStyle(PVTokens.tertiary)
+                .kerning(0.6)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, PVTokens.hPad)
+                .padding(.bottom, 14)
+
+            // Pre-Visit Intentions
+            noteTemplateRow(
+                icon: "thought.bubble",
+                title: "Pre-Visit Intentions",
+                subtitle: "Set your prayer intention and expectations",
+                templateKey: "preVisit"
+            )
+
+            ThinDivider().padding(.horizontal, PVTokens.hPad)
+
+            // Sermon Capture
+            noteTemplateRow(
+                icon: "text.quote",
+                title: "Sermon Capture",
+                subtitle: "Key scriptures, takeaways, and action steps",
+                templateKey: "sermonCapture"
+            )
+        }
+    }
+
+    private func noteTemplateRow(icon: String, title: String, subtitle: String, templateKey: String) -> some View {
+        Button {
+            viewModel.selectedNoteTemplate = templateKey
+            viewModel.showNoteTemplateSheet = true
+            viewModel.didCreateNote()
+        } label: {
+            HStack(spacing: 14) {
+                Image(systemName: icon)
+                    .font(.systemScaled(18, weight: .light))
+                    .foregroundStyle(PVTokens.accent)
+                    .frame(width: 24)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title.uppercased())
+                        .font(.systemScaled(13, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(PVTokens.primary)
+                        .kerning(0.4)
+                    Text(subtitle)
+                        .font(.systemScaled(12, weight: .regular))
+                        .foregroundStyle(PVTokens.tertiary)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.systemScaled(11, weight: .light))
+                    .foregroundStyle(PVTokens.tertiary)
+            }
+            .padding(.horizontal, PVTokens.hPad)
+            .padding(.vertical, 14)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Prepare PostCard Expanded
+
+    private var preparePostCardExpanded: some View {
+        VStack(spacing: 0) {
+            Text("CHOOSE A POSTCARD TYPE")
+                .font(.systemScaled(10, weight: .semibold, design: .monospaced))
+                .foregroundStyle(PVTokens.tertiary)
+                .kerning(0.6)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, PVTokens.hPad)
+                .padding(.bottom, 14)
+
+            ForEach(Array([ChurchPostCardType.invite, .recommend].enumerated()), id: \.element) { idx, type in
+                Button {
+                    viewModel.selectedPostCardType = type
+                    viewModel.showPostCardComposerSheet = true
+                    viewModel.didCreatePostCard()
+                } label: {
+                    HStack(spacing: 14) {
+                        Image(systemName: type.icon)
+                            .font(.systemScaled(18, weight: .light))
+                            .foregroundStyle(PVTokens.accent)
+                            .frame(width: 24)
+
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(type.displayName.uppercased())
+                                .font(.systemScaled(13, weight: .semibold, design: .monospaced))
+                                .foregroundStyle(PVTokens.primary)
+                                .kerning(0.4)
+                            Text(postCardSubtitle(for: type))
+                                .font(.systemScaled(12, weight: .regular))
+                                .foregroundStyle(PVTokens.tertiary)
+                        }
+
+                        Spacer()
+
+                        Image(systemName: "chevron.right")
+                            .font(.systemScaled(11, weight: .light))
+                            .foregroundStyle(PVTokens.tertiary)
+                    }
+                    .padding(.horizontal, PVTokens.hPad)
+                    .padding(.vertical, 14)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+
+                if idx < 1 {
+                    ThinDivider().padding(.horizontal, PVTokens.hPad)
+                }
+            }
+        }
+    }
+
+    private func postCardSubtitle(for type: ChurchPostCardType) -> String {
+        switch type {
+        case .invite:       return "Send a friend an invitation to join you"
+        case .recommend:    return "Share why you'd recommend this church"
+        case .gratitude:    return "Express gratitude for this community"
+        case .testimony:    return "Share your testimony about this church"
+        case .encouragement: return "Encourage others to visit"
+        }
     }
 
     // MARK: - Action Area

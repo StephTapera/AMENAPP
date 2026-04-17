@@ -82,7 +82,7 @@ struct NotificationPermissionView: View {
                     VStack(spacing: 12) {
                         Text("Stay Connected")
                             .font(.custom("OpenSans-Bold", size: 32))
-                            .foregroundStyle(.black)
+                            .foregroundStyle(.primary)
                         
                         Text("Get notified about what matters to you")
                             .font(.custom("OpenSans-Regular", size: 16))
@@ -265,7 +265,7 @@ struct NotificationBenefitRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
                     .font(.custom("OpenSans-Bold", size: 15))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
                 
                 Text(description)
                     .font(.custom("OpenSans-Regular", size: 13))

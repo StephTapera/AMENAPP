@@ -9,7 +9,7 @@ struct CreatorProcessingStatusPill: View {
             CreatorProgressRing(progress: progress)
             Text(title)
                 .font(AMENFont.medium(12))
-                .foregroundStyle(Color.black)
+                .foregroundStyle(.primary)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)

@@ -206,7 +206,7 @@ final class SpiritualCheckInService: ObservableObject {
     private var signals: [CheckInSignal] = []
     private var preferences = CheckInPreferences()
     private let flags = AMENFeatureFlags.shared
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var sessionOpenCount: Int = 0
     private var lastSessionOpenTime: Date?
 
@@ -448,7 +448,7 @@ final class SpiritualCheckInService: ObservableObject {
         guard let uid = Auth.auth().currentUser?.uid else { return }
         // Only log tier + timestamp — no behavioral data
         Task.detached(priority: .background) { [weak self] in
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
             _ = try? await db
                 .collection("users").document(uid)
                 .collection("wellnessEvents")

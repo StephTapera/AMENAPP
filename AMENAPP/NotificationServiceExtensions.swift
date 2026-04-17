@@ -55,8 +55,10 @@ extension NotificationService {
         }
         
         // Find and delete the follow notification from this actor
-        let snapshot = try await db.collection("notifications")
-            .whereField("userId", isEqualTo: userId)
+        let snapshot = try await db
+            .collection("users")
+            .document(userId)
+            .collection("notifications")
             .whereField("type", isEqualTo: "follow")
             .whereField("actorId", isEqualTo: actorId)
             .getDocuments()
@@ -81,8 +83,10 @@ extension NotificationService {
         dlog("🧹 Cleaning up duplicate follow notifications...")
         
         do {
-            let snapshot = try await db.collection("notifications")
-                .whereField("userId", isEqualTo: userId)
+            let snapshot = try await db
+                .collection("users")
+                .document(userId)
+                .collection("notifications")
                 .whereField("type", isEqualTo: "follow")
                 .getDocuments()
             

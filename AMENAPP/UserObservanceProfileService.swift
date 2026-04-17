@@ -139,7 +139,7 @@ final class UserObservanceProfileService: ObservableObject {
     @Published private(set) var profile: UserObservanceProfile?
     @Published private(set) var isLoading = false
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private let cacheKey = "user_observance_profile_v1"
 
     private init() {

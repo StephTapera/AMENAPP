@@ -8,7 +8,7 @@ import Combine
 class SmartMuteService: ObservableObject {
     static let shared = SmartMuteService()
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     @Published var suggestions: [MuteSuggestion] = []
     
     // MARK: - Analyze Thread Activity

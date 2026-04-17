@@ -16,7 +16,7 @@ class KoraViewModel: ObservableObject {
     @Published var activeCheckIns: [KoraCheckIn] = []
     @Published var isLoading: Bool = false
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var circleListener: ListenerRegistration?
 
     // MARK: - Circles

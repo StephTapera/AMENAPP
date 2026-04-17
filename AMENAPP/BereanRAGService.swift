@@ -148,7 +148,7 @@ final class BereanConversationMemoryService: ObservableObject {
     @Published private(set) var sessions: [BereanRAGSession] = []
     @Published private(set) var isLoading = false
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private let flags = AMENFeatureFlags.shared
     private var listenerHandle: ListenerRegistration?
 
@@ -555,7 +555,7 @@ struct BereanLocalRetriever {
 
     private static func loadSavedContent(userId: String, query: String) async -> [BereanRetrievalSource] {
         // Lightweight Firestore query for user's saved posts/notes related to query
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         let lower = query.lowercased().split(separator: " ").filter { $0.count > 3 }.map(String.init)
         guard !lower.isEmpty else { return [] }
 

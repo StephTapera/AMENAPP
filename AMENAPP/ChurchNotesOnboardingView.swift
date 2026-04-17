@@ -98,7 +98,7 @@ struct ChurchNotesOnboardingView: View {
                                 // Main icon
                                 Image(systemName: "note.text")
                                     .font(.systemScaled(44, weight: .semibold))
-                                    .foregroundStyle(.black)
+                                    .foregroundStyle(.primary)
                             }
                             .padding(.top, 40)
 
@@ -108,7 +108,7 @@ struct ChurchNotesOnboardingView: View {
 
                             Text("Church Notes")
                                 .font(.custom("OpenSans-Bold", size: 42))
-                                .foregroundStyle(.black)
+                                .foregroundStyle(.primary)
 
                             Text("Capture and share your spiritual insights")
                                 .font(.custom("OpenSans-Regular", size: 16))
@@ -228,14 +228,14 @@ private struct FeatureCard: View {
 
                 Image(systemName: feature.icon)
                     .font(.systemScaled(24, weight: .semibold))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
             }
 
             // Text Content
             VStack(alignment: .leading, spacing: 6) {
                 Text(feature.title)
                     .font(.custom("OpenSans-Bold", size: 17))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
 
                 Text(feature.description)
                     .font(.custom("OpenSans-Regular", size: 14))

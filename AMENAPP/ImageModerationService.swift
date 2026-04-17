@@ -103,7 +103,7 @@ enum SafeSearchLikelihood: String, Codable, Comparable {
 class ImageModerationService {
     static let shared = ImageModerationService()
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     // SECURITY: API key is NOT stored on the client.
     // Image moderation is handled server-side via Cloud Functions (moderateImage callable).
 

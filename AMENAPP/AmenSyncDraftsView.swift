@@ -12,8 +12,6 @@ struct AmenSyncDraftsView: View {
     @State private var selectedProject: AmenSyncProject?
     @State private var showStudio = false
 
-    private let db = Firestore.firestore()
-
     var body: some View {
         NavigationStack {
             Group {
@@ -78,7 +76,7 @@ struct AmenSyncDraftsView: View {
             return
         }
         do {
-            let snap = try await db
+            let snap = try await Firestore.firestore()
                 .collection("amenSyncProjects")
                 .whereField("authorId", isEqualTo: uid)
                 .order(by: "updatedAt", descending: true)

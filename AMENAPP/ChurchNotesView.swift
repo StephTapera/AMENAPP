@@ -193,10 +193,10 @@ struct ChurchNotesView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
         .fullScreenCover(isPresented: $showingNewNote) {
-            MinimalNewNoteSheet(notesService: notesService)
+            ChurchNotesPremiumEditor(notesService: notesService, existingNote: nil)
         }
         .sheet(item: $selectedNote) { note in
-            MinimalNoteDetailSheet(note: note, notesService: notesService)
+            ChurchNotesPremiumEditor(notesService: notesService, existingNote: note)
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
         }
@@ -240,7 +240,7 @@ struct ChurchNotesView: View {
     /// and common tags from their recent notes, used to power the For You feed ranking.
     private func loadUserChurchForPersonalization() async {
         guard let uid = Auth.auth().currentUser?.uid else { return }
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
 
         // 1. Look up user's most recent church relation (member or regular visitor)
         do {
@@ -2412,7 +2412,7 @@ struct ChurchNoteDetailView: View {
                     Text("Save to this week’s prayer focus")
                         .font(.systemScaled(14, weight: .semibold))
                 }
-                .foregroundStyle(.black)
+                .foregroundStyle(.primary)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
                 .background(
@@ -2562,7 +2562,7 @@ struct ThreadsStyleHeader: View {
             HStack {
                 Text("Notes")
                     .font(.systemScaled(isScrolled ? 28 : 34, weight: .bold, design: .rounded))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
                 
                 Spacer()
                 
@@ -2644,7 +2644,7 @@ struct ThreadsStyleHeader: View {
                     
                     TextField("", text: $searchText, prompt: Text("Search notes...").foregroundStyle(.black.opacity(0.4)))
                         .font(.systemScaled(16, weight: .regular, design: .rounded))
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.primary)
                         .tint(.blue)
                         .onTapGesture {
                             withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
@@ -2874,7 +2874,7 @@ struct ThreadsStyleNoteCard: View {
                     // Title
                     Text(note.title)
                         .font(.systemScaled(20, weight: .bold, design: .rounded))
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.primary)
                         .multilineTextAlignment(.leading)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     
@@ -3069,7 +3069,7 @@ struct MonochromeEmptyState: View {
             VStack(spacing: 12) {
                 Text(emptyTitle)
                     .font(.systemScaled(24, weight: .bold, design: .rounded))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
                 
                 Text(emptySubtitle)
                     .font(.systemScaled(15, weight: .regular, design: .rounded))
@@ -3198,7 +3198,7 @@ struct MonochromeNewNoteView: View {
                     VStack(spacing: 2) {
                         Text("New Note")
                             .font(.systemScaled(17, weight: .semibold, design: .rounded))
-                            .foregroundStyle(.black)
+                            .foregroundStyle(.primary)
                         
                         if wordCount > 0 {
                             Text("\(wordCount) words")
@@ -3313,7 +3313,7 @@ struct MonochromeNewNoteView: View {
                             
                             TextField("", text: $title, prompt: Text("Give your note a powerful title...").foregroundStyle(.black.opacity(0.4)))
                                 .font(.systemScaled(28, weight: .bold, design: .rounded))
-                                .foregroundStyle(.black)
+                                .foregroundStyle(.primary)
                                 .tint(.blue)
                                 .focused($focusedField, equals: .title)
                                 .padding(20)
@@ -3958,7 +3958,7 @@ struct EnhancedTextField: View {
             
             TextField("", text: $text, prompt: Text(placeholder).foregroundStyle(.black.opacity(0.4)))
                 .font(.systemScaled(16, weight: .regular, design: .rounded))
-                .foregroundStyle(.black)
+                .foregroundStyle(.primary)
                 .tint(tintColor)
                 .focused(focusedField, equals: field)
         }
@@ -4006,7 +4006,7 @@ struct ShareNoteToOpenTableSheet: View {
                     
                     Text("Share to #OPENTABLE")
                         .font(.systemScaled(17, weight: .semibold))
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.primary)
                     
                     Spacer()
                     
@@ -4019,7 +4019,7 @@ struct ShareNoteToOpenTableSheet: View {
                         } else {
                             Text("Post")
                                 .font(.systemScaled(17, weight: .semibold))
-                                .foregroundStyle(.black)
+                                .foregroundStyle(.primary)
                         }
                     }
                     .disabled(postContent.isEmpty || isPosting)
@@ -4068,7 +4068,7 @@ struct ShareNoteToOpenTableSheet: View {
                                 // Title
                                 Text(note.title)
                                     .font(.systemScaled(20, weight: .bold))
-                                    .foregroundStyle(.black)
+                                    .foregroundStyle(.primary)
                                 
                                 // Sermon info
                                 if let sermon = note.sermonTitle {
@@ -4157,7 +4157,7 @@ struct ShareNoteToOpenTableSheet: View {
                 
                 // Write a share event for Cloud Function fanout to followers/church members
                 if let sharerId = Auth.auth().currentUser?.uid {
-                    let db = Firestore.firestore()
+                    lazy var db = Firestore.firestore()
                     _ = try? await db.collection("churchNoteShareEvents").addDocument(data: [
                         "noteId": note.id ?? "",
                         "noteTitle": note.title,
@@ -4785,49 +4785,19 @@ private struct ElegantWorshipSongRow: View {
     let song: WorshipSongReference
     let noteId: String?
 
-    @ObservedObject private var vm = WorshipNowPlayingViewModel.shared
-    @State private var isLoading = false
-
-    private var isSpotify: Bool { song.spotifyTrackID != nil }
-    private var isCurrentSong: Bool {
-        vm.currentSong?.title == song.title && vm.currentSong?.artist == song.artist
-    }
-    private var isPlaying: Bool { isCurrentSong && vm.isPlaying }
-    private var spotifyGreen: Color { Color(hex: "1DB954") }
+    @Environment(\.openURL) private var openURL
+    @State private var showUnavailableAlert = false
 
     var body: some View {
         HStack(spacing: 10) {
-            // Album art with source badge
-            ZStack(alignment: .bottomTrailing) {
-                Group {
-                    if let urlStr = song.albumArtURL, let url = URL(string: urlStr) {
-                        AsyncImage(url: url) { phase in
-                            if case .success(let img) = phase {
-                                img.resizable().scaledToFill()
-                            } else { artFallback }
-                        }
-                    } else { artFallback }
-                }
-                .frame(width: 32, height: 32)
-                .clipShape(RoundedRectangle(cornerRadius: 7))
-
-                Circle()
-                    .fill(isSpotify ? spotifyGreen : Color.purple)
-                    .frame(width: 10, height: 10)
-                    .overlay(
-                        Text(isSpotify ? "S" : "♪")
-                            .font(.systemScaled(5.5, weight: .black))
-                            .foregroundStyle(.white)
-                    )
-                    .offset(x: 3, y: 3)
-            }
+            artworkView
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(song.title)
                     .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(Color.black.opacity(0.8))
                     .lineLimit(1)
-                Text(song.artist)
+                Text(statusLine)
                     .font(.systemScaled(11))
                     .foregroundStyle(Color.black.opacity(0.4))
                     .lineLimit(1)
@@ -4836,24 +4806,11 @@ private struct ElegantWorshipSongRow: View {
             Spacer(minLength: 0)
 
             Button { handlePlayTap() } label: {
-                ZStack {
-                    if isLoading {
-                        ProgressView().scaleEffect(0.6)
-                    } else if isSpotify {
-                        Image(systemName: "arrow.up.right")
-                            .font(.systemScaled(11, weight: .semibold))
-                            .foregroundStyle(spotifyGreen)
-                    } else {
-                        Image(systemName: isPlaying ? "pause.fill" : "play.fill")
-                            .font(.systemScaled(11, weight: .semibold))
-                            .foregroundStyle(isCurrentSong ? Color.purple : Color.black.opacity(0.5))
-                    }
-                }
+                Image(systemName: trailingIcon)
+                    .font(.systemScaled(11, weight: .semibold))
+                    .foregroundStyle(Color.black.opacity(0.62))
                 .frame(width: 28, height: 28)
-                .background(Circle().fill(
-                    isSpotify ? spotifyGreen.opacity(0.12) :
-                    (isCurrentSong ? Color.purple.opacity(0.12) : Color.black.opacity(0.05))
-                ))
+                .background(Circle().fill(Color.black.opacity(0.05)))
             }
             .buttonStyle(.plain)
         }
@@ -4862,46 +4819,81 @@ private struct ElegantWorshipSongRow: View {
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
         .overlay(
             RoundedRectangle(cornerRadius: 16)
-                .strokeBorder(
-                    isCurrentSong ? Color.purple.opacity(0.3) : Color.black.opacity(0.07),
-                    lineWidth: 0.5
-                )
+                .strokeBorder(Color.black.opacity(0.07), lineWidth: 0.5)
         )
-        .animation(.spring(response: 0.3, dampingFraction: 0.75), value: isCurrentSong)
+        .alert("Music Unavailable", isPresented: $showUnavailableAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("This attachment can’t be opened right now. Try another link or remove the song from this note.")
+        }
+    }
+
+    private var artworkView: some View {
+        Group {
+            if let urlStr = song.albumArtURL, let url = URL(string: urlStr) {
+                AsyncImage(url: url) { phase in
+                    if case .success(let img) = phase {
+                        img.resizable().scaledToFill()
+                    } else {
+                        artFallback
+                    }
+                }
+            } else {
+                artFallback
+            }
+        }
+        .frame(width: 32, height: 32)
+        .clipShape(RoundedRectangle(cornerRadius: 7))
     }
 
     private var artFallback: some View {
         RoundedRectangle(cornerRadius: 7)
-            .fill(isSpotify ? spotifyGreen.opacity(0.1) : Color.purple.opacity(0.1))
+            .fill(Color.black.opacity(0.06))
             .overlay(
-                Image(systemName: isPlaying ? "waveform" : "music.note")
+                Image(systemName: "music.note")
                     .font(.systemScaled(12))
-                    .foregroundStyle(isSpotify ? spotifyGreen : Color.purple.opacity(0.7))
-                    .symbolEffect(.variableColor.iterative, isActive: isPlaying)
+                    .foregroundStyle(Color.black.opacity(0.55))
             )
     }
 
+    private var statusLine: String {
+        let base = song.subtitle ?? song.artist
+        let helper = song.availabilityState.helperText
+        return base.isEmpty ? helper : "\(base) · \(helper)"
+    }
+
+    private var trailingIcon: String {
+        switch song.availabilityState {
+        case .unavailable:
+            return "exclamationmark.circle"
+        case .accountRequired:
+            return "lock.circle"
+        case .viewOnly:
+            return "arrow.up.right.circle"
+        case .readyToOpen:
+            return "arrow.up.right"
+        }
+    }
+
+    private var preferredURL: URL? {
+        guard let deepLinkURL = song.deepLinkURL, let url = URL(string: deepLinkURL) else {
+            return nil
+        }
+        return UIApplication.shared.canOpenURL(url) ? url : nil
+    }
+
+    private var webFallbackURL: URL? {
+        guard let webURL = song.webURL else { return nil }
+        return URL(string: webURL)
+    }
+
     private func handlePlayTap() {
-        if isSpotify {
-            let deepLink = song.spotifyTrackURL ?? (song.spotifyTrackID.map { "spotify:track:\($0)" } ?? "")
-            let webFallback = song.spotifyTrackID.map { "https://open.spotify.com/track/\($0)" } ?? ""
-            if let url = URL(string: deepLink), UIApplication.shared.canOpenURL(url) {
-                UIApplication.shared.open(url)
-            } else if let url = URL(string: webFallback), !webFallback.isEmpty {
-                UIApplication.shared.open(url)
-            }
+        if let preferredURL {
+            openURL(preferredURL)
+        } else if let webFallbackURL {
+            openURL(webFallbackURL)
         } else {
-            if isCurrentSong {
-                WorshipMusicService.shared.pauseResume()
-            } else {
-                isLoading = true
-                Task {
-                    await WorshipMusicService.shared.playSong(
-                        title: song.title, artist: song.artist, churchNoteId: noteId
-                    )
-                    await MainActor.run { isLoading = false }
-                }
-            }
+            showUnavailableAlert = true
         }
     }
 }
@@ -5804,6 +5796,7 @@ struct MinimalNewNoteSheet: View {
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
     @State private var showingToolbar = false
+    @State private var editorScrollOffset: CGFloat = 0
     @State private var editorSelection = NSRange(location: 0, length: 0)
     @State private var isEditorFocused = false
     @State private var worshipSongs: [WorshipSongReference] = []
@@ -5811,6 +5804,11 @@ struct MinimalNewNoteSheet: View {
 
     var canSave: Bool {
         !title.isEmpty && !content.isEmpty
+    }
+    
+    /// Drives formatting toolbar compression — 0 = fully visible, 1 = fully hidden
+    private var toolbarCompression: CGFloat {
+        min(max((-editorScrollOffset - 20) / 60, 0), 1.0)
     }
     
     var body: some View {
@@ -5859,10 +5857,19 @@ struct MinimalNewNoteSheet: View {
                 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 24) {
+                        // Scroll offset tracker — drives formatting toolbar compression
+                        GeometryReader { geo in
+                            Color.clear.preference(
+                                key: ScrollOffsetPreferenceKey.self,
+                                value: geo.frame(in: .named("noteEditorScroll")).minY
+                            )
+                        }
+                        .frame(height: 0)
+                        
                         // Title field (large)
                         TextField("Note Title", text: $title)
                             .font(.systemScaled(32, weight: .medium))
-                            .foregroundStyle(.black)
+                            .foregroundStyle(.primary)
                             .tint(.black)
                             .padding(.horizontal, 20)
                             .padding(.top, 20)
@@ -5958,7 +5965,7 @@ struct MinimalNewNoteSheet: View {
                             }
                             .padding(.horizontal, 20)
                             
-                            // Formatting toolbar
+                            // Formatting toolbar — compresses as user scrolls into the note
                             if showingToolbar {
                                 TextFormattingToolbar(
                                     content: $content,
@@ -5967,12 +5974,17 @@ struct MinimalNewNoteSheet: View {
                                         isEditorFocused = true
                                     }
                                 )
-                                    .padding(.horizontal, 20)
-                                    .padding(.bottom, 8)
-                                    .transition(.asymmetric(
-                                        insertion: .move(edge: .top).combined(with: .opacity),
-                                        removal: .opacity
-                                    ))
+                                .padding(.horizontal, 20)
+                                .padding(.bottom, 8)
+                                .opacity(1.0 - toolbarCompression)
+                                .scaleEffect(y: 1.0 - toolbarCompression * 0.15, anchor: .top)
+                                .frame(height: max(0, (1.0 - toolbarCompression) * 52), alignment: .top)
+                                .clipped()
+                                .animation(Motion.adaptive(.interactiveSpring(response: 0.22, dampingFraction: 0.78)), value: toolbarCompression)
+                                .transition(.asymmetric(
+                                    insertion: .move(edge: .top).combined(with: .opacity),
+                                    removal: .opacity
+                                ))
                             }
                             
                             ZStack(alignment: .topLeading) {
@@ -6102,6 +6114,12 @@ struct MinimalNewNoteSheet: View {
                         }
                     }
                     .padding(.bottom, 40)
+                }
+                .coordinateSpace(name: "noteEditorScroll")
+                .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
+                    withAnimation(.interactiveSpring(response: 0.2, dampingFraction: 0.8)) {
+                        editorScrollOffset = value
+                    }
                 }
             }
         }
@@ -6495,7 +6513,7 @@ struct MinimalNoteDetailSheet: View {
                     } label: {
                         Image(systemName: "chevron.left")
                             .font(.systemScaled(20, weight: .medium))
-                            .foregroundStyle(.black)
+                            .foregroundStyle(.primary)
                     }
                     
                     Spacer()
@@ -6508,7 +6526,7 @@ struct MinimalNoteDetailSheet: View {
                         } label: {
                             Image(systemName: note.isFavorite ? "star.fill" : "star")
                                 .font(.systemScaled(20))
-                                .foregroundStyle(.black)
+                                .foregroundStyle(.primary)
                         }
                         
                         Menu {
@@ -6532,7 +6550,7 @@ struct MinimalNoteDetailSheet: View {
                         } label: {
                             Image(systemName: "ellipsis")
                                 .font(.systemScaled(20, weight: .medium))
-                                .foregroundStyle(.black)
+                                .foregroundStyle(.primary)
                         }
                     }
                 }
@@ -6549,7 +6567,7 @@ struct MinimalNoteDetailSheet: View {
                         // Title
                         Text(note.title)
                             .font(.systemScaled(38, weight: .medium))
-                            .foregroundStyle(.black)
+                            .foregroundStyle(.primary)
                             .tracking(-1)
                             .padding(.horizontal, 20)
                             .padding(.top, 24)
@@ -6642,7 +6660,7 @@ struct MinimalNoteDetailSheet: View {
                                                     .foregroundStyle(.black.opacity(0.5))
                                                 Text(summary.mainTheme)
                                                     .font(.systemScaled(15, weight: .regular))
-                                                    .foregroundStyle(.black)
+                                                    .foregroundStyle(.primary)
                                             }
                                             
                                             // Key Points
@@ -6658,7 +6676,7 @@ struct MinimalNoteDetailSheet: View {
                                                             Text(point)
                                                                 .font(.systemScaled(14, weight: .regular))
                                                         }
-                                                        .foregroundStyle(.black)
+                                                        .foregroundStyle(.primary)
                                                     }
                                                 }
                                             }
@@ -6676,7 +6694,7 @@ struct MinimalNoteDetailSheet: View {
                                                                 .foregroundStyle(.green)
                                                             Text(step)
                                                                 .font(.systemScaled(14, weight: .regular))
-                                                                .foregroundStyle(.black)
+                                                                .foregroundStyle(.primary)
                                                         }
                                                     }
                                                 }
@@ -6754,7 +6772,7 @@ struct MinimalNoteDetailSheet: View {
                         // Content
                         Text(note.content)
                             .font(.systemScaled(17, weight: .regular))
-                            .foregroundStyle(.black)
+                            .foregroundStyle(.primary)
                             .lineSpacing(6)
                             .padding(.horizontal, 20)
 
@@ -6818,7 +6836,7 @@ struct MinimalNoteDetailSheet: View {
                     Text("Save to this week’s prayer focus")
                         .font(.systemScaled(14, weight: .semibold))
                 }
-                .foregroundStyle(.black)
+                .foregroundStyle(.primary)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
                 .background(
@@ -7032,7 +7050,7 @@ struct MinimalMetadataRow: View {
             
             Text(value)
                 .font(.systemScaled(15, weight: .regular))
-                .foregroundStyle(.black)
+                .foregroundStyle(.primary)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
@@ -7189,4 +7207,3 @@ struct FormattingButton: View {
 #Preview {
     ChurchNotesView()
 }
-

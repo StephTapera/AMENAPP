@@ -291,7 +291,7 @@ struct AIEnhancedCommentsView: View {
                 HStack {
                     Text("Comments")
                         .font(.custom("OpenSans-Bold", size: 18))
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.primary)
                     
                     Text("\(commentsWithReplies.count)")
                         .font(.custom("OpenSans-Regular", size: 14))
@@ -531,7 +531,7 @@ struct ToxicityWarningBanner: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Consider revising your comment")
                     .font(.custom("OpenSans-SemiBold", size: 13))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
                 
                 Text("Your message may come across as negative or hurtful")
                     .font(.custom("OpenSans-Regular", size: 11))

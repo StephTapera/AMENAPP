@@ -30,7 +30,7 @@ final class PrayerRoomManager: ObservableObject {
     @Published var prayerRoomStatus: String = "active"
 
     private let db        = Firestore.firestore()
-    private let functions = Functions.functions()
+    private lazy var functions = Functions.functions()
     private var logListener: ListenerRegistration?
 
     private init() {}

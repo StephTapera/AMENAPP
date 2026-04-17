@@ -20,7 +20,7 @@ final class TranslationModerationBridge {
 
     static let shared = TranslationModerationBridge()
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private let safetyService = ContentSafetyShieldService.shared
 
     private init() {}

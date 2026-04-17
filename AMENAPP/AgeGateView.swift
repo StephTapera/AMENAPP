@@ -3,7 +3,17 @@
 //  AMENAPP
 //
 //  COPPA compliance age gate — shown once on first launch.
-//  Per COPPA, we block users under 13. We do NOT store the date of birth.
+//  Per COPPA, we block users under 13.
+//
+//  Age data storage:
+//  - This view only collects a year-of-birth to compute the current age.
+//    The raw year is NOT persisted by this view.
+//  - After account creation, AgeAssuranceService stores the full date of birth
+//    in Firestore at users/{uid}/private/age_assurance (a private subcollection
+//    inaccessible to other users per Firestore rules). This is required for
+//    ongoing age-tier enforcement and COPPA audit purposes.
+//  - AgeAssuranceService.loadTier() defaults to .teen (fail-closed) when no
+//    profile exists, preventing accidental adult-tier access.
 //
 
 import SwiftUI
@@ -40,7 +50,7 @@ struct AgeGateView: View {
                     .offset(y: appeared ? 0 : 12)
                     .animation(.spring(response: 0.5, dampingFraction: 0.7).delay(0.1), value: appeared)
 
-                Text("You must be \(AppConstants.Legal.minimumAge) or older to use AMEN")
+                Text("You must be \(AppConfig.Legal.minimumAge) or older to use AMEN")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -59,11 +69,11 @@ struct AgeGateView: View {
             .datePickerStyle(.wheel)
             .labelsHidden()
             .onChange(of: birthDate) { _, _ in
-                showUnderAgeMessage = age < AppConstants.Legal.minimumAge
+                showUnderAgeMessage = age < AppConfig.Legal.minimumAge
             }
 
             if showUnderAgeMessage {
-                Text("Sorry, you must be \(AppConstants.Legal.minimumAge) or older to create an account.")
+                Text("Sorry, you must be \(AppConfig.Legal.minimumAge) or older to create an account.")
                     .font(.footnote)
                     .foregroundStyle(.red)
                     .multilineTextAlignment(.center)
@@ -72,7 +82,7 @@ struct AgeGateView: View {
             }
 
             Button("Continue") {
-                if age >= AppConstants.Legal.minimumAge {
+                if age >= AppConfig.Legal.minimumAge {
                     // Do NOT store birthDate — only record that verification passed
                     hasCompletedAgeVerification = true
                     isEligible = true
@@ -86,10 +96,10 @@ struct AgeGateView: View {
             .foregroundStyle(.white)
             .background(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(age >= AppConstants.Legal.minimumAge ? Color.indigo : Color.indigo.opacity(0.35))
+                    .fill(age >= AppConfig.Legal.minimumAge ? Color.indigo : Color.indigo.opacity(0.35))
             )
             .padding(.horizontal, 24)
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: age >= AppConstants.Legal.minimumAge)
+            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: age >= AppConfig.Legal.minimumAge)
 
             Spacer()
         }

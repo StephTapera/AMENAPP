@@ -311,7 +311,7 @@ private struct SelahParser {
     }
 }
 
-// MARK: - Selah View (full-screen reading mode)
+// MARK: - Selah View (full-screen reading + workspace)
 
 struct SelahView: View {
     let message: BereanMessage
@@ -320,86 +320,91 @@ struct SelahView: View {
     var onAskFollowUp: ((String) -> Void)? = nil
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
     @State private var selectedFormat: SelahFormat = .essay
     @Namespace private var formatNamespace
+    @Namespace private var tabNamespace
     @State private var sections: [SelahSection] = []
     @State private var expandedSections: Set<UUID> = []
     @State private var showHighlights = true
     @State private var showSaveConfirmation = false
     @State private var isSavingNote = false
     @State private var isGenerating = false
+    @State private var scrollOffset: CGFloat = 0
+
+    // Tab system
+    @State private var selectedTab: SelahTab = .read
 
     // Actions sheet
     @State private var showActionsSheet = false
 
+    // Verse explorer
+    @State private var selectedVerseRef: String?
+    @State private var showVerseExplorer = false
+
+    // Save toast message
+    @State private var toastMessage = ""
+
     @StateObject private var churchNotesService = ChurchNotesService()
+    @ObservedObject private var selahService = SelahService.shared
+
+    enum SelahTab: String, CaseIterable, Identifiable {
+        case read       = "Read"
+        case ask        = "Ask Selah"
+        case trails     = "Trails"
+        case explore    = "Explore"
+        case transform  = "Transform"
+
+        var id: String { rawValue }
+
+        var icon: String {
+            switch self {
+            case .read:      return "doc.text"
+            case .ask:       return "brain.head.profile"
+            case .trails:    return "point.3.connected.trianglepath.dotted"
+            case .explore:   return "book.fill"
+            case .transform: return "wand.and.stars"
+            }
+        }
+    }
 
     var body: some View {
         ZStack(alignment: .top) {
             // Background
-            Color(red: 0.98, green: 0.98, blue: 0.98)
+            (colorScheme == .dark ? Color(.systemBackground) : Color(red: 0.97, green: 0.97, blue: 0.97))
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
-                // Top bar: close + title + highlights toggle
+                // Top bar with glass treatment
                 topBar
 
-                // Format picker pills
-                formatPicker
-                    .padding(.horizontal, 20)
-                    .padding(.top, 12)
+                // Tab selector
+                tabSelector
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
                     .padding(.bottom, 4)
 
-                // Divider
+                // Format picker (only in Read tab)
+                if selectedTab == .read {
+                    formatPicker
+                        .padding(.horizontal, 20)
+                        .padding(.top, 8)
+                        .padding(.bottom, 4)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                }
+
+                // Thin separator
                 Rectangle()
                     .fill(Color.primary.opacity(0.06))
                     .frame(height: 0.5)
-                    .padding(.top, 8)
 
-                // Reading content
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 0) {
-                        // Query title
-                        queryHeader
-                            .padding(.horizontal, 24)
-                            .padding(.top, 28)
-                            .padding(.bottom, 20)
-
-                        // Generating indicator
-                        if isGenerating {
-                            SelahThinkingDots()
-                                .padding(.horizontal, 24)
-                                .padding(.bottom, 16)
-                        }
-
-                        // Sections
-                        ForEach(sections) { section in
-                            SelahSectionView(
-                                section: section,
-                                isExpanded: expandedSections.contains(section.id),
-                                showHighlights: showHighlights,
-                                onToggle: {
-                                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.78))) {
-                                        if expandedSections.contains(section.id) {
-                                            expandedSections.remove(section.id)
-                                        } else {
-                                            expandedSections.insert(section.id)
-                                        }
-                                    }
-                                }
-                            )
-                            .padding(.horizontal, 20)
-                            .padding(.bottom, 12)
-                        }
-
-                        // Actions bar
-                        actionsBar
-                            .padding(.horizontal, 20)
-                            .padding(.top, 16)
-                            .padding(.bottom, 48)
-                    }
-                }
+                // Tab content
+                tabContent
             }
+
+            // Top-edge blur overlay
+            ScrollEdgeTopBlurOverlay(scrollOffset: scrollOffset, panelHeight: 56)
+                .ignoresSafeArea(edges: .top)
 
             // Save confirmation toast
             if showSaveConfirmation {
@@ -408,7 +413,7 @@ struct SelahView: View {
                     HStack(spacing: 8) {
                         Image(systemName: "checkmark.circle.fill")
                             .foregroundStyle(.green)
-                        Text("Saved to Church Notes")
+                        Text(toastMessage.isEmpty ? "Saved to Church Notes" : toastMessage)
                             .font(.systemScaled(14, weight: .semibold))
                     }
                     .padding(.horizontal, 20)
@@ -423,8 +428,8 @@ struct SelahView: View {
         }
         .onAppear {
             rebuildSections()
-            // All sections start expanded on first load
             expandedSections = Set(sections.map { $0.id })
+            saveSession()
         }
         .onChange(of: selectedFormat) { _, _ in
             withAnimation(.easeInOut(duration: 0.2)) {
@@ -432,9 +437,18 @@ struct SelahView: View {
                 expandedSections = Set(sections.map { $0.id })
             }
         }
+        .sheet(isPresented: $showVerseExplorer) {
+            if let ref = selectedVerseRef {
+                SelahVerseExplorerView(reference: ref) { _ in
+                    showVerseExplorer = false
+                    selectedTab = .ask
+                }
+                .presentationDragIndicator(.visible)
+            }
+        }
     }
 
-    // MARK: - Top Bar
+    // MARK: - Top Bar (Liquid Glass)
 
     private var topBar: some View {
         ZStack {
@@ -473,34 +487,292 @@ struct SelahView: View {
                 .font(.systemScaled(15, weight: .semibold))
                 .foregroundStyle(.primary)
 
-            // Highlights toggle — right
-            HStack {
+            // Right controls
+            HStack(spacing: 8) {
                 Spacer()
-                Button {
-                    withAnimation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.8))) {
-                        showHighlights.toggle()
+
+                // Highlights toggle (read tab only)
+                if selectedTab == .read {
+                    Button {
+                        withAnimation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.8))) {
+                            showHighlights.toggle()
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "highlighter")
+                                .font(.systemScaled(13, weight: .medium))
+                            Text(showHighlights ? "On" : "Off")
+                                .font(.systemScaled(12, weight: .medium))
+                        }
+                        .foregroundStyle(showHighlights ? Color.accentColor : .secondary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(
+                            Capsule()
+                                .fill(showHighlights ? Color.accentColor.opacity(0.12) : Color.primary.opacity(0.06))
+                        )
                     }
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: showHighlights ? "highlighter" : "highlighter")
-                            .font(.systemScaled(13, weight: .medium))
-                        Text(showHighlights ? "On" : "Off")
-                            .font(.systemScaled(12, weight: .medium))
-                    }
-                    .foregroundStyle(showHighlights ? Color.accentColor : .secondary)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(
-                        Capsule()
-                            .fill(showHighlights ? Color.accentColor.opacity(0.12) : Color.primary.opacity(0.06))
-                    )
+                    .buttonStyle(.plain)
+                    .transition(.opacity)
                 }
-                .buttonStyle(.plain)
+
+                // Workflow button
+                StartWorkflowButton(
+                    verseReference: message.verseReferences.first
+                )
             }
         }
         .padding(.horizontal, 20)
         .padding(.top, 16)
         .padding(.bottom, 4)
+    }
+
+    // MARK: - Tab Selector
+
+    private var tabSelector: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 0) {
+                ForEach(SelahTab.allCases) { tab in
+                    Button {
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.78))) {
+                            selectedTab = tab
+                        }
+                    } label: {
+                        VStack(spacing: 4) {
+                            HStack(spacing: 4) {
+                                Image(systemName: tab.icon)
+                                    .font(.systemScaled(11, weight: selectedTab == tab ? .semibold : .regular))
+                                if selectedTab == tab {
+                                    Text(tab.rawValue)
+                                        .font(.systemScaled(12, weight: .semibold))
+                                        .lineLimit(1)
+                                        .transition(.opacity.combined(with: .scale(scale: 0.85)))
+                                }
+                            }
+                            .foregroundStyle(selectedTab == tab ? .primary : .secondary)
+                            .padding(.horizontal, selectedTab == tab ? 14 : 12)
+                            .padding(.vertical, 7)
+                            .background {
+                                if selectedTab == tab {
+                                    Capsule()
+                                        .fill(.regularMaterial)
+                                        .overlay(
+                                            Capsule().strokeBorder(
+                                                LinearGradient(
+                                                    colors: [Color.white.opacity(0.80), Color.white.opacity(0.20)],
+                                                    startPoint: .topLeading,
+                                                    endPoint: .bottomTrailing
+                                                ),
+                                                lineWidth: 1
+                                            )
+                                        )
+                                        .shadow(color: Color.black.opacity(0.10), radius: 5, y: 2)
+                                        .matchedGeometryEffect(id: "selahTabLens", in: tabNamespace)
+                                }
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .id(tab)
+                }
+            }
+            .padding(.horizontal, 4)
+            .padding(.vertical, 4)
+        }
+        .frame(height: 42)
+        .background(
+            Capsule()
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    Capsule().strokeBorder(
+                        LinearGradient(
+                            colors: [Color.white.opacity(0.45), Color.white.opacity(0.10)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+                )
+                .shadow(color: Color.black.opacity(0.06), radius: 10, y: 3)
+                .shadow(color: Color.black.opacity(0.03), radius: 2, y: 1)
+        )
+        .clipShape(Capsule())
+    }
+
+    // MARK: - Tab Content
+
+    @ViewBuilder
+    private var tabContent: some View {
+        switch selectedTab {
+        case .read:
+            readTabContent
+        case .ask:
+            AskSelahView(
+                initialQuery: "",
+                initialVerses: message.verseReferences
+            )
+        case .trails:
+            ThoughtTrailsView()
+        case .explore:
+            if let firstRef = message.verseReferences.first {
+                SelahVerseExplorerView(reference: firstRef) { ref in
+                    selectedTab = .ask
+                }
+            } else {
+                exploreEmptyState
+            }
+        case .transform:
+            ScrollView {
+                SelahTransformationCardsView(
+                    content: message.content,
+                    scriptureRefs: message.verseReferences,
+                    onSave: { output in
+                        saveTransformationToNotes(output)
+                    }
+                )
+                .padding(.top, 16)
+                .padding(.bottom, 48)
+            }
+        }
+    }
+
+    private var exploreEmptyState: some View {
+        VStack(spacing: 16) {
+            Spacer()
+            Image(systemName: "book.fill")
+                .font(.system(size: 40, weight: .light))
+                .foregroundStyle(.secondary.opacity(0.4))
+            Text("No verses to explore")
+                .font(.systemScaled(18, weight: .semibold))
+                .foregroundStyle(.primary)
+            Text("This reflection doesn't contain specific\nverse references to explore.")
+                .font(.systemScaled(14))
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .lineSpacing(3)
+            Spacer()
+        }
+    }
+
+    // MARK: - Read Tab Content
+
+    private var readTabContent: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                // Zero-height scroll offset reader
+                GeometryReader { geo in
+                    Color.clear.preference(
+                        key: ScrollOffsetPreferenceKey.self,
+                        value: geo.frame(in: .named("selahReadScroll")).minY
+                    )
+                }
+                .frame(height: 0)
+
+                // Query title
+                queryHeader
+                    .padding(.horizontal, 24)
+                    .padding(.top, 28)
+                    .padding(.bottom, 20)
+
+                // Active workflow (if any)
+                SelahActiveWorkflowsView { action in
+                    handleWorkflowAction(action)
+                }
+                .padding(.bottom, 12)
+
+                // Generating indicator
+                if isGenerating {
+                    SelahThinkingDots()
+                        .padding(.horizontal, 24)
+                        .padding(.bottom, 16)
+                }
+
+                // Sections (Liquid Glass cards)
+                ForEach(sections) { section in
+                    SelahSectionView(
+                        section: section,
+                        isExpanded: expandedSections.contains(section.id),
+                        showHighlights: showHighlights,
+                        onToggle: {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.78))) {
+                                if expandedSections.contains(section.id) {
+                                    expandedSections.remove(section.id)
+                                } else {
+                                    expandedSections.insert(section.id)
+                                }
+                            }
+                        }
+                    )
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 12)
+                }
+
+                // Scripture reference chips (tappable → Explore tab)
+                if !message.verseReferences.isEmpty {
+                    scriptureChipsSection
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 12)
+                }
+
+                // Actions bar
+                actionsBar
+                    .padding(.horizontal, 20)
+                    .padding(.top, 16)
+                    .padding(.bottom, 48)
+            }
+        }
+        .coordinateSpace(name: "selahReadScroll")
+        .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
+            if abs(value - scrollOffset) >= 1 {
+                scrollOffset = value
+            }
+        }
+    }
+
+    // MARK: - Scripture Chips
+
+    private var scriptureChipsSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("SCRIPTURE")
+                .font(.systemScaled(10, weight: .semibold))
+                .tracking(1.5)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 16)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(message.verseReferences, id: \.self) { ref in
+                        Button {
+                            selectedVerseRef = ref
+                            showVerseExplorer = true
+                        } label: {
+                            HStack(spacing: 5) {
+                                Image(systemName: "book.fill")
+                                    .font(.systemScaled(10))
+                                Text(ref)
+                                    .font(.systemScaled(12, weight: .semibold))
+                            }
+                            .foregroundStyle(Color.accentColor)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 7)
+                            .background(Color.accentColor.opacity(0.10), in: Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)
+                )
+        )
     }
 
     // MARK: - Format Picker
@@ -556,7 +828,7 @@ struct SelahView: View {
 
     private var queryHeader: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("BEREAN")
+            Text("SELAH")
                 .font(.systemScaled(10, weight: .semibold))
                 .tracking(2)
                 .foregroundStyle(Color.accentColor.opacity(0.75))
@@ -582,20 +854,16 @@ struct SelahView: View {
                 .frame(height: 0.5)
 
             HStack(spacing: 0) {
-                // Copy
                 actionButton(icon: "doc.on.doc", label: "Copy") {
                     UIPasteboard.general.string = message.content
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
                 }
-                // Share
                 actionButton(icon: "square.and.arrow.up", label: "Share") {
                     showActionsSheet = true
                 }
-                // Save
                 actionButton(icon: "note.text.badge.plus", label: "Church Notes") {
                     saveToChurchNotes()
                 }
-                // Continue
                 actionButton(icon: "bubble.left.and.bubble.right", label: "Chat") {
                     onContinueInChat?()
                     dismiss()
@@ -650,6 +918,22 @@ struct SelahView: View {
         sections = SelahParser.parse(response: message.content, format: selectedFormat)
     }
 
+    private func saveSession() {
+        Task {
+            let refs = SelahParser.parse(response: message.content, format: .outline)
+                .flatMap { $0.references }
+            let themes = selahService.detectThemes(in: message.content)
+            _ = try? await selahService.saveSession(
+                title: originalQuery.isEmpty ? "Scripture Study" : String(originalQuery.prefix(60)),
+                query: originalQuery,
+                responsePreview: message.content,
+                format: selectedFormat,
+                scriptureRefs: refs,
+                tags: themes
+            )
+        }
+    }
+
     private func saveToChurchNotes() {
         guard !isSavingNote else { return }
         isSavingNote = true
@@ -682,21 +966,72 @@ struct SelahView: View {
                 try await churchNotesService.createNote(note)
                 await MainActor.run {
                     isSavingNote = false
-                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
-                        showSaveConfirmation = true
-                    }
-                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
-                        withAnimation(.easeOut(duration: 0.35)) {
-                            showSaveConfirmation = false
-                        }
-                    }
+                    toastMessage = "Saved to Church Notes"
+                    showToast()
                 }
             } catch {
-                await MainActor.run {
-                    isSavingNote = false
-                }
+                await MainActor.run { isSavingNote = false }
             }
+        }
+    }
+
+    private func saveTransformationToNotes(_ output: SelahTransformationOutput) {
+        let note = ChurchNote(
+            userId: Auth.auth().currentUser?.uid ?? "",
+            title: "\(output.type.rawValue): \(originalQuery.prefix(40))",
+            sermonTitle: "Selah · \(output.type.rawValue)",
+            churchName: nil,
+            pastor: nil,
+            date: Date(),
+            content: output.content,
+            scripture: output.scriptureRefs.first,
+            keyPoints: [],
+            tags: ["Selah", output.type.rawValue],
+            isFavorite: false,
+            createdAt: Date(),
+            updatedAt: Date(),
+            permission: .privateNote
+        )
+
+        Task {
+            do {
+                try await churchNotesService.createNote(note)
+                await MainActor.run {
+                    toastMessage = "\(output.type.rawValue) saved to Church Notes"
+                    showToast()
+                }
+            } catch {}
+        }
+    }
+
+    private func showToast() {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
+            showSaveConfirmation = true
+        }
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
+            withAnimation(.easeOut(duration: 0.35)) {
+                showSaveConfirmation = false
+            }
+        }
+    }
+
+    private func handleWorkflowAction(_ action: WorkflowAction) {
+        switch action {
+        case .openVerse(let ref):
+            selectedVerseRef = ref
+            showVerseExplorer = true
+        case .startSelah:
+            selectedTab = .ask
+        case .createPrayer:
+            // Would deep-link to prayer creation — for now dismiss and let caller handle
+            dismiss()
+        case .openJournal:
+            saveToChurchNotes()
+        case .createTestimony:
+            dismiss()
+        case .shareToOpenTable:
+            dismiss()
         }
     }
 }
@@ -828,9 +1163,23 @@ struct SelahSectionView: View {
                 .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
             }
         }
-        .background(Color.white, in: RoundedRectangle(cornerRadius: 16))
-        .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 2)
-        .shadow(color: Color.black.opacity(0.02), radius: 2, x: 0, y: 0)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [Color.white.opacity(0.50), Color.white.opacity(0.10)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1
+                        )
+                )
+                .shadow(color: Color.black.opacity(0.06), radius: 10, y: 3)
+                .shadow(color: Color.black.opacity(0.02), radius: 2, y: 1)
+        )
     }
 
     @ViewBuilder

@@ -191,7 +191,7 @@ struct ActiveSessionsView: View {
         }
 
         do {
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
             let snapshot = try await db.collection("users")
                 .document(userId)
                 .collection("devices")
@@ -216,7 +216,7 @@ struct ActiveSessionsView: View {
         guard let userId = Auth.auth().currentUser?.uid else { return }
 
         do {
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
 
             // If signing out current device, sign out locally
             if device.deviceId == currentDeviceId {

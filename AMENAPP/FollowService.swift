@@ -58,7 +58,7 @@ class FollowService: ObservableObject {
     @Published var currentUserFollowingCount: Int = 0
     
     private let firebaseManager = FirebaseManager.shared
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var listeners: [ListenerRegistration] = []
     private var isListening = false  // Prevent duplicate listener registration
 
@@ -709,6 +709,21 @@ class FollowService: ObservableObject {
         isListening = false  // ✅ FIX: Reset flag so listeners can be restarted
         loadedForUserId = nil       // Allow re-load after sign-out → sign-in
         isLoadingFollowData = false // Clear any stale in-progress flag
+    }
+
+    /// Stop listeners AND wipe all published user state so the previous user's
+    /// follow graph is never accessible to the next signed-in account.
+    /// Called by AppLifecycleManager.performFullSignOutCleanup().
+    func resetUserState() {
+        stopListening()
+        following.removeAll()
+        followers.removeAll()
+        followingList.removeAll()
+        followersList.removeAll()
+        currentUserFollowersCount = 0
+        currentUserFollowingCount = 0
+        followOperationsInProgress.removeAll()
+        dlog("🧹 FollowService: user state cleared on sign-out")
     }
     
     // MARK: - Bulk Operations

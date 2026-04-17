@@ -115,7 +115,7 @@ class SpiritualHealthIntelligenceService: ObservableObject {
         isGenerating = true
         defer { isGenerating = false }
 
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
 
         // Gather activity data
         let postCount = await countDocs(db.collection("posts").whereField("authorId", isEqualTo: uid))

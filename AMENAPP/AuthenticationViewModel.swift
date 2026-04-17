@@ -10,6 +10,7 @@ import SwiftUI
 import Combine
 import Network
 import FirebaseAuth
+import FirebaseCore
 import FirebaseFirestore
 import FirebaseFunctions
 
@@ -20,6 +21,10 @@ class AuthenticationViewModel: ObservableObject {
     @Published var isAuthenticated = false
     @Published var isCheckingAuth = false  // NEW: Show loading during initial auth check
     @Published var needsOnboarding = false
+    /// The current user's profile document, decoded once from the Firestore read that
+    /// checkOnboardingStatus() already performs. Consumers (e.g. AMENAPPApp) should
+    /// observe this instead of issuing their own users/{uid} read on cold launch.
+    @Published var currentUserModel: UserModel?
     @Published var needsUsernameSelection = false  // NEW: For social sign-in users
     @Published var needsEmailVerification = false  // P0: Email verification gate
     @Published var showAuthSuccess = false  // Success checkmark animation
@@ -80,7 +85,20 @@ class AuthenticationViewModel: ObservableObject {
     private var authStateListener: AuthStateDidChangeListenerHandle?
     private var isAuthenticating = false  // Prevent concurrent auth requests
     private var onboardingJustCompleted = false  // Prevent race condition from checkOnboardingStatus
-    private var isCheckingOnboarding = false  // Prevent duplicate concurrent checkOnboardingStatus calls
+    // Reentrancy guard: replaced plain Bool with a nonisolated counter so two concurrent
+    // auth-listener firings (Firebase known behavior in same run-loop cycle) cannot both
+    // read false before either sets it to true. Access is serialised via @MainActor.
+    private var checkOnboardingTaskCount = 0
+    private var isCheckingOnboarding: Bool {
+        get { checkOnboardingTaskCount > 0 }
+    }
+    // Issue 1 FIX: Track the last UID seen by the auth state listener.
+    // Firebase fires addStateDidChangeListener spuriously on RTDB reconnection,
+    // token refresh, and App Check completion (all unrelated to actual sign-in/out).
+    // Guard same-UID re-fires so checkOnboardingStatus / service startup only run
+    // once per real sign-in event, not on every reconnection event.
+    // NOTE: Initialized to nil here; set in init() after Firebase guard.
+    private var lastAuthStateUserId: String? = nil
     // P0-5 FIX: Suppress auth state listener reactions during the 2FA flow.
     // When signOut() is called after initial sign-in to enforce 2FA, the listener fires
     // with user=nil. When complete2FASignIn re-signs-in, it fires with user≠nil.
@@ -96,6 +114,18 @@ class AuthenticationViewModel: ObservableObject {
     
     init() {
         dlog("🚦 [LAUNCH] AuthenticationViewModel.init() — start")
+
+        // Guard: Auth.auth() crashes if Firebase is not yet configured.
+        // This ViewModel is instantiated as a @StateObject inside ContentView,
+        // which SwiftUI may construct before AppDelegate calls FirebaseApp.configure().
+        guard FirebaseApp.app() != nil else {
+            dlog("🚦 [LAUNCH] Firebase not configured — deferring auth state check")
+            return
+        }
+
+        // Initialize lastAuthStateUserId now that Firebase is available.
+        lastAuthStateUserId = Auth.auth().currentUser?.uid
+
         // ✅ NETWORK FIX: Set initial auth state synchronously from cached user
         // This prevents sign-in UI from showing on slow networks
         if let currentUser = Auth.auth().currentUser {
@@ -139,6 +169,28 @@ class AuthenticationViewModel: ObservableObject {
                 dlog("🔐 AuthViewModel: cleaned up on sessionTimeout notification")
             }
         }
+
+        // Issue 2 FIX: pending2FACredential wraps the user's email+password as an
+        // AuthCredential. If the user backgrounds the app during the 2FA wait window,
+        // the credential sits in heap until the app is foregrounded. Wipe it on
+        // background entry so the plaintext credential is not resident in memory
+        // while the app is suspended. The user will need to sign in again — which is
+        // the correct security posture for an abandoned 2FA flow.
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.didEnterBackgroundNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                guard self.needs2FAVerification else { return }  // Only wipe during active 2FA wait
+                dlog("🔐 AuthVM: app backgrounded during 2FA wait — wiping pending credential")
+                self.pending2FACredential = nil
+                // Note: needs2FAVerification stays true — when foregrounded the user
+                // sees the 2FA screen and tapping verify will fail (no credential),
+                // which surfaces a clean "session expired, please sign in again" error.
+            }
+        }
     }
     
     deinit {
@@ -168,6 +220,18 @@ class AuthenticationViewModel: ObservableObject {
                     dlog("🔐 Auth state change suppressed — 2FA in progress")
                     return
                 }
+
+                // Issue 1 FIX: Firebase fires the auth listener spuriously on RTDB
+                // reconnection, token refresh, and App Check completion — none of which
+                // represent a real sign-in or sign-out. Guard same-UID re-fires so
+                // checkOnboardingStatus / startCoreServices are not re-triggered on
+                // every background reconnect event.
+                let incomingUserId = user?.uid
+                guard incomingUserId != self.lastAuthStateUserId else {
+                    dlog("🔁 [AuthVM] Auth state re-fired for same user (\(incomingUserId ?? "nil")) — skipping")
+                    return
+                }
+                self.lastAuthStateUserId = incomingUserId
                 
                 if let user = user {
                     dlog("🚦 [LAUNCH] Auth state listener fired: user=\(user.uid) isAuthenticated=\(self.isAuthenticated)")
@@ -213,15 +277,20 @@ class AuthenticationViewModel: ObservableObject {
             dlog("📋 Onboarding: skipping status check — completion in progress")
             return
         }
-        // Serialize: if a check is already in flight (e.g., concurrent calls from init() and
-        // the auth state listener on cold launch), skip the duplicate to avoid two Firestore reads
-        // and a potential UI flash from conflicting state assignments.
-        guard !isCheckingOnboarding else {
-            dlog("📋 Onboarding: skipping duplicate in-flight check for user \(userId)")
+        // Issue 4 FIX: Reentrancy-safe serialisation using an atomic counter instead of a
+        // plain Bool. If Firebase fires the auth listener twice within the same run-loop cycle
+        // (known behaviour), both Task closures execute on @MainActor but are interleaved:
+        //   Task 1: reads isCheckingOnboarding → false, sets to true
+        //   Task 2: (same cycle) reads isCheckingOnboarding → still false ← BUG
+        // Using a counter and incrementing/decrementing atomically on @MainActor closes this
+        // window — the second concurrent call sees count > 0 and bails out.
+        checkOnboardingTaskCount += 1
+        guard checkOnboardingTaskCount == 1 else {
+            checkOnboardingTaskCount -= 1
+            dlog("📋 Onboarding: skipping duplicate in-flight check for user \(userId) (count=\(checkOnboardingTaskCount + 1))")
             return
         }
-        isCheckingOnboarding = true
-        defer { isCheckingOnboarding = false }
+        defer { checkOnboardingTaskCount -= 1 }
         
         // Check local cache first for immediate response
         let cachedCompleted = UserDefaults.standard.bool(forKey: "hasCompletedOnboarding_\(userId)")
@@ -264,7 +333,32 @@ class AuthenticationViewModel: ObservableObject {
             let userData = try await firebaseManager.fetchUserDocument(userId: userId)
 
             // ── Deactivation gate ──────────────────────────────────────────────
-            let accountIsDeactivated = userData["isDeactivated"] as? Bool ?? false
+            // Issue 7 NOTE: The `isDeactivated` field is currently read from the
+            // Firestore document. A client-side read can be bypassed by a jailbroken
+            // device that patches the local binary or intercepts the SDK.
+            //
+            // FULL FIX (requires server-side work — tracked separately):
+            //   1. When a user is deactivated, a Cloud Function sets a Firebase Auth
+            //      custom claim:  { deactivated: true }
+            //   2. Here, force-refresh the ID token and check the claim:
+            //        let tokenResult = try await user.getIDTokenResult(forcingRefresh: true)
+            //        let claimDeactivated = tokenResult.claims["deactivated"] as? Bool ?? false
+            //   3. Use claimDeactivated as the authoritative check. Token verification
+            //      happens server-side (Firestore rules / Cloud Functions), making it
+            //      impossible to bypass without a valid Firebase token.
+            //
+            // CLIENT-SIDE DEFENCE (implemented now): Force-refresh the token so any
+            // deactivation claim set by the backend is picked up immediately. If the
+            // claim is present, it takes precedence over the Firestore field.
+            var accountIsDeactivated = userData["isDeactivated"] as? Bool ?? false
+            if let firebaseUser = Auth.auth().currentUser {
+                if let tokenResult = try? await firebaseUser.getIDTokenResult(forcingRefresh: true),
+                   let claimDeactivated = tokenResult.claims["deactivated"] as? Bool {
+                    // Custom claim is authoritative — cannot be forged on the client.
+                    accountIsDeactivated = claimDeactivated
+                    dlog("🔐 Deactivation status from custom claim: \(claimDeactivated)")
+                }
+            }
             if accountIsDeactivated {
                 let status = try await AccountDeactivationService.shared.checkDeactivationStatus(userId: userId)
                 await MainActor.run {
@@ -294,6 +388,17 @@ class AuthenticationViewModel: ObservableObject {
                 self.needsUsernameSelection = false  // Username selection now in onboarding
             }
             dlog("🚦 [LAUNCH] checkOnboardingStatus: Firestore returned hasCompleted=\(hasCompletedOnboarding) → needsOnboarding=\(!hasCompletedOnboarding)")
+
+            // Decode UserModel from the Firestore local cache (already populated by the
+            // fetchUserDocument call above — this read hits the in-memory cache, not the network).
+            // This lets AMENAPPApp.fetchCurrentUserForWelcome() observe currentUserModel
+            // instead of issuing its own redundant network round-trip.
+            lazy var db = Firestore.firestore()
+            if let snapshot = try? await db.collection("users").document(userId)
+                    .getDocument(source: .cache),
+               let userModel = try? snapshot.data(as: UserModel.self) {
+                self.currentUserModel = userModel
+            }
         } catch {
             // On error, fall back to cache; do not force onboarding if cache is missing.
             // This prevents returning users from seeing onboarding on transient fetch failures.
@@ -319,18 +424,14 @@ class AuthenticationViewModel: ObservableObject {
             return
         }
 
-        // BUG-12 FIX: Wait for any in-flight Firestore cache clear from the previous
-        // sign-out to complete before authenticating a new user. This prevents the
-        // next user from loading stale cached data belonging to the previous user.
+        // Issue 5 FIX: Wait for any in-flight Firestore cache clear from the previous
+        // sign-out before authenticating a new user. Uses a continuation-based signal
+        // instead of a polling spin-loop so we suspend exactly until the clear finishes
+        // with no busy-wait overhead and no hard timeout that could expire too early.
         if AppLifecycleManager.shared.isClearingCache {
             dlog("⏳ Waiting for Firestore cache clear before sign-in...")
-            // Poll with a short delay — clearPersistence() typically takes <200ms
-            var waited = 0
-            while AppLifecycleManager.shared.isClearingCache && waited < 10 {
-                try? await Task.sleep(nanoseconds: 100_000_000) // 0.1s
-                waited += 1
-            }
-            dlog("✅ Cache clear complete (or timed out after 1s), proceeding with sign-in")
+            await AppLifecycleManager.shared.waitForCacheClear()
+            dlog("✅ Cache clear complete — proceeding with sign-in")
         }
         
         isAuthenticating = true
@@ -384,16 +485,19 @@ class AuthenticationViewModel: ObservableObject {
                 return
             }
 
-            // Fix A: Gate email/password users who haven't verified their email.
-            // Only applies to users who have not yet completed onboarding (new accounts).
-            // Returning users who completed onboarding are intentionally exempted.
+            // Issue 3 FIX: Gate ALL email/password users who have an unverified address,
+            // regardless of onboarding completion status. Previously, returning users who
+            // registered before email verification was introduced could use the full app
+            // indefinitely with an unverified email — bypassing the gate permanently.
+            // Now the gate fires for every email/password sign-in where isEmailVerified=false.
+            // Users who verify their email (click the link) are admitted without friction.
             let hasPasswordProvider = user.providerData.contains { $0.providerID == "password" }
             if hasPasswordProvider && !user.isEmailVerified {
-                let hasCompletedOnboarding = userData["hasCompletedOnboarding"] as? Bool ?? false
-                if !hasCompletedOnboarding {
-                    dlog("📧 Sign-in: email not verified and onboarding incomplete — showing verification gate")
-                    needsEmailVerification = true
-                }
+                dlog("📧 Sign-in: email not verified — showing verification gate (account: \(user.uid))")
+                needsEmailVerification = true
+                // Send a fresh verification email so the user has a current link,
+                // but only if they haven't been sent one in the last 60 seconds.
+                await sendEmailVerification()
             }
 
             // Success haptic
@@ -458,7 +562,7 @@ class AuthenticationViewModel: ObservableObject {
             // Verify that the Cloud Function actually wrote session2FAActive on the
             // server before we grant access.  This prevents a race where the client
             // calls complete2FASignIn before the Firestore write has committed.
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
             let securityDoc = try await db.collection("userSecurity").document(userId).getDocument()
             let sessionActive = securityDoc.data()?["session2FAActive"] as? Bool ?? false
 
@@ -569,6 +673,83 @@ class AuthenticationViewModel: ObservableObject {
         }
     }
     
+    /// Sign up with date of birth (age assurance)
+    func signUpWithDOB(
+        email: String,
+        password: String,
+        displayName: String,
+        username: String,
+        dateOfBirth: Date
+    ) async {
+        // Prevent concurrent auth requests
+        guard !isAuthenticating else {
+            dlog("⚠️ Sign-up already in progress, ignoring duplicate request")
+            return
+        }
+        
+        isAuthenticating = true
+        defer { isAuthenticating = false }
+        
+        dlog("🔐 Starting sign up with DOB")
+        isLoading = true
+        errorMessage = nil
+        
+        defer { isLoading = false }
+        
+        do {
+            // 1. Create Firebase Auth account
+            let result = try await firebaseManager.signUp(
+                email: email,
+                password: password,
+                displayName: displayName,
+                username: username
+            )
+            
+            dlog("✅ Sign up successful, now storing age profile")
+            
+            // 2. Store age assurance profile IMMEDIATELY after account creation
+            let userId = result.uid
+            do {
+                try await AgeAssuranceService.shared.setDateOfBirth(
+                    userId: userId,
+                    dateOfBirth: dateOfBirth
+                )
+                dlog("✅ Age profile created for user \(userId)")
+            } catch {
+                dlog("❌ Failed to create age profile: \(error.localizedDescription)")
+                // This is critical - if age profile fails, we should handle it
+                // For now, log the error but continue (user is already created)
+            }
+            
+            // Success haptic
+            let haptic = UINotificationFeedbackGenerator()
+            haptic.notificationOccurred(.success)
+            
+            // Set needsOnboarding BEFORE isAuthenticated to prevent UI glitch
+            needsOnboarding = true
+            
+            // P0 FIX: Auto-enable email verification gate for email-based sign-ups
+            needsEmailVerification = true
+            
+            // Send verification email
+            await sendEmailVerification()
+            
+            // Small delay to ensure state is set before auth listener fires
+            try? await Task.sleep(nanoseconds: 50_000_000) // 0.05 seconds
+            
+            // Auth state listener will set isAuthenticated = true
+            
+        } catch {
+            dlog("❌ Sign up with DOB failed: \(error.localizedDescription)")
+            errorMessage = handleAuthError(error)
+            showError = true
+            
+            // Error haptic
+            let haptic = UINotificationFeedbackGenerator()
+            haptic.notificationOccurred(.error)
+        }
+    }
+    
     // MARK: - Auto Login Credential Cache
 
     /// Cached display name from last successful login (shown immediately on next launch).
@@ -585,7 +766,10 @@ class AuthenticationViewModel: ObservableObject {
 
     /// True when there is a locally cached Firebase user (i.e., this is a returning user).
     var hasCachedUser: Bool {
-        Auth.auth().currentUser != nil
+        // Guard: Auth.auth() crashes if Firebase is not yet configured.
+        // This getter is evaluated synchronously during ContentView.body.getter.
+        guard FirebaseApp.app() != nil else { return false }
+        return Auth.auth().currentUser != nil
     }
 
     private func cacheUserCredentials(_ user: FirebaseAuth.User) {
@@ -793,19 +977,15 @@ class AuthenticationViewModel: ObservableObject {
                 needsEmailVerification = false
                 showEmailVerificationBanner = false
             } else {
-                // Not verified — only show banner/gate if this is a fresh sign-up flow.
-                // Returning users (who have already completed onboarding) should NEVER see
-                // the banner mid-session just because their email happens to be unverified.
-                let userId = Auth.auth().currentUser?.uid ?? ""
-                let hasCompletedOnboarding = UserDefaults.standard.bool(forKey: "hasCompletedOnboarding_\(userId)")
-                if needsEmailVerification && !hasCompletedOnboarding {
-                    // New sign-up flow — keep gate and banner active
+                // Issue 3 FIX: Email is still unverified. Keep the gate active for ALL
+                // email/password users — including returning users who predate the email
+                // verification requirement. The gate is already set by signIn(); this
+                // function is called by the polling timer so keep the banner visible.
+                if needsEmailVerification {
                     showEmailVerificationBanner = true
-                } else {
-                    // Returning user or onboarding already complete — never block them
-                    needsEmailVerification = false
-                    showEmailVerificationBanner = false
                 }
+                // If needsEmailVerification was somehow already false (non-email provider
+                // signed in), do not re-enable the gate.
             }
         } catch {
             dlog("❌ Failed to check email verification: \(error.localizedDescription)")
@@ -921,7 +1101,7 @@ class AuthenticationViewModel: ObservableObject {
             // to true only after the user clicks the verification link in the new
             // address. Marking false here prevents stale "verified" state from
             // persisting in our user doc between the request and confirmation.
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
             try? await db.collection("users").document(user.uid).setData(
                 ["emailVerified": false], merge: true
             )
@@ -1597,7 +1777,7 @@ class AuthenticationViewModel: ObservableObject {
         // Update Firestore (single source of truth) asynchronously
         Task {
             do {
-                let db = Firestore.firestore()
+                lazy var db = Firestore.firestore()
                 // Use setData(merge:true) — updateData() throws if the document doesn't exist,
                 // which happens for social sign-in users whose doc was not yet created.
                 try await db.collection("users").document(userId).setData([

@@ -286,7 +286,7 @@ struct SafetySettingsView: View {
         guard let uid = Auth.auth().currentUser?.uid else { return }
         isLoading = true
         loadError = nil
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
 
         do {
             let snap = try await db.collection("contentSafetyLogs")

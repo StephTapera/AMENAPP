@@ -19,7 +19,7 @@ class PrayerMatchingService: ObservableObject {
     @Published var similarPrayers: [SimilarPrayer] = []
     @Published var isMatching = false
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var matchCache: [String: (prayers: [SimilarPrayer], cachedAt: Date)] = [:]
     private let cacheTTL: TimeInterval = 86400 // 24 hours
 

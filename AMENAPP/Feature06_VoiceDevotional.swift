@@ -36,7 +36,7 @@ final class VoiceDevotionalManager: NSObject, ObservableObject {
 
     private let db        = Firestore.firestore()
     private let storage   = Storage.storage()
-    private let functions = Functions.functions()
+    private lazy var functions = Functions.functions()
 
     private var audioEngine   = AVAudioEngine()
     private var audioFile:     AVAudioFile?

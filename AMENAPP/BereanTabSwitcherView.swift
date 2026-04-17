@@ -163,7 +163,7 @@ struct BereanTabSwitcherView: View {
 
             Text("Chats")
                 .font(.systemScaled(17, weight: .semibold))
-                .foregroundStyle(Color.black)
+                .foregroundStyle(.primary)
 
             Spacer()
 
@@ -315,7 +315,7 @@ struct BereanTabSwitcherView: View {
                             .frame(width: 22, height: 22)
                         Text("\(sessionManager.sessions.count)")
                             .font(.systemScaled(11, weight: .semibold))
-                            .foregroundStyle(Color.black)
+                            .foregroundStyle(.primary)
                     }
                 }
                 .buttonStyle(.plain)

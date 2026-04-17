@@ -286,7 +286,7 @@ struct AppealView: View {
         isSubmitting = true
         submitError = nil
 
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         let docRef = contentId.isEmpty
             ? db.collection("contentSafetyLogs").document()
             : db.collection("contentSafetyLogs").document(contentId)

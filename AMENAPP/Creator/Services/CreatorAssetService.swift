@@ -10,8 +10,8 @@ protocol CreatorAssetServicing {
 }
 
 final class CreatorAssetService: CreatorAssetServicing {
-    private let db = Firestore.firestore()
-    private let storage = Storage.storage()
+    private lazy var db = Firestore.firestore()
+    private lazy var storage = Storage.storage()
 
     func fetchAssets(projectID: String) async throws -> [CreatorAsset] {
         let ownerID = try requireOwnerID()

@@ -14,6 +14,9 @@ import AVKit
 struct FullscreenMediaViewer: View {
     let media: PostMediaContainer
     let startIndex: Int
+
+    /// Optional post ID for media resume tracking (System 12).
+    var postId: String? = nil
     
     @Environment(\.dismiss) private var dismiss
     @State private var currentIndex: Int
@@ -25,9 +28,10 @@ struct FullscreenMediaViewer: View {
     @State private var isDraggingToDismiss = false
     @State private var showChrome = true
     
-    init(media: PostMediaContainer, startIndex: Int) {
+    init(media: PostMediaContainer, startIndex: Int, postId: String? = nil) {
         self.media = media
         self.startIndex = startIndex
+        self.postId = postId
         _currentIndex = State(initialValue: startIndex)
     }
     
@@ -123,7 +127,9 @@ struct FullscreenMediaViewer: View {
     private func fullscreenVideoView(_ item: PostMediaItem) -> some View {
         VideoPlayerFullscreen(
             url: item.url,
-            thumbnailURL: item.thumbnailURL
+            thumbnailURL: item.thumbnailURL,
+            postId: postId,
+            mediaItemId: item.id
         )
     }
     
@@ -313,6 +319,8 @@ struct FullscreenMediaViewer: View {
 private struct VideoPlayerFullscreen: View {
     let url: String
     let thumbnailURL: String?
+    var postId: String? = nil
+    var mediaItemId: String? = nil
     
     @State private var player: AVPlayer?
     
@@ -324,12 +332,24 @@ private struct VideoPlayerFullscreen: View {
             }
             .onDisappear {
                 player?.pause()
+                if postId != nil {
+                    MediaSessionCoordinator.shared.endSession()
+                }
             }
     }
     
     private func setupPlayer() {
         guard let videoURL = URL(string: url) else { return }
         player = AVPlayer(url: videoURL)
+
+        // Integrate with media session coordinator for resume tracking
+        if let pId = postId, let mId = mediaItemId, let p = player {
+            MediaSessionCoordinator.shared.beginSession(
+                postId: pId, mediaItemId: mId,
+                surface: .fullscreen, player: p
+            )
+        }
+
         player?.play()
     }
 }

@@ -28,7 +28,7 @@ final class ScheduledMessagesService: ObservableObject {
 
     @Published private(set) var scheduledMessages: [ScheduledMessage] = []
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var listener: ListenerRegistration?
 
     private init() {}

@@ -102,8 +102,8 @@ actor WhisperVoiceService {
     private var isCurrentlyRecording = false
     private var recordingStartTime: Date?
 
-    private let functions = Functions.functions()
-    private let db = Firestore.firestore()
+    private lazy var functions = Functions.functions()
+    private lazy var db = Firestore.firestore()
 
     private init() {}
 

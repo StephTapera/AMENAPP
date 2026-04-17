@@ -288,7 +288,7 @@ final class ChurchDiscoveryService: ObservableObject {
 
     static let shared = ChurchDiscoveryService()
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private let flags = AMENFeatureFlags.shared
 
     @Published private(set) var recommendedChurches: [ChurchRichProfile] = []

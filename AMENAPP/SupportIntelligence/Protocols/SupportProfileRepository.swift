@@ -15,4 +15,8 @@ protocol SupportProfileRepository: AnyObject, Sendable {
     func saveSignal(_ signal: SupportSignal, userId: String) async throws
     func saveIntervention(_ intervention: SupportIntervention, userId: String) async throws
     func fetchRecentSignals(userId: String, limit: Int) async throws -> [SupportSignal]
+    func fetchTrustedContacts(userId: String) async throws -> [SupportTrustedContact]
+    func saveTrustedContacts(_ contacts: [SupportTrustedContact], userId: String) async throws
+    func fetchResourcePlans(userId: String) async throws -> [SupportResourcePlan]
+    func saveResourcePlan(_ plan: SupportResourcePlan, userId: String) async throws
 }

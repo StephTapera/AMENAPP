@@ -16,7 +16,7 @@ import Combine
 class SmartNotificationBatcher: ObservableObject {
     static let shared = SmartNotificationBatcher()
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     @Published var pendingBatch: [BatchedNotification] = []
     @Published var lastDeliveryTime: Date?

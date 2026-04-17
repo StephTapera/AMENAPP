@@ -48,7 +48,7 @@ struct AINotificationPreferences: Codable {
 /// Service for intelligent notification batching and timing
 class SmartNotificationService {
     static let shared = SmartNotificationService()
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private let notificationCenter = UNUserNotificationCenter.current()
     
     // Batching intervals

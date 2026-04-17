@@ -37,6 +37,34 @@ enum NotificationRoute: Equatable {
     // Failure states
     case unavailable(reason: String)
     case fallback
+
+    // MARK: - Fallback Route Chain
+
+    /// Returns a less-specific route to try when the primary navigation target
+    /// is unavailable (deleted post, blocked user, etc.).
+    /// Chain: postReply → postComment → post → fallback
+    var fallbackRoute: NotificationRoute {
+        switch self {
+        case .postReply(let postID, let parentCommentID, _):
+            return .postComment(postID: postID, commentID: parentCommentID)
+        case .postComment(let postID, _):
+            return .post(postID: postID)
+        case .mentionInComment(let postID, _):
+            return .post(postID: postID)
+        case .post:
+            return .fallback
+        case .profile:
+            return .fallback
+        case .conversation:
+            return .fallback
+        case .prayer:
+            return .fallback
+        case .churchNote:
+            return .fallback
+        case .followRequests, .unavailable, .fallback:
+            return .fallback
+        }
+    }
 }
 
 // MARK: - NotificationRouteResolver
@@ -45,6 +73,15 @@ enum NotificationRoute: Equatable {
 /// Single source of truth — do NOT add routing logic elsewhere.
 enum NotificationRouteResolver {
     static func resolve(_ notification: AppNotification) -> NotificationRoute {
+        // V2: If server provided explicit routing, use it
+        if let routeType = notification.targetRouteType,
+           let payload = notification.routePayload {
+            if let route = resolveFromServerRoute(type: routeType, payload: payload) {
+                return route
+            }
+        }
+
+        // V1 fallback: derive route from notification fields
         switch notification.type {
 
         case .follow, .followRequestAccepted:
@@ -94,9 +131,67 @@ enum NotificationRouteResolver {
             guard let noteId = notification.noteId, !noteId.isEmpty else { return .fallback }
             return .churchNote(noteID: noteId)
 
+        case .actionThreadInvite, .actionThreadUpdate, .actionThreadReminder:
+            // Action thread notifications link to the parent post
+            guard let postId = notification.postId, !postId.isEmpty else { return .fallback }
+            return .post(postID: postId)
+
         case .unknown:
             return .fallback
         }
+    }
+
+    /// Resolves a NotificationRoute from server-provided route type and payload.
+    /// Returns nil if the route type is unknown (client should fall back to v1 resolution).
+    static func resolveFromServerRoute(type: String, payload: [String: String]) -> NotificationRoute? {
+        switch type {
+        case "post":
+            guard let postId = payload["postId"], !postId.isEmpty else { return nil }
+            return .post(postID: postId)
+        case "post_comment":
+            guard let postId = payload["postId"], !postId.isEmpty,
+                  let commentId = payload["commentId"], !commentId.isEmpty else { return nil }
+            return .postComment(postID: postId, commentID: commentId)
+        case "post_reply":
+            guard let postId = payload["postId"], !postId.isEmpty,
+                  let commentId = payload["commentId"], !commentId.isEmpty else { return nil }
+            let parentId = payload["parentCommentId"] ?? commentId
+            return .postReply(postID: postId, parentCommentID: parentId, replyID: commentId)
+        case "mention_in_comment":
+            guard let postId = payload["postId"], !postId.isEmpty,
+                  let commentId = payload["commentId"], !commentId.isEmpty else { return nil }
+            return .mentionInComment(postID: postId, commentID: commentId)
+        case "profile":
+            guard let userId = payload["userId"], !userId.isEmpty else { return nil }
+            return .profile(userID: userId)
+        case "conversation":
+            guard let convId = payload["conversationId"], !convId.isEmpty else { return nil }
+            return .conversation(conversationID: convId)
+        case "follow_requests":
+            return .followRequests
+        case "prayer":
+            guard let prayerId = payload["prayerId"], !prayerId.isEmpty else { return nil }
+            return .prayer(prayerID: prayerId)
+        case "church_note":
+            guard let noteId = payload["noteId"], !noteId.isEmpty else { return nil }
+            return .churchNote(noteID: noteId)
+        case "notifications_inbox":
+            return .fallback
+        default:
+            return nil
+        }
+    }
+
+    /// Resolves fallback route from server-provided fallback fields on a notification.
+    static func resolveFallbackRoute(_ notification: AppNotification) -> NotificationRoute {
+        if let fallbackType = notification.fallbackRouteType,
+           let fallbackPayload = notification.fallbackRoutePayload,
+           let route = resolveFromServerRoute(type: fallbackType, payload: fallbackPayload) {
+            return route
+        }
+        // If no server fallback, use the computed fallback chain
+        let primaryRoute = resolve(notification)
+        return primaryRoute.fallbackRoute
     }
 }
 

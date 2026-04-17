@@ -3,8 +3,9 @@
 //  AMENAPP
 //
 //  Bottom sheet fallback for the Berean AI Live Activity on devices
-//  without Dynamic Island (iPhone 14 and earlier).
-//  Same layout as the expanded Dynamic Island view.
+//  that do not support Dynamic Island (iPhone 14 and earlier) or when
+//  the user has disabled Live Activities.
+//  Styled in AMEN Liquid Glass: white background, black text, no purple.
 //
 
 import SwiftUI
@@ -15,81 +16,129 @@ struct BereanFallbackSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            // Header
-            HStack {
-                Image(systemName: "cross.fill")
-                    .font(.systemScaled(16, weight: .semibold))
-                    .foregroundStyle(.purple)
-                Text("Berean AI")
-                    .font(.systemScaled(16, weight: .bold))
-                    .foregroundStyle(.white)
-                Spacer()
 
-                if service.fallbackState?.phase == .loading {
-                    ProgressView()
-                        .scaleEffect(0.8)
-                        .tint(.purple)
-                } else if service.fallbackState?.phase == .complete {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
+            // MARK: Header
+            HStack(alignment: .center, spacing: 10) {
+                ZStack {
+                    Circle()
+                        .fill(.black)
+                        .frame(width: 32, height: 32)
+                    Image(systemName: "cross.fill")
+                        .font(.systemScaled(13, weight: .semibold))
+                        .foregroundStyle(.white)
                 }
 
-                Button { dismiss() } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.systemScaled(22))
-                        .foregroundStyle(.white.opacity(0.4))
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Berean AI")
+                        .font(.systemScaled(15, weight: .semibold))
+                        .foregroundStyle(.primary)
+                    Text("Biblical insight")
+                        .font(.systemScaled(11))
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                // Phase indicator
+                Group {
+                    if service.fallbackState?.phase == .loading ||
+                       service.fallbackState?.phase == .responding {
+                        ProgressView()
+                            .scaleEffect(0.75)
+                            .tint(.black)
+                    } else if service.fallbackState?.phase == .complete {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.primary)
+                            .font(.systemScaled(18))
+                    } else if service.fallbackState?.phase == .error {
+                        Image(systemName: "exclamationmark.circle")
+                            .foregroundStyle(.secondary)
+                            .font(.systemScaled(18))
+                    }
+                }
+
+                Button {
+                    Task { await service.endActivity() }
+                    dismiss()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.systemScaled(13, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 28, height: 28)
+                        .background(Circle().fill(Color(.systemGray5)))
                 }
             }
 
-            // Post preview
-            Text(service.fallbackPostPreview)
-                .font(.systemScaled(12))
-                .foregroundStyle(.gray)
-                .lineLimit(1)
+            // MARK: Post context
+            if !service.fallbackPostPreview.isEmpty {
+                Text("\"\(service.fallbackPostPreview)\"")
+                    .font(.systemScaled(12))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(Color(.systemGray6))
+                    )
+            }
 
-            Divider().background(Color.white.opacity(0.1))
+            Divider()
 
-            // Response
-            if service.fallbackState?.phase == .loading {
-                HStack(spacing: 8) {
-                    ProgressView().scaleEffect(0.7).tint(.purple)
-                    Text(service.fallbackState?.phase.statusText ?? "Loading...")
+            // MARK: Response body
+            if service.fallbackState?.phase == .loading ||
+               service.fallbackState?.phase == .responding {
+                HStack(spacing: 10) {
+                    ProgressView().scaleEffect(0.7).tint(.black)
+                    Text(service.fallbackState?.phase.statusText ?? "Loading…")
                         .font(.systemScaled(14))
-                        .foregroundStyle(.gray)
+                        .foregroundStyle(.secondary)
                         .italic()
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.vertical, 20)
-            } else {
-                Text(service.fallbackState?.responseText ?? "")
-                    .font(.systemScaled(15))
-                    .foregroundStyle(.white)
-                    .lineSpacing(4)
+                .padding(.vertical, 24)
+            } else if let text = service.fallbackState?.responseText, !text.isEmpty {
+                ScrollView {
+                    Text(text)
+                        .font(.systemScaled(15))
+                        .foregroundStyle(.primary)
+                        .lineSpacing(5)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .frame(maxHeight: 180)
+            } else if service.fallbackState?.phase == .error {
+                Text("Berean is unavailable right now. Please try again.")
+                    .font(.systemScaled(14))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 12)
             }
 
-            // Scripture pills
+            // MARK: Scripture reference pills
             if let scriptures = service.fallbackState?.scriptures, !scriptures.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
                         ForEach(scriptures, id: \.self) { ref in
                             Text(ref)
                                 .font(.systemScaled(12, weight: .medium))
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 5)
-                                .background(Capsule().fill(Color.purple.opacity(0.5)))
+                                .foregroundStyle(.primary)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(
+                                    Capsule()
+                                        .fill(Color(.systemGray5))
+                                )
                         }
                     }
                 }
             }
 
-            Spacer()
+            Spacer(minLength: 0)
 
-            // Go Deeper button
+            // MARK: Go Deeper CTA
             if service.fallbackState?.phase == .complete {
                 Button {
                     dismiss()
-                    // Navigate to full Berean UI
                     NotificationCenter.default.post(
                         name: .openBereanFromLiveActivity,
                         object: nil,
@@ -97,24 +146,16 @@ struct BereanFallbackSheet: View {
                     )
                 } label: {
                     Text("Go Deeper")
-                        .font(.systemScaled(16, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
-                        .background(
-                            Capsule().fill(
-                                LinearGradient(
-                                    colors: [.purple, Color(red: 0.4, green: 0.2, blue: 0.8)],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
-                        )
+                        .background(Capsule().fill(.black))
                 }
             }
         }
         .padding(20)
-        .background(Color(red: 0.06, green: 0.06, blue: 0.10))
+        .background(Color(.systemBackground))
         .presentationDetents([.medium])
         .presentationDragIndicator(.visible)
     }

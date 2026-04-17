@@ -13,18 +13,18 @@
 		EF3AD06E2F32F5B200596905 /* genkit-package.json in Resources */ = {isa = PBXBuildFile; fileRef = EF3AD06D2F32F5B200596905 /* genkit-package.json */; };
 		EF3AD0702F32F5B500596905 /* genkit-Dockerfile in Resources */ = {isa = PBXBuildFile; fileRef = EF3AD06F2F32F5B500596905 /* genkit-Dockerfile */; };
 		EF43AAD12F5412C40075E1B5 /* ActivityKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EF43AAD02F5412C40075E1B5 /* ActivityKit.framework */; };
-		EF4BA9DA2F29FDD3000B930F /* Abtesting in Frameworks */ = {isa = PBXBuildFile; productRef = EF4BA9D92F29FDD3000B930F /* Abtesting */; };
-		EF4BA9DC2F29FDD3000B930F /* AbtestingV3 in Frameworks */ = {isa = PBXBuildFile; productRef = EF4BA9DB2F29FDD3000B930F /* AbtestingV3 */; };
-		EF4BA9DE2F29FDD3000B930F /* Analytics in Frameworks */ = {isa = PBXBuildFile; productRef = EF4BA9DD2F29FDD3000B930F /* Analytics */; };
-		EF4BA9E02F29FDD3000B930F /* Composition in Frameworks */ = {isa = PBXBuildFile; productRef = EF4BA9DF2F29FDD3000B930F /* Composition */; };
-		EF4BA9E22F29FDD3000B930F /* Core in Frameworks */ = {isa = PBXBuildFile; productRef = EF4BA9E12F29FDD3000B930F /* Core */; };
-		EF4BA9E42F29FDD3000B930F /* Ingestion in Frameworks */ = {isa = PBXBuildFile; productRef = EF4BA9E32F29FDD3000B930F /* Ingestion */; };
-		EF4BA9E62F29FDD3000B930F /* Insights in Frameworks */ = {isa = PBXBuildFile; productRef = EF4BA9E52F29FDD3000B930F /* Insights */; };
-		EF4BA9E82F29FDD3000B930F /* Monitoring in Frameworks */ = {isa = PBXBuildFile; productRef = EF4BA9E72F29FDD3000B930F /* Monitoring */; };
-		EF4BA9EA2F29FDD3000B930F /* Personalization in Frameworks */ = {isa = PBXBuildFile; productRef = EF4BA9E92F29FDD3000B930F /* Personalization */; };
-		EF4BA9EC2F29FDD3000B930F /* QuerySuggestions in Frameworks */ = {isa = PBXBuildFile; productRef = EF4BA9EB2F29FDD3000B930F /* QuerySuggestions */; };
-		EF4BA9EE2F29FDD3000B930F /* Recommend in Frameworks */ = {isa = PBXBuildFile; productRef = EF4BA9ED2F29FDD3000B930F /* Recommend */; };
-		EF4BA9F02F29FDD3000B930F /* Search in Frameworks */ = {isa = PBXBuildFile; productRef = EF4BA9EF2F29FDD3000B930F /* Search */; };
+		EF4BA9DA2F29FDD3000B930F /* AlgoliaAbtesting in Frameworks */ = {isa = PBXBuildFile; productRef = EF4BA9D92F29FDD3000B930F /* AlgoliaAbtesting */; };
+		EF4BA9DC2F29FDD3000B930F /* AlgoliaAbtestingV3 in Frameworks */ = {isa = PBXBuildFile; productRef = EF4BA9DB2F29FDD3000B930F /* AlgoliaAbtestingV3 */; };
+		EF4BA9DE2F29FDD3000B930F /* AlgoliaAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = EF4BA9DD2F29FDD3000B930F /* AlgoliaAnalytics */; };
+		EF4BA9E02F29FDD3000B930F /* AlgoliaComposition in Frameworks */ = {isa = PBXBuildFile; productRef = EF4BA9DF2F29FDD3000B930F /* AlgoliaComposition */; };
+		EF4BA9E22F29FDD3000B930F /* AlgoliaCore in Frameworks */ = {isa = PBXBuildFile; productRef = EF4BA9E12F29FDD3000B930F /* AlgoliaCore */; };
+		EF4BA9E42F29FDD3000B930F /* AlgoliaIngestion in Frameworks */ = {isa = PBXBuildFile; productRef = EF4BA9E32F29FDD3000B930F /* AlgoliaIngestion */; };
+		EF4BA9E62F29FDD3000B930F /* AlgoliaInsights in Frameworks */ = {isa = PBXBuildFile; productRef = EF4BA9E52F29FDD3000B930F /* AlgoliaInsights */; };
+		EF4BA9E82F29FDD3000B930F /* AlgoliaMonitoring in Frameworks */ = {isa = PBXBuildFile; productRef = EF4BA9E72F29FDD3000B930F /* AlgoliaMonitoring */; };
+		EF4BA9EA2F29FDD3000B930F /* AlgoliaPersonalization in Frameworks */ = {isa = PBXBuildFile; productRef = EF4BA9E92F29FDD3000B930F /* AlgoliaPersonalization */; };
+		EF4BA9EC2F29FDD3000B930F /* AlgoliaQuerySuggestions in Frameworks */ = {isa = PBXBuildFile; productRef = EF4BA9EB2F29FDD3000B930F /* AlgoliaQuerySuggestions */; };
+		EF4BA9EE2F29FDD3000B930F /* AlgoliaRecommend in Frameworks */ = {isa = PBXBuildFile; productRef = EF4BA9ED2F29FDD3000B930F /* AlgoliaRecommend */; };
+		EF4BA9F02F29FDD3000B930F /* AlgoliaSearch in Frameworks */ = {isa = PBXBuildFile; productRef = EF4BA9EF2F29FDD3000B930F /* AlgoliaSearch */; };
 		EF4E20582F1F421D0066C5C2 /* FirebaseAI in Frameworks */ = {isa = PBXBuildFile; productRef = EF4E20572F1F421D0066C5C2 /* FirebaseAI */; };
 		EF4E205A2F1F421D0066C5C2 /* FirebaseAILogic in Frameworks */ = {isa = PBXBuildFile; productRef = EF4E20592F1F421D0066C5C2 /* FirebaseAILogic */; };
 		EF4E205C2F1F421D0066C5C2 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = EF4E205B2F1F421D0066C5C2 /* FirebaseAnalytics */; };
@@ -54,6 +54,7 @@
 		EF5B39152F5BA7A600152D09 /* AMENWidgetExtensionExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = EF5B39042F5BA7A500152D09 /* AMENWidgetExtensionExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		EF5D8DC62F3EDC80000BB6C9 /* GoogleGenerativeAI in Frameworks */ = {isa = PBXBuildFile; productRef = EF5D8DC52F3EDC80000BB6C9 /* GoogleGenerativeAI */; };
 		EF7475D92F2C85CD00A4434F /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EF7475D82F2C85CD00A4434F /* XCTest.framework */; platformFilter = ios; };
+		EFA100012F90000100000001 /* AMENNotificationServiceExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = EFA100032F90000100000001 /* AMENNotificationServiceExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -70,6 +71,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = EF5B39032F5BA7A500152D09;
 			remoteInfo = AMENWidgetExtensionExtension;
+		};
+		EFA100022F90000100000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = EF8151932F184E97008912E3 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EFA100072F90000100000001;
+			remoteInfo = AMENNotificationServiceExtension;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -91,6 +99,7 @@
 			dstSubfolderSpec = 13;
 			files = (
 				EF5B39152F5BA7A600152D09 /* AMENWidgetExtensionExtension.appex in Embed Foundation Extensions */,
+				EFA100012F90000100000001 /* AMENNotificationServiceExtension.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -261,6 +270,19 @@
 		EF72D8F72F4FEBCE00F51E08 /* BiometricOnboardingPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BiometricOnboardingPage.swift; sourceTree = "<group>"; };
 		EF72D8F92F4FEFB400F51E08 /* PrivacySettingsOnboardingPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacySettingsOnboardingPage.swift; sourceTree = "<group>"; };
 		EF7475D82F2C85CD00A4434F /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = Platforms/iPhoneOS.platform/Developer/Library/Frameworks/XCTest.framework; sourceTree = DEVELOPER_DIR; };
+		EF7F00562F8957A400B31A9A /* groupLinks.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = groupLinks.ts; sourceTree = "<group>"; };
+		EF7FF4B92F88A22400B31A9A /* ActionThreadModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionThreadModels.swift; sourceTree = "<group>"; };
+		EF7FF4BA2F88A22500B31A9A /* CompoundIdentityModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompoundIdentityModels.swift; sourceTree = "<group>"; };
+		EF7FF4BB2F88A22600B31A9A /* ProofOfTrustModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProofOfTrustModels.swift; sourceTree = "<group>"; };
+		EF7FF4BC2F88A2CB00B31A9A /* ActionThreadService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionThreadService.swift; sourceTree = "<group>"; };
+		EF7FF4BD2F88A2CB00B31A9A /* ActionThreadPermissionsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionThreadPermissionsService.swift; sourceTree = "<group>"; };
+		EF7FF4BE2F88A31100B31A9A /* ActionSuggestionEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionSuggestionEngine.swift; sourceTree = "<group>"; };
+		EF7FF4BF2F88A31100B31A9A /* ActionThreadNotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionThreadNotificationService.swift; sourceTree = "<group>"; };
+		EF7FF4C02F88A37A00B31A9A /* UserIntelligenceOrchestrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserIntelligenceOrchestrator.swift; sourceTree = "<group>"; };
+		EF7FF4C12F88A37A00B31A9A /* TrustScoringEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrustScoringEngine.swift; sourceTree = "<group>"; };
+		EF7FF4C22F88A3AA00B31A9A /* TrustEventRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrustEventRecorder.swift; sourceTree = "<group>"; };
+		EF7FF4C32F88A3AB00B31A9A /* ProofOfHumanService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProofOfHumanService.swift; sourceTree = "<group>"; };
+		EF7FF4C42F88A3AB00B31A9A /* ProofOfCareService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProofOfCareService.swift; sourceTree = "<group>"; };
 		EF81519B2F184E97008912E3 /* AMENAPP.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AMENAPP.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		EF8C4BD32F60FE6C0003AE65 /* AMENBottomSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AMENBottomSheet.swift; sourceTree = "<group>"; };
 		EF8C4BD52F6232150003AE65 /* AMENMediaModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AMENMediaModels.swift; sourceTree = "<group>"; };
@@ -305,6 +327,10 @@
 		EF92D0162F257D7C00CC9601 /* FIREBASE_PERSISTENCE_TROUBLESHOOTING.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = FIREBASE_PERSISTENCE_TROUBLESHOOTING.md; sourceTree = "<group>"; };
 		EF94DD902F5925C6004D0767 /* BereanSafetyPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BereanSafetyPolicy.swift; sourceTree = "<group>"; };
 		EF94DD922F59D77E004D0767 /* AMENInbox.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AMENInbox.swift; sourceTree = "<group>"; };
+		EF9B3B472F8AA77E00D0E71B /* refineTranslation.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = refineTranslation.ts; sourceTree = "<group>"; };
+		EF9B3B9A2F8B230900D0E71B /* suggestedAccounts.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = suggestedAccounts.ts; sourceTree = "<group>"; };
+		EF9B3BD62F8D023900D0E71B /* feedBuilder.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = feedBuilder.ts; sourceTree = "<group>"; };
+		EF9B3C082F8DACFB00D0E71B /* trustIntelligence.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = trustIntelligence.ts; sourceTree = "<group>"; };
 		EF9FD0262F821BB100EBF035 /* index.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = index.ts; sourceTree = "<group>"; };
 		EF9FD0272F821BB700EBF035 /* createProject.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = createProject.ts; sourceTree = "<group>"; };
 		EF9FD0282F821BBC00EBF035 /* updateProject.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = updateProject.ts; sourceTree = "<group>"; };
@@ -333,6 +359,7 @@
 		EF9FFCBC2F82831B00EBF035 /* ffmpegUtils.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = ffmpegUtils.ts; sourceTree = "<group>"; };
 		EF9FFCBD2F82835600EBF035 /* package.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = package.json; sourceTree = "<group>"; };
 		EF9FFCBE2F82835E00EBF035 /* tsconfig.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = tsconfig.json; sourceTree = "<group>"; };
+		EFA100032F90000100000001 /* AMENNotificationServiceExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = AMENNotificationServiceExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		EFAE09662F4AE793009D7209 /* PRODUCTION_READINESS_AUDIT_COMPLETE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = PRODUCTION_READINESS_AUDIT_COMPLETE.md; sourceTree = "<group>"; };
 		EFAE09682F4B4D11009D7209 /* FollowStateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FollowStateManager.swift; sourceTree = "<group>"; };
 		EFAE096A2F4B4F16009D7209 /* LiquidGlassAnimations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiquidGlassAnimations.swift; sourceTree = "<group>"; };
@@ -422,18 +449,10 @@
 			);
 			target = EF5B39032F5BA7A500152D09 /* AMENWidgetExtensionExtension */;
 		};
-		EF7475DB2F2C873700A4434F /* Exceptions for "AMENAPP" folder in "AMENAPPTests" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				SavedPostsTests.swift,
-			);
-			target = EF56F7402F2881A30019B94A /* AMENAPPTests */;
-		};
 		EF7F3C6A2F2352350016C6EE /* Exceptions for "AMENAPP" folder in "AMENAPP" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
-				SavedPostsTests.swift,
 			);
 			target = EF81519A2F184E97008912E3 /* AMENAPP */;
 		};
@@ -443,6 +462,13 @@
 				BereanActivityAttributes.swift,
 			);
 			target = EF5B39032F5BA7A500152D09 /* AMENWidgetExtensionExtension */;
+		};
+		EFA100042F90000100000001 /* Exceptions for "AMENNotificationServiceExtension" folder in "AMENNotificationServiceExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = EFA100072F90000100000001 /* AMENNotificationServiceExtension */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -464,10 +490,17 @@
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				EF7F3C6A2F2352350016C6EE /* Exceptions for "AMENAPP" folder in "AMENAPP" target */,
-				EF7475DB2F2C873700A4434F /* Exceptions for "AMENAPP" folder in "AMENAPPTests" target */,
 				EF8AFE832F68795F000A7001 /* Exceptions for "AMENAPP" folder in "AMENWidgetExtensionExtension" target */,
 			);
 			path = AMENAPP;
+			sourceTree = "<group>";
+		};
+		EFA100052F90000100000001 /* AMENNotificationServiceExtension */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				EFA100042F90000100000001 /* Exceptions for "AMENNotificationServiceExtension" folder in "AMENNotificationServiceExtension" target */,
+			);
+			path = AMENNotificationServiceExtension;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -494,46 +527,53 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				EF4BA9DA2F29FDD3000B930F /* Abtesting in Frameworks */,
+				EF4BA9DA2F29FDD3000B930F /* AlgoliaAbtesting in Frameworks */,
 				EF4E20642F1F421D0066C5C2 /* FirebaseAppDistribution-Beta in Frameworks */,
 				EF4E20702F1F421D0066C5C2 /* FirebaseFirestore in Frameworks */,
-				EF4BA9E62F29FDD3000B930F /* Insights in Frameworks */,
-				EF4BA9E22F29FDD3000B930F /* Core in Frameworks */,
+				EF4BA9E62F29FDD3000B930F /* AlgoliaInsights in Frameworks */,
+				EF4BA9E22F29FDD3000B930F /* AlgoliaCore in Frameworks */,
 				EF4E20682F1F421D0066C5C2 /* FirebaseAuthCombine-Community in Frameworks */,
 				EF4E207A2F1F421D0066C5C2 /* FirebaseInstallations in Frameworks */,
 				EF4E205A2F1F421D0066C5C2 /* FirebaseAILogic in Frameworks */,
 				EF4E20602F1F421D0066C5C2 /* FirebaseAnalyticsIdentitySupport in Frameworks */,
 				EF4E20782F1F421D0066C5C2 /* FirebaseInAppMessaging-Beta in Frameworks */,
 				EF4E20582F1F421D0066C5C2 /* FirebaseAI in Frameworks */,
-				EF4BA9EC2F29FDD3000B930F /* QuerySuggestions in Frameworks */,
-				EF4BA9DE2F29FDD3000B930F /* Analytics in Frameworks */,
+				EF4BA9EC2F29FDD3000B930F /* AlgoliaQuerySuggestions in Frameworks */,
+				EF4BA9DE2F29FDD3000B930F /* AlgoliaAnalytics in Frameworks */,
 				EF4E206C2F1F421D0066C5C2 /* FirebaseCrashlytics in Frameworks */,
 				EF4E20762F1F421D0066C5C2 /* FirebaseFunctionsCombine-Community in Frameworks */,
 				EF4E20862F1F421D0066C5C2 /* FirebaseStorageCombine-Community in Frameworks */,
 				EF4E206E2F1F421D0066C5C2 /* FirebaseDatabase in Frameworks */,
-				EF4BA9E82F29FDD3000B930F /* Monitoring in Frameworks */,
+				EF4BA9E82F29FDD3000B930F /* AlgoliaMonitoring in Frameworks */,
 				EF5D8DC62F3EDC80000BB6C9 /* GoogleGenerativeAI in Frameworks */,
 				EF4E20842F1F421D0066C5C2 /* FirebaseStorage in Frameworks */,
 				EF38A1232F2D114F004E694A /* GoogleSignInSwift in Frameworks */,
-				EF4BA9E02F29FDD3000B930F /* Composition in Frameworks */,
+				EF4BA9E02F29FDD3000B930F /* AlgoliaComposition in Frameworks */,
 				EF4E20822F1F421D0066C5C2 /* FirebaseRemoteConfig in Frameworks */,
 				EF4E205C2F1F421D0066C5C2 /* FirebaseAnalytics in Frameworks */,
 				EF4E207E2F1F421D0066C5C2 /* FirebaseMessaging in Frameworks */,
 				EF4E207C2F1F421D0066C5C2 /* FirebaseMLModelDownloader in Frameworks */,
-				EF4BA9E42F29FDD3000B930F /* Ingestion in Frameworks */,
+				EF4BA9E42F29FDD3000B930F /* AlgoliaIngestion in Frameworks */,
 				EF4E20802F1F421D0066C5C2 /* FirebasePerformance in Frameworks */,
 				EF38A1212F2D114F004E694A /* GoogleSignIn in Frameworks */,
 				EF4E206A2F1F421D0066C5C2 /* FirebaseCore in Frameworks */,
 				EF43AAD12F5412C40075E1B5 /* ActivityKit.framework in Frameworks */,
 				EF4E20622F1F421D0066C5C2 /* FirebaseAppCheck in Frameworks */,
-				EF4BA9EE2F29FDD3000B930F /* Recommend in Frameworks */,
-				EF4BA9EA2F29FDD3000B930F /* Personalization in Frameworks */,
+				EF4BA9EE2F29FDD3000B930F /* AlgoliaRecommend in Frameworks */,
+				EF4BA9EA2F29FDD3000B930F /* AlgoliaPersonalization in Frameworks */,
 				EF4E205E2F1F421D0066C5C2 /* FirebaseAnalyticsCore in Frameworks */,
 				EF4E20742F1F421D0066C5C2 /* FirebaseFunctions in Frameworks */,
-				EF4BA9F02F29FDD3000B930F /* Search in Frameworks */,
+				EF4BA9F02F29FDD3000B930F /* AlgoliaSearch in Frameworks */,
 				EF4E20662F1F421D0066C5C2 /* FirebaseAuth in Frameworks */,
 				EF4E20722F1F421D0066C5C2 /* FirebaseFirestoreCombine-Community in Frameworks */,
-				EF4BA9DC2F29FDD3000B930F /* AbtestingV3 in Frameworks */,
+				EF4BA9DC2F29FDD3000B930F /* AlgoliaAbtestingV3 in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EFA100062F90000100000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -829,6 +869,19 @@
 				FE6331EA2267427EBCD3177B /* AmenSyncReviewView.swift */,
 				8ED726DB5CDC452EB1AFB438 /* AmenSyncDraftsView.swift */,
 				0F485E8816FD4F539AA958C5 /* AmenSyncHubCard.swift */,
+				EF7FF4B92F88A22400B31A9A /* ActionThreadModels.swift */,
+				EF7FF4BA2F88A22500B31A9A /* CompoundIdentityModels.swift */,
+				EF7FF4BB2F88A22600B31A9A /* ProofOfTrustModels.swift */,
+				EF7FF4BC2F88A2CB00B31A9A /* ActionThreadService.swift */,
+				EF7FF4BD2F88A2CB00B31A9A /* ActionThreadPermissionsService.swift */,
+				EF7FF4BE2F88A31100B31A9A /* ActionSuggestionEngine.swift */,
+				EF7FF4BF2F88A31100B31A9A /* ActionThreadNotificationService.swift */,
+				EF7FF4C02F88A37A00B31A9A /* UserIntelligenceOrchestrator.swift */,
+				EF7FF4C12F88A37A00B31A9A /* TrustScoringEngine.swift */,
+				EF7FF4C22F88A3AA00B31A9A /* TrustEventRecorder.swift */,
+				EF7FF4C32F88A3AB00B31A9A /* ProofOfHumanService.swift */,
+				EF7FF4C42F88A3AB00B31A9A /* ProofOfCareService.swift */,
+				EF9B624D2F90C2F200D0E71B /* Recovered References */,
 			);
 			sourceTree = "<group>";
 		};
@@ -838,8 +891,17 @@
 				EF81519B2F184E97008912E3 /* AMENAPP.app */,
 				EF56F7412F2881A30019B94A /* AMENAPPTests.xctest */,
 				EF5B39042F5BA7A500152D09 /* AMENWidgetExtensionExtension.appex */,
+				EFA100032F90000100000001 /* AMENNotificationServiceExtension.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		EF9B624D2F90C2F200D0E71B /* Recovered References */ = {
+			isa = PBXGroup;
+			children = (
+				EFA100052F90000100000001 /* AMENNotificationServiceExtension */,
+			);
+			name = "Recovered References";
 			sourceTree = "<group>";
 		};
 		EF9FD0212F821B8300EBF035 /* functions 2 */ = {
@@ -874,6 +936,11 @@
 			children = (
 				EF9FD0252F821BA500EBF035 /* creator */,
 				EF9FD0262F821BB100EBF035 /* index.ts */,
+				EF7F00562F8957A400B31A9A /* groupLinks.ts */,
+				EF9B3B472F8AA77E00D0E71B /* refineTranslation.ts */,
+				EF9B3B9A2F8B230900D0E71B /* suggestedAccounts.ts */,
+				EF9B3BD62F8D023900D0E71B /* feedBuilder.ts */,
+				EF9B3C082F8DACFB00D0E71B /* trustIntelligence.ts */,
 			);
 			path = src;
 			sourceTree = "<group>";
@@ -982,6 +1049,7 @@
 			);
 			dependencies = (
 				EF5B39142F5BA7A600152D09 /* PBXTargetDependency */,
+				EFA1000A2F90000100000001 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				EF81519D2F184E97008912E3 /* AMENAPP */,
@@ -1012,18 +1080,18 @@
 				EF4E20812F1F421D0066C5C2 /* FirebaseRemoteConfig */,
 				EF4E20832F1F421D0066C5C2 /* FirebaseStorage */,
 				EF4E20852F1F421D0066C5C2 /* FirebaseStorageCombine-Community */,
-				EF4BA9D92F29FDD3000B930F /* Abtesting */,
-				EF4BA9DB2F29FDD3000B930F /* AbtestingV3 */,
-				EF4BA9DD2F29FDD3000B930F /* Analytics */,
-				EF4BA9DF2F29FDD3000B930F /* Composition */,
-				EF4BA9E12F29FDD3000B930F /* Core */,
-				EF4BA9E32F29FDD3000B930F /* Ingestion */,
-				EF4BA9E52F29FDD3000B930F /* Insights */,
-				EF4BA9E72F29FDD3000B930F /* Monitoring */,
-				EF4BA9E92F29FDD3000B930F /* Personalization */,
-				EF4BA9EB2F29FDD3000B930F /* QuerySuggestions */,
-				EF4BA9ED2F29FDD3000B930F /* Recommend */,
-				EF4BA9EF2F29FDD3000B930F /* Search */,
+				EF4BA9D92F29FDD3000B930F /* AlgoliaAbtesting */,
+				EF4BA9DB2F29FDD3000B930F /* AlgoliaAbtestingV3 */,
+				EF4BA9DD2F29FDD3000B930F /* AlgoliaAnalytics */,
+				EF4BA9DF2F29FDD3000B930F /* AlgoliaComposition */,
+				EF4BA9E12F29FDD3000B930F /* AlgoliaCore */,
+				EF4BA9E32F29FDD3000B930F /* AlgoliaIngestion */,
+				EF4BA9E52F29FDD3000B930F /* AlgoliaInsights */,
+				EF4BA9E72F29FDD3000B930F /* AlgoliaMonitoring */,
+				EF4BA9E92F29FDD3000B930F /* AlgoliaPersonalization */,
+				EF4BA9EB2F29FDD3000B930F /* AlgoliaQuerySuggestions */,
+				EF4BA9ED2F29FDD3000B930F /* AlgoliaRecommend */,
+				EF4BA9EF2F29FDD3000B930F /* AlgoliaSearch */,
 				EF38A1202F2D114F004E694A /* GoogleSignIn */,
 				EF38A1222F2D114F004E694A /* GoogleSignInSwift */,
 				EF5D8DC52F3EDC80000BB6C9 /* GoogleGenerativeAI */,
@@ -1031,6 +1099,28 @@
 			productName = AMENAPP;
 			productReference = EF81519B2F184E97008912E3 /* AMENAPP.app */;
 			productType = "com.apple.product-type.application";
+		};
+		EFA100072F90000100000001 /* AMENNotificationServiceExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EFA1000D2F90000100000001 /* Build configuration list for PBXNativeTarget "AMENNotificationServiceExtension" */;
+			buildPhases = (
+				EFA100092F90000100000001 /* Sources */,
+				EFA100062F90000100000001 /* Frameworks */,
+				EFA100082F90000100000001 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				EFA100052F90000100000001 /* AMENNotificationServiceExtension */,
+			);
+			name = AMENNotificationServiceExtension;
+			packageProductDependencies = (
+			);
+			productName = AMENNotificationServiceExtension;
+			productReference = EFA100032F90000100000001 /* AMENNotificationServiceExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -1051,6 +1141,9 @@
 					};
 					EF81519A2F184E97008912E3 = {
 						CreatedOnToolsVersion = 26.2;
+					};
+					EFA100072F90000100000001 = {
+						CreatedOnToolsVersion = 26.4;
 					};
 				};
 			};
@@ -1078,6 +1171,7 @@
 				EF81519A2F184E97008912E3 /* AMENAPP */,
 				EF56F7402F2881A30019B94A /* AMENAPPTests */,
 				EF5B39032F5BA7A500152D09 /* AMENWidgetExtensionExtension */,
+				EFA100072F90000100000001 /* AMENNotificationServiceExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -1104,6 +1198,13 @@
 				EF3AD0702F32F5B500596905 /* genkit-Dockerfile in Resources */,
 				EF3AD06C2F32F5AD00596905 /* genkit-server-index.js in Resources */,
 				EF3AD06E2F32F5B200596905 /* genkit-package.json in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EFA100082F90000100000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1151,6 +1252,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		EFA100092F90000100000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -1163,6 +1271,11 @@
 			isa = PBXTargetDependency;
 			target = EF5B39032F5BA7A500152D09 /* AMENWidgetExtensionExtension */;
 			targetProxy = EF5B39132F5BA7A600152D09 /* PBXContainerItemProxy */;
+		};
+		EFA1000A2F90000100000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EFA100072F90000100000001 /* AMENNotificationServiceExtension */;
+			targetProxy = EFA100022F90000100000001 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -1487,6 +1600,60 @@
 			};
 			name = Release;
 		};
+		EFA1000B2F90000100000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 5;
+				DEVELOPMENT_TEAM = FGLL559H83;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AMENNotificationServiceExtension/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = tapera.AMENAPP.AMENNotificationServiceExtension;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		EFA1000C2F90000100000001 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 5;
+				DEVELOPMENT_TEAM = FGLL559H83;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AMENNotificationServiceExtension/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = tapera.AMENAPP.AMENNotificationServiceExtension;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -1522,6 +1689,15 @@
 			buildConfigurations = (
 				EF8151A72F184E97008912E3 /* Debug */,
 				EF8151A82F184E97008912E3 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		EFA1000D2F90000100000001 /* Build configuration list for PBXNativeTarget "AMENNotificationServiceExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EFA1000B2F90000100000001 /* Debug */,
+				EFA1000C2F90000100000001 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -1574,65 +1750,65 @@
 			package = EF38A11F2F2D114F004E694A /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
 			productName = GoogleSignInSwift;
 		};
-		EF4BA9D92F29FDD3000B930F /* Abtesting */ = {
+		EF4BA9D92F29FDD3000B930F /* AlgoliaAbtesting */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = EF4BA9D82F29FDD3000B930F /* XCRemoteSwiftPackageReference "algoliasearch-client-swift" */;
-			productName = Abtesting;
+			productName = AlgoliaAbtesting;
 		};
-		EF4BA9DB2F29FDD3000B930F /* AbtestingV3 */ = {
+		EF4BA9DB2F29FDD3000B930F /* AlgoliaAbtestingV3 */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = EF4BA9D82F29FDD3000B930F /* XCRemoteSwiftPackageReference "algoliasearch-client-swift" */;
-			productName = AbtestingV3;
+			productName = AlgoliaAbtestingV3;
 		};
-		EF4BA9DD2F29FDD3000B930F /* Analytics */ = {
+		EF4BA9DD2F29FDD3000B930F /* AlgoliaAnalytics */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = EF4BA9D82F29FDD3000B930F /* XCRemoteSwiftPackageReference "algoliasearch-client-swift" */;
-			productName = Analytics;
+			productName = AlgoliaAnalytics;
 		};
-		EF4BA9DF2F29FDD3000B930F /* Composition */ = {
+		EF4BA9DF2F29FDD3000B930F /* AlgoliaComposition */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = EF4BA9D82F29FDD3000B930F /* XCRemoteSwiftPackageReference "algoliasearch-client-swift" */;
-			productName = Composition;
+			productName = AlgoliaComposition;
 		};
-		EF4BA9E12F29FDD3000B930F /* Core */ = {
+		EF4BA9E12F29FDD3000B930F /* AlgoliaCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = EF4BA9D82F29FDD3000B930F /* XCRemoteSwiftPackageReference "algoliasearch-client-swift" */;
-			productName = Core;
+			productName = AlgoliaCore;
 		};
-		EF4BA9E32F29FDD3000B930F /* Ingestion */ = {
+		EF4BA9E32F29FDD3000B930F /* AlgoliaIngestion */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = EF4BA9D82F29FDD3000B930F /* XCRemoteSwiftPackageReference "algoliasearch-client-swift" */;
-			productName = Ingestion;
+			productName = AlgoliaIngestion;
 		};
-		EF4BA9E52F29FDD3000B930F /* Insights */ = {
+		EF4BA9E52F29FDD3000B930F /* AlgoliaInsights */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = EF4BA9D82F29FDD3000B930F /* XCRemoteSwiftPackageReference "algoliasearch-client-swift" */;
-			productName = Insights;
+			productName = AlgoliaInsights;
 		};
-		EF4BA9E72F29FDD3000B930F /* Monitoring */ = {
+		EF4BA9E72F29FDD3000B930F /* AlgoliaMonitoring */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = EF4BA9D82F29FDD3000B930F /* XCRemoteSwiftPackageReference "algoliasearch-client-swift" */;
-			productName = Monitoring;
+			productName = AlgoliaMonitoring;
 		};
-		EF4BA9E92F29FDD3000B930F /* Personalization */ = {
+		EF4BA9E92F29FDD3000B930F /* AlgoliaPersonalization */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = EF4BA9D82F29FDD3000B930F /* XCRemoteSwiftPackageReference "algoliasearch-client-swift" */;
-			productName = Personalization;
+			productName = AlgoliaPersonalization;
 		};
-		EF4BA9EB2F29FDD3000B930F /* QuerySuggestions */ = {
+		EF4BA9EB2F29FDD3000B930F /* AlgoliaQuerySuggestions */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = EF4BA9D82F29FDD3000B930F /* XCRemoteSwiftPackageReference "algoliasearch-client-swift" */;
-			productName = QuerySuggestions;
+			productName = AlgoliaQuerySuggestions;
 		};
-		EF4BA9ED2F29FDD3000B930F /* Recommend */ = {
+		EF4BA9ED2F29FDD3000B930F /* AlgoliaRecommend */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = EF4BA9D82F29FDD3000B930F /* XCRemoteSwiftPackageReference "algoliasearch-client-swift" */;
-			productName = Recommend;
+			productName = AlgoliaRecommend;
 		};
-		EF4BA9EF2F29FDD3000B930F /* Search */ = {
+		EF4BA9EF2F29FDD3000B930F /* AlgoliaSearch */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = EF4BA9D82F29FDD3000B930F /* XCRemoteSwiftPackageReference "algoliasearch-client-swift" */;
-			productName = Search;
+			productName = AlgoliaSearch;
 		};
 		EF4E20572F1F421D0066C5C2 /* FirebaseAI */ = {
 			isa = XCSwiftPackageProductDependency;

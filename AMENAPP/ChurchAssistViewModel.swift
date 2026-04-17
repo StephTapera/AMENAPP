@@ -22,16 +22,22 @@ final class ChurchAssistViewModel: ObservableObject {
     @Published private(set) var showPostVisitReflection: Bool = false
     @Published private(set) var currentChurchName: String = ""
     @Published private(set) var currentChurchId: String = ""
+    @Published private(set) var currentVisitState: ChurchVisitState = .none
     @Published private(set) var visitInsights: ChurchVisitInsights?
 
     // MARK: - Private Dependencies
     private let sessionManager = ChurchVisitSessionManager.shared
     private let locationManager = ChurchLocationManager.shared
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var insightsListener: ListenerRegistration?
+    private var registeredChurchNames: [String: String] = [:]
 
     // MARK: - Init
     private init() {}
+
+    deinit {
+        insightsListener?.remove()
+    }
 
     // MARK: - Setup
 
@@ -40,7 +46,72 @@ final class ChurchAssistViewModel: ObservableObject {
         await sessionManager.loadAssistState(userId: userId)
         await loadInsights(userId: userId)
         setupLocationCallbacks(userId: userId)
+        currentChurchId = sessionManager.assistState.currentChurchId ?? ""
+        currentVisitState = sessionManager.assistState.currentVisitState ?? .none
         dlog("[ChurchAssist] Setup complete for user \(userId)")
+    }
+
+    func registerChurch(id: String, name: String) {
+        registeredChurchNames[id] = name
+        if currentChurchId == id || currentChurchId.isEmpty {
+            currentChurchId = id
+            currentChurchName = name
+        }
+    }
+
+    func syncMonitoredChurches(_ churches: [Church]) {
+        for church in churches {
+            registerChurch(id: church.id.uuidString, name: church.name)
+        }
+        let monitored = churches.map { (id: $0.id.uuidString, coordinate: $0.coordinate) }
+        locationManager.monitorSavedChurches(monitored)
+    }
+
+    func preparePlanningAssist(for church: Church, userId: String) async {
+        registerChurch(id: church.id.uuidString, name: church.name)
+
+        if !sessionManager.assistState.allowLocationPrompts {
+            var updatedState = sessionManager.assistState
+            updatedState.allowLocationPrompts = true
+            await sessionManager.updateAssistState(updatedState, userId: userId)
+        }
+
+        if sessionManager.currentSession?.churchId != church.id.uuidString ||
+            sessionManager.currentState == .none {
+            await sessionManager.startPlanning(churchId: church.id.uuidString, userId: userId)
+        }
+
+        currentChurchId = church.id.uuidString
+        currentChurchName = church.name
+        currentVisitState = .planning
+        locationManager.startMonitoring(churchId: church.id.uuidString, coordinate: church.coordinate)
+
+        guard ChurchAssistFeatureFlags.effective(ChurchAssistFeatureFlags.enableChurchAssistPill) else {
+            return
+        }
+
+        let decision = ChurchPromptPolicyEngine.shouldShowPrompt(.planningToAttend, assistState: sessionManager.assistState)
+        guard decision.shouldShow else {
+            dlog("[ChurchAssist] Planning prompt suppressed: \(decision.suppressReason ?? "unknown")")
+            return
+        }
+
+        withAnimation(Motion.adaptive(Animation.spring(response: 0.4, dampingFraction: 0.82))) {
+            showPill = true
+        }
+    }
+
+    func consumeSheetRequest() {
+        showSheet = false
+        showPostVisitReflection = false
+    }
+
+    func clearPresentationState() {
+        showPill = false
+        showSheet = false
+        showServiceMode = false
+        showPostVisitReflection = false
+        currentPrompt = nil
     }
 
     private func setupLocationCallbacks(userId: String) {
@@ -71,7 +142,7 @@ final class ChurchAssistViewModel: ObservableObject {
             return
         }
         currentChurchId = churchId
-        if !churchName.isEmpty { currentChurchName = churchName }
+        currentChurchName = !churchName.isEmpty ? churchName : (registeredChurchNames[churchId] ?? currentChurchName)
 
         let assistState = sessionManager.assistState
         let decision = ChurchPromptPolicyEngine.shouldShowPrompt(.arrivedNeedsNotes, assistState: assistState)
@@ -80,6 +151,7 @@ final class ChurchAssistViewModel: ObservableObject {
             return
         }
         await sessionManager.recordArrival(churchId: churchId, confidence: confidence)
+        currentVisitState = .arrived
         currentPrompt = .arrivedNeedsNotes
         withAnimation(Motion.adaptive(Animation.spring(response: 0.4, dampingFraction: 0.8))) {
             showPill = true
@@ -98,6 +170,7 @@ final class ChurchAssistViewModel: ObservableObject {
             return
         }
         await sessionManager.transitionToInService()
+        currentVisitState = .inService
         currentPrompt = .inServiceCaptureVerse
         withAnimation(Motion.adaptive(Animation.spring(response: 0.4, dampingFraction: 0.8))) {
             showPill = false
@@ -119,6 +192,7 @@ final class ChurchAssistViewModel: ObservableObject {
             return
         }
         currentPrompt = .postVisitReflection
+        currentVisitState = .postVisit
         withAnimation(Motion.adaptive(Animation.spring(response: 0.4, dampingFraction: 0.8))) {
             showServiceMode = false
             showPill = true
@@ -147,7 +221,7 @@ final class ChurchAssistViewModel: ObservableObject {
     /// Dismiss the current prompt and log the dismissal.
     func dismissPrompt() async {
         guard let prompt = currentPrompt else { return }
-        let userId = sessionManager.assistState.currentChurchId ?? ""
+        let userId = sessionManager.currentUserId ?? ""
         if !userId.isEmpty {
             await sessionManager.dismissPrompt(prompt, userId: userId)
         }

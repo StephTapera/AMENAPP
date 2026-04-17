@@ -159,7 +159,7 @@ struct ActivityFeedView: View {
         defer { isLoadingChurch = false }
 
         do {
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
             let snapshot = try await db.collection("userChurchRelations")
                 .whereField("userId", isEqualTo: uid)
                 .order(by: "since", descending: true)

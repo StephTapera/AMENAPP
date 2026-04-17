@@ -14,6 +14,13 @@ enum SupportFeatureFlag: String, CaseIterable, Sendable {
     case supportDetection          // Phase 1: Core risk scoring
     case microPrompts              // Phase 1: Micro-intervention prompts
     case resourceAffinity          // Phase 1: Resource ranking by affinity
+    case resourcesIntelligence     // Cross-app resources intelligence layer
+    case churchNoteCareSummary     // Church notes → care/action summary
+    case trustedContacts           // Trusted circle / safe contact system
+    case helpingSomeoneElse        // Helping-someone-else classification + UI
+    case supportFollowups          // Reminder / plan follow-up surfaces
+    case nonprofitRecommendation   // Giving/nonprofit recommendation engine
+    case bereanResourceRouting     // Berean as support/resource orchestrator
     case forFriendClassifier       // Phase 2: Helping-someone-else detection
     case postAftercare             // Phase 2: Post-submit gentle check-in
     case recoveryBackoff           // Phase 2: Back-off when recovering
@@ -38,7 +45,7 @@ struct SupportIntelligenceFlags {
 
     /// Phase 1 bundle — safe to ship first.
     static let phase1: SupportIntelligenceFlags = SupportIntelligenceFlags(
-        enabled: [.supportDetection, .microPrompts, .resourceAffinity]
+        enabled: [.supportDetection, .microPrompts, .resourceAffinity, .resourcesIntelligence]
     )
 
     /// All flags on — for testing only.

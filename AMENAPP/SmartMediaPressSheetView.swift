@@ -90,7 +90,7 @@ struct SmartMediaPressSheetView: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(headerTitle)
                     .font(.systemScaled(17, weight: .semibold))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
 
                 Text(headerSubtitle)
                     .font(.systemScaled(13, weight: .regular))

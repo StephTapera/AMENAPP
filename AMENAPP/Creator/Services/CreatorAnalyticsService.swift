@@ -7,7 +7,7 @@ protocol CreatorAnalyticsServicing {
 }
 
 final class CreatorAnalyticsService: CreatorAnalyticsServicing {
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     func track(event: String, metadata: [String: String] = [:]) {
         guard let ownerID = Auth.auth().currentUser?.uid, !ownerID.isEmpty else { return }

@@ -603,7 +603,7 @@ class ProfileSetupViewModel: ObservableObject {
             throw NSError(domain: "ProfileSetup", code: -2, userInfo: [NSLocalizedDescriptionKey: "Not authenticated"])
         }
 
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         var photoURL: String? = nil
 
         // Upload profile photo to Firebase Storage if one was selected

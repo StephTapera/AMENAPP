@@ -26,7 +26,7 @@ struct SpiritualJourneySelectionView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Your journey, gently told back to you")
                 .font(AMENFont.bold(20))
-                .foregroundStyle(.black)
+                .foregroundStyle(.primary)
             Text("Choose a period and we’ll build a calm, personal reflection story.")
                 .font(AMENFont.medium(13))
                 .foregroundStyle(.secondary)

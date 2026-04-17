@@ -16,7 +16,7 @@ final class ProfileFeedViewModel: ObservableObject {
     @Published var pinnedPost: Post? = nil
     @Published var isLoading = false
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var userListener: ListenerRegistration?
 
     // MARK: - Lifecycle

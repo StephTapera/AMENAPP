@@ -42,7 +42,7 @@ final class JobService: ObservableObject {
 
     // MARK: - Private State
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var listeners: [ListenerRegistration] = []
     private var isListening = false
 

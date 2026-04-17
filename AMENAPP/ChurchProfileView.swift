@@ -285,6 +285,20 @@ struct ChurchProfileView: View {
             FirstVisitGuideButton(church: profileData.church)
                 .padding(.top, 8)
 
+            // Your Journey timeline (conditionally shown when interaction exists)
+            if AMENFeatureFlags.shared.churchJourneyTimelineEnabled,
+               ChurchInteractionService.shared.interaction(for: profileData.church.id) != nil {
+                Divider()
+                    .padding(.vertical, 12)
+                    .padding(.horizontal, 20)
+
+                ChurchJourneyTimelineView(
+                    churchId: profileData.church.id,
+                    churchName: profileData.church.name
+                )
+                .padding(.horizontal, 4)
+            }
+
             // Live Church Intelligence — service countdown, parking, events
             LiveChurchIntelligenceView(signals: LiveChurchSignalFactory.signals(
                 nextServiceIn: nil,
@@ -1091,7 +1105,7 @@ class PlanVisitManager: ObservableObject {
         guard let uid = Auth.auth().currentUser?.uid else { errorMessage = "Not signed in"; return }
         step = .booking
 
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         let visitorRef = db.collection("churchVisitors").document()
         let fmt = ISO8601DateFormatter(); fmt.formatOptions = [.withFullDate]
 

@@ -58,6 +58,16 @@ class RealtimeDatabaseService: ObservableObject {
     private var conversationObservers: [DatabaseHandle] = []
     private var typingObservers: [String: DatabaseHandle] = [:]
     private var onlineStatusHandle: DatabaseHandle?
+    // FIX: Dedicated handle for the "recent posts" observer so cleanup() can remove it.
+    // Previously the handle returned by observeRecentPosts() was discarded, leaving a
+    // permanent RTDB observer open for the lifetime of the app.
+    private var recentPostsObserverHandle: DatabaseHandle?
+    // PERF FIX: Store handles for the two presence observers created in
+    // setupPresenceMonitoring() so cleanup() can remove them. Without storing
+    // these handles, the connectedRef and presence observers persisted for the
+    // entire app lifetime, leaking 2 permanent RTDB handles per sign-in.
+    private var connectedObserverHandle: DatabaseHandle?
+    private var presenceObserverHandle: DatabaseHandle?
     
     var currentUserId: String {
         Auth.auth().currentUser?.uid ?? "anonymous"
@@ -79,40 +89,54 @@ class RealtimeDatabaseService: ObservableObject {
     }
     
     // MARK: - Presence & Online Status
-    
+
     private func setupPresenceMonitoring() {
         guard !currentUserId.isEmpty, currentUserId != "anonymous" else { return }
-        
+
+        // ✅ MESSAGE SETTINGS: Check if user allows showing activity status
+        let showActivityStatus = MessageSettingsService.shared.settings.showActivityStatus
+
         let presenceRef = ref.child("presence").child(currentUserId)
         let connectedRef = database.reference(withPath: ".info/connected")
-        
-        connectedRef.observe(.value) { snapshot in
+
+        // PERF FIX: Store handle so cleanup() can removeObserver on it.
+        connectedObserverHandle = connectedRef.observe(.value) { snapshot in
             guard let connected = snapshot.value as? Bool,
                   connected else { return }
-            
-            // When connected, set online status
-            presenceRef.setValue([
-                "online": true,
-                "lastSeen": ServerValue.timestamp()
-            ])
-            
-            // When disconnected, update to offline
-            presenceRef.onDisconnectUpdateChildValues([
-                "online": false,
-                "lastSeen": ServerValue.timestamp()
-            ])
+
+            // Only update presence if user allows showing activity status
+            if showActivityStatus {
+                // When connected, set online status
+                presenceRef.setValue([
+                    "online": true,
+                    "lastSeen": ServerValue.timestamp()
+                ])
+
+                // When disconnected, update to offline
+                presenceRef.onDisconnectUpdateChildValues([
+                    "online": false,
+                    "lastSeen": ServerValue.timestamp()
+                ])
+
+                dlog("📱 [ActivityStatus] Updated presence (status enabled)")
+            } else {
+                // Remove presence data if activity status is disabled
+                presenceRef.removeValue()
+                dlog("📱 [ActivityStatus] Removed presence (status disabled)")
+            }
         }
-        
+
+        // PERF FIX: Store handle so cleanup() can removeObserver on it.
         // Listen to all online users
-        ref.child("presence").observe(.value) { [weak self] snapshot in
+        presenceObserverHandle = ref.child("presence").observe(.value) { [weak self] snapshot in
             guard let self = self,
                   let presenceData = snapshot.value as? [String: [String: Any]] else { return }
-            
+
             let onlineUserIds = presenceData.compactMap { (userId, data) -> String? in
                 guard let isOnline = data["online"] as? Bool, isOnline else { return nil }
                 return userId
             }
-            
+
             self.onlineUsers = Set(onlineUserIds)
         }
     }
@@ -459,7 +483,10 @@ class RealtimeDatabaseService: ObservableObject {
         dlog("✅ Post interactions initialized: \(postId)")
     }
     
-    /// Observe recent posts in real-time
+    /// Observe recent posts in real-time.
+    /// The returned handle is stored in `conversationObservers` so that `cleanup()`
+    /// removes it on sign-out — previously the handle was discarded, keeping a
+    /// permanent RTDB observer alive for the lifetime of the app.
     func observeRecentPosts(limit: Int = 50, onUpdate: @escaping ([String]) -> Void) {
         // Skip observing if user is not authenticated
         guard Auth.auth().currentUser != nil else {
@@ -469,7 +496,16 @@ class RealtimeDatabaseService: ObservableObject {
         
         let postsRef = ref.child("posts").child("recent").queryLimited(toLast: UInt(limit))
         
-        postsRef.observe(.value) { snapshot in
+        // FIX: Store the handle in recentPostsObserverHandle so cleanup() can
+        // call removeObserver(withHandle:) on sign-out. Previously the handle
+        // returned by observe(.value) was discarded here, keeping a permanent
+        // RTDB observer alive even after the user signed out.
+        // If called more than once (e.g. on scene-phase resume) remove the old
+        // observer first to avoid stacking duplicate listeners.
+        if let existing = recentPostsObserverHandle {
+            ref.child("posts").child("recent").removeObserver(withHandle: existing)
+        }
+        let handle = postsRef.observe(.value) { snapshot in
             var postIds: [String] = []
             
             for child in snapshot.children {
@@ -479,6 +515,7 @@ class RealtimeDatabaseService: ObservableObject {
             
             onUpdate(postIds.reversed()) // Most recent first
         }
+        recentPostsObserverHandle = handle
     }
     
     /// Update post engagement (likes, comments) in real-time
@@ -518,6 +555,21 @@ class RealtimeDatabaseService: ObservableObject {
         
         if let handle = onlineStatusHandle {
             ref.child("presence").removeObserver(withHandle: handle)
+        }
+
+        // PERF FIX: Remove the two presence handles stored in setupPresenceMonitoring().
+        if let handle = connectedObserverHandle {
+            database.reference(withPath: ".info/connected").removeObserver(withHandle: handle)
+            connectedObserverHandle = nil
+        }
+        if let handle = presenceObserverHandle {
+            ref.child("presence").removeObserver(withHandle: handle)
+            presenceObserverHandle = nil
+        }
+
+        if let handle = recentPostsObserverHandle {
+            ref.child("posts").child("recent").removeObserver(withHandle: handle)
+            recentPostsObserverHandle = nil
         }
         
         // Set offline status

@@ -61,8 +61,6 @@ struct ContentView: View {
     @State private var postingBarDismissTask: Task<Void, Never>? = nil
     @State private var showTabBar = true  // ✅ Control tab bar visibility
     @ObservedObject private var tabScrollBridge = AMENTabBarScrollBridge.shared
-    @State private var keyboardShowObserver: NSObjectProtocol?
-    @State private var keyboardHideObserver: NSObjectProtocol?
     @State private var showCommunityCovenant = false
     @State private var needsCovenantAgreement = false
     // P1-1 FIX: First-post prompt deferred from OnboardingView so it fires after the
@@ -298,10 +296,14 @@ struct ContentView: View {
                         // Previously this was in HomeView.onAppear, so it never fired
                         // when the app launched directly into any other tab via push tap.
                         NotificationService.shared.startListening()
+                        if let currentUserId = Auth.auth().currentUser?.uid {
+                            ChurchInteractionService.shared.startListening(userId: currentUserId)
+                        }
 
                         // Signal the deep-link router that the nav tree is ready.
                         // Any cold-start push notification route queued before this fires now.
                         NotificationDeepLinkRouter.shared.markAppReady()
+                        NotificationTapBootstrapper.shared.appDidBecomeReady()
 
                         // Phase 3 — DEFERRED: non-blocking checks
                         Task(priority: .utility) {
@@ -408,9 +410,11 @@ struct ContentView: View {
         .onChange(of: scenePhase) { oldPhase, newPhase in
             handleScenePhaseChange(from: oldPhase, to: newPhase)
 
-            if newPhase == .active {
+            let isActive = newPhase == .active
+            let isLeavingForeground = newPhase == .background || newPhase == .inactive
+            if isActive {
                 WellnessGuardianService.shared.trackSessionStart()
-            } else if newPhase == .background || newPhase == .inactive {
+            } else if isLeavingForeground {
                 WellnessGuardianService.shared.trackSessionEnd()
             }
         }
@@ -465,75 +469,82 @@ struct ContentView: View {
     
     @ViewBuilder
     private var selectedTabView: some View {
-        Group {
-            // ✅ Shabbat Mode: Gate restricted features
-            if SundayChurchFocusManager.shared.shouldGateFeature() && !isAllowedDuringChurchFocus(viewModel.selectedTab) {
-                SundayChurchFocusGateView(selectedTab: $viewModel.selectedTab)
-                    .id("shabbatModeGate")
-            } else {
-                ZStack {
-                    // HomeView stays mounted — instant return with scroll position + all state preserved.
-                    // Hiding via opacity avoids the 15-PostCard × 35-@State recreation cost on every tab switch.
-                    HomeView(showBereanQuickActions: $showBereanQuickActions, showBereanAssistantFromMenu: $showBereanAssistantFromMenu, selectedPostCategory: $selectedPostCategory)
-                        .opacity(viewModel.selectedTab == 0 ? 1 : 0)
-                        .allowsHitTesting(viewModel.selectedTab == 0)
-                        .onAppear {
-                            if viewModel.selectedTab == 0 {
-                                NotificationAggregationService.shared.updateCurrentScreen(.home)
+        // ✅ Shabbat Mode: Gate restricted features
+        if SundayChurchFocusManager.shared.shouldGateFeature() && !isAllowedDuringChurchFocus(viewModel.selectedTab) {
+            SundayChurchFocusGateView(selectedTab: $viewModel.selectedTab)
+                .id("shabbatModeGate")
+                .animation(nil, value: viewModel.selectedTab)
+        } else {
+            ZStack {
+                    keepMountedTab(isActive: viewModel.selectedTab == 0) {
+                        HomeView(showBereanQuickActions: $showBereanQuickActions, showBereanAssistantFromMenu: $showBereanAssistantFromMenu, selectedPostCategory: $selectedPostCategory)
+                            .onAppear {
+                                if viewModel.selectedTab == 0 {
+                                    NotificationAggregationService.shared.updateCurrentScreen(.home)
+                                }
                             }
-                        }
-                        .onChange(of: viewModel.selectedTab) { _, tab in
-                            if tab == 0 {
-                                NotificationAggregationService.shared.updateCurrentScreen(.home)
+                            .onChange(of: viewModel.selectedTab) { _, tab in
+                                if tab == 0 {
+                                    NotificationAggregationService.shared.updateCurrentScreen(.home)
+                                }
                             }
-                        }
+                    }
 
-                    // Other tabs — rendered on demand (recreated per selection)
-                    if viewModel.selectedTab != 0 {
-                        switch viewModel.selectedTab {
-                        case 1:
-                            AMENDiscoveryView()
-                                .id("discovery")
-                                .task {
-                                    NotificationAggregationService.shared.updateCurrentScreen(.none)
-                                }
-                        case 2:
-                            MessagesView()
-                                .id("messages")
-                                .environmentObject(messagingCoordinator)
-                                .task {
-                                    NotificationAggregationService.shared.updateCurrentScreen(.messages)
-                                    BadgeCountManager.shared.clearMessages()
-                                }
-                                .ageGated(feature: .dms)
-                        case 3:
-                            ResourcesView()
-                                .id("resources")
-                                .task {
-                                    NotificationAggregationService.shared.updateCurrentScreen(.none)
-                                }
-                        case 4:
-                            AMENNotificationsView()
-                                .id("notifications")
-                                .task {
-                                    NotificationAggregationService.shared.updateCurrentScreen(.notifications)
-                                }
-                        case 5:
-                            ProfileView()
-                                .environmentObject(authViewModel)
-                                .id("profile")
-                                .task {
-                                    let uid = Auth.auth().currentUser?.uid ?? ""
-                                    NotificationAggregationService.shared.updateCurrentScreen(.profile(userId: uid))
-                                }
-                        default:
-                            EmptyView()
-                        }
+                    keepMountedTab(isActive: viewModel.selectedTab == 1) {
+                        AMENDiscoveryView()
+                            .id("discovery")
+                            .task {
+                                NotificationAggregationService.shared.updateCurrentScreen(.none)
+                            }
+                    }
+
+                    keepMountedTab(isActive: viewModel.selectedTab == 2) {
+                        MessagesView()
+                            .id("messages")
+                            .environmentObject(messagingCoordinator)
+                            .task {
+                                NotificationAggregationService.shared.updateCurrentScreen(.messages)
+                                BadgeCountManager.shared.clearMessages()
+                            }
+                            .ageGated(feature: .directMessages)
+                    }
+
+                    keepMountedTab(isActive: viewModel.selectedTab == 3) {
+                        ResourcesView()
+                            .id("resources")
+                            .task {
+                                NotificationAggregationService.shared.updateCurrentScreen(.none)
+                            }
+                    }
+
+                    keepMountedTab(isActive: viewModel.selectedTab == 4) {
+                        AMENNotificationsView()
+                            .id("notifications")
+                            .task {
+                                NotificationAggregationService.shared.updateCurrentScreen(.notifications)
+                            }
+                    }
+
+                    keepMountedTab(isActive: viewModel.selectedTab == 5) {
+                        ProfileView()
+                            .environmentObject(authViewModel)
+                            .id("profile")
+                            .task {
+                                let uid = Auth.auth().currentUser?.uid ?? ""
+                                NotificationAggregationService.shared.updateCurrentScreen(.profile(userId: uid))
+                            }
                     }
                 }
+                .animation(nil, value: viewModel.selectedTab)
             }
-        }
-        .animation(nil, value: viewModel.selectedTab)
+    }
+
+    @ViewBuilder
+    private func keepMountedTab<Content: View>(isActive: Bool, @ViewBuilder content: () -> Content) -> some View {
+        content()
+            .opacity(isActive ? 1 : 0)
+            .allowsHitTesting(isActive)
+            .accessibilityHidden(!isActive)
     }
     
     // ✅ Shabbat Mode: Check if tab is allowed during focus window
@@ -638,6 +649,20 @@ struct ContentView: View {
             .animation(.easeOut(duration: 0.25), value: showTabBar)
             .onChange(of: viewModel.selectedTab) { _, _ in
                 tabScrollBridge.expand()
+            }
+        }
+        .overlay(alignment: .bottom) {
+            // Audio mini player bar — shown during speech playback
+            if AMENFeatureFlags.shared.audioNarrationEnabled {
+                AudioMiniPlayerBar()
+                    .padding(.bottom, showTabBar ? 80 : 8)
+            }
+        }
+        .overlay(alignment: .top) {
+            // Adaptive accessibility suggestion banner
+            if AMENFeatureFlags.shared.adaptiveAccessibilityEnabled {
+                AccessibilitySuggestionBanner()
+                    .padding(.top, 50)
             }
         }
         .overlay {
@@ -815,7 +840,6 @@ struct ContentView: View {
             setupSavedSearchObserver()
             setupPostSuccessObserver()
             setupDiscoverTabObserver()
-            setupKeyboardObservers()
         }
         .onReceive(NotificationCenter.default.publisher(for: .openCreatePost)) { _ in
             withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.8))) {
@@ -868,15 +892,6 @@ struct ContentView: View {
                 self.discoverTabObserver = nil
             }
             
-            if let keyboardShowObserver {
-                NotificationCenter.default.removeObserver(keyboardShowObserver)
-                self.keyboardShowObserver = nil
-            }
-            
-            if let keyboardHideObserver {
-                NotificationCenter.default.removeObserver(keyboardHideObserver)
-                self.keyboardHideObserver = nil
-            }
         }
     }
     
@@ -895,30 +910,6 @@ struct ContentView: View {
         }
     }
     
-    private func setupKeyboardObservers() {
-        guard keyboardShowObserver == nil else { return }
-        
-        keyboardShowObserver = NotificationCenter.default.addObserver(
-            forName: UIResponder.keyboardWillShowNotification,
-            object: nil,
-            queue: .main
-        ) { [self] _ in
-            withAnimation(.easeOut(duration: 0.2)) {
-                showTabBar = false
-            }
-        }
-        
-        keyboardHideObserver = NotificationCenter.default.addObserver(
-            forName: UIResponder.keyboardWillHideNotification,
-            object: nil,
-            queue: .main
-        ) { [self] _ in
-            withAnimation(.easeOut(duration: 0.2)) {
-                showTabBar = true
-            }
-        }
-    }
-
     // MARK: - Parallel Launch Tasks
 
     /// Runs cache warm-up tasks concurrently on app launch.
@@ -1775,7 +1766,7 @@ struct CompactTabBar: View {
                                     size: isSelected ? 22 : 20,
                                     weight: isSelected ? .semibold : .regular
                                 ))
-                                .foregroundStyle(Color.black)
+                                .foregroundStyle(.primary)
                                 // Scales up ahead of the pill landing (snappier spring)
                                 .scaleEffect(isSelected ? 1.12 : 1.0)
                                 .animation(
@@ -1919,7 +1910,7 @@ struct CompactTabBar: View {
 
             Image(systemName: "plus")
                 .font(.systemScaled(22, weight: .semibold))
-                .foregroundStyle(.black)
+                .foregroundStyle(.primary)
                 // Rotates 45° → 0° on first appear — subtle "unfurl"
                 .transition(.opacity)
         }
@@ -2013,6 +2004,11 @@ struct UnreadDot: View {
                 .scaleEffect(pulse ? 1.15 : 1.0)
                 .animation(.spring(response: 0.3, dampingFraction: 0.6), value: pulse)
         }
+        // CRITICAL FIX: Color-only indicator. The dot communicates state visually via
+        // color alone. The parent tab button already exposes the count through
+        // tabAccessibilityLabel (e.g. "Notifications, 3 unread"), so this dot is purely
+        // decorative — hide it from the AX tree to avoid redundant/confusing announcements.
+        .accessibilityHidden(true)
     }
 }
 
@@ -2131,6 +2127,7 @@ struct HomeView: View {
     @State private var lastScrollOffset: CGFloat = 0
     @State private var showToolbar = true
     @Environment(\.tabBarVisible) private var tabBarVisible  // ✅ Access tab bar visibility
+    @State private var lastScrollTime: Date = Date()
     
     // Hysteresis thresholds — hide quickly on downward scroll, restore on upward
     private let scrollUpThreshold: CGFloat = 8   // Restore bar after modest upward scroll
@@ -2157,6 +2154,18 @@ struct HomeView: View {
         let delta = offset - lastScrollOffset
         // Always update lastScrollOffset for correct next-delta calculation
         lastScrollOffset = offset
+        
+        // ✅ INTELLIGENT BANNER: Calculate scroll velocity (points per second)
+        let now = Date()
+        let timeDelta = now.timeIntervalSince(lastScrollTime)
+        if timeDelta > 0.016 { // ~60fps throttle
+            let velocity = abs(delta) / CGFloat(timeDelta)
+            lastScrollTime = now
+            // Notify CaughtUpService about scroll (only for OpenTable feed)
+            if viewModel.selectedCategory == "#OPENTABLE" || viewModel.selectedCategory == "" {
+                CaughtUpService.shared.onScroll(velocity: velocity, isDragging: true)
+            }
+        }
         
         // At top (within 20pts of zero) - always show UI, no animation fighting
         if offset > -20 {
@@ -2236,9 +2245,6 @@ struct HomeView: View {
                                 showCommunitiesSheet = true
                             } label: {
                                 Label("Browse Communities", systemImage: "person.3.fill")
-                                    .lineLimit(1)
-                                    .minimumScaleFactor(0.85)
-                                    .allowsTightening(true)
                             }
                         }
                     } label: {
@@ -2304,7 +2310,7 @@ struct HomeView: View {
                 // People and Notifications now accessed via bottom tab bar
                 .environment(\.toolbarVisible, $showToolbar)
                 .fullScreenCover(isPresented: $showBereanAssistant) {
-                    BereanAIAssistantView()
+                    BereanChatView()
                 }
                 .sheet(isPresented: $showCommunitiesSheet) {
                     FeedCommunitiesSheet(
@@ -2476,6 +2482,12 @@ struct HomeView: View {
     /// Refresh the currently selected category
     private func refreshCurrentCategory() async {
         HapticManager.impact(style: .light)
+        
+        // ✅ INTELLIGENT BANNER: Notify about refresh start (only for OpenTable)
+        if viewModel.selectedCategory == "#OPENTABLE" || viewModel.selectedCategory == "" {
+            CaughtUpService.shared.onRefreshStarted()
+        }
+        
         switch viewModel.selectedCategory {
         case "Prayer":
             await PostsManager.shared.fetchFilteredPosts(for: .prayer, filter: "all")
@@ -2484,6 +2496,13 @@ struct HomeView: View {
         default:
             await PostsManager.shared.refreshPosts()
         }
+        
+        // ✅ INTELLIGENT BANNER: Notify about refresh finish (only for OpenTable)
+        if viewModel.selectedCategory == "#OPENTABLE" || viewModel.selectedCategory == "" {
+            let posts = PostsManager.shared.openTablePosts
+            CaughtUpService.shared.onRefreshFinished(posts: posts)
+        }
+        
         NotificationCenter.default.post(name: .feedDidRefresh,
                                         object: nil,
                                         userInfo: ["category": viewModel.selectedCategory])
@@ -2604,7 +2623,10 @@ struct FollowingFeedView: View {
                 VStack(spacing: 0) {
                     ForEach(followingPosts) { post in
                         PostCard(post: post)
-                        Divider().padding(.leading, 16)
+
+                        if AMENFeatureFlags.shared.postDividerEnabled {
+                            FeedPostDivider()
+                        }
                     }
                 }
             }
@@ -2645,7 +2667,10 @@ struct QuietFeedView: View {
                 VStack(spacing: 0) {
                     ForEach(quietPosts) { post in
                         PostCard(post: post)
-                        Divider().padding(.leading, 16)
+
+                        if AMENFeatureFlags.shared.postDividerEnabled {
+                            FeedPostDivider()
+                        }
                     }
                 }
             }
@@ -3305,13 +3330,13 @@ struct CommunityCard: View {
             VStack(alignment: .leading, spacing: 4) {
                 Image(systemName: icon)
                     .font(.systemScaled(20))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
                 
                 Spacer()
                 
                 Text(title)
                     .font(AMENFont.bold(13))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
                 
                 Text(subtitle)
                     .font(AMENFont.regular(11))
@@ -3464,12 +3489,12 @@ struct TrendingCard: View {
             VStack(spacing: 8) {
                 Image(systemName: icon)
                     .font(.systemScaled(24))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
                     .frame(height: 40)
                 
                 Text(title)
                     .font(AMENFont.bold(12))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
             }
@@ -3604,12 +3629,12 @@ struct TrendingTopicDetailView: View {
                             
                             Image(systemName: icon)
                                 .font(.systemScaled(40))
-                                .foregroundStyle(.black)
+                                .foregroundStyle(.primary)
                         }
                         
                         Text(title)
                             .font(AMENFont.bold(28))
-                            .foregroundStyle(.black)
+                            .foregroundStyle(.primary)
                         
                         Text(topicContent.description)
                             .font(AMENFont.regular(15))
@@ -3626,7 +3651,7 @@ struct TrendingTopicDetailView: View {
                             VStack(spacing: 6) {
                                 Text(stat.1)
                                     .font(AMENFont.bold(22))
-                                    .foregroundStyle(.black)
+                                    .foregroundStyle(.primary)
                                 
                                 Text(stat.0)
                                     .font(AMENFont.regular(12))
@@ -3673,7 +3698,7 @@ struct TrendingTopicDetailView: View {
                                     Text("Follow")
                                         .font(AMENFont.bold(14))
                                 }
-                                .foregroundStyle(.black)
+                                .foregroundStyle(.primary)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 14)
                                 .background(
@@ -3695,7 +3720,7 @@ struct TrendingTopicDetailView: View {
                                     Text("Share")
                                         .font(AMENFont.bold(14))
                                 }
-                                .foregroundStyle(.black)
+                                .foregroundStyle(.primary)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 14)
                                 .background(
@@ -3716,7 +3741,7 @@ struct TrendingTopicDetailView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Related Topics")
                             .font(AMENFont.bold(18))
-                            .foregroundStyle(.black)
+                            .foregroundStyle(.primary)
                             .padding(.horizontal)
                         
                         ScrollView(.horizontal, showsIndicators: false) {
@@ -3724,7 +3749,7 @@ struct TrendingTopicDetailView: View {
                                 ForEach(topicContent.relatedTopics, id: \.self) { topic in
                                     Text(topic)
                                         .font(AMENFont.semiBold(13))
-                                        .foregroundStyle(.black)
+                                        .foregroundStyle(.primary)
                                         .padding(.horizontal, 14)
                                         .padding(.vertical, 8)
                                         .background(
@@ -3746,7 +3771,7 @@ struct TrendingTopicDetailView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Helpful Resources")
                             .font(AMENFont.bold(18))
-                            .foregroundStyle(.black)
+                            .foregroundStyle(.primary)
                             .padding(.horizontal)
                         
                         VStack(spacing: 10) {
@@ -3758,7 +3783,7 @@ struct TrendingTopicDetailView: View {
                                         VStack(alignment: .leading, spacing: 4) {
                                             Text(resource.0)
                                                 .font(AMENFont.bold(14))
-                                                .foregroundStyle(.black)
+                                                .foregroundStyle(.primary)
                                             
                                             Text(resource.1)
                                                 .font(AMENFont.regular(12))
@@ -3787,7 +3812,7 @@ struct TrendingTopicDetailView: View {
                         .padding(.horizontal)
                     }
                     
-                    Spacer(minLength: 40)
+                    Spacer(minLength: 24)
                 }
                 .padding(.vertical)
             }
@@ -4888,7 +4913,7 @@ struct OpenTableView: View {
                         HStack {
                             Text("#OPENTABLE")
                                 .font(AMENFont.bold(24))
-                                .foregroundStyle(.black)
+                                .foregroundStyle(.primary)
                             
                             Spacer()
                             
@@ -4937,50 +4962,16 @@ struct OpenTableView: View {
                     // P0 FIX: Use .id (UUID) instead of .firestoreId for stable ForEach identity
                     // firestoreId can change from UUID fallback to real Firebase ID, causing cell rebuilds
                     ForEach(Array(displayPosts.enumerated()), id: \.element.id) { index, post in
-                        PostCard(
-                            post: post,
-                            isUserPost: isCurrentUserPost(post) // Check if post belongs to current user
-                        )
-                        // D) One-time appear animation — keyed by stable post UUID.
-                        // Stagger capped at 0.20s so deep lists don't stall.
-                        .feedItemAppear(id: post.id, delay: min(Double(index) * 0.04, 0.20))
-                        .if(index == 0) { view in
-                            view.reportPostCardFrame()
-                        }
-                        .onAppear {
-                            // Track view interaction (benefit model — not optimizing watch time)
-                            feedAlgorithm.recordInteraction(with: post, type: .view)
-
-                            // Finite session: count cards seen, show Stop Screen at cap
-                            // Guard: only count cards the user scrolled to, not the initial render batch
-                            if sessionCountingEnabled {
-                                if !userHasScrolled {
-                                    // Still in initial render — mark this post as initially visible
-                                    initiallyVisiblePostIds.insert(post.id)
-                                } else if !initiallyVisiblePostIds.contains(post.id) {
-                                    // This is a card the user actively scrolled to — count it
-                                    feedSession.recordCardSeen()
-                                    if feedSession.isSessionComplete {
-                                        showSessionStopScreen = true
-                                    }
-                                }
-                            }
-
-                            // PAGINATION: Load more when approaching the end of the in-memory slice
-                            // AND fetch the next Firestore page when in-memory posts are nearly exhausted.
-                            if index >= displayPosts.count - 3 && !isLoadingMore {
-                                loadMorePosts()
-                            }
-                        }
-                        // Seen-post tracking: fires once after 1.5s of continuous visibility
-                        .trackPostVisibility(postId: post.firestoreId) { seenId in
-                            caughtUpService.markSeen(postId: seenId)
-                        }
+                        feedPostItem(post: post, index: index, displayPosts: displayPosts)
 
                         // "Suggested for you" rail — injected after the 3rd post, non-intrusive
                         if index == 2 {
-                            SuggestedForYouModule()
-                                .padding(.top, 4)
+                            FeedPostDivider()
+                            OpenTableSuggestedRailView()
+                                .background(Color(.systemBackground))
+                                .padding(.vertical, 8)
+                                .clipped()
+                            FeedPostDivider()
                         }
                     }
 
@@ -5026,7 +5017,7 @@ struct OpenTableView: View {
                     }
                     } // end else (skeleton)
                 }
-                .padding(.horizontal)
+                // PostCard handles its own internal horizontal padding — no outer padding needed.
                 // Detect scroll: track LazyVStack Y position in global space.
                 // When it moves meaningfully, the user has actively scrolled.
                 .background(
@@ -5093,6 +5084,10 @@ struct OpenTableView: View {
             }
             // Reset seen-post session and reload Firestore seed
             caughtUpService.resetSession()
+            
+            // ✅ INTELLIGENT BANNER: Start new feed session with current posts
+            let allPosts = hasPersonalized && !personalizedPosts.isEmpty ? personalizedPosts : postsManager.openTablePosts
+            caughtUpService.startNewFeedSession(posts: allPosts)
         }
         .onDisappear {
             // Don't stop the listener - keep it active for real-time updates
@@ -5128,6 +5123,17 @@ struct OpenTableView: View {
         .onChange(of: postsManager.openTablePosts.count) { oldValue, newValue in
             let posts = postsManager.openTablePosts
             if !posts.isEmpty { isInitialLoad = false }
+            
+            // ✅ INTELLIGENT BANNER: Detect new posts inserted at top
+            if oldValue != newValue && newValue > oldValue {
+                // New posts were added - figure out which ones
+                let newPostCount = newValue - oldValue
+                let newPosts = Array(posts.prefix(newPostCount))
+                if !newPosts.isEmpty {
+                    caughtUpService.onNewPostsInserted(newPosts)
+                }
+            }
+            
             // Only re-personalize if there are new posts
             if oldValue != newValue {
                 personalizeFeeds()
@@ -5204,6 +5210,8 @@ struct OpenTableView: View {
         }
         .sheet(isPresented: $showCreatePost) {
             CreatePostView(initialCategory: selectedPostCategory)
+                .presentationBackground(.regularMaterial)
+                .presentationDragIndicator(.visible)
         }
     }
 
@@ -5216,6 +5224,49 @@ struct OpenTableView: View {
         }
         // Compare with post's authorId
         return post.authorId == currentUserId
+    }
+    
+    // MARK: - Feed Post Item Helper
+    
+    @ViewBuilder
+    private func feedPostItem(post: Post, index: Int, displayPosts: [Post]) -> some View {
+        PostCard(
+            post: post,
+            isUserPost: isCurrentUserPost(post)
+        )
+        .feedItemAppear(id: post.id, delay: min(Double(index) * 0.04, 0.20))
+        .if(index == 0) { view in
+            view.reportPostCardFrame()
+        }
+        .onAppear {
+            feedAlgorithm.recordInteraction(with: post, type: .view)
+            
+            if sessionCountingEnabled {
+                if !userHasScrolled {
+                    initiallyVisiblePostIds.insert(post.id)
+                } else if !initiallyVisiblePostIds.contains(post.id) {
+                    feedSession.recordCardSeen()
+                    if feedSession.isSessionComplete {
+                        showSessionStopScreen = true
+                    }
+                }
+            }
+            
+            if index >= displayPosts.count - 3 && !isLoadingMore {
+                loadMorePosts()
+            }
+        }
+        .trackPostVisibility(postId: post.firestoreId) { seenId in
+            caughtUpService.markSeen(postId: seenId)
+        }
+        .trackPostVisibilityForBanner(postId: post.firestoreId) { postId, visibility, dwell in
+            caughtUpService.onPostVisibilityChanged(postID: postId, visibility: visibility, dwell: dwell)
+        }
+
+        // Threads-style post divider (System 14)
+        if AMENFeatureFlags.shared.postDividerEnabled {
+            FeedPostDivider()
+        }
     }
     
     // MARK: - Personalization
@@ -5336,8 +5387,16 @@ struct OpenTableView: View {
         // This appends 25 more posts to postsManager.openTablePosts via the service,
         // which automatically extends allPosts above on the next render pass.
         if visiblePostCount >= allPosts.count && firebasePostService.hasMorePosts {
+            // ✅ INTELLIGENT BANNER: Notify about pagination start
+            caughtUpService.onPaginationStarted()
+            
             Task {
                 await firebasePostService.loadMorePosts(category: .openTable)
+                
+                // ✅ INTELLIGENT BANNER: Notify about pagination finish
+                await MainActor.run {
+                    caughtUpService.onPaginationFinished()
+                }
             }
         }
     }
@@ -5717,6 +5776,10 @@ struct BannerColorPickerSheet: View {
 
 struct DailyVerseBanner: View {
     @ObservedObject private var verseService = DailyVerseGenkitService.shared
+    // OFFLINE FIX: retry AI verse generation when the app returns to foreground
+    // and the displayed verse is still just the curated offline fallback.
+    @Environment(\.scenePhase) private var scenePhase
+    @ObservedObject private var networkMonitor = AMENNetworkMonitor.shared
 
     var body: some View {
         DailyVerseBannerView(
@@ -5726,6 +5789,17 @@ struct DailyVerseBanner: View {
         )
         .task {
             await loadCachedVerseIfNeeded()
+        }
+        // OFFLINE FIX: When the app moves to active and the verse is a curated fallback
+        // (isPersonalized == false), attempt a fresh Cloud Function call now that the
+        // network may be available.  Guard on isGenerating to avoid duplicate calls.
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active,
+               !verseService.isPersonalized,
+               networkMonitor.isConnected,
+               !verseService.isGenerating {
+                Task { _ = await verseService.generatePersonalizedDailyVerse(forceRefresh: true) }
+            }
         }
     }
 
@@ -5837,7 +5911,7 @@ struct DailyVerseDetailSheet: View {
                 }
             }
             .sheet(isPresented: $showBerean) {
-                BereanAIAssistantView(initialQuery: "Help me reflect on \(reference): \"\(text)\"")
+                BereanChatView(initialQuery: "Help me reflect on \(reference): \"\(text)\"")
             }
         }
     }
@@ -7265,44 +7339,41 @@ struct FeedCommunitiesSheet: View {
 
                     // Feed Modes Section
                     feedModesSection
-                        .padding(.top, 8)
-                        .padding(.bottom, 4)
+                        .padding(.top, 6)
+                        .padding(.bottom, 2)
 
                     Divider()
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 12)
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 8)
                         .opacity(0.3)
 
                     // Browse All button
                     Button {
                         showBrowseAll = true
                     } label: {
-                        HStack(spacing: 12) {
+                        HStack(spacing: 10) {
                             Image(systemName: "square.grid.2x2.fill")
                                 .font(.systemScaled(14, weight: .semibold))
                                 .foregroundStyle(Color.accentColor)
-                                .frame(width: 36, height: 36)
+                                .frame(width: 32, height: 32)
                                 .background(Color.accentColor.opacity(0.12), in: Circle())
-                            VStack(alignment: .leading, spacing: 1) {
-                                Text("Browse All Communities")
-                                    .font(AMENFont.semiBold(14))
-                                    .foregroundStyle(.primary)
-                                Text("Discover, join & create")
-                                    .font(AMENFont.regular(11))
-                                    .foregroundStyle(.secondary)
-                            }
+                            Text("Browse all communities")
+                                .font(AMENFont.semiBold(14))
+                                .foregroundStyle(.primary)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.9)
                             Spacer()
                             Image(systemName: "chevron.right")
                                 .font(.systemScaled(12, weight: .semibold))
                                 .foregroundStyle(.tertiary)
                         }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 12)
-                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 10)
+                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                         .padding(.horizontal, 16)
                     }
                     .buttonStyle(.plain)
-                    .padding(.bottom, 12)
+                    .padding(.bottom, 8)
 
                     // Loading indicator
                     if vm.isLoading {
@@ -7399,7 +7470,7 @@ struct FeedCommunitiesSheet: View {
                 }
             }
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.fraction(0.6)])
         .presentationDragIndicator(.visible)
     }
 

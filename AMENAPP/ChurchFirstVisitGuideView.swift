@@ -22,7 +22,7 @@ final class FirstVisitGuideService: ObservableObject {
     @Published var isLoading = false
     @Published var error: String?
 
-    private let functions = Functions.functions()
+    private lazy var functions = Functions.functions()
     private let db        = Firestore.firestore()
 
     func load(church: ChurchEntity) async {

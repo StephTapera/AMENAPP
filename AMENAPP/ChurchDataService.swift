@@ -16,7 +16,7 @@ import MapKit
 class ChurchDataService {
     static let shared = ChurchDataService()
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private init() {}
     
     // MARK: - Church Lookup

@@ -13,7 +13,7 @@ class CreatorViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var isEnablingCreator = false
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     var formattedMonthlyRevenue: String { "$\(String(format: "%.0f", profile.monthlyRevenue))" }
     var formattedLifetime: String { "$\(String(format: "%.0f", profile.lifetimeEarnings))" }

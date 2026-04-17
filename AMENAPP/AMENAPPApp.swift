@@ -65,7 +65,7 @@ struct AMENAPPApp: App {
         // Must be registered during app init (before the app finishes launching).
         // iOS will call this handler when it decides to wake the app for a background refresh.
         BGTaskScheduler.shared.register(
-            forTaskWithIdentifier: "com.amenapp.feed.refresh",
+            forTaskWithIdentifier: AppConfig.backgroundFeedRefreshTaskId,
             using: nil
         ) { task in
             guard let refreshTask = task as? BGAppRefreshTask else { return }
@@ -75,9 +75,9 @@ struct AMENAPPApp: App {
         // Phase 3 fix: Configure URLCache for better image scroll performance.
         // Default is only 512KB RAM + 10MB disk — too small for a social feed.
         URLCache.shared = URLCache(
-            memoryCapacity: 64 * 1024 * 1024,   // 64 MB RAM
-            diskCapacity:  256 * 1024 * 1024,   // 256 MB disk
-            diskPath: "amen_url_cache"
+            memoryCapacity: AppConfig.urlCacheMemoryCapacity,
+            diskCapacity: AppConfig.urlCacheDiskCapacity,
+            diskPath: AppConfig.urlCacheDiskPath
         )
         
         // ✅ Initialize Firebase Remote Config for AI API keys
@@ -87,8 +87,8 @@ struct AMENAPPApp: App {
         
         // One-time migration: upgrade any stored rememberMe=false to true so existing
         // users are not logged out every 30 minutes after the policy change.
-        if let stored = UserDefaults.standard.object(forKey: "rememberMe") as? Bool, !stored {
-            UserDefaults.standard.set(true, forKey: "rememberMe")
+        if let stored = UserDefaults.standard.object(forKey: UserDefaultsKeys.rememberMe) as? Bool, !stored {
+            UserDefaults.standard.set(true, forKey: UserDefaultsKeys.rememberMe)
         }
 
         // Pre-warm taptic engine generators so first user interaction fires with zero latency.
@@ -121,6 +121,8 @@ struct AMENAPPApp: App {
     
     /// Setup Firebase Remote Config to fetch AI API keys
     private static func setupRemoteConfig() {
+        // Guard: RemoteConfig crashes if Firebase is not yet configured.
+        guard FirebaseApp.app() != nil else { return }
         let remoteConfig = RemoteConfig.remoteConfig()
         let settings = RemoteConfigSettings()
         settings.minimumFetchInterval = 3600 // Fetch at most once per hour
@@ -148,7 +150,7 @@ struct AMENAPPApp: App {
         }
 
         // Check if migration has already been run
-        let hasRunMigration = UserDefaults.standard.bool(forKey: "hasRunUserKeywordsMigration")
+        let hasRunMigration = UserDefaults.standard.bool(forKey: UserDefaultsKeys.hasRunUserKeywordsMigration)
 
         if hasRunMigration {
             dlog("✅ User keywords migration already completed")
@@ -164,7 +166,7 @@ struct AMENAPPApp: App {
                 
                 // Mark migration as complete
                 await MainActor.run {
-                    UserDefaults.standard.set(true, forKey: "hasRunUserKeywordsMigration")
+                    UserDefaults.standard.set(true, forKey: UserDefaultsKeys.hasRunUserKeywordsMigration)
                 }
                 
                 dlog("✅ Automatic migration completed successfully!")
@@ -172,7 +174,7 @@ struct AMENAPPApp: App {
                 dlog("✅ No migration needed - all users already have keywords")
                 // Mark as complete anyway
                 await MainActor.run {
-                    UserDefaults.standard.set(true, forKey: "hasRunUserKeywordsMigration")
+                    UserDefaults.standard.set(true, forKey: UserDefaultsKeys.hasRunUserKeywordsMigration)
                 }
             }
         } catch {
@@ -187,18 +189,7 @@ struct AMENAPPApp: App {
                 ContentView()
                     .handleChurchDeepLinks()  // ✅ Handle church deep links
                     .notificationOnboarding(isPresented: $showNotifOnboarding)
-
-                // COPPA age gate — fullScreenCover blocks access until user confirms age ≥ 13.
-                // hasCompletedAgeVerification persists via @AppStorage so it never shows twice.
-                if !hasCompletedAgeVerification {
-                    Color.clear
-                        .fullScreenCover(isPresented: Binding(
-                            get: { !hasCompletedAgeVerification },
-                            set: { _ in }
-                        )) {
-                            AgeGateView(isEligible: $ageGateEligible)
-                        }
-                }
+                    .networkStatusBanner()    // OFFLINE FIX: global offline indicator across all views
             }
             // Forced upgrade alert — shown when Remote Config minimum_app_version
             // is higher than the installed binary. Users must update before continuing.
@@ -207,7 +198,7 @@ struct AMENAPPApp: App {
                 set: { _ in }
             )) {
                 Button("Update Now") {
-                    if let url = URL(string: "https://apps.apple.com/app/id6740238684") {
+                    if let url = URL(string: AppConfig.appStoreURL) {
                         UIApplication.shared.open(url)
                     }
                 }
@@ -232,7 +223,7 @@ struct AMENAPPApp: App {
                     // Guard: only show when user is signed in, hasn't seen it yet,
                     // AND has completed the main onboarding flow (prevents sheet conflict).
                     if Auth.auth().currentUser != nil,
-                       !UserDefaults.standard.bool(forKey: "notifOnboardingShown"),
+                       !UserDefaults.standard.bool(forKey: UserDefaultsKeys.notifOnboardingShown),
                        hasCompletedOnboarding {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                             showNotifOnboarding = true
@@ -270,6 +261,25 @@ struct AMENAPPApp: App {
                                     return true
                                 }
                                 if shouldSetup { await setupFCMForExistingUser() }
+                            }
+                            group.addTask {
+                                // ✅ MESSAGE SETTINGS: Load user's message settings on app launch
+                                // ✅ CRASH FIX: Only load settings if user is authenticated
+                                guard Auth.auth().currentUser != nil else {
+                                    dlog("⏭️ MESSAGE SETTINGS: Skipping - no authenticated user")
+                                    return
+                                }
+                                do {
+                                    try await MessageSettingsService.shared.loadSettings()
+                                    // ✅ CRASH FIX: startListening is synchronous, not async
+                                    await MainActor.run {
+                                        MessageSettingsService.shared.startListening()
+                                    }
+                                    dlog("✅ MESSAGE SETTINGS: Loaded and listening")
+                                } catch {
+                                    dlog("⚠️ MESSAGE SETTINGS: Failed to load: \(error.localizedDescription)")
+                                    // Don't start listener if load failed
+                                }
                             }
                         }
                         dlog("✅ All critical startup tasks complete")
@@ -309,8 +319,16 @@ struct AMENAPPApp: App {
                 // Handle Google Sign-In callback
                 GIDSignIn.sharedInstance.handle(url)
                 
-                // ✅ NEW: Handle notification deep links
-                NotificationDeepLinkRouter.shared.handleURL(url)
+                // ✅ NEW: Handle notification/deep-link intents through the
+                // production routing coordinator first. If the URL is not one of
+                // the supported notification-style destinations, fall back to the
+                // legacy deep-link router for the rest of the app.
+                Task { @MainActor in
+                    let handledByNotificationCoordinator = await NotificationOpenCoordinator.shared.handleURL(url)
+                    if !handledByNotificationCoordinator {
+                        NotificationDeepLinkRouter.shared.handleURL(url)
+                    }
+                }
                 
                 // ✅ Handle email authentication links (passwordless sign-in & email verification)
                 handleEmailAuthenticationLink(url)
@@ -335,12 +353,16 @@ struct AMENAPPApp: App {
                 
                 // Restore any Live Activities that survived an app relaunch
                 LiveActivityManager.shared.restoreActiveActivities()
+                NotificationTapBootstrapper.shared.appDidBecomeReady()
             }
             // Show supplementary interest/follow onboarding once after account creation.
             // This is separate from the username/profile OnboardingView in ContentView.
             // ✅ FIX: Only show if user is authenticated AND has NOT completed onboarding
             .fullScreenCover(isPresented: Binding(
-                get: { 
+                get: {
+                    // Guard: Auth.auth() crashes if Firebase is not yet configured
+                    // (SwiftUI evaluates body.getter before AppDelegate finishes).
+                    guard FirebaseApp.app() != nil else { return false }
                     let shouldShow = Auth.auth().currentUser != nil && !hasCompletedOnboarding
                     dlog("🎬 OnboardingFlowView fullScreenCover check: currentUser=\(Auth.auth().currentUser?.uid ?? "nil"), hasCompletedOnboarding=\(hasCompletedOnboarding), shouldShow=\(shouldShow)")
                     return shouldShow
@@ -355,6 +377,9 @@ struct AMENAPPApp: App {
                 switch newPhase {
                 case .active:
                     BehavioralAwarenessEngine.shared.beginSession()
+                    Task { @MainActor in
+                        await NotificationTapBootstrapper.shared.resumePendingRoute()
+                    }
                     Task { await PostsManager.shared.resumeListeningForProfileUpdatesIfNeeded() }
                     // Refresh dynamic shortcuts whenever the app comes to the foreground
                     // so the menu reflects current state (drafts, unread count, etc.)
@@ -367,6 +392,17 @@ struct AMENAPPApp: App {
                     BehavioralAwarenessEngine.shared.endSession()
                     Self.scheduleBackgroundFeedRefresh()
                     PostsManager.shared.stopListeningForProfileUpdates()
+                    
+                    // P1-3 FIX: Additional cleanup safeguard for background transitions.
+                    // SwiftUI onDisappear isn't guaranteed during force-quit or low-memory kills,
+                    // so we defensively clean up listeners here as well. Idempotent — safe to call
+                    // even if onDisappear already ran.
+                    if let handle = authStateHandle {
+                        Auth.auth().removeStateDidChangeListener(handle)
+                        authStateHandle = nil
+                    }
+                    startupTasks.forEach { $0.cancel() }
+                    startupTasks.removeAll()
                 default:
                     break
                 }
@@ -420,7 +456,7 @@ struct AMENAPPApp: App {
     /// This prevents OnboardingFlowView from showing on every app open
     private func loadOnboardingStatusSync(userId: String) async {
         do {
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
             let document = try await db.collection("users").document(userId).getDocument()
             
             if let data = document.data() {
@@ -456,22 +492,34 @@ struct AMENAPPApp: App {
         guard let userId = Auth.auth().currentUser?.uid else {
             return
         }
-        
+
         do {
-            let db = Firestore.firestore()
-            let document = try await db.collection("users").document(userId).getDocument()
-            
+            lazy var db = Firestore.firestore()
+            // Use .cache source first — AuthenticationViewModel.checkOnboardingStatus()
+            // runs concurrently (started in AuthVM.init()) and will have already issued a
+            // network getDocument() for users/{uid}. Reading from the Firestore local cache
+            // reuses those bytes without a second network round-trip.
+            // If the cache is cold (first launch ever), fall back to a network read.
+            let document: DocumentSnapshot
+            do {
+                document = try await db.collection("users").document(userId)
+                    .getDocument(source: .cache)
+            } catch {
+                // Cache miss — fall back to network (e.g. very first cold launch before any data)
+                document = try await db.collection("users").document(userId).getDocument()
+            }
+
             if let user = try? document.data(as: UserModel.self) {
                 await MainActor.run {
                     currentUser = user
                 }
             }
-            
-            // ✅ FIX: Sync onboarding status from Firestore
-            // Check BOTH possible field names for backwards compatibility
+
+            // Sync onboarding status from Firestore document.
+            // Check BOTH possible field names for backwards compatibility.
             if let data = document.data() {
-                let completed = data["hasCompletedOnboarding"] as? Bool 
-                    ?? data["onboardingCompleted"] as? Bool 
+                let completed = data["hasCompletedOnboarding"] as? Bool
+                    ?? data["onboardingCompleted"] as? Bool
                     ?? true  // Default to true (completed) if field doesn't exist
                 await MainActor.run {
                     hasCompletedOnboarding = completed
@@ -597,6 +645,12 @@ struct AMENAPPApp: App {
                         await FollowService.shared.loadCurrentUserFollowers()
                         FollowService.shared.startListening()
                     }
+                    // PostInteractionsService — re-enable after resetUserState() cleared
+                    // the isSignedOut guard on sign-out. This loads the new user's liked/
+                    // amened/reposted sets and starts the real-time observer.
+                    Task(priority: .medium) {
+                        PostInteractionsService.shared.prepareForNewUser()
+                    }
                     // Integration preferences — start syncing on sign-in
                     AMENUserPreferencesService.shared.startListening()
                 } else {
@@ -606,7 +660,7 @@ struct AMENAPPApp: App {
                     self.fcmSetupDone = false
                     dlog("👋 User logged out, unregistering device token")
                     await DeviceTokenManager.shared.unregisterDeviceToken()
-                    AgeAssuranceService.shared.reset()
+                    AgeAssuranceService.shared.clearCache()
                     // Stop FollowService listeners so stale following data from the
                     // previous user doesn't leak into the next sign-in session.
                     FollowService.shared.stopListening()
@@ -773,14 +827,14 @@ struct AMENAPPApp: App {
         guard Auth.auth().currentUser != nil else { return }
         await withTaskGroup(of: Void.self) { group in
             // Safety services
-            group.addTask { _ = CrisisDetectionService.shared }
-            group.addTask { _ = EnhancedCrisisSupportService.shared }
-            group.addTask { _ = BereanShieldService.shared }
-            group.addTask { _ = ContentSafetyShieldService.shared }
-            group.addTask { _ = MinorSafetyService.shared }
+            group.addTask { @MainActor in _ = CrisisDetectionService.shared }
+            group.addTask { @MainActor in _ = EnhancedCrisisSupportService.shared }
+            group.addTask { @MainActor in _ = BereanShieldService.shared }
+            group.addTask { @MainActor in _ = ContentSafetyShieldService.shared }
+            group.addTask { @MainActor in _ = MinorSafetyService.shared }
             // Notification services
-            group.addTask { _ = SmartNotificationService.shared }
-            group.addTask { _ = NotificationAggregationService.shared }
+            group.addTask { @MainActor in _ = SmartNotificationService.shared }
+            group.addTask { @MainActor in _ = NotificationAggregationService.shared }
         }
         dlog("✅ Safety and notification services warmed up")
     }

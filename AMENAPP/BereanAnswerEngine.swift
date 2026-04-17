@@ -135,7 +135,7 @@ class BereanAnswerEngine: ObservableObject {
     @Published var isProcessing = false
     @Published var currentMode: InterpretationMode = .pastoral
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private let answerCache = BereanAnswerCache.shared
     
     private init() {}

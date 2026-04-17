@@ -163,7 +163,7 @@ struct AmenInstagramStoryCard: View {
             // Body
             Text(content.bodyText)
                 .font(bodyFont)
-                .foregroundStyle(.black)
+                .foregroundStyle(.primary)
                 .multilineTextAlignment(.leading)
                 .lineSpacing(style == .scriptureFocus ? 7 : 4)
                 .minimumScaleFactor(0.68)

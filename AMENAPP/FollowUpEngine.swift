@@ -155,7 +155,7 @@ final class FollowUpEngine: ObservableObject {
     @Published private(set) var dueFollowUps: [FollowUpItem] = []
 
     private let localStorageKey = "berean_followups_v1"
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private let maxActiveFollowUps = 20
 
     private init() {

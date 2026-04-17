@@ -7,20 +7,22 @@ import SwiftUI
 import Foundation
 
 // MARK: - Colors
+// BereanColor now uses AmenTheme tokens — auto-adapts for light and dark mode.
+// No colorScheme checks needed; UIColor adaptive providers handle everything.
 
 enum BereanColor {
-    static let background      = Color.white
-    static let textPrimary     = Color.black
-    static let textSecondary   = Color(white: 0.45)
-    static let textTertiary    = Color(white: 0.65)
-    static let separator       = Color(white: 0.88)
-    static let glassFill       = Color.white.opacity(0.72)
-    static let glassBorder     = Color.white.opacity(0.55)
-    static let glassStroke     = Color(white: 0.88).opacity(0.5)
-    static let userBubbleBg    = Color(white: 0.94)
-    static let aiBubbleBg      = Color.white
-    static let shadowColor     = Color.black.opacity(0.07)
-    static let divider         = Color(white: 0.90)
+    static let background      = AmenTheme.Colors.backgroundPrimary
+    static let textPrimary     = AmenTheme.Colors.textPrimary
+    static let textSecondary   = AmenTheme.Colors.textSecondary
+    static let textTertiary    = AmenTheme.Colors.textTertiary
+    static let separator       = AmenTheme.Colors.separatorSubtle
+    static let glassFill       = AmenTheme.Colors.glassFill
+    static let glassBorder     = AmenTheme.Colors.glassStroke
+    static let glassStroke     = AmenTheme.Colors.glassStroke
+    static let userBubbleBg    = AmenTheme.Colors.surfaceChip
+    static let aiBubbleBg      = AmenTheme.Colors.surfaceCard
+    static let shadowColor     = AmenTheme.Colors.shadowCard
+    static let divider         = AmenTheme.Colors.separatorSubtle
 }
 
 // MARK: - Typography
@@ -62,11 +64,14 @@ enum BereanType {
 
 // MARK: - Glass Modifiers
 
-/// Full liquid glass card: .ultraThinMaterial + white overlay + hairline border + soft shadow.
+/// Full liquid glass card: .ultraThinMaterial + adaptive highlight + hairline border + soft shadow.
+/// In dark mode renders as smoked glass. In light mode renders as bright liquid glass.
 struct LiquidGlassCard: ViewModifier {
     var cornerRadius: CGFloat = 18
     var shadowRadius: CGFloat = 16
     var shadowY: CGFloat      = 5
+
+    @Environment(\.colorScheme) private var scheme
 
     func body(content: Content) -> some View {
         content
@@ -75,43 +80,34 @@ struct LiquidGlassCard: ViewModifier {
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                         .fill(.ultraThinMaterial)
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .fill(Color.white.opacity(0.72))
+                        .fill(AmenTheme.Colors.glassFill)  // adaptive: bright light / smoke dark
                 }
             )
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .strokeBorder(
                         LinearGradient(
-                            colors: [Color.white.opacity(0.80), Color.white.opacity(0.10)],
+                            colors: [
+                                Color.white.opacity(AmenTheme.glassStrokeOpacity(scheme)),
+                                Color.white.opacity(AmenTheme.glassStrokeOpacity(scheme) * 0.18),
+                            ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         ),
                         lineWidth: 0.75
                     )
             )
-            .shadow(color: Color.black.opacity(0.07), radius: shadowRadius, x: 0, y: shadowY)
+            .shadow(color: AmenTheme.Colors.shadowCard, radius: shadowRadius, x: 0, y: shadowY)
     }
 }
 
 /// Input bar glass modifier — tighter shadow, used for bottom composers.
+/// Delegates to AmenGlassInputBarModifier for correct dark mode behavior.
 struct LiquidGlassInputBarModifier: ViewModifier {
     var cornerRadius: CGFloat = 24
 
     func body(content: Content) -> some View {
-        content
-            .background(
-                ZStack {
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .fill(.ultraThinMaterial)
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .fill(Color.white.opacity(0.80))
-                }
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(Color(white: 0.82), lineWidth: 0.5)
-            )
-            .shadow(color: Color.black.opacity(0.09), radius: 12, x: 0, y: 4)
+        content.amenGlassInputBar(cornerRadius: cornerRadius)
     }
 }
 
@@ -147,7 +143,7 @@ struct BereanPersonalityPill: View {
         .background(
             Capsule()
                 .fill(.ultraThinMaterial)
-                .overlay(Capsule().fill(Color.white.opacity(0.60)))
+                .overlay(Capsule().fill(AmenTheme.Colors.glassFill))
                 .overlay(Capsule().strokeBorder(BereanColor.glassStroke, lineWidth: 0.5))
         )
     }
@@ -179,7 +175,7 @@ struct BereanSuggestionChip: View {
                     .fill(.ultraThinMaterial)
                     .overlay(
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .fill(Color.white.opacity(0.65))
+                            .fill(AmenTheme.Colors.glassFill)
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: 14, style: .continuous)

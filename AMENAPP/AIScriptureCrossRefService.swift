@@ -30,7 +30,7 @@ struct ScriptureReference: Identifiable, Codable {
 @MainActor
 class AIScriptureCrossRefService: ObservableObject {
     static let shared = AIScriptureCrossRefService()
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     // ✅ FIX CR-12: Published error state for UI
     @Published var lastError: String?

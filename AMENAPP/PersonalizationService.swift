@@ -18,7 +18,7 @@ class PersonalizationService: ObservableObject {
     @Published var isPersonalizing = false
     @Published var userProfile: UserModel?
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     private init() {
         // Load user profile on init

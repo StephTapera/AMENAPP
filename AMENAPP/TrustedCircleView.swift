@@ -533,7 +533,7 @@ struct AddTrustedContactSheet: View {
             let followerIds = Array(dict.keys.prefix(50))
 
             // 2. Fetch display names from Firestore in parallel
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
             var result: [FollowerPickerUser] = []
             try await withThrowingTaskGroup(of: FollowerPickerUser?.self) { group in
                 for fid in followerIds {

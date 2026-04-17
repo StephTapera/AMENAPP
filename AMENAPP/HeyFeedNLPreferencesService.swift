@@ -22,7 +22,7 @@ final class HeyFeedNLPreferencesService: ObservableObject {
     @Published private(set) var activePreferences: [HeyFeedNLPreference] = []
     @Published private(set) var isLoading = false
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var listener: ListenerRegistration?
 
     // MARK: - Lifecycle

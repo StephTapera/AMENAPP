@@ -131,7 +131,7 @@ class HeyFeedService: ObservableObject {
 
     // MARK: Private
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var listeners: [ListenerRegistration] = []
 
     private init() {

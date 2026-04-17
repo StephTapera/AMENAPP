@@ -238,7 +238,7 @@ class CommentService: ObservableObject {
             postData = providedPost
         } else {
             // Fetch post from Firestore
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
             let postDoc = try await db.collection("posts").document(postId).getDocument()
             guard let post = try? postDoc.data(as: Post.self) else {
                 throw NSError(domain: "CommentService", code: -3,
@@ -789,7 +789,7 @@ class CommentService: ObservableObject {
     func fetchUserComments(userId: String, limit: Int = 50) async throws -> [Comment] {
         dlog("📥 Fetching comments for user: \(userId)")
         
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         let snap = try await db
             .collectionGroup("comments")
             .whereField("userId", isEqualTo: userId)
@@ -1380,7 +1380,7 @@ class CommentService: ObservableObject {
         guard let commenterId = firebaseManager.currentUser?.uid,
               commenterId != postAuthorId else { return }
         
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         // Grouped comment notification — deterministic ID so multiple comments on same post
         // accumulate into a single notification row (Threads-style grouping)
         let deterministicId = "comment_group_\(postId)"
@@ -1443,7 +1443,7 @@ class CommentService: ObservableObject {
         guard let replierId = firebaseManager.currentUser?.uid,
               replierId != parentAuthorId else { return }
         
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         let notification: [String: Any] = [
             "toUserId": parentAuthorId,
             "type": "reply",
@@ -1470,7 +1470,7 @@ class CommentService: ObservableObject {
         guard let mentionerId = firebaseManager.currentUser?.uid,
               mentionerId != mentionedUserId else { return }
         
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         let notification: [String: Any] = [
             "toUserId": mentionedUserId,
             "type": "mention",

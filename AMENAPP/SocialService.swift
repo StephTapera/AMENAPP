@@ -86,15 +86,17 @@ class SocialService: ObservableObject {
         
         dlog("👥 Fetching followers for user: \(userId)")
         
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         
         // Get all follow relationships where this user is being followed
         let followsSnapshot = try await db.collection("follows")
             .whereField("followingId", isEqualTo: userId)
             .getDocuments()
         
+        // Use direct field access instead of Codable decode — follow documents
+        // may have extra/missing fields that cause FollowRelationship decode to fail.
         let followerIds = followsSnapshot.documents.compactMap { doc -> String? in
-            try? doc.data(as: FollowRelationship.self).followerId
+            doc.data()["followerId"] as? String
         }
         
         dlog("   Found \(followerIds.count) followers")
@@ -124,15 +126,17 @@ class SocialService: ObservableObject {
         
         dlog("👥 Fetching following for user: \(userId)")
         
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         
         // Get all follow relationships where this user is the follower
         let followsSnapshot = try await db.collection("follows")
             .whereField("followerId", isEqualTo: userId)
             .getDocuments()
         
+        // Use direct field access instead of Codable decode — follow documents
+        // may have extra/missing fields that cause FollowRelationship decode to fail.
         let followingIds = followsSnapshot.documents.compactMap { doc -> String? in
-            try? doc.data(as: FollowRelationship.self).followingId
+            doc.data()["followingId"] as? String
         }
         
         dlog("   User is following \(followingIds.count) people")

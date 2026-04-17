@@ -7,7 +7,7 @@ protocol CreatorAutosaveServicing {
 }
 
 final class CreatorAutosaveService: CreatorAutosaveServicing {
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     func autosave(project: CreatorProject) async throws {
         let ownerID = try requireOwnerID()

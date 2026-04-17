@@ -355,7 +355,7 @@ struct EnhancedChurchNoteEditor: View {
             VStack(spacing: 2) {
                 Text(isEditMode ? "Edit Note" : "New Note")
                     .font(.systemScaled(17, weight: .medium))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
                 
                 // UX-2: Auto-save indicator
                 if showAutoSaveIndicator {
@@ -593,7 +593,7 @@ struct EnhancedChurchNoteEditor: View {
 
                 TextField("e.g., John 3:16", text: $scripture)
                     .font(.systemScaled(16))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
                     .tint(.black)
                     .onChange(of: scripture) { _, _ in
                         trackUnsavedChanges()

@@ -7,7 +7,7 @@ protocol CreatorJobServicing {
 }
 
 final class CreatorJobService: CreatorJobServicing {
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     func listenJobs(projectID: String, onUpdate: @escaping ([CreatorProcessingJob]) -> Void) throws -> ListenerRegistration {
         let ownerID = try requireOwnerID()

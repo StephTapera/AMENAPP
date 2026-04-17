@@ -43,7 +43,7 @@ struct UserRecommendationProfile: Codable {
 
 class AIChurchRecommendationService {
     static let shared = AIChurchRecommendationService()
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     private init() {}
     

@@ -46,7 +46,11 @@ struct UnifiedChatView: View {
     @ObservedObject private var toastManager = ToastManager.shared
     @ObservedObject private var linkPreviewService = LinkPreviewService.shared
     @StateObject private var chatLinkController = ComposerLinkPreviewController()
-    
+    @StateObject private var chatMemoryService = ChatMemoryService.shared
+    @StateObject private var chatExtractionEngine = ChatMemoryExtractionEngine.shared
+    @StateObject private var chatCalendarBridge = ChatCalendarBridge.shared
+    @State private var showMemorySheet = false
+
     let conversation: ChatConversation
     
     @State private var messageText = ""
@@ -85,11 +89,9 @@ struct UnifiedChatView: View {
     // Feature 3: Poll creation sheet
     @State private var showCreatePollSheet = false
 
-    // Quick reply chips (shown when messages.isEmpty)
-    @State private var isChipsExpanded = true
-    @State private var dismissedChipIds: Set<String> = []
     @State private var placeholderText = ""
     @State private var firstUnreadMessageId: String?
+    @State private var inputShimmerX: CGFloat = -160
     @State private var showJumpToUnread = false
     @State private var showGroupInfo = false
 
@@ -101,6 +103,10 @@ struct UnifiedChatView: View {
     @State private var isScrollingDown: Bool = false
     @State private var showJumpToLatest: Bool = false
     @State private var sendSweepTrigger: Bool = false
+
+    /// Normalized 0 (fully expanded) → 1 (fully compact) driven by scroll position.
+    /// The composer shrinks smoothly as the user scrolls up through message history.
+    @State private var composerCollapseProgress: CGFloat = 0
 
     // Failed message tracking for retry
     @State private var failedMessageId: String?
@@ -205,7 +211,16 @@ struct UnifiedChatView: View {
             // Header
             liquidGlassHeader
                 .modifier(SoftStickyHeaderModifier(isActive: headerSofteningProgress > 0.01, intensity: headerSofteningProgress))
-            
+
+            // Chat memory capsule
+            ChatMemoryCapsuleView(
+                memoryService: chatMemoryService,
+                extractionEngine: chatExtractionEngine,
+                onTap: { showMemorySheet = true }
+            )
+            .padding(.horizontal, 16)
+            .padding(.vertical, 4)
+
             // Incoming message request banner (enhanced)
             if isIncomingRequest {
                 ChatRequestBanner(
@@ -348,11 +363,19 @@ struct UnifiedChatView: View {
                     scheduledMessagesBanner
                     editModeBanner
 
-                    // Compact input bar
+                    // Compact input bar — collapses smoothly when scrolled into history.
+                    // collapseProgress 0 = fully expanded, 1 = fully compact.
+                    let p = composerCollapseProgress
+                    let composerScale = 1.0 - 0.04 * p           // 1.0 → 0.96
+                    let composerOpacity = 1.0 - 0.12 * p         // 1.0 → 0.88
+                    let composerHPad = 12.0 + 16.0 * p           // 12 → 28 (narrows toward center)
+                    let composerBPad = 4.0 - 2.0 * p             // 4 → 2
                     compactInputBar
                         .composerCompression(isInputFocused || !messageText.isEmpty || isRecording)
-                        .padding(.horizontal, 12)
-                        .padding(.bottom, 4)
+                        .padding(.horizontal, composerHPad)
+                        .padding(.bottom, composerBPad)
+                        .scaleEffect(composerScale)
+                        .opacity(composerOpacity)
                 }
             }
             .background(Color.clear)
@@ -484,6 +507,26 @@ struct UnifiedChatView: View {
                 scheduleReply(at: confirmedDate)
             }
         }
+        // Chat memory sheet
+        .sheet(isPresented: $showMemorySheet) {
+            ChatMemorySheetView(
+                memoryService: chatMemoryService,
+                extractionEngine: chatExtractionEngine,
+                calendarBridge: chatCalendarBridge
+            )
+        }
+        .alert("Add to Calendar?", isPresented: $chatCalendarBridge.showCalendarConfirmation) {
+            Button("Add") {
+                Task { await chatCalendarBridge.confirmCalendarAdd() }
+            }
+            Button("Not now", role: .cancel) {
+                Task { await chatCalendarBridge.declineCalendarAdd() }
+            }
+        } message: {
+            if let item = chatCalendarBridge.pendingCalendarItem {
+                Text(item.summary)
+            }
+        }
         .alert("Message Failed", isPresented: $showErrorAlert) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -514,6 +557,9 @@ struct UnifiedChatView: View {
         .task {
             // P0 FIX: Move all setup to async task for instant view appearance
             await setupChatViewAsync()
+            // Load chat memory items for this conversation
+            await chatMemoryService.loadItems(for: conversation.id)
+            chatExtractionEngine.resetSession()
         }
         .onAppear {
             isViewActive = true
@@ -526,6 +572,8 @@ struct UnifiedChatView: View {
             isViewActive = false
             cleanupChatView()
             scheduledMessagesService.stopListening()
+            chatMemoryService.cleanup()
+            chatExtractionEngine.clearPending()
 
             // ✅ Reset screen tracking
             NotificationAggregationService.shared.updateCurrentScreen(.messages)
@@ -551,6 +599,8 @@ struct UnifiedChatView: View {
                 if newValue {
                     // Auto-collapse media section when keyboard appears
                     isMediaSectionExpanded = false
+                    // Restore composer to full size when user starts typing
+                    composerCollapseProgress = 0
                 }
             }
         }
@@ -614,7 +664,12 @@ struct UnifiedChatView: View {
                     )
                 )
                 .frame(width: 38, height: 38)
-                .shadow(color: .black.opacity(0.15), radius: 8, y: 3)
+                .overlay(
+                    Circle()
+                        .stroke(Color.white, lineWidth: 1)
+                        .opacity(0.3)
+                )
+                .shadow(color: .black.opacity(0.08), radius: 10, y: 4)
 
             Text(String(conversation.name.prefix(1)).uppercased())
                 .font(.systemScaled(16, weight: .bold))
@@ -625,15 +680,31 @@ struct UnifiedChatView: View {
     // MARK: - Background
     
     private var liquidGlassBackground: some View {
-        LinearGradient(
-            colors: [
-                Color(red: 0.98, green: 0.98, blue: 0.98),
-                Color(red: 0.95, green: 0.95, blue: 0.95),
-                Color(red: 0.97, green: 0.97, blue: 0.97)
-            ],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
+        ZStack {
+            LinearGradient(
+                colors: [
+                    Color(red: 0.98, green: 0.98, blue: 0.98),
+                    Color(red: 0.95, green: 0.95, blue: 0.95),
+                    Color(red: 0.97, green: 0.97, blue: 0.97)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            
+            RadialGradient(
+                colors: [Color.blue.opacity(0.10), Color.clear],
+                center: UnitPoint(x: 0.2, y: 0.1),
+                startRadius: 10,
+                endRadius: 260
+            )
+            
+            RadialGradient(
+                colors: [Color.blue.opacity(0.06), Color.clear],
+                center: UnitPoint(x: 0.85, y: 0.3),
+                startRadius: 10,
+                endRadius: 220
+            )
+        }
         .ignoresSafeArea()
     }
     
@@ -646,9 +717,18 @@ struct UnifiedChatView: View {
                 dismiss()
             } label: {
                 Image(systemName: "chevron.left")
-                    .font(.systemScaled(20, weight: .semibold))
+                    .font(.systemScaled(18, weight: .semibold))
                     .foregroundStyle(Color(red: 0.1, green: 0.1, blue: 0.1))
-                    .frame(width: 38, height: 38)
+                    .frame(width: 36, height: 36)
+                    .background(
+                        Circle()
+                            .fill(.ultraThinMaterial)
+                            .overlay(
+                                Circle()
+                                    .stroke(Color.white, lineWidth: 1)
+                                    .opacity(0.25)
+                            )
+                    )
             }
             .buttonStyle(ScaleButtonStyle())
             
@@ -667,7 +747,12 @@ struct UnifiedChatView: View {
                                 .scaledToFill()
                                 .frame(width: 38, height: 38)
                                 .clipShape(Circle())
-                                .shadow(color: .black.opacity(0.15), radius: 8, y: 3)
+                                .overlay(
+                                    Circle()
+                                        .stroke(Color.white, lineWidth: 1)
+                                        .opacity(0.3)
+                                )
+                                .shadow(color: .black.opacity(0.08), radius: 10, y: 4)
                         },
                         placeholder: {
                             fallbackAvatar
@@ -710,19 +795,44 @@ struct UnifiedChatView: View {
                 }
             } label: {
                 Image(systemName: conversation.isGroup ? "person.3.fill" : "info.circle")
-                    .font(.systemScaled(20, weight: .semibold))
+                    .font(.systemScaled(18, weight: .semibold))
                     .foregroundStyle(Color(red: 0.1, green: 0.1, blue: 0.1))
-                    .frame(width: 38, height: 38)
+                    .frame(width: 36, height: 36)
+                    .background(
+                        Circle()
+                            .fill(.ultraThinMaterial)
+                            .overlay(
+                                Circle()
+                                    .stroke(Color.white, lineWidth: 1)
+                                    .opacity(0.25)
+                            )
+                    )
             }
             .buttonStyle(ScaleButtonStyle())
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
         .background(
-            Rectangle()
+            Capsule()
                 .fill(.ultraThinMaterial)
-                .shadow(color: .black.opacity(0.04), radius: 8, y: 2)
+                .overlay(
+                    Capsule()
+                        .stroke(
+                            LinearGradient(
+                                colors: [
+                                    Color.white.opacity(0.65),
+                                    Color.white.opacity(0.15)
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            ),
+                            lineWidth: 1
+                        )
+                )
+                .shadow(color: .black.opacity(0.06), radius: 14, y: 8)
         )
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
     }
     
     // MARK: - Messages
@@ -778,19 +888,6 @@ struct UnifiedChatView: View {
                                     isInputFocused = true
                                 }
                             )
-
-                            // Quick reply chips shown when conversation has no messages
-                            QuickReplyChipsView(
-                                isExpanded: $isChipsExpanded,
-                                dismissedChipIds: $dismissedChipIds,
-                                onChipTapped: { text in
-                                    sendQuickReply(text)
-                                }
-                            )
-                            .autoHideChips(isScrollingDown || isInputFocused)
-                            .padding(.horizontal, 16)
-                            .padding(.top, 8)
-                            .transition(.opacity.combined(with: .move(edge: .bottom)))
                         }
 
                         // P1-3 FIX: Pagination load more button
@@ -1008,9 +1105,15 @@ struct UnifiedChatView: View {
                                             if let firstPreview = message.linkPreviews.first {
                                                 let previewMeta: LinkPreviewMetadata = LinkPreviewService.shared.getCached(for: firstPreview.url)
                                                     ?? LinkPreviewMetadata(url: firstPreview.url, title: firstPreview.title, siteName: firstPreview.url.host)
-                                                FeedLinkPreviewCard(url: firstPreview.url, metadata: previewMeta)
-                                                    .frame(maxWidth: 280)
-                                                    .padding(.horizontal, 8)
+                                                if AMENFeatureFlags.shared.inAppBrowserEnabled {
+                                                    EnhancedLinkPreviewCard(url: firstPreview.url, metadata: previewMeta)
+                                                        .frame(maxWidth: 280)
+                                                        .padding(.horizontal, 8)
+                                                } else {
+                                                    FeedLinkPreviewCard(url: firstPreview.url, metadata: previewMeta)
+                                                        .frame(maxWidth: 280)
+                                                        .padding(.horizontal, 8)
+                                                }
                                             }
                                         }
                                     }
@@ -1071,6 +1174,25 @@ struct UnifiedChatView: View {
                     isScrollingDown = delta < -0.5
                     lastContentOffsetY = value
                     contentOffsetY = value
+
+                    // Composer collapse progress: collapses smoothly when user scrolls
+                    // up through history (offset decreases below 0).
+                    // Collapse starts at -60 pts from top and completes at -200 pts.
+                    let scrolledFromTop: CGFloat = -value  // positive when scrolled down
+                    let collapseStart: CGFloat = 60
+                    let collapseEnd: CGFloat = 200
+                    let rawProgress = (scrolledFromTop - collapseStart) / (collapseEnd - collapseStart)
+                    let newProgress = min(max(rawProgress, 0), 1)
+                    // Only apply when not focused (don't collapse while typing)
+                    if !isInputFocused && !isRecording {
+                        withAnimation(.interpolatingSpring(stiffness: 220, damping: 32)) {
+                            composerCollapseProgress = newProgress
+                        }
+                    } else {
+                        withAnimation(.interpolatingSpring(stiffness: 220, damping: 32)) {
+                            composerCollapseProgress = 0
+                        }
+                    }
                 }
                 .onPreferenceChange(UnifiedChatScrollViewHeightKey.self) { value in
                     scrollViewHeight = value
@@ -1411,14 +1533,15 @@ struct UnifiedChatView: View {
                 ZStack {
                     Circle()
                         .fill(.ultraThinMaterial)
-                        .frame(width: 40, height: 40)
+                        .frame(width: 36, height: 36)
                         .overlay(
                             Circle()
-                                .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                                .stroke(Color.white, lineWidth: 1)
+                                .opacity(0.25)
                         )
 
                     Image(systemName: "plus")
-                        .font(.systemScaled(16, weight: .medium))
+                        .font(.systemScaled(15, weight: .medium))
                         .foregroundStyle(Color.primary.opacity(0.6))
                         .rotationEffect(.degrees(isMediaSectionExpanded ? 45 : 0))
                         .animation(.spring(response: 0.4, dampingFraction: 0.6), value: isMediaSectionExpanded)
@@ -1428,12 +1551,41 @@ struct UnifiedChatView: View {
             
             // Text input - frosted glass with visible text and subtle border
             // cornerRadius morphs when focused (iMessage-style)
-            let inputCornerRadius: CGFloat = isInputFocused ? 14 : 18
+            let inputCornerRadius: CGFloat = isInputFocused ? 16 : 20
             let inputBackground = RoundedRectangle(cornerRadius: inputCornerRadius)
-                .fill(Color(.systemBackground).opacity(0.5))
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(0.65),
+                            Color.white.opacity(0.2),
+                            Color.clear
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .opacity(0.6)
+                    .clipShape(RoundedRectangle(cornerRadius: inputCornerRadius))
+                )
+                .overlay(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(0.0),
+                            Color.white.opacity(0.25),
+                            Color.white.opacity(0.0)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .rotationEffect(.degrees(10))
+                    .offset(x: inputShimmerX)
+                    .opacity(0.25)
+                    .clipShape(RoundedRectangle(cornerRadius: inputCornerRadius))
+                )
                 .animation(.spring(response: 0.35, dampingFraction: 0.65), value: isInputFocused)
             let inputBorder = RoundedRectangle(cornerRadius: inputCornerRadius)
-                .stroke(Color.black.opacity(0.15), lineWidth: 1)
+                .stroke(Color.white, lineWidth: 1)
+                .opacity(0.2)
                 .animation(.spring(response: 0.35, dampingFraction: 0.65), value: isInputFocused)
             HStack(spacing: 8) {
                 ZStack(alignment: .leading) {
@@ -1555,29 +1707,14 @@ struct UnifiedChatView: View {
             .opacity((isSendingMessage || isBereanStreaming) ? 0.5 : 1.0) // Visual feedback while sending / Berean streaming
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-        .frame(height: 66)
-        .background(
-            Capsule()
-                .fill(.ultraThinMaterial)
-                .shadow(color: .black.opacity(0.1), radius: 20, y: 10)
-                .overlay(
-                    Capsule()
-                        .stroke(
-                            LinearGradient(
-                                colors: [
-                                    Color.white.opacity(0.3),
-                                    Color.white.opacity(0.1)
-                                ],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            ),
-                            lineWidth: 1.5
-                        )
-                )
-        )
+        .padding(.vertical, 6)
         .animation(.spring(response: 0.3, dampingFraction: 0.75), value: messageText)
         .animation(.spring(response: 0.3, dampingFraction: 0.75), value: isInputBarFocused)
+        .onAppear {
+            withAnimation(.linear(duration: 3.2).repeatForever(autoreverses: false)) {
+                inputShimmerX = 220
+            }
+        }
     }
 
     // MARK: - Smart Reply Chips
@@ -1724,9 +1861,18 @@ struct UnifiedChatView: View {
         profilePhotoListener?.remove()
         profilePhotoListener = nil
         
-        Task {
-            try? await messagingService.updateTypingStatus(
-                conversationId: conversation.id,
+        // FIX: Use Task.detached so the typing-clear write is NOT tied to the
+        // current task scope. A plain `Task { }` is a child task — when the view
+        // is dismissed, its scope can be cancelled before the async write
+        // completes, leaving the remote participant stuck seeing "Alice is typing…"
+        // until the 5-second RTDB TTL fires.
+        // Task.detached inherits no actor or cancellation from the caller, so it
+        // runs to completion regardless of how quickly the view disappears.
+        // `messagingService` is a singleton, so the weak-reference dance is not needed.
+        let cid = conversation.id
+        Task.detached {
+            try? await FirebaseMessagingService.shared.updateTypingStatus(
+                conversationId: cid,
                 isTyping: false
             )
         }
@@ -2246,6 +2392,20 @@ struct UnifiedChatView: View {
                 await MainActor.run {
                     let successHaptic = UINotificationFeedbackGenerator()
                     successHaptic.notificationOccurred(.success)
+
+                    // Chat memory: extract from recent messages
+                    let recentMessages = messages.suffix(5).map { msg in
+                        ExtractableMessage(
+                            id: msg.id ?? UUID().uuidString,
+                            text: msg.text,
+                            senderId: msg.senderId,
+                            timestamp: msg.timestamp
+                        )
+                    }
+                    chatExtractionEngine.analyzeMessages(
+                        Array(recentMessages),
+                        chatId: conversation.id
+                    )
                 }
                 
             } catch {
@@ -2266,22 +2426,33 @@ struct UnifiedChatView: View {
                     failedMessageId = messageId
                     failedMessageText = textToSend
 
-                    // FIX 1: Schedule auto-retry with exponential backoff.
-                    // The service will retry in background every 2^attempt seconds (max 60s),
-                    // surviving network reconnects and app foreground transitions.
-                    messagingService.scheduleRetry(
-                        for: messageId,
-                        conversationId: conversation.id,
-                        text: textToSend,
-                        attempt: 0
-                    )
-
-                    // Show error toast with retry button
                     let errorMsg = (error as? FirebaseMessagingError)?.localizedDescription ?? "Failed to send message"
 
-                    if !networkMonitor.isConnected {
+                    // Only auto-retry for transient/network errors — not permission or auth failures
+                    if FirebaseMessagingService.isNonRetryableError(error) {
+                        // Non-retryable: show error immediately, no auto-retry
+                        messagingService.failedMessages[messageId] = (
+                            text: textToSend,
+                            error: (error as? FirebaseMessagingError) ?? .networkError(error)
+                        )
+                        toastManager.showError(errorMsg)
+                    } else if !networkMonitor.isConnected {
+                        // Network down: schedule retry, show offline toast
+                        messagingService.scheduleRetry(
+                            for: messageId,
+                            conversationId: conversation.id,
+                            text: textToSend,
+                            attempt: 0
+                        )
                         toastManager.showWarning("No internet connection. Retrying when back online…")
                     } else {
+                        // Transient error: schedule retry with manual fallback
+                        messagingService.scheduleRetry(
+                            for: messageId,
+                            conversationId: conversation.id,
+                            text: textToSend,
+                            attempt: 0
+                        )
                         toastManager.showError(errorMsg) {
                             // Manual retry action
                             self.retryFailedMessage(messageId: messageId, text: textToSend)
@@ -2420,7 +2591,7 @@ struct UnifiedChatView: View {
             // Resolve the other participant's ID from the Firestore conversation document.
             // This avoids fragile string-manipulation on the conversation ID which breaks
             // for any userId containing underscores.
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
             guard let doc = try? await db.collection("conversations")
                 .document(conversation.id)
                 .getDocument(),
@@ -2625,18 +2796,6 @@ struct UnifiedChatView: View {
         }
     }
 
-    // MARK: - Keyboard Handling
-    
-
-    
-    private func getSafeAreaBottom() -> CGFloat {
-        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-              let window = windowScene.windows.first else {
-            return 8
-        }
-        return window.safeAreaInsets.bottom
-    }
-    
     // MARK: - Placeholder Generation
     
     private func generateRandomPlaceholder() {
@@ -2730,7 +2889,7 @@ struct UnifiedChatView: View {
         Task {
             do {
                 // Write a restriction record so future messages are filtered.
-                let db = Firestore.firestore()
+                lazy var db = Firestore.firestore()
                 try await db.collection("users").document(currentUid)
                     .collection("restricted").document(uid)
                     .setData(["restrictedAt": FieldValue.serverTimestamp(), "userId": uid])
@@ -3475,7 +3634,7 @@ struct ChatUserProfileSheet: View {
         dlog("⚠️ Conversation ID doesn't match expected format, fetching from Firebase...")
         
         do {
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
             let conversationDoc = try await db.collection("conversations").document(conversationId).getDocument()
             
             guard conversationDoc.exists else {

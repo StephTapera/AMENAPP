@@ -17,7 +17,7 @@ final class ReminderSchedulerService: ObservableObject {
     @Published var notificationPermissionGranted = false
     @Published var scheduledReminders: [String: [String]] = [:]  // eventId -> [notificationIds]
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     private init() {
         checkNotificationPermission()

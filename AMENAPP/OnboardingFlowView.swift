@@ -178,7 +178,7 @@ private struct OnboardingSlide1: View {
                     // Welcome — no tagline
                     Text("Welcome, \(firstName)")
                         .font(.title2.bold())
-                        .foregroundStyle(Color.black.opacity(0.85))
+                        .foregroundStyle(.primary)
                         .multilineTextAlignment(.center)
                         .opacity(appeared ? 1 : 0)
                         .offset(y: appeared ? 0 : 20)
@@ -272,7 +272,7 @@ private struct OnboardingAgeSlide: View {
             Text("AMEN")
                 .font(.systemScaled(200, weight: .black))
                 .tracking(24)
-                .foregroundStyle(Color.black.opacity(0.03))
+                .foregroundStyle(Color(.quaternaryLabel))
                 .offset(y: 40)
                 .allowsHitTesting(false)
 
@@ -287,7 +287,7 @@ private struct OnboardingAgeSlide: View {
                             .frame(width: 80, height: 80)
                         Image(systemName: "person.badge.shield.checkmark.fill")
                             .font(.systemScaled(34, weight: .medium))
-                            .foregroundStyle(Color.black.opacity(0.75))
+                            .foregroundStyle(.secondary)
                     }
                     .scaleEffect(appeared ? 1 : 0.7)
                     .opacity(appeared ? 1 : 0)
@@ -296,12 +296,12 @@ private struct OnboardingAgeSlide: View {
                     VStack(spacing: 8) {
                         Text("Quick age check")
                             .font(.title2.bold())
-                            .foregroundStyle(Color.black.opacity(0.85))
+                            .foregroundStyle(.primary)
                             .multilineTextAlignment(.center)
 
                         Text("Select your birth date to personalize your experience.\nWe'll never share this information.")
                             .font(.subheadline)
-                            .foregroundStyle(Color.black.opacity(0.5))
+                            .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 32)
                     }
@@ -319,14 +319,14 @@ private struct OnboardingAgeSlide: View {
                         } label: {
                             HStack {
                                 Image(systemName: "calendar")
-                                    .foregroundStyle(Color.black.opacity(0.6))
+                                    .foregroundStyle(.secondary)
                                 Text(hasSelectedDate ? birthDate.formatted(date: .long, time: .omitted) : "Select your birth date")
                                     .font(.body.weight(.medium))
                                     .foregroundStyle(hasSelectedDate ? Color.black.opacity(0.85) : Color.black.opacity(0.45))
                                 Spacer()
                                 Image(systemName: showPicker ? "chevron.up" : "chevron.down")
                                     .font(.systemScaled(13, weight: .medium))
-                                    .foregroundStyle(Color.black.opacity(0.4))
+                                    .foregroundStyle(.tertiary)
                                     .animation(.easeInOut(duration: 0.2), value: showPicker)
                             }
                             .padding(16)
@@ -414,7 +414,7 @@ private struct OnboardingTermsSlide: View {
             Text("AMEN")
                 .font(.systemScaled(200, weight: .black))
                 .tracking(24)
-                .foregroundStyle(Color.black.opacity(0.03))
+                .foregroundStyle(Color(.quaternaryLabel))
                 .offset(y: 40)
                 .allowsHitTesting(false)
 
@@ -427,7 +427,7 @@ private struct OnboardingTermsSlide: View {
                             .frame(width: 64, height: 64)
                         Image(systemName: "doc.text.fill")
                             .font(.systemScaled(28, weight: .medium))
-                            .foregroundStyle(Color.black.opacity(0.7))
+                            .foregroundStyle(.secondary)
                     }
                     .scaleEffect(appeared ? 1 : 0.7)
                     .opacity(appeared ? 1 : 0)
@@ -436,13 +436,13 @@ private struct OnboardingTermsSlide: View {
 
                     Text("Community Standards")
                         .font(.title2.bold())
-                        .foregroundStyle(Color.black.opacity(0.85))
+                        .foregroundStyle(.primary)
                         .opacity(appeared ? 1 : 0)
                         .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.08), value: appeared)
 
                     Text("Please read and agree to continue")
                         .font(.subheadline)
-                        .foregroundStyle(Color.black.opacity(0.45))
+                        .foregroundStyle(.tertiary)
                         .opacity(appeared ? 1 : 0)
                         .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.12), value: appeared)
                 }
@@ -459,16 +459,16 @@ private struct OnboardingTermsSlide: View {
                                         .frame(width: 40, height: 40)
                                     Image(systemName: term.icon)
                                         .font(.systemScaled(17, weight: .medium))
-                                        .foregroundStyle(Color.black.opacity(0.65))
+                                        .foregroundStyle(.secondary)
                                 }
 
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text(term.title)
                                         .font(.systemScaled(14, weight: .semibold))
-                                        .foregroundStyle(Color.black.opacity(0.82))
+                                        .foregroundStyle(.primary)
                                     Text(term.detail)
                                         .font(.systemScaled(12, weight: .regular))
-                                        .foregroundStyle(Color.black.opacity(0.5))
+                                        .foregroundStyle(.secondary)
                                         .fixedSize(horizontal: false, vertical: true)
                                         .lineSpacing(2)
                                 }
@@ -501,15 +501,15 @@ private struct OnboardingTermsSlide: View {
                         HStack(spacing: 4) {
                             Text("Read the full")
                                 .font(.caption)
-                                .foregroundStyle(Color.black.opacity(0.4))
+                                .foregroundStyle(.tertiary)
                             Link("Terms of Service", destination: URL(string: "https://amenapp.com/terms")!)
                                 .font(.caption.weight(.semibold))
-                                .foregroundStyle(Color.black.opacity(0.6))
+                                .foregroundStyle(.secondary)
                             Text("·")
-                                .foregroundStyle(Color.black.opacity(0.3))
+                                .foregroundStyle(.tertiary)
                             Link("Privacy Policy", destination: URL(string: "https://amenapp.com/privacy")!)
                                 .font(.caption.weight(.semibold))
-                                .foregroundStyle(Color.black.opacity(0.6))
+                                .foregroundStyle(.secondary)
                         }
                         .padding(.top, 4)
                         .opacity(appeared ? 1 : 0)
@@ -546,7 +546,7 @@ private struct OnboardingTermsSlide: View {
                             }
                             Text("I agree to the Community Standards & Terms of Service")
                                 .font(.systemScaled(13, weight: .medium))
-                                .foregroundStyle(Color.black.opacity(0.7))
+                                .foregroundStyle(.secondary)
                                 .multilineTextAlignment(.leading)
                             Spacer()
                         }
@@ -627,7 +627,7 @@ private struct OnboardingPrivacySlide: View {
             Text("AMEN")
                 .font(.systemScaled(200, weight: .black))
                 .tracking(24)
-                .foregroundStyle(Color.black.opacity(0.03))
+                .foregroundStyle(Color(.quaternaryLabel))
                 .offset(y: 40)
                 .allowsHitTesting(false)
 
@@ -640,7 +640,7 @@ private struct OnboardingPrivacySlide: View {
                             .frame(width: 64, height: 64)
                         Image(systemName: "lock.shield.fill")
                             .font(.systemScaled(28, weight: .medium))
-                            .foregroundStyle(Color.black.opacity(0.7))
+                            .foregroundStyle(.secondary)
                     }
                     .scaleEffect(appeared ? 1 : 0.7)
                     .opacity(appeared ? 1 : 0)
@@ -649,7 +649,7 @@ private struct OnboardingPrivacySlide: View {
 
                     Text("What We Collect")
                         .font(.title2.bold())
-                        .foregroundStyle(Color.black.opacity(0.85))
+                        .foregroundStyle(.primary)
                         .opacity(appeared ? 1 : 0)
                         .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.08), value: appeared)
 
@@ -660,7 +660,7 @@ private struct OnboardingPrivacySlide: View {
                                 Image(systemName: icon).font(.systemScaled(9, weight: .semibold))
                                 Text(label).font(.systemScaled(10, weight: .semibold))
                             }
-                            .foregroundStyle(Color.black.opacity(0.6))
+                            .foregroundStyle(.secondary)
                             .padding(.horizontal, 9)
                             .padding(.vertical, 5)
                             .background(Capsule().fill(Color.black.opacity(0.07)))
@@ -688,13 +688,13 @@ private struct OnboardingPrivacySlide: View {
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text(point.category)
                                         .font(.systemScaled(13, weight: .bold))
-                                        .foregroundStyle(Color.black.opacity(0.82))
+                                        .foregroundStyle(.primary)
                                     Text(point.what)
                                         .font(.systemScaled(11, weight: .medium))
                                         .foregroundStyle(point.color.opacity(0.8))
                                     Text(point.why)
                                         .font(.systemScaled(11, weight: .regular))
-                                        .foregroundStyle(Color.black.opacity(0.48))
+                                        .foregroundStyle(.secondary)
                                         .fixedSize(horizontal: false, vertical: true)
                                         .lineSpacing(2)
                                 }
@@ -753,7 +753,7 @@ private struct OnboardingPrivacySlide: View {
                             }
                             Text("I understand how AMEN uses my data")
                                 .font(.systemScaled(13, weight: .medium))
-                                .foregroundStyle(Color.black.opacity(0.7))
+                                .foregroundStyle(.secondary)
                             Spacer()
                         }
                         .padding(14)
@@ -848,20 +848,20 @@ private struct OnboardingSlide2: View {
                 VStack(spacing: 6) {
                     Text("What do you care about?")
                         .font(.title2.bold())
-                        .foregroundStyle(Color.black.opacity(0.86))
+                        .foregroundStyle(.primary)
                         .multilineTextAlignment(.center)
                         .padding(.top, 20)
 
                     Text("We use this to personalize your feed, not to sell you things.")
                         .font(.caption)
-                        .foregroundStyle(Color.black.opacity(0.48))
+                        .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 32)
 
                     if !selectedInterests.isEmpty {
                         Text("\(selectedInterests.count) of \(maxSelections) selected")
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(Color.black.opacity(0.62))
+                            .foregroundStyle(.secondary)
                     }
                 }
                 .opacity(appeared ? 1 : 0)
@@ -875,7 +875,7 @@ private struct OnboardingSlide2: View {
                                 Text(section.title.uppercased())
                                     .font(.systemScaled(10, weight: .semibold))
                                     .tracking(1.2)
-                                    .foregroundStyle(Color.black.opacity(0.42))
+                                    .foregroundStyle(.tertiary)
                                     .padding(.leading, 4)
 
                                 FlexibleInterestGrid(
@@ -936,14 +936,14 @@ private struct OnboardingSlide3: View {
                 VStack(spacing: 6) {
                     Text("Where are you in your\nfaith journey?")
                         .font(.title2.bold())
-                        .foregroundStyle(Color.black.opacity(0.86))
+                        .foregroundStyle(.primary)
                         .multilineTextAlignment(.center)
                         .padding(.top, 20)
                         .padding(.horizontal, 24)
 
                     Text("All backgrounds welcome. Pick what fits best.")
                         .font(.subheadline)
-                        .foregroundStyle(Color.black.opacity(0.48))
+                        .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                 }
                 .opacity(appeared ? 1 : 0)
@@ -1054,11 +1054,11 @@ private struct OnboardingSlide4: View {
                     VStack(spacing: 8) {
                         Text("Never miss a prayer answered")
                             .font(.title2.bold())
-                            .foregroundStyle(Color.black.opacity(0.86))
+                            .foregroundStyle(.primary)
                             .multilineTextAlignment(.center)
                         Text("AMEN will notify you when someone prays for you or responds to your posts.")
                             .font(.subheadline)
-                            .foregroundStyle(Color.black.opacity(0.54))
+                            .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 32)
                     }
@@ -1087,7 +1087,7 @@ private struct OnboardingSlide4: View {
                         onSkip()
                     }
                     .font(.subheadline)
-                    .foregroundStyle(Color.black.opacity(0.5))
+                    .foregroundStyle(.secondary)
                 }
                 .opacity(appeared ? 1 : 0)
                 .offset(y: appeared ? 0 : 16)
@@ -1137,7 +1137,7 @@ private struct OnboardingUsernameSlide: View {
             Text("AMEN")
                 .font(.systemScaled(200, weight: .black))
                 .tracking(24)
-                .foregroundStyle(Color.black.opacity(0.03))
+                .foregroundStyle(Color(.quaternaryLabel))
                 .offset(y: 40)
                 .allowsHitTesting(false)
             
@@ -1152,7 +1152,7 @@ private struct OnboardingUsernameSlide: View {
                             .frame(width: 80, height: 80)
                         Image(systemName: "at.circle.fill")
                             .font(.systemScaled(34, weight: .medium))
-                            .foregroundStyle(Color.black.opacity(0.75))
+                            .foregroundStyle(.secondary)
                     }
                     .scaleEffect(appeared ? 1 : 0.7)
                     .opacity(appeared ? 1 : 0)
@@ -1161,12 +1161,12 @@ private struct OnboardingUsernameSlide: View {
                     VStack(spacing: 8) {
                         Text("Choose your username")
                             .font(.title2.bold())
-                            .foregroundStyle(Color.black.opacity(0.85))
+                            .foregroundStyle(.primary)
                             .multilineTextAlignment(.center)
                         
                         Text("Pick a unique username. You can always change it later.")
                             .font(.subheadline)
-                            .foregroundStyle(Color.black.opacity(0.5))
+                            .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 32)
                     }
@@ -1179,11 +1179,11 @@ private struct OnboardingUsernameSlide: View {
                         HStack(spacing: 8) {
                             Text("@")
                                 .font(.body.weight(.medium))
-                                .foregroundStyle(Color.black.opacity(0.4))
+                                .foregroundStyle(.tertiary)
                             
                             TextField("username", text: $username)
                                 .font(.body.weight(.medium))
-                                .foregroundStyle(Color.black.opacity(0.85))
+                                .foregroundStyle(.primary)
                                 .textInputAutocapitalization(.never)
                                 .autocorrectionDisabled()
                                 .onChange(of: username) { _, newValue in
@@ -1207,7 +1207,7 @@ private struct OnboardingUsernameSlide: View {
                                     .scaleEffect(0.8)
                                 Text("Checking...")
                                     .font(.caption)
-                                    .foregroundStyle(Color.black.opacity(0.5))
+                                    .foregroundStyle(.secondary)
                             } else if let error = usernameError {
                                 Image(systemName: "exclamationmark.triangle.fill")
                                     .font(.systemScaled(12))
@@ -1295,7 +1295,7 @@ private struct OnboardingUsernameSlide: View {
                 try await Task.sleep(nanoseconds: 500_000_000) // 500ms debounce
                 guard !Task.isCancelled else { return }
                 
-                let db = Firestore.firestore()
+                lazy var db = Firestore.firestore()
                 let snapshot = try await db.collection("users")
                     .whereField("username", isEqualTo: newUsername.lowercased())
                     .limit(to: 1)
@@ -1370,11 +1370,11 @@ private struct OnboardingSlide5: View {
                 VStack(spacing: 8) {
                     Text("Find Your Community")
                         .font(.title2.bold())
-                        .foregroundStyle(Color.black.opacity(0.86))
+                        .foregroundStyle(.primary)
                         .padding(.top, 24)
                     Text("Follow people who inspire your faith")
                         .font(.subheadline)
-                        .foregroundStyle(Color.black.opacity(0.54))
+                        .foregroundStyle(.secondary)
                 }
                 .opacity(appeared ? 1 : 0)
                 .offset(y: appeared ? 0 : 16)
@@ -1386,13 +1386,13 @@ private struct OnboardingSlide5: View {
                     VStack(spacing: 12) {
                         Image(systemName: "person.3")
                             .font(.systemScaled(44))
-                            .foregroundStyle(Color.black.opacity(0.22))
+                            .foregroundStyle(.tertiary)
                         Text("Your community is on its way")
                             .font(.subheadline.weight(.medium))
-                            .foregroundStyle(Color.black.opacity(0.54))
+                            .foregroundStyle(.secondary)
                         Text("You'll discover people to follow once you're in the feed")
                             .font(.caption)
-                            .foregroundStyle(Color.black.opacity(0.40))
+                            .foregroundStyle(.tertiary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 40)
                     }
@@ -1401,7 +1401,7 @@ private struct OnboardingSlide5: View {
                     ScrollView(showsIndicators: false) {
                         VStack(spacing: 12) {
                             ForEach(Array(suggestedUsers.enumerated()), id: \.element.id) { index, user in
-                                SuggestedUserRow(
+                                OnboardingSuggestedUserRow(
                                     user: user,
                                     isFollowing: followingIds.contains(user.id)
                                 ) { toggleFollow(user) }
@@ -1486,7 +1486,7 @@ private struct OnboardingWatermarkBackground: View {
             Text("AMEN")
                 .font(.systemScaled(200, weight: .black))
                 .tracking(24)
-                .foregroundStyle(Color.black.opacity(0.03))
+                .foregroundStyle(Color(.quaternaryLabel))
                 .offset(y: 40)
 
             Circle()
@@ -1612,7 +1612,7 @@ private struct OnboardingInterestChip: View {
     }
 }
 
-private struct SuggestedUserRow: View {
+private struct OnboardingSuggestedUserRow: View {
     let user: SuggestedUser
     let isFollowing: Bool
     let onFollow: () -> Void
@@ -1627,7 +1627,7 @@ private struct SuggestedUserRow: View {
                         .overlay(
                             Text(String(user.displayName.prefix(1)))
                                 .font(.headline)
-                                .foregroundStyle(Color.black.opacity(0.72))
+                                .foregroundStyle(.secondary)
                         )
                 }
             }
@@ -1637,11 +1637,11 @@ private struct SuggestedUserRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(user.displayName)
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Color.black.opacity(0.86))
+                    .foregroundStyle(.primary)
                 if !user.username.isEmpty {
                     Text("@\(user.username)")
                         .font(.caption)
-                        .foregroundStyle(Color.black.opacity(0.50))
+                        .foregroundStyle(.secondary)
                 }
             }
 

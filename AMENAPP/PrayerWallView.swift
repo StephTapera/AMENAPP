@@ -405,7 +405,7 @@ struct PrayerWallMapView_DEPRECATED: View {
                             Text("I'm Praying")
                                 .font(.custom("OpenSans-Bold", size: 15))
                         }
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.primary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
                         .background(

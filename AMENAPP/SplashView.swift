@@ -47,7 +47,7 @@ struct SplashView: View {
                 Text("AMEN")
                     .font(.systemScaled(26, weight: .black, design: .default))
                     .tracking(8)
-                    .foregroundStyle(Color.black)
+                    .foregroundStyle(.primary)
                     .opacity(wordmarkOpacity)
                     .scaleEffect(wordmarkScale)
                     .offset(y: wordmarkOffset)

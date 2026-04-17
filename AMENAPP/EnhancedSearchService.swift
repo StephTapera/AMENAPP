@@ -42,7 +42,7 @@ struct SearchFilterRecommendation: Identifiable {
 class EnhancedSearchService: ObservableObject {
     static let shared = EnhancedSearchService()
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private let genkitService = BereanGenkitService.shared
     private let userSearchService = UserSearchService.shared
     
@@ -235,6 +235,7 @@ class EnhancedSearchService: ObservableObject {
         let snapshot = try await db.collection("posts")
             .whereField("contentLowercase", isGreaterThanOrEqualTo: lowercaseQuery)
             .whereField("contentLowercase", isLessThan: lowercaseQuery + "\u{f8ff}")
+            .whereField("visibility", isEqualTo: "everyone")
             .limit(to: 20)
             .getDocuments()
         
