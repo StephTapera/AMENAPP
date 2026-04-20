@@ -1,17 +1,91 @@
 // BereanHomeView.swift
-// AMEN App — Berean AI landing/home screen.
-// White Liquid Glass design. Shows greeting, mode selector, suggestion chips,
-// and recent chats. Entry point to BereanAIAssistantView for new and existing conversations.
+// AMEN App — Berean AI premium landing surface.
+//
+// Design: ChatGPT usability · Claude calmness · Safari bottom behavior · Apple restraint · AMEN brand
+//
+// Architecture:
+//   BereanHomeView              — root container + aura + scroll + pinned composer
+//   AmenHeroMarkView            — floating AMEN glass medallion (replaces B monogram)
+//   SmartIntroPromptView        — eyebrow + adaptive question + support line
+//   ModeSelectorView            — Scripture | Prayer | Deep Study pill selector
+//   PromptSuggestionChipRow     — horizontally scrollable smart chip row
+//   SmartContextRow             — mode-aware aura info card
+//   BereanPremiumComposerBar    — pinned capsule composer overlay
+//   ComposerPlusButton          — left circular plus button
+//   ComposerInputField          — center capsule text field
+//   ComposerPrimaryActionButton — right black action button (voice→send)
 
 import SwiftUI
 import Foundation
 import FirebaseAuth
 import Combine
 
-// MARK: - BereanMode (display-friendly wrapper for BereanPersonalityMode)
+// MARK: - BereanAuraMode
 
-/// Display-friendly mode entries shown in the horizontal mode selector.
-/// Maps directly to `BereanPersonalityMode` for AI calls.
+/// Three-mode aura system controlling ambient tints, chip hints, and composer tone.
+enum BereanAuraMode: String, CaseIterable, Hashable {
+    case scripture = "Scripture"
+    case prayer    = "Prayer"
+    case study     = "Deep Study"
+
+    var personalityMode: BereanPersonalityMode {
+        switch self {
+        case .scripture: return .scholar
+        case .prayer:    return .shepherd
+        case .study:     return .scholar
+        }
+    }
+
+    // Low-opacity ambient blobs behind the top zone and composer
+    var auraColor1: Color {
+        switch self {
+        case .scripture: return Color(red: 0.98, green: 0.95, blue: 0.84)
+        case .prayer:    return Color(red: 0.88, green: 0.88, blue: 0.98)
+        case .study:     return Color(red: 0.90, green: 0.92, blue: 0.95)
+        }
+    }
+    var auraColor2: Color {
+        switch self {
+        case .scripture: return Color(red: 0.99, green: 0.97, blue: 0.90)
+        case .prayer:    return Color(red: 0.92, green: 0.90, blue: 0.99)
+        case .study:     return Color(red: 0.93, green: 0.94, blue: 0.97)
+        }
+    }
+    var auraColor3: Color {
+        switch self {
+        case .scripture: return Color(red: 0.96, green: 0.93, blue: 0.86)
+        case .prayer:    return Color(red: 0.90, green: 0.91, blue: 0.99)
+        case .study:     return Color(red: 0.88, green: 0.91, blue: 0.95)
+        }
+    }
+
+    /// Subtle tint applied inside the composer capsule background
+    var composerTint: Color {
+        switch self {
+        case .scripture: return Color(red: 0.99, green: 0.97, blue: 0.90).opacity(0.12)
+        case .prayer:    return Color(red: 0.92, green: 0.90, blue: 0.99).opacity(0.14)
+        case .study:     return Color(red: 0.90, green: 0.92, blue: 0.97).opacity(0.16)
+        }
+    }
+
+    var contextLabel: String {
+        switch self {
+        case .scripture: return "Scripture aura"
+        case .prayer:    return "Prayer aura"
+        case .study:     return "Deep study aura"
+        }
+    }
+    var contextHelper: String {
+        switch self {
+        case .scripture: return "Warm ivory tones respond to verse-led conversation."
+        case .prayer:    return "Calmer indigo glass softens the whole conversation layer."
+        case .study:     return "Cool graphite tones keep analytical reading focused and premium."
+        }
+    }
+}
+
+// MARK: - BereanHomeMode (kept for session compatibility)
+
 enum BereanHomeMode: String, CaseIterable, Identifiable {
     case ask      = "Ask"
     case study    = "Study"
@@ -33,7 +107,6 @@ enum BereanHomeMode: String, CaseIterable, Identifiable {
         }
     }
 
-    /// Maps to the underlying AI personality mode.
     var personalityMode: BereanPersonalityMode {
         switch self {
         case .ask:     return .shepherd
@@ -45,7 +118,6 @@ enum BereanHomeMode: String, CaseIterable, Identifiable {
         }
     }
 
-    /// Accent color used for recent chat avatars.
     var accentColor: Color {
         switch self {
         case .ask:     return Color(red: 0.30, green: 0.50, blue: 0.90)
@@ -63,358 +135,1015 @@ enum BereanHomeMode: String, CaseIterable, Identifiable {
 @MainActor
 final class BereanHomeViewModel: ObservableObject {
     @Published var selectedMode: BereanHomeMode = .ask
+    @Published var auraMode: BereanAuraMode = .scripture
     @Published var recentSessions: [BereanChatSession] = []
-    @Published var suggestedPrompts: [BereanHomePrompt] = []
 
-    struct BereanHomePrompt: Identifiable {
-        let id = UUID()
-        let text: String
-        let icon: String
-        let mode: BereanHomeMode
-    }
-
-    init() {
-        loadRecentSessions()
-        loadSuggestedPrompts()
-    }
-
-    private func loadRecentSessions() {
-        // Load from BereanChatSessionManager if available; otherwise show sample placeholders.
-        recentSessions = Array(BereanChatSessionManager.shared.sessions.prefix(8))
-    }
+    init() { loadRecentSessions() }
 
     func refreshSessions() {
         recentSessions = Array(BereanChatSessionManager.shared.sessions.prefix(8))
     }
 
-    private func loadSuggestedPrompts() {
-        suggestedPrompts = [
-            BereanHomePrompt(text: "Explain Romans 8:28",       icon: "book",            mode: .study),
-            BereanHomePrompt(text: "Help me make a decision",   icon: "arrow.triangle.branch", mode: .ask),
-            BereanHomePrompt(text: "Write a morning prayer",    icon: "hands.sparkles",  mode: .pray),
-            BereanHomePrompt(text: "What does Proverbs say about wisdom?", icon: "lightbulb", mode: .study),
-        ]
+    private func loadRecentSessions() {
+        recentSessions = Array(BereanChatSessionManager.shared.sessions.prefix(8))
     }
+}
 
-    var greetingText: String {
-        let hour = Calendar.current.component(.hour, from: Date())
-        let firstName = Auth.auth().currentUser?.displayName?.components(separatedBy: " ").first ?? "friend"
-        switch hour {
-        case 0..<12:  return "Good morning, \(firstName)"
-        case 12..<17: return "Good afternoon, \(firstName)"
-        default:      return "Good evening, \(firstName)"
-        }
-    }
+// MARK: - Scroll Offset Preference Key
 
-    var verseOfDay: (reference: String, text: String) {
-        // Static rotation — in production wire to a verse service.
-        let verses: [(reference: String, text: String)] = [
-            ("Proverbs 3:5–6",   "Trust in the LORD with all your heart and lean not on your own understanding."),
-            ("Philippians 4:13", "I can do all things through Christ who strengthens me."),
-            ("Psalm 119:105",    "Your word is a lamp to my feet and a light to my path."),
-            ("Isaiah 40:31",     "Those who hope in the LORD will renew their strength."),
-        ]
-        let dayOfYear = Calendar.current.ordinality(of: .day, in: .year, for: Date()) ?? 1
-        return verses[dayOfYear % verses.count]
-    }
+private struct BereanScrollOffsetKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
 }
 
 // MARK: - BereanHomeView
 
 struct BereanHomeView: View {
     @StateObject private var viewModel = BereanHomeViewModel()
-    @State private var showNewChat = false
-    @State private var selectedSession: BereanChatSession? = nil
-    @State private var showSettings = false
+    @StateObject private var resolver  = BereanContextResolver()
+
+    @State private var composerText    = ""
+    @State private var scrollOffset: CGFloat = 0
+    @State private var showNewChat     = false
+    @State private var pendingQuery: String? = nil
+    @State private var showSettings    = false
+    @State private var composerFocused = false
+
     @Environment(\.dismiss) private var dismiss
+
+    // 0 = resting, 1 = fully collapsed (scrolled down)
+    private var collapseProgress: CGFloat {
+        min(1, max(0, -scrollOffset / 110))
+    }
+
+    // Base background — very light warm gray
+    private let bgColor = Color(red: 0.971, green: 0.971, blue: 0.969)
 
     var body: some View {
         NavigationStack {
-            ZStack(alignment: .bottomTrailing) {
-                // Background
-                Color.white.ignoresSafeArea()
+            GeometryReader { proxy in
+                ZStack(alignment: .bottom) {
+                    // Base background
+                    bgColor.ignoresSafeArea()
 
-                // Content
-                ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 0) {
-                        // Greeting card
-                        greetingCard
-                            .padding(.horizontal, 18)
-                            .padding(.top, 8)
-                            .padding(.bottom, 20)
+                    // Ambient aura blobs (mode-aware, edge-only)
+                    auraLayer
 
-                        // Mode selector
-                        modeSelector
-                            .padding(.bottom, 20)
+                    // Full-page scrollable content
+                    scrollContent(safeBottom: proxy.safeAreaInsets.bottom)
 
-                        // Suggestion chips
-                        suggestionSection
-                            .padding(.bottom, 24)
+                    // Bottom fade gradient — lets content read through
+                    bottomFadeGradient
 
-                        // Recent chats
-                        recentSection
-
-                        // Bottom spacer for FAB
-                        Spacer().frame(height: 96)
-                    }
+                    // Pinned composer — always above everything
+                    premiumComposer(safeBottom: proxy.safeAreaInsets.bottom)
                 }
-
-                // FAB — New Chat
-                newChatFAB
-                    .padding(.trailing, 20)
-                    .padding(.bottom, 28)
+                .ignoresSafeArea(.keyboard)
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Text("Berean")
-                        .font(AMENFont.bold(28))
-                        .foregroundColor(BereanColor.textPrimary)
+                    Button { dismiss() } label: {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundColor(.black)
+                            .frame(width: 44, height: 44)
+                            .background(
+                                Circle()
+                                    .fill(.ultraThinMaterial)
+                                    .overlay(Circle().fill(Color.white.opacity(0.58)))
+                                    .overlay(Circle().strokeBorder(Color.white.opacity(0.42), lineWidth: 0.5))
+                                    .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Back")
+                }
+                ToolbarItem(placement: .principal) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "graduationcap")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(.black.opacity(0.64))
+                        Text("Study")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(.black.opacity(0.76))
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 9)
+                    .background(
+                        Capsule()
+                            .fill(.ultraThinMaterial)
+                            .overlay(Capsule().fill(Color.white.opacity(0.48)))
+                            .overlay(Capsule().strokeBorder(Color.white.opacity(0.60), lineWidth: 0.5))
+                            .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
+                    )
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showSettings = true
-                    } label: {
-                        Image(systemName: "person.circle")
-                            .font(.systemScaled(20, weight: .light))
-                            .foregroundColor(BereanColor.textSecondary)
+                    Button { showSettings = true } label: {
+                        Image(systemName: "ellipsis")
+                            .font(.system(size: 17, weight: .medium))
+                            .foregroundColor(.black)
+                            .frame(width: 44, height: 44)
+                            .background(
+                                Circle()
+                                    .fill(.ultraThinMaterial)
+                                    .overlay(Circle().fill(Color.white.opacity(0.58)))
+                                    .overlay(Circle().strokeBorder(Color.white.opacity(0.42), lineWidth: 0.5))
+                                    .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
+                            )
                     }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Options")
                 }
             }
         }
+        .task {
+            resolver.resolve(
+                mode: viewModel.selectedMode,
+                lastSession: BereanChatSessionManager.shared.sessions.first
+            )
+        }
         .onAppear { viewModel.refreshSessions() }
+        .onChange(of: viewModel.selectedMode) { _, mode in
+            withAnimation(.easeInOut(duration: 0.35)) {
+                resolver.resolve(mode: mode, lastSession: viewModel.recentSessions.first)
+            }
+        }
+        .onChange(of: composerText) { _, text in
+            resolver.updateFromInput(text)
+        }
         .sheet(isPresented: $showNewChat) {
-            BereanChatView()
+            if let q = pendingQuery, !q.isEmpty {
+                BereanChatView(initialQuery: q)
+                    .onAppear { composerText = ""; pendingQuery = nil }
+            } else {
+                BereanChatView()
+            }
         }
         .sheet(isPresented: $showSettings) {
             BereanAISettingsView()
         }
     }
 
-    // MARK: - Greeting Card
+    // MARK: - Aura layer
 
-    private var greetingCard: some View {
-        let verse = viewModel.verseOfDay
-        return VStack(alignment: .leading, spacing: 6) {
-            Text(viewModel.greetingText)
-                .font(AMENFont.semiBold(15))
-                .foregroundColor(BereanColor.textSecondary)
-            Text("\u{201C}\(verse.text)\u{201D}")
-                .font(AMENFont.regular(13))
-                .foregroundColor(BereanColor.textTertiary)
-                .lineLimit(2)
-            Text("— \(verse.reference)")
-                .font(AMENFont.regular(12))
-                .foregroundColor(Color(white: 0.72))
+    /// Low-opacity ambient color blobs. Edge-only, never floods the reading surface.
+    private var auraLayer: some View {
+        ZStack {
+            Circle()
+                .fill(viewModel.auraMode.auraColor1)
+                .frame(width: 300, height: 300)
+                .blur(radius: 72)
+                .offset(x: -90, y: -220)
+
+            Circle()
+                .fill(viewModel.auraMode.auraColor2)
+                .frame(width: 260, height: 260)
+                .blur(radius: 72)
+                .offset(x: 110, y: 60)
+
+            Circle()
+                .fill(viewModel.auraMode.auraColor3)
+                .frame(width: 250, height: 250)
+                .blur(radius: 72)
+                .offset(x: -40, y: 280)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(Color.white.opacity(0.72))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .strokeBorder(BereanColor.glassStroke, lineWidth: 0.5)
-                )
-        )
-        .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 3)
+        .ignoresSafeArea()
+        .animation(.easeInOut(duration: 0.55), value: viewModel.auraMode)
+        .allowsHitTesting(false)
     }
 
-    // MARK: - Mode Selector
+    // MARK: - Full-page scroll content
 
-    private var modeSelector: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
-                ForEach(BereanHomeMode.allCases) { mode in
-                    modePill(mode)
+    private func scrollContent(safeBottom: CGFloat) -> some View {
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .center, spacing: 0) {
+
+                // Scroll offset anchor — zero-height geometry reader at top of content
+                GeometryReader { geo in
+                    Color.clear.preference(
+                        key: BereanScrollOffsetKey.self,
+                        value: geo.frame(in: .named("bereanHome")).minY
+                    )
+                }
+                .frame(height: 0)
+
+                // Hero mark
+                AmenHeroMarkView()
+                    .padding(.top, 28)
+                    .opacity(1.0 - collapseProgress * 0.65)
+                    .offset(y: -collapseProgress * 22)
+
+                // Title + subtitle
+                VStack(spacing: 10) {
+                    Text("Berean")
+                        .font(.system(size: 44, weight: .semibold))
+                        .tracking(-2.2)
+                        .foregroundColor(.black)
+
+                    Text("Scripture, context, prayer, and wisdom\nin a calmer assistant designed for AMEN.")
+                        .font(.system(size: 18, weight: .regular))
+                        .foregroundColor(.black.opacity(0.50))
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(4)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.top, 20)
+                .padding(.horizontal, 28)
+                .opacity(1.0 - collapseProgress * 0.70)
+                .offset(y: -collapseProgress * 18)
+
+                // Smart intro prompt
+                SmartIntroPromptView(hasText: !composerText.isEmpty)
+                    .padding(.top, 30)
+                    .padding(.horizontal, 22)
+                    .opacity(1.0 - collapseProgress * 0.78)
+                    .offset(y: -collapseProgress * 14)
+
+                // Mode selector
+                ModeSelectorView(selectedMode: $viewModel.auraMode)
+                    .padding(.top, 18)
+                    .opacity(1.0 - collapseProgress * 0.60)
+
+                // Chip row
+                PromptSuggestionChipRow(chips: resolver.chips) { chip in
+                    composerText = chip.text + " "
+                    composerFocused = true
+                }
+                .padding(.top, 14)
+                .opacity(1.0 - collapseProgress * 0.55)
+                .offset(y: -collapseProgress * 7)
+
+                // Smart context row — fades out earlier than chips
+                SmartContextRow(mode: viewModel.auraMode)
+                    .padding(.horizontal, 18)
+                    .padding(.top, 12)
+                    .opacity(max(0, 1.0 - collapseProgress * 2.0))
+
+                // Deep content — recent sessions or placeholder cards
+                deepContentSection
+                    .padding(.horizontal, 18)
+                    .padding(.top, 14)
+
+                // Clearance for pinned composer + safe area
+                Spacer().frame(height: 130 + safeBottom)
+            }
+        }
+        .coordinateSpace(name: "bereanHome")
+        .onPreferenceChange(BereanScrollOffsetKey.self) { value in
+            scrollOffset = value
+        }
+    }
+
+    // MARK: - Deep content section
+
+    private var deepContentSection: some View {
+        VStack(spacing: 12) {
+            if let item = resolver.resumeItem {
+                SmartResumeRow(item: item) { openResume(item) }
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+
+            if viewModel.recentSessions.isEmpty {
+                ForEach(0..<4, id: \.self) { i in
+                    placeholderCard(index: i)
+                }
+            } else {
+                ForEach(Array(viewModel.recentSessions.prefix(5))) { session in
+                    recentSessionCard(session)
                 }
             }
-            .padding(.horizontal, 18)
-            .padding(.vertical, 6)
         }
-        .background(Color.clear)
     }
 
-    private func modePill(_ mode: BereanHomeMode) -> some View {
-        let isSelected = viewModel.selectedMode == mode
-        return Button {
-            withAnimation(Motion.adaptive(.spring(response: 0.32, dampingFraction: 0.72))) {
-                viewModel.selectedMode = mode
-            }
+    private func placeholderCard(index: Int) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Smart content layer \(index + 1)")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(.black)
+            Text("The whole page scrolls together while the composer stays pinned at the bottom like Safari chrome adapted for AMEN.")
+                .font(.system(size: 14))
+                .foregroundColor(.black.opacity(0.54))
+                .lineSpacing(2)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(18)
+        .background(glassCardBackground)
+    }
+
+    private func recentSessionCard(_ session: BereanChatSession) -> some View {
+        Button {
+            pendingQuery = nil
+            showNewChat = true
         } label: {
-            HStack(spacing: 5) {
-                Image(systemName: mode.icon)
-                    .font(.systemScaled(12, weight: .medium))
-                Text(mode.rawValue)
-                    .font(AMENFont.semiBold(13))
-            }
-            .foregroundColor(isSelected ? Color.black : BereanColor.textSecondary)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 9)
-            .background(
-                Group {
-                    if isSelected {
-                        Capsule().fill(Color.white)
-                    } else {
-                        Capsule().fill(.ultraThinMaterial).opacity(0.6)
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(Color(red: 0.35, green: 0.30, blue: 0.90).opacity(0.10))
+                        .frame(width: 40, height: 40)
+                    Text(String(session.displayTitle.prefix(1)).uppercased())
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(Color(red: 0.35, green: 0.30, blue: 0.90))
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(session.displayTitle)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(.black)
+                        .lineLimit(1)
+                    if let preview = session.lastAssistantMessage?.content, !preview.isEmpty {
+                        Text(preview)
+                            .font(.system(size: 13))
+                            .foregroundColor(.black.opacity(0.52))
+                            .lineLimit(1)
                     }
                 }
-                .shadow(
-                    color: isSelected ? Color.black.opacity(0.10) : Color.clear,
-                    radius: isSelected ? 6 : 0, x: 0, y: isSelected ? 3 : 0
-                )
-            )
-            .overlay(
-                Capsule()
-                    .strokeBorder(isSelected ? BereanColor.glassStroke : Color.clear, lineWidth: 0.5)
-            )
+                Spacer()
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text(session.relativeTimestamp)
+                        .font(.system(size: 11))
+                        .foregroundColor(.black.opacity(0.32))
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(.black.opacity(0.28))
+                }
+            }
+            .padding(16)
+            .background(glassCardBackground)
         }
         .buttonStyle(.plain)
     }
 
-    // MARK: - Suggestion Chips
+    // MARK: - Reusable glass card background
 
-    private var suggestionSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
-                    ForEach(viewModel.suggestedPrompts) { prompt in
-                        BereanSuggestionChip(text: prompt.text, icon: prompt.icon) {
-                            showNewChat = true
-                        }
-                    }
-                }
-                .padding(.horizontal, 18)
-            }
-        }
+    private var glassCardBackground: some View {
+        RoundedRectangle(cornerRadius: 22, style: .continuous)
+            .fill(.ultraThinMaterial)
+            .overlay(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(Color.white.opacity(0.48))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.white.opacity(0.62), Color.white.opacity(0.08)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.65), lineWidth: 0.5)
+            )
+            .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
     }
 
-    // MARK: - Recent Chats
+    // MARK: - Bottom fade gradient
 
-    private var recentSection: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Section header
-            Text("Recent")
-                .font(AMENFont.semiBold(13))
-                .foregroundColor(BereanColor.textSecondary)
-                .padding(.horizontal, 18)
-                .padding(.bottom, 10)
-
-            if viewModel.recentSessions.isEmpty {
-                recentEmptyState
-            } else {
-                VStack(spacing: 0) {
-                    ForEach(viewModel.recentSessions) { session in
-                        recentRow(session: session)
-                        Divider()
-                            .padding(.leading, 72)
-                            .foregroundColor(BereanColor.separator)
-                    }
-                }
-            }
+    private var bottomFadeGradient: some View {
+        VStack(spacing: 0) {
+            Spacer()
+            LinearGradient(
+                colors: [
+                    bgColor.opacity(0),
+                    bgColor.opacity(0.88),
+                    bgColor
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(height: 120)
         }
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
     }
 
-    private var recentEmptyState: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "bubble.left.and.bubble.right")
-                .font(.systemScaled(28))
-                .foregroundColor(BereanColor.textTertiary)
-            Text("No recent chats")
-                .font(AMENFont.semiBold(15))
-                .foregroundColor(BereanColor.textPrimary)
-            Text("Start a new conversation with Berean.")
-                .font(AMENFont.regular(13))
-                .foregroundColor(BereanColor.textSecondary)
+    // MARK: - Pinned composer
+
+    private func premiumComposer(safeBottom: CGFloat) -> some View {
+        BereanPremiumComposerBar(
+            text: $composerText,
+            auraMode: viewModel.auraMode,
+            collapseProgress: collapseProgress,
+            isFocused: $composerFocused,
+            onSend: submitComposer,
+            onAttach: { /* future: attachment sheet */ }
+        )
+        .padding(.bottom, max(safeBottom, 16))
+    }
+
+    // MARK: - Actions
+
+    private func submitComposer() {
+        let query = composerText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return }
+        pendingQuery = query
+        composerFocused = false
+        showNewChat = true
+    }
+
+    private func openResume(_ item: BereanResumeItem) {
+        pendingQuery = nil
+        showNewChat = true
+    }
+}
+
+// MARK: - AmenHeroMarkView
+
+/// Floating AMEN glass medallion. Replaces the old "B" monogram.
+/// Subtle float animation when reduce motion is off.
+struct AmenHeroMarkView: View {
+    @State private var floating = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        ZStack {
+            // Outer glass plate
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 28, style: .continuous)
+                        .fill(Color.white.opacity(0.42))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 28, style: .continuous)
+                        .strokeBorder(Color.white.opacity(0.70), lineWidth: 0.75)
+                )
+                .shadow(color: .black.opacity(0.07), radius: 26, y: 8)
+
+            // Inner gradient layer
+            RoundedRectangle(cornerRadius: 21, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(0.95),
+                            Color.white.opacity(0.36),
+                            Color(red: 1.0, green: 0.94, blue: 0.96).opacity(0.18)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .padding(8)
+
+            // Top glare highlight
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color.white.opacity(0.42))
+                .frame(width: 38, height: 10)
+                .blur(radius: 7)
+                .offset(x: -5, y: -28)
+
+            // AMEN wordmark
+            Text("AMEN")
+                .font(.system(size: 18, weight: .semibold))
+                .tracking(3.2)
+                .foregroundColor(.black.opacity(0.82))
+        }
+        .frame(width: 94, height: 94)
+        .offset(y: floating ? -4 : 0)
+        .scaleEffect(floating ? 1.014 : 1.0)
+        .onAppear {
+            guard !reduceMotion else { return }
+            withAnimation(
+                .easeInOut(duration: 5.5).repeatForever(autoreverses: true)
+            ) {
+                floating = true
+            }
+        }
+        .accessibilityLabel("AMEN")
+        .accessibilityAddTraits(.isImage)
+    }
+}
+
+// MARK: - SmartIntroPromptView
+
+/// Eyebrow + large adaptive question + support line.
+/// Question softly adapts when text is typed into the composer.
+struct SmartIntroPromptView: View {
+    let hasText: Bool
+
+    private static let idlePrompts = [
+        "What do you want help understanding today?",
+        "Bring a passage, a prayer, or a hard question.",
+        "Ask Berean to explore a verse or topic with you.",
+    ]
+    @State private var promptIndex = 0
+
+    var body: some View {
+        VStack(spacing: 10) {
+            // Eyebrow
+            HStack(spacing: 5) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(.black.opacity(0.38))
+                Text("AMEN INTELLIGENCE")
+                    .font(.system(size: 11, weight: .semibold))
+                    .tracking(1.8)
+                    .foregroundColor(.black.opacity(0.38))
+            }
+
+            // Large adaptive question
+            Text(hasText ? "Ask Berean anything." : Self.idlePrompts[promptIndex])
+                .font(.system(size: 28, weight: .semibold))
+                .tracking(-1.4)
+                .foregroundColor(.black)
                 .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .contentTransition(.opacity)
+                .animation(.easeInOut(duration: 0.32), value: hasText)
+                .animation(.easeInOut(duration: 0.32), value: promptIndex)
+
+            // Support line
+            Text("Ask Berean to explain a verse, prayer prompt, or hard question.")
+                .font(.system(size: 14))
+                .foregroundColor(.black.opacity(0.46))
+                .multilineTextAlignment(.center)
+                .lineSpacing(2)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 48)
-        .padding(.horizontal, 40)
+    }
+}
+
+// MARK: - ModeSelectorView
+
+/// Three compact pill buttons: Scripture · Prayer · Deep Study.
+/// Active pill is slightly brighter and more present.
+struct ModeSelectorView: View {
+    @Binding var selectedMode: BereanAuraMode
+
+    var body: some View {
+        HStack(spacing: 8) {
+            ForEach(BereanAuraMode.allCases, id: \.self) { mode in
+                modePill(mode)
+            }
+        }
+        .padding(.horizontal, 18)
     }
 
-    private func recentRow(session: BereanChatSession) -> some View {
-        Button {
-            selectedSession = session
+    private func modePill(_ mode: BereanAuraMode) -> some View {
+        let isSelected = selectedMode == mode
+        return Button {
+            withAnimation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.74))) {
+                selectedMode = mode
+            }
         } label: {
-            HStack(spacing: 14) {
-                // Avatar circle
-                ZStack {
+            Text(mode.rawValue)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(isSelected ? .black : .black.opacity(0.50))
+                .padding(.horizontal, 16)
+                .padding(.vertical, 9)
+                .background(
+                    Capsule()
+                        .fill(.ultraThinMaterial)
+                        .overlay(Capsule().fill(Color.white.opacity(isSelected ? 0.72 : 0.28)))
+                        .overlay(
+                            Capsule().strokeBorder(
+                                Color.white.opacity(isSelected ? 0.80 : 0.46),
+                                lineWidth: 0.5
+                            )
+                        )
+                        .shadow(color: .black.opacity(isSelected ? 0.06 : 0), radius: 8, y: 2)
+                )
+        }
+        .buttonStyle(.plain)
+        .animation(Motion.adaptive(.easeInOut(duration: 0.2)), value: isSelected)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+}
+
+// MARK: - SmartContextRow
+
+/// Compact mode-aware card showing the active aura label + one-line description.
+/// Fades out earlier than other elements on downward scroll.
+struct SmartContextRow: View {
+    let mode: BereanAuraMode
+
+    var body: some View {
+        HStack(spacing: 14) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(mode.contextLabel)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.black)
+                Text(mode.contextHelper)
+                    .font(.system(size: 13))
+                    .foregroundColor(.black.opacity(0.52))
+                    .lineSpacing(1)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer()
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(.black.opacity(0.45))
+                .frame(width: 36, height: 36)
+                .background(
                     Circle()
-                        .fill(BereanHomeMode.ask.accentColor.opacity(0.15))
-                        .frame(width: 44, height: 44)
-                    Text(String(session.displayTitle.prefix(1)).uppercased())
-                        .font(AMENFont.semiBold(17))
-                        .foregroundColor(BereanHomeMode.ask.accentColor)
+                        .fill(.ultraThinMaterial)
+                        .overlay(Circle().fill(Color.white.opacity(0.50)))
+                        .overlay(
+                            Circle().strokeBorder(Color.white.opacity(0.58), lineWidth: 0.5)
+                        )
+                )
+        }
+        .padding(18)
+        .background(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.white.opacity(0.62), Color.white.opacity(0.10)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .strokeBorder(Color.white.opacity(0.65), lineWidth: 0.5)
+                )
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+        )
+        .contentTransition(.opacity)
+        .animation(.easeInOut(duration: 0.30), value: mode)
+    }
+}
+
+// MARK: - BereanPremiumComposerBar
+
+/// Pinned bottom composer. Three-part layout:
+///   [plus] ─── [capsule input] ─── [action]
+/// Shrinks very subtly on downward scroll; returns to full presence on upward intent.
+struct BereanPremiumComposerBar: View {
+    @Binding var text: String
+    let auraMode: BereanAuraMode
+    let collapseProgress: CGFloat
+    @Binding var isFocused: Bool
+    let onSend: () -> Void
+    let onAttach: () -> Void
+
+    @FocusState private var fieldFocused: Bool
+
+    private var hasText: Bool {
+        !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    // Composer shrinks subtly as user scrolls — Safari bottom feel
+    private var composerScale: CGFloat { 1.0 - collapseProgress * 0.022 }
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 10) {
+            ComposerPlusButton(action: onAttach)
+
+            ComposerInputField(
+                text: $text,
+                auraMode: auraMode,
+                fieldFocused: $fieldFocused
+            )
+
+            ComposerPrimaryActionButton(hasText: hasText) {
+                if hasText { onSend() }
+            }
+        }
+        .padding(.horizontal, 14)
+        .scaleEffect(composerScale, anchor: .bottom)
+        .onChange(of: isFocused) { _, focused in
+            if fieldFocused != focused { fieldFocused = focused }
+        }
+        .onChange(of: fieldFocused) { _, focused in
+            isFocused = focused
+        }
+    }
+}
+
+// MARK: - ComposerPlusButton
+
+/// Left glass circle button — opens attachment/context sheet.
+struct ComposerPlusButton: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "plus")
+                .font(.system(size: 20, weight: .medium))
+                .foregroundColor(.black)
+                .frame(width: 44, height: 44)
+                .background(
+                    Circle()
+                        .fill(.ultraThinMaterial)
+                        .overlay(Circle().fill(Color.white.opacity(0.58)))
+                        .overlay(
+                            Circle().strokeBorder(Color.white.opacity(0.64), lineWidth: 0.5)
+                        )
+                        .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
+                )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Attach")
+    }
+}
+
+// MARK: - ComposerInputField
+
+/// Center capsule text field with inline mic icon (visible when empty).
+/// Inherits a subtle aura tint from the active mode.
+struct ComposerInputField: View {
+    @Binding var text: String
+    let auraMode: BereanAuraMode
+    @FocusState.Binding var fieldFocused: Bool
+
+    private var hasText: Bool {
+        !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var body: some View {
+        ZStack(alignment: .leading) {
+            // Background capsule layers
+            Capsule().fill(.ultraThinMaterial)
+            Capsule().fill(Color.white.opacity(0.72))
+            Capsule().fill(auraMode.composerTint)
+            Capsule().fill(
+                LinearGradient(
+                    colors: [Color.white.opacity(0.88), Color.white.opacity(0.30)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            Capsule().strokeBorder(Color.white.opacity(0.38), lineWidth: 0.5)
+
+            // Content row
+            HStack(spacing: 0) {
+                ZStack(alignment: .leading) {
+                    // Custom placeholder
+                    if !hasText {
+                        Text("Ask Berean")
+                            .font(.system(size: 16))
+                            .foregroundColor(.black.opacity(0.34))
+                            .allowsHitTesting(false)
+                            .transition(.opacity)
+                    }
+
+                    TextField("", text: $text, axis: .vertical)
+                        .font(.system(size: 16))
+                        .foregroundColor(.black)
+                        .tint(.black)
+                        .lineLimit(1...5)
+                        .focused($fieldFocused)
+                        .frame(maxWidth: .infinity)
                 }
 
-                // Text
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(session.displayTitle)
-                        .font(AMENFont.semiBold(15))
+                // Inline mic — visible only when empty
+                if !hasText {
+                    Image(systemName: "mic")
+                        .font(.system(size: 18, weight: .regular))
+                        .foregroundColor(.black.opacity(0.36))
+                        .transition(.opacity.combined(with: .scale(scale: 0.82)))
+                        .padding(.leading, 6)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 13)
+        }
+        .frame(minHeight: 50)
+        .shadow(color: .black.opacity(0.06), radius: 10, y: 4)
+        .animation(.easeInOut(duration: 0.16), value: hasText)
+        .animation(.easeInOut(duration: 0.30), value: auraMode)
+    }
+}
+
+// MARK: - ComposerPrimaryActionButton
+
+/// Right black circular button. Morphs between waveform (idle) and send arrow (has text).
+struct ComposerPrimaryActionButton: View {
+    let hasText: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            ZStack {
+                Circle()
+                    .fill(Color.black)
+                    .shadow(color: .black.opacity(0.14), radius: 10, y: 4)
+
+                if hasText {
+                    Image(systemName: "arrow.up")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(.white)
+                        .transition(.opacity.combined(with: .scale(scale: 0.72)))
+                } else {
+                    Image(systemName: "waveform")
+                        .font(.system(size: 17, weight: .medium))
+                        .foregroundColor(.white)
+                        .transition(.opacity.combined(with: .scale(scale: 0.72)))
+                }
+            }
+            .frame(width: 44, height: 44)
+            .animation(.spring(response: 0.22, dampingFraction: 0.70), value: hasText)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(hasText ? "Send" : "Voice input")
+    }
+}
+
+// MARK: - SmartResumeRow
+
+/// Compact single-line resume surface. Shown only when context resolver finds a resumable session.
+struct SmartResumeRow: View {
+    let item: BereanResumeItem
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 12) {
+                Image(systemName: "arrow.clockwise")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(BereanColor.textSecondary)
+                    .frame(width: 18)
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(item.label)
+                        .font(AMENFont.semiBold(13))
                         .foregroundColor(BereanColor.textPrimary)
                         .lineLimit(1)
-                    if let preview = session.lastAssistantMessage?.content, !preview.isEmpty {
-                        Text(preview)
-                            .font(AMENFont.regular(13))
-                            .foregroundColor(BereanColor.textSecondary)
-                            .lineLimit(1)
+                    if let sub = item.sublabel {
+                        Text(sub)
+                            .font(AMENFont.regular(11))
+                            .foregroundColor(BereanColor.textTertiary)
                     }
                 }
 
                 Spacer()
 
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text(session.relativeTimestamp)
-                        .font(AMENFont.regular(12))
-                        .foregroundColor(BereanColor.textTertiary)
-                    Image(systemName: "chevron.right")
-                        .font(.systemScaled(11, weight: .medium))
-                        .foregroundColor(BereanColor.textTertiary)
-                }
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(.tertiary)
             }
-            .padding(.horizontal, 18)
-            .padding(.vertical, 12)
-        }
-        .buttonStyle(.plain)
-    }
-
-    // MARK: - FAB
-
-    private var newChatFAB: some View {
-        Button {
-            showNewChat = true
-        } label: {
-            HStack(spacing: 8) {
-                Text("New Chat")
-                    .font(AMENFont.semiBold(15))
-                    .foregroundColor(Color.black)
-                Text("+")
-                    .font(.systemScaled(18, weight: .light))
-                    .foregroundColor(Color.black)
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 13)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 11)
             .background(
-                Capsule()
-                    .fill(Color.white)
-                    .shadow(color: Color.black.opacity(0.14), radius: 16, x: 0, y: 6)
-                    .overlay(Capsule().strokeBorder(BereanColor.glassStroke, lineWidth: 0.5))
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(Color.white.opacity(0.60))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .strokeBorder(BereanColor.glassStroke, lineWidth: 0.5)
+                    )
             )
         }
         .buttonStyle(.plain)
     }
 }
 
+// MARK: - PromptSuggestionChipRow
+
+/// Horizontally scrollable row of smart context chips. Animates on chip set changes.
+struct PromptSuggestionChipRow: View {
+    let chips: [BereanSmartChip]
+    let onSelect: (BereanSmartChip) -> Void
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(chips) { chip in
+                    Button { onSelect(chip) } label: {
+                        HStack(spacing: 5) {
+                            Image(systemName: chip.icon)
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(.black.opacity(0.65))
+                            Text(chip.text)
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(.black.opacity(0.74))
+                                .lineLimit(1)
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 9)
+                        .background(
+                            Capsule()
+                                .fill(.ultraThinMaterial)
+                                .overlay(Capsule().fill(Color.white.opacity(0.50)))
+                                .overlay(
+                                    Capsule().strokeBorder(Color.white.opacity(0.65), lineWidth: 0.5)
+                                )
+                                .shadow(color: .black.opacity(0.04), radius: 8, y: 2)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .transition(.opacity.combined(with: .scale(scale: 0.92)))
+                }
+            }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 4)
+        }
+        .animation(.spring(response: 0.35, dampingFraction: 0.80), value: chips.map(\.id))
+    }
+}
+
+// MARK: - BereanSeal (legacy — kept for any external usages)
+
+struct BereanSeal: View {
+    var body: some View {
+        ZStack {
+            Circle().fill(Color(red: 0.96, green: 0.94, blue: 0.90))
+            Circle().strokeBorder(
+                Color(red: 0.82, green: 0.74, blue: 0.60).opacity(0.55),
+                lineWidth: 0.75
+            )
+            Text("B")
+                .font(AMENFont.bold(20))
+                .foregroundColor(Color(red: 0.42, green: 0.32, blue: 0.18))
+        }
+    }
+}
+
+// MARK: - BereanHomeComposerBar (legacy — kept for any external usages)
+
+struct BereanHomeComposerBar: View {
+    @Binding var text: String
+    let placeholder: String
+    @Binding var isFocused: Bool
+    let onSend: () -> Void
+    let onAttach: () -> Void
+
+    @FocusState private var fieldFocused: Bool
+
+    private var hasText: Bool {
+        !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var body: some View {
+        HStack(alignment: .bottom, spacing: 10) {
+            Button(action: onAttach) {
+                Circle()
+                    .fill(Color(.secondarySystemBackground))
+                    .frame(width: 36, height: 36)
+                    .overlay(
+                        Image(systemName: "plus")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(BereanColor.textSecondary)
+                    )
+            }
+            .buttonStyle(.plain)
+
+            HStack(alignment: .bottom, spacing: 8) {
+                TextField(placeholder, text: $text, axis: .vertical)
+                    .font(AMENFont.regular(16))
+                    .foregroundColor(BereanColor.textPrimary)
+                    .lineLimit(1...5)
+                    .focused($fieldFocused)
+                    .tint(.black)
+                    .frame(maxWidth: .infinity)
+
+                if !hasText {
+                    Image(systemName: "mic")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(.tertiary)
+                        .transition(.opacity.combined(with: .scale(scale: 0.85)))
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(
+                Capsule()
+                    .fill(.ultraThinMaterial)
+                    .overlay(Capsule().fill(Color.white.opacity(0.80)))
+                    .overlay(Capsule().strokeBorder(BereanColor.glassStroke, lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
+            )
+            .animation(.easeInOut(duration: 0.18), value: hasText)
+
+            Button {
+                if hasText { onSend() }
+            } label: {
+                ZStack {
+                    Circle()
+                        .fill(hasText ? Color.black : Color(.secondarySystemBackground))
+                        .frame(width: 36, height: 36)
+                    Image(systemName: hasText ? "arrow.up" : "waveform")
+                        .font(.system(size: hasText ? 14 : 13, weight: .semibold))
+                        .foregroundColor(hasText ? .white : BereanColor.textSecondary)
+                }
+            }
+            .buttonStyle(.plain)
+            .animation(.easeInOut(duration: 0.18), value: hasText)
+        }
+        .padding(.horizontal, 4)
+        .padding(.vertical, 6)
+        .onChange(of: fieldFocused) { _, val in isFocused = val }
+        .onChange(of: isFocused) { _, val in
+            if val != fieldFocused { fieldFocused = val }
+        }
+    }
+}
+
 // MARK: - Preview
 
-struct BereanHomeView_Previews: PreviewProvider {
-    static var previews: some View {
-        BereanHomeView()
-    }
+#Preview {
+    BereanHomeView()
 }
