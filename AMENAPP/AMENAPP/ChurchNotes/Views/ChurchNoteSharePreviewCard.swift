@@ -50,7 +50,7 @@ struct ChurchNoteSharePreviewCard: View {
     private var cardHeader: some View {
         HStack(spacing: 10) {
             Image(systemName: "note.text")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
@@ -204,7 +204,7 @@ struct ChurchNoteInlineAttachment: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: "note.text")
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
 
@@ -222,7 +222,7 @@ struct ChurchNoteInlineAttachment: View {
             if let onRemove {
                 Button(action: onRemove) {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 16))
+                        .font(.systemScaled(16))
                         .foregroundStyle(Color(.tertiaryLabel))
                 }
                 .buttonStyle(.plain)

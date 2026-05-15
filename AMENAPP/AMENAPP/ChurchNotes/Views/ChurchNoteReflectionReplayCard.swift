@@ -199,7 +199,7 @@ struct ChurchNoteReflectionReplayCard: View {
         } label: {
             VStack(spacing: 5) {
                 Image(systemName: outcome.icon)
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(isSelected
                                      ? (outcome.isPositive ? Color(.systemGreen) : Color.secondary)
                                      : Color(.tertiaryLabel))

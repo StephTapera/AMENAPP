@@ -55,13 +55,12 @@ struct ChurchNoteGodHasBeenSayingCard: View {
                 cardFooter
                     .padding(14)
             }
+            // Content card — readable solid background. The previous `.thinMaterial`
+            // under an opaque overlay was glass-as-content, which the design rule
+            // restricts to nav/control layers.
             .background(
                 RoundedRectangle(cornerRadius: ChurchNotesDesignTokens.Radius.card, style: .continuous)
-                    .fill(.thinMaterial)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: ChurchNotesDesignTokens.Radius.card, style: .continuous)
-                            .fill(Color(.systemBackground).opacity(0.72))
-                    )
+                    .fill(Color(.systemBackground))
                     .overlay(
                         RoundedRectangle(cornerRadius: ChurchNotesDesignTokens.Radius.card, style: .continuous)
                             .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
@@ -79,7 +78,7 @@ struct ChurchNoteGodHasBeenSayingCard: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.secondary)
                         .accessibilityHidden(true)
                     Text("Patterns in your notes")
@@ -102,7 +101,7 @@ struct ChurchNoteGodHasBeenSayingCard: View {
                 onDismiss()
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.tertiary)
                     .frame(width: 28, height: 28)
                     .background(Color(.tertiarySystemFill), in: Circle())
@@ -222,7 +221,7 @@ struct ChurchNoteGodHasBeenSayingDetailView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
                 Image(systemName: "sparkles")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(.secondary)
                     .accessibilityHidden(true)
                 Text("A quiet reflection")
@@ -341,7 +340,7 @@ struct ChurchNoteGodHasBeenSayingDetailView: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 10) {
                     Image(systemName: posture.icon)
-                        .font(.system(size: 18))
+                        .font(.systemScaled(18))
                         .foregroundStyle(.secondary)
                         .accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 3) {

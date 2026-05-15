@@ -1,14 +1,10 @@
-//
-//  MentalHealthSection.swift
-//  AMENAPP
-//
-//  Created by Steph on 2/2/26.
-//
-
 import SwiftUI
 
 // MARK: - Mental Health & Wellness Section
+
 struct MentalHealthSection: View {
+    @State private var showWellnessHub = false
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
@@ -19,19 +15,19 @@ struct MentalHealthSection: View {
                     .font(.custom("OpenSans-Bold", size: 20))
             }
             .padding(.horizontal)
-            
-            // Featured: Faith-Based Counseling
+
+            // Featured: opens the full Wellness Hub
             MentalHealthFeaturedCard(
                 icon: "person.2.badge.gearshape.fill",
                 iconColor: .green,
-                title: "Faith-Based Counseling",
-                subtitle: "Find Christian therapists & counselors",
-                description: "Connect with licensed professionals who integrate faith into mental health care.",
-                actionTitle: "Find a Counselor",
-                gradientColors: [Color.green, Color.teal]
+                title: "Mind, Body & Soul",
+                subtitle: "Faith-based care at every level of need",
+                description: "Mood-aware tools, scripture, Berean Care mode, counseling, groups, and faith practices — in one adaptive surface.",
+                actionTitle: "Open Wellness Hub",
+                gradientColors: [Color(red: 0.042, green: 0.228, blue: 0.235), Color(red: 0.132, green: 0.432, blue: 0.376)],
+                onTap: { showWellnessHub = true }
             )
-            
-            // Mental Health Resources
+
             MentalHealthResourceCard(
                 icon: "brain.head.profile",
                 iconColor: .purple,
@@ -39,7 +35,7 @@ struct MentalHealthSection: View {
                 description: "Biblical perspective on anxiety, depression, and emotional wellness",
                 category: "Learning"
             )
-            
+
             MentalHealthResourceCard(
                 icon: "leaf.fill",
                 iconColor: .green,
@@ -47,7 +43,7 @@ struct MentalHealthSection: View {
                 description: "Practical tools and prayers for managing stress",
                 category: "Tools"
             )
-            
+
             MentalHealthResourceCard(
                 icon: "bed.double.fill",
                 iconColor: .indigo,
@@ -55,7 +51,7 @@ struct MentalHealthSection: View {
                 description: "Biblical guidance on rest and healthy sleep habits",
                 category: "Wellness"
             )
-            
+
             MentalHealthResourceCard(
                 icon: "figure.walk",
                 iconColor: .orange,
@@ -63,7 +59,7 @@ struct MentalHealthSection: View {
                 description: "Caring for your body as a temple of the Holy Spirit",
                 category: "Wellness"
             )
-            
+
             MentalHealthResourceCard(
                 icon: "book.closed.fill",
                 iconColor: .blue,
@@ -71,14 +67,17 @@ struct MentalHealthSection: View {
                 description: "Daily encouragement for emotional and spiritual health",
                 category: "Reading"
             )
-            
-            // Support Groups
+
             SupportGroupCard()
+        }
+        .fullScreenCover(isPresented: $showWellnessHub) {
+            WellnessMindBodySoulView()
         }
     }
 }
 
 // MARK: - Mental Health Featured Card
+
 struct MentalHealthFeaturedCard: View {
     let icon: String
     let iconColor: Color
@@ -87,13 +86,13 @@ struct MentalHealthFeaturedCard: View {
     let description: String
     let actionTitle: String
     let gradientColors: [Color]
-    
+    var onTap: (() -> Void)? = nil
+
     @State private var shimmerPhase: CGFloat = 0
-    @State private var showComingSoon = false
-    
+
     var body: some View {
         Button {
-            showComingSoon = true
+            onTap?()
         } label: {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(spacing: 12) {
@@ -112,30 +111,30 @@ struct MentalHealthFeaturedCard: View {
                                         lineWidth: 2
                                     )
                             )
-                        
+
                         Image(systemName: icon)
                             .font(.systemScaled(22, weight: .semibold))
                             .foregroundStyle(iconColor)
                     }
-                    
+
                     VStack(alignment: .leading, spacing: 3) {
                         Text(title)
                             .font(.custom("OpenSans-Bold", size: 17))
                             .foregroundStyle(.white)
-                        
+
                         Text(subtitle)
                             .font(.custom("OpenSans-SemiBold", size: 13))
                             .foregroundStyle(.white.opacity(0.9))
                     }
-                    
+
                     Spacer()
                 }
-                
+
                 Text(description)
                     .font(.custom("OpenSans-Regular", size: 14))
                     .foregroundStyle(.white.opacity(0.95))
                     .lineSpacing(3)
-                
+
                 HStack {
                     Spacer()
                     HStack(spacing: 6) {
@@ -160,25 +159,16 @@ struct MentalHealthFeaturedCard: View {
             .padding(18)
             .background(
                 ZStack {
-                    // Base gradient
                     LinearGradient(
                         colors: gradientColors,
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
-                    
-                    // Glass overlay
                     Rectangle()
                         .fill(.ultraThinMaterial)
                         .opacity(0.3)
-                    
-                    // Shimmer effect
                     LinearGradient(
-                        colors: [
-                            Color.white.opacity(0),
-                            Color.white.opacity(0.2),
-                            Color.white.opacity(0)
-                        ],
+                        colors: [Color.white.opacity(0), Color.white.opacity(0.2), Color.white.opacity(0)],
                         startPoint: .leading,
                         endPoint: .trailing
                     )
@@ -208,27 +198,20 @@ struct MentalHealthFeaturedCard: View {
             }
         }
         .buttonStyle(PlainButtonStyle())
-        .sheet(isPresented: $showComingSoon) {
-            ResourceComingSoonPlaceholder(
-                title: "Faith-Based Counseling",
-                icon: "person.2.badge.gearshape.fill",
-                iconColor: .green,
-                description: "Connect with licensed Christian counselors and therapists who integrate biblical principles into mental health care. Find the right professional to support your journey to wellness."
-            )
-        }
     }
 }
 
 // MARK: - Mental Health Resource Card
+
 private struct MentalHealthResourceCard: View {
     let icon: String
     let iconColor: Color
     let title: String
     let description: String
     let category: String
-    
+
     @State private var showComingSoon = false
-    
+
     var body: some View {
         Button {
             showComingSoon = true
@@ -238,22 +221,22 @@ private struct MentalHealthResourceCard: View {
                     Circle()
                         .fill(iconColor.opacity(0.15))
                         .frame(width: 56, height: 56)
-                    
+
                     Image(systemName: icon)
                         .font(.systemScaled(24))
                         .foregroundStyle(iconColor)
                 }
-                
+
                 VStack(alignment: .leading, spacing: 4) {
                     Text(title)
                         .font(.custom("OpenSans-Bold", size: 16))
                         .foregroundStyle(.primary)
-                    
+
                     Text(description)
                         .font(.custom("OpenSans-Regular", size: 13))
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
-                    
+
                     Text(category)
                         .font(.custom("OpenSans-SemiBold", size: 11))
                         .foregroundStyle(iconColor)
@@ -264,9 +247,9 @@ private struct MentalHealthResourceCard: View {
                                 .fill(iconColor.opacity(0.1))
                         )
                 }
-                
+
                 Spacer()
-                
+
                 Image(systemName: "chevron.right")
                     .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.secondary)
@@ -292,49 +275,38 @@ private struct MentalHealthResourceCard: View {
 }
 
 // MARK: - Support Group Card
+
 struct SupportGroupCard: View {
-    @State private var showComingSoon = false
-    
+    @State private var showWellnessHub = false
+
     var body: some View {
         Button {
-            showComingSoon = true
+            showWellnessHub = true
         } label: {
             HStack(spacing: 14) {
                 ZStack {
                     Circle()
                         .fill(Color.cyan.opacity(0.15))
                         .frame(width: 50, height: 50)
-                    
+
                     Image(systemName: "person.3.fill")
                         .font(.systemScaled(22))
                         .foregroundStyle(.cyan)
                 }
-                
+
                 VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 6) {
-                        Text("Support Groups")
-                            .font(.custom("OpenSans-Bold", size: 16))
-                            .foregroundStyle(.primary)
-                        
-                        Text("COMING SOON")
-                            .font(.custom("OpenSans-Bold", size: 9))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(
-                                Capsule()
-                                    .fill(Color.orange)
-                            )
-                    }
-                    
-                    Text("Join faith-based support groups for mental health")
+                    Text("Support Groups")
+                        .font(.custom("OpenSans-Bold", size: 16))
+                        .foregroundStyle(.primary)
+
+                    Text("Faith-based peer support — grief, addiction, divorce, anxiety, and more")
                         .font(.custom("OpenSans-Regular", size: 13))
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
                 }
-                
+
                 Spacer()
-                
+
                 Image(systemName: "chevron.right")
                     .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.secondary)
@@ -352,13 +324,8 @@ struct SupportGroupCard: View {
             .padding(.horizontal)
         }
         .buttonStyle(PlainButtonStyle())
-        .sheet(isPresented: $showComingSoon) {
-            ResourceComingSoonPlaceholder(
-                title: "Support Groups",
-                icon: "person.3.fill",
-                iconColor: .cyan,
-                description: "Connect with others facing similar challenges in faith-based support groups. Share experiences, find encouragement, and grow together in a safe, supportive environment."
-            )
+        .fullScreenCover(isPresented: $showWellnessHub) {
+            WellnessMindBodySoulView()
         }
     }
 }

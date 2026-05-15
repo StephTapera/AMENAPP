@@ -1,0 +1,4316 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    function isAdmin() {
+      return isAuthenticated() && request.auth.token.get('admin', false) == true;
+    }
+    function validLength(text, maxLength) {
+      return text is string && text.size() <= maxLength;
+    }
+    function isValidLivingEntryType(value) {
+      return value in ['note', 'reminder', 'churchNote', 'sermonInsight', 'prayer', 'followUp', 'reflection', 'task'];
+    }
+    function isValidLivingEntryIntent(value) {
+      return value in ['spiritualGrowth', 'churchVisit', 'sermonReflection', 'prayerCare', 'relationship', 'work', 'rest', 'personal', 'unknown'];
+    }
+    function isValidLivingEntryState(value) {
+      return value in ['active', 'completed', 'deferred', 'archived', 'needsReflection', 'expired'];
+    }
+    function isValidLivingEntryTriggerType(value) {
+      return value in ['time', 'location', 'churchProximity', 'calendar', 'quietMoment', 'afterChurch', 'beforeService', 'userIdle', 'manual'];
+    }
+    function isValidLivingEntrySurface(value) {
+      return value in ['church_notes', 'find_church', 'berean', 'home', 'feed'];
+    }
+    function livingEntryAIOwnedFields() {
+      return ['priorityScore', 'gravityScore', 'regretRisk', 'aiSummary', 'suggestedNextAction', 'reflectionPrompt', 'evolutionVersion'];
+    }
+    function livingEntryAllowedClientFields() {
+      return [
+        'userId', 'type', 'intent', 'state', 'title', 'body',
+        'churchId', 'churchName', 'sermonTitle', 'scriptureRefs', 'tags',
+        'createdAt', 'updatedAt', 'dueAt', 'completedAt', 'deferredUntil',
+        'emotionalWeight', 'spiritualWeight', 'lastSurfacedAt', 'triggerRules',
+        'contextSnapshot', 'reflectionAnswer'
+      ];
+    }
+    function validLivingEntryRule(rule) {
+      return rule is map
+        && isValidLivingEntryTriggerType(rule.type)
+        && rule.enabled is bool;
+    }
+    function validLivingEntrySnapshot(snapshot) {
+      return snapshot is map
+        && snapshot.localHour is int
+        && snapshot.dayOfWeek is int
+        && snapshot.isSunday is bool
+        && snapshot.isAtChurch is bool
+        && snapshot.quietModeActive is bool
+        && snapshot.focusModeActive is bool
+        && isValidLivingEntrySurface(snapshot.sourceSurface);
+    }
+    function validLivingEntryData(data) {
+      return data.userId == request.auth.uid
+        && isValidLivingEntryType(data.type)
+        && isValidLivingEntryIntent(data.intent)
+        && isValidLivingEntryState(data.state)
+        && validLength(data.title, 160)
+        && validLength(data.body, 4000)
+        && (!data.keys().hasAny(['scriptureRefs']) || data.scriptureRefs is list)
+        && (!data.keys().hasAny(['tags']) || data.tags is list)
+        && (!data.keys().hasAny(['triggerRules']) || data.triggerRules is list)
+        && (!data.keys().hasAny(['triggerRules']) || data.triggerRules.size() <= 12)
+        && validLivingEntrySnapshot(data.contextSnapshot);
+    }
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+    // ── Church Notes helpers ──
+    // Owner of the parent note (used by subcollection rules to avoid duplicating the get()).
+    function isChurchNoteOwner(noteId) {
+      return isAuthenticated() &&
+        get(/databases/$(database)/documents/churchNotes/$(noteId)).data.userId == request.auth.uid;
+    }
+    // Collaborator with any of the given roles.
+    function isChurchNoteCollaboratorWithRole(noteId, roles) {
+      return isAuthenticated()
+        && exists(/databases/$(database)/documents/churchNotes/$(noteId)/collaborators/$(request.auth.uid))
+        && roles.hasAny([
+          get(/databases/$(database)/documents/churchNotes/$(noteId)/collaborators/$(request.auth.uid)).data.role
+        ]);
+    }
+    // Client-editable note fields. Excludes AI/system fields (summaryDraft,
+    // transcriptText, ocrText, studyGuideDraft, prayerPromptsDraft,
+    // actionItemsDraft, scriptureReferencesDraft, translationDraft, etc.)
+    // so clients can never write AI-generated content.
+    function churchNoteAllowedUpdateFields() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly([
+          'title', 'sermonTitle', 'sermonSpeaker', 'churchId', 'churchName',
+          'serviceDate', 'date', 'journeyId', 'tags', 'scriptureReferences',
+          'updatedAt', 'approvedBody', 'body', 'content', 'permission',
+          'sharedWith', 'isFavorite', 'folderId', 'shareLinkId',
+          'worshipSongs', 'visitPlanId', 'claudeTags', 'richContentJSON',
+          'checklists', 'linkedNoteIds', 'attachmentCount', 'actionStepThisWeek',
+          'prayerFromSermon', 'shouldRevisit', 'revisitDate', 'growthReflection',
+          'formattingRanges', 'isPublic', 'pastor', 'keyPoints',
+          'audioRecordingURL', 'hasTranscript',
+          // Edit attribution for privacy audit trail.
+          'lastUpdatedByUid', 'lastUpdatedAt',
+          // Shared editing version guard.
+          'version', 'lastKnownRevision'
+        ]);
+    }
+    function isLivingEntryType(value) {
+      return value in ['note', 'reminder', 'churchNote', 'sermonInsight', 'prayer', 'followUp', 'reflection', 'task'];
+    }
+    function isLivingEntryIntent(value) {
+      return value in ['spiritualGrowth', 'churchVisit', 'sermonReflection', 'prayerCare', 'relationship', 'work', 'rest', 'personal', 'unknown'];
+    }
+    function isLivingEntryState(value) {
+      return value in ['active', 'completed', 'deferred', 'archived', 'needsReflection', 'expired'];
+    }
+    function livingEntryClientFields() {
+      return [
+        'userId',
+        'type',
+        'intent',
+        'state',
+        'title',
+        'body',
+        'churchId',
+        'churchName',
+        'sermonTitle',
+        'scriptureRefs',
+        'tags',
+        'createdAt',
+        'updatedAt',
+        'dueAt',
+        'completedAt',
+        'deferredUntil',
+        'emotionalWeight',
+        'spiritualWeight',
+        'lastSurfacedAt',
+        'triggerRules',
+        'contextSnapshot',
+        'reflectionAnswer',
+        'deletedAt'
+      ];
+    }
+    function validLivingEntryPayload() {
+      return request.resource.data.userId == request.auth.uid
+        && isLivingEntryType(request.resource.data.type)
+        && isLivingEntryIntent(request.resource.data.intent)
+        && isLivingEntryState(request.resource.data.state)
+        && validLength(request.resource.data.title, 140)
+        && validLength(request.resource.data.body, 4000)
+        && request.resource.data.keys().hasOnly(livingEntryClientFields());
+    }
+    function isOnlyUpdating(fields) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
+    }
+    function isCounterUpdate() {
+      return (isOnlyUpdating(['followersCount', 'followingCount', 'updatedAt'])
+        || isOnlyUpdating(['followersCount', 'updatedAt'])
+        || isOnlyUpdating(['followingCount', 'updatedAt'])
+        || isOnlyUpdating(['postsCount', 'updatedAt'])
+        || isOnlyUpdating(['followersCount'])
+        || isOnlyUpdating(['followingCount']))
+        && (request.resource.data.get('followersCount', resource.data.get('followersCount', 0))
+            - resource.data.get('followersCount', 0)) in [-1, 0, 1]
+        && (request.resource.data.get('followingCount', resource.data.get('followingCount', 0))
+            - resource.data.get('followingCount', 0)) in [-1, 0, 1]
+        && (request.resource.data.get('postsCount', resource.data.get('postsCount', 0))
+            - resource.data.get('postsCount', 0)) in [-1, 0, 1];
+    }
+    function postsCountIncrementIsValid(userId) {
+      let delta = request.resource.data.get('postsCount', resource.data.get('postsCount', 0))
+                  - resource.data.get('postsCount', 0);
+      return delta <= 0
+        || request.auth.uid == userId;
+    }
+    function validatePinnedPostWrite(userId) {
+      let data = request.resource.data;
+      let isPin = data.keys().hasAll(['pinnedPostId', 'profilePinnedPost']);
+      return
+        (!data.keys().hasAny(['pinnedPostId']) || data.pinnedPostId is string)
+        && (!data.keys().hasAny(['pinnedAt']) || data.pinnedAt is timestamp)
+        && (!data.keys().hasAny(['pinnedUntil']) || data.pinnedUntil is timestamp)
+        && (!data.keys().hasAny(['profilePinnedPost']) || data.profilePinnedPost is map)
+        && (!isPin || data.profilePinnedPost.get('postId', '') == data.pinnedPostId)
+        && (!isPin
+            || (get(/databases/$(database)/documents/posts/$(data.pinnedPostId)).data.authorId == userId
+                && get(/databases/$(database)/documents/posts/$(data.pinnedPostId)).data.get('isRemoved', false) != true));
+    }
+    function callerAgeTier() {
+      let tokenTier = request.auth.token.get('ageTier', '');
+      return tokenTier != ''
+        ? tokenTier
+        : get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('ageTier', 'tierD');
+    }
+    function callerIsAdult() {
+      return callerAgeTier() == 'tierD';
+    }
+    function callerCanUseDMs() {
+      let t = callerAgeTier();
+      return t == 'tierC' || t == 'tierD';
+    }
+    function callerIsEmailVerified() {
+      return request.auth.token.get('email_verified', false) == true
+        || request.auth.token.firebase.sign_in_provider != 'password';
+    }
+    function caller2FASessionValid() {
+      let expiry = request.auth.token.get('twoFaSessionExpiry', -1);
+      return expiry <= 0 || expiry > request.time.toMillis();
+    }
+    function callerAccountActive() {
+      return isAuthenticated()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('accountStatus', 'active') == 'active'
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isDeactivated', false) != true
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isDeleting', false) != true
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('deletionStatus', 'none') == 'none';
+    }
+    function userDocPublicSafe() {
+      return !resource.data.keys().hasAny([
+        'email',
+        'phoneNumber',
+        'role',
+        'isAdmin',
+        'isModerator',
+        'accountStatus',
+        'isDeactivated',
+        'deactivatedAt',
+        'deactivationReason',
+        'deletionStatus',
+        'deletedAt',
+        'isDeleting',
+        'emailVerified',
+        'phoneVerified',
+        'ageVerified',
+        'twoFactorEnabled',
+        'twoFactorVerified',
+        'twoFactorSession',
+        'backupCodes',
+        'birthYear',
+        'ageTier'
+      ]);
+    }
+    function isActiveMemberOf(covenantId) {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/covenants/$(covenantId)/members/$(request.auth.uid));
+    }
+    function isCreatorOf(covenantId) {
+      return isAuthenticated() &&
+        get(/databases/$(database)/documents/covenants/$(covenantId)).data.get('creatorId', '') == request.auth.uid;
+    }
+    match /usernameLookup/{username} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if false;
+    }
+    match /users/{userId} {
+      allow get: if isAuthenticated() && (isOwner(userId) || isAdmin() || userDocPublicSafe());
+      allow list: if isAdmin();
+      allow create: if false;
+      allow update: if isAuthenticated()
+        && (
+          (isOwner(userId)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'displayName',
+              'displayNameLowercase',
+              'bio',
+              'profileImageURL',
+              'photoURL',
+              'isPrivate',
+              'notificationsEnabled',
+              'pushNotificationsEnabled',
+              'emailNotificationsEnabled',
+              'notifyOnLikes',
+              'notifyOnComments',
+              'notifyOnFollows',
+              'notifyOnMentions',
+              'notifyOnPrayerRequests',
+              'allowMessagesFromEveryone',
+              'showActivityStatus',
+              'allowTagging',
+              'updatedAt'
+            ])
+            && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+              'isVerified',
+              'email',
+              'backupCodes',
+              'emailVerified',
+              'phoneVerified',
+              'ageVerified',
+              'strikes',
+              'accountStatus',
+              'isDeactivated',
+              'deactivatedAt',
+              'deactivationExpiresAt',
+              'deactivationReason',
+              'deletionStatus',
+              'deletedAt',
+              'isDeleting',
+              'deletionRequestedAt',
+              'hasCompletedOnboarding',
+              'onboardingStatus',
+              'onboardingCompletedAt',
+              'termsAcceptedAt',
+              'privacyAcceptedAt',
+              'twoFactorEnabled',
+              'twoFactorVerified',
+              'twoFactorSession',
+              'twoFactorPhone',
+              'twoFactorMaskedPhone',
+              'twoFactorEnabledAt',
+              'twoFactorDisabledAt',
+              'username',
+              'usernameLowercase',
+              'createdAt',
+              'suspiciousActivityScore',
+              'ageTier',
+              'birthYear',
+              'isAdmin',
+              'isModerator',
+              'role'
+            ])
+            && (
+              !request.resource.data.diff(resource.data).affectedKeys().hasAny(['username', 'pendingUsernameChange'])
+              || !exists(/databases/$(database)/documents/userSafetyRecords/$(userId))
+              || get(/databases/$(database)/documents/userSafetyRecords/$(userId)).data.canChangeUsername != false
+            )
+            && (
+              !exists(/databases/$(database)/documents/userSafetyRecords/$(userId))
+              || get(/databases/$(database)/documents/userSafetyRecords/$(userId)).data.accountStatus != 'frozen'
+            ))
+          ||
+          (isCounterUpdate() && postsCountIncrementIsValid(userId))
+          ||
+          (isOwner(userId)
+            && isOnlyUpdating([
+              'pendingUsernameChange',
+              'pendingDisplayNameChange',
+              'usernameChangeRequestDate',
+              'displayNameChangeRequestDate',
+              'updatedAt'
+            ]))
+          ||
+          (isOwner(userId)
+            && isOnlyUpdating([
+              'pinnedPostId',
+              'pinnedAt',
+              'profilePinnedPost',
+              'pinnedUntil'
+            ])
+            && validatePinnedPostWrite(userId))
+        );
+      allow delete: if false;
+      match /following/{followingId} {
+        allow read: if isAuthenticated()
+          && (isOwner(userId)
+            || callerFollows(request.auth.uid, userId)
+            || isPublicProfile(userId));
+        allow create: if isAuthenticated()
+          && (isOwner(userId) || followingId == request.auth.uid);
+        allow delete: if isAuthenticated()
+          && (isOwner(userId) || followingId == request.auth.uid);
+        allow update: if isAuthenticated() && isOwner(userId);
+      }
+      match /followers/{followerId} {
+        allow read: if isAuthenticated()
+          && (isOwner(userId)
+            || callerFollows(request.auth.uid, userId)
+            || isPublicProfile(userId));
+        allow create: if isAuthenticated()
+          && (isOwner(userId) || followerId == request.auth.uid);
+        allow delete: if isAuthenticated()
+          && (isOwner(userId) || followerId == request.auth.uid);
+        allow update: if isAuthenticated() && isOwner(userId);
+      }
+      match /savedPosts/{postId} {
+        allow read: if isAuthenticated() && isOwner(userId);
+        allow create: if isAuthenticated() && isOwner(userId);
+        allow delete: if isAuthenticated() && isOwner(userId);
+      }
+      match /mediaGraph/{bucketId} {
+        allow read, create, update, delete: if isAuthenticated() && isOwner(userId);
+      }
+      match /mediaGraph/{bucketId}/{docId} {
+        allow read, create, update, delete: if isAuthenticated() && isOwner(userId);
+      }
+      match /blockedUsers/{blockedUserId} {
+        allow read: if isAuthenticated()
+          && (isOwner(userId) || blockedUserId == request.auth.uid);
+        allow create: if isAuthenticated() && isOwner(userId);
+        allow delete: if isAuthenticated() && isOwner(userId);
+      }
+      match /notifications/{notificationId} {
+        allow read: if isAuthenticated() && isOwner(userId);
+        allow create: if false;
+        allow update: if isAuthenticated() && isOwner(userId)
+          && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['read', 'seenAt', 'updatedAt']);
+        allow delete: if isAuthenticated() && isOwner(userId);
+      }
+      match /notificationState/{docId} {
+        allow read: if isAuthenticated() && isOwner(userId);
+        allow create, update: if isAuthenticated()
+          && isOwner(userId)
+          && !request.resource.data.keys().hasAny(['unseenCount', 'badgeVersion', 'lastDeliveredAt'])
+          && request.resource.data.keys().hasOnly(['lastSeenAt', 'lastReadAt', 'updatedAt']);
+        allow delete: if false;
+      }
+      match /preferences/{prefId} {
+        allow read: if isAuthenticated() && isOwner(userId);
+        allow create, update: if isAuthenticated() && isOwner(userId);
+        allow delete: if isAuthenticated() && isOwner(userId);
+      }
+      match /smartSuggestions/{targetUserId} {
+        allow read: if isAuthenticated() && isOwner(userId);
+        allow create, update: if isAuthenticated() && isOwner(userId);
+        allow delete: if isAuthenticated() && isOwner(userId);
+      }
+      match /communityStandards/{docId} {
+        allow read: if isAuthenticated() && isOwner(userId);
+        allow create, update: if isAuthenticated() && isOwner(userId);
+        allow delete: if false;
+      }
+      match /usageSessions/{sessionId} {
+        allow read: if isAuthenticated() && isOwner(userId);
+        allow create: if isAuthenticated() && isOwner(userId);
+        allow update, delete: if false;
+      }
+      match /wellnessEvents/{eventId} {
+        allow read: if isAuthenticated() && isOwner(userId);
+        allow create: if isAuthenticated() && isOwner(userId);
+        allow update, delete: if false;
+      }
+      match /scrollBudgetUsage/{date} {
+        allow read: if isAuthenticated() && isOwner(userId);
+        allow create, update: if isAuthenticated() && isOwner(userId);
+        allow delete: if false;
+      }
+      match /devices/{deviceId} {
+        allow read: if isAuthenticated() && isOwner(userId);
+        allow create, update: if isAuthenticated() && isOwner(userId);
+        allow delete: if isAuthenticated() && isOwner(userId);
+      }
+      match /deviceTokens/{tokenId} {
+        allow read: if isAuthenticated() && isOwner(userId);
+        allow create, update: if isAuthenticated() && isOwner(userId);
+        allow delete: if isAuthenticated() && isOwner(userId);
+      }
+      match /living_entries/{entryId} {
+        allow read: if isAuthenticated() && isOwner(userId);
+        allow create: if isAuthenticated()
+          && isOwner(userId)
+          && request.resource.data.keys().hasOnly(livingEntryAllowedClientFields())
+          && !request.resource.data.keys().hasAny(livingEntryAIOwnedFields())
+          && validLivingEntryData(request.resource.data);
+        allow update: if isAuthenticated()
+          && isOwner(userId)
+          && !resource.data.get('isRemoved', false)
+          && request.resource.data.userId == userId
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(livingEntryAllowedClientFields())
+          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(livingEntryAIOwnedFields())
+          && resource.data.state != 'archived'
+          && validLivingEntryData(request.resource.data);
+        allow delete: if false;
+      }
+      match /living_entry_reflections/{reflectionId} {
+        allow read: if isAuthenticated() && isOwner(userId);
+        allow create: if isAuthenticated()
+          && isOwner(userId)
+          && request.resource.data.userId == userId
+          && request.resource.data.entryId is string
+          && validLength(request.resource.data.answer, 2000)
+          && request.resource.data.helpfulness in ['helpful', 'mistimed', 'not_needed', 'meaningful'];
+        allow update, delete: if false;
+      }
+      match /living_entry_events/{eventId} {
+        allow read: if isAuthenticated() && isOwner(userId);
+        allow create: if isAuthenticated()
+          && isOwner(userId)
+          && request.resource.data.userId == userId
+          && request.resource.data.entryId is string
+          && validLength(request.resource.data.eventType, 80);
+        allow update, delete: if false;
+      }
+      match /backupCodes/{codeId} {
+        allow read: if false;
+        allow create: if false;
+        allow update: if false;
+        allow delete: if false;
+      }
+      match /twoFactorAuth/{settingsId} {
+        allow read: if isAuthenticated() && isOwner(userId);
+        allow create, update: if isAuthenticated() && isOwner(userId);
+        allow delete: if isAuthenticated() && isOwner(userId);
+      }
+      match /moderation/{actionId} {
+        allow read: if isAuthenticated() && isOwner(userId);
+        allow create, update, delete: if false;
+      }
+      match /loginAlerts/{alertId} {
+        allow read: if isAuthenticated() && isOwner(userId);
+        allow create: if isAuthenticated() && isOwner(userId);
+        allow update, delete: if false;
+      }
+      match /twoFactor/{docId} {
+        allow read: if isOwner(userId);
+        allow write: if false;
+      }
+      match /seenPosts/{postId} {
+        allow read, create, update: if isAuthenticated() && isOwner(userId);
+        allow delete: if false;
+      }
+      match /savedBooks/{bookId} {
+        allow read, write: if isAuthenticated() && isOwner(userId);
+      }
+      match /settings/{settingsId} {
+        allow read: if isAuthenticated() && isOwner(userId);
+        allow create, update: if isAuthenticated() && isOwner(userId);
+        allow delete: if isAuthenticated() && isOwner(userId);
+      }
+      match /chatMemory/{chatId} {
+        allow read: if isAuthenticated() && isOwner(userId);
+        allow create, update: if isAuthenticated() && isOwner(userId);
+        allow delete: if isAuthenticated() && isOwner(userId);
+        match /items/{itemId} {
+          allow read: if isAuthenticated() && isOwner(userId);
+          allow create, update: if isAuthenticated() && isOwner(userId);
+          allow delete: if isAuthenticated() && isOwner(userId);
+        }
+      }
+      match /private/{docId} {
+        allow read: if isAuthenticated() && isOwner(userId);
+        allow create, update: if isAuthenticated() && isOwner(userId);
+        allow delete: if false;
+      }
+    }
+    function isPublicProfile(uid) {
+      let doc = get(/databases/$(database)/documents/users/$(uid));
+      return doc.data.get('isPrivate', false) == false
+          && doc.data.get('isPrivateAccount', false) == false;
+    }
+    function callerFollows(callerUid, subjectUid) {
+      return exists(/databases/$(database)/documents/follows_index/$(callerUid + '_' + subjectUid));
+    }
+    match /follows/{followId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+        && request.resource.data.get('followerId', '') == request.auth.uid
+        && request.resource.data.get('followerId', '') != request.resource.data.get('followingId', '');
+      allow update: if isAuthenticated()
+        && resource.data.get('followerId', '') == request.auth.uid;
+      allow delete: if isAuthenticated()
+        && (resource == null || resource.data.get('followerId', '') == request.auth.uid);
+    }
+    match /follows_index/{indexId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated()
+        && request.resource.data.get('followerId', '') == request.auth.uid
+        && request.resource.data.get('followerId', '') != request.resource.data.get('followingId', '');
+      allow delete: if isAuthenticated()
+        && resource.data.get('followerId', '') == request.auth.uid;
+    }
+    match /followRequests/{requestId} {
+      allow get: if isAuthenticated()
+        && (resource.data.toUserId == request.auth.uid
+          || resource.data.fromUserId == request.auth.uid);
+      allow list: if isAuthenticated();
+      allow create: if isAuthenticated()
+        && request.resource.data.fromUserId == request.auth.uid;
+      allow update: if isAuthenticated()
+        && (resource.data.toUserId == request.auth.uid
+          || resource.data.fromUserId == request.auth.uid);
+      allow delete: if isAuthenticated()
+        && (resource.data.fromUserId == request.auth.uid
+          || resource.data.toUserId == request.auth.uid);
+    }
+    match /blocks/{blockId} {
+      allow get: if isAuthenticated()
+        && (resource.data.blockerId == request.auth.uid
+          || resource.data.blockedId == request.auth.uid);
+      allow list: if isAuthenticated();
+      allow create: if isAuthenticated()
+        && request.resource.data.blockerId == request.auth.uid;
+      allow update: if isAuthenticated()
+        && resource.data.blockerId == request.auth.uid;
+      allow delete: if isAuthenticated()
+        && resource.data.blockerId == request.auth.uid;
+    }
+    function postAuthorIsPrivate(authorId) {
+      let authorDoc = get(/databases/$(database)/documents/users/$(authorId));
+      return authorDoc.data.get('isPrivate', false) == true
+        || authorDoc.data.get('isPrivateAccount', false) == true;
+    }
+    function callerIsBlockedByAuthor(authorId) {
+      return exists(/databases/$(database)/documents/users/$(authorId)/blockedUsers/$(request.auth.uid));
+    }
+    function callerCanReadPost() {
+      let post = resource.data;
+      let authorId = post.authorId;
+      let viewerId = request.auth.uid;
+      let vis = post.get('visibility', 'everyone');
+      let isTrustedCirclePost = post.keys().hasAny(['trustedCircle']) && post.trustedCircle != null;
+      let canReadNonTrustedPost =
+        (vis == 'everyone' && !callerIsBlockedByAuthor(authorId))
+        || (vis == 'followers'
+            && exists(/databases/$(database)/documents/follows_index/$(viewerId + '_' + authorId))
+            && !callerIsBlockedByAuthor(authorId))
+        || (!postAuthorIsPrivate(authorId)
+            && vis != 'private'
+            && !callerIsBlockedByAuthor(authorId));
+      return viewerId == authorId
+        || (!isTrustedCirclePost && canReadNonTrustedPost);
+    }
+    function callerCanReadPostById(postId) {
+      let post = get(/databases/$(database)/documents/posts/$(postId)).data;
+      let authorId = post.authorId;
+      let viewerId = request.auth.uid;
+      let vis = post.get('visibility', 'everyone');
+      let isTrustedCirclePost = post.keys().hasAny(['trustedCircle']) && post.trustedCircle != null;
+      let canReadNonTrustedPost =
+        (vis == 'everyone' && !callerIsBlockedByAuthor(authorId))
+        || (vis == 'followers'
+            && exists(/databases/$(database)/documents/follows_index/$(viewerId + '_' + authorId))
+            && !callerIsBlockedByAuthor(authorId))
+        || (!postAuthorIsPrivate(authorId)
+            && vis != 'private'
+            && !callerIsBlockedByAuthor(authorId));
+      return exists(/databases/$(database)/documents/posts/$(postId))
+        && (viewerId == authorId || (!isTrustedCirclePost && canReadNonTrustedPost));
+    }
+    function callerCanComment(postId) {
+      let post = get(/databases/$(database)/documents/posts/$(postId)).data;
+      let authorId = post.authorId;
+      let viewerId = request.auth.uid;
+      let vis = post.get('visibility', 'everyone');
+      let isTrustedCirclePost = post.keys().hasAny(['trustedCircle']) && post.trustedCircle != null;
+      let canReadNonTrustedPost =
+        (vis == 'everyone' && !callerIsBlockedByAuthor(authorId))
+        || (vis == 'followers'
+            && exists(/databases/$(database)/documents/follows_index/$(viewerId + '_' + authorId))
+            && !callerIsBlockedByAuthor(authorId))
+        || (!postAuthorIsPrivate(authorId)
+            && vis != 'private'
+            && !callerIsBlockedByAuthor(authorId));
+      let canRead = viewerId == authorId
+        || (!isTrustedCirclePost && canReadNonTrustedPost);
+      let commentsAllowed = post.get('allowComments', true) == true;
+      let commentPerms = post.get('commentPermissions', 'Everyone');
+      let permittedByCommentPerms = viewerId == authorId
+        || commentPerms == 'Everyone'
+        || (commentPerms == 'People I follow'
+            && exists(/databases/$(database)/documents/follows_index/$(authorId + '_' + viewerId)))
+        || (commentPerms == 'Mentioned only'
+            && post.get('taggedUserIds', []).hasAny([viewerId]));
+      return canRead && commentsAllowed && permittedByCommentPerms;
+    }
+    function callerCanQuote(sourcePostId) {
+      let post = get(/databases/$(database)/documents/posts/$(sourcePostId)).data;
+      let sourceAuthorId = post.authorId;
+      let quotePerms = post.get('quotesAllowed', 'everyone');
+      let isTrustedCirclePost = post.keys().hasAny(['trustedCircle']) && post.trustedCircle != null;
+      let permittedForNonTrustedPost =
+        quotePerms == 'everyone'
+        || (quotePerms == 'followers'
+            && exists(/databases/$(database)/documents/follows_index/$(request.auth.uid + '_' + sourceAuthorId)));
+      return sourceAuthorId == request.auth.uid
+        || (!isTrustedCirclePost && permittedForNonTrustedPost);
+    }
+    match /posts/{postId} {
+      allow get: if isAuthenticated() && (resource == null || callerCanReadPost());
+      allow list: if isAuthenticated();
+      allow create: if isAuthenticated()
+        && callerAccountActive()
+        && callerIsEmailVerified()
+        && request.resource.data.authorId == request.auth.uid
+        && hasRequiredFields(['content', 'authorId', 'authorName', 'category'])
+        && validLength(request.resource.data.content, 5000)
+        && request.resource.data.get('content', '').size() > 0
+        && request.resource.data.category in ['openTable', 'testimonies', 'prayer', 'general', 'tip', 'funFact']
+        && !request.resource.data.keys().hasAny(['trustedCircle'])
+        && request.resource.data.get('amenCount', 0) == 0
+        && request.resource.data.get('lightbulbCount', 0) == 0
+        && request.resource.data.get('commentCount', 0) == 0
+        && request.resource.data.get('repostCount', 0) == 0
+        && !request.resource.data.keys().hasAny([
+          'flaggedForReview', 'removed', 'verified',
+          'moderationScore', 'appealStatus'
+        ])
+        && !request.resource.data.keys().hasAny(['communityHubPreview'])
+        && (!request.resource.data.keys().hasAny(['createdAt'])
+            || request.resource.data.createdAt == request.time)
+        && request.resource.data.get('status', 'publishing') in ['publishing', 'draft']
+        && (!request.resource.data.keys().hasAny(['quote'])
+            || callerCanQuote(request.resource.data.quote.sourcePostId));
+      allow update: if isAuthenticated()
+        && callerAccountActive()
+        && resource.data.authorId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly([
+               'content',
+               'visibility',
+               'allowComments',
+               'commentPermissions',
+               'replyPermission',
+               'quotesAllowed',
+               'updatedAt',
+               'inlineContentTokens',
+               'contentTokens',
+               'editedAt',
+               'title',
+               'tags',
+               'linkPreviewUrl',
+               'linkPreviewTitle',
+               'linkPreviewDescription',
+               'linkPreviewImageUrl',
+               'category'
+             ])
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['content'])
+            || !resource.data.keys().hasAll(['editWindowExpiresAt'])
+            || request.time <= resource.data.editWindowExpiresAt);
+      allow delete: if isAuthenticated()
+        && callerAccountActive()
+        && resource.data.authorId == request.auth.uid;
+      match /likes/{likeId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated()
+          && request.resource.data.userId == request.auth.uid;
+        allow delete: if isAuthenticated()
+          && resource.data.userId == request.auth.uid;
+      }
+      match /comments/{commentId} {
+        allow read: if isAuthenticated() && callerCanComment(postId);
+        allow create: if isAuthenticated()
+          && callerIsEmailVerified()
+          && request.resource.data.authorId == request.auth.uid
+          && request.resource.data.get('text', '').size() > 0
+          && validLength(request.resource.data.text, 2000)
+          && callerCanComment(postId)
+          && !request.resource.data.keys().hasAny([
+            'flaggedForReview', 'removed', 'moderationScore'
+          ]);
+        allow update: if isAuthenticated()
+          && resource.data.authorId == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['text', 'editedAt', 'updatedAt']);
+        allow delete: if isAuthenticated()
+          && (resource.data.authorId == request.auth.uid
+            || get(/databases/$(database)/documents/posts/$(postId)).data.authorId == request.auth.uid);
+      }
+      match /reposts/{repostId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated()
+          && request.resource.data.userId == request.auth.uid;
+        allow delete: if isAuthenticated()
+          && resource.data.userId == request.auth.uid;
+      }
+      match /dynamicReplyPreviews/{previewId} {
+        allow read: if isAuthenticated() && (resource == null || callerCanReadPostById(postId));
+        allow write: if false;
+      }
+      match /dynamicReplyPreviewMeta/{docId} {
+        allow read: if false;
+        allow write: if false;
+      }
+      match /mediaMeta/{mediaId} {
+        allow read: if isAuthenticated() && (resource == null || callerCanReadPost());
+        allow write: if false;
+        match /captionTracks/{trackId} {
+          allow read: if isAuthenticated() && callerCanReadPost();
+          allow write: if false;
+        }
+        match /keyMoments/{momentId} {
+          allow read: if isAuthenticated() && callerCanReadPost();
+          allow write: if false;
+        }
+      }
+      match /mediaCaptionValidation/{uid} {
+        allow read: if isAuthenticated() && request.auth.uid == uid;
+        allow write: if false;
+      }
+    }
+    match /conversations/{conversationId} {
+      function isParticipant() {
+        return request.auth.uid in resource.data.participantIds;
+      }
+      function willBeParticipant() {
+        return request.auth.uid in request.resource.data.participantIds;
+      }
+      allow get: if isAuthenticated()
+        && isParticipant();
+      allow list: if isAuthenticated();
+      allow create: if isAuthenticated()
+        && willBeParticipant()
+        && request.resource.data.participantIds.size() >= 2
+        && callerCanUseDMs()
+        && (
+          (request.resource.data.isGroup == false) ||
+          (request.resource.data.isGroup == true &&
+           'groupName' in request.resource.data &&
+           request.resource.data.groupName is string &&
+           request.resource.data.groupName.size() > 0)
+        );
+      allow update: if isAuthenticated()
+        && request.auth.uid in resource.data.participantIds
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'requesterId', 'isGroup'
+        ])
+        && (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['participantIds'])
+          || (resource.data.get('isGroup', false) == true
+              && request.auth.uid in resource.data.get('adminIds', []))
+        )
+        && (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+            'groupName', 'groupAvatarUrl', 'groupDescription', 'adminIds'
+          ])
+          || (resource.data.get('isGroup', false) == true
+              && request.auth.uid in resource.data.get('adminIds', []))
+        )
+        && (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['conversationStatus'])
+          || resource.data.get('requesterId', '') != request.auth.uid
+        );
+      allow delete: if isAuthenticated()
+        && request.auth.uid in resource.data.participantIds;
+      match /messages/{messageId} {
+        allow read: if isAuthenticated()
+          && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+        allow create: if isAuthenticated()
+          && caller2FASessionValid()
+          && request.resource.data.senderId == request.auth.uid
+          && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds
+          && validLength(request.resource.data.get('text', ''), 10000)
+          && (
+            !exists(/databases/$(database)/documents/userSafetyRecords/$(request.auth.uid))
+            || get(/databases/$(database)/documents/userSafetyRecords/$(request.auth.uid)).data.accountStatus != 'frozen'
+          );
+        allow update: if isAuthenticated()
+          && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds
+          && (resource.data.senderId == request.auth.uid
+              || request.resource.data.diff(resource.data).affectedKeys()
+                   .hasOnly(['readBy', 'reactions', 'deliveryStatus']));
+        allow delete: if isAuthenticated()
+          && resource.data.senderId == request.auth.uid
+          && (
+            !exists(/databases/$(database)/documents/userSafetyRecords/$(request.auth.uid))
+            || get(/databases/$(database)/documents/userSafetyRecords/$(request.auth.uid)).data.canDeleteMessages != false
+          );
+      }
+      match /typing/{userId} {
+        allow read: if isAuthenticated()
+          && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+        allow write: if isAuthenticated() && isOwner(userId)
+          && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+      }
+      match /held_messages/{messageId} {
+        allow create: if isAuthenticated()
+          && request.resource.data.senderId == request.auth.uid
+          && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+        allow read: if isAuthenticated()
+          && (resource.data.senderId == request.auth.uid
+              || resource.data.recipientId == request.auth.uid)
+          && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+        allow update, delete: if false;
+      }
+    }
+    match /feeds/{userId} {
+      allow read: if isOwner(userId);
+      allow write: if false;
+      match /items/{itemId} {
+        allow read: if isOwner(userId);
+        allow write: if false;
+      }
+    }
+    match /communities/{communityId} {
+      function callerCanReadCommunity() {
+        return resource.data.get('isPrivate', false) == false
+          || resource.data.get('creatorId', '') == request.auth.uid
+          || request.auth.uid in resource.data.get('adminIds', [])
+          || exists(/databases/$(database)/documents/communities/$(communityId)/members/$(request.auth.uid))
+          || isAdmin();
+      }
+      allow read: if isAuthenticated() && callerCanReadCommunity();
+      allow create: if isAuthenticated()
+        && request.resource.data.creatorId == request.auth.uid
+        && hasRequiredFields(['name', 'description', 'creatorId'])
+        && validLength(request.resource.data.name, 100)
+        && validLength(request.resource.data.description, 500);
+      allow update: if isAuthenticated()
+        && (resource.data.creatorId == request.auth.uid
+          || request.auth.uid in resource.data.get('adminIds', []))
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['creatorId']);
+      allow delete: if isAuthenticated()
+        && resource.data.creatorId == request.auth.uid;
+      match /members/{memberId} {
+        allow read: if isAuthenticated() && callerCanReadCommunity();
+        allow create: if isAuthenticated()
+          && request.resource.data.userId == request.auth.uid;
+        allow delete: if isAuthenticated()
+          && (resource.data.userId == request.auth.uid
+            || get(/databases/$(database)/documents/communities/$(communityId)).data.creatorId == request.auth.uid);
+      }
+      match /posts/{postId} {
+        allow read: if isAuthenticated() && callerCanReadCommunity();
+        allow create: if isAuthenticated()
+          && request.resource.data.authorId == request.auth.uid;
+        allow update: if isAuthenticated()
+          && resource.data.authorId == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['content', 'visibility', 'updatedAt', 'editedAt', 'title', 'tags']);
+        allow delete: if isAuthenticated()
+          && (resource.data.authorId == request.auth.uid
+            || get(/databases/$(database)/documents/communities/$(communityId)).data.creatorId == request.auth.uid);
+      }
+    }
+    match /arkCommunities/{communityId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+        && request.resource.data.creatorId == request.auth.uid
+        && hasRequiredFields(['name', 'description', 'creatorId'])
+        && validLength(request.resource.data.name, 100)
+        && validLength(request.resource.data.description, 500);
+      allow update: if isAuthenticated()
+        && (resource.data.creatorId == request.auth.uid
+          || request.auth.uid in resource.data.get('adminIds', []))
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['creatorId']);
+      allow delete: if isAuthenticated()
+        && resource.data.creatorId == request.auth.uid;
+      match /members/{memberId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated()
+          && request.resource.data.userId == request.auth.uid;
+        allow update: if isAuthenticated()
+          && resource.data.userId == request.auth.uid;
+        allow delete: if isAuthenticated()
+          && (resource.data.userId == request.auth.uid
+            || get(/databases/$(database)/documents/arkCommunities/$(communityId)).data.creatorId == request.auth.uid);
+      }
+      match /posts/{postId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated()
+          && callerAccountActive()
+          && request.resource.data.authorId == request.auth.uid
+          && (exists(/databases/$(database)/documents/arkCommunities/$(communityId)/members/$(request.auth.uid))
+              || get(/databases/$(database)/documents/arkCommunities/$(communityId)).data.creatorId == request.auth.uid);
+        allow update: if isAuthenticated()
+          && callerAccountActive()
+          && resource.data.authorId == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['content', 'visibility', 'updatedAt', 'editedAt', 'title', 'tags']);
+        allow delete: if isAuthenticated()
+          && (resource.data.authorId == request.auth.uid
+            || get(/databases/$(database)/documents/arkCommunities/$(communityId)).data.creatorId == request.auth.uid);
+      }
+    }
+    match /reports/{reportId} {
+      allow read: if isAuthenticated()
+        && (resource == null || resource.data.reporterId == request.auth.uid);
+      allow create: if isAuthenticated()
+        && request.resource.data.reporterId == request.auth.uid
+        && hasRequiredFields(['reporterId', 'reportedContentId', 'reason'])
+        && request.resource.data.reason in [
+          'spam', 'harassment', 'inappropriate', 'other',
+          'Inappropriate content', 'Spam', 'Harassment', 'Hate speech',
+          'False information', 'Violence', 'Self-harm', 'Adult content',
+          'Privacy violation', 'Other'
+        ];
+      allow update: if isAuthenticated()
+        && resource.data.reporterId == request.auth.uid
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'reporterId', 'reportedContentId', 'reason'
+        ]);
+      allow delete: if false;
+    }
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+      allow create: if false;
+      allow update: if isAuthenticated()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['read', 'readAt', 'seenAt', 'openedAt', 'dismissedAt']);
+      allow delete: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+    }
+    match /toneAnalytics/{analyticsId} {
+      allow read: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow update: if false;
+      allow delete: if false;
+    }
+    match /moderationQueue/{queueId} {
+      allow read: if isAuthenticated()
+        && isAdmin();
+      allow create: if false;
+      allow update: if isAuthenticated()
+        && isAdmin()
+        && isOnlyUpdating(['status', 'handledBy', 'handledAt', 'notes', 'updatedAt']);
+      allow delete: if false;
+    }
+    match /searchIndex/{indexType} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+    match /analytics/{document=**} {
+      allow read: if false;
+      allow write: if false;
+    }
+    match /analytics_performance/{document=**} {
+      allow read: if false;
+      allow write: if false;
+    }
+    match /admin/{document=**} {
+      allow read: if false;
+      allow write: if false;
+    }
+    match /events/{eventId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+        && request.resource.data.creatorId == request.auth.uid
+        && hasRequiredFields(['title', 'description', 'creatorId', 'date']);
+      allow update: if isAuthenticated()
+        && resource.data.creatorId == request.auth.uid;
+      allow delete: if isAuthenticated()
+        && resource.data.creatorId == request.auth.uid;
+      match /attendees/{userId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated()
+          && request.resource.data.userId == request.auth.uid;
+        allow delete: if isAuthenticated()
+          && resource.data.userId == request.auth.uid;
+      }
+    }
+    match /prayerRequests/{prayerId} {
+      allow read: if isAuthenticated()
+        && (resource.data.authorId == request.auth.uid
+            || resource.data.get('isPublic', false) == true);
+      allow create: if isAuthenticated()
+        && callerIsEmailVerified()
+        && request.resource.data.authorId == request.auth.uid
+        && hasRequiredFields(['content', 'authorId', 'authorName'])
+        && validLength(request.resource.data.content, 1000);
+      allow update: if isAuthenticated()
+        && resource.data.authorId == request.auth.uid
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['authorId', 'userId']);
+      allow delete: if isAuthenticated()
+        && resource.data.authorId == request.auth.uid;
+      match /prayers/{prayId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated()
+          && request.resource.data.userId == request.auth.uid;
+        allow delete: if isAuthenticated()
+          && resource.data.userId == request.auth.uid;
+      }
+    }
+    match /testimonies/{testimonyId} {
+      allow read: if isAuthenticated()
+        && (resource.data.authorId == request.auth.uid
+            || resource.data.get('isPublic', true) == true);
+      allow create: if isAuthenticated()
+        && callerIsEmailVerified()
+        && request.resource.data.authorId == request.auth.uid
+        && hasRequiredFields(['content', 'authorId', 'authorName'])
+        && validLength(request.resource.data.content, 2000);
+      allow update: if isAuthenticated()
+        && resource.data.authorId == request.auth.uid
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['authorId', 'userId']);
+      allow delete: if isAuthenticated()
+        && resource.data.authorId == request.auth.uid;
+      match /amens/{amenId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated()
+          && request.resource.data.userId == request.auth.uid;
+        allow delete: if isAuthenticated()
+          && resource.data.userId == request.auth.uid;
+      }
+    }
+    match /featureFlags/{flagId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+    match /user-reposts/{userId} {
+      allow get: if isAuthenticated();
+      allow list: if isAuthenticated();
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow update: if isAuthenticated() && request.auth.uid == userId;
+      allow delete: if isAuthenticated() && request.auth.uid == userId;
+      match /reposts/{repostId} {
+        allow get: if isAuthenticated();
+        allow list: if isAuthenticated();
+        allow create: if isAuthenticated() && request.auth.uid == userId;
+        allow update: if isAuthenticated() && request.auth.uid == userId;
+        allow delete: if isAuthenticated() && request.auth.uid == userId;
+      }
+    }
+    match /savedPosts/{saveId} {
+      allow read: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+    }
+    match /reposts/{repostId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+    }
+    // NOTE: The authoritative Church Notes rules — including AI-field write
+    // blocking, collaborator support, and per-subcollection access — live in
+    // the second `/churchNotes/{noteId}` block further down in this file.
+    // This earlier match is kept tightly restricted so its OR-merge with the
+    // authoritative rules cannot weaken security. Update + delete here require
+    // the same allowlist of safe client fields as the authoritative rules.
+    match /churchNotes/{noteId} {
+      allow read: if isAuthenticated()
+        && (resource.data.userId == request.auth.uid
+            || resource.data.get('isPublic', false) == true);
+      allow create: if isAuthenticated()
+        && callerIsEmailVerified()
+        && request.resource.data.userId == request.auth.uid
+        && !request.resource.data.keys().hasAny([
+             'summaryDraft', 'transcriptText', 'ocrText', 'studyGuideDraft',
+             'prayerPromptsDraft', 'actionItemsDraft', 'scriptureReferencesDraft',
+             'translationDraft', 'approved_summaryDraft', 'approved_transcriptText',
+             'approved_ocrText', 'approved_studyGuideDraft', 'approved_prayerPromptsDraft'
+           ]);
+      allow update: if isAuthenticated()
+        && resource.data.userId == request.auth.uid
+        && churchNoteAllowedUpdateFields();
+      allow delete: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+    }
+    match /fcmQueue/{queueId} {
+      allow read, write: if false;
+    }
+    match /mutedUsers/{muteId} {
+      allow read: if isAuthenticated()
+        && (resource == null || resource.data.userId == request.auth.uid);
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated()
+        && (resource == null || resource.data.userId == request.auth.uid);
+    }
+    match /blockedUsers/{blockId} {
+      allow read: if isAuthenticated()
+        && (resource == null || resource.data.userId == request.auth.uid);
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated()
+        && (resource == null || resource.data.userId == request.auth.uid);
+    }
+    match /onboardingFeedback/{feedbackId} {
+      allow read: if isAuthenticated()
+        && (resource == null || resource.data.userId == request.auth.uid);
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+    }
+    match /aiBibleStudyConversations/{conversationId} {
+      allow read: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid
+        && hasRequiredFields(['userId', 'createdAt', 'updatedAt', 'messageCount']);
+      allow update: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+      match /messages/{messageId} {
+        allow read: if isAuthenticated()
+          && get(/databases/$(database)/documents/aiBibleStudyConversations/$(conversationId)).data.userId == request.auth.uid;
+        allow create: if isAuthenticated()
+          && get(/databases/$(database)/documents/aiBibleStudyConversations/$(conversationId)).data.userId == request.auth.uid
+          && hasRequiredFields(['text', 'isUser', 'timestamp', 'index']);
+        allow update: if isAuthenticated()
+          && get(/databases/$(database)/documents/aiBibleStudyConversations/$(conversationId)).data.userId == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['starred', 'savedAt', 'userNote']);
+        allow delete: if isAuthenticated()
+          && get(/databases/$(database)/documents/aiBibleStudyConversations/$(conversationId)).data.userId == request.auth.uid;
+      }
+    }
+    match /moderationRequests/{requestId} {
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid
+        && hasRequiredFields(['content', 'contentType', 'userId', 'timestamp']);
+      allow read, update, delete: if false;
+    }
+    match /moderationResults/{resultId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create, update, delete: if false;
+    }
+    match /moderationLogs/{logId} {
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid;
+      allow read: if isAuthenticated()
+        && isAdmin();
+      allow update, delete: if false;
+    }
+    match /crisisDetectionRequests/{requestId} {
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid
+        && hasRequiredFields(['prayerText', 'userId', 'timestamp']);
+      allow read, update, delete: if false;
+    }
+    match /crisisDetectionResults/{resultId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create, update, delete: if false;
+    }
+    match /crisisDetectionLogs/{logId} {
+      allow read, write: if false;
+    }
+    match /moderatorAlerts/{alertId} {
+      allow create: if false;
+      allow read: if isAuthenticated()
+        && isAdmin();
+      allow update: if isAuthenticated()
+        && isAdmin()
+        && isOnlyUpdating(['status', 'handledBy', 'handledAt']);
+      allow delete: if false;
+    }
+    match /notificationBatches/{batchId} {
+      allow create: if false;
+      allow read: if isAuthenticated()
+        && resource.data.recipientId == request.auth.uid;
+      allow update, delete: if false;
+    }
+    match /scheduledBatches/{batchId} {
+      allow create: if false;
+      allow read: if isAuthenticated()
+        && resource.data.recipientId == request.auth.uid;
+      allow update, delete: if false;
+    }
+    match /userNotificationPreferences/{userId} {
+      allow read: if isAuthenticated() && isOwner(userId);
+      allow create, update, delete: if false;
+    }
+    match /prayers/{prayerId} {
+      allow get: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+      allow list: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid
+        && hasRequiredFields(['userId', 'createdAt']);
+      allow update: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+    }
+    match /aiSearchRequests/{requestId} {
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow update, delete: if false;
+    }
+    match /aiSearchResults/{resultId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create, update, delete: if false;
+    }
+    match /noteSummaryRequests/{requestId} {
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow update, delete: if false;
+    }
+    match /noteSummaryResults/{resultId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create, update, delete: if false;
+    }
+    match /scriptureReferenceRequests/{requestId} {
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow update, delete: if false;
+    }
+    match /scriptureReferenceResults/{resultId} {
+      allow read: if isAuthenticated()
+        && (resource == null || resource.data.get('userId', '') == request.auth.uid);
+      allow create, update, delete: if false;
+    }
+    match /churchRecommendationRequests/{requestId} {
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow update, delete: if false;
+    }
+    match /churchRecommendationResults/{resultId} {
+      allow read: if isAuthenticated()
+        && (resource == null || resource.data.get('userId', '') == request.auth.uid);
+      allow create, update, delete: if false;
+    }
+    match /photoInsights/{userId} {
+      allow read: if isAuthenticated() && isOwner(userId);
+      allow create, update: if false;
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
+    match /moderationAppeals/{appealId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if false;
+    }
+    match /suspiciousActivity/{activityId} {
+      allow read: if false;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow update, delete: if false;
+    }
+    match /brigadingAlerts/{alertId} {
+      allow read: if false;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('reporterId', '') == request.auth.uid;
+      allow update, delete: if false;
+    }
+    match /enforcementHistory/{actionId} {
+      allow read: if isAuthenticated()
+        && (resource.data.get('userId', '') == request.auth.uid
+          || resource.data.get('targetUserId', '') == request.auth.uid);
+      allow create: if false;
+      allow update, delete: if false;
+    }
+    match /dataExportRequests/{requestId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if false;
+    }
+    match /user_privacy_settings/{userId} {
+      allow read: if isAuthenticated() && isOwner(userId);
+      allow create, update: if isAuthenticated() && userId == request.auth.uid;
+      allow delete: if false;
+    }
+    match /quiet_blocks/{blockId} {
+      allow read: if isAuthenticated()
+        && (resource.data.userId == request.auth.uid
+          || resource.data.targetUserId == request.auth.uid);
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+    }
+    match /repeated_contact_attempts/{attemptId} {
+      allow read: if isAuthenticated() && resource.data.targetUserId == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('senderId', '') == request.auth.uid;
+      allow update, delete: if false;
+    }
+    match /user_backup_codes/{userId} {
+      allow read: if false;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
+    }
+    match /visit_plans/{planId} {
+      allow get: if isAuthenticated()
+        && (resource == null || resource.data.user_id == request.auth.uid);
+      allow list: if isAuthenticated()
+        && resource.data.user_id == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.user_id == request.auth.uid
+        && hasRequiredFields(['user_id', 'church_id', 'church_name', 'service_date']);
+      allow update: if isAuthenticated()
+        && resource.data.user_id == request.auth.uid;
+      allow delete: if isAuthenticated()
+        && resource.data.user_id == request.auth.uid;
+    }
+    match /phoneAuthRateLimits/{phoneNumber} {
+      allow read: if false;
+      allow write: if false;
+    }
+    match /phoneAuthIPRateLimits/{ipAddress} {
+      allow read: if false;
+      allow write: if false;
+    }
+    match /deletionRequests/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if false;
+      allow update, delete: if false;
+    }
+    match /deletionAuditLog/{logId} {
+      allow read: if isAuthenticated()
+        && isAdmin();
+      allow write: if false;
+    }
+    match /securityEvents/{eventId} {
+      allow read: if isAuthenticated()
+        && isAdmin();
+      allow write: if false;
+    }
+    match /twoFactor/{userId} {
+      allow read: if isOwner(userId);
+      allow write: if false;
+    }
+    match /engagementEvents/{eventId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid
+        && request.resource.data.get('eventType', '') in [
+          'view', 'reaction', 'comment', 'share', 'save', 'skip', 'report'
+        ];
+      allow update, delete: if false;
+    }
+    match /notificationEngagement/{engagementId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow update, delete: if false;
+    }
+    match /postEmbeddings/{postId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if false;
+    }
+    match /userFeedPrefs/{userId} {
+      allow read, write: if isAuthenticated() && isOwner(userId);
+    }
+    match /userFeedSignals/{userId} {
+      allow read: if isAuthenticated() && isOwner(userId);
+      allow write: if isAuthenticated() && isOwner(userId);
+      match /signals/{signalId} {
+        allow read: if isAuthenticated() && isOwner(userId);
+        allow create: if isAuthenticated() && isOwner(userId);
+        allow update, delete: if false;
+      }
+    }
+    match /user_rate_limits/{userId} {
+      allow read: if isAuthenticated() && isOwner(userId);
+      allow create, update: if isAuthenticated() && isOwner(userId);
+      allow delete: if false;
+    }
+    match /userReports/{reportId} {
+      allow read: if isAuthenticated()
+        && (resource.data.get('reporterId', '') == request.auth.uid
+          || resource.data.get('reportedUserId', '') == request.auth.uid);
+      allow create: if false;
+      allow update, delete: if false;
+    }
+    match /safetyEvents/{eventId} {
+      allow create: if false;
+      allow read: if isAuthenticated()
+        && (resource.data.senderId == request.auth.uid
+            || resource.data.recipientId == request.auth.uid);
+      allow update, delete: if false;
+    }
+    match /userSafetyRecords/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create, update, delete: if false;
+    }
+    match /otpRequests/{document=**} {
+      allow read, write: if false;
+    }
+    match /notificationDeadLetterQueue/{document=**} {
+      allow read, write: if false;
+    }
+    match /conversations/{conversationId}/smartContext/{docId} {
+      allow read: if isAuthenticated()
+        && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+      allow write: if false;
+    }
+    match /conversations/{conversationId}/summaries/{summaryId} {
+      allow read: if isAuthenticated()
+        && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+      allow write: if false;
+    }
+    match /conversations/{conversationId}/decisions/{decisionId} {
+      allow read: if isAuthenticated()
+        && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+      allow write: if false;
+    }
+    match /conversations/{conversationId}/questions/{questionId} {
+      allow read: if isAuthenticated()
+        && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+      allow write: if false;
+    }
+    match /conversations/{conversationId}/actions/{actionId} {
+      allow read: if isAuthenticated()
+        && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+      allow write: if false;
+    }
+    match /conversations/{conversationId}/mediaContext/{mediaId} {
+      allow read: if isAuthenticated()
+        && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+      allow write: if false;
+    }
+    match /conversations/{conversationId}/held_messages/{messageId} {
+      allow create: if isAuthenticated()
+        && request.resource.data.senderId == request.auth.uid
+        && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+      allow read: if isAuthenticated()
+        && (resource.data.senderId == request.auth.uid
+            || resource.data.recipientId == request.auth.uid)
+        && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+      allow update, delete: if false;
+    }
+    match /mediaSendEvents/{eventId} {
+      allow create: if isAuthenticated()
+        && request.resource.data.senderId == request.auth.uid;
+      allow read, update, delete: if false;
+    }
+    match /mediaScanQueue/{scanId} {
+      allow create: if isAuthenticated()
+        && request.resource.data.senderId == request.auth.uid;
+      allow read, update, delete: if false;
+    }
+    match /evidencePreservation/{docId} {
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow read, update, delete: if false;
+    }
+    match /quarantinedContentHashes/{hashId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+    match /adultContentHashes/{hashId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+    match /trending/{topicId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if false;
+    }
+    match /topicStats/{topicId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if false;
+    }
+    match /churches/{churchId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+    match /userChurchRelations/{relationId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+    match /datingProfiles/{userId} {
+      allow read: if isAuthenticated() && callerIsAdult();
+      allow create, update: if isAuthenticated() && isOwner(userId) && callerIsAdult();
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
+    match /rateLimits/{uid} {
+      allow read, write: if false;
+      match /windows/{windowKey} {
+        allow read, write: if false;
+      }
+    }
+    match /twoFactorOTP/{otpId} {
+      allow read: if false;
+      allow create: if false;
+      allow update, delete: if false;
+    }
+    match /twoFactorSessions/{sessionId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create, update, delete: if false;
+    }
+    match /notificationDigests/{digestId} {
+      allow get: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow list: if isAuthenticated()
+        && request.auth.uid == resource.data.get('userId', '');
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow update: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow delete: if false;
+    }
+    match /bereanAuditLog/{logId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow update, delete: if false;
+    }
+    match /moderation_jobs/{jobId} {
+      allow get: if isAuthenticated()
+        && resource.data.get('author_id', '') == request.auth.uid;
+      allow list: if false;
+      allow create, update, delete: if false;
+    }
+    match /enforcement_actions/{actionId} {
+      allow get: if isAuthenticated()
+        && resource.data.get('target_user_id', '') == request.auth.uid;
+      allow list: if isAuthenticated()
+        && request.auth.uid == request.query.filters['target_user_id'];
+      allow create, update, delete: if false;
+    }
+    match /user_trust/{userId} {
+      allow read: if isAuthenticated() && isOwner(userId);
+      allow create, update, delete: if false;
+    }
+    match /moderation_ingest_events/{eventId} {
+      allow create: if isAuthenticated()
+        && request.resource.data.get('author_id', '') == request.auth.uid
+        && request.resource.data.keys().hasAll(['content_id', 'content_type', 'author_id', 'created_at']);
+      allow read, update, delete: if false;
+    }
+    match /scheduled_posts/{postId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('authorId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('authorId', '') == request.auth.uid
+        && hasRequiredFields(['content', 'category', 'authorId', 'scheduledFor', 'createdAt'])
+        && request.resource.data.category in ['openTable', 'testimonies', 'prayer', 'general', 'tip', 'funFact'];
+      allow update: if isAuthenticated()
+        && resource.data.get('authorId', '') == request.auth.uid;
+      allow delete: if isAuthenticated()
+        && resource.data.get('authorId', '') == request.auth.uid;
+    }
+    match /scheduledPosts/{postId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('authorId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('authorId', '') == request.auth.uid
+        && hasRequiredFields(['content', 'category', 'authorId', 'scheduledFor', 'createdAt']);
+      allow update: if isAuthenticated()
+        && resource.data.get('authorId', '') == request.auth.uid;
+      allow delete: if isAuthenticated()
+        && resource.data.get('authorId', '') == request.auth.uid;
+    }
+    match /prayerChains/{chainId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+        && request.resource.data.get('creatorId', '') == request.auth.uid;
+      allow update: if isAuthenticated()
+        && (resource.data.get('creatorId', '') == request.auth.uid
+            || request.auth.uid in resource.data.get('participantIds', []));
+      allow delete: if isAuthenticated()
+        && resource.data.get('creatorId', '') == request.auth.uid;
+    }
+    match /prayerReminders/{docId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow update: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow delete: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+    }
+    match /groups/{groupId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+        && request.resource.data.get('creatorId', '') == request.auth.uid;
+      allow update: if isAuthenticated()
+        && resource.data.get('creatorId', '') == request.auth.uid;
+      allow delete: if isAuthenticated()
+        && resource.data.get('creatorId', '') == request.auth.uid;
+      match /members/{memberId} {
+        allow read: if isAuthenticated();
+        allow write: if isAuthenticated() && request.auth.uid == memberId;
+      }
+    }
+    match /postInteractions/{postId} {
+      allow read: if isAuthenticated()
+        && (resource == null
+          || resource.data.get('reporterId', '') == request.auth.uid
+          || resource.data.get('authorId', '') == request.auth.uid);
+      allow create: if isAuthenticated()
+        && request.resource.data.get('reporterId', '') == request.auth.uid;
+      allow update: if isAuthenticated()
+        && resource.data.get('reporterId', '') == request.auth.uid;
+      allow delete: if false;
+      match /comments/{commentId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated()
+          && request.resource.data.get('reporterId', '') == request.auth.uid;
+        allow update: if isAuthenticated()
+          && resource.data.get('reporterId', '') == request.auth.uid;
+        allow delete: if isAuthenticated()
+          && resource.data.get('authorId', '') == request.auth.uid;
+      }
+    }
+    match /comments/{commentId} {
+      allow read, write: if false;
+    }
+    match /usernames/{username} {
+      allow get: if true;
+      allow list: if false;
+      allow create, update, delete: if false;
+    }
+    match /translations/{cacheKey} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+        && request.resource.data.keys().hasAll([
+          'originalText', 'translatedText', 'sourceLanguage', 'targetLanguage', 'timestamp'
+        ])
+        && request.resource.data.get('surface', 'post') != 'dm'
+        && request.resource.data.get('surface', 'post') != 'message'
+        && validLength(request.resource.data.originalText, 500)
+        && validLength(request.resource.data.translatedText, 2000)
+        && validLength(request.resource.data.sourceLanguage, 10)
+        && validLength(request.resource.data.targetLanguage, 10);
+      allow update, delete: if false;
+    }
+    match /feedback/{feedbackId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow update, delete: if false;
+    }
+    match /bug_reports/{reportId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow update, delete: if false;
+    }
+    match /activityFeed/{eventId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create, update, delete: if false;
+    }
+    match /userRestrictions/{docId} {
+      allow read, write: if false;
+    }
+    match /pendingNotifications/{notifId} {
+      allow read, write: if false;
+    }
+    match /moderation_events/{eventId} {
+      allow read, write: if false;
+    }
+    match /moderation_queue/{itemId} {
+      allow read, write: if false;
+    }
+    match /content_fingerprints/{fpId} {
+      allow read, write: if false;
+    }
+    match /user_integrity_signals/{userId} {
+      allow read, write: if false;
+    }
+    match /moderation_errors/{errId} {
+      allow read, write: if false;
+    }
+    match /moderation_appeals/{appealId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow update, delete: if false;
+    }
+    match /content_appeals/{appealId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow update, delete: if false;
+    }
+    match /imageModerationLogs/{logId} {
+      allow read, write: if false;
+    }
+    match /imageModerationErrors/{errId} {
+      allow read, write: if false;
+    }
+    match /media_moderation/{docId} {
+      allow read, write: if false;
+    }
+    match /media_scan_requests/{docId} {
+      allow read, write: if false;
+    }
+    match /mail/{docId} {
+      allow read, write: if false;
+    }
+    match /analytics_shabbat_blocks/{docId} {
+      allow read, write: if false;
+    }
+    match /rateLimitCounters/{docId} {
+      allow read, write: if false;
+    }
+    match /commentIdempotencyKeys/{keyId} {
+      allow read, write: if false;
+    }
+    match /algoliaSync/{docId} {
+      allow read, write: if false;
+    }
+    match /algoliaQueue/{docId} {
+      allow read, write: if false;
+    }
+    match /postDrafts/{draftId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('authorId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('authorId', '') == request.auth.uid
+        && hasRequiredFields(['authorId', 'content', 'createdAt'])
+        && validLength(request.resource.data.content, 5000);
+      allow update: if isAuthenticated()
+        && resource.data.get('authorId', '') == request.auth.uid
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['authorId']);
+      allow delete: if isAuthenticated()
+        && resource.data.get('authorId', '') == request.auth.uid;
+    }
+    match /postViews/{viewId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid
+        && hasRequiredFields(['userId', 'postId', 'viewedAt']);
+      allow update, delete: if false;
+    }
+    match /hiddenPosts/{hideId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid
+        && hasRequiredFields(['userId', 'postId']);
+      allow update: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow delete: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+    }
+    match /hiddenComments/{hideId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid
+        && hasRequiredFields(['userId', 'commentId']);
+      allow update: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow delete: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+    }
+    match /notInterested/{signalId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid
+        && hasRequiredFields(['userId', 'postId']);
+      allow update, delete: if false;
+    }
+    match /prayerWall/{prayerId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+        && request.resource.data.get('authorId', '') == request.auth.uid
+        && hasRequiredFields(['authorId', 'content', 'createdAt'])
+        && validLength(request.resource.data.content, 1000);
+      allow update: if isAuthenticated()
+        && resource.data.get('authorId', '') == request.auth.uid
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['authorId']);
+      allow delete: if isAuthenticated()
+        && resource.data.get('authorId', '') == request.auth.uid;
+      match /prayedBy/{userId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated()
+          && request.resource.data.get('userId', '') == request.auth.uid;
+        allow delete: if isAuthenticated()
+          && resource.data.get('userId', '') == request.auth.uid;
+        allow update: if false;
+      }
+    }
+    match /prayedBy/{docId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow delete: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow update: if false;
+    }
+    match /answered_prayers/{docId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow update: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow delete: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+    }
+    match /prayer_reminders/{docId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow update: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow delete: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+    }
+    match /prayer_commitments/{docId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow update: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow delete: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+    }
+    match /prayer_status_updates/{docId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow update: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow delete: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+    }
+    match /prayer_analyses/{docId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow update, delete: if false;
+    }
+    match /trustedCircles/{circleId} {
+      allow read: if isAuthenticated()
+        && (resource.data.get('ownerId', '') == request.auth.uid
+          || request.auth.uid in resource.data.get('memberIds', []));
+      allow create: if isAuthenticated()
+        && request.resource.data.get('ownerId', '') == request.auth.uid
+        && hasRequiredFields(['ownerId', 'memberIds']);
+      allow update: if isAuthenticated()
+        && resource.data.get('ownerId', '') == request.auth.uid;
+      allow delete: if isAuthenticated()
+        && resource.data.get('ownerId', '') == request.auth.uid;
+    }
+    match /trustedCircleNotifications/{notifId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('recipientId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('senderId', '') == request.auth.uid;
+      allow update: if isAuthenticated()
+        && resource.data.get('recipientId', '') == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'readAt']);
+      allow delete: if isAuthenticated()
+        && resource.data.get('recipientId', '') == request.auth.uid;
+    }
+    match /safeConversationSettings/{userId} {
+      allow read: if isAuthenticated() && isOwner(userId);
+      allow create, update: if isAuthenticated() && isOwner(userId);
+      allow delete: if false;
+    }
+    match /safetyDecisions/{decisionId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow update, delete: if false;
+    }
+    match /shadowBans/{userId} {
+      allow read: if isAuthenticated() && isOwner(userId);
+      allow create, update, delete: if false;
+    }
+    match /advancedModerationLogs/{logId} {
+      allow read: if isAuthenticated()
+        && (isAdmin()
+          || resource.data.get('targetUserId', '') == request.auth.uid);
+      allow create: if isAuthenticated()
+        && request.resource.data.get('reporterId', '') == request.auth.uid
+        && !request.resource.data.keys().hasAny(['isAdmin', 'enforcementLevel', 'internalNote', 'adminReviewedBy']);
+      allow update, delete: if false;
+    }
+    match /appeals/{appealId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid
+        && hasRequiredFields(['userId', 'reason', 'createdAt']);
+      allow update, delete: if false;
+    }
+    match /spamReports/{reportId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('reporterId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('reporterId', '') == request.auth.uid
+        && hasRequiredFields(['reporterId', 'reportedUserId', 'createdAt']);
+      allow update, delete: if false;
+    }
+    match /crisisAlertLogs/{logId} {
+      allow read, write: if false;
+    }
+    match /crisisSupportPreferences/{userId} {
+      allow read: if isAuthenticated() && isOwner(userId);
+      allow create, update: if isAuthenticated() && isOwner(userId);
+      allow delete: if false;
+    }
+    match /savedVerses/{docId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid
+        && hasRequiredFields(['userId', 'verseReference']);
+      allow delete: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow update: if false;
+    }
+    match /savedBooks/{docId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow delete: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow update: if false;
+    }
+    match /books/{bookId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+    match /bookReviews/{reviewId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid
+        && hasRequiredFields(['userId', 'bookId', 'rating'])
+        && request.resource.data.get('rating', 0) >= 1
+        && request.resource.data.get('rating', 6) <= 5;
+      allow update: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['userId', 'bookId']);
+      allow delete: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+    }
+    match /mentors/{mentorId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.auth.uid == mentorId;
+    }
+    match /mentorApplications/{userId} {
+      allow read, write: if isAuthenticated() && request.auth.uid == userId;
+    }
+    match /users/{userId}/mentorSessions/{sessionId} {
+      allow read, write: if isAuthenticated() && request.auth.uid == userId;
+    }
+    match /users/{userId}/walkCheckIns/{checkInId} {
+      allow read, write: if isAuthenticated() && request.auth.uid == userId;
+    }
+    match /mentorshipRelationships/{relId} {
+      allow get: if isAuthenticated()
+        && (resource.data.get('mentorId', '') == request.auth.uid
+            || resource.data.get('menteeId', '') == request.auth.uid);
+      allow list: if isAuthenticated()
+        && (resource.data.get('mentorId', '') == request.auth.uid
+            || resource.data.get('menteeId', '') == request.auth.uid);
+      allow create: if isAuthenticated()
+        && request.resource.data.get('menteeId', '') == request.auth.uid
+        && hasRequiredFields(['mentorId', 'menteeId', 'status']);
+      allow update: if isAuthenticated()
+        && (resource.data.get('mentorId', '') == request.auth.uid
+            || resource.data.get('menteeId', '') == request.auth.uid)
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['mentorId', 'menteeId']);
+      allow delete: if isAuthenticated()
+        && (resource.data.get('mentorId', '') == request.auth.uid
+            || resource.data.get('menteeId', '') == request.auth.uid);
+    }
+    match /mentorshipCheckIns/{checkInId} {
+      allow get: if isAuthenticated()
+        && (resource.data.get('mentorId', '') == request.auth.uid
+            || resource.data.get('menteeId', '') == request.auth.uid);
+      allow list: if isAuthenticated()
+        && (resource.data.get('mentorId', '') == request.auth.uid
+            || resource.data.get('menteeId', '') == request.auth.uid);
+      allow create: if isAuthenticated()
+        && (request.resource.data.get('mentorId', '') == request.auth.uid
+            || request.resource.data.get('menteeId', '') == request.auth.uid)
+        && hasRequiredFields(['mentorId', 'menteeId']);
+      allow update: if isAuthenticated()
+        && (resource.data.get('mentorId', '') == request.auth.uid
+            || resource.data.get('menteeId', '') == request.auth.uid);
+      allow delete: if false;
+    }
+    match /savedSearches/{searchId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid
+        && hasRequiredFields(['userId', 'query', 'savedAt'])
+        && validLength(request.resource.data.query, 200);
+      allow delete: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow update: if false;
+    }
+    match /scheduledNotifications/{notifId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create, update, delete: if false;
+    }
+    match /noteFolders/{folderId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid
+        && hasRequiredFields(['userId', 'name', 'createdAt'])
+        && validLength(request.resource.data.name, 100);
+      allow update: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['userId']);
+      allow delete: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+    }
+    match /importBatches/{batchId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid
+        && hasRequiredFields(['userId', 'source', 'createdAt']);
+      allow update: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'completedAt', 'importedCount', 'errorCount']);
+      allow delete: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+    }
+    match /importDedupeHashes/{hashId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow update, delete: if false;
+    }
+    match /bereanFeedback/{feedbackId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid
+        && hasRequiredFields(['userId', 'query', 'rating']);
+      allow update, delete: if false;
+    }
+    match /amenConnect/{profileId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+        && profileId == request.auth.uid
+        && hasRequiredFields(['userId', 'displayName']);
+      allow update: if isAuthenticated()
+        && profileId == request.auth.uid
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['userId']);
+      allow delete: if isAuthenticated()
+        && profileId == request.auth.uid;
+    }
+    match /reactions/{reactionId} {
+      allow read: if isAuthenticated()
+        && (resource.data.get('userId', '') == request.auth.uid
+          || resource.data.get('recipientId', '') == request.auth.uid);
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid
+        && hasRequiredFields(['userId', 'emoji', 'messageId']);
+      allow update: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['emoji', 'updatedAt']);
+      allow delete: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+    }
+    match /threadSummaries/{summaryId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if false;
+    }
+    match /communityStandards/{docId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create, update: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow delete: if false;
+    }
+    match /tipHelpful/{docId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid
+        && hasRequiredFields(['userId', 'tipId', 'helpful']);
+      allow update: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['helpful', 'updatedAt']);
+      allow delete: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+    }
+    match /userSecurity/{userId} {
+      allow read, write: if false;
+    }
+    match /twoFactorSessions/{userId} {
+      allow read: if isOwner(userId);
+      allow create, update, delete: if false;
+      match /sessions/{sessionId} {
+        allow read: if isOwner(userId);
+        allow create, update, delete: if false;
+      }
+    }
+    match /moderationQueue/{queueId} {
+      allow create: if false;
+      allow read, update, delete: if false;
+    }
+    match /moderationAppeals/{appealId} {
+      allow create: if isAuthenticated()
+        && request.resource.data.keys().hasAll(['contentId', 'userId', 'reason', 'status', 'timestamp'])
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.status == 'pending';
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow update, delete: if false;
+    }
+    match /userTrustScores/{userId} {
+      allow read: if isOwner(userId);
+      allow create, update, delete: if false;
+      match /events/{eventId} {
+        allow read: if isOwner(userId);
+        allow create, update, delete: if false;
+      }
+    }
+    match /users/{userId}/bereanSessions/{sessionId} {
+      allow read, write: if isOwner(userId);
+      match /messages/{messageId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+    match /users/{userId}/selahEntries/{entryId} {
+      allow read, delete: if isOwner(userId);
+      allow create: if isOwner(userId)
+        && request.resource.data.ownerUid == userId
+        && request.resource.data.keys().hasAll(['entryId', 'content', 'entryType', 'ownerUid', 'createdAt'])
+        && request.resource.data.content is string
+        && request.resource.data.content.size() > 0
+        && request.resource.data.content.size() <= 20000
+        && request.resource.data.privacyLevel == 'private';
+      allow update: if isOwner(userId)
+        && request.resource.data.ownerUid == userId
+        && request.resource.data.privacyLevel == 'private';
+    }
+    match /users/{userId}/churchNotes/{noteId} {
+      allow read, delete: if isOwner(userId);
+      allow create: if isOwner(userId)
+        && request.resource.data.ownerUid == userId
+        && request.resource.data.keys().hasAll(['noteId', 'content', 'category', 'ownerUid', 'createdAt'])
+        && request.resource.data.content is string
+        && request.resource.data.content.size() > 0
+        && request.resource.data.content.size() <= 30000;
+      allow update: if isOwner(userId)
+        && request.resource.data.ownerUid == userId;
+    }
+    match /users/{userId}/bereanConversations/{conversationId} {
+      allow read, delete: if isOwner(userId);
+      allow create, update: if isOwner(userId)
+        && request.resource.data.keys().hasAll(['conversationId', 'lastUpdated']);
+      match /messages/{messageId} {
+        allow read, delete: if isOwner(userId);
+        allow create: if isOwner(userId)
+          && request.resource.data.keys().hasAll(['id', 'role', 'content', 'createdAt'])
+          && request.resource.data.role in ['user', 'assistant'];
+        allow update: if false;
+      }
+    }
+    match /users/{userId}/wellnessEvents/{eventId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId)
+        && request.resource.data.keys().hasAll(['type', 'timestamp'])
+        && request.resource.data.type in ['check_in_shown', 'check_in_engaged',
+                                           'check_in_dismissed', 'break_taken'];
+      allow update, delete: if false;
+    }
+    match /users/{userId}/feedSessions/{sessionId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId)
+        && request.resource.data.keys().hasAll(['durationMinutes', 'scrollCount',
+                                                'meaningfulInteractions', 'qualityScore', 'date']);
+      allow update, delete: if false;
+    }
+    match /users/{userId}/feedPreferences/contextLabels {
+      allow read: if isOwner(userId);
+      allow create, update: if isOwner(userId)
+        && request.resource.data.keys().hasOnly([
+          'disabled',
+          'mutedTopicIds',
+          'mutedTypes',
+          'hiddenContextIds',
+          'updatedAt'
+        ]);
+      allow delete: if isOwner(userId);
+    }
+    match /users/{userId}/feedPreferences/contextLabelEvents/events/{eventId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId)
+        && request.resource.data.get('uid', '') == request.auth.uid
+        && request.resource.data.get('action', '') in [
+          'impression',
+          'tap',
+          'dismiss',
+          'show_less',
+          'mute_topic',
+          'mute_type',
+          'hide_all',
+          'report_issue'
+        ]
+        && request.resource.data.get('contextId', '').size() > 0
+        && request.resource.data.get('postId', '').size() > 0;
+      allow update, delete: if false;
+    }
+    match /users/{userId}/pinnedPosts/{pinId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isOwner(userId);
+    }
+    match /users/{userId}/mediaPosts/{postId} {
+      allow read: if isAuthenticated()
+        && (
+          isOwner(userId)
+          || (
+            resource.data.get('isHidden', false) == false
+            && (
+              resource.data.get('visibility', 'everyone') == 'everyone'
+              || (
+                resource.data.get('visibility', 'everyone') == 'followers'
+                && callerFollows(request.auth.uid, userId)
+              )
+            )
+          )
+        );
+      allow create, update, delete: if false;
+    }
+    match /churches/{churchId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if false;
+    }
+    match /users/{userId}/savedChurches/{churchId} {
+      allow read, write: if isOwner(userId);
+    }
+    match /users/{userId}/churchVisits/{churchId} {
+      allow read, write: if isOwner(userId);
+    }
+    match /users/{userId}/churchInteractions/{churchId} {
+      allow read, write: if isOwner(userId);
+    }
+    match /users/{userId}/churchAssistState/{docId} {
+      allow read, write: if isOwner(userId);
+    }
+    match /users/{userId}/churchVisitInsights/{docId} {
+      allow read, write: if isOwner(userId);
+    }
+    match /users/{userId}/churchFollowUps/{followUpId} {
+      allow read, write: if isOwner(userId);
+    }
+    match /users/{userId}/walkWithChrist/{docId} {
+      allow read, write: if isOwner(userId);
+      match /items/{itemId} {
+        allow read, write: if isOwner(userId);
+      }
+      match /plans/{planId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+    match /users/{userId}/suggestionFeedback/{targetUserId} {
+      allow read, write: if isOwner(userId);
+    }
+    match /users/{userId}/learningData/{docId} {
+      allow read, write: if isOwner(userId);
+    }
+    match /analytics/{userId}/events/{eventId} {
+      allow create: if isOwner(userId)
+        && request.resource.data.keys().hasAll(['event', 'ts'])
+        && request.resource.data.event is string
+        && request.resource.data.event.size() <= 100;
+      allow read: if isOwner(userId);
+      allow update, delete: if false;
+    }
+    match /users/{userId}/followedTopics/{topicId} {
+      allow read, write: if isOwner(userId);
+    }
+    match /{path=**}/comments/{commentId} {
+      allow list: if isAuthenticated()
+        && resource.data.get('authorId', '') == request.auth.uid;
+    }
+    match /mutedConversations/{muteId} {
+      allow read, write: if isAuthenticated()
+        && request.auth.uid == resource.data.get('userId', '');
+      allow create: if isAuthenticated()
+        && request.auth.uid == request.resource.data.get('userId', '');
+    }
+    match /topicStats/{topicId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+    match /secureConversations/{convId} {
+      allow read: if isAuthenticated()
+        && request.auth.uid in resource.data.participants;
+      allow create: if isAuthenticated()
+        && request.auth.uid in request.resource.data.participants
+        && request.resource.data.participants.size() >= 2
+        && request.resource.data.participants.size() <= 50;
+      allow update: if isAuthenticated()
+        && request.auth.uid in resource.data.participants
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['isPinned','isMuted','isArchived','unreadCounts',
+                       'lastEncryptedTimestamp','contactTier','isMessageRequest']);
+      allow delete: if false;
+      match /encryptedMessages/{msgId} {
+        allow read: if isAuthenticated()
+          && exists(/databases/$(database)/documents/secureConversations/$(convId))
+          && request.auth.uid in get(/databases/$(database)/documents/secureConversations/$(convId)).data.participants;
+        allow create: if isAuthenticated()
+          && request.auth.uid == request.resource.data.senderUID
+          && exists(/databases/$(database)/documents/secureConversations/$(convId))
+          && request.auth.uid in get(/databases/$(database)/documents/secureConversations/$(convId)).data.participants
+          && request.resource.data.keys().hasAll(['encryptedPayload','payloadHash','senderUID','timestamp'])
+          && !request.resource.data.keys().hasAny(['plaintext','messageText','body','text']);
+        allow update: if isAuthenticated()
+          && request.auth.uid in get(/databases/$(database)/documents/secureConversations/$(convId)).data.participants
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['deliveryStatus','readBy','isDeleted']);
+        allow delete: if false;
+      }
+    }
+    match /keyBundles/{uid} {
+      allow read: if isAuthenticated();
+      allow create, update: if isOwner(uid)
+        && request.resource.data.keys().hasAll([
+             'identityKeyPublic','signedPreKeyPublic','signedPreKeySignature',
+             'signedPreKeyId','oneTimePreKeys','deviceId'
+           ])
+        && request.resource.data.identityKeyPublic is string
+        && request.resource.data.identityKeyPublic.size() <= 64;
+      allow delete: if isOwner(uid);
+    }
+    match /usedOTPKs/{uid}/consumed/{opkId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if false;
+    }
+    match /trustRecords/{uid} {
+      allow read: if isOwner(uid);
+      allow write: if false;
+    }
+    match /messageSafetyEvents/{eventId} {
+      allow create: if isAuthenticated()
+        && !request.resource.data.keys().hasAny(['messageText','plaintext','body'])
+        && request.resource.data.keys().hasAll(['category','riskScore','convIdHash','senderUID']);
+      allow read, update, delete: if false;
+    }
+    match /accountReviews/{uid} {
+      allow create: if isAuthenticated() && request.auth.uid == uid;
+      allow read, update, delete: if false;
+    }
+    match /jobListings/{jobId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+        && request.resource.data.get('employerId', '') == request.auth.uid
+        && hasRequiredFields(['title', 'description', 'employerId', 'createdAt'])
+        && validLength(request.resource.data.title, 200)
+        && validLength(request.resource.data.description, 5000)
+        && !request.resource.data.keys().hasAny(['viewCount', 'applicationCount', 'saveCount', 'removed', 'flaggedForReview']);
+      allow update: if isAuthenticated()
+        && resource.data.get('employerId', '') == request.auth.uid
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'employerId', 'viewCount', 'applicationCount', 'saveCount',
+          'removed', 'flaggedForReview'
+        ]);
+      allow delete: if isAuthenticated()
+        && resource.data.get('employerId', '') == request.auth.uid;
+    }
+    match /jobSeekerProfiles/{userId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated() && isOwner(userId);
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
+    match /employerProfiles/{userId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated() && isOwner(userId);
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
+    match /jobApplications/{applicationId} {
+      allow read: if isAuthenticated()
+        && (resource.data.get('applicantId', '') == request.auth.uid
+          || resource.data.get('employerId', '') == request.auth.uid);
+      allow create: if isAuthenticated()
+        && request.resource.data.get('applicantId', '') == request.auth.uid
+        && hasRequiredFields(['applicantId', 'jobId', 'employerId', 'createdAt'])
+        && !request.resource.data.keys().hasAny(['status_changed_by_admin', 'removed']);
+      allow update: if isAuthenticated()
+        && (resource.data.get('applicantId', '') == request.auth.uid
+          || resource.data.get('employerId', '') == request.auth.uid)
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['applicantId', 'jobId', 'employerId']);
+      allow delete: if isAuthenticated()
+        && resource.data.get('applicantId', '') == request.auth.uid;
+    }
+    match /savedJobs/{saveId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid
+        && hasRequiredFields(['userId', 'jobId', 'savedAt']);
+      allow delete: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow update: if false;
+    }
+    match /jobAlerts/{alertId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid
+        && hasRequiredFields(['userId', 'createdAt']);
+      allow update: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['userId']);
+      allow delete: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+    }
+    match /jobAnalyticsEvents/{eventId} {
+      allow read: if false;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow update, delete: if false;
+    }
+    match /jobModerationFlags/{flagId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('reporterId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('reporterId', '') == request.auth.uid
+        && hasRequiredFields(['reporterId', 'jobId', 'reason', 'createdAt']);
+      allow update, delete: if false;
+    }
+    match /jobNotifications/{notifId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow update: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'readAt']);
+      allow delete: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+    }
+    match /faithEvents/{eventId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+        && request.resource.data.get('hostUID', '') == request.auth.uid
+        && hasRequiredFields(['title', 'hostUID', 'startDate', 'createdAt'])
+        && validLength(request.resource.data.title, 200)
+        && validLength(request.resource.data.get('description', ''), 5000)
+        && request.resource.data.get('rsvpCount', 0) == 0
+        && !request.resource.data.keys().hasAny(['isFeatured', 'removed', 'flaggedForReview']);
+      allow update: if isAuthenticated()
+        && (
+          (resource.data.get('hostUID', '') == request.auth.uid
+            && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+              'hostUID', 'removed', 'flaggedForReview', 'isFeatured'
+            ]))
+          ||
+          (request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['rsvpUIDs', 'rsvpCount'])
+            && (request.resource.data.get('rsvpCount', 0)
+                - resource.data.get('rsvpCount', 0)) in [-1, 1])
+        );
+      allow delete: if isAuthenticated()
+        && resource.data.get('hostUID', '') == request.auth.uid;
+    }
+    match /eventRSVPs/{rsvpId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid
+        && hasRequiredFields(['userId', 'eventId', 'status', 'createdAt']);
+      allow update: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['userId', 'eventId']);
+      allow delete: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+    }
+    match /translationAnalytics/{date} {
+      allow read: if false;
+      allow write: if false;
+      match /events/{eventId} {
+        allow read: if false;
+        allow create: if isAuthenticated()
+          && request.resource.data.keys().hasAll([
+            'surface', 'contentType', 'sourceLanguage', 'targetLanguage', 'engineVersion', 'cacheHit'
+          ])
+          && !request.resource.data.keys().hasAny(['originalText', 'translatedText'])
+          && validLength(request.resource.data.sourceLanguage, 10)
+          && validLength(request.resource.data.targetLanguage, 10);
+        allow update, delete: if false;
+      }
+    }
+    match /jobSeekerProfiles/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId);
+    }
+    match /employerProfiles/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId);
+    }
+    match /savedJobs/{savedId} {
+      allow read: if isAuthenticated()
+                  && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated()
+                    && request.resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated()
+                    && resource.data.userId == request.auth.uid;
+    }
+    match /jobAlerts/{alertId} {
+      allow read, write: if isAuthenticated()
+                         && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated()
+                    && request.resource.data.userId == request.auth.uid;
+    }
+    match /jobModerationFlags/{flagId} {
+      allow create: if isAuthenticated();
+      allow read, update, delete: if false;
+    }
+    match /studioProfiles/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId);
+    }
+    match /studioItems/{itemId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+                    && request.resource.data.creatorId == request.auth.uid;
+      allow update, delete: if isAuthenticated()
+                            && resource.data.creatorId == request.auth.uid;
+    }
+    match /studioServices/{serviceId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+                    && request.resource.data.creatorId == request.auth.uid;
+      allow update, delete: if isAuthenticated()
+                            && resource.data.creatorId == request.auth.uid;
+    }
+    match /studioProducts/{productId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+                    && request.resource.data.creatorId == request.auth.uid;
+      allow update, delete: if isAuthenticated()
+                            && resource.data.creatorId == request.auth.uid;
+    }
+    match /commissionProfiles/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId);
+    }
+    match /commissionRequests/{requestId} {
+      allow read: if isAuthenticated()
+                  && (resource.data.clientId == request.auth.uid
+                      || resource.data.creatorId == request.auth.uid);
+      allow create: if isAuthenticated()
+                    && request.resource.data.clientId == request.auth.uid;
+      allow update: if isAuthenticated()
+                    && (resource.data.clientId == request.auth.uid
+                        || resource.data.creatorId == request.auth.uid);
+      allow delete: if false;
+    }
+    match /bookingRequests/{requestId} {
+      allow read: if isAuthenticated()
+                  && (resource.data.clientId == request.auth.uid
+                      || resource.data.creatorId == request.auth.uid);
+      allow create: if isAuthenticated()
+                    && request.resource.data.clientId == request.auth.uid;
+      allow update: if isAuthenticated()
+                    && (resource.data.clientId == request.auth.uid
+                        || resource.data.creatorId == request.auth.uid);
+      allow delete: if false;
+    }
+    match /inquiryThreads/{threadId} {
+      allow read: if isAuthenticated()
+                  && (resource.data.creatorId == request.auth.uid
+                      || resource.data.inquirerId == request.auth.uid);
+      allow create: if isAuthenticated()
+                    && request.resource.data.inquirerId == request.auth.uid;
+      allow update: if isAuthenticated()
+                    && (resource.data.creatorId == request.auth.uid
+                        || resource.data.inquirerId == request.auth.uid);
+      allow delete: if false;
+    }
+    match /studioModerationFlags/{flagId} {
+      allow create: if isAuthenticated();
+      allow read, update, delete: if false;
+    }
+    match /creatorEarnings/{earningsId} {
+      allow read: if isAuthenticated()
+                  && resource.data.creatorId == request.auth.uid;
+      allow write: if false;
+    }
+    match /creatorTransactions/{txId} {
+      allow read: if isAuthenticated()
+                  && resource.data.creatorId == request.auth.uid;
+      allow write: if false;
+    }
+    match /savedCalendarEvents/{savedId} {
+      allow read, write: if isAuthenticated()
+                         && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated()
+                    && request.resource.data.userId == request.auth.uid;
+    }
+    match /sentReminders/{reminderId} {
+      allow read, write: if false;
+    }
+    match /reminderSchedules/{scheduleId} {
+      allow read, write: if isAuthenticated()
+        && (resource == null || resource.data.get('userId', '') == request.auth.uid)
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow delete: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+    }
+    match /translationAnalytics/{date}/events/{eventId} {
+      allow create: if isAuthenticated();
+      allow read, update, delete: if false;
+    }
+    match /translationModerationAnomalies/{anomalyId} {
+      allow create: if isAuthenticated();
+      allow read, update, delete: if false;
+    }
+    match /charityRatings/{ratingId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if false;
+    }
+    match /mentorProfiles/{profileId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow update: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow delete: if false;
+    }
+    match /accountabilityCircles/{circleId} {
+      allow read: if isAuthenticated()
+        && request.auth.uid in resource.data.get('memberUIDs', []);
+      allow create: if isAuthenticated()
+        && request.auth.uid in request.resource.data.get('memberUIDs', []);
+      allow update: if isAuthenticated()
+        && request.auth.uid in resource.data.get('memberUIDs', []);
+      allow delete: if false;
+    }
+    match /serveOpportunities/{opportunityId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+        && request.resource.data.get('createdBy', '') == request.auth.uid;
+      allow update: if isAuthenticated()
+        && resource.data.get('createdBy', '') == request.auth.uid;
+      allow delete: if isAuthenticated()
+        && resource.data.get('createdBy', '') == request.auth.uid;
+    }
+    match /ministries/{ministryId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+        && request.resource.data.get('createdBy', '') == request.auth.uid;
+      allow update: if isAuthenticated()
+        && resource.data.get('createdBy', '') == request.auth.uid;
+      allow delete: if false;
+    }
+    match /studioSessions/{sessionId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow update: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow delete: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+    }
+    match /checkins/{churchId}/{userId}/{date} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.auth.uid == userId;
+    }
+    match /whisperUsage/{docId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow write: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+    }
+    match /bibleVerses/{verseId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+    match /fellowshipSuggestions/{docId} {
+      allow read: if isAuthenticated()
+                  && resource.data.get('recipientUserId', '') == request.auth.uid;
+      allow update: if isAuthenticated()
+                    && resource.data.get('recipientUserId', '') == request.auth.uid
+                    && isOnlyUpdating(['status'])
+                    && request.resource.data.status in ['viewed', 'dismissed'];
+      allow create, delete: if false;
+    }
+    match /reengagementCaps/{userId} {
+      allow read: if isOwner(userId);
+      allow write: if false;
+    }
+    match /prayerCheckinCaps/{userId} {
+      allow read: if isOwner(userId);
+      allow write: if false;
+    }
+    match /friendReturnedCaps/{capId} {
+      allow read, write: if false;
+    }
+    match /sentMilestoneNotifications/{docId} {
+      allow read, write: if false;
+    }
+    match /messages/{threadId}/prayerChains/{chainId} {
+      allow read: if isAuthenticated()
+                  && request.auth.uid in resource.data.members;
+      allow create: if isAuthenticated()
+                    && request.auth.uid == request.resource.data.requesterId
+                    && request.auth.uid in request.resource.data.members;
+      allow update: if isAuthenticated()
+                    && request.auth.uid in resource.data.members;
+      allow delete: if false;
+    }
+    match /accountabilityThreads/{threadId} {
+      allow read: if isAuthenticated()
+                  && request.auth.uid in resource.data.members;
+      allow create: if isAuthenticated()
+                    && request.auth.uid in request.resource.data.members;
+      allow update: if isAuthenticated()
+                    && request.auth.uid in resource.data.members
+                    && isOnlyUpdating(['streaks', 'lastCheckIn', 'perspectives']);
+      allow delete: if false;
+      match /checkIns/{weekId}/responses/{userId} {
+        allow read: if isAuthenticated()
+                    && get(/databases/$(database)/documents/accountabilityThreads/$(threadId)).data.members.hasAny([request.auth.uid]);
+        allow write: if isOwner(userId);
+      }
+      match /weeklyPrompts/{weekId} {
+        allow read: if isAuthenticated()
+                    && get(/databases/$(database)/documents/accountabilityThreads/$(threadId)).data.members.hasAny([request.auth.uid]);
+        allow write: if false;
+      }
+    }
+    match /users/{userId}/revivalNudges/{threadId} {
+      allow read: if isOwner(userId);
+      allow update: if isOwner(userId) && isOnlyUpdating(['shown']);
+      allow create, delete: if false;
+    }
+    match /testimonyDrafts/{draftId} {
+      allow read: if isAuthenticated()
+                  && request.auth.uid in resource.data.authors;
+      allow create: if isAuthenticated()
+                    && request.auth.uid in request.resource.data.authors;
+      allow update: if isAuthenticated()
+                    && request.auth.uid in resource.data.authors
+                    && isOnlyUpdating(['perspectives', 'woven', 'status']);
+      allow delete: if false;
+    }
+    match /communityFeed/{docId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+                    && request.resource.data.type == 'sharedTestimony'
+                    && request.auth.uid in request.resource.data.authors;
+      allow update, delete: if false;
+    }
+    match /threads/{threadId}/prayedLog/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId);
+    }
+    match /users/{userId}/prayerRoomSummaries/{threadId} {
+      allow read:  if isOwner(userId);
+      allow write: if isOwner(userId);
+    }
+    match /trendingHashtags/{tagId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if false;
+    }
+    match /postTranslations/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+    match /commentTranslations/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+    match /contentUnderstandCache/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+    match /contextGlossary/{termKey} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+    match /actionThreads/{threadId} {
+      allow read: if isAuthenticated()
+        && resource.data.ownerId == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.ownerId == request.auth.uid;
+      allow update: if isAuthenticated()
+        && resource.data.ownerId == request.auth.uid;
+      allow delete: if false;
+      match /auditLogs/{logId} {
+        allow read: if isAuthenticated()
+          && get(/databases/$(database)/documents/actionThreads/$(threadId)).data.ownerId == request.auth.uid;
+        allow create: if isAuthenticated()
+          && get(/databases/$(database)/documents/actionThreads/$(threadId)).data.ownerId == request.auth.uid;
+        allow update, delete: if false;
+      }
+    }
+    match /users/{userId}/intelligence/{docId} {
+      allow read: if isAuthenticated() && isOwner(userId);
+      allow create, update: if isAuthenticated() && isOwner(userId);
+      allow delete: if false;
+    }
+    match /users/{userId}/intelligence/agentInsights/{insightId} {
+      allow read: if isAuthenticated() && isOwner(userId);
+      allow create, update: if isAuthenticated()
+        && isOwner(userId)
+        && request.resource.data.userId == null;
+      allow delete: if false;
+    }
+    match /users/{userId}/intelligence/agentRecommendations/{recId} {
+      allow read: if isAuthenticated() && isOwner(userId);
+      allow create, update: if isAuthenticated() && isOwner(userId);
+      allow delete: if false;
+    }
+    match /users/{userId}/intelligence/executionLogs/{logId} {
+      allow read: if isAuthenticated() && isOwner(userId);
+      allow create: if isAuthenticated() && isOwner(userId);
+      allow update, delete: if false;
+    }
+    match /users/{userId}/trust/events/{eventId} {
+      allow read: if isAuthenticated() && isOwner(userId);
+      allow create: if isAuthenticated()
+        && isOwner(userId)
+        && request.resource.data.userId == userId;
+      allow update, delete: if false;
+    }
+    match /users/{userId}/trust/proofSnapshots/{snapshotId} {
+      allow read: if isAuthenticated() && isOwner(userId);
+      allow create: if isAuthenticated()
+        && isOwner(userId)
+        && request.resource.data.userId == userId;
+      allow update, delete: if false;
+    }
+    match /trendingHashtags/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+    match /hashtags/{tagId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+    match /system/{docId} {
+      allow read, write: if false;
+    }
+    match /suspensionLog/{uid} {
+      allow read: if isAuthenticated() && isAdmin();
+      allow write: if false;
+    }
+    match /contentViolationLog/{logId} {
+      allow read: if isAuthenticated() && isAdmin();
+      allow write: if false;
+    }
+    match /age_verification_events/{eventId} {
+      allow read: if isAuthenticated() && isAdmin();
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if false;
+    }
+    match /churches/{churchId} {
+      allow get: if isAuthenticated();
+      allow list: if isAuthenticated();
+      allow create, update, delete: if false;
+    }
+    match /churchJourneys/{journeyId} {
+      allow get: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+      allow list: if isAuthenticated()
+        && request.auth.uid != null;
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.keys().hasAll(['userId', 'churchId', 'createdAt'])
+        && !request.resource.data.keys().hasAny([
+             'outputs', 'contextSnapshot', 'confidenceScore',
+             'reflectionSeedGenerated', 'noteSessionId', 'reflectionId'
+           ]);
+      allow update: if isAuthenticated()
+        && resource.data.userId == request.auth.uid
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+             'userId', 'churchId', 'createdAt',
+             'outputs', 'contextSnapshot', 'confidenceScore',
+             'reflectionSeedGenerated'
+           ]);
+      allow delete: if isAuthenticated()
+        && resource.data.userId == request.auth.uid
+        && resource.data.status in ['planned', 'cancelled'];
+    }
+    match /churchNoteSessions/{sessionId} {
+      allow get: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+      allow list: if isAuthenticated()
+        && request.auth.uid != null;
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.keys().hasAll(['userId', 'churchId', 'journeyId', 'createdAt'])
+        && !request.resource.data.keys().hasAny(['reflectionSeedGenerated', 'highlightsSummary']);
+      allow update: if isAuthenticated()
+        && resource.data.userId == request.auth.uid
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+             'userId', 'churchId', 'journeyId', 'createdAt',
+             'reflectionSeedGenerated',
+             'highlightsSummary'
+           ]);
+      allow delete: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+    }
+    match /churchReflections/{reflectionId} {
+      allow get: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+      allow list: if isAuthenticated()
+        && request.auth.uid != null;
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.keys().hasAll(['userId', 'churchId', 'journeyId', 'createdAt'])
+        && !request.resource.data.keys().hasAny([
+             'aiSummary', 'aiSuggestedPrayer', 'aiSuggestedActions', 'midweekReminderAt'
+           ]);
+      allow update: if isAuthenticated()
+        && resource.data.userId == request.auth.uid
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+             'userId', 'churchId', 'journeyId', 'createdAt',
+             'aiSummary', 'aiSuggestedPrayer', 'aiSuggestedActions',
+             'midweekReminderAt'
+           ]);
+      allow delete: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+    }
+    match /users/{userId}/churchRoutines/{routineId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId)
+        && request.resource.data.userId == userId
+        && request.resource.data.keys().hasAll(['userId', 'churchId', 'createdAt'])
+        && !request.resource.data.keys().hasAny(['confidenceScore'])
+        && request.resource.data.get('source', 'manual') != 'learned';
+      allow update: if isOwner(userId)
+        && resource.data.userId == userId
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+             'userId', 'churchId', 'createdAt', 'confidenceScore'
+           ]);
+      allow delete: if isOwner(userId);
+    }
+    match /users/{userId}/churchAttendance/{attendanceId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId)
+        && request.resource.data.userId == userId
+        && request.resource.data.keys().hasAll(['userId', 'churchId', 'attendedAt', 'source'])
+        && request.resource.data.source in ['manual', 'planCompleted']
+        && !request.resource.data.keys().hasAny(['confidenceScore']);
+      allow update, delete: if false;
+    }
+    match /users/{userId}/churchRhythms/{rhythmId} {
+      allow read: if isOwner(userId);
+      allow create, update, delete: if false;
+    }
+    match /churchJourneyPrepSuggestions/{docId} {
+      allow read: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+      allow create, update, delete: if false;
+    }
+    match /churchJourneyAnalytics/{eventId} {
+      allow read: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.keys().hasAll(['userId', 'eventType', 'createdAt'])
+        && request.resource.data.eventType in [
+             'church_detail_viewed', 'church_plan_started', 'church_plan_saved',
+             'church_routine_saved', 'prep_module_opened', 'prep_module_completed',
+             'notes_session_started', 'notes_session_completed',
+             'reflection_started', 'reflection_completed', 'ai_reflection_used',
+             'reminder_opened', 'reminder_dismissed',
+             'routine_suggestion_accepted', 'routine_suggestion_dismissed'
+           ];
+      allow update, delete: if false;
+    }
+    match /churchNotes/{noteId} {
+      // Owner OR any collaborator role can read.
+      allow read: if isAuthenticated()
+        && (resource.data.userId == request.auth.uid
+            || isChurchNoteCollaboratorWithRole(noteId, ['owner', 'editor', 'commenter', 'viewer']));
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.schemaVersion == 2
+        && !request.resource.data.keys().hasAny([
+             'blockCount', 'hasShareableBlocks', 'pinnedBlockIds',
+             'summaryDraft', 'transcriptText', 'ocrText', 'studyGuideDraft',
+             'prayerPromptsDraft', 'actionItemsDraft', 'scriptureReferencesDraft',
+             'translationDraft', 'approved_summaryDraft', 'approved_transcriptText',
+             'approved_ocrText', 'approved_studyGuideDraft', 'approved_prayerPromptsDraft'
+           ]);
+      // Owner OR editor can update — but only allowed client fields. AI-generated
+      // content and server-owned fields (blockCount, schemaVersion, userId,
+      // summaryDraft, etc.) are never writable by the client.
+      allow update: if isAuthenticated()
+        && (resource.data.userId == request.auth.uid
+            || isChurchNoteCollaboratorWithRole(noteId, ['owner', 'editor']))
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.schemaVersion == resource.data.schemaVersion
+        && churchNoteAllowedUpdateFields();
+      allow delete: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+      match /blocks/{blockId} {
+        allow read: if isAuthenticated() && (
+          isChurchNoteOwner(noteId) ||
+          isChurchNoteCollaboratorWithRole(noteId, ['owner', 'editor', 'commenter', 'viewer'])
+        );
+        allow create: if isAuthenticated()
+          && (isChurchNoteOwner(noteId)
+              || isChurchNoteCollaboratorWithRole(noteId, ['owner', 'editor']))
+          && request.resource.data.keys().hasAll(['id', 'type', 'sortOrder', 'visibility'])
+          && request.resource.data.visibility in [
+               'privateOnly', 'shareable',
+               'selectedForPostPreview', 'selectedForSelahEmphasis'
+             ];
+        allow update: if isAuthenticated()
+          && (isChurchNoteOwner(noteId)
+              || isChurchNoteCollaboratorWithRole(noteId, ['owner', 'editor']))
+          && request.resource.data.visibility in [
+               'privateOnly', 'shareable',
+               'selectedForPostPreview', 'selectedForSelahEmphasis'
+             ]
+          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['id', 'createdAt']);
+        allow delete: if isAuthenticated()
+          && (isChurchNoteOwner(noteId)
+              || isChurchNoteCollaboratorWithRole(noteId, ['owner', 'editor']));
+      }
+      // Collaborators — owner manages via callables; clients can read membership.
+      match /collaborators/{uid} {
+        allow read: if isAuthenticated() && (
+          isChurchNoteOwner(noteId) ||
+          request.auth.uid == uid ||
+          isChurchNoteCollaboratorWithRole(noteId, ['owner', 'editor', 'commenter', 'viewer'])
+        );
+        // Client cannot write directly — only callables (share / update permissions).
+        allow write: if false;
+      }
+      // Comments — collaborators (owner/editor/commenter) can create; author can
+      // update body/resolved and delete their own; others can't delete others'.
+      match /comments/{commentId} {
+        allow read: if isAuthenticated() && (
+          isChurchNoteOwner(noteId) ||
+          isChurchNoteCollaboratorWithRole(noteId, ['owner', 'editor', 'commenter', 'viewer'])
+        );
+        allow create: if isAuthenticated()
+          && isChurchNoteCollaboratorWithRole(noteId, ['owner', 'editor', 'commenter'])
+          && request.resource.data.authorUid == request.auth.uid
+          && request.resource.data.keys().hasOnly([
+            'id', 'noteId', 'authorUid', 'authorName', 'body',
+            'anchorBlockId', 'anchorRange',
+            'anchorText', 'anchorStart', 'anchorEnd',
+            'resolved', 'createdAt', 'updatedAt'
+          ]);
+        allow update: if isAuthenticated()
+          && resource.data.authorUid == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['body', 'resolved', 'updatedAt']);
+        // Author may delete their own comment; others cannot delete others'.
+        allow delete: if isAuthenticated() && resource.data.authorUid == request.auth.uid;
+      }
+      // Processing jobs — created server-side via createChurchNoteProcessingJob
+      // callable. Clients can read (collaborators) and only cancel (status=canceled).
+      match /processingJobs/{jobId} {
+        allow read: if isAuthenticated() && (
+          isChurchNoteOwner(noteId) ||
+          isChurchNoteCollaboratorWithRole(noteId, ['owner', 'editor', 'commenter', 'viewer'])
+        );
+        allow create: if false;
+        // Owner can cancel; status must equal 'canceled' and only status/updatedAt
+        // can change — blocks injection of AI fields via update.
+        allow update: if isAuthenticated() && isChurchNoteOwner(noteId)
+          && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['status', 'updatedAt'])
+          && request.resource.data.status == 'canceled';
+        allow delete: if false;
+      }
+      // Server-owned subcollections — clients read only.
+      match /transcripts/{transcriptId} {
+        allow read: if isAuthenticated() && (
+          isChurchNoteOwner(noteId) ||
+          isChurchNoteCollaboratorWithRole(noteId, ['owner', 'editor', 'commenter', 'viewer'])
+        );
+        allow write: if false;
+      }
+      match /ocrResults/{ocrId} {
+        allow read: if isAuthenticated() && (
+          isChurchNoteOwner(noteId) ||
+          isChurchNoteCollaboratorWithRole(noteId, ['owner', 'editor', 'commenter', 'viewer'])
+        );
+        allow write: if false;
+      }
+      match /aiDrafts/{draftId} {
+        allow read: if isAuthenticated() && (
+          isChurchNoteOwner(noteId) ||
+          isChurchNoteCollaboratorWithRole(noteId, ['owner', 'editor'])
+        );
+        allow write: if false;
+      }
+      // Action items — created via approveChurchNoteActionItems callable;
+      // owner/editor can toggle completion fields only.
+      match /actionItems/{itemId} {
+        allow read: if isAuthenticated() && (
+          isChurchNoteOwner(noteId) ||
+          isChurchNoteCollaboratorWithRole(noteId, ['owner', 'editor', 'commenter', 'viewer'])
+        );
+        allow create: if false;
+        allow update: if isAuthenticated()
+          && (isChurchNoteOwner(noteId)
+              || isChurchNoteCollaboratorWithRole(noteId, ['owner', 'editor']))
+          && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['completed', 'completedBy', 'completedAt', 'updatedAt']);
+        allow delete: if isAuthenticated() && isChurchNoteOwner(noteId);
+      }
+      // Translations — created and approved via callables.
+      match /translations/{translationId} {
+        allow read: if isAuthenticated() && (
+          isChurchNoteOwner(noteId) ||
+          isChurchNoteCollaboratorWithRole(noteId, ['owner', 'editor', 'commenter', 'viewer'])
+        );
+        allow write: if false;
+      }
+    }
+    match /giving_profiles/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+    match /giving_feed_cache/{userId} {
+      allow read: if isOwner(userId);
+      allow write: if false;
+    }
+    match /organizations/{orgId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+      match /transparency/{doc} {
+        allow read: if isAuthenticated();
+        allow write: if false;
+      }
+      match /impact_cards/{impactId} {
+        allow read: if isAuthenticated();
+        allow write: if false;
+      }
+      match /recent_actions/{actionId} {
+        allow read: if isAuthenticated();
+        allow write: if false;
+      }
+      match /gift_impacts/{giftImpactId} {
+        allow read: if isAuthenticated();
+        allow write: if false;
+      }
+    }
+    match /cause_briefs/{briefId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+    match /disaster_events/{eventId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+    match /giving_sessions/{sessionId} {
+      allow read: if isAuthenticated()
+        && request.auth.uid == resource.data.userId;
+      allow write: if false;
+    }
+    match /receipts/{receiptId} {
+      allow read: if isAuthenticated()
+        && request.auth.uid == resource.data.userId;
+      allow write: if false;
+    }
+    match /giving_journal_entries/{entryId} {
+      allow read, write: if isAuthenticated()
+        && request.auth.uid == resource.data.userId;
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.keys().hasAll(['userId', 'destinationType', 'destinationId', 'note', 'createdAt']);
+    }
+    match /benevolence_requests/{requestId} {
+      allow read: if isAuthenticated()
+        && (resource.data.status == 'active'
+            || request.auth.uid == resource.data.requesterUserId);
+      allow create: if isAuthenticated()
+        && request.resource.data.requesterUserId == request.auth.uid
+        && request.resource.data.status == 'draft'
+        && !request.resource.data.keys().hasAny([
+            'guardianStatus', 'guardianFlags', 'humanReviewStatus',
+            'approvedCapAmount', 'fulfillmentState'
+           ]);
+      allow update: if isAuthenticated()
+        && request.auth.uid == resource.data.requesterUserId
+        && resource.data.status == 'draft'
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['title', 'summary', 'category', 'requestedAmount', 'updatedAt']);
+      allow delete: if false;
+      match /updates/{updateId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated()
+          && request.auth.uid == get(/databases/$(database)/documents/benevolence_requests/$(requestId)).data.requesterUserId;
+        allow update, delete: if false;
+      }
+    }
+    match /church_verifications/{verificationId} {
+      allow read: if isAuthenticated()
+        && (request.auth.uid == resource.data.subjectUserId || isAdmin());
+      allow write: if false;
+    }
+    match /berean_giving_sessions/{sessionId} {
+      allow read, write: if isAuthenticated()
+        && request.auth.uid == resource.data.userId;
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid;
+    }
+    match /annual_reviews/{reviewId} {
+      allow read: if isAuthenticated()
+        && request.auth.uid == resource.data.userId;
+      allow write: if false;
+    }
+    match /moderation_queue/{taskId} {
+      allow read, write: if isAdmin();
+    }
+    match /moderation_events/{eventId} {
+      allow read, write: if isAdmin();
+    }
+    match /shareTargetsIndex/{targetId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if false;
+    }
+    match /postShares/{shareId} {
+      allow read: if isAuthenticated()
+        && (resource.data.actorId == request.auth.uid || resource.data.targetId == request.auth.uid);
+      allow create: if isAuthenticated()
+        && request.resource.data.actorId == request.auth.uid
+        && request.resource.data.keys().hasOnly([
+          'actorId', 'postId', 'contentType', 'destinationType', 'targetType', 'targetId',
+          'visibility', 'includedCaption', 'includedVerseCard', 'includedAttribution',
+          'includedDeepLink', 'status', 'createdAt'
+        ]);
+      allow update, delete: if false;
+    }
+    match /shareEvents/{eventId} {
+      allow read: if isAuthenticated() && resource.data.actorId == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.actorId == request.auth.uid
+        && request.resource.data.keys().hasOnly([
+          'actorId', 'actionType', 'destinationType', 'entityId', 'entityType',
+          'sourceSurface', 'targetType', 'targetId', 'smartContextEnabled',
+          'sessionId', 'latencyMs', 'failureReason', 'createdAt'
+        ]);
+      allow update, delete: if false;
+    }
+    match /shareRenderJobs/{jobId} {
+      allow read: if isAuthenticated() && resource.data.actorId == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.actorId == request.auth.uid
+        && request.resource.data.keys().hasOnly(['actorId', 'contentId', 'renderType', 'status', 'createdAt']);
+      allow update, delete: if false;
+    }
+    match /users/{userId}/recentShareTargets/{targetId} {
+      allow read: if isOwner(userId);
+      allow create, update: if isOwner(userId)
+        && request.resource.data.keys().hasOnly([
+          'targetType', 'targetRefId', 'title', 'subtitle', 'photoURL',
+          'lastSharedAt', 'shareCount', 'lastContentType', 'lastShareMode'
+        ]);
+      allow delete: if isOwner(userId);
+    }
+    match /users/{userId}/shareSuggestions/{targetId} {
+      allow read: if isOwner(userId);
+      allow create, update, delete: if false;
+    }
+    match /notification_groups/{groupId} {
+      allow get, list: if isAuthenticated()
+        && resource.data.recipientId == request.auth.uid;
+      allow update: if isAuthenticated()
+        && resource.data.recipientId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['seenAt', 'openedAt', 'readAt', 'read', 'updatedAt', 'dismissedAt']);
+      allow create, delete: if false;
+    }
+    match /user_alignment_profiles/{userId} {
+      allow read, create, update: if isOwner(userId);
+      allow delete: if false;
+    }
+    match /ai_corrections/{correctionId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create, update, delete: if false;
+    }
+    match /ai_alignment_checks/{checkId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create, update, delete: if false;
+    }
+    match /ai_engagement_summaries/{summaryId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create, update, delete: if false;
+    }
+    match /shared_knowledge_integrity/{integrityId} {
+      allow read: if resource.data.get('isPublic', false) == true;
+      allow create, update, delete: if false;
+      match /votes/{voteId} {
+        allow read, write: if false;
+      }
+    }
+    match /moderation_review_queue/{queueId} {
+      allow read, write: if false;
+    }
+    match /thread_lifecycle_states/{threadId} {
+      allow get, list, create, update, delete: if false;
+    }
+    match /spiritual_priority_items/{itemId} {
+      allow get, list, create, update, delete: if false;
+    }
+    match /intent_compose_checks/{checkId} {
+      allow get, list: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create, update, delete: if false;
+    }
+    match /presence_states/{userId} {
+      allow get: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.visibility == 'everyone'
+      );
+      allow list: if false;
+      allow create, update: if isOwner(userId)
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.selectedState in ['reflecting', 'praying', 'reading', 'resting', 'seeking', 'available']
+        && request.resource.data.visibility in ['private_only', 'everyone']
+        && request.resource.data.keys().hasOnly(['userId', 'selectedState', 'visibility', 'updatedAt']);
+      allow delete: if isOwner(userId);
+    }
+    match /contextual_memory_layers/{sourceId} {
+      allow get, list, create, update, delete: if false;
+    }
+    match /silent_reactions/{reactionId} {
+      allow read: if false;
+      allow create, update, delete: if false;
+    }
+    match /covenantMemberships/{membershipId} {
+      allow get: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow list: if isAuthenticated();
+      allow create, update, delete: if false;
+    }
+    match /covenants/{covenantId} {
+      allow get: if isActiveMemberOf(covenantId) || isAdmin();
+      allow list: if false;
+      allow create, update, delete: if false;
+      match /members/{uid} {
+        allow get: if isOwner(uid) || isCreatorOf(covenantId) || isAdmin();
+        allow list: if isCreatorOf(covenantId) || isAdmin();
+        allow create, update, delete: if false;
+      }
+      match /rooms/{roomId} {
+        allow get, list: if isActiveMemberOf(covenantId);
+        allow create, update, delete: if false;
+        match /messages/{messageId} {
+          allow get, list: if isActiveMemberOf(covenantId);
+          allow create, update, delete: if false;
+          match /replies/{replyId} {
+            allow get, list: if isActiveMemberOf(covenantId);
+            allow create, update, delete: if false;
+          }
+        }
+      }
+      match /prayerRequests/{requestId} {
+        allow get, list: if isActiveMemberOf(covenantId);
+        allow update: if isActiveMemberOf(covenantId)
+          && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['prayedCount', 'status', 'lastUpdateAt']);
+        allow create, delete: if false;
+      }
+      match /onboarding/{docId} {
+        allow get: if isActiveMemberOf(covenantId);
+        allow list, create, update, delete: if false;
+      }
+      match /analytics/{dateKey} {
+        allow get: if isCreatorOf(covenantId) || isAdmin();
+        allow list, create, update, delete: if false;
+      }
+      match /scheduledContent/{contentId} {
+        allow get, list: if isCreatorOf(covenantId) || isAdmin();
+        allow create, update, delete: if false;
+      }
+      match /moderationQueue/{itemId} {
+        allow get, list: if isCreatorOf(covenantId) || isAdmin();
+        allow update: if isCreatorOf(covenantId) || isAdmin();
+        allow create, delete: if false;
+      }
+      match /memberSignals/{userId} {
+        allow get, list: if isCreatorOf(covenantId) || isAdmin();
+        allow create, update, delete: if false;
+      }
+    }
+    match /covenantActivityEvents/{eventId} {
+      allow read, write: if false;
+    }
+    match /users/{userId}/covenantActivity/{activityId} {
+      allow get, list: if isOwner(userId);
+      allow update: if isOwner(userId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']);
+      allow create, delete: if false;
+    }
+    match /users/{userId}/bereanPulse/main {
+      allow read, write: if false;
+      match /days/{dateKey}/cards/{cardId} {
+        allow get, list: if isOwner(userId);
+        allow update: if isOwner(userId)
+          && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['isHidden', 'updatedAt']);
+        allow create, delete: if false;
+      }
+      match /preferences/{docId} {
+        allow read, write: if isOwner(userId);
+      }
+      match /permissions/{docId} {
+        allow read, write: if isOwner(userId);
+      }
+      match /events/{eventId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId)
+          && request.resource.data.keys().hasAll(['cardId', 'eventType', 'timestamp'])
+          && request.resource.data.eventType in [
+              'viewed', 'expanded', 'liked', 'disliked', 'saved', 'shared',
+              'hidden', 'actionTapped', 'permissionRequested', 'permissionGranted',
+              'permissionDenied', 'curateOpened', 'sourceSuppressed',
+              'topicSuppressed', 'modeSuppressed', 'followUpAsked'];
+        allow update, delete: if false;
+      }
+      match /savedCards/{cardId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && request.resource.data.keys().hasAll(['cardId', 'savedAt']);
+        allow delete: if isOwner(userId);
+      }
+    }
+    match /userSubscriptions/{uid} {
+      allow read: if isOwner(uid);
+      allow create, update, delete: if false;
+    }
+    match /bereanUsageLogs/{logId} {
+      allow read, write: if false;
+    }
+    match /users/{userId}/bereanSettings/{settingId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId)
+        && !request.resource.data.keys().hasAny([
+             'tier', 'deepCreditsRemaining', 'monthlyDeepUsageCount',
+             'canUseDeep', 'canUseAdaptive'
+           ]);
+      allow update: if isOwner(userId)
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+             'tier', 'deepCreditsRemaining', 'monthlyDeepUsageCount',
+             'canUseDeep', 'canUseAdaptive'
+           ]);
+      allow delete: if false;
+    }
+    match /users/{userId}/mediaGraph/{document=**} {
+      allow read: if isAuthenticated() && isOwner(userId);
+      allow write: if false;
+    }
+    match /smartObjects/{objectId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if false;
+    }
+    match /canonicalObjects/{objectId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if false;
+    }
+    match /communityHubs/{hubId} {
+      allow get: if isAuthenticated()
+        && resource.data.privacyLevel == "public"
+        && resource.data.safetyStatus != "blocked"
+        && resource.data.explicitContentState != "blocked";
+      allow list: if false;
+      allow create, update, delete: if false;
+      match /publicPosts/{postId} {
+        allow get, list: if isAuthenticated()
+          && get(/databases/$(database)/documents/communityHubs/$(hubId)).data.privacyLevel == "public"
+          && get(/databases/$(database)/documents/communityHubs/$(hubId)).data.safetyStatus != "blocked"
+          && get(/databases/$(database)/documents/communityHubs/$(hubId)).data.explicitContentState != "blocked";
+        allow create, update, delete: if false;
+      }
+      match /discussions/{discussionId} {
+        allow get, list: if isAuthenticated()
+          && get(/databases/$(database)/documents/communityHubs/$(hubId)).data.privacyLevel == "public"
+          && get(/databases/$(database)/documents/communityHubs/$(hubId)).data.safetyStatus != "blocked"
+          && get(/databases/$(database)/documents/communityHubs/$(hubId)).data.explicitContentState != "blocked";
+        allow create, update, delete: if false;
+      }
+      match /relatedObjects/{objectId} {
+        allow get, list: if isAuthenticated()
+          && get(/databases/$(database)/documents/communityHubs/$(hubId)).data.privacyLevel == "public"
+          && get(/databases/$(database)/documents/communityHubs/$(hubId)).data.safetyStatus != "blocked"
+          && get(/databases/$(database)/documents/communityHubs/$(hubId)).data.explicitContentState != "blocked";
+        allow create, update, delete: if false;
+      }
+      match /members/{memberId} {
+        allow get, list: if isAuthenticated() && memberId == request.auth.uid;
+        allow create, update, delete: if false;
+      }
+    }
+    match /users/{uid}/objectMemberships/{membershipId} {
+      allow read: if isOwner(uid);
+      allow create, update, delete: if false;
+    }
+    match /users/{uid}/mutedObjects/{objectId} {
+      allow read, write: if isOwner(uid);
+    }
+    match /users/{uid}/mutedHubs/{hubId} {
+      allow read, write: if isOwner(uid);
+    }
+    match /hubContentReports/{reportId} {
+      allow create: if isAuthenticated()
+        && request.resource.data.reporterUid == request.auth.uid
+        && request.resource.data.keys().hasAll(["hubId", "reporterUid", "reason", "createdAt", "status"])
+        && request.resource.data.status == "pending";
+      allow read, update, delete: if false;
+    }
+    match /safetyReports/{reportId} {
+      allow create: if isAuthenticated()
+        && request.resource.data.reporterUid == request.auth.uid
+        && request.resource.data.keys().hasAll(["reporterUid", "targetId", "category", "createdAt", "status"])
+        && request.resource.data.status == "pending";
+      allow read: if isAuthenticated()
+        && (request.auth.uid == resource.data.reporterUid || isAdmin());
+      allow update, delete: if false;
+    }
+    match /users/{uid}/wellbeingSignals/{signalId} {
+      allow create: if isOwner(uid)
+        && request.resource.data.uid == uid;
+      allow read: if isOwner(uid);
+      allow update, delete: if false;
+    }
+    match /users/{uid}/sessionBoundaries/{docId} {
+      allow read, write: if isOwner(uid);
+    }
+    match /users/{uid}/trustedContacts/{contactId} {
+      allow read, write: if isOwner(uid);
+    }
+    match /users/{uid}/feedControlState/{docId} {
+      allow read, write: if isOwner(uid);
+    }
+    match /contentIntegrityLabels/{labelId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+    match /users/{uid}/bereanMemory/{entryId} {
+      allow read: if isOwner(uid);
+      allow write: if false;
+    }
+    match /bereanThreads/{threadId} {
+      allow read: if isAuthenticated()
+        && resource.data.ownerId == request.auth.uid;
+      allow write: if false;
+    }
+    match /bereanPreferences/{uid} {
+      allow read, write: if isOwner(uid);
+    }
+    match /users/{uid}/journey_engagement/{dayKey} {
+      allow read, write: if isOwner(uid);
+    }
+    match /users/{uid}/journey_state/{docId} {
+      allow read, write: if isOwner(uid);
+    }
+    match /users/{uid}/journey_milestones/{milestoneId} {
+      allow read: if isOwner(uid);
+      allow write: if false;
+    }
+    match /users/{uid}/spiritual_memory/{recordId} {
+      allow read, write: if isOwner(uid);
+    }
+    match /users/{uid}/spiritual_graph_state/{docId} {
+      allow read: if isOwner(uid);
+      allow write: if false;
+    }
+    match /spiritual_graph/edges/items/{edgeId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+    match /users/{uid}/contentDrafts/{draftId} {
+      allow read, write: if isOwner(uid);
+    }
+    match /selah_media/{itemId} {
+      allow read: if isAuthenticated()
+        && (resource.data.trustCircleTier == "community"
+            || resource.data.trustCircleTier == "public");
+      allow create: if isAuthenticated()
+        && request.resource.data.authorId == request.auth.uid
+        && request.resource.data.keys().hasAll(["authorId", "type", "mediaURL", "caption",
+             "trustCircleTier", "createdAt"])
+        && (!request.resource.data.keys().hasAny(["aiSummary", "aiContextVerified"])
+            || (request.resource.data.get("aiSummary", null) == null
+                && request.resource.data.get("aiContextVerified", null) == null));
+      allow update: if isAuthenticated()
+        && resource.data.authorId == request.auth.uid
+        && !request.resource.data.keys().hasAny(["aiSummary", "aiContextVerified"]);
+      allow delete: if isAuthenticated() && resource.data.authorId == request.auth.uid;
+      match /comment_room/{messageId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated()
+          && request.resource.data.authorId == request.auth.uid
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 500;
+        allow delete: if isAuthenticated() && resource.data.authorId == request.auth.uid;
+        allow update: if false;
+      }
+      match /likes/{likerId} {
+        allow read: if isAuthenticated();
+        allow write: if isAuthenticated() && likerId == request.auth.uid;
+      }
+    }
+    match /selah_meaning_graph/{edgeId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+    match /selahAuditLogs/{logId} {
+      allow read, write: if false;
+    }
+    match /users/{uid}/selah_memories/{memId} {
+      allow read, delete: if isOwner(uid);
+      allow create: if isOwner(uid)
+        && request.resource.data.userId == uid
+        && request.resource.data.keys().hasAll(["userId", "title", "bodyText",
+             "linkedMediaIds", "meaningTags", "intentSignal", "createdAt"])
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 100
+        && request.resource.data.get("aiSummary", null) == null;
+      allow update: if isOwner(uid)
+        && resource.data.userId == uid
+        && !request.resource.data.keys().hasAny(["aiSummary", "aiContextVerified"]);
+    }
+    match /users/{uid}/selah_reflections/{reflId} {
+      allow read, delete: if isOwner(uid);
+      allow create: if isOwner(uid)
+        && request.resource.data.userId == uid
+        && request.resource.data.text is string
+        && request.resource.data.text.size() <= 2000;
+      allow update: if isOwner(uid)
+        && resource.data.userId == uid
+        && request.resource.data.userId == uid;
+    }
+    match /users/{uid}/selah_continuations/{contId} {
+      allow read: if isOwner(uid);
+      allow create: if isOwner(uid)
+        && request.resource.data.userId == uid;
+      allow update: if isOwner(uid)
+        && resource.data.userId == uid;
+      allow delete: if isOwner(uid);
+    }
+    match /users/{uid}/selah_outcomes/{outcomeId} {
+      allow read: if isOwner(uid);
+      allow write: if false;
+    }
+    match /users/{uid}/selah_trust_circles/{circleId} {
+      allow read, write: if isOwner(uid);
+    }
+    match /users/{uid}/selah_sessions/{sessionId} {
+      allow read, write: if isOwner(uid);
+    }
+    match /users/{uid}/selah_creator_projects/{projectId} {
+      allow read, write: if isOwner(uid);
+    }
+    match /users/{uid}/selah_saved/{itemId} {
+      allow read, write: if isOwner(uid);
+    }
+    match /rateLimits/{bucketId} {
+      allow read, write: if false;
+    }
+    match /users/{userId}/unsentThoughts/{docId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId)
+        && request.resource.data.userId == userId
+        && request.resource.data.keys().hasOnly([
+          'userId', 'sourceSurface', 'draftText', 'emotionalIntensityScore',
+          'riskFlags', 'suggestedAction', 'resolvedAt', 'resolutionType',
+          'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.sourceSurface is string
+        && request.resource.data.riskFlags is list;
+      allow update: if isOwner(userId)
+        && request.resource.data.userId == userId;
+      allow delete: if isOwner(userId);
+    }
+    match /users/{userId}/scriptureDriftSignals/{docId} {
+      allow read: if isOwner(userId);
+      allow create: if false;
+      allow update: if isOwner(userId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['dismissed'])
+        && request.resource.data.dismissed == true;
+      allow delete: if isOwner(userId);
+    }
+    match /users/{userId}/silenceSignals/{docId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId)
+        && request.resource.data.userId == userId
+        && request.resource.data.keys().hasOnly([
+          'userId', 'targetType', 'targetId', 'avoidanceCount',
+          'lastAvoidedAt', 'suggestedAction', 'status', 'createdAt'
+        ])
+        && request.resource.data.status in ['active', 'resolved', 'dismissed'];
+      allow update: if isOwner(userId)
+        && request.resource.data.userId == userId
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['suggestedAction'])
+            || request.resource.data.suggestedAction == resource.data.suggestedAction);
+      allow delete: if isOwner(userId);
+    }
+    match /users/{userId}/relationalGravityNodes/{nodeId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId)
+        && request.resource.data.userId == userId
+        && request.resource.data.personId is string
+        && request.resource.data.relationshipType in [
+          'friend', 'family', 'mentor', 'mentee', 'church_member', 'colleague', 'pastor'
+        ]
+        && request.resource.data.currentState in [
+          'peaceful', 'tense', 'growing', 'drifting', 'unresolved', 'needs_prayer'
+        ];
+      allow update: if isOwner(userId)
+        && request.resource.data.userId == userId
+        ;
+      allow delete: if isOwner(userId);
+    }
+    match /users/{userId}/momentInterceptions/{docId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId)
+        && request.resource.data.userId == userId
+        && request.resource.data.triggerType is string
+        && request.resource.data.sourceSurface is string
+        && request.resource.data.riskScore is number
+        && request.resource.data.riskScore >= 0.0
+        && request.resource.data.riskScore <= 1.0;
+      allow update: if false;
+      allow delete: if false;
+    }
+    match /users/{userId}/postActionReflections/{docId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId)
+        && request.resource.data.userId == userId
+        && request.resource.data.sourceActionId is string
+        && request.resource.data.actionType is string;
+      allow update: if isOwner(userId)
+        && request.resource.data.userId == userId;
+      allow delete: if isOwner(userId);
+    }
+    match /users/{userId}/truthEmotionAnalyses/{docId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId)
+        && request.resource.data.userId == userId;
+      allow update: if isOwner(userId);
+      allow delete: if isOwner(userId);
+    }
+    match /users/{userId}/weightOfWordsScores/{docId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId)
+        && request.resource.data.userId == userId;
+      allow update: if isOwner(userId);
+      allow delete: if isOwner(userId);
+    }
+    match /users/{userId}/eternalWeightSignals/{docId} {
+      allow read: if isOwner(userId);
+      allow create: if false;
+      allow update: if isOwner(userId)
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['state', 'updatedAt'])
+        && request.resource.data.state in [
+          'growing', 'neutral', 'misaligned', 'needs_reflection', 'bearing_fruit'
+        ];
+      allow delete: if isOwner(userId);
+    }
+    match /users/{userId}/growthPatterns/{docId} {
+      allow read: if isOwner(userId);
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
+    }
+    match /users/{userId}/momentLearning/{docId} {
+      allow read: if isOwner(userId);
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
+    }
+    match /users/{userId}/aiUsageEvents/{docId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId)
+        && request.resource.data.userId == userId
+        && request.resource.data.keys().hasOnly([
+          'userId', 'targetType', 'targetId', 'aiUseTypes',
+          'primaryLabel', 'eventType', 'timestamp'
+        ])
+        && !('rawText' in request.resource.data)
+        && !('promptText' in request.resource.data)
+        && !('originalText' in request.resource.data);
+      allow update: if false;
+      allow delete: if false;
+    }
+    match /users/{userId}/discernmentSignalsSent/{docId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId)
+        && request.resource.data.keys().hasOnly(['contentId', 'signalType', 'createdAt'])
+        && request.resource.data.signalType in [
+          'clarification_needed', 'concern_raised', 'community_encouragement',
+          'confusion_signal', 'berean_analysis_requested', 'scripture_shared'
+        ];
+      allow update: if false;
+      allow delete: if false;
+    }
+    match /contentDiscernmentAggregates/{contentId} {
+      allow read: if request.auth != null;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
+      match /signals/{signalType} {
+        allow read: if request.auth != null;
+        allow create: if false;
+        allow update: if false;
+        allow delete: if false;
+      }
+    }
+    match /mediaModeration/{mediaId} {
+      allow read: if request.auth != null
+                  && (resource.data.userId == request.auth.uid
+                      || isAdmin()
+                      || request.auth.token.moderator == true);
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
+    }
+    match /humanReviewQueue/{reviewId} {
+      allow read: if request.auth != null
+                  && (isAdmin() || request.auth.token.moderator == true);
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
+    }
+    match /accountRiskScores/{userId} {
+      allow read: if request.auth != null && isAdmin();
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
+    }
+    match /users/{uid}/feedIntelligence/{document=**} {
+      allow read: if isOwner(uid);
+      allow write: if false;
+    }
+    match /posts/{postId}/recommendationMetadata/{document=**} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+    match /semanticDefinitions/{definitionId} {
+      allow read: if request.auth != null
+                  && resource != null
+                  && resource.data.safetyStatus == "approved";
+      allow create: if false;
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+    match /users/{uid}/semanticInsights/{insightId} {
+      allow read: if isOwner(uid);
+      allow create: if false;
+      allow update: if isOwner(uid)
+                    && request.resource.data.keys().hasOnly([
+                         "userNote", "updatedAt", "visibility"
+                       ]);
+      allow delete: if isOwner(uid);
+    }
+    match /users/{uid}/knowledgeThreads/{threadId} {
+      allow read: if isOwner(uid);
+      allow create: if false;
+      allow update: if isOwner(uid)
+                    && request.resource.data.keys().hasOnly([
+                         "title", "sourceObjects", "relatedScriptureRefs",
+                         "savedInsightIds", "updatedAt", "lastOpenedAt"
+                       ]);
+      allow delete: if isOwner(uid);
+    }
+    match /users/{uid}/presenceSignals/{signalId} {
+      allow read: if isOwner(uid);
+      allow create: if false;
+      allow update: if false;
+      allow delete: if isOwner(uid);
+    }
+    function connectMember(spaceId) {
+      return get(/databases/$(database)/documents/connectSpaces/$(spaceId)/members/$(request.auth.uid));
+    }
+    function isConnectMember(spaceId) {
+      return isAuthenticated()
+        && exists(/databases/$(database)/documents/connectSpaces/$(spaceId)/members/$(request.auth.uid))
+        && connectMember(spaceId).data.get('status', 'active') == 'active';
+    }
+    function connectRole(spaceId) {
+      return connectMember(spaceId).data.get('role', 'guest');
+    }
+    function isConnectAdmin(spaceId) {
+      return isConnectMember(spaceId) && connectRole(spaceId) in ['owner', 'admin'];
+    }
+    function isConnectModerator(spaceId) {
+      return isConnectMember(spaceId) && connectRole(spaceId) in ['owner', 'admin', 'moderator'];
+    }
+    function isConnectLeader(spaceId) {
+      return isConnectMember(spaceId) && connectRole(spaceId) in ['owner', 'admin', 'moderator', 'leader', 'mentor', 'creator', 'teacher'];
+    }
+    function connectClientMutableFields() {
+      return ['title', 'body', 'description', 'updatedAt', 'aiExcluded', 'notificationSettings', 'readAt', 'reaction'];
+    }
+    function connectServerOwnedFields() {
+      return [
+        'ownerId', 'createdBy', 'createdAt', 'memberCount', 'role', 'status',
+        'moderationStatus', 'safetyStatus', 'trustBadges', 'verificationBadges',
+        'paymentState', 'purchaseState', 'membershipStatus', 'payoutState',
+        'aiSummary', 'summary', 'sourceRefs', 'auditRefs', 'riskReasons'
+      ];
+    }
+    function connectClientDoesNotWriteServerFields() {
+      return !request.resource.data.keys().hasAny(connectServerOwnedFields());
+    }
+    function connectVisibilityAllowed(spaceId) {
+      return resource.data.get('visibility', 'publicToSpace') in ['publicToSpace', 'channelOnly']
+        || isConnectLeader(spaceId)
+        || (resource.data.get('visibility', '') == 'paidTier'
+            && exists(/databases/$(database)/documents/connectMemberships/$(request.auth.uid + '_' + resource.data.get('requiredTierId', ''))));
+    }
+    function connectChannelAllowed(spaceId, channelId) {
+      let channel = get(/databases/$(database)/documents/connectSpaces/$(spaceId)/channels/$(channelId)).data;
+      return channel.get('visibility', 'publicToSpace') in ['publicToSpace', 'channelOnly']
+        || isConnectLeader(spaceId)
+        || (channel.get('visibility', '') == 'paidTier'
+            && exists(/databases/$(database)/documents/connectMemberships/$(request.auth.uid + '_' + channel.get('requiredTierId', ''))));
+    }
+    match /connectSpaces/{spaceId} {
+      allow read: if isAuthenticated()
+        && (isConnectMember(spaceId) || resource.data.get('visibility', '') == 'publicToSpace');
+      allow create, update, delete: if false;
+      match /members/{userId} {
+        allow read: if isConnectMember(spaceId);
+        allow create, update, delete: if false;
+      }
+      match /channels/{channelId} {
+        allow read: if isConnectMember(spaceId) && connectVisibilityAllowed(spaceId);
+        allow create, update, delete: if false;
+        match /messages/{messageId} {
+          allow read: if isConnectMember(spaceId)
+            && connectChannelAllowed(spaceId, channelId)
+            && resource.data.get('deletedAt', null) == null
+            && resource.data.get('aiExcluded', false) != true;
+          allow create, update, delete: if false;
+        }
+        match /threads/{threadId} {
+          allow read: if isConnectMember(spaceId) && connectChannelAllowed(spaceId, channelId);
+          allow create, update, delete: if false;
+        }
+      }
+      match /boards/{boardId} {
+        allow read: if isConnectMember(spaceId) && connectVisibilityAllowed(spaceId);
+        allow create, update, delete: if false;
+        match /blocks/{blockId} {
+          allow read: if isConnectMember(spaceId) && connectVisibilityAllowed(spaceId);
+          allow create, update, delete: if false;
+        }
+      }
+      match /meetings/{meetingId} {
+        allow read: if isConnectMember(spaceId) && connectVisibilityAllowed(spaceId);
+        allow create, update, delete: if false;
+      }
+      match /events/{eventId} {
+        allow read: if isConnectMember(spaceId) && connectVisibilityAllowed(spaceId);
+        allow create, update, delete: if false;
+      }
+      match /marketplaceListings/{listingId} {
+        allow read: if isConnectMember(spaceId) && resource.data.get('moderationStatus', 'pending') in ['approved', 'allowed'];
+        allow create, update, delete: if false;
+        match /applications/{applicationId} {
+          allow read: if isConnectModerator(spaceId) || (isAuthenticated() && resource.data.get('createdBy', '') == request.auth.uid);
+          allow create, update, delete: if false;
+        }
+      }
+      match /reports/{reportId} {
+        allow read: if isConnectModerator(spaceId) || (isAuthenticated() && resource.data.get('reporterId', '') == request.auth.uid);
+        allow create, update, delete: if false;
+      }
+      match /auditLogs/{logId} {
+        allow read: if isConnectAdmin(spaceId);
+        allow write: if false;
+      }
+      match /aiSummaries/{summaryId} {
+        allow read: if isConnectMember(spaceId)
+          && resource.data.get('requestedBy', request.auth.uid) == request.auth.uid
+          && resource.data.get('excludesAIExcludedContent', true) == true
+          && resource.data.get('excludesPaidWithoutAccess', true) == true;
+        allow write: if false;
+      }
+      match /tasks/{taskId} {
+        allow read: if isConnectMember(spaceId) && connectVisibilityAllowed(spaceId);
+        allow create, update, delete: if false;
+      }
+      match /resources/{resourceId} {
+        allow read: if isConnectMember(spaceId) && connectVisibilityAllowed(spaceId);
+        allow create, update, delete: if false;
+      }
+      match /invites/{inviteId} {
+        allow read: if isConnectAdmin(spaceId) || (isAuthenticated() && resource.data.get('inviteeUid', '') == request.auth.uid);
+        allow write: if false;
+      }
+    }
+    match /connectDMs/{dmId} {
+      allow read: if isAuthenticated() && request.auth.uid in resource.data.get('participantIds', []);
+      allow create, update, delete: if false;
+      match /messages/{messageId} {
+        allow read: if isAuthenticated()
+          && request.auth.uid in get(/databases/$(database)/documents/connectDMs/$(dmId)).data.get('participantIds', [])
+          && resource.data.get('aiExcluded', false) != true;
+        allow create, update, delete: if false;
+      }
+    }
+    match /connectActivity/{userId}/items/{activityId} {
+      allow read: if isOwner(userId);
+      allow write: if false;
+    }
+    function connectCatchUpClientMutableFields() {
+      return ['readState', 'keptUnreadAt', 'reminderSuggestedAt', 'reminderAt', 'updatedAt'];
+    }
+    function connectCatchUpServerOwnedFields() {
+      return [
+        'userId', 'sourceType', 'sourceId', 'spaceId', 'channelId', 'threadId',
+        'messageIds', 'title', 'subtitle', 'previewText', 'authorPreview',
+        'unreadCount', 'mentionCount', 'priority', 'priorityRank', 'visibility',
+        'requiredRole', 'requiredTier', 'requiredTierId', 'isConfidential',
+        'isYouthProtected', 'isAIExcluded', 'isDeleted', 'aiSummary',
+        'aiSummaryStatus', 'aiOutput', 'sourceRefs', 'generatedBy',
+        'createdAt', 'readAt', 'keepUnreadCount', 'metadata'
+      ];
+    }
+    function validConnectCatchUpOwner(userId) {
+      return isOwner(userId)
+        && (!request.resource.data.keys().hasAny(['userId']) || request.resource.data.userId == userId);
+    }
+    function connectReminderOwnerPayload(userId) {
+      return isOwner(userId)
+        && request.resource.data.userId == userId
+        && request.resource.data.sourceType in ['channel', 'dm', 'thread', 'announcement', 'meeting', 'calendarEvent', 'marketplace', 'creator', 'safety', 'admin']
+        && request.resource.data.sourceId is string
+        && request.resource.data.title is string
+        && request.resource.data.previewText is string
+        && request.resource.data.remindAt is timestamp
+        && request.resource.data.status in ['scheduled', 'fired', 'dismissed', 'canceled']
+        && request.resource.data.keys().hasOnly([
+          'userId', 'sourceType', 'sourceId', 'savedItemId', 'title', 'previewText',
+          'remindAt', 'status', 'createdAt', 'updatedAt'
+        ]);
+    }
+    match /connectCatchUp/{userId}/items/{catchUpItemId} {
+      allow read: if isOwner(userId);
+      allow create: if false;
+      allow update: if isOwner(userId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(connectCatchUpClientMutableFields())
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(connectCatchUpServerOwnedFields())
+        && (!request.resource.data.keys().hasAny(['readState']) || request.resource.data.readState in ['unread', 'keptUnread', 'markedRead'])
+        && (!request.resource.data.keys().hasAny(['aiSummaryStatus']) || request.resource.data.aiSummaryStatus == resource.data.get('aiSummaryStatus', 'unavailable'))
+        && (!request.resource.data.keys().hasAny(['previewText']) || request.resource.data.previewText == resource.data.get('previewText', ''));
+      allow delete: if false;
+    }
+    match /connectSaved/{userId}/items/{savedItemId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId)
+        && request.resource.data.userId == userId
+        && request.resource.data.sourceType in ['channel', 'dm', 'thread', 'announcement', 'meeting', 'calendarEvent', 'marketplace', 'creator', 'safety', 'admin']
+        && request.resource.data.sourceId is string
+        && request.resource.data.title is string
+        && request.resource.data.previewText is string
+        && request.resource.data.previewText.size() <= 500
+        && request.resource.data.keys().hasOnly([
+          'userId', 'sourceType', 'sourceId', 'spaceId', 'channelId', 'threadId',
+          'messageId', 'title', 'previewText', 'savedAt', 'reminderAt',
+          'priority', 'priorityRank', 'tags', 'createdAt', 'updatedAt'
+        ]);
+      allow update: if isOwner(userId)
+        && resource.data.userId == userId
+        && request.resource.data.userId == userId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['tags', 'reminderAt', 'updatedAt']);
+      allow delete: if isOwner(userId) && resource.data.userId == userId;
+    }
+    match /connectReminders/{userId}/items/{reminderId} {
+      allow read: if isOwner(userId);
+      allow create: if connectReminderOwnerPayload(userId);
+      allow update: if isOwner(userId)
+        && resource.data.userId == userId
+        && request.resource.data.userId == userId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['remindAt', 'status', 'updatedAt'])
+        && request.resource.data.status in ['scheduled', 'fired', 'dismissed', 'canceled'];
+      allow delete: if isOwner(userId) && resource.data.userId == userId;
+    }
+    match /connectUndo/{userId}/items/{undoActionId} {
+      allow read: if isOwner(userId);
+      allow create, update, delete: if false;
+    }
+    match /connectNotifications/{userId}/items/{notificationId} {
+      allow read: if isOwner(userId);
+      allow write: if false;
+    }
+    match /connectMarketplaceGlobal/{listingId} {
+      allow read: if isAuthenticated() && resource.data.get('moderationStatus', 'pending') in ['approved', 'allowed'];
+      allow write: if false;
+    }
+    match /connectCreatorProfiles/{creatorId} {
+      allow read: if isAuthenticated() && resource.data.get('safetyStatus', 'pending') in ['allowed', 'allow_with_warning', 'pending'];
+      allow write: if false;
+      match /{subcollection}/{docId} {
+        allow read: if isAuthenticated()
+          && (resource.data.get('visibility', 'public') == 'public'
+              || exists(/databases/$(database)/documents/connectMemberships/$(request.auth.uid + '_' + resource.data.get('requiredTierId', ''))));
+        allow write: if false;
+      }
+    }
+    match /connectMemberships/{membershipId} {
+      allow read: if isAuthenticated() && resource.data.get('userId', '') == request.auth.uid;
+      allow write: if false;
+    }
+    match /connectPayments/{paymentId} {
+      allow read: if isAuthenticated() && resource.data.get('userId', '') == request.auth.uid;
+      allow write: if false;
+    }
+    match /connectPayouts/{payoutId} {
+      allow read: if isAuthenticated() && resource.data.get('userId', '') == request.auth.uid;
+      allow write: if false;
+    }
+    match /connectPurchases/{purchaseId} {
+      allow read: if isAuthenticated() && resource.data.get('userId', '') == request.auth.uid;
+      allow write: if false;
+    }
+    match /connectBookings/{bookingId} {
+      allow read: if isAuthenticated() && (resource.data.get('userId', '') == request.auth.uid || resource.data.get('providerId', '') == request.auth.uid);
+      allow write: if false;
+    }
+    match /connectReviews/{reviewId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+    match /connectGiftMemberships/{giftId} {
+      allow read: if isAuthenticated() && (resource.data.get('senderId', '') == request.auth.uid || resource.data.get('recipientId', '') == request.auth.uid);
+      allow write: if false;
+    }
+    match /connectScholarships/{scholarshipId} {
+      allow read: if isAuthenticated() && (resource.data.get('sponsorId', '') == request.auth.uid || resource.data.get('recipientId', '') == request.auth.uid);
+      allow write: if false;
+    }
+    match /connectUserTrust/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow write: if false;
+    }
+    match /connectUserSafety/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow write: if false;
+      match /reports/{reportId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow write: if false;
+      }
+    }
+    match /_rateLimits/{document=**} {
+      allow read: if false;
+      allow write: if false;
+    }
+    match /_analyticsEvents/{eventId} {
+      allow read: if false;
+      allow write: if false;
+    }
+    match /_semanticInFlight/{requestId} {
+      allow read: if false;
+      allow write: if false;
+    }
+    match /posts/{postId}/voiceComments/{voiceCommentId} {
+      allow get: if isAuthenticated()
+        && resource.data.status == "published"
+        && (resource.data.visibility != "private"
+            || resource.data.authorUid == request.auth.uid)
+        && (resource.data.visibility != "prayer_circle"
+            || resource.data.authorUid == request.auth.uid);
+      allow list: if isAuthenticated();
+      allow create: if isAuthenticated()
+        && callerIsEmailVerified()
+        && request.resource.data.authorUid == request.auth.uid
+        && request.resource.data.status == "processing"
+        && !request.resource.data.keys().hasAny([
+            "transcript", "transcriptStatus", "summary", "language",
+            "moderation", "intent", "spiritualContext"
+          ])
+        && request.resource.data.type in ["prayer", "testimony"]
+        && request.resource.data.visibility in [
+            "public", "followers", "church", "prayer_circle", "private"
+          ]
+        && request.resource.data.counts.prayed    == 0
+        && request.resource.data.counts.amen      == 0
+        && request.resource.data.counts.encourage == 0
+        && request.resource.data.counts.replies   == 0
+        && request.resource.data.counts.reports   == 0;
+      allow update: if isAuthenticated()
+        && resource.data.authorUid == request.auth.uid
+        && resource.data.status == "processing"
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(["waveform", "audioDurationMs", "visibility", "updatedAt"])
+        && request.resource.data.get("transcript",      resource.data.get("transcript", ""))
+            == resource.data.get("transcript", "")
+        && request.resource.data.get("moderation",      resource.data.get("moderation", null))
+            == resource.data.get("moderation", null)
+        && request.resource.data.get("status", resource.data.status)
+            == resource.data.status;
+      allow delete: if isAuthenticated()
+        && resource.data.authorUid == request.auth.uid;
+    }
+    match /voiceCommentAuditLog/{docId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /voiceCommentRateLimits/{docId} {
+      allow read: if false;
+      allow write: if false;
+    }
+    match /voiceCommentReports/{docId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /voiceCommentReactions/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+  }
+}

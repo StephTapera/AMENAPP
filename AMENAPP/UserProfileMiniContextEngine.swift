@@ -37,42 +37,46 @@ struct UserProfileMiniContextEngine: UserProfileMiniContextResolving {
         let secondaryAction = secondaryAction(for: model)
         let reasons = reasons(for: model)
         let explanation = explanation(for: model)
+        let showContextPanel = !reasons.isEmpty || (model.suggestionScore ?? 0) >= 0.15
         return UserMiniContextSnapshot(
             primaryAction: primaryAction,
             secondaryAction: secondaryAction,
             reasons: reasons,
             explanation: explanation,
             priorityExplanation: priorityExplanation(for: model),
-            smartActions: smartActions(for: model)
+            smartActions: smartActions(for: model),
+            showContextPanel: showContextPanel
         )
     }
 
     // MARK: Primary Action
 
     func primaryAction(for model: UserProfileMiniModel) -> UserMiniPrimaryAction {
-        if model.isProfileUnavailable || model.isBlocked { return .follow }
-        if model.isFollowed {
-            switch model.suggestionSource {
-            case .testimonies:
-                return .viewTestimony(postId: nil)
-            case .openTable:
-                return .joinConversation
-            case .prayer:
-                return model.canMessage ? .prayTogether : .follow
-            case .discovery, .findFriends, .unknown:
-                return .follow
-            }
-        }
+        if model.isProfileUnavailable || model.isBlocked { return .viewProfile }
 
         switch model.suggestionSource {
-        case .openTable:
-            return .joinConversation
-        case .prayer:
-            return .prayTogether
-        case .testimonies:
-            return .viewTestimony(postId: nil)
         case .discovery, .findFriends, .unknown:
-            return .follow
+            return model.isFollowed ? .viewProfile : .follow
+
+        case .openTable:
+            guard let trigger = model.trigger else { return .follow }
+            switch trigger.viewerState {
+            case .unread:  return .readThread
+            case .read:    return .joinConversation
+            case .replied: return .follow
+            default:       return .joinConversation
+            }
+
+        case .prayer:
+            guard let trigger = model.trigger else {
+                return model.canMessage ? .prayTogether : .follow
+            }
+            if trigger.viewerState == .prayedToday { return .follow }
+            if let topic = trigger.topic, !topic.isEmpty { return .prayForTopic(topic: topic) }
+            return model.canMessage ? .prayTogether : .follow
+
+        case .testimonies:
+            return .viewTestimony(postId: model.trigger?.artifactId, title: model.trigger?.title)
         }
     }
 
@@ -115,7 +119,7 @@ struct UserProfileMiniContextEngine: UserProfileMiniContextResolving {
             ))
         }
 
-        // 3. Prayer/testimony/topic overlap
+        // Prayer/testimony/topic overlap
         if let prayerCount = model.sharedPrayerCount, prayerCount > 0 {
             let label = prayerCount == 1
                 ? "1 shared prayer topic"
@@ -147,7 +151,7 @@ struct UserProfileMiniContextEngine: UserProfileMiniContextResolving {
             ))
         }
 
-        // 4. Mutuals
+        // Mutuals
         if let mutuals = model.mutualConnectionCount, mutuals > 0 {
             let label = mutuals == 1
                 ? "1 mutual connection"
@@ -158,7 +162,7 @@ struct UserProfileMiniContextEngine: UserProfileMiniContextResolving {
             ))
         }
 
-        // 5. City/community relevance
+        // City/community relevance
         if let communityReason = model.communityReason, !communityReason.isEmpty, reasons.count < 3 {
             reasons.append(UserMiniReason(
                 id: "community",
@@ -168,37 +172,32 @@ struct UserProfileMiniContextEngine: UserProfileMiniContextResolving {
             ))
         }
 
-        switch model.suggestionSource {
-        case .openTable:
-            if reasons.count < 3 {
+        // Source-specific fallback — only used when no primary signals exist
+        if reasons.isEmpty {
+            switch model.suggestionSource {
+            case .openTable:
                 reasons.append(UserMiniReason(
                     id: "opentable", label: "Engages with similar topics",
                     icon: "text.bubble", kind: .topicOverlap
                 ))
-            }
-        case .testimonies:
-            if reasons.count < 3 {
+            case .testimonies:
                 reasons.append(UserMiniReason(
                     id: "testimony", label: "Shares testimony content",
                     icon: "quote.bubble", kind: .testimonyOverlap
                 ))
-            }
-        case .discovery, .findFriends:
-            if reasons.count < 3 {
+            case .discovery, .findFriends:
                 reasons.append(UserMiniReason(
                     id: "interests", label: "Shared faith interests",
                     icon: "sparkle", kind: .sharedInterest
                 ))
-            }
-        case .prayer:
-            if reasons.isEmpty && reasons.count < 3 {
+            case .prayer:
                 reasons.append(UserMiniReason(
                     id: "prayer_active", label: "Active in prayer conversations",
                     icon: "hands.sparkles", kind: .prayerOverlap
                 ))
+            case .unknown:
+                break
             }
-        case .unknown:
-            break
         }
 
         if let city = model.city, reasons.count < 3 {
@@ -208,7 +207,7 @@ struct UserProfileMiniContextEngine: UserProfileMiniContextResolving {
             ))
         }
 
-        // 6. Popularity fallback
+        // Popularity fallback
         if let popularityReason = model.popularityReason, !popularityReason.isEmpty, reasons.count < 3 {
             reasons.append(UserMiniReason(
                 id: "popularity",

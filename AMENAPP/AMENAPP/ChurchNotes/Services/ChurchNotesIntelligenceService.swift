@@ -99,46 +99,12 @@ final class ChurchNotesIntelligenceService {
         sourceNote: ChurchNoteV2,
         sourceBlocks: [ChurchNoteBlockV2],
         allNotes: [ChurchNoteV2]
-    ) -> [ChurchNoteConnection] {
-        let sourceThemes = Set(extractThemes(from: sourceBlocks).map { $0.theme })
-        let sourceScriptures = Set(sourceNote.scriptureReferences.map { $0.lowercased() })
-
-        var connections: [ChurchNoteConnection] = []
-
-        for candidate in allNotes {
-            guard candidate.id != sourceNote.id else { continue }
-
-            // Build candidate theme set from tags (fast, no subcollection read)
-            let candidateThemes: Set<String> = Set(
-                candidate.tags.flatMap { tag -> [String] in
-                    extractThemeKeys(from: tag.lowercased())
-                }
-            )
-            let candidateScriptures = Set(candidate.scriptureReferences.map { $0.lowercased() })
-
-            let themeOverlap = sourceThemes.intersection(candidateThemes)
-            let scriptureOverlap = sourceScriptures.intersection(candidateScriptures)
-
-            let themeScore = Double(themeOverlap.count) / max(Double(sourceThemes.count), 1)
-            let scriptureScore = Double(scriptureOverlap.count) / max(Double(sourceScriptures.count), 1)
-            let strength = (themeScore * 0.6) + (scriptureScore * 0.4)
-
-            guard strength > 0.15 else { continue }
-
-            let sharedLabels = Array(themeOverlap.union(scriptureOverlap)).sorted().prefix(3).map { $0 }
-            connections.append(ChurchNoteConnection(
-                relatedNoteId: candidate.id,
-                relatedNoteTitle: candidate.title.isEmpty ? "Untitled note" : candidate.title,
-                relatedNoteDate: candidate.updatedAt,
-                sharedThemes: Array(sharedLabels),
-                connectionStrength: min(strength, 1.0)
-            ))
-        }
-
-        return connections
-            .sorted { $0.connectionStrength > $1.connectionStrength }
-            .prefix(4)
-            .map { $0 }
+    ) async -> [ChurchNoteConnection] {
+        await ChurchNoteConnectionScorer.shared.findConnections(
+            sourceNote: sourceNote,
+            sourceBlocks: sourceBlocks,
+            allNotes: allNotes
+        )
     }
 
     private func extractThemeKeys(from text: String) -> [String] {
@@ -392,5 +358,107 @@ struct CNSermonMap {
     var isEmpty: Bool {
         centralTheme.isEmpty && supportingPoints.isEmpty && prayers.isEmpty
             && actions.isEmpty && questions.isEmpty && verses.isEmpty
+    }
+}
+
+private actor ChurchNoteConnectionScorer {
+    static let shared = ChurchNoteConnectionScorer()
+
+    private let themeMap: [String: String] = [
+        "trust": "trust", "faith": "trust",
+        "wait": "waiting", "patience": "waiting",
+        "obey": "obedience", "obedience": "obedience",
+        "surrender": "surrender", "yield": "surrender",
+        "hope": "hope", "expect": "hope",
+        "fear": "fear", "anxiety": "fear",
+        "family": "family", "marriage": "family",
+        "prayer": "prayer", "pray": "prayer",
+        "forgive": "forgiveness",
+        "purpose": "purpose", "calling": "purpose",
+    ]
+
+    func findConnections(
+        sourceNote: ChurchNoteV2,
+        sourceBlocks: [ChurchNoteBlockV2],
+        allNotes: [ChurchNoteV2]
+    ) -> [ChurchNoteConnection] {
+        let sourceThemes = Set(extractThemes(from: sourceBlocks).map { $0.theme })
+        let sourceScriptures = Set(sourceNote.scriptureReferences.map { $0.lowercased() })
+
+        var connections: [ChurchNoteConnection] = []
+        for candidate in allNotes {
+            guard candidate.id != sourceNote.id else { continue }
+
+            let candidateThemes = Set(candidate.tags.flatMap { extractThemeKeys(from: $0.lowercased()) })
+            let candidateScriptures = Set(candidate.scriptureReferences.map { $0.lowercased() })
+
+            let themeOverlap = sourceThemes.intersection(candidateThemes)
+            let scriptureOverlap = sourceScriptures.intersection(candidateScriptures)
+            let themeScore = Double(themeOverlap.count) / max(Double(sourceThemes.count), 1)
+            let scriptureScore = Double(scriptureOverlap.count) / max(Double(sourceScriptures.count), 1)
+            let strength = (themeScore * 0.6) + (scriptureScore * 0.4)
+
+            guard strength > 0.15 else { continue }
+
+            let sharedLabels = Array(themeOverlap.union(scriptureOverlap)).sorted().prefix(3).map { $0 }
+            connections.append(ChurchNoteConnection(
+                relatedNoteId: candidate.id,
+                relatedNoteTitle: candidate.title.isEmpty ? "Untitled note" : candidate.title,
+                relatedNoteDate: candidate.updatedAt,
+                sharedThemes: Array(sharedLabels),
+                connectionStrength: min(strength, 1.0)
+            ))
+        }
+
+        return connections
+            .sorted { $0.connectionStrength > $1.connectionStrength }
+            .prefix(4)
+            .map { $0 }
+    }
+
+    private func extractThemes(from blocks: [ChurchNoteBlockV2]) -> [(theme: String, count: Int)] {
+        let words = blocks
+            .map { $0.text }
+            .joined(separator: " ")
+            .lowercased()
+            .components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .filter { $0.count >= 4 }
+
+        let themeGroups: [(theme: String, keywords: [String])] = [
+            ("trust", ["trust", "faith", "believe", "relying", "depend"]),
+            ("surrender", ["surrender", "yield", "let go", "release", "give up"]),
+            ("waiting", ["wait", "waiting", "patient", "patience", "season"]),
+            ("obedience", ["obey", "obedience", "step out", "follow", "submit"]),
+            ("identity", ["identity", "who i am", "beloved", "child of god", "worth"]),
+            ("forgiveness", ["forgive", "forgiveness", "mercy", "grace", "pardon"]),
+            ("purpose", ["purpose", "calling", "destiny", "mission", "why"]),
+            ("prayer", ["pray", "prayer", "intercede", "petition", "ask god"]),
+            ("family", ["family", "marriage", "children", "spouse", "home"]),
+            ("grief", ["grief", "loss", "mourn", "pain", "hurt"]),
+            ("hope", ["hope", "expectation", "anticipate", "future", "ahead"]),
+            ("fear", ["fear", "afraid", "anxious", "worry", "anxiety"]),
+            ("leadership", ["lead", "leader", "shepherd", "influence", "serve"]),
+            ("humility", ["humble", "humility", "meek", "lowly", "pride"]),
+            ("community", ["community", "church", "together", "fellowship", "body"]),
+        ]
+
+        var scores: [String: Int] = [:]
+        for group in themeGroups {
+            let score = group.keywords.reduce(0) { total, keyword in
+                total + words.filter { $0.contains(keyword) }.count
+            }
+            if score > 0 {
+                scores[group.theme] = score
+            }
+        }
+
+        return scores
+            .sorted { $0.value > $1.value }
+            .prefix(5)
+            .map { (theme: $0.key, count: $0.value) }
+    }
+
+    private func extractThemeKeys(from text: String) -> [String] {
+        themeMap.compactMap { text.contains($0.key) ? $0.value : nil }
     }
 }

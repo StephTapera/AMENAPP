@@ -8,6 +8,42 @@
 
 import Foundation
 
+// MARK: - Trigger Type
+
+struct UserMiniTrigger: Equatable {
+    enum ArtifactType: String, Equatable {
+        case openTableThread = "openTableThread"
+        case prayerPost      = "prayerPost"
+        case testimonyPost   = "testimonyPost"
+    }
+
+    /// Viewer's engagement state with the artifact.
+    enum ViewerState: String, Equatable {
+        case unread, read, replied, prayedToday, viewed, unknown
+
+        /// Safely decode unknown raw values from the backend.
+        init(rawValue: String) {
+            switch rawValue {
+            case "unread":      self = .unread
+            case "read":        self = .read
+            case "replied":     self = .replied
+            case "prayedToday": self = .prayedToday
+            case "viewed":      self = .viewed
+            default:            self = .unknown
+            }
+        }
+    }
+
+    let artifactType: ArtifactType
+    let artifactId: String
+    let title: String?
+    let topic: String?
+    let viewerState: ViewerState
+}
+
+/// Spec alias: SuggestionTrigger == UserMiniTrigger.
+typealias SuggestionTrigger = UserMiniTrigger
+
 // MARK: - Core Model
 
 struct UserProfileMiniModel: Identifiable, Equatable {
@@ -22,7 +58,8 @@ struct UserProfileMiniModel: Identifiable, Equatable {
     let mutualConnectionCount: Int?
     let mutualConnectionPreview: [MiniMutualUser]     // up to 3
     let city: String?
-    let pronunciation: String?
+    let pronoun: String?                              // grammatical pronoun: "he/him", "she/her", "they/them"
+    let pronunciation: String?                        // name phonetics: "MAR-kus", separate from pronoun
     let badges: [UserMiniBadge]
     let contextReasons: [UserMiniReason]              // engine-derived
     let suggestionSource: UserMiniSuggestionSource
@@ -31,6 +68,7 @@ struct UserProfileMiniModel: Identifiable, Equatable {
     var isFollowed: Bool
     var isSavedSuggestion: Bool
     let profileRoute: String?                         // deep-link path if needed
+    let trigger: UserMiniTrigger?                     // surface-specific artifact from backend
     let directRelationshipReason: String?
     let recentSharedEngagementReason: String?
     let sharedTopicReason: String?
@@ -93,6 +131,7 @@ struct UserMiniContextSnapshot: Equatable {
     let explanation: String
     let priorityExplanation: String
     let smartActions: [UserMiniOverflowAction]
+    let showContextPanel: Bool
 }
 
 // MARK: - Suggestion Source / Context
@@ -112,25 +151,41 @@ enum UserMiniSuggestionSource: String, Equatable, CaseIterable {
 
 enum UserMiniPrimaryAction: Equatable {
     case follow
+    case viewProfile
+    case readThread
     case joinConversation
     case prayTogether
-    case viewTestimony(postId: String?)
+    case prayForTopic(topic: String)
+    case viewTestimony(postId: String?, title: String?)
 
     var label: String {
         switch self {
-        case .follow:            return "Follow"
-        case .joinConversation:  return "Join"
-        case .prayTogether:      return "Pray Together"
-        case .viewTestimony:     return "View Testimony"
+        case .follow:           return "Follow"
+        case .viewProfile:      return "View Profile"
+        case .readThread:       return "Read Thread"
+        case .joinConversation: return "Join"
+        case .prayTogether:     return "Pray Together"
+        case .prayForTopic(let topic):
+            let t = topic.count > 14 ? String(topic.prefix(14)) + "…" : topic
+            return "Pray for \(t)"
+        case .viewTestimony(_, let title):
+            if let t = title {
+                let truncated = t.count > 18 ? String(t.prefix(18)) + "…" : t
+                return truncated
+            }
+            return "View Testimony"
         }
     }
 
     var accessibilityLabel: String {
         switch self {
-        case .follow:            return "Follow this person"
-        case .joinConversation:  return "Join their conversation"
-        case .prayTogether:      return "Pray together with this person"
-        case .viewTestimony(let postId):
+        case .follow:                   return "Follow this person"
+        case .viewProfile:              return "View full profile"
+        case .readThread:               return "Read shared thread"
+        case .joinConversation:         return "Join their conversation"
+        case .prayTogether:             return "Pray together with this person"
+        case .prayForTopic(let topic):  return "Pray for \(topic)"
+        case .viewTestimony(let postId, _):
             return postId != nil ? "View their testimony post" : "View testimony"
         }
     }
@@ -181,14 +236,18 @@ enum UserMiniOverflowAction: String, CaseIterable, Identifiable {
 struct UserMiniAnalyticsEvent {
     enum Kind: String {
         case impression, profileOpen, followTap, followSuccess, followFailure
-        case messageTap, primaryCTATap, secondaryCTATap
-        case hideSuggestion, saveSuggestion, showMoreTapped, overflowTapped
+        case unfollowTap
+        case messageTap, messageBlocked, primaryCTATap, secondaryCTATap
+        case hideSuggestion, undoHide, saveSuggestion, showMoreTapped, overflowTapped
+        case seeSimilar, report, share
     }
 
     let kind: Kind
     let userId: String
+    let viewerId: String?
     let source: UserMiniSuggestionSource
     let ctaType: String?
+    let triggerArtifactId: String?
     let position: Int?
     let suggestionScore: Double?
 }

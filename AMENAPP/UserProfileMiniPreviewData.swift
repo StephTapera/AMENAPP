@@ -3,7 +3,7 @@
 //  AMENAPP
 //
 //  Static preview fixtures for UserProfileViewMini.
-//  Covers all 10 preview states required by the spec.
+//  Covers all 14 preview states required by the spec.
 //
 
 import Foundation
@@ -28,7 +28,8 @@ enum UserProfileMiniPreviewData {
             MiniMutualUser(id: "m3", displayName: "Priya M.", avatarURL: nil)
         ],
         city: "Atlanta",
-        pronunciation: "MAR-cus",
+        pronoun: "he/him",
+        pronunciation: "MAR-kus WIL-yams",
         badges: [
             UserMiniBadge(id: "b1", icon: "checkmark.seal.fill", label: "Verified", color: .verified)
         ],
@@ -43,6 +44,7 @@ enum UserProfileMiniPreviewData {
         isFollowed: false,
         isSavedSuggestion: false,
         profileRoute: nil,
+        trigger: nil,
         directRelationshipReason: "3 people you follow also follow Marcus.",
         recentSharedEngagementReason: "You both engage with worship leadership posts.",
         sharedTopicReason: "Shared prayer and ministry interests",
@@ -56,7 +58,7 @@ enum UserProfileMiniPreviewData {
         isBlocked: false
     )
 
-    // MARK: - OpenTable
+    // MARK: - OpenTable (no trigger — baseline)
 
     static let openTable = UserProfileMiniModel(
         id: "user_002",
@@ -72,6 +74,7 @@ enum UserProfileMiniPreviewData {
             MiniMutualUser(id: "m4", displayName: "Sara L.", avatarURL: nil)
         ],
         city: "Dallas",
+        pronoun: nil,
         pronunciation: nil,
         badges: [],
         contextReasons: [
@@ -84,13 +87,160 @@ enum UserProfileMiniPreviewData {
         isFollowed: false,
         isSavedSuggestion: false,
         profileRoute: nil,
+        trigger: nil,
         directRelationshipReason: nil,
         recentSharedEngagementReason: "You both engage with faith and leadership discussions.",
         sharedTopicReason: "Leadership and church-building overlap",
         communityReason: "Often surfaced in Dallas faith communities",
         popularityReason: "Popular among people who read similar posts",
-        priorityExplanation: "You’ve spent time with similar faith and leadership conversations recently.",
+        priorityExplanation: "You've spent time with similar faith and leadership conversations recently.",
         suggestionScore: 0.88,
+        testimonyOverlapCount: nil,
+        topicOverlapCount: 3,
+        isProfileUnavailable: false,
+        isBlocked: false
+    )
+
+    // MARK: - OpenTable — Unread thread
+
+    static let openTableUnread = UserProfileMiniModel(
+        id: "user_009",
+        username: "simonleads",
+        displayName: "Simon Osei",
+        roleTitle: "Elder · Chicago",
+        bioShort: "Building leaders for the next generation.",
+        avatarURL: nil,
+        followerCount: 2_100,
+        sharedPrayerCount: 3,
+        mutualConnectionCount: 2,
+        mutualConnectionPreview: [
+            MiniMutualUser(id: "m20", displayName: "Tanya K.", avatarURL: nil)
+        ],
+        city: "Chicago",
+        pronoun: "he/him",
+        pronunciation: nil,
+        badges: [],
+        contextReasons: [
+            UserMiniReason(id: "r20", label: "3 shared prayer topics", icon: "hands.sparkles", kind: .prayerOverlap),
+            UserMiniReason(id: "r21", label: "2 mutual connections", icon: "person.2", kind: .mutualConnections)
+        ],
+        suggestionSource: .openTable,
+        credibility: nil,
+        canMessage: true,
+        isFollowed: false,
+        isSavedSuggestion: false,
+        profileRoute: nil,
+        trigger: UserMiniTrigger(
+            artifactType: .openTableThread,
+            artifactId: "thread_abc",
+            title: "Faith and Leadership in the Local Church",
+            topic: "leadership",
+            viewerState: .unread
+        ),
+        directRelationshipReason: nil,
+        recentSharedEngagementReason: "You're both in a shared table discussion.",
+        sharedTopicReason: "Leadership and church-building overlap",
+        communityReason: nil,
+        popularityReason: nil,
+        priorityExplanation: "You have an unread thread in common.",
+        suggestionScore: 0.85,
+        testimonyOverlapCount: nil,
+        topicOverlapCount: 2,
+        isProfileUnavailable: false,
+        isBlocked: false
+    )
+
+    // MARK: - OpenTable — Read thread
+
+    static let openTableRead = UserProfileMiniModel(
+        id: "user_010",
+        username: "faith_deola",
+        displayName: "Adeola Mensah",
+        roleTitle: "Deacon · London",
+        bioShort: "Passionate about discipleship and mentorship.",
+        avatarURL: nil,
+        followerCount: 980,
+        sharedPrayerCount: 2,
+        mutualConnectionCount: 1,
+        mutualConnectionPreview: [],
+        city: "London",
+        pronoun: "she/her",
+        pronunciation: nil,
+        badges: [],
+        contextReasons: [
+            UserMiniReason(id: "r22", label: "Shared discipleship focus", icon: "text.bubble", kind: .topicOverlap)
+        ],
+        suggestionSource: .openTable,
+        credibility: UserMiniCredibility(responseLabel: nil, activeLabel: "Active today"),
+        canMessage: true,
+        isFollowed: false,
+        isSavedSuggestion: false,
+        profileRoute: nil,
+        trigger: UserMiniTrigger(
+            artifactType: .openTableThread,
+            artifactId: "thread_def",
+            title: "Discipleship Across Generations",
+            topic: "discipleship",
+            viewerState: .read
+        ),
+        directRelationshipReason: nil,
+        recentSharedEngagementReason: "You've both read this thread.",
+        sharedTopicReason: "Discipleship and mentorship overlap",
+        communityReason: nil,
+        popularityReason: nil,
+        priorityExplanation: "You're both engaged with the same discussion.",
+        suggestionScore: 0.78,
+        testimonyOverlapCount: nil,
+        topicOverlapCount: 1,
+        isProfileUnavailable: false,
+        isBlocked: false
+    )
+
+    // MARK: - OpenTable — Replied thread
+
+    static let openTableReplied = UserProfileMiniModel(
+        id: "user_011",
+        username: "revkojo",
+        displayName: "Reverend Kojo Asante",
+        roleTitle: "Senior Pastor · Accra",
+        bioShort: "Serving the Church since 2002. Open to deep conversations.",
+        avatarURL: nil,
+        followerCount: 6_700,
+        sharedPrayerCount: 4,
+        mutualConnectionCount: 5,
+        mutualConnectionPreview: [
+            MiniMutualUser(id: "m23", displayName: "Grace W.", avatarURL: nil)
+        ],
+        city: "Accra",
+        pronoun: "he/him",
+        pronunciation: nil,
+        badges: [
+            UserMiniBadge(id: "b5", icon: "checkmark.seal.fill", label: "Verified", color: .verified)
+        ],
+        contextReasons: [
+            UserMiniReason(id: "r23", label: "4 shared prayer topics", icon: "hands.sparkles", kind: .prayerOverlap),
+            UserMiniReason(id: "r24", label: "5 mutual connections", icon: "person.2", kind: .mutualConnections)
+        ],
+        suggestionSource: .openTable,
+        credibility: nil,
+        canMessage: false,
+        isFollowed: false,
+        isSavedSuggestion: false,
+        profileRoute: nil,
+        trigger: UserMiniTrigger(
+            artifactType: .openTableThread,
+            artifactId: "thread_ghi",
+            title: "Pastoral Care in the Digital Age",
+            topic: "pastoral",
+            viewerState: .replied
+        ),
+        directRelationshipReason: nil,
+        recentSharedEngagementReason: "You've both replied in a shared thread.",
+        sharedTopicReason: "Pastoral care and ministry overlap",
+        communityReason: nil,
+        popularityReason: nil,
+        priorityExplanation: "You've been part of the same table discussion.",
+        suggestionScore: 0.91,
         testimonyOverlapCount: nil,
         topicOverlapCount: 3,
         isProfileUnavailable: false,
@@ -113,6 +263,7 @@ enum UserProfileMiniPreviewData {
             MiniMutualUser(id: "m6", displayName: "James K.", avatarURL: nil)
         ],
         city: nil,
+        pronoun: nil,
         pronunciation: nil,
         badges: [],
         contextReasons: [
@@ -125,6 +276,13 @@ enum UserProfileMiniPreviewData {
         isFollowed: false,
         isSavedSuggestion: false,
         profileRoute: nil,
+        trigger: UserMiniTrigger(
+            artifactType: .prayerPost,
+            artifactId: "prayer_001",
+            title: "Pray for healing",
+            topic: "healing",
+            viewerState: .unread
+        ),
         directRelationshipReason: nil,
         recentSharedEngagementReason: "Frequently active in prayer conversations you revisit.",
         sharedTopicReason: "Shared healing and restoration prayer themes",
@@ -132,6 +290,52 @@ enum UserProfileMiniPreviewData {
         popularityReason: nil,
         priorityExplanation: "Suggested from shared prayer topics and recent prayer support activity.",
         suggestionScore: 0.93,
+        testimonyOverlapCount: nil,
+        topicOverlapCount: 2,
+        isProfileUnavailable: false,
+        isBlocked: false
+    )
+
+    // MARK: - Prayer — Already Prayed Today
+
+    static let prayerPrayedToday = UserProfileMiniModel(
+        id: "user_012",
+        username: "intercession_daily",
+        displayName: "Miriam Yeboah",
+        roleTitle: "Prayer Warrior",
+        bioShort: "Praying without ceasing. Healing, peace, and breakthrough.",
+        avatarURL: nil,
+        followerCount: 430,
+        sharedPrayerCount: 6,
+        mutualConnectionCount: 1,
+        mutualConnectionPreview: [],
+        city: nil,
+        pronoun: "she/her",
+        pronunciation: nil,
+        badges: [],
+        contextReasons: [
+            UserMiniReason(id: "r25", label: "6 shared prayer topics", icon: "hands.sparkles", kind: .prayerOverlap)
+        ],
+        suggestionSource: .prayer,
+        credibility: UserMiniCredibility(responseLabel: nil, activeLabel: "Prayed today"),
+        canMessage: true,
+        isFollowed: false,
+        isSavedSuggestion: false,
+        profileRoute: nil,
+        trigger: UserMiniTrigger(
+            artifactType: .prayerPost,
+            artifactId: "prayer_002",
+            title: "Pray for breakthrough",
+            topic: "breakthrough",
+            viewerState: .prayedToday
+        ),
+        directRelationshipReason: nil,
+        recentSharedEngagementReason: "You've already prayed for their request today.",
+        sharedTopicReason: "Healing and breakthrough themes",
+        communityReason: nil,
+        popularityReason: nil,
+        priorityExplanation: "You prayed for their post today — keep the connection.",
+        suggestionScore: 0.82,
         testimonyOverlapCount: nil,
         topicOverlapCount: 2,
         isProfileUnavailable: false,
@@ -154,6 +358,7 @@ enum UserProfileMiniPreviewData {
             MiniMutualUser(id: "m7", displayName: "Chris O.", avatarURL: nil)
         ],
         city: "Miami",
+        pronoun: nil,
         pronunciation: nil,
         badges: [],
         contextReasons: [
@@ -166,6 +371,13 @@ enum UserProfileMiniPreviewData {
         isFollowed: false,
         isSavedSuggestion: false,
         profileRoute: nil,
+        trigger: UserMiniTrigger(
+            artifactType: .testimonyPost,
+            artifactId: "testimony_001",
+            title: "God Healed My Marriage",
+            topic: "healing",
+            viewerState: .unread
+        ),
         directRelationshipReason: nil,
         recentSharedEngagementReason: "You both spend time in healing and restoration stories.",
         sharedTopicReason: "Healing and restoration focus",
@@ -193,6 +405,7 @@ enum UserProfileMiniPreviewData {
         mutualConnectionCount: 5,
         mutualConnectionPreview: [],
         city: "Houston",
+        pronoun: nil,
         pronunciation: nil,
         badges: [
             UserMiniBadge(id: "b2", icon: "music.note", label: "Artist", color: .faith)
@@ -206,6 +419,7 @@ enum UserProfileMiniPreviewData {
         isFollowed: true,
         isSavedSuggestion: false,
         profileRoute: nil,
+        trigger: nil,
         directRelationshipReason: "5 people you follow already follow David.",
         recentSharedEngagementReason: nil,
         sharedTopicReason: "Music and worship overlap",
@@ -233,6 +447,7 @@ enum UserProfileMiniPreviewData {
         mutualConnectionCount: 0,
         mutualConnectionPreview: [],
         city: nil,
+        pronoun: nil,
         pronunciation: nil,
         badges: [],
         contextReasons: [
@@ -244,6 +459,7 @@ enum UserProfileMiniPreviewData {
         isFollowed: false,
         isSavedSuggestion: false,
         profileRoute: nil,
+        trigger: nil,
         directRelationshipReason: nil,
         recentSharedEngagementReason: nil,
         sharedTopicReason: "Shared Bible study and discipleship interests",
@@ -271,6 +487,7 @@ enum UserProfileMiniPreviewData {
         mutualConnectionCount: nil,
         mutualConnectionPreview: [],
         city: nil,
+        pronoun: nil,
         pronunciation: nil,
         badges: [],
         contextReasons: [],
@@ -280,6 +497,7 @@ enum UserProfileMiniPreviewData {
         isFollowed: false,
         isSavedSuggestion: false,
         profileRoute: nil,
+        trigger: nil,
         directRelationshipReason: nil,
         recentSharedEngagementReason: nil,
         sharedTopicReason: nil,
@@ -307,6 +525,7 @@ enum UserProfileMiniPreviewData {
         mutualConnectionCount: 1,
         mutualConnectionPreview: [],
         city: "Washington D.C.",
+        pronoun: nil,
         pronunciation: nil,
         badges: [
             UserMiniBadge(id: "b3", icon: "checkmark.seal.fill", label: "Verified", color: .verified)
@@ -320,6 +539,7 @@ enum UserProfileMiniPreviewData {
         isFollowed: false,
         isSavedSuggestion: false,
         profileRoute: nil,
+        trigger: nil,
         directRelationshipReason: nil,
         recentSharedEngagementReason: nil,
         sharedTopicReason: "Leadership and teaching overlap",
@@ -331,5 +551,81 @@ enum UserProfileMiniPreviewData {
         topicOverlapCount: 2,
         isProfileUnavailable: false,
         isBlocked: false
+    )
+
+    // MARK: - Low Signal (context panel suppressed)
+
+    static let noSignal = UserProfileMiniModel(
+        id: "user_013",
+        username: "quietseeker",
+        displayName: "Nathan Fields",
+        roleTitle: nil,
+        bioShort: nil,
+        avatarURL: nil,
+        followerCount: 45,
+        sharedPrayerCount: nil,
+        mutualConnectionCount: nil,
+        mutualConnectionPreview: [],
+        city: nil,
+        pronoun: nil,
+        pronunciation: nil,
+        badges: [],
+        contextReasons: [],
+        suggestionSource: .discovery,
+        credibility: nil,
+        canMessage: false,
+        isFollowed: false,
+        isSavedSuggestion: false,
+        profileRoute: nil,
+        trigger: nil,
+        directRelationshipReason: nil,
+        recentSharedEngagementReason: nil,
+        sharedTopicReason: nil,
+        communityReason: nil,
+        popularityReason: nil,
+        priorityExplanation: nil,
+        suggestionScore: 0.08,   // below 0.15 threshold → showContextPanel = false
+        testimonyOverlapCount: nil,
+        topicOverlapCount: nil,
+        isProfileUnavailable: false,
+        isBlocked: false
+    )
+
+    // MARK: - Blocked / Unavailable
+
+    static let blocked = UserProfileMiniModel(
+        id: "user_014",
+        username: "blocked_user",
+        displayName: "Blocked User",
+        roleTitle: nil,
+        bioShort: nil,
+        avatarURL: nil,
+        followerCount: nil,
+        sharedPrayerCount: nil,
+        mutualConnectionCount: nil,
+        mutualConnectionPreview: [],
+        city: nil,
+        pronoun: nil,
+        pronunciation: nil,
+        badges: [],
+        contextReasons: [],
+        suggestionSource: .discovery,
+        credibility: nil,
+        canMessage: false,
+        isFollowed: false,
+        isSavedSuggestion: false,
+        profileRoute: nil,
+        trigger: nil,
+        directRelationshipReason: nil,
+        recentSharedEngagementReason: nil,
+        sharedTopicReason: nil,
+        communityReason: nil,
+        popularityReason: nil,
+        priorityExplanation: nil,
+        suggestionScore: nil,
+        testimonyOverlapCount: nil,
+        topicOverlapCount: nil,
+        isProfileUnavailable: false,
+        isBlocked: true
     )
 }

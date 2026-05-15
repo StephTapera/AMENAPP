@@ -53,7 +53,7 @@ struct ChurchNoteSermonBridgeCard: View {
         } label: {
             HStack(spacing: 10) {
                 Image(systemName: "calendar.badge.checkmark")
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .foregroundStyle(Color(.systemGreen).opacity(0.8))
                     .accessibilityHidden(true)
 
@@ -132,7 +132,7 @@ struct ChurchNoteSermonBridgeCard: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
                 Image(systemName: icon)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
                     .accessibilityHidden(true)
                 Text(label)
@@ -204,12 +204,12 @@ struct ChurchNoteSermonBridgeCard: View {
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: status.wrappedValue.icon)
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .accessibilityHidden(true)
                 Text(label)
                     .font(.caption.weight(.medium))
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 9))
+                    .font(.systemScaled(9))
                     .accessibilityHidden(true)
             }
             .foregroundStyle(status.wrappedValue.isResolved ? Color(.systemGreen) : Color.secondary)
@@ -247,10 +247,10 @@ struct CNBridgeStatusChip: View {
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: allDone ? "checkmark.circle.fill" : "calendar.badge.checkmark")
-                .font(.system(size: 10))
+                .font(.systemScaled(10))
                 .accessibilityHidden(true)
             Text(allDone ? "Week complete" : "This week")
-                .font(.system(size: 10, weight: .medium))
+                .font(.systemScaled(10, weight: .medium))
         }
         .foregroundStyle(allDone ? Color(.systemGreen).opacity(0.85) : Color.secondary)
         .padding(.horizontal, 8)

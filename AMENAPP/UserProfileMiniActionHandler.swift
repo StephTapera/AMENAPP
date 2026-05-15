@@ -9,6 +9,7 @@
 
 import Foundation
 import FirebaseAuth
+import FirebaseAnalytics
 
 // MARK: - Follow Service Protocol
 
@@ -45,8 +46,12 @@ protocol UserProfileMiniRouting {
     func openPost(postId: String)
     /// Navigate to an existing or newly created DM conversation.
     func openConversation(conversationId: String)
+    /// Navigate to an OpenTable thread.
+    func openOpenTableThread(threadId: String)
     /// Present a lightweight feedback surface when messaging is unavailable.
     func showMessagingUnavailable(reason: String)
+    /// Navigate to a people-discovery surface filtered by similarity to userId.
+    func seeSimilar(userId: String, source: UserMiniSuggestionSource)
 }
 
 // MARK: - Live Implementations
@@ -69,7 +74,9 @@ struct LiveUserProfileMiniFollowService: UserProfileMiniFollowServicing {
 struct LiveUserProfileMiniRouting: UserProfileMiniRouting {
     let onOpenProfile: (String) -> Void
     let onOpenPost: ((String) -> Void)?
+    let onOpenOpenTableThread: ((String) -> Void)?
     let onMessagingUnavailable: ((String) -> Void)?
+    let onSeeSimilar: ((String, UserMiniSuggestionSource) -> Void)?
 
     func openProfile(userId: String) {
         onOpenProfile(userId)
@@ -83,8 +90,16 @@ struct LiveUserProfileMiniRouting: UserProfileMiniRouting {
         MessagingCoordinator.shared.openConversation(conversationId)
     }
 
+    func openOpenTableThread(threadId: String) {
+        onOpenOpenTableThread?(threadId)
+    }
+
     func showMessagingUnavailable(reason: String) {
         onMessagingUnavailable?(reason)
+    }
+
+    func seeSimilar(userId: String, source: UserMiniSuggestionSource) {
+        onSeeSimilar?(userId, source)
     }
 }
 
@@ -100,7 +115,7 @@ struct LiveUserProfileMiniMessagingService: UserProfileMiniMessagingServicing {
 
     func openConversation(userId: String, displayName: String) async throws {
         guard let currentUserId = Auth.auth().currentUser?.uid, currentUserId != userId else {
-            router.showMessagingUnavailable(reason: "You can’t start a conversation with this profile right now.")
+            router.showMessagingUnavailable(reason: "You can't start a conversation with this profile right now.")
             throw URLError(.userAuthenticationRequired)
         }
 
@@ -126,10 +141,63 @@ struct LiveUserProfileMiniMessagingService: UserProfileMiniMessagingServicing {
     }
 }
 
-/// No-op analytics for now; replace with AMENAnalyticsService call when ready.
 struct LiveUserProfileMiniAnalytics: UserProfileMiniAnalyticsServicing {
     func track(_ event: UserMiniAnalyticsEvent) {
         dlog("UserProfileMini[\(event.source.rawValue)] \(event.kind.rawValue) userId=\(event.userId)")
+
+        let viewerUid = Auth.auth().currentUser?.uid
+        let surface = event.source.rawValue
+        let userId  = event.userId
+        let pos     = event.position ?? 0
+
+        // Map each kind to the appropriate AMENAnalyticsEvent, then route through
+        // the shared service (Firebase Analytics + Firestore batch write).
+        let amenEvent: AMENAnalyticsEvent? = {
+            switch event.kind {
+            case .impression:
+                return .suggestionImpression(suggestedUserId: userId, position: pos, reasonType: surface)
+            case .profileOpen:
+                return .suggestionFullProfileOpen(suggestedUserId: userId, surface: surface)
+            case .followTap:
+                return .suggestionFollowTap(suggestedUserId: userId, position: pos)
+            case .followSuccess:
+                return .suggestionFollowSuccess(suggestedUserId: userId)
+            case .followFailure:
+                return .suggestionFollowFailure(suggestedUserId: userId)
+            case .hideSuggestion:
+                return .suggestionDismiss(suggestedUserId: userId)
+            case .showMoreTapped:
+                return .suggestionPeekExpand(suggestedUserId: userId, surface: surface)
+            case .report:
+                return .userReportSubmitted(type: "profile_mini")
+            // Events without a 1-to-1 match use AMENAnalyticsEvent.profileMini* cases.
+            case .unfollowTap:
+                return .profileMiniUnfollowTap(userId: userId, surface: surface)
+            case .messageTap:
+                return .profileMiniMessageTap(userId: userId, surface: surface, viewerId: viewerUid)
+            case .messageBlocked:
+                return .profileMiniMessageBlocked(userId: userId, surface: surface)
+            case .primaryCTATap:
+                return .profileMiniPrimaryCTATap(userId: userId, surface: surface, ctaType: event.ctaType ?? "")
+            case .secondaryCTATap:
+                return .profileMiniSecondaryCTATap(userId: userId, surface: surface, ctaType: event.ctaType ?? "")
+            case .saveSuggestion:
+                return .profileMiniSaveSuggestion(userId: userId, surface: surface)
+            case .seeSimilar:
+                return .profileMiniSeeSimilar(userId: userId, surface: surface)
+            case .share:
+                return .profileMiniShare(userId: userId, surface: surface)
+            case .undoHide:
+                return .profileMiniUndoHide(userId: userId, surface: surface)
+            case .overflowTapped:
+                return .profileMiniOverflowTapped(userId: userId, surface: surface)
+            }
+        }()
+
+        guard let amenEvent else { return }
+        Task { @MainActor in
+            AMENAnalyticsService.shared.track(amenEvent)
+        }
     }
 }
 
@@ -165,12 +233,16 @@ struct MockUserProfileMiniRouting: UserProfileMiniRouting {
     var onOpenProfile: (String) -> Void = { _ in }
     var onOpenPost: (String) -> Void = { _ in }
     var onOpenConversation: (String) -> Void = { _ in }
+    var onOpenOpenTableThread: (String) -> Void = { _ in }
     var onMessagingUnavailable: (String) -> Void = { _ in }
+    var onSeeSimilar: (String, UserMiniSuggestionSource) -> Void = { _, _ in }
 
     func openProfile(userId: String) { onOpenProfile(userId) }
     func openPost(postId: String) { onOpenPost(postId) }
     func openConversation(conversationId: String) { onOpenConversation(conversationId) }
+    func openOpenTableThread(threadId: String) { onOpenOpenTableThread(threadId) }
     func showMessagingUnavailable(reason: String) { onMessagingUnavailable(reason) }
+    func seeSimilar(userId: String, source: UserMiniSuggestionSource) { onSeeSimilar(userId, source) }
 }
 
 // MARK: - Action Handler Aggregate
@@ -186,13 +258,17 @@ struct UserProfileMiniActionHandler {
     static func live(
         onOpenProfile: @escaping (String) -> Void,
         onOpenPost: ((String) -> Void)? = nil,
+        onOpenOpenTableThread: ((String) -> Void)? = nil,
         onMessagingUnavailable: ((String) -> Void)? = nil,
+        onSeeSimilar: ((String, UserMiniSuggestionSource) -> Void)? = nil,
         onHide: ((String) -> Void)? = nil
     ) -> UserProfileMiniActionHandler {
         let routing = LiveUserProfileMiniRouting(
             onOpenProfile: onOpenProfile,
             onOpenPost: onOpenPost,
-            onMessagingUnavailable: onMessagingUnavailable
+            onOpenOpenTableThread: onOpenOpenTableThread,
+            onMessagingUnavailable: onMessagingUnavailable,
+            onSeeSimilar: onSeeSimilar
         )
         return UserProfileMiniActionHandler(
             followService: LiveUserProfileMiniFollowService(),

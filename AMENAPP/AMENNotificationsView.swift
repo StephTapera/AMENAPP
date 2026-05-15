@@ -2,8 +2,9 @@
 //  AMENNotificationsView.swift
 //  AMENAPP
 //
-//  Premium Liquid Glass notifications screen.
-//  Wired to Firestore — loads real notifications for the authenticated user.
+//  AMEN Activity Intelligence System — Liquid Glass activity inbox.
+//  Meaning-based, priority-driven, and action-oriented.
+//  Wired to Firestore via NotificationService + AMENActivityIntelligenceEngine.
 //
 
 import SwiftUI
@@ -11,234 +12,75 @@ import Combine
 import FirebaseAuth
 import FirebaseFirestore
 
-// MARK: - Notification Type
-
-enum NotificationType: String, CaseIterable, Hashable {
-    case bereanInsight  = "bereanInsight"
-    case mention        = "mention"
-    case reaction       = "reaction"
-    case comment        = "comment"
-    case communityInvite = "communityInvite"
-    case system         = "system"
-
-    var label: String {
-        switch self {
-        case .bereanInsight:  return "Berean AI"
-        case .mention:        return "Mentions"
-        case .reaction:       return "Reactions"
-        case .comment:        return "Comments"
-        case .communityInvite: return "Community"
-        case .system:         return "System"
-        }
-    }
-
-    var iconName: String {
-        switch self {
-        case .bereanInsight:  return "sparkles"
-        case .mention:        return "at"
-        case .reaction:       return "heart.fill"
-        case .comment:        return "bubble.left.fill"
-        case .communityInvite: return "person.2.fill"
-        case .system:         return "bell.fill"
-        }
-    }
-
-    /// Display order — lower index = higher priority in list
-    var sortOrder: Int {
-        switch self {
-        case .bereanInsight:  return 0
-        case .mention:        return 1
-        case .reaction:       return 2
-        case .comment:        return 3
-        case .communityInvite: return 4
-        case .system:         return 5
-        }
-    }
-}
-
-// MARK: - Data Model
-
-struct AMENNotification: Identifiable {
-    let id: String
-    let type: NotificationType
-    let actorName: String
-    let actorInitials: String
-    let body: String
-    let timestamp: Date
-    var isRead: Bool
-    var isGrouped: Bool = false
-    // Deep-link routing fields — populated by Firebase backend.
-    var postId: String? = nil
-    var actorId: String? = nil
-    var commentId: String? = nil
-    var conversationId: String? = nil
-
-    /// Decode from a Firestore document. Returns nil if required fields are missing.
-    init?(from doc: DocumentSnapshot) {
-        guard let data = doc.data(),
-              let typeRaw = data["type"] as? String,
-              let notifType = NotificationType(rawValue: typeRaw),
-              let actorName = data["actorName"] as? String,
-              let body = data["body"] as? String
-        else { return nil }
-
-        self.id = doc.documentID
-        self.type = notifType
-        self.actorName = actorName
-        self.body = body
-        let readValue = (data["read"] as? Bool) ?? (data["isRead"] as? Bool) ?? false
-        self.isRead = readValue
-        self.postId = data["postId"] as? String
-        self.actorId = data["actorId"] as? String
-        self.commentId = data["commentId"] as? String
-        self.conversationId = data["conversationId"] as? String
-
-        // Compute initials from actorName
-        self.actorInitials = actorName
-            .split(separator: " ")
-            .prefix(2)
-            .compactMap { $0.first.map { String($0) } }
-            .joined()
-            .uppercased()
-
-        // Firestore timestamp → Date
-        if let ts = data["timestamp"] as? Timestamp {
-            self.timestamp = ts.dateValue()
-        } else {
-            self.timestamp = Date()
-        }
-    }
-}
-
 // MARK: - ViewModel
 
 @MainActor
 final class AMENNotificationsViewModel: ObservableObject {
 
-    @Published var notifications: [AMENNotification]
-    @Published var focusModeOn: Bool = false
-    @Published var collapsedGroups: Set<NotificationType> = []
+    @Published private(set) var rawNotifications: [AppNotification] = []
+    @Published var selectedFilter: ActivityFilterCategory = .all
+    @Published var focusModeOn: Bool = UserDefaults.standard.bool(forKey: UserDefaultsKeys.notificationFocusMode) {
+        didSet { UserDefaults.standard.set(focusModeOn, forKey: UserDefaultsKeys.notificationFocusMode) }
+    }
+
+    private var cancellables = Set<AnyCancellable>()
 
     // MARK: Derived
 
-    var filteredNotifications: [AMENNotification] {
-        if focusModeOn {
-            return notifications.filter { $0.type == .mention || $0.type == .bereanInsight }
+    var processedNotifications: [GroupedNotification] {
+        let processed = AMENActivityIntelligenceEngine.process(rawNotifications)
+        let focusFiltered = focusModeOn ? processed.filter { $0.priority <= .p1 } : processed
+        switch selectedFilter {
+        case .all:       return focusFiltered
+        case .important: return focusFiltered.filter { $0.priority <= .p1 }
+        default:         return focusFiltered.filter { $0.category == selectedFilter }
         }
-        return notifications
     }
 
-    /// All types that have at least one notification in the filtered set, sorted by priority.
-    var visibleGroups: [NotificationType] {
-        let presentTypes = Set(filteredNotifications.map { $0.type })
-        return NotificationType.allCases
-            .filter { presentTypes.contains($0) }
-            .sorted { $0.sortOrder < $1.sortOrder }
+    var needsAttention: [GroupedNotification] {
+        processedNotifications.filter { $0.timeBucket == .needsAttention }
+    }
+    var todayItems: [GroupedNotification] {
+        processedNotifications.filter { $0.timeBucket == .today }
+    }
+    var yesterdayItems: [GroupedNotification] {
+        processedNotifications.filter { $0.timeBucket == .yesterday }
+    }
+    var lastSevenDaysItems: [GroupedNotification] {
+        processedNotifications.filter { $0.timeBucket == .lastSevenDays }
+    }
+    var earlierItems: [GroupedNotification] {
+        processedNotifications.filter { $0.timeBucket == .earlier }
     }
 
-    func notifications(for type: NotificationType) -> [AMENNotification] {
-        filteredNotifications
-            .filter { $0.type == type }
-            .sorted { (!$0.isRead && $1.isRead) || ($0.isRead == $1.isRead && $0.timestamp > $1.timestamp) }
-    }
+    var unreadCount: Int { rawNotifications.filter { !$0.read }.count }
+    var hasContent: Bool { !processedNotifications.isEmpty }
 
-    var unreadCount: Int {
-        filteredNotifications.filter { !$0.isRead }.count
+    // MARK: Init
+
+    init() {
+        NotificationService.shared.$notifications
+            .map { notes in notes.filter { $0.actorId != Auth.auth().currentUser?.uid } }
+            .sink { [weak self] in self?.rawNotifications = $0 }
+            .store(in: &cancellables)
     }
 
     // MARK: Mutations
 
-    func markAllRead() {
-        for index in notifications.indices {
-            notifications[index].isRead = true
-        }
-    }
-
-    func markRead(_ id: String) {
-        Task { await markReadRemote(id) }
-    }
-
-    func markReadRemote(_ id: String) async {
-        guard let uid = Auth.auth().currentUser?.uid else { return }
-        let ref = Firestore.firestore()
-            .collection("users")
-            .document(uid)
-            .collection("notifications")
-            .document(id)
-        do {
-            try await ref.setData(["read": true, "isRead": true], merge: true)
-        } catch {
-            dlog("❌ Failed to mark notification read: \(error.localizedDescription)")
-        }
-        if let index = notifications.firstIndex(where: { $0.id == id }) {
-            notifications[index].isRead = true
-        }
-        await BadgeCountManager.shared.immediateUpdate()
-    }
-
-    func dismiss(_ id: String) {
-        notifications.removeAll { $0.id == id }
-    }
-
-    // MARK: - Init
-
-    init() {
-        notifications = []
-    }
-
-    // MARK: - Firestore Loading
-
-    private var listener: ListenerRegistration?
-
-    /// Start a real-time listener for the current user's notifications collection.
-    func startListening() {
-        guard let uid = Auth.auth().currentUser?.uid else { return }
-        listener?.remove()
-        listener = Firestore.firestore()
-            .collection("users")
-            .document(uid)
-            .collection("notifications")
-            .order(by: "timestamp", descending: true)
-            .limit(to: 60)
-            .addSnapshotListener { [weak self] snap, error in
-                guard let self, let snap, error == nil else { return }
-                Task { @MainActor in
-                    self.notifications = snap.documents.compactMap { doc in
-                        AMENNotification(from: doc)
-                    }
-                }
-            }
-    }
-
-    func stopListening() {
-        listener?.remove()
-        listener = nil
-    }
-
-    /// Mark all notifications read in Firestore + locally.
     func markAllReadRemote() {
-        guard let uid = Auth.auth().currentUser?.uid else { return }
-        let batch = Firestore.firestore().batch()
-        let ref = Firestore.firestore().collection("users").document(uid).collection("notifications")
-        for n in notifications where !n.isRead {
-            batch.setData(["read": true, "isRead": true], forDocument: ref.document(n.id), merge: true)
-        }
         Task {
-            try? await batch.commit()
-            markAllRead()
+            await NotificationService.shared.markAllAsReadViaQuery()
             BadgeCountManager.shared.clearNotifications()
-            await BadgeCountManager.shared.immediateUpdate()
         }
     }
 
-    /// Delete a notification from Firestore + locally.
-    func dismissRemote(_ id: String) {
-        guard let uid = Auth.auth().currentUser?.uid else { return }
-        Firestore.firestore()
-            .collection("users").document(uid)
-            .collection("notifications").document(id)
-            .delete()
-        dismiss(id)
+    func markRead(_ ids: [String]) {
+        for id in ids { Task { try? await NotificationService.shared.markAsRead(id) } }
+    }
+
+    func dismiss(_ ids: [String]) {
+        rawNotifications.removeAll { n in ids.contains(n.id ?? "") }
+        for id in ids { Task { try? await NotificationService.shared.deleteNotification(id) } }
     }
 }
 
@@ -247,24 +89,18 @@ final class AMENNotificationsViewModel: ObservableObject {
 private func relativeTimestamp(_ date: Date) -> String {
     let interval = Date().timeIntervalSince(date)
     switch interval {
-    case ..<60:
-        return "just now"
-    case 60..<3600:
-        let m = Int(interval / 60)
-        return "\(m)m ago"
-    case 3600..<86400:
-        let h = Int(interval / 3600)
-        return "\(h)h ago"
-    default:
-        let d = Int(interval / 86400)
-        return "\(d)d ago"
+    case ..<60:    return "now"
+    case ..<3600:  return "\(max(1, Int(interval / 60)))m"
+    case ..<86400: return "\(max(1, Int(interval / 3600)))h"
+    default:       return "\(max(1, Int(interval / 86400)))d"
     }
 }
 
-// MARK: - Glass background modifier
+// MARK: - Glass Surface Modifier
 
-private struct GlassCard: ViewModifier {
-    var cornerRadius: CGFloat = 16
+private struct ActivityGlassSurface: ViewModifier {
+    var cornerRadius: CGFloat = 18
+    var elevated: Bool = false
 
     func body(content: Content) -> some View {
         content
@@ -277,181 +113,435 @@ private struct GlassCard: ViewModifier {
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                            .strokeBorder(AmenTheme.Colors.glassStroke, lineWidth: 0.5)
+                            .strokeBorder(
+                                elevated ? AmenTheme.Colors.glassStroke.opacity(1.6) : AmenTheme.Colors.glassStroke,
+                                lineWidth: elevated ? 0.8 : 0.5
+                            )
                     )
-                    .shadow(color: AmenTheme.Colors.shadowCard, radius: 14, x: 0, y: 4)
+                    .shadow(
+                        color: AmenTheme.Colors.shadowCard.opacity(elevated ? 1.4 : 1.0),
+                        radius: elevated ? 18 : 12,
+                        x: 0, y: elevated ? 6 : 3
+                    )
             )
     }
 }
 
 private extension View {
-    func glassCard(cornerRadius: CGFloat = 16) -> some View {
-        modifier(GlassCard(cornerRadius: cornerRadius))
+    func activityGlass(cornerRadius: CGFloat = 18, elevated: Bool = false) -> some View {
+        modifier(ActivityGlassSurface(cornerRadius: cornerRadius, elevated: elevated))
     }
 }
 
-// MARK: - Avatar View
+// MARK: - Filter Chip Bar
 
-private struct NotificationAvatar: View {
-    let initials: String
-    let type: NotificationType
+private struct ActivityFilterChipBar: View {
+    @Binding var selected: ActivityFilterCategory
 
     var body: some View {
-        ZStack {
-            Circle()
-                .fill(.ultraThinMaterial)
-                .overlay(Circle().fill(AmenTheme.Colors.glassFill))
-                .overlay(Circle().strokeBorder(AmenTheme.Colors.glassStroke, lineWidth: 0.5))
-                .frame(width: 44, height: 44)
-                .shadow(color: AmenTheme.Colors.shadowCard, radius: 8, x: 0, y: 2)
-
-            if type == .bereanInsight || type == .system {
-                Image(systemName: type.iconName)
-                    .font(.systemScaled(18, weight: .medium))
-                    .foregroundStyle(AmenTheme.Colors.iconPrimary)
-            } else {
-                Text(initials)
-                    .font(AMENFont.semiBold(14))
-                    .foregroundStyle(AmenTheme.Colors.textPrimary)
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(ActivityFilterCategory.allCases) { category in
+                    Button {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
+                            selected = category
+                        }
+                    } label: {
+                        HStack(spacing: 5) {
+                            Image(systemName: category.iconName)
+                                .font(.system(size: 11, weight: .semibold))
+                            Text(category.rawValue)
+                                .font(AMENFont.semiBold(13))
+                        }
+                        .foregroundStyle(selected == category ? Color.white : AmenTheme.Colors.textPrimary)
+                        .padding(.horizontal, 13)
+                        .padding(.vertical, 8)
+                        .background(
+                            Capsule()
+                                .fill(selected == category
+                                      ? AmenTheme.Colors.buttonPrimary
+                                      : .ultraThinMaterial)
+                                .overlay(
+                                    selected == category ? nil :
+                                        Capsule().fill(AmenTheme.Colors.glassFill)
+                                )
+                                .overlay(
+                                    selected == category ? nil :
+                                        Capsule().strokeBorder(AmenTheme.Colors.glassStroke, lineWidth: 0.5)
+                                )
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
             }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 4)
         }
     }
 }
 
-// MARK: - Notification Card
+// MARK: - Actor Avatar Stack
 
-private struct NotificationCard: View {
-    let notification: AMENNotification
-    let index: Int
-    let onMarkRead: () -> Void
-    let onDismiss: () -> Void
+private struct ActivityActorStack: View {
+    let primary: NotificationActor?
+    let secondary: [NotificationActor]
+
+    var body: some View {
+        ZStack(alignment: .bottomTrailing) {
+            avatarView(primary, size: 46)
+
+            ForEach(Array(secondary.prefix(2).enumerated()), id: \.offset) { i, actor in
+                avatarView(actor, size: 22)
+                    .overlay(Circle().strokeBorder(Color(uiColor: .systemBackground), lineWidth: 2))
+                    .offset(x: CGFloat(i) * 10 + 10, y: CGFloat(i) * 4 + 10)
+            }
+        }
+        .frame(width: 54, height: 54)
+    }
+
+    @ViewBuilder
+    private func avatarView(_ actor: NotificationActor?, size: CGFloat) -> some View {
+        let name = actor?.name ?? "?"
+        let url  = actor?.profileImageURL.flatMap(URL.init)
+
+        Group {
+            if let url {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let img):
+                        img.resizable().scaledToFill()
+                    default:
+                        initialsCircle(name: name, size: size)
+                    }
+                }
+            } else {
+                initialsCircle(name: name, size: size)
+            }
+        }
+        .frame(width: size, height: size)
+        .clipShape(Circle())
+        .overlay(Circle().strokeBorder(AmenTheme.Colors.glassStroke, lineWidth: 0.5))
+        .shadow(color: AmenTheme.Colors.shadowCard, radius: 4, y: 1)
+    }
+
+    private func initialsCircle(name: String, size: CGFloat) -> some View {
+        let initials = name.split(separator: " ")
+            .prefix(2)
+            .compactMap { $0.first.map(String.init) }
+            .joined()
+            .uppercased()
+        return ZStack {
+            Circle().fill(.ultraThinMaterial)
+                .overlay(Circle().fill(AmenTheme.Colors.glassFill))
+            Text(initials)
+                .font(.system(size: max(9, size * 0.33), weight: .semibold))
+                .foregroundStyle(AmenTheme.Colors.textPrimary)
+        }
+    }
+}
+
+// MARK: - Content Preview Thumbnail
+
+private struct ActivityPreviewThumbnail: View {
+    let preview: ActivityContentPreview
+
+    var body: some View {
+        switch preview {
+        case .prayerCard:
+            previewCell(icon: "hands.sparkles.fill", color: .purple)
+        case .churchNotes:
+            previewCell(icon: "note.text", color: .orange)
+        case .bereanInsight:
+            previewCell(icon: "sparkles", color: .blue)
+        case .verseCard(let ref):
+            ZStack {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(.ultraThinMaterial)
+                    .overlay(RoundedRectangle(cornerRadius: 10).fill(AmenTheme.Colors.glassFill))
+                Text(ref)
+                    .font(AMENFont.bold(9))
+                    .foregroundStyle(AmenTheme.Colors.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(4)
+            }
+            .frame(width: 46, height: 46)
+            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(AmenTheme.Colors.glassStroke, lineWidth: 0.5))
+        case .postImage(let url):
+            if let url {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let img):
+                        img.resizable().scaledToFill()
+                            .frame(width: 46, height: 46)
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                    default:
+                        previewCell(icon: "photo", color: AmenTheme.Colors.iconSecondary)
+                    }
+                }
+            } else {
+                EmptyView()
+            }
+        case .churchLogo(let url):
+            if let url {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let img):
+                        img.resizable().scaledToFill()
+                            .frame(width: 46, height: 46)
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                    default:
+                        previewCell(icon: "building.columns.fill", color: .gray)
+                    }
+                }
+            } else {
+                previewCell(icon: "building.columns.fill", color: .gray)
+            }
+        case .none:
+            EmptyView()
+        }
+    }
+
+    private func previewCell(icon: String, color: Color) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 10)
+                .fill(.ultraThinMaterial)
+                .overlay(RoundedRectangle(cornerRadius: 10).fill(AmenTheme.Colors.glassFill))
+            Image(systemName: icon)
+                .font(.system(size: 18, weight: .medium))
+                .foregroundStyle(color.opacity(0.8))
+        }
+        .frame(width: 46, height: 46)
+        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(AmenTheme.Colors.glassStroke, lineWidth: 0.5))
+    }
+}
+
+// MARK: - Smart Action Button
+
+private struct ActivityActionButton: View {
+    let action: ActivitySmartAction
     let onTap: () -> Void
 
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 5) {
+                Image(systemName: action.systemIcon)
+                    .font(.system(size: 11, weight: .semibold))
+                Text(action.label)
+                    .font(AMENFont.semiBold(12))
+            }
+            .foregroundStyle(
+                action.style == .primary
+                    ? AmenTheme.Colors.buttonPrimaryText
+                    : AmenTheme.Colors.textPrimary
+            )
+            .padding(.horizontal, 11)
+            .padding(.vertical, 6)
+            .background(
+                Capsule()
+                    .fill(action.style == .primary ? AmenTheme.Colors.buttonPrimary : .ultraThinMaterial)
+                    .overlay(
+                        action.style == .secondary
+                            ? Capsule().fill(AmenTheme.Colors.glassFill) : nil
+                    )
+                    .overlay(
+                        action.style == .secondary
+                            ? Capsule().strokeBorder(AmenTheme.Colors.glassStroke, lineWidth: 0.5) : nil
+                    )
+            )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Activity Notification Row
+
+private struct ActivityNotificationRow: View {
+    let item: GroupedNotification
+    let index: Int
+    let onTap: () -> Void
+    let onDismiss: () -> Void
+    let onAction: (ActivitySmartAction) -> Void
+
     @State private var appeared = false
-    @State private var showContextMenu = false
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-
-            // Unread indicator
+            // Unread dot
             Circle()
-                .fill(notification.isRead ? Color.clear : AmenTheme.Colors.iconPrimary)
+                .fill(item.isRead ? Color.clear : AmenTheme.Colors.iconPrimary)
                 .frame(width: 8, height: 8)
-                .padding(.top, 18)
+                .padding(.top, 20)
 
-            NotificationAvatar(initials: notification.actorInitials, type: notification.type)
+            // Actor avatars
+            ActivityActorStack(
+                primary: item.primaryActor,
+                secondary: item.secondaryActors
+            )
 
-            VStack(alignment: .leading, spacing: 3) {
-                Text(notification.body)
-                    .font(AMENFont.semiBold(15))
-                    .foregroundStyle(.primary)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
+            // Main content
+            VStack(alignment: .leading, spacing: 5) {
+                HStack(alignment: .top) {
+                    Text(item.attributedTitle)
+                        .font(.system(size: 15))
+                        .foregroundStyle(.primary)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 4)
+                    Text(relativeTimestamp(item.timestamp))
+                        .font(AMENFont.regular(12))
+                        .foregroundStyle(AmenTheme.Colors.textTertiary)
+                }
 
-                Text(notification.actorName)
-                    .font(AMENFont.regular(13))
-                    .foregroundStyle(AmenTheme.Colors.textSecondary)
+                if let subtitle = item.subtitle {
+                    Text(subtitle)
+                        .font(AMENFont.regular(13))
+                        .foregroundStyle(AmenTheme.Colors.textSecondary)
+                        .lineLimit(2)
+                }
 
-                Text(relativeTimestamp(notification.timestamp))
-                    .font(AMENFont.regular(12))
-                    .foregroundStyle(AmenTheme.Colors.textTertiary)
+                HStack(spacing: 6) {
+                    if let label = item.contextLabel {
+                        Text(label)
+                            .font(AMENFont.semiBold(10))
+                            .foregroundStyle(AmenTheme.Colors.iconPrimary)
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 3)
+                            .background(Capsule().fill(AmenTheme.Colors.iconPrimary.opacity(0.1)))
+                    }
+                    if item.isQuietGrouped {
+                        Text("Quiet")
+                            .font(AMENFont.regular(11))
+                            .foregroundStyle(AmenTheme.Colors.textTertiary)
+                    }
+                    Spacer(minLength: 0)
+                }
+
+                if !item.actions.isEmpty {
+                    HStack(spacing: 8) {
+                        ForEach(item.actions.prefix(2)) { action in
+                            ActivityActionButton(action: action) { onAction(action) }
+                        }
+                    }
+                    .padding(.top, 2)
+                }
             }
-            .padding(.vertical, 4)
 
-            Spacer(minLength: 0)
-
-            // Type icon badge
-            Image(systemName: notification.type.iconName)
-                .font(.systemScaled(13, weight: .medium))
-                .foregroundStyle(AmenTheme.Colors.iconSecondary)
-                .padding(.top, 14)
+            // Right-side content preview
+            Group {
+                switch item.contentPreview {
+                case .none: EmptyView()
+                default:    ActivityPreviewThumbnail(preview: item.contentPreview)
+                }
+            }
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .glassCard(cornerRadius: 16)
-        .contentShape(RoundedRectangle(cornerRadius: 16))
+        .padding(.vertical, 12)
+        .contentShape(Rectangle())
         .onTapGesture { onTap() }
         .opacity(appeared ? 1 : 0)
-        .offset(x: appeared ? 0 : -12)
+        .offset(x: appeared ? 0 : -10)
         .onAppear {
             withAnimation(
-                .spring(response: 0.35, dampingFraction: 0.80)
-                .delay(Double(index) * 0.05)
-            ) {
-                appeared = true
-            }
+                Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.82))
+                    .delay(Double(index) * 0.04)
+            ) { appeared = true }
         }
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-            Button(role: .destructive) {
-                withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.80))) {
-                    onDismiss()
-                }
-            } label: {
+            Button(role: .destructive, action: onDismiss) {
                 Label("Clear", systemImage: "xmark.circle.fill")
             }
             .tint(.red)
         }
         .contextMenu {
-            Button {
-                onMarkRead()
-            } label: {
-                Label("Mark Read", systemImage: "checkmark.circle")
-            }
-            Button {
-                // Mute — wired to type muting logic when backend is added
-            } label: {
-                Label("Mute this type", systemImage: "bell.slash")
-            }
-            Button {
-                // View detail — navigation wired when backend is added
-            } label: {
-                Label("View", systemImage: "arrow.right.circle")
-            }
+            Button("Mark Read", systemImage: "checkmark.circle") { onTap() }
+            Button("Clear", systemImage: "xmark.circle", role: .destructive) { onDismiss() }
         }
     }
 }
 
-// MARK: - Group Section Header
+private extension GroupedNotification {
+    var isQuietGrouped: Bool { priority >= .p3 && totalActorCount > 5 }
+}
 
-private struct GroupSectionHeader: View {
-    let type: NotificationType
-    let unreadCount: Int
-    let isCollapsed: Bool
-    let onToggle: () -> Void
+// MARK: - Needs Your Attention Panel
+
+private struct NeedsAttentionPanel: View {
+    let items: [GroupedNotification]
+    let onTap: (GroupedNotification) -> Void
+    let onDismiss: (GroupedNotification) -> Void
+    let onAction: (ActivitySmartAction, GroupedNotification) -> Void
 
     var body: some View {
-        Button(action: onToggle) {
+        VStack(spacing: 0) {
             HStack(spacing: 8) {
-                Image(systemName: type.iconName)
-                    .font(.systemScaled(14, weight: .semibold))
+                Image(systemName: "exclamationmark.circle.fill")
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(AmenTheme.Colors.iconPrimary)
-                    .frame(width: 20)
-
-                Text(type.label)
-                    .font(AMENFont.semiBold(14))
+                Text("Needs Your Attention")
+                    .font(AMENFont.bold(14))
                     .foregroundStyle(.primary)
-
-                if unreadCount > 0 {
-                    Text("\(unreadCount)")
-                        .font(AMENFont.bold(11))
-                        .foregroundStyle(AmenTheme.Colors.buttonPrimaryText)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Capsule().fill(AmenTheme.Colors.buttonPrimary))
-                }
-
                 Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.systemScaled(12, weight: .semibold))
-                    .foregroundStyle(AmenTheme.Colors.iconSecondary)
-                    .rotationEffect(.degrees(isCollapsed ? 0 : 90))
-                    .animation(.spring(response: 0.35, dampingFraction: 0.80), value: isCollapsed)
+                Text("\(items.count)")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(AmenTheme.Colors.buttonPrimaryText)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(Capsule().fill(AmenTheme.Colors.buttonPrimary))
             }
             .padding(.horizontal, 14)
-            .padding(.vertical, 10)
+            .padding(.vertical, 12)
+
+            Divider().padding(.horizontal, 14)
+
+            ForEach(Array(items.enumerated()), id: \.element.id) { i, item in
+                ActivityNotificationRow(
+                    item: item,
+                    index: i,
+                    onTap: { onTap(item) },
+                    onDismiss: { onDismiss(item) },
+                    onAction: { action in onAction(action, item) }
+                )
+                if i < items.count - 1 {
+                    Divider().padding(.leading, 74)
+                }
+            }
         }
-        .buttonStyle(.plain)
+        .activityGlass(cornerRadius: 20, elevated: true)
+    }
+}
+
+// MARK: - Time Bucket Section
+
+private struct TimeBucketSection: View {
+    let title: String
+    let items: [GroupedNotification]
+    let onTap: (GroupedNotification) -> Void
+    let onDismiss: (GroupedNotification) -> Void
+    let onAction: (ActivitySmartAction, GroupedNotification) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(AMENFont.bold(13))
+                .foregroundStyle(AmenTheme.Colors.textSecondary)
+                .padding(.leading, 2)
+
+            VStack(spacing: 0) {
+                ForEach(Array(items.enumerated()), id: \.element.id) { i, item in
+                    ActivityNotificationRow(
+                        item: item,
+                        index: i,
+                        onTap: { onTap(item) },
+                        onDismiss: { onDismiss(item) },
+                        onAction: { action in onAction(action, item) }
+                    )
+                    if i < items.count - 1 {
+                        Divider().padding(.leading, 74)
+                    }
+                }
+            }
+            .activityGlass(cornerRadius: 18)
+        }
     }
 }
 
@@ -463,17 +553,14 @@ private struct FocusModePill: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: isOn ? "moon.fill" : "moon")
-                .font(.systemScaled(14, weight: .medium))
+                .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(AmenTheme.Colors.iconPrimary)
-
             Text("Focus Mode")
                 .font(AMENFont.semiBold(14))
                 .foregroundStyle(.primary)
-
             Text(isOn ? "ON" : "OFF")
                 .font(AMENFont.bold(12))
                 .foregroundStyle(isOn ? AmenTheme.Colors.iconPrimary : AmenTheme.Colors.iconSecondary)
-
             Toggle("", isOn: $isOn)
                 .labelsHidden()
                 .tint(AmenTheme.Colors.buttonPrimary)
@@ -488,13 +575,13 @@ private struct FocusModePill: View {
                 .overlay(Capsule().strokeBorder(AmenTheme.Colors.glassStroke, lineWidth: 0.5))
                 .shadow(color: AmenTheme.Colors.shadowCard, radius: 12, x: 0, y: 3)
         )
-        .animation(.spring(response: 0.35, dampingFraction: 0.80), value: isOn)
+        .animation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.80)), value: isOn)
     }
 }
 
 // MARK: - Empty State
 
-private struct NotificationsEmptyState: View {
+private struct ActivityEmptyState: View {
     var body: some View {
         VStack(spacing: 16) {
             ZStack {
@@ -504,24 +591,22 @@ private struct NotificationsEmptyState: View {
                     .overlay(Circle().strokeBorder(AmenTheme.Colors.glassStroke, lineWidth: 0.5))
                     .frame(width: 72, height: 72)
                     .shadow(color: AmenTheme.Colors.shadowCard, radius: 16, x: 0, y: 4)
-
                 Image(systemName: "bell.fill")
-                    .font(.systemScaled(28, weight: .medium))
+                    .font(.system(size: 28, weight: .medium))
                     .foregroundStyle(AmenTheme.Colors.iconSecondary)
             }
-
             VStack(spacing: 6) {
                 Text("You're all caught up")
                     .font(AMENFont.semiBold(17))
                     .foregroundStyle(.primary)
-
-                Text("New activity will appear here")
+                Text("Prayer, community, scripture, and church activity will appear here.")
                     .font(AMENFont.regular(14))
                     .foregroundStyle(AmenTheme.Colors.textSecondary)
+                    .multilineTextAlignment(.center)
             }
         }
         .padding(32)
-        .glassCard(cornerRadius: 20)
+        .activityGlass(cornerRadius: 20)
         .padding(.horizontal, 24)
     }
 }
@@ -534,16 +619,14 @@ struct AMENNotificationsView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                AmenTheme.Colors.backgroundGrouped
-                    .ignoresSafeArea()
-
-                if viewModel.filteredNotifications.isEmpty {
-                    emptyStateContent
+                AmenTheme.Colors.backgroundGrouped.ignoresSafeArea()
+                if viewModel.hasContent {
+                    mainContent
                 } else {
-                    notificationsList
+                    emptyContent
                 }
             }
-            .navigationTitle("Notifications")
+            .navigationTitle("Activity")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -560,133 +643,99 @@ struct AMENNotificationsView: View {
                     }
                 }
             }
-            .task {
-                viewModel.startListening()
-            }
             .onAppear {
                 viewModel.markAllReadRemote()
-                BadgeCountManager.shared.clearNotifications()
-            }
-            .onDisappear {
-                viewModel.stopListening()
+                Task { await NotificationService.shared.recordInboxOpened() }
             }
         }
     }
 
-    // MARK: - Empty State Content
+    // MARK: Empty
 
-    private var emptyStateContent: some View {
+    private var emptyContent: some View {
         VStack(spacing: 24) {
-            FocusModePill(isOn: $viewModel.focusModeOn)
-                .padding(.top, 8)
-
+            FocusModePill(isOn: $viewModel.focusModeOn).padding(.top, 8)
             Spacer()
-            NotificationsEmptyState()
+            ActivityEmptyState()
             Spacer()
         }
         .padding(.horizontal, 20)
     }
 
-    // MARK: - Notifications List
+    // MARK: Main List
 
-    private var notificationsList: some View {
+    private var mainContent: some View {
         ScrollView(.vertical, showsIndicators: false) {
-            LazyVStack(spacing: 20, pinnedViews: []) {
+            LazyVStack(spacing: 20) {
+                VStack(spacing: 10) {
+                    FocusModePill(isOn: $viewModel.focusModeOn)
+                    ActivityFilterChipBar(selected: $viewModel.selectedFilter)
+                }
+                .padding(.top, 4)
 
-                // Focus Mode Pill
-                FocusModePill(isOn: $viewModel.focusModeOn)
-                    .padding(.top, 4)
-                    .padding(.horizontal, 2)
+                if !viewModel.needsAttention.isEmpty {
+                    NeedsAttentionPanel(
+                        items: viewModel.needsAttention,
+                        onTap: open,
+                        onDismiss: { viewModel.dismiss($0.sourceNotificationIds) },
+                        onAction: handleAction
+                    )
+                }
 
-                // Groups
-                ForEach(viewModel.visibleGroups, id: \.self) { groupType in
-                    groupSection(for: groupType)
+                if !viewModel.todayItems.isEmpty {
+                    TimeBucketSection(
+                        title: "Today",
+                        items: viewModel.todayItems,
+                        onTap: open,
+                        onDismiss: { viewModel.dismiss($0.sourceNotificationIds) },
+                        onAction: handleAction
+                    )
+                }
+                if !viewModel.yesterdayItems.isEmpty {
+                    TimeBucketSection(
+                        title: "Yesterday",
+                        items: viewModel.yesterdayItems,
+                        onTap: open,
+                        onDismiss: { viewModel.dismiss($0.sourceNotificationIds) },
+                        onAction: handleAction
+                    )
+                }
+                if !viewModel.lastSevenDaysItems.isEmpty {
+                    TimeBucketSection(
+                        title: "Last 7 Days",
+                        items: viewModel.lastSevenDaysItems,
+                        onTap: open,
+                        onDismiss: { viewModel.dismiss($0.sourceNotificationIds) },
+                        onAction: handleAction
+                    )
+                }
+                if !viewModel.earlierItems.isEmpty {
+                    TimeBucketSection(
+                        title: "Earlier",
+                        items: viewModel.earlierItems,
+                        onTap: open,
+                        onDismiss: { viewModel.dismiss($0.sourceNotificationIds) },
+                        onAction: handleAction
+                    )
                 }
 
                 Spacer(minLength: 32)
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 16)
             .padding(.top, 8)
         }
     }
 
-    // MARK: - Group Section
+    // MARK: Routing
 
-    @ViewBuilder
-    private func groupSection(for type: NotificationType) -> some View {
-        let items = viewModel.notifications(for: type)
-        let unread = items.filter { !$0.isRead }.count
-        let isCollapsed = viewModel.collapsedGroups.contains(type)
-
-        VStack(spacing: 0) {
-            // Section header
-            GroupSectionHeader(
-                type: type,
-                unreadCount: unread,
-                isCollapsed: isCollapsed
-            ) {
-                withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.80))) {
-                    if isCollapsed {
-                        viewModel.collapsedGroups.remove(type)
-                    } else {
-                        viewModel.collapsedGroups.insert(type)
-                    }
-                }
-            }
-
-            // Cards
-            if !isCollapsed {
-                VStack(spacing: 8) {
-                    ForEach(Array(items.enumerated()), id: \.element.id) { index, notification in
-                        NotificationCard(
-                            notification: notification,
-                            index: index
-                        ) {
-                            viewModel.markRead(notification.id)
-                        } onDismiss: {
-                            viewModel.dismissRemote(notification.id)
-                        } onTap: {
-                            viewModel.markRead(notification.id)
-                            routeNotification(notification)
-                        }
-                    }
-                }
-                .padding(.top, 4)
-                .transition(.opacity.combined(with: .move(edge: .top)))
-            }
-        }
-        .glassCard(cornerRadius: 20)
-        .padding(.vertical, 1)
+    private func open(_ item: GroupedNotification) {
+        viewModel.markRead(item.sourceNotificationIds)
+        NotificationTapHandler.shared.execute(item.route)
     }
 
-    // MARK: - Routing
-
-    /// Route an in-app notification tap to its canonical destination.
-    /// Uses routing fields if present; falls back gracefully for sample/legacy data.
-    private func routeNotification(_ notification: AMENNotification) {
-        switch notification.type {
-
-        case .mention, .comment, .reaction:
-            if let postId = notification.postId, !postId.isEmpty {
-                let route: NotificationRoute
-                if let commentId = notification.commentId, !commentId.isEmpty {
-                    route = .postComment(postID: postId, commentID: commentId)
-                } else {
-                    route = .post(postID: postId)
-                }
-                NotificationTapHandler.shared.execute(route)
-            }
-            // No postId → stay on notifications (graceful no-op for sample data)
-
-        case .bereanInsight:
-            break // Berean insight — stays in notifications; no external destination
-
-        case .communityInvite:
-            NotificationTapHandler.shared.execute(.fallback)
-
-        case .system:
-            break // System notifications — no deep destination
-        }
+    private func handleAction(_ action: ActivitySmartAction, for item: GroupedNotification) {
+        viewModel.markRead(item.sourceNotificationIds)
+        NotificationTapHandler.shared.execute(item.route)
     }
 }
 
@@ -696,11 +745,10 @@ struct AMENNotificationsView_Previews: PreviewProvider {
     static var previews: some View {
         Group {
             AMENNotificationsView()
-                .previewDisplayName("Default — Light")
-
+                .previewDisplayName("Activity Inbox — Light")
             AMENNotificationsView()
                 .preferredColorScheme(.dark)
-                .previewDisplayName("Dark Mode")
+                .previewDisplayName("Activity Inbox — Dark")
         }
     }
 }

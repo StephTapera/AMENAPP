@@ -1,34 +1,9 @@
 // MentorshipPlanSheet.swift
 // AMENAPP
-// Plan picker + Stripe native PaymentSheet.
-// StripePaymentSheet is linked via SPM (stripe-ios ≥ 25.8.0).
-// When the Stripe package isn't available yet, paid plans show a
-// placeholder message instead of crashing at compile time.
-//
-// ⚠️ APP STORE COMPLIANCE — REQUIRED BEFORE SUBMISSION ⚠️
-// Apple App Store Guideline 3.1.1 requires that in-app purchases of digital
-// goods and services (including paid mentorship subscriptions) go through
-// Apple's In-App Purchase system.
-//
-// This file currently uses the Stripe PaymentSheet SDK to collect payment
-// directly, which WILL cause App Store rejection.
-//
-// REQUIRED ACTION before submitting to App Store:
-//   1. Create StoreKit product IDs for each mentorship plan tier in
-//      App Store Connect → In-App Purchases.
-//   2. Replace the Stripe PaymentSheet flow with Product.purchase() from
-//      StoreKit 2 (mirroring PremiumManager.purchase(_:)).
-//   3. Remove the stripe-ios SPM dependency.
-//   4. Use Stripe only on the server side for payouts to mentors
-//      (StudioPaymentService / Stripe Connect — this is allowed).
-//
-// Stripe Connect payouts TO mentors are NOT affected by this restriction;
-// only the buyer-side collection of money must go through StoreKit.
+// StoreKit-backed mentorship plan picker.
 
 import SwiftUI
-#if canImport(StripePaymentSheet)
-import StripePaymentSheet
-#endif
+import StoreKit
 
 struct MentorshipPlanSheet: View {
     let mentor: Mentor
@@ -36,56 +11,91 @@ struct MentorshipPlanSheet: View {
     let onDismiss: () -> Void
 
     @State private var selectedPlan: MentorshipPlan?
+    @State private var productsById: [String: Product] = [:]
+    @State private var isLoadingProducts = false
     @State private var isProcessing = false
-    #if canImport(StripePaymentSheet)
-    @State private var paymentSheet: PaymentSheet?
-    @State private var paymentSheetPresented = false
-    #endif
-    @State private var pendingSubscriptionId: String?
-    @State private var pendingPlan: MentorshipPlan?
     @State private var errorMessage: String?
+    @State private var successMessage: String?
     @Environment(\.dismiss) private var dismiss
 
-    var plans: [MentorshipPlan] {
+    private var plans: [MentorshipPlan] {
         mentor.plans.isEmpty ? MentorshipPlan.defaultPlans() : mentor.plans
     }
 
     var body: some View {
         NavigationStack {
-            planScrollContent
-                .navigationTitle("Choose a Plan")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button("Close") { dismiss() }
+            Group {
+                if AMENFeatureFlags.shared.mentorshipEnabled {
+                    planScrollContent
+                } else {
+                    mentorshipPlanUnavailableView
+                }
+            }
+            .navigationTitle("Choose a Plan")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Close") {
+                        onDismiss()
+                        dismiss()
                     }
                 }
-        }
-        #if canImport(StripePaymentSheet)
-        .modifier(
-            OptionalPaymentSheetModifier(
-                isPresented: $paymentSheetPresented,
-                paymentSheet: paymentSheet,
-                onCompletion: { result in
-                    Task { await handlePaymentResult(result) }
+                ToolbarItem(placement: .bottomBar) {
+                    Button("Restore Purchases") {
+                        Task { await restorePurchases() }
+                    }
+                    .disabled(isProcessing)
                 }
-            )
-        )
-        #endif
-        .onAppear { selectedPlan = plans.first }
+            }
+        }
+        .task {
+            if selectedPlan == nil { selectedPlan = plans.first }
+            await loadPaidProducts()
+        }
     }
 
-    @ViewBuilder
+    private var mentorshipPlanUnavailableView: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "creditcard.trianglebadge.exclamationmark")
+                .font(.system(size: 40, weight: .semibold))
+                .foregroundStyle(.secondary)
+            Text("Mentorship plans are disabled")
+                .font(.systemScaled(18, weight: .bold))
+                .multilineTextAlignment(.center)
+            Text("This community has mentorship enrollment turned off right now.")
+                .font(.systemScaled(14))
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 28)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(.systemBackground))
+    }
+
     private var planScrollContent: some View {
         ScrollView {
             VStack(spacing: 20) {
                 mentorHeader
                 planCardsList
 
-                if let err = errorMessage {
-                    Text(err)
+                if isLoadingProducts {
+                    Label("Loading App Store products", systemImage: "cart")
+                        .font(.systemScaled(13))
+                        .foregroundStyle(.secondary)
+                }
+
+                if let errorMessage {
+                    Text(errorMessage)
                         .font(.systemScaled(13))
                         .foregroundStyle(.red)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 18)
+                }
+
+                if let successMessage {
+                    Label(successMessage, systemImage: "checkmark.circle.fill")
+                        .font(.systemScaled(13, weight: .semibold))
+                        .foregroundStyle(.green)
                         .padding(.horizontal, 18)
                 }
 
@@ -99,25 +109,23 @@ struct MentorshipPlanSheet: View {
         }
     }
 
-    @ViewBuilder
     private var planCardsList: some View {
         VStack(spacing: 12) {
             ForEach(plans) { plan in
                 let selected = selectedPlan?.id == plan.id
-                PlanCard(plan: plan, isSelected: selected)
+                PlanCard(plan: plan, product: productsById[plan.storeKitProductId], isSelected: selected)
                     .onTapGesture {
                         withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                             selectedPlan = plan
+                            errorMessage = nil
                         }
                     }
+                    .accessibilityAddTraits(selected ? .isSelected : [])
             }
         }
         .padding(.horizontal, 18)
     }
 
-    // MARK: - Subviews
-
-    @ViewBuilder
     private var mentorHeader: some View {
         HStack(spacing: 12) {
             MentorAvatarView(name: mentor.name, photoURL: mentor.photoURL, size: 44)
@@ -142,112 +150,134 @@ struct MentorshipPlanSheet: View {
                 if isProcessing {
                     ProgressView().tint(.white).padding(.trailing, 4)
                 }
-                Text(plan.isFree ? "Start Free — \(plan.name)" : "Continue — \(plan.priceLabel)")
+                Text(primaryButtonTitle(for: plan))
                     .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(.white)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 16)
-            .background(
-                RoundedRectangle(cornerRadius: 14)
-                    .fill(Color(red: 0.49, green: 0.23, blue: 0.93))
-            )
+            .background(RoundedRectangle(cornerRadius: 14).fill(Color(red: 0.49, green: 0.23, blue: 0.93)))
         }
-        .disabled(isProcessing)
+        .disabled(isProcessing || (!plan.isFree && productsById[plan.storeKitProductId] == nil))
         .padding(.horizontal, 18)
+
+        if !plan.isFree && productsById[plan.storeKitProductId] == nil {
+            Text("The App Store product \(plan.storeKitProductId) is not configured for this build.")
+                .font(.systemScaled(12))
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 18)
+        }
     }
 
-    // MARK: - Logic
+    private func primaryButtonTitle(for plan: MentorshipPlan) -> String {
+        if plan.isFree { return "Start Free - \(plan.name)" }
+        if let product = productsById[plan.storeKitProductId] {
+            return "Start \(plan.name) - \(product.displayPrice)"
+        }
+        return "Plan unavailable"
+    }
+
+    private func loadPaidProducts() async {
+        let ids = Array(Set(plans.filter { !$0.isFree }.map(\.storeKitProductId)))
+        guard !ids.isEmpty else { return }
+        isLoadingProducts = true
+        defer { isLoadingProducts = false }
+        do {
+            let products = try await Product.products(for: ids)
+            productsById = Dictionary(uniqueKeysWithValues: products.map { ($0.id, $0) })
+            if products.count < ids.count {
+                errorMessage = "Some mentorship products are missing from StoreKit configuration."
+            }
+        } catch {
+            errorMessage = "App Store products could not be loaded. Check your connection and StoreKit configuration."
+        }
+    }
 
     private func handlePlanSelection(_ plan: MentorshipPlan) async {
         isProcessing = true
         errorMessage = nil
+        successMessage = nil
+        defer { isProcessing = false }
+
         do {
             if plan.isFree {
                 _ = try await MentorshipService.shared.createFreeRelationship(
-                    mentorId: mentor.id, planId: plan.id, planName: plan.name,
-                    mentorName: mentor.name, mentorPhotoURL: mentor.photoURL
+                    mentorId: mentor.id,
+                    planId: plan.id,
+                    planName: plan.name,
+                    mentorName: mentor.name,
+                    mentorPhotoURL: mentor.photoURL
                 )
                 await vm.loadAll()
+                onDismiss()
                 dismiss()
             } else {
-                #if canImport(StripePaymentSheet)
-                // Get PaymentIntent client secret from Cloud Function
-                let (clientSecret, subscriptionId) = try await MentorshipService.shared.createPaidRelationship(
-                    mentorId: mentor.id, planId: plan.id, planName: plan.name,
-                    stripePriceId: plan.stripePriceId,
-                    mentorName: mentor.name, mentorPhotoURL: mentor.photoURL
-                )
-                // Stash for use in completion handler
-                pendingPlan = plan
-                pendingSubscriptionId = subscriptionId
-
-                // Configure PaymentSheet
-                var config = PaymentSheet.Configuration()
-                config.merchantDisplayName = "AMEN"
-                config.applePay = .init(
-                    merchantId: "merchant.com.amen.app",
-                    merchantCountryCode: "US"
-                )
-                config.defaultBillingDetails.address.country = "US"
-                config.allowsDelayedPaymentMethods = false
-
-                paymentSheet = PaymentSheet(
-                    paymentIntentClientSecret: clientSecret,
-                    configuration: config
-                )
-                isProcessing = false
-                paymentSheetPresented = true
-                return
-                #else
-                errorMessage = "Payments are not available yet. Please update the app."
-                dlog("⚠️ MentorshipPlanSheet: StripePaymentSheet not linked")
-                #endif
+                try await purchasePaidPlan(plan)
             }
         } catch {
-            errorMessage = "Something went wrong. Please try again."
-            dlog("⚠️ MentorshipPlanSheet: \(error)")
+            errorMessage = error.localizedDescription.isEmpty ? "Something went wrong. Please try again." : error.localizedDescription
         }
-        isProcessing = false
     }
 
-    #if canImport(StripePaymentSheet)
-    private func handlePaymentResult(_ result: PaymentSheetResult) async {
+    private func purchasePaidPlan(_ plan: MentorshipPlan) async throws {
+        guard let product = productsById[plan.storeKitProductId] else {
+            errorMessage = "This plan is not available for purchase on this device."
+            return
+        }
+
+        let result = try await product.purchase()
         switch result {
-        case .completed:
-            guard let plan = pendingPlan, let subscriptionId = pendingSubscriptionId else { return }
-            isProcessing = true
-            do {
-                try await MentorshipService.shared.finalizeRelationship(
-                    mentorId: mentor.id, planId: plan.id, planName: plan.name,
-                    subscriptionId: subscriptionId,
-                    mentorName: mentor.name, mentorPhotoURL: mentor.photoURL
-                )
-                await vm.loadAll()
-                dismiss()
-            } catch {
-                errorMessage = "Payment succeeded but setup failed. Please contact support."
-                dlog("⚠️ MentorshipPlanSheet finalize: \(error)")
-            }
-            isProcessing = false
-
-        case .canceled:
-            break // user dismissed sheet — no error shown
-
-        case .failed(let error):
-            errorMessage = error.localizedDescription
-            dlog("⚠️ MentorshipPlanSheet payment failed: \(error)")
+        case .success(let verification):
+            let transaction = try checkVerified(verification)
+            try await MentorshipService.shared.finalizeStoreKitRelationship(
+                mentorId: mentor.id,
+                planId: plan.id,
+                planName: plan.name,
+                transactionId: String(transaction.id),
+                mentorName: mentor.name,
+                mentorPhotoURL: mentor.photoURL
+            )
+            await transaction.finish()
+            await vm.loadAll()
+            successMessage = "Purchase complete."
+            onDismiss()
+            dismiss()
+        case .userCancelled:
+            errorMessage = "Purchase cancelled."
+        case .pending:
+            errorMessage = "Purchase pending approval."
+        @unknown default:
+            errorMessage = "The App Store returned an unknown purchase state."
         }
-        pendingPlan = nil
-        pendingSubscriptionId = nil
     }
-    #endif
-}
 
-// MARK: - Plan Card
+    private func restorePurchases() async {
+        isProcessing = true
+        errorMessage = nil
+        successMessage = nil
+        defer { isProcessing = false }
+        do {
+            try await AppStore.sync()
+            successMessage = "Purchases restored."
+        } catch {
+            errorMessage = "Restore failed. Please try again."
+        }
+    }
+
+    private func checkVerified<T>(_ result: VerificationResult<T>) throws -> T {
+        switch result {
+        case .unverified:
+            throw NSError(domain: "MentorshipStoreKit", code: 1, userInfo: [NSLocalizedDescriptionKey: "Transaction could not be verified."])
+        case .verified(let safe):
+            return safe
+        }
+    }
+}
 
 private struct PlanCard: View {
     let plan: MentorshipPlan
+    let product: Product?
     let isSelected: Bool
 
     private let accentPurple = Color(red: 0.49, green: 0.23, blue: 0.93)
@@ -262,6 +292,10 @@ private struct PlanCard: View {
         return "\(count) session\(count == 1 ? "" : "s") per month"
     }
 
+    private var priceLabel: String {
+        product?.displayPrice ?? plan.priceLabel
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             headerRow
@@ -274,15 +308,11 @@ private struct PlanCard: View {
         .background(isSelected ? accentPurple.opacity(0.05) : Color(.systemBackground))
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(
-                    isSelected ? accentPurple : Color.primary.opacity(0.07),
-                    lineWidth: isSelected ? 1.5 : 0.5
-                )
+                .stroke(isSelected ? accentPurple : Color.primary.opacity(0.07), lineWidth: isSelected ? 1.5 : 0.5)
         )
         .cornerRadius(14)
     }
 
-    @ViewBuilder
     private var headerRow: some View {
         HStack {
             Text(plan.name).font(.systemScaled(15, weight: .bold))
@@ -295,11 +325,10 @@ private struct PlanCard: View {
                     .background(Capsule().fill(badgeColor.opacity(0.10)))
             }
             Spacer()
-            Text(plan.priceLabel).font(.systemScaled(17, weight: .bold))
+            Text(priceLabel).font(.systemScaled(17, weight: .bold))
         }
     }
 
-    @ViewBuilder
     private var featuresList: some View {
         VStack(alignment: .leading, spacing: 4) {
             PlanFeatureRow(text: sessionLabel, included: true)
@@ -309,28 +338,6 @@ private struct PlanCard: View {
         }
     }
 }
-
-#if canImport(StripePaymentSheet)
-/// Applies the Stripe `.paymentSheet` modifier only when a non-nil PaymentSheet is available.
-/// This avoids the type mismatch when the sheet hasn't been created yet.
-private struct OptionalPaymentSheetModifier: ViewModifier {
-    @Binding var isPresented: Bool
-    let paymentSheet: PaymentSheet?
-    let onCompletion: @MainActor (PaymentSheetResult) -> Void
-
-    func body(content: Content) -> some View {
-        if let sheet = paymentSheet {
-            content.paymentSheet(
-                isPresented: $isPresented,
-                paymentSheet: sheet,
-                onCompletion: onCompletion
-            )
-        } else {
-            content
-        }
-    }
-}
-#endif
 
 private struct PlanFeatureRow: View {
     let text: String

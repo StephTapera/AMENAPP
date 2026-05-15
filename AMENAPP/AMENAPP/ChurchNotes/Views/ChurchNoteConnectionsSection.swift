@@ -151,10 +151,10 @@ struct ChurchNoteThreadChip: View {
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: "link")
-                .font(.system(size: 10))
+                .font(.systemScaled(10))
                 .accessibilityHidden(true)
             Text("\(connectionCount)")
-                .font(.system(size: 10, weight: .medium))
+                .font(.systemScaled(10, weight: .medium))
         }
         .foregroundStyle(.secondary)
         .padding(.horizontal, 8)
@@ -174,7 +174,7 @@ struct CNThemeOccurrenceLabel: View {
     var body: some View {
         HStack(spacing: 5) {
             Image(systemName: "arrow.triangle.2.circlepath")
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
             Text("Your \(ordinal(count)) note on \(theme.lowercased())")

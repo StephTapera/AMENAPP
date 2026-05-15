@@ -87,6 +87,49 @@ final class ChurchNoteBlockRepository: ObservableObject {
             .setData(from: note)
     }
 
+    func createNoteFromMediaMoment(_ payload: ChurchNoteExtractionPayload) async throws -> ChurchNoteV2 {
+        guard let uid = Auth.auth().currentUser?.uid else {
+            throw NSError(domain: "ChurchNoteBlockRepository", code: -1, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
+        }
+
+        var note = ChurchNoteV2.empty(userId: uid)
+        note.title = payload.sourceLabel
+        note.scriptureReferences = payload.verseReference.map { [$0] } ?? []
+        note.tags = ["media_moment"]
+        note.updatedAt = Date()
+
+        let anchorSuffix: String
+        if let frameIndex = payload.frameIndex {
+            anchorSuffix = "Frame \(frameIndex + 1)"
+        } else if let timestamp = payload.timestamp {
+            let totalSeconds = max(Int(timestamp.rounded()), 0)
+            anchorSuffix = String(format: "%02d:%02d", totalSeconds / 60, totalSeconds % 60)
+        } else {
+            anchorSuffix = "Moment"
+        }
+
+        let blockText = [
+            payload.sourceText?.trimmingCharacters(in: .whitespacesAndNewlines),
+            payload.verseReference?.trimmingCharacters(in: .whitespacesAndNewlines),
+            "Source: \(anchorSuffix)"
+        ]
+        .compactMap { $0 }
+        .filter { !$0.isEmpty }
+        .joined(separator: "\n")
+
+        let block = ChurchNoteBlockV2(
+            sortOrder: 0,
+            type: .paragraph,
+            semanticType: .reflection,
+            visibility: .privateOnly,
+            text: blockText
+        )
+
+        try await createNote(note)
+        try await addBlock(block, to: note.id)
+        return note
+    }
+
     // MARK: - Update note metadata
 
     func updateNoteMetadata(

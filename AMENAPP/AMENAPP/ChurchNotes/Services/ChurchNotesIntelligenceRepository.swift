@@ -12,6 +12,7 @@
 import Foundation
 import FirebaseFirestore
 import FirebaseAuth
+import FirebaseFunctions
 
 @MainActor
 final class ChurchNotesIntelligenceRepository: ObservableObject {
@@ -24,6 +25,7 @@ final class ChurchNotesIntelligenceRepository: ObservableObject {
     @Published private(set) var isLoadingSummary = false
 
     private let db = Firestore.firestore()
+    private let functions = Functions.functions()
     private var reflectionsListener: ListenerRegistration?
     private var bridgeListener: ListenerRegistration?
     private var activeNoteId: String?
@@ -152,7 +154,7 @@ final class ChurchNotesIntelligenceRepository: ObservableObject {
     }
 
     func loadBridge(noteId: String) async -> CNSermonBridge? {
-        guard let uid = Auth.auth().currentUser?.uid else { return nil }
+        guard Auth.auth().currentUser?.uid != nil else { return nil }
         guard let snap = try? await db
             .collection("churchNotes").document(noteId)
             .collection("bridge").document("main")
@@ -190,6 +192,34 @@ final class ChurchNotesIntelligenceRepository: ObservableObject {
             .updateData(["showInsights": true, "dismissedAt": NSNull()])
     }
 
+    func generateServerSideSummary(userId: String, noteIds: [String]) async -> ChurchNotesSummary? {
+        guard AMENFeatureFlags.shared.churchNotesServerSummaryEnabled else { return nil }
+        guard let currentUserId = Auth.auth().currentUser?.uid, currentUserId == userId else { return nil }
+
+        let uniqueNoteIds = Array(Set(noteIds)).filter { !$0.isEmpty }
+        guard !uniqueNoteIds.isEmpty else { return nil }
+
+        do {
+            let notePayloads = try await loadServerSummaryPayloads(userId: userId, noteIds: uniqueNoteIds)
+            guard !notePayloads.isEmpty else { return nil }
+
+            let result = try await functions
+                .httpsCallable("bereanGenerateChurchNotesSummary")
+                .safeCall([
+                    "userId": userId,
+                    "noteIds": uniqueNoteIds,
+                    "notes": notePayloads,
+                    "isPrivateNote": true,
+                ])
+
+            guard let data = result.data as? [String: Any] else { return nil }
+            let summaryJSON = (data["summary"] as? [String: Any]) ?? data
+            return try decodeSummary(from: summaryJSON)
+        } catch {
+            return nil
+        }
+    }
+
     // MARK: - Prayer Bridge
 
     /// Mark a block as linked to a prayer. Writes a lightweight link doc.
@@ -212,6 +242,60 @@ final class ChurchNotesIntelligenceRepository: ObservableObject {
         // Increment linked prayer count on note
         try await db.collection("churchNotes").document(noteId)
             .updateData(["linkedPrayerCount": FieldValue.increment(Int64(1))])
+    }
+
+    private func loadServerSummaryPayloads(userId: String, noteIds: [String]) async throws -> [[String: Any]] {
+        var payloads: [[String: Any]] = []
+
+        for noteId in noteIds {
+            let noteRef = db.collection("churchNotes").document(noteId)
+            let noteSnap = try await noteRef.getDocument()
+            guard noteSnap.data()?["userId"] as? String == userId,
+                  let note = try? noteSnap.data(as: ChurchNoteV2.self) else {
+                continue
+            }
+
+            let blocksSnap = try await noteRef
+                .collection("blocks")
+                .order(by: "sortOrder")
+                .getDocuments()
+
+            let blocks = blocksSnap.documents.compactMap { try? $0.data(as: ChurchNoteBlockV2.self) }
+            let allowedBlocks = blocks.filter { block in
+                block.visibility == .privateOnly
+                    || block.visibility == .shareable
+                    || block.visibility == .selectedForSelahEmphasis
+                    || block.visibility == .selectedForPostPreview
+            }
+
+            let trimmedTexts = allowedBlocks.map { block in
+                block.text.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+            }
+            let noteText = trimmedTexts
+                .filter { !$0.isEmpty }
+                .joined(separator: "\n")
+
+            guard !noteText.isEmpty else { continue }
+
+            payloads.append([
+                "noteId": note.id,
+                "title": note.title,
+                "sermonTitle": note.sermonTitle as Any,
+                "sermonSpeaker": note.sermonSpeaker as Any,
+                "scriptureReferences": note.scriptureReferences,
+                "text": noteText,
+                "isPrivateNote": true,
+            ])
+        }
+
+        return payloads
+    }
+
+    private func decodeSummary(from data: [String: Any]) throws -> ChurchNotesSummary {
+        let jsonData = try JSONSerialization.data(withJSONObject: data)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .secondsSince1970
+        return try decoder.decode(ChurchNotesSummary.self, from: jsonData)
     }
 }
 

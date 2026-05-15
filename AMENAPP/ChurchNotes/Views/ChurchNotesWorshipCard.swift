@@ -6,35 +6,93 @@ struct ChurchNotesWorshipCard: View {
     let onRemove: (String) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Label("Worship Songs", systemImage: "music.note")
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Music")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(.primary)
+                    Text("Attach one meaningful song or album without overpowering the note.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                }
+
                 Spacer()
-                Button("Add", action: onAdd)
+
+                Button(songs.isEmpty ? "Attach Music" : "Replace music", action: onAdd)
+                    .buttonStyle(.bordered)
+                    .tint(.black)
             }
+
             if songs.isEmpty {
-                Text("No songs added yet")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.tertiary)
+                emptyState
             } else {
-                ForEach(songs) { song in
-                    HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(song.title).font(.system(size: 14, weight: .medium))
-                            Text(song.artist).font(.system(size: 12)).foregroundStyle(.tertiary)
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(songs) { song in
+                        HStack(spacing: 10) {
+                            WorshipMusicPill(song: song)
+
+                            Button {
+                                onRemove(song.id)
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.system(size: 18, weight: .medium))
+                                    .foregroundStyle(.secondary)
+                                    .frame(width: 32, height: 32)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Remove music attachment")
                         }
-                        Spacer()
-                        Button {
-                            onRemove(song.id)
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                        }
-                        .buttonStyle(.plain)
                     }
                 }
             }
         }
-        .padding(16)
+        .padding(18)
         .churchNotesGlassCard()
+    }
+
+    private var emptyState: some View {
+        Button(action: onAdd) {
+            HStack(spacing: 12) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(Color.black.opacity(0.05))
+                        .frame(width: 44, height: 44)
+                    Image(systemName: "music.note")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.primary.opacity(0.7))
+                }
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Attach Music")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.primary)
+                    Text("Paste an Apple Music or Spotify song or album link.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                Image(systemName: "plus.circle.fill")
+                    .font(.system(size: 20, weight: .medium))
+                    .foregroundStyle(.black)
+            }
+            .padding(14)
+            .background(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .fill(Color.white.opacity(0.58))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .strokeBorder(Color.black.opacity(0.08), lineWidth: 0.8)
+                    )
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Attach music")
     }
 }

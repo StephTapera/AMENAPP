@@ -7,6 +7,7 @@
 
 import SwiftUI
 import FirebaseAuth
+import UniformTypeIdentifiers
 
 // MARK: - Editor ViewModel
 
@@ -21,14 +22,84 @@ final class ChurchNoteSemanticEditorViewModel: ObservableObject {
     @Published var showSelah = false
 
     private let repository = ChurchNoteBlockRepository.shared
+    let intelligenceRepo = ChurchNotesIntelligenceRepository.shared
+    private let intelligenceService = ChurchNotesIntelligenceService.shared
     private var autosaveTask: Task<Void, Never>?
+
+    // MARK: - AI State Enums
+
+    enum AIReviewState: Equatable {
+        case notGenerated
+        case generating
+        case generated([CNReviewSuggestion])
+        case stale
+        case failed(String)
+
+        static func == (lhs: AIReviewState, rhs: AIReviewState) -> Bool {
+            switch (lhs, rhs) {
+            case (.notGenerated, .notGenerated), (.generating, .generating), (.stale, .stale): return true
+            case (.generated(let a), .generated(let b)): return a.map(\.id) == b.map(\.id)
+            case (.failed(let a), .failed(let b)): return a == b
+            default: return false
+            }
+        }
+    }
+
+    enum BereanInsightState: Equatable {
+        case notFetched
+        case fetching
+        case fetched(ScripturePassagePayload)
+        case failed
+
+        static func == (lhs: BereanInsightState, rhs: BereanInsightState) -> Bool {
+            switch (lhs, rhs) {
+            case (.notFetched, .notFetched), (.fetching, .fetching), (.failed, .failed): return true
+            case (.fetched(let a), .fetched(let b)): return a.id == b.id
+            default: return false
+            }
+        }
+    }
+
+    // Intelligence state
+    @Published var anchorPickerBlock: ChurchNoteBlockV2?
+    @Published var aiReviewState: AIReviewState = .notGenerated
+    @Published var bridge: CNSermonBridge
+    @Published var showBridgeCard = false
+    @Published var connections: [ChurchNoteConnection] = []
+    @Published var detectedPosture: CNPostureSignal?
+    @Published var showReflectionScheduler = false
+    @Published var selectedReplayIntervals: Set<Int> = []
+    @Published var bereanInsightState: BereanInsightState = .notFetched
+
+    // Backward-compatible computed properties so existing view code compiles unchanged.
+    var showReviewStrip: Bool {
+        get {
+            if case .generated(let s) = aiReviewState { return !s.isEmpty }
+            return false
+        }
+        set { if !newValue { aiReviewState = .notGenerated } }
+    }
+    var reviewSuggestions: [CNReviewSuggestion] {
+        if case .generated(let s) = aiReviewState { return s }
+        return []
+    }
+    var bereanPassageInsight: ScripturePassagePayload? {
+        if case .fetched(let p) = bereanInsightState { return p }
+        return nil
+    }
+    var isFetchingBereanInsight: Bool {
+        bereanInsightState == .fetching
+    }
 
     init(note: ChurchNoteV2? = nil) {
         if let note {
             self.note = note
+            self.bridge = CNSermonBridge.empty(noteId: note.id)
         } else {
             let uid = Auth.auth().currentUser?.uid ?? ""
-            self.note = ChurchNoteV2.empty(userId: uid)
+            let newNote = ChurchNoteV2.empty(userId: uid)
+            self.note = newNote
+            self.bridge = CNSermonBridge.empty(noteId: newNote.id)
         }
     }
 
@@ -70,6 +141,7 @@ final class ChurchNoteSemanticEditorViewModel: ObservableObject {
         )
         Task {
             try? await repository.addBlock(b, to: note.id)
+            await MainActor.run { self.notifyNoteEdited() }
         }
     }
 
@@ -79,12 +151,14 @@ final class ChurchNoteSemanticEditorViewModel: ObservableObject {
             try? await Task.sleep(nanoseconds: 1_200_000_000) // 1.2s debounce
             guard !Task.isCancelled else { return }
             try? await repository.updateBlock(block, in: note.id)
+            await MainActor.run { self.notifyNoteEdited() }
         }
     }
 
     func deleteBlock(_ block: ChurchNoteBlockV2) {
         Task {
             try? await repository.deleteBlock(blockId: block.id, from: note.id)
+            await MainActor.run { self.notifyNoteEdited() }
         }
     }
 
@@ -96,6 +170,7 @@ final class ChurchNoteSemanticEditorViewModel: ObservableObject {
                 noteId: note.id,
                 visibility: next
             )
+            await MainActor.run { self.notifyNoteEdited() }
         }
     }
 
@@ -107,11 +182,104 @@ final class ChurchNoteSemanticEditorViewModel: ObservableObject {
                 noteId: note.id,
                 pinnedState: next
             )
+            await MainActor.run { self.notifyNoteEdited() }
         }
     }
 
     var pinnedBlocks: [ChurchNoteBlockV2] {
         blocks.filter { $0.pinnedState != .none }
+    }
+
+    // MARK: - Intelligence methods
+
+    func applyAnchor(_ anchorType: CNAnchorType?, to block: ChurchNoteBlockV2) {
+        let newSemanticType = anchorType?.semanticType ?? .general
+        let updated = ChurchNoteBlockV2(
+            id: block.id, sortOrder: block.sortOrder, type: block.type,
+            semanticType: newSemanticType, visibility: block.visibility, pinnedState: block.pinnedState,
+            text: block.text, richSpans: block.richSpans, versePayload: block.versePayload,
+            calloutPayload: block.calloutPayload, sectionPayload: block.sectionPayload,
+            checklistPayload: block.checklistPayload,
+            createdAt: block.createdAt, updatedAt: Date()
+        )
+        updateBlock(updated)
+    }
+
+    private func notifyNoteEdited() {
+        NotificationCenter.default.post(
+            name: .churchNoteEdited,
+            object: nil,
+            userInfo: ["noteId": note.id]
+        )
+    }
+
+    func computeIntelligence() {
+        // Posture detection — runs locally, never blocks UI
+        Task {
+            let currentBlocks = blocks
+            let posture = intelligenceService.detectPosture(from: currentBlocks)
+            await MainActor.run { detectedPosture = posture }
+
+            // Note connections
+            let allNotes = repository.notes
+            let found = await intelligenceService.findConnections(
+                sourceNote: note,
+                sourceBlocks: currentBlocks,
+                allNotes: allNotes
+            )
+            await MainActor.run { connections = found }
+        }
+        // Fetch Berean AI insight for the primary verse (lazy — only once per note session)
+        if bereanPassageInsight == nil {
+            fetchBereanInsight()
+        }
+    }
+
+    func fetchBereanInsight() {
+        // Prefer the first verse-embed block's reference; fall back to note-level scriptureReferences
+        let verseRef = blocks
+            .first { $0.type == .verseEmbed }?
+            .versePayload?.reference
+            ?? note.scriptureReferences.first
+        guard let ref = verseRef, !ref.isEmpty else { return }
+        guard bereanInsightState != .fetching else { return }
+        bereanInsightState = .fetching
+        Task {
+            if let result = try? await BereanAPIClient.shared.studyPassage(reference: ref) {
+                bereanInsightState = .fetched(result)
+            } else {
+                bereanInsightState = .failed
+            }
+        }
+    }
+
+    func prepareReviewStrip() {
+        aiReviewState = .generating
+        let suggestions = intelligenceService.reviewSuggestions(
+            for: blocks,
+            bridge: bridge.isPopulated ? bridge : nil,
+            reflections: []
+        )
+        withAnimation(ChurchNotesAnimationTokens.reviewMode) {
+            aiReviewState = suggestions.isEmpty ? .notGenerated : .generated(suggestions)
+        }
+    }
+
+    func saveBridge() {
+        Task {
+            var updated = bridge
+            updated.noteId = note.id
+            updated.id = note.id
+            try? await intelligenceRepo.saveBridge(updated)
+        }
+    }
+
+    func scheduleReplay() {
+        Task {
+            for days in selectedReplayIntervals {
+                try? await intelligenceRepo.scheduleReflectionReplay(noteId: note.id, afterDays: days)
+            }
+        }
     }
 }
 
@@ -122,6 +290,25 @@ struct ChurchNoteSemanticEditorView: View {
     @StateObject private var vm: ChurchNoteSemanticEditorViewModel
     @EnvironmentObject private var blockRepo: ChurchNoteBlockRepository
     @Environment(\.dismiss) private var dismiss
+    @State private var showLivingEntries = false
+    @State private var linkedNoteToOpen: ChurchNoteV2?  // wires onOpenNote from connections section
+
+    // MARK: - Media Intelligence state
+    @StateObject private var processingService = ChurchNotesMediaProcessingService()
+    @State private var showAudioRecorder = false
+    @State private var showPhotoOCR      = false
+    @State private var showVideoImporter = false
+    @State private var showAudioImporter = false
+    @State private var showImageImporter = false
+    @State private var showDocumentImporter = false
+    @State private var showCollaboration = false
+    @State private var showComments = false
+    @State private var showSearch = false
+    @State private var importError: String?
+    @State private var reviewingJob: ChurchNoteProcessingJob?
+    @State private var dismissedJobIds   = Set<String>()
+    @StateObject private var collaborationService = ChurchNotesCollaborationService()
+    @StateObject private var commentsService = ChurchNotesCommentsService()
 
     init(note: ChurchNoteV2? = nil) {
         _vm = StateObject(wrappedValue: ChurchNoteSemanticEditorViewModel(note: note))
@@ -149,21 +336,71 @@ struct ChurchNoteSemanticEditorView: View {
                                     onEdit: { vm.editingBlock = block },
                                     onDelete: { vm.deleteBlock(block) },
                                     onToggleVisibility: { vm.toggleVisibility(for: block) },
-                                    onPin: { vm.togglePin(.anchorInsight, for: block) }
+                                    onPin: { vm.togglePin(.anchorInsight, for: block) },
+                                    onMarkAnchor: { vm.anchorPickerBlock = block }
                                 )
                                 .padding(.horizontal, 12)
                             }
                         }
                         .padding(.top, 8)
+                        .padding(.bottom, 20)
+
+                    // Intelligence section
+                    intelligenceSection
                         .padding(.bottom, 140)
                     }
                 }
                 .background(Color(.systemGroupedBackground))
                 .onAppear {
                     vm.startEditing()
+                    collaborationService.start(noteId: vm.note.id, currentRole: currentCollaborationRole)
+                    commentsService.start(noteId: vm.note.id)
                 }
                 .onDisappear {
                     vm.stopEditing()
+                    collaborationService.stop()
+                    commentsService.stop()
+                }
+                .task {
+                    // Load bridge and compute intelligence after blocks settle
+                    try? await Task.sleep(nanoseconds: 800_000_000)
+                    if let loaded = await vm.intelligenceRepo.loadBridge(noteId: vm.note.id) {
+                        vm.bridge = loaded
+                    }
+                    vm.computeIntelligence()
+                }
+
+                // Review strip — appears above floating toolbar when user presses Done
+                if vm.showReviewStrip {
+                    VStack(spacing: 0) {
+                        Spacer()
+                        ChurchNoteReviewStrip(
+                            suggestions: vm.reviewSuggestions,
+                            onSuggestionTap: { action in
+                                vm.showReviewStrip = false
+                                handleReviewAction(action)
+                            },
+                            onDismiss: { vm.showReviewStrip = false }
+                        )
+                        .padding(.bottom, 100)  // clear the floating toolbar
+                    }
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+                }
+
+                // Processing jobs status (Media Intelligence) — above floating toolbar
+                let visibleJobs = processingService.activeJobs
+                    .filter { !dismissedJobIds.contains($0.id) }
+                if !visibleJobs.isEmpty {
+                    VStack(spacing: 0) {
+                        Spacer()
+                        ChurchNotesProcessingJobList(
+                            jobs: visibleJobs,
+                            onReviewJob: { job in reviewingJob = job },
+                            onDismissJob: { job in dismissedJobIds.insert(job.id) }
+                        )
+                        .padding(.bottom, 96) // clear floating toolbar
+                    }
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
                 }
 
                 floatingToolbar
@@ -172,16 +409,129 @@ struct ChurchNoteSemanticEditorView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Done") { dismiss() }
+                    Button("Done") {
+                        vm.saveBridge()
+                        vm.prepareReviewStrip()
+                        if vm.reviewSuggestions.isEmpty {
+                            dismiss()
+                        }
+                    }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        vm.showSelah = true
-                    } label: {
-                        Image(systemName: "sparkles")
+                    HStack(spacing: 12) {
+                        // Posture indicator
+                        if let posture = vm.detectedPosture {
+                            Image(systemName: posture.icon)
+                                .font(.system(size: 14))
+                                .foregroundStyle(.secondary)
+                                .accessibilityLabel("Tone: \(posture.displayName)")
+                        }
+                        Button {
+                            showLivingEntries = true
+                        } label: {
+                            Image(systemName: "square.stack.3d.up")
+                                .font(.system(size: 15))
+                        }
+                        .accessibilityLabel("Open Living Entries")
+                        Button {
+                            showSearch = true
+                        } label: {
+                            Image(systemName: "magnifyingglass")
+                        }
+                        .accessibilityLabel("Search Church Notes")
+                        Button {
+                            showComments = true
+                        } label: {
+                            Image(systemName: "text.bubble")
+                        }
+                        .accessibilityLabel("Open comments")
+                        Button {
+                            showCollaboration = true
+                        } label: {
+                            Image(systemName: "person.2")
+                        }
+                        .accessibilityLabel("Manage collaborators")
+                        Button {
+                            vm.showSelah = true
+                        } label: {
+                            Image(systemName: "sparkles")
+                        }
+                        .accessibilityLabel("Open Selah view")
                     }
-                    .accessibilityLabel("Open Selah view")
                 }
+            }
+            .sheet(isPresented: $showLivingEntries) {
+                LivingEntriesHomeView(initialFilter: .churchNotes)
+            }
+            .sheet(isPresented: $showCollaboration) {
+                ChurchNoteCollaborationView(
+                    noteId: vm.note.id,
+                    currentRole: currentCollaborationRole,
+                    service: collaborationService
+                )
+                .presentationDetents([.medium, .large])
+            }
+            .sheet(isPresented: $showComments) {
+                ChurchNoteCommentsView(
+                    noteId: vm.note.id,
+                    currentRole: currentCollaborationRole,
+                    defaultAnchorText: selectedCommentAnchor,
+                    service: commentsService
+                )
+                .presentationDetents([.medium, .large])
+            }
+            .sheet(isPresented: $showSearch) {
+                ChurchNotesSearchView { noteId in
+                    let uid = Auth.auth().currentUser?.uid ?? ""
+                    linkedNoteToOpen = ChurchNoteV2(
+                        id: noteId, userId: uid, title: "",
+                        tags: [], scriptureReferences: [],
+                        blockCount: 0, hasShareableBlocks: false,
+                        pinnedBlockIds: [], schemaVersion: 2,
+                        createdAt: Date(), updatedAt: Date()
+                    )
+                }
+                .presentationDetents([.large])
+            }
+            .sheet(item: $vm.anchorPickerBlock) { block in
+                ChurchNoteAnchorPickerSheet(
+                    currentSemanticType: block.semanticType
+                ) { anchorType in
+                    vm.applyAnchor(anchorType, to: block)
+                }
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
+            }
+            .sheet(isPresented: $vm.showReflectionScheduler) {
+                NavigationStack {
+                    CNReflectionSchedulePicker(selectedIntervals: $vm.selectedReplayIntervals) {
+                        vm.scheduleReplay()
+                        vm.showReflectionScheduler = false
+                    }
+                    .navigationTitle("Revisit this note")
+                    .navigationBarTitleDisplayMode(.inline)
+                }
+                .presentationDetents([.medium])
+            }
+            .sheet(isPresented: $vm.showBridgeCard) {
+                NavigationStack {
+                    ScrollView {
+                        ChurchNoteSermonBridgeCard(
+                            bridge: $vm.bridge,
+                            onChanged: { vm.saveBridge() }
+                        )
+                        .padding()
+                    }
+                    .background(Color(.systemGroupedBackground))
+                    .navigationTitle("Carry into your week")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarTrailing) {
+                            Button("Done") { vm.showBridgeCard = false }
+                        }
+                    }
+                }
+                .presentationDetents([.medium, .large])
             }
             .sheet(isPresented: $vm.showBlockFactory) {
                 BlockFactorySheet { block in
@@ -199,7 +549,163 @@ struct ChurchNoteSemanticEditorView: View {
             .sheet(isPresented: $vm.showSelah) {
                 ChurchNoteSelahRenderView(noteId: vm.note.id)
             }
+            // Opens a linked/connected note from the connections section
+            .sheet(item: $linkedNoteToOpen) { note in
+                ChurchNoteSemanticEditorView(note: note)
+                    .presentationDetents([.large])
+            }
+            // Media Intelligence: Audio recorder
+            .sheet(isPresented: $showAudioRecorder) {
+                ChurchNotesAudioRecorderView(
+                    noteId: vm.note.id,
+                    processingService: processingService,
+                    onDismiss: { showAudioRecorder = false }
+                )
+                .presentationDetents([.large])
+            }
+            // Media Intelligence: Photo OCR
+            .sheet(isPresented: $showPhotoOCR) {
+                ChurchNotesPhotoOCRCaptureView(
+                    noteId: vm.note.id,
+                    processingService: processingService,
+                    onDismiss: { showPhotoOCR = false }
+                )
+                .presentationDetents([.large])
+            }
+            .fileImporter(
+                isPresented: $showVideoImporter,
+                allowedContentTypes: [.mpeg4Movie, .quickTimeMovie, .movie],
+                allowsMultipleSelection: false
+            ) { result in
+                handleVideoImport(result)
+            }
+            .fileImporter(
+                isPresented: $showAudioImporter,
+                allowedContentTypes: [.audio, .mpeg4Audio, .mp3, .wav],
+                allowsMultipleSelection: false
+            ) { result in
+                handleAudioImport(result)
+            }
+            .fileImporter(
+                isPresented: $showImageImporter,
+                allowedContentTypes: [.image],
+                allowsMultipleSelection: false
+            ) { result in
+                handleImageImport(result)
+            }
+            .fileImporter(
+                isPresented: $showDocumentImporter,
+                allowedContentTypes: [.pdf],
+                allowsMultipleSelection: false
+            ) { result in
+                handleDocumentImport(result)
+            }
+            .alert("Import Failed", isPresented: Binding(
+                get: { importError != nil },
+                set: { if !$0 { importError = nil } }
+            )) {
+                Button("OK", role: .cancel) { importError = nil }
+            } message: {
+                Text(importError ?? "The file could not be imported.")
+            }
+            // Media Intelligence: Draft review
+            .sheet(item: $reviewingJob) { job in
+                ChurchNotesAIDraftReviewView(
+                    job: job,
+                    processingService: processingService,
+                    onApproved: { result in
+                        insertApprovedDraftAsBlock(result: result)
+                        reviewingJob = nil
+                    },
+                    onDismiss: { reviewingJob = nil }
+                )
+                .presentationDetents([.large])
+            }
         }
+    }
+
+    // MARK: - Media imports
+
+    private func handleVideoImport(_ result: Result<[URL], Error>) {
+        switch result {
+        case .success(let urls):
+            guard let url = urls.first else { return }
+            Task {
+                let hasAccess = url.startAccessingSecurityScopedResource()
+                defer { if hasAccess { url.stopAccessingSecurityScopedResource() } }
+                await processingService.uploadVideoAndCreateJob(
+                    fileURL: url,
+                    noteId: vm.note.id,
+                    durationSeconds: nil
+                )
+            }
+        case .failure(let error):
+            importError = error.localizedDescription
+        }
+    }
+
+    private func handleAudioImport(_ result: Result<[URL], Error>) {
+        switch result {
+        case .success(let urls):
+            guard let url = urls.first else { return }
+            Task {
+                let hasAccess = url.startAccessingSecurityScopedResource()
+                defer { if hasAccess { url.stopAccessingSecurityScopedResource() } }
+                await processingService.uploadAudioAndCreateJob(
+                    fileURL: url,
+                    noteId: vm.note.id,
+                    durationSeconds: 0
+                )
+            }
+        case .failure(let error):
+            importError = error.localizedDescription
+        }
+    }
+
+    private func handleImageImport(_ result: Result<[URL], Error>) {
+        switch result {
+        case .success(let urls):
+            guard let url = urls.first else { return }
+            Task {
+                let hasAccess = url.startAccessingSecurityScopedResource()
+                defer { if hasAccess { url.stopAccessingSecurityScopedResource() } }
+                do {
+                    let data = try Data(contentsOf: url)
+                    await processingService.uploadImageAndCreateJob(imageData: data, noteId: vm.note.id)
+                } catch {
+                    importError = error.localizedDescription
+                }
+            }
+        case .failure(let error):
+            importError = error.localizedDescription
+        }
+    }
+
+    private func handleDocumentImport(_ result: Result<[URL], Error>) {
+        switch result {
+        case .success(let urls):
+            guard let url = urls.first else { return }
+            Task {
+                let hasAccess = url.startAccessingSecurityScopedResource()
+                defer { if hasAccess { url.stopAccessingSecurityScopedResource() } }
+                await processingService.uploadDocumentAndCreateJob(fileURL: url, noteId: vm.note.id)
+            }
+        case .failure(let error):
+            importError = error.localizedDescription
+        }
+    }
+
+    private var currentCollaborationRole: ChurchNoteCollaboratorRole {
+        if Auth.auth().currentUser?.uid == vm.note.userId {
+            return .owner
+        }
+        return collaborationService.collaborators.first {
+            $0.uid == Auth.auth().currentUser?.uid
+        }?.role ?? .viewer
+    }
+
+    private var selectedCommentAnchor: String {
+        vm.editingBlock?.text ?? vm.note.sermonTitle ?? vm.note.title
     }
 
     // MARK: - Note Header
@@ -259,6 +765,103 @@ struct ChurchNoteSemanticEditorView: View {
         .clipShape(Capsule())
     }
 
+    // MARK: - Intelligence Section (below blocks, above toolbar)
+
+    private var intelligenceSection: some View {
+        VStack(spacing: 10) {
+            // Connections section
+            if !vm.connections.isEmpty {
+                ChurchNoteConnectionsSection(
+                    connections: vm.connections,
+                    onOpenNote: { noteId in
+                        let uid = Auth.auth().currentUser?.uid ?? ""
+                        linkedNoteToOpen = ChurchNoteV2(
+                            id: noteId, userId: uid, title: "",
+                            tags: [], scriptureReferences: [],
+                            blockCount: 0, hasShareableBlocks: false,
+                            pinnedBlockIds: [], schemaVersion: 2,
+                            createdAt: Date(), updatedAt: Date()
+                        )
+                    }
+                )
+                .padding(.horizontal, 16)
+            }
+
+            // Bridge entry point
+            if vm.bridge.isPopulated {
+                ChurchNoteSermonBridgeCard(
+                    bridge: $vm.bridge,
+                    onChanged: { vm.saveBridge() }
+                )
+                .padding(.horizontal, 16)
+            }
+
+            // Berean AI Scripture Insight
+            if vm.isFetchingBereanInsight || vm.bereanPassageInsight != nil {
+                BereanChurchNoteInsightCard(
+                    insight: vm.bereanPassageInsight,
+                    isLoading: vm.isFetchingBereanInsight,
+                    onStudyDeeper: {
+                        vm.fetchBereanInsight()
+                    }
+                )
+                .padding(.horizontal, 16)
+            }
+        }
+    }
+
+    // MARK: - Review Action Handler
+
+    private func handleReviewAction(_ action: CNReviewAction) {
+        switch action {
+        case .addTakeaway:
+            vm.addBlock(ChurchNoteBlockV2(type: .takeaway, semanticType: .keyTruth))
+        case .addPrayer:
+            vm.addBlock(ChurchNoteBlockV2.callout(style: .prayer))
+        case .addVerse:
+            vm.addBlock(ChurchNoteBlockV2.verseEmbed(reference: "", text: ""))
+        case .addAction:
+            vm.addBlock(ChurchNoteBlockV2.callout(style: .action))
+        case .markAnchor:
+            if let firstBlock = vm.blocks.first {
+                vm.anchorPickerBlock = firstBlock
+            }
+        case .setReflectionReminder:
+            vm.showReflectionScheduler = true
+        case .fillBridge:
+            vm.showBridgeCard = true
+        }
+    }
+
+    // MARK: - Draft approval → block insertion
+
+    private func insertApprovedDraftAsBlock(result: ChurchNoteDraftApprovalResult) {
+        let nextOrder = (blockRepo.activeBlocks.last?.sortOrder ?? -1) + 1
+        // Split approved text into paragraph blocks (one per non-empty line group).
+        let paragraphs = result.approvedText
+            .components(separatedBy: "\n\n")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+
+        for (offset, paragraph) in paragraphs.enumerated() {
+            let semanticType: ChurchNoteSemanticType
+            switch result.draftField {
+            case .summaryDraft:      semanticType = .keyTruth
+            case .studyGuideDraft:   semanticType = .question
+            case .prayerPromptsDraft: semanticType = .prayerPoint
+            default:                 semanticType = .general
+            }
+            let block = ChurchNoteBlockV2(
+                sortOrder:    nextOrder + offset,
+                type:         .paragraph,
+                semanticType: semanticType,
+                visibility:   .privateOnly,
+                text:         paragraph
+            )
+            vm.addBlock(block)
+        }
+    }
+
     // MARK: - Floating Toolbar
 
     private var floatingToolbar: some View {
@@ -282,6 +885,60 @@ struct ChurchNoteSemanticEditorView: View {
 
                 Spacer()
 
+                // Media capture (audio/photo OCR) — gated by feature flags
+                let flags = AMENFeatureFlags.shared
+                if flags.churchNotesAudioCaptureEnabled || flags.churchNotesPhotoOCREnabled || flags.churchNotesVideoCaptureEnabled || flags.sermonVideoCaptureEnabled || flags.churchNotesIntelligenceEnabled {
+                    Menu {
+                        if flags.churchNotesAudioCaptureEnabled && !flags.churchNotesProcessingKillSwitch {
+                            Button {
+                                showAudioRecorder = true
+                            } label: {
+                                Label("Record Sermon", systemImage: "mic.fill")
+                            }
+                            Button {
+                                showAudioImporter = true
+                            } label: {
+                                Label("Upload Audio", systemImage: "waveform")
+                            }
+                        }
+                        if (flags.churchNotesVideoCaptureEnabled || flags.sermonVideoCaptureEnabled) && !flags.churchNotesProcessingKillSwitch {
+                            Button {
+                                showVideoImporter = true
+                            } label: {
+                                Label("Upload Video", systemImage: "video.fill")
+                            }
+                        }
+                        if flags.churchNotesPhotoOCREnabled && !flags.churchNotesProcessingKillSwitch {
+                            Button {
+                                showPhotoOCR = true
+                            } label: {
+                                Label("Capture Board / Screen", systemImage: "camera.fill")
+                            }
+                            Button {
+                                showImageImporter = true
+                            } label: {
+                                Label("Upload Image", systemImage: "photo")
+                            }
+                        }
+                        if flags.churchNotesIntelligenceEnabled && !flags.churchNotesProcessingKillSwitch {
+                            Button {
+                                showDocumentImporter = true
+                            } label: {
+                                Label("Import PDF", systemImage: "doc.richtext.fill")
+                            }
+                        }
+                    } label: {
+                        Image(systemName: "camera.on.rectangle.fill")
+                            .font(.system(size: 16))
+                            .foregroundStyle(.primary)
+                            .frame(width: 36, height: 36)
+                            .background(Color.accentColor.opacity(0.12))
+                            .clipShape(Circle())
+                    }
+                    .accessibilityLabel("Capture sermon media")
+                    .accessibilityHint("Record audio or photograph a board for AI transcription")
+                }
+
                 // Quick semantic presets
                 ForEach([ChurchNoteCalloutStyle.prayer, .action, .reflection], id: \.self) { style in
                     Button {
@@ -296,12 +953,40 @@ struct ChurchNoteSemanticEditorView: View {
                     }
                     .accessibilityLabel("Add \(style.displayName) callout")
                 }
+
+                // Bridge shortcut
+                Button {
+                    vm.showBridgeCard = true
+                } label: {
+                    Image(systemName: "calendar.badge.checkmark")
+                        .font(.system(size: 16))
+                        .foregroundStyle(.primary)
+                        .frame(width: 36, height: 36)
+                        .background(Color(.systemGreen).opacity(0.12))
+                        .clipShape(Circle())
+                }
+                .accessibilityLabel("Carry into the week")
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
             .background(
-                .ultraThinMaterial,
-                in: RoundedRectangle(cornerRadius: 20)
+                ZStack {
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .fill(Color.white.opacity(0.12))
+                }
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [Color.white.opacity(0.48), Color.white.opacity(0.10)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 0.75
+                    )
             )
             .padding(.horizontal, 12)
             .padding(.bottom, 28)
@@ -318,8 +1003,18 @@ struct SemanticBlockCellView: View {
     let onDelete: () -> Void
     let onToggleVisibility: () -> Void
     let onPin: () -> Void
+    let onMarkAnchor: () -> Void
 
     @State private var showMenu = false
+
+    private var blockAnchorType: CNAnchorType? {
+        let anchorables: [ChurchNoteSemanticType] = [
+            .conviction, .keyTruth, .prayerPoint, .actionStep,
+            .question, .verseInsight, .pastorQuote, .testimony,
+        ]
+        guard anchorables.contains(block.semanticType) else { return nil }
+        return CNAnchorType(from: block.semanticType)
+    }
 
     var body: some View {
         Button(action: onEdit) {
@@ -342,6 +1037,15 @@ struct SemanticBlockCellView: View {
                 Label(
                     block.pinnedState == .none ? "Pin as Anchor" : "Unpin",
                     systemImage: block.pinnedState == .none ? "pin.fill" : "pin.slash"
+                )
+            }
+            Divider()
+            Button {
+                onMarkAnchor()
+            } label: {
+                Label(
+                    blockAnchorType != nil ? "Change Anchor" : "Mark Anchor",
+                    systemImage: "anchor"
                 )
             }
             Divider()
@@ -421,10 +1125,15 @@ struct SemanticBlockCellView: View {
                 .padding(.top, 2)
                 .accessibilityHidden(true)
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(block.type.displayName)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(block.semanticType.accentColor)
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    Text(block.type.displayName)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(block.semanticType.accentColor)
+                    if let anchor = blockAnchorType {
+                        ChurchNoteAnchorChip(anchor: anchor)
+                    }
+                }
 
                 Text(block.text.isEmpty ? "Type here..." : block.text)
                     .font(.subheadline)
@@ -993,4 +1702,90 @@ struct BlockEditSheet: View {
     }
 }
 
+// MARK: - Berean Church Note Insight Card
 
+private struct CNBereanThemeChip: View {
+    let name: String
+    private let chipColor = Color(red: 0.18, green: 0.44, blue: 0.80)
+    var body: some View {
+        Text(name)
+            .font(AMENFont.regular(11))
+            .foregroundStyle(chipColor)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(Capsule().fill(chipColor.opacity(0.10)))
+    }
+}
+
+private struct BereanChurchNoteInsightCard: View {
+    let insight: ScripturePassagePayload?
+    let isLoading: Bool
+    let onStudyDeeper: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color(red: 0.18, green: 0.44, blue: 0.80))
+                Text("Berean Insight")
+                    .font(AMENFont.semiBold(13))
+                    .foregroundStyle(Color(red: 0.18, green: 0.44, blue: 0.80))
+                Spacer()
+                if isLoading {
+                    ProgressView()
+                        .scaleEffect(0.75)
+                        .tint(Color(red: 0.18, green: 0.44, blue: 0.80))
+                }
+            }
+
+            if let insight {
+                if !insight.summary.isEmpty {
+                    Text(insight.summary)
+                        .font(AMENFont.regular(14))
+                        .foregroundStyle(.primary)
+                        .lineSpacing(3)
+                }
+
+                if !insight.themes.isEmpty {
+                    let names: [String] = Array(insight.themes.prefix(3).map(\.name))
+                    HStack(spacing: 6) {
+                        ForEach(names, id: \.self) { name in
+                            CNBereanThemeChip(name: name)
+                        }
+                    }
+                }
+
+                if let christConnection = insight.christConnection,
+                   !christConnection.connectionStatement.isEmpty {
+                    HStack(alignment: .top, spacing: 6) {
+                        Image(systemName: "cross.fill")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                            .padding(.top, 2)
+                        Text(christConnection.connectionStatement)
+                            .font(AMENFont.regular(13))
+                            .foregroundStyle(.secondary)
+                            .lineSpacing(2)
+                    }
+                }
+            } else if !isLoading {
+                Text("Add a verse to see Berean's scripture insight for this note.")
+                    .font(AMENFont.regular(13))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color(red: 0.18, green: 0.44, blue: 0.80).opacity(0.05))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .strokeBorder(
+                            Color(red: 0.18, green: 0.44, blue: 0.80).opacity(0.18),
+                            lineWidth: 0.5
+                        )
+                )
+        )
+    }
+}

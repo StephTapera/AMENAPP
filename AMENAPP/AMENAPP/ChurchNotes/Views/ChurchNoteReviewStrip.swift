@@ -52,17 +52,16 @@ struct ChurchNoteReviewStrip: View {
                     .padding(.bottom, 10)
                 }
             }
+            // Solid system background — removed stacked glass + opacity overlay
+            // because the chips inside used .thinMaterial too (glass-on-glass).
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(.ultraThinMaterial)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .fill(Color(.systemBackground).opacity(0.6))
-                    )
+                    .fill(Color(.systemBackground))
                     .overlay(
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
                             .strokeBorder(Color.primary.opacity(0.07), lineWidth: 0.5)
                     )
+                    .shadow(color: Color.black.opacity(0.05), radius: 8, y: 3)
             )
             .padding(.horizontal, 12)
             .transition(.opacity.combined(with: .move(edge: .bottom)))
@@ -78,19 +77,20 @@ struct ChurchNoteReviewStrip: View {
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: suggestion.icon)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .accessibilityHidden(true)
                 Text(suggestion.label)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .lineLimit(1)
             }
             .foregroundStyle(.primary.opacity(0.8))
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
+            // Chip background — solid fill instead of glass, so the strip and
+            // chips don't stack materials on each other (glass-on-glass).
             .background(
                 Capsule()
-                    .fill(.thinMaterial)
-                    .overlay(Capsule().fill(Color(.systemBackground).opacity(0.7)))
+                    .fill(Color(.secondarySystemFill))
                     .overlay(Capsule().strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.5))
             )
         }
@@ -113,7 +113,7 @@ struct ChurchNoteReviewMiniBanner: View {
             Button(action: onTap) {
                 HStack(spacing: 6) {
                     Image(systemName: "checkmark.circle")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.secondary)
                         .accessibilityHidden(true)
                     Text(count == 1

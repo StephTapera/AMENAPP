@@ -19,6 +19,8 @@ struct UserProfileViewMini: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     @State private var appeared = false
+    @State private var showReportSheet = false
+    @State private var followBounce = false
 
     var body: some View {
         Group {
@@ -46,6 +48,29 @@ struct UserProfileViewMini: View {
             }
         }
         .animation(.easeInOut(duration: 0.2), value: vm.toastMessage)
+        .sheet(isPresented: $showReportSheet) {
+            ReportUserView(
+                userName: vm.model.displayName,
+                userId: vm.model.id
+            ) { reason, description in
+                Task {
+                    let moderationReason: ModerationReportReason
+                    switch reason {
+                    case .spam:          moderationReason = .spam
+                    case .harassment:    moderationReason = .harassment
+                    case .inappropriate: moderationReason = .inappropriateContent
+                    case .impersonation: moderationReason = .other
+                    case .falseInfo:     moderationReason = .falseInformation
+                    case .other:         moderationReason = .other
+                    }
+                    try? await ModerationService.shared.reportUser(
+                        userId: vm.model.id,
+                        reason: moderationReason,
+                        additionalDetails: description.isEmpty ? nil : description
+                    )
+                }
+            }
+        }
     }
 
     // MARK: - Card Body
@@ -68,9 +93,11 @@ struct UserProfileViewMini: View {
                     .padding(.top, 6)
             }
 
-            contextPanel
-                .padding(.horizontal, 14)
-                .padding(.top, 8)
+            if vm.showContextPanel {
+                contextPanel
+                    .padding(.horizontal, 14)
+                    .padding(.top, 8)
+            }
 
             Divider()
                 .padding(.top, 12)
@@ -94,6 +121,8 @@ struct UserProfileViewMini: View {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5)
         )
+        .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .onTapGesture { vm.onTapProfile() }
     }
 
     private var cardBackground: some View {
@@ -119,7 +148,7 @@ struct UserProfileViewMini: View {
                 nameRow
                 if let role = vm.model.roleTitle, !role.isEmpty {
                     Text(role)
-                        .font(.systemScaled(12))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
@@ -157,6 +186,28 @@ struct UserProfileViewMini: View {
         .frame(width: 52, height: 52)
         .clipShape(Circle())
         .overlay(Circle().strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+        .overlay(alignment: .bottomTrailing) {
+            if let badge = avatarSourceBadge {
+                Text(badge)
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 2)
+                    .background(Capsule().fill(Color.black.opacity(0.68)))
+                    .offset(x: 4, y: 4)
+                    .accessibilityHidden(true)
+            }
+        }
+    }
+
+    private var avatarSourceBadge: String? {
+        switch vm.model.suggestionSource {
+        case .prayer:      return "Prayer"
+        case .testimonies: return "Testimony"
+        case .openTable:   return "Table"
+        case .findFriends: return "Friend"
+        default:           return nil
+        }
     }
 
     private var initialsPlaceholder: some View {
@@ -172,7 +223,7 @@ struct UserProfileViewMini: View {
     private var nameRow: some View {
         HStack(spacing: 4) {
             Text(vm.model.displayName)
-                .font(.systemScaled(15, weight: .semibold))
+                .font(.systemScaled(17, weight: .semibold))
                 .foregroundStyle(.primary)
                 .lineLimit(1)
 
@@ -203,6 +254,7 @@ struct UserProfileViewMini: View {
                     Circle()
                         .fill(Color.black.opacity(0.04))
                 )
+                .frame(width: 44, height: 44)  // 44pt hit target, 32pt visual
         }
         .buttonStyle(.plain)
         .onTapGesture { vm.onTapOverflow() }
@@ -241,10 +293,10 @@ struct UserProfileViewMini: View {
             HStack(spacing: 6) {
                 Image(systemName: "sparkle")
                     .font(.system(size: 11))
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(.secondary)
                 Text(vm.priorityExplanation)
-                    .font(.systemScaled(12))
-                    .foregroundStyle(.tertiary)
+                    .font(.systemScaled(12, weight: .medium))
+                    .foregroundStyle(.secondary)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -303,9 +355,9 @@ struct UserProfileViewMini: View {
             }
 
             if let count = vm.model.mutualConnectionCount, count > 0 {
-                Text("\(count) mutual\(count == 1 ? "" : "s")")
-                    .font(.systemScaled(11))
-                    .foregroundStyle(.tertiary)
+                Text(mutualLabel(count: count))
+                    .font(.systemScaled(11, weight: .medium))
+                    .foregroundStyle(.secondary)
                     .padding(.leading, 10)
             }
         }
@@ -357,8 +409,11 @@ struct UserProfileViewMini: View {
             if let cred = vm.model.credibility, let label = cred.responseLabel {
                 Spacer(minLength: 0)
                 Text(label)
-                    .font(.systemScaled(11))
-                    .foregroundStyle(.tertiary)
+                    .font(.systemScaled(11, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Capsule().fill(Color.black.opacity(0.04)))
             }
         }
     }
@@ -367,16 +422,31 @@ struct UserProfileViewMini: View {
         HStack(spacing: 4) {
             Image(systemName: icon)
                 .font(.system(size: 10))
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(.secondary)
             Text("\(value) \(label)")
                 .font(.systemScaled(11))
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(.secondary)
         }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(Capsule().fill(Color.black.opacity(0.04)))
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(value) \(label)")
     }
 
     // MARK: - Action Row
+
+    private var primaryActionIcon: String {
+        switch vm.primaryAction {
+        case .follow:           return vm.isFollowed ? "checkmark" : "person.badge.plus"
+        case .viewProfile:      return "person.crop.circle"
+        case .readThread:       return "text.bubble"
+        case .joinConversation: return "bubble.left.and.bubble.right"
+        case .prayTogether:     return "hands.sparkles"
+        case .prayForTopic:     return "hands.sparkles"
+        case .viewTestimony:    return "play.circle"
+        }
+    }
 
     private var actionRow: some View {
         HStack(spacing: 8) {
@@ -404,12 +474,17 @@ struct UserProfileViewMini: View {
                         .controlSize(.small)
                         .tint(.white)
                 } else {
-                    Text(vm.followButtonLabel)
-                        .font(.systemScaled(14, weight: .semibold))
+                    HStack(spacing: 5) {
+                        Image(systemName: primaryActionIcon)
+                            .font(.system(size: 12, weight: .semibold))
+                            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: vm.isFollowed)
+                        Text(vm.followButtonLabel)
+                            .font(.systemScaled(15, weight: .semibold))
+                    }
                 }
             }
             .foregroundStyle(vm.isFollowed ? AnyShapeStyle(.primary) : AnyShapeStyle(Color.white))
-            .frame(height: 38)
+            .frame(height: 44)
             .frame(maxWidth: .infinity)
             .background(
                 Capsule()
@@ -420,7 +495,17 @@ struct UserProfileViewMini: View {
         }
         .buttonStyle(MiniPressStyle())
         .disabled(vm.isFollowLoading)
+        .scaleEffect(followBounce ? 1.06 : 1.0)
+        .animation(.interpolatingSpring(stiffness: 340, damping: 14), value: followBounce)
         .animation(.easeInOut(duration: 0.2), value: vm.isFollowed)
+        .onChange(of: vm.isFollowed) { _, _ in
+            guard !reduceMotion else { return }
+            followBounce = true
+            Task {
+                try? await Task.sleep(for: .milliseconds(140))
+                followBounce = false
+            }
+        }
         .accessibilityLabel(vm.primaryAction.accessibilityLabel)
     }
 
@@ -429,9 +514,9 @@ struct UserProfileViewMini: View {
             vm.onTapSecondaryAction()
         } label: {
             Text(vm.secondaryAction.label)
-                .font(.systemScaled(13, weight: .medium))
+                .font(.systemScaled(13))
                 .foregroundStyle(.primary)
-                .frame(height: 38)
+                .frame(height: 44)
                 .padding(.horizontal, 14)
                 .background(
                     Capsule()
@@ -452,7 +537,7 @@ struct UserProfileViewMini: View {
             Image(systemName: "bubble.left")
                 .font(.system(size: 15, weight: .medium))
                 .foregroundStyle(.primary)
-                .frame(width: 38, height: 38)
+                .frame(width: 44, height: 44)
                 .background(
                     Circle()
                         .fill(.ultraThinMaterial)
@@ -512,13 +597,35 @@ struct UserProfileViewMini: View {
         case .viewProfile:    vm.onTapProfile()
         case .saveForLater:   vm.onTapSaveForLater()
         case .hideSuggestion: vm.onTapHideSuggestion()
-        case .seeSimilar:     break  // Future: navigate to similar users
-        case .report:         break  // Future: present report sheet
-        case .shareProfile:   break  // Future: share sheet
+        case .seeSimilar:     vm.onTapSeeSimilar()
+        case .report:
+            vm.onTapReport()
+            showReportSheet = true
+        case .shareProfile:
+            vm.onTapShare()
+            ShareRouter.presentProfile(
+                id: vm.model.id,
+                displayName: vm.model.displayName,
+                username: vm.model.username,
+                bio: vm.model.bioShort,
+                imageURL: vm.model.avatarURL?.absoluteString,
+                sourceSurface: "user_mini_\(vm.model.suggestionSource.rawValue.lowercased())"
+            )
         }
     }
 
     // MARK: - Helpers
+
+    private func mutualLabel(count: Int) -> String {
+        let firstName = vm.model.mutualConnectionPreview.first
+            .map { $0.displayName.components(separatedBy: " ").first ?? $0.displayName }
+            ?? "Someone"
+        switch count {
+        case 1:  return "\(firstName) follows them"
+        case 2:  return "\(firstName) and 1 other follow them"
+        default: return "\(firstName) and \(count - 1) others follow them"
+        }
+    }
 
     private func formatCount(_ n: Int) -> String {
         if n >= 1_000_000 { return String(format: "%.1fM", Double(n) / 1_000_000) }
@@ -567,7 +674,7 @@ private struct MiniPressStyle: ButtonStyle {
 }
 
 
-// MARK: - Preview
+// MARK: - Previews
 
 #Preview("Discovery") {
     ScrollView {
@@ -582,11 +689,115 @@ private struct MiniPressStyle: ButtonStyle {
     .background(Color(white: 0.96))
 }
 
-#Preview("Prayer") {
+#Preview("OpenTable — No Trigger") {
+    ScrollView {
+        UserProfileViewMini(
+            vm: UserProfileMiniViewModel(
+                model: UserProfileMiniPreviewData.openTable,
+                handler: .mock()
+            )
+        )
+        .padding()
+    }
+    .background(Color(white: 0.96))
+}
+
+#Preview("OpenTable — Unread") {
+    ScrollView {
+        UserProfileViewMini(
+            vm: UserProfileMiniViewModel(
+                model: UserProfileMiniPreviewData.openTableUnread,
+                handler: .mock()
+            )
+        )
+        .padding()
+    }
+    .background(Color(white: 0.96))
+}
+
+#Preview("OpenTable — Read") {
+    ScrollView {
+        UserProfileViewMini(
+            vm: UserProfileMiniViewModel(
+                model: UserProfileMiniPreviewData.openTableRead,
+                handler: .mock()
+            )
+        )
+        .padding()
+    }
+    .background(Color(white: 0.96))
+}
+
+#Preview("OpenTable — Replied") {
+    ScrollView {
+        UserProfileViewMini(
+            vm: UserProfileMiniViewModel(
+                model: UserProfileMiniPreviewData.openTableReplied,
+                handler: .mock()
+            )
+        )
+        .padding()
+    }
+    .background(Color(white: 0.96))
+}
+
+#Preview("Prayer — Active") {
     ScrollView {
         UserProfileViewMini(
             vm: UserProfileMiniViewModel(
                 model: UserProfileMiniPreviewData.prayer,
+                handler: .mock()
+            )
+        )
+        .padding()
+    }
+    .background(Color(white: 0.96))
+}
+
+#Preview("Prayer — Prayed Today") {
+    ScrollView {
+        UserProfileViewMini(
+            vm: UserProfileMiniViewModel(
+                model: UserProfileMiniPreviewData.prayerPrayedToday,
+                handler: .mock()
+            )
+        )
+        .padding()
+    }
+    .background(Color(white: 0.96))
+}
+
+#Preview("Testimonies — With Title") {
+    ScrollView {
+        UserProfileViewMini(
+            vm: UserProfileMiniViewModel(
+                model: UserProfileMiniPreviewData.testimonies,
+                handler: .mock()
+            )
+        )
+        .padding()
+    }
+    .background(Color(white: 0.96))
+}
+
+#Preview("Cannot Message") {
+    ScrollView {
+        UserProfileViewMini(
+            vm: UserProfileMiniViewModel(
+                model: UserProfileMiniPreviewData.cannotMessage,
+                handler: .mock(messagingAllowed: false)
+            )
+        )
+        .padding()
+    }
+    .background(Color(white: 0.96))
+}
+
+#Preview("Long Name") {
+    ScrollView {
+        UserProfileViewMini(
+            vm: UserProfileMiniViewModel(
+                model: UserProfileMiniPreviewData.longName,
                 handler: .mock()
             )
         )
@@ -613,6 +824,32 @@ private struct MiniPressStyle: ButtonStyle {
         UserProfileViewMini(
             vm: UserProfileMiniViewModel(
                 model: UserProfileMiniPreviewData.lowInfo,
+                handler: .mock()
+            )
+        )
+        .padding()
+    }
+    .background(Color(white: 0.96))
+}
+
+#Preview("Low Signal — Context Suppressed") {
+    ScrollView {
+        UserProfileViewMini(
+            vm: UserProfileMiniViewModel(
+                model: UserProfileMiniPreviewData.noSignal,
+                handler: .mock()
+            )
+        )
+        .padding()
+    }
+    .background(Color(white: 0.96))
+}
+
+#Preview("Blocked / Unavailable") {
+    ScrollView {
+        UserProfileViewMini(
+            vm: UserProfileMiniViewModel(
+                model: UserProfileMiniPreviewData.blocked,
                 handler: .mock()
             )
         )

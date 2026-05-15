@@ -122,7 +122,7 @@ struct ChurchNoteAnchorPickerSheet: View {
                                 )
                         )
                     Image(systemName: anchor.icon)
-                        .font(.system(size: 18))
+                        .font(.systemScaled(18))
                         .foregroundStyle(isSelected ? anchor.accentColor : Color.secondary)
                         .accessibilityHidden(true)
                 }
@@ -199,7 +199,7 @@ struct ChurchNoteAnchorPickerSheet: View {
                 HStack(spacing: 6) {
                     if let anchor = selected {
                         Image(systemName: anchor.icon)
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .accessibilityHidden(true)
                         Text("Mark as \(anchor.shortLabel)")
                     } else {
@@ -233,10 +233,10 @@ struct ChurchNoteAnchorChip: View {
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: anchor.icon)
-                .font(.system(size: 10))
+                .font(.systemScaled(10))
                 .accessibilityHidden(true)
             Text(anchor.shortLabel)
-                .font(.system(size: 10, weight: .medium))
+                .font(.systemScaled(10, weight: .medium))
         }
         .foregroundStyle(anchor.accentColor)
         .padding(.horizontal, 8)

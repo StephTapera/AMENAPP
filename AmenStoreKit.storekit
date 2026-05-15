@@ -1,0 +1,88 @@
+{
+  "identifier" : "AmenStoreKit",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+
+  ],
+  "settings" : {
+    "_applicationInternalID" : "0",
+    "_developerTeamID" : "LOCAL",
+    "_failTransactionsEnabled" : false,
+    "_lastSynchronizedDate" : 767664000,
+    "_locale" : "en_US",
+    "_storefront" : "USA",
+    "_storeKitErrors" : [
+
+    ]
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "amen.mentorship",
+      "localizations" : [
+        {
+          "locale" : "en_US",
+          "name" : "AMEN Mentorship"
+        }
+      ],
+      "name" : "AMEN Mentorship",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "19.00",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "amen.mentorship.growth.monthly",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Bi-weekly mentorship sessions and check-ins.",
+              "displayName" : "Growth Mentorship",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "amen.mentorship.growth.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Growth Mentorship Monthly",
+          "subscriptionGroupID" : "amen.mentorship",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "39.00",
+          "familyShareable" : false,
+          "groupNumber" : 2,
+          "internalID" : "amen.mentorship.deep.monthly",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Weekly mentorship sessions with a custom growth plan.",
+              "displayName" : "Deep Discipleship",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "amen.mentorship.deep.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Deep Discipleship Monthly",
+          "subscriptionGroupID" : "amen.mentorship",
+          "type" : "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 4,
+    "minor" : 0
+  }
+}

@@ -9,6 +9,7 @@
 
 import Foundation
 import SwiftUI
+import FirebaseAuth
 
 @MainActor
 final class UserProfileMiniViewModel: ObservableObject {
@@ -29,6 +30,7 @@ final class UserProfileMiniViewModel: ObservableObject {
     let explanation: String
     let priorityExplanation: String
     let smartActions: [UserMiniOverflowAction]
+    let showContextPanel: Bool
 
     // MARK: - Private
 
@@ -55,6 +57,7 @@ final class UserProfileMiniViewModel: ObservableObject {
         self.explanation = snapshot.explanation
         self.priorityExplanation = snapshot.priorityExplanation
         self.smartActions = snapshot.smartActions
+        self.showContextPanel = snapshot.showContextPanel
     }
 
     // MARK: - Computed Helpers
@@ -68,17 +71,20 @@ final class UserProfileMiniViewModel: ObservableObject {
 
     var followButtonLabel: String {
         if isFollowLoading { return "" }
-        return model.isFollowed ? "Following" : primaryAction.label
+        if case .follow = primaryAction, model.isFollowed { return "Following" }
+        return primaryAction.label
     }
 
     // MARK: - Actions
 
     func onTapFollow() {
         guard !isFollowLoading else { return }
+        HapticManager.impact(style: model.isFollowed ? .medium : .light)
 
         if model.isFollowed {
             // Optimistic unfollow
             model.isFollowed = false
+            track(.unfollowTap)
             Task { await performUnfollow() }
         } else {
             // Optimistic follow
@@ -90,15 +96,16 @@ final class UserProfileMiniViewModel: ObservableObject {
 
     func onTapMessage() {
         guard !isMessageLoading else { return }
+        track(.messageTap)
         guard canMessage else {
             let message = model.isBlocked || model.isProfileUnavailable
-                ? "This profile can’t be messaged right now."
-                : "Messaging isn’t available for this suggestion right now."
+                ? "This profile can't be messaged right now."
+                : "Messaging isn't available for this suggestion right now."
+            track(.messageBlocked)
             handler.routing.showMessagingUnavailable(reason: message)
             showToast(message)
             return
         }
-        track(.messageTap)
         Task { await performMessage() }
     }
 
@@ -108,15 +115,29 @@ final class UserProfileMiniViewModel: ObservableObject {
     }
 
     func onTapPrimaryAction() {
-        track(.primaryCTATap)
+        track(.primaryCTATap, ctaType: primaryAction.label)
         switch primaryAction {
         case .follow:
             onTapFollow()
-        case .joinConversation:
+        case .viewProfile:
             onTapProfile()
+        case .readThread:
+            if let threadId = model.trigger?.artifactId {
+                handler.routing.openOpenTableThread(threadId: threadId)
+            } else {
+                onTapProfile()
+            }
+        case .joinConversation:
+            if let threadId = model.trigger?.artifactId {
+                handler.routing.openOpenTableThread(threadId: threadId)
+            } else {
+                onTapProfile()
+            }
         case .prayTogether:
             onTapMessage()
-        case .viewTestimony(let postId):
+        case .prayForTopic:
+            onTapMessage()
+        case .viewTestimony(let postId, _):
             if let postId {
                 handler.routing.openPost(postId: postId)
             } else {
@@ -126,7 +147,7 @@ final class UserProfileMiniViewModel: ObservableObject {
     }
 
     func onTapSecondaryAction() {
-        track(.secondaryCTATap)
+        track(.secondaryCTATap, ctaType: secondaryAction.label)
         switch secondaryAction {
         case .message:      onTapMessage()
         case .viewProfile:  onTapProfile()
@@ -139,6 +160,7 @@ final class UserProfileMiniViewModel: ObservableObject {
     }
 
     func onTapExpand() {
+        HapticManager.impact(style: .light)
         track(.showMoreTapped)
         withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
             isExpanded.toggle()
@@ -159,7 +181,21 @@ final class UserProfileMiniViewModel: ObservableObject {
         handler.onHide?(model.id)
     }
 
+    func onTapSeeSimilar() {
+        track(.seeSimilar)
+        handler.routing.seeSimilar(userId: model.id, source: model.suggestionSource)
+    }
+
+    func onTapReport() {
+        track(.report)
+    }
+
+    func onTapShare() {
+        track(.share)
+    }
+
     func undoHide() {
+        track(.undoHide)
         withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
             isHidden = false
         }
@@ -187,6 +223,8 @@ final class UserProfileMiniViewModel: ObservableObject {
     }
 
     private func performUnfollow() async {
+        isFollowLoading = true
+        defer { isFollowLoading = false }
         do {
             try await handler.followService.unfollow(userId: model.id)
         } catch {
@@ -226,8 +264,10 @@ final class UserProfileMiniViewModel: ObservableObject {
         handler.analytics.track(UserMiniAnalyticsEvent(
             kind: kind,
             userId: model.id,
+            viewerId: Auth.auth().currentUser?.uid,
             source: model.suggestionSource,
             ctaType: ctaType,
+            triggerArtifactId: model.trigger?.artifactId,
             position: position,
             suggestionScore: model.suggestionScore
         ))

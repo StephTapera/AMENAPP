@@ -15,15 +15,41 @@ protocol CreatorSafetyServicing {
 final class CreatorSafetyService: CreatorSafetyServicing {
     private lazy var db = Firestore.firestore()
 
+    private static let trustedStorageHosts = [
+        "firebasestorage.googleapis.com",
+        "storage.googleapis.com",
+        "amenapp"
+    ]
+
     func evaluateAsset(_ asset: CreatorAsset) async throws -> CreatorSafetyDecision {
         _ = try requireOwnerID()
-        // TODO: integrate moderation service or policy docs.
+        // Verify the asset URL originates from a trusted AMEN storage domain.
+        if let urlString = asset.downloadURL ?? asset.storagePath,
+           let host = URL(string: urlString)?.host {
+            let trusted = Self.trustedStorageHosts.contains(where: { host.contains($0) })
+            if !trusted {
+                return CreatorSafetyDecision(
+                    isAllowed: false,
+                    reason: "Asset URL does not originate from a trusted AMEN storage domain."
+                )
+            }
+        }
         return CreatorSafetyDecision(isAllowed: true, reason: nil)
     }
 
     func evaluateProject(_ project: CreatorProject) async throws -> CreatorSafetyDecision {
-        _ = try requireOwnerID()
-        // TODO: integrate authenticity + moderation checks.
+        let ownerID = try requireOwnerID()
+        let decision = await ModerationPipeline.shared.evaluate(
+            text: project.title,
+            context: .post,
+            userId: ownerID
+        )
+        if decision.action.isBlocking {
+            return CreatorSafetyDecision(
+                isAllowed: false,
+                reason: "Project title contains content that violates AMEN community guidelines."
+            )
+        }
         return CreatorSafetyDecision(isAllowed: true, reason: nil)
     }
 
