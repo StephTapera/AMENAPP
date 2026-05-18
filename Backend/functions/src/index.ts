@@ -11,6 +11,18 @@ export * from "./bereanChatProxyStream"; // True SSE streaming proxy
 export * from "./openAIProxy";
 export * from "./whisperProxy";
 export * from "./generateDailyVerse";
+export * from "./amenDaily/getAmenDailyDigest";
+
+// Phase P1-4: server-authoritative Think-First / Tone Checker.
+// iOS ThinkFirstGuardrailsService is advisory only; the publish path
+// (CreatePost / comments / replies) MUST call validateThinkFirstCheck
+// before persisting user-authored content.
+export * from "./thinkFirst/validateThinkFirstCheck";
+
+// Phase H3 / App Review Guideline 1.2: user-facing "report this AI
+// response" mechanism. Persists structured reports to aiUnsafeReports
+// for human review without echoing the raw response text.
+export * from "./aiSafety/reportUnsafeAIResponse";
 
 // Berean Spiritual Intelligence Layers (System 16)
 //   Feature 1: Living Scripture Graph
@@ -27,6 +39,7 @@ export * from "./berean/controllers/getJourneySnapshot";
 export * from "./berean/controllers/generateDiscipleshipNextStep";
 export * from "./berean/controllers/saveReflectionEntry";
 export * from "./berean/controllers/generateChurchNotesSummary";
+export * from "./berean/controllers/premiumBereanCallables";
 
 // Selah Media OS (System 18)
 export * from "./selahMedia";
@@ -34,6 +47,9 @@ export * from "./selahMedia";
 // Smart Media Attachments (System 22)
 // resolveSmartAttachment, saveMediaGraphItem, getRecentMediaAttachments, getSavedMediaItems
 export * from "./smartAttachments";
+
+// Safety OS Reaction Engine
+export * from "./safetyOSReactionEngine";
 
 // Community Hubs & Object Intelligence
 export {
@@ -283,6 +299,10 @@ export * from "./restModeEvaluator";
 export * from "./covenant/createCovenantActivityEvent";
 export * from "./covenant/saveCovenantTierStripePriceId";
 export * from "./covenant/createCovenantCheckoutSession";
+// P1-5: Server-authoritative tone/safety check for covenant composer.
+export * from "./covenant/validateCovenantPostSafety";
+// P1-Phase-F: Community-level Save/Unsave (server-authoritative).
+export * from "./covenant/setCommunitySaved";
 export * from "./covenant/createCovenantThreadReply";
 export * from "./covenant/generateThreadSummary";
 export * from "./covenant/createPrayerRequestFromMessage";
@@ -450,6 +470,8 @@ export * from "./messaging/detectOpenQuestions";
 export * from "./messaging/extractThreadActions";
 export * from "./messaging/generateGroupPulse";
 export * from "./messaging/generateMediaContext";
+export * from "./messaging/privateMessageActions";
+export * from "./messaging/productionIntelligenceActions";
 export * from "./messaging/searchConversationMemory";
 export * from "./messaging/generateSmartReplies";
 
@@ -458,6 +480,9 @@ export * from "./realtime/createRealtimeSession";
 export * from "./realtime/endRealtimeSession";
 export * from "./realtime/logRealtimeVoiceEvent";
 export * from "./realtime/moderateRealtimeTranscript";
+export * from "./berean/translation/translateMultilingualContent";
+export * from "./berean/scripture/resolveScriptureReferences";
+export * from "./berean/transcripts/persistRealtimeTranscriptChunk";
 
 export * from "./media/startRealtimeTranscription";
 export * from "./media/finalizeTranscript";

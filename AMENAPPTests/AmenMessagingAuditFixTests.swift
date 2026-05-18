@@ -36,16 +36,19 @@ struct SaveSheetAvailabilityAuditTests {
         )
     }
 
-    @Test("saveSheet: saveToNotes is always unavailable because no notes service exists")
-    func saveSheet_saveToNotes_alwaysUnavailable() {
-        // No notes save service is wired — must always show "Coming soon" (never fake success).
+    @Test("saveSheet: saveToNotes is gated by cross-surface flag and conversation context")
+    func saveSheet_saveToNotes_requiresFlagAndConversation() {
         #expect(
-            AmenSaveActionType.saveToNotes.isUnavailable(selahEnabled: false) == true,
-            "saveToNotes must be unavailable regardless of selah flag"
+            AmenSaveActionType.saveToNotes.isUnavailable(selahEnabled: false, crossSurfaceEnabled: false, hasConversationId: true) == true,
+            "saveToNotes must be unavailable while cross-surface messaging is off"
         )
         #expect(
-            AmenSaveActionType.saveToNotes.isUnavailable(selahEnabled: true) == true,
-            "saveToNotes must be unavailable regardless of selah flag"
+            AmenSaveActionType.saveToNotes.isUnavailable(selahEnabled: true, crossSurfaceEnabled: true, hasConversationId: false) == true,
+            "saveToNotes must be unavailable without conversation ownership context"
+        )
+        #expect(
+            AmenSaveActionType.saveToNotes.isUnavailable(selahEnabled: true, crossSurfaceEnabled: true, hasConversationId: true) == false,
+            "saveToNotes may be available only after Phase 1 backend exists and flags are enabled"
         )
     }
 
@@ -69,6 +72,178 @@ struct SaveSheetAvailabilityAuditTests {
                 "saveToSelahSucceeded was removed in NB-6 and must not reappear")
         #expect(!rawValues.contains("msg_add_church_notes_succeeded"),
                 "addToChurchNotesSucceeded was removed in NB-6 and must not reappear")
+    }
+}
+
+// MARK: - Liquid Glass Attachment Menu
+
+@Suite("Messaging Liquid Glass Attachment Menu")
+struct MessagingLiquidGlassAttachmentMenuTests {
+
+    @Test("attachment menu: production-safe attachment menu is on while high-risk flags stay off")
+    @MainActor
+    func attachmentMenuFlags_productionSafeDefaults() {
+        let flags = AMENFeatureFlags.shared
+        #expect(flags.messagingLiquidGlassAttachmentMenuEnabled == true)
+        #expect(flags.messagingSmartComposerEnabled == false)
+        #expect(flags.messagingAttachmentMenuSmartActionsEnabled == false)
+    }
+
+    @Test("attachment menu: core existing attachment actions remain enabled")
+    @MainActor
+    func attachmentMenu_existingAttachmentActionsEnabled() {
+        let items = AmenMessagingAttachmentActionRouter.menuItems(
+            flags: AMENFeatureFlags.shared,
+            selectedMessage: nil,
+            hasDraftText: true,
+            scheduleReplyEnabled: true,
+            hasGroupShareTarget: false,
+            cameraAvailable: true
+        )
+        let availability = Dictionary(uniqueKeysWithValues: items.map { ($0.action, $0.availability.isEnabled) })
+
+        #expect(availability[.camera] == true)
+        #expect(availability[.photos] == true)
+        #expect(availability[.voice] == true)
+        #expect(availability[.files] == true)
+        #expect(availability[.poll] == true)
+        #expect(availability[.sendLater] == true)
+        #expect(availability[.askBerean] == true)
+    }
+
+    @Test("attachment menu: smart actions are hidden while smart attachment flag is off")
+    @MainActor
+    func attachmentMenu_smartActionsHiddenWhenFlagOff() {
+        let items = AmenMessagingAttachmentActionRouter.menuItems(
+            flags: AMENFeatureFlags.shared,
+            selectedMessage: nil,
+            hasDraftText: false,
+            scheduleReplyEnabled: true,
+            hasGroupShareTarget: false,
+            cameraAvailable: true
+        )
+        let actions = Set(items.map(\.action))
+
+        #expect(actions == [.camera, .photos, .voice, .files, .poll, .sendLater, .askBerean])
+        #expect(items.filter { !$0.availability.isEnabled }.allSatisfy { $0.availability.reason?.isEmpty == false })
+    }
+
+    @Test("attachment menu: Camera is unavailable with exact reason when device lacks camera")
+    @MainActor
+    func attachmentMenu_cameraUnavailableWithoutDeviceCamera() {
+        let item = AmenMessagingAttachmentActionRouter.menuItems(
+            flags: AMENFeatureFlags.shared,
+            selectedMessage: nil,
+            hasDraftText: true,
+            scheduleReplyEnabled: true,
+            hasGroupShareTarget: false,
+            cameraAvailable: false
+        )
+        .first { $0.action == .camera }
+
+        #expect(item?.availability.isEnabled == false)
+        #expect(item?.availability.reason == "Camera is not available on this device.")
+    }
+
+    @Test("attachment menu: flag resolver preserves legacy fallback")
+    func attachmentMenuPresentation_flagResolver() {
+        #expect(AmenMessagingAttachmentMenuPresentationMode.resolve(liquidGlassMenuEnabled: false) == .legacyTray)
+        #expect(AmenMessagingAttachmentMenuPresentationMode.resolve(liquidGlassMenuEnabled: true) == .liquidGlassMenu)
+    }
+
+    @Test("attachment menu: Send Later is disabled with empty draft")
+    @MainActor
+    func attachmentMenu_sendLaterDisabledWithEmptyDraft() {
+        let item = menuItem(.sendLater, hasDraftText: false, scheduleReplyEnabled: true)
+        #expect(item?.availability.isEnabled == false)
+        #expect(item?.availability.reason == "Write a message before scheduling.")
+    }
+
+    @Test("attachment menu: Send Later is disabled when schedule preference is off")
+    @MainActor
+    func attachmentMenu_sendLaterDisabledWhenSchedulingOff() {
+        let item = menuItem(.sendLater, hasDraftText: true, scheduleReplyEnabled: false)
+        #expect(item?.availability.isEnabled == false)
+        #expect(item?.availability.reason == "Write a message before scheduling.")
+    }
+
+    @Test("attachment menu: Send Later is enabled only with draft and scheduling")
+    @MainActor
+    func attachmentMenu_sendLaterEnabledWithDraftAndScheduling() {
+        let item = menuItem(.sendLater, hasDraftText: true, scheduleReplyEnabled: true)
+        #expect(item?.availability.isEnabled == true)
+    }
+
+    @Test("attachment menu: disabled rows expose exact unavailable reasons")
+    @MainActor
+    func attachmentMenu_disabledRowsExposeExactReasons() {
+        let items = Dictionary(uniqueKeysWithValues: defaultItems().map { ($0.action, $0.availability.reason) })
+        #expect(items[.sendLater] == "Write a message before scheduling.")
+        #expect(items[.stickers] == nil)
+        #expect(items[.saveToNotes] == nil)
+        #expect(items[.prayerRequest] == nil)
+        #expect(items[.shareWithGroup] == nil)
+        #expect(items[.startReflection] == nil)
+        #expect(items[.createReminder] == nil)
+        #expect(items[.shareSafely] == nil)
+    }
+
+    @Test("attachment menu: cross-surface rows are hidden when smart attachment flag is off")
+    @MainActor
+    func attachmentMenu_crossSurfaceHiddenWhenSmartFlagOff() {
+        let actions = Set(defaultItems().map(\.action))
+        #expect(!actions.contains(.saveToSelah))
+        #expect(!actions.contains(.addToChurchNotes))
+    }
+
+    @Test("attachment menu: Ask Berean is enabled because @Berean route exists")
+    @MainActor
+    func attachmentMenu_askBereanEnabledForExistingRoute() {
+        let item = menuItem(.askBerean, hasDraftText: false, scheduleReplyEnabled: false)
+        #expect(item?.availability.isEnabled == true)
+        #expect(item?.subtitle == "Adds an @Berean prompt")
+    }
+
+    @Test("attachment menu: Reduce Motion disables bloom animation")
+    func attachmentMenu_reduceMotionDisablesBloom() {
+        #expect(AmenAttachmentMenu.usesBloomAnimation(reduceMotion: true) == false)
+        #expect(AmenAttachmentMenu.usesBloomAnimation(reduceMotion: false) == true)
+    }
+
+    @Test("attachment menu: rows provide VoiceOver labels and hints")
+    @MainActor
+    func attachmentMenu_voiceOverMetadataExists() {
+        for item in defaultItems() {
+            #expect(!item.action.title.isEmpty)
+            #expect(item.availability.isEnabled || item.availability.reason?.isEmpty == false)
+        }
+    }
+
+    @MainActor
+    private func defaultItems() -> [AmenMessagingAttachmentMenuItem] {
+        AmenMessagingAttachmentActionRouter.menuItems(
+            flags: AMENFeatureFlags.shared,
+            selectedMessage: nil,
+            hasDraftText: false,
+            scheduleReplyEnabled: true,
+            hasGroupShareTarget: false
+        )
+    }
+
+    @MainActor
+    private func menuItem(
+        _ action: AmenMessagingAttachmentAction,
+        hasDraftText: Bool,
+        scheduleReplyEnabled: Bool
+    ) -> AmenMessagingAttachmentMenuItem? {
+        AmenMessagingAttachmentActionRouter.menuItems(
+            flags: AMENFeatureFlags.shared,
+            selectedMessage: nil,
+            hasDraftText: hasDraftText,
+            scheduleReplyEnabled: scheduleReplyEnabled,
+            hasGroupShareTarget: false
+        )
+        .first { $0.action == action }
     }
 }
 

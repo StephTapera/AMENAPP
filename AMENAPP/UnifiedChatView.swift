@@ -10,6 +10,7 @@
 
 import SwiftUI
 import PhotosUI
+import AVFoundation
 import FirebaseAuth
 import FirebaseFirestore
 import FirebaseFunctions
@@ -36,19 +37,62 @@ private struct UnifiedChatScrollViewHeightKey: PreferenceKey {
     }
 }
 
+private struct UnifiedChatPhotoAttachmentModifier: ViewModifier {
+    @Binding var selectedImages: [PhotosPickerItem]
+    @Binding var showingPhotoPicker: Bool
+    @Binding var showingCameraPicker: Bool
+    @Binding var capturedCameraImage: UIImage?
+    @Binding var showCameraPermissionAlert: Bool
+
+    let onPhotoItemsSelected: ([PhotosPickerItem]) -> Void
+    let onCameraImageSelected: (UIImage) -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .photosPicker(
+                isPresented: $showingPhotoPicker,
+                selection: $selectedImages,
+                maxSelectionCount: 5,
+                matching: .any(of: [.images])
+            )
+            .onChange(of: selectedImages) { _, newItems in
+                guard !newItems.isEmpty else { return }
+                onPhotoItemsSelected(newItems)
+            }
+            .fullScreenCover(isPresented: $showingCameraPicker) {
+                ImagePicker(sourceType: .camera, selectedImage: $capturedCameraImage)
+                    .ignoresSafeArea()
+            }
+            .onChange(of: capturedCameraImage) { _, newImage in
+                guard let newImage else { return }
+                onCameraImageSelected(newImage)
+                capturedCameraImage = nil
+            }
+            .alert("Camera Access Required", isPresented: $showCameraPermissionAlert) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("Allow camera access in Settings to take a photo for this message.")
+            }
+    }
+}
+
 // MARK: - Unified Chat View
 
 struct UnifiedChatView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
     @ObservedObject private var messagingService = FirebaseMessagingService.shared
-    @ObservedObject private var networkMonitor = NetworkStatusMonitor.shared
+    @ObservedObject private var networkMonitor = AMENNetworkMonitor.shared
     @ObservedObject private var toastManager = ToastManager.shared
     @ObservedObject private var linkPreviewService = LinkPreviewService.shared
+    @StateObject private var smartAttachmentResolver = AmenSmartAttachmentResolverService.shared
     @StateObject private var chatLinkController = ComposerLinkPreviewController()
-    @StateObject private var chatMemoryService = ChatMemoryService.shared
-    @StateObject private var chatExtractionEngine = ChatMemoryExtractionEngine.shared
-    @StateObject private var chatCalendarBridge = ChatCalendarBridge.shared
+    // P0 FIX: These are shared singletons — @StateObject would take ownership and
+    // may release them when the view disappears, destroying singleton state.
+    // Use @ObservedObject so SwiftUI observes without taking ownership.
+    @ObservedObject private var chatMemoryService = ChatMemoryService.shared
+    @ObservedObject private var chatExtractionEngine = ChatMemoryExtractionEngine.shared
+    @ObservedObject private var chatCalendarBridge = ChatCalendarBridge.shared
     @State private var showMemorySheet = false
 
     let conversation: ChatConversation
@@ -59,10 +103,14 @@ struct UnifiedChatView: View {
     @FocusState private var isInputFocused: Bool
     @State private var selectedImages: [PhotosPickerItem] = []
     @State private var showingPhotoPicker = false
+    @State private var showingCameraPicker = false
+    @State private var capturedCameraImage: UIImage?
+    @State private var showCameraPermissionAlert = false
     @State private var isRecording = false
     @State private var selectedMessage: AppMessage?
     @State private var replyingTo: AppMessage?
     @State private var isTyping = false
+    @State private var remoteTypingNames: [String] = []
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
     @State private var showingMessageOptions = false
@@ -74,6 +122,7 @@ struct UnifiedChatView: View {
 
     // Attachment tray — animated spring tray
     @State private var isAttachTrayOpen = false
+    @State private var showLiquidGlassAttachmentMenu = false
 
     // Video attachment
     @State private var showVideoPicker = false
@@ -85,6 +134,10 @@ struct UnifiedChatView: View {
 
     // Link attachment
     @State private var showLinkSheet = false
+    @State private var messageAttachmentState: AmenAttachmentComposerState = .empty
+    @State private var messageSmartAttachment: AmenSmartAttachment?
+    @State private var messageMentionedLinks: [URL] = []
+    @State private var messageAttachmentTask: Task<Void, Never>?
 
     // Feature 3: Poll creation sheet
     @State private var showCreatePollSheet = false
@@ -138,9 +191,26 @@ struct UnifiedChatView: View {
     @State private var inFlightMessageIDs: Set<String> = []
     @StateObject private var messageSeal = SuccessSealController()
 
+    // MARK: — Messaging Intelligence (Phases 4-12)
+    @StateObject private var intelligenceCoordinator = AmenMessagingIntelligenceCoordinator()
+    @State private var pendingSaveMessage: AmenMessageSaveContext? = nil
+    @State private var pendingTranscriptMessage: AppMessage? = nil   // CF-2: voice transcript panel
+    @State private var activeMediaActionMessage: AppMessage? = nil   // Phase 11: media action overlay
+    @State private var safetyNudgeIsForEdit: Bool = false            // NB-5: edit safety routing
+
+    // MARK: — Communication OS (System 32)
+    @State private var showMessageActionCluster: Bool = false
+    @State private var actionClusterMessage: AppMessage? = nil
+    @State private var showConversationMemorySearch: Bool = false
+    @State private var showMediaIntelligenceDock: Bool = false
+    @State private var mediaDockMessage: AppMessage? = nil
+    @State private var showPresencePicker: Bool = false
+    @State private var otherUserPresence: SmartPresenceStatus? = nil
+
     // MARK: — Edit Message state
     @State private var editingMessage: AppMessage? = nil
     @State private var editingOriginalText: String = ""
+    @State private var draftBeforeEdit: String = ""
 
     // MARK: — Schedule Reply state
     @ObservedObject private var scheduledMessagesService = ScheduledMessagesService.shared
@@ -157,13 +227,13 @@ struct UnifiedChatView: View {
     @State private var listenerTask: Task<Void, Never>?
     @State private var isViewActive = false  // guard against listener leak on rapid dismiss
 
-    // Track confirmed message IDs received from Firestore for O(1) dedupe.
-    // Key = clientMessageId (UUID). Optimistic message is removed once its ID appears in snapshot.
-    @State private var seenMessageIDs: Set<String> = []
+    // (seenMessageIDs removed — dedup is handled entirely by the dict-merge in loadMessages)
     
     // P1-2 FIX: Scroll position preservation
     @State private var isNearBottom = true
     @Namespace private var bottomID
+    // Stored proxy so jumpToUnreadButton can scroll outside the ScrollViewReader closure
+    @State private var chatScrollProxy: ScrollViewProxy?
     
     // P1-3 FIX: Pagination state
     @State private var isLoadingMoreMessages = false
@@ -183,6 +253,9 @@ struct UnifiedChatView: View {
     @State private var bereanStreamTask: Task<Void, Never>?
     @State private var bereanTriggeredByMessageId = ""
 
+    // MARK: — Voice Message Recording
+    @StateObject private var voiceViewModel = VoiceMessageViewModel()
+
     // MARK: — Safety Gateway state
     @State private var safetyStrikeCount = 0
     @State private var safetyStrikeReason = ""
@@ -200,6 +273,8 @@ struct UnifiedChatView: View {
     private var isMessageEmpty: Bool {
         messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
+
+    private var messageDraftKey: String { "chatDraft_\(conversation.id)" }
 
     private var headerSofteningProgress: CGFloat {
         min(max(-contentOffsetY / 80, 0), 1)
@@ -221,8 +296,40 @@ struct UnifiedChatView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 4)
 
-            // Incoming message request banner (enhanced)
+            // Incoming message request banner — Phase 8: Liquid Glass upgrade when flag is ON
             if isIncomingRequest {
+                if AMENFeatureFlags.shared.messagingApprovalCardsEnabled {
+                    AmenApprovalReviewCard(
+                        senderName: conversation.name,
+                        senderAvatarURL: otherUserProfilePhoto,
+                        mutualFollowerCount: 0,
+                        onAccept: { acceptMessageRequest() },
+                        onDecline: { declineMessageRequest() },
+                        onViewProfile: { showUserProfile = true },
+                        onRestrict: { restrictSender() },
+                        onBlock: {
+                            userIdToBlock = otherUserId
+                            showBlockConfirmation = true
+                        },
+                        onReport: {
+                            Task {
+                                try? await messagingService.reportSpam(
+                                    conversation.id,
+                                    reason: "Message request report"
+                                )
+                                await MainActor.run {
+                                    toastManager.showSuccess("Reported")
+                                }
+                            }
+                        },
+                        isAccepting: isAcceptingRequest,
+                        isDeclining: isDecliningRequest
+                    )
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .top).combined(with: .opacity),
+                        removal: .move(edge: .top).combined(with: .opacity)
+                    ))
+                } else {
                 ChatRequestBanner(
                     conversation: conversation,
                     followRelationship: followRelationship,
@@ -255,6 +362,7 @@ struct UnifiedChatView: View {
                     insertion: .move(edge: .top).combined(with: .opacity),
                     removal: .move(edge: .top).combined(with: .opacity)
                 ))
+                }   // end else (legacy ChatRequestBanner)
             }
 
             // Messages
@@ -315,67 +423,7 @@ struct UnifiedChatView: View {
                     )
                     .transition(.opacity)
                 } else {
-                    // Collapsible media section
-                    if isMediaSectionExpanded {
-                        collapsibleMediaSection
-                            .transition(.asymmetric(
-                                insertion: .move(edge: .bottom).combined(with: .opacity),
-                                removal: .move(edge: .bottom).combined(with: .opacity)
-                            ))
-                    }
-
-                    // Live link preview above input
-                    ComposerLinkPreview(controller: chatLinkController)
-                        .padding(.horizontal, 12)
-                        .padding(.top, 4)
-                        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: chatLinkController.activeURL)
-
-                    // Smart reply chips — aligned with the text field inside the input bar
-                    // Leading: 12 (outer hPad) + 40 (+ button) + 12 (spacing) = 64
-                    if messageText.isEmpty && !smartReplySuggestions.isEmpty {
-                        smartReplyChipsRow
-                            .autoHideChips(isScrollingDown || isInputFocused)
-                            .padding(.leading, 64)
-                            .padding(.trailing, 12)
-                            .padding(.bottom, 4)
-                            .transition(.move(edge: .bottom).combined(with: .opacity))
-                    }
-
-                    // Feature 2: Reply preview strip — shown when replying to a message
-                    if let replying = replyingTo {
-                        ReplyPreviewStrip(
-                            replyToText: replying.text.isEmpty ? "(attachment)" : replying.text,
-                            replyToAuthor: replying.senderName ?? "Message"
-                        ) {
-                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
-                                replyingTo = nil
-                            }
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.bottom, 4)
-                        .transition(.asymmetric(
-                            insertion: .move(edge: .bottom).combined(with: .opacity),
-                            removal: .move(edge: .bottom).combined(with: .opacity)
-                        ))
-                    }
-
-                    // Scheduled messages + edit mode banners (above input bar)
-                    scheduledMessagesBanner
-                    editModeBanner
-
-                    // Compact input bar — collapses smoothly when scrolled into history.
-                    // collapseProgress 0 = fully expanded, 1 = fully compact.
-                    let p = composerCollapseProgress
-                    let composerScale = 1.0 - 0.04 * p           // 1.0 → 0.96
-                    let composerOpacity = 1.0 - 0.12 * p         // 1.0 → 0.88
-                    let composerHPad = 12.0 + 16.0 * p           // 12 → 28 (narrows toward center)
-                    let composerBPad = 4.0 - 2.0 * p             // 4 → 2
-                    compactInputBar
-                        .composerCompression(isInputFocused || !messageText.isEmpty || isRecording)
-                        .padding(.horizontal, composerHPad)
-                        .padding(.bottom, composerBPad)
-                        .scaleEffect(composerScale)
-                        .opacity(composerOpacity)
+                    composerInputContent
                 }
             }
             .background(Color.clear)
@@ -384,12 +432,403 @@ struct UnifiedChatView: View {
         }
     }
 
+    // MARK: - Composer Input Content
+
+    @ViewBuilder
+    private var composerInputContent: some View {
+        // Collapsible media section
+        if isMediaSectionExpanded {
+            collapsibleMediaSection
+                .transition(.asymmetric(
+                    insertion: .move(edge: .bottom).combined(with: .opacity),
+                    removal: .move(edge: .bottom).combined(with: .opacity)
+                ))
+        }
+
+        // System 32: Smart Thread Context Bar (decisions/questions/actions/media chips)
+        if AMENFeatureFlags.shared.messagesSmartContextEnabled {
+            SmartThreadContextBar(
+                coordinator: intelligenceCoordinator,
+                isScrollingDown: isScrollingDown
+            ) { chip in
+                handleSmartContextChip(chip)
+            }
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+        }
+
+        // Phase 9: Catch Me Up tray (shown when unread backlog is large)
+        if AMENFeatureFlags.shared.messagingCatchUpEnabled,
+           !intelligenceCoordinator.catchUpDismissed {
+            let unreadCount = messages.filter { !$0.isRead && !$0.isFromCurrentUser }.count
+            if intelligenceCoordinator.catchUpState != .idle
+               || unreadCount >= AmenSmartPillPriorityEngine.catchUpUnreadThreshold {
+                AmenCatchUpTray(
+                    state: intelligenceCoordinator.catchUpState,
+                    unreadCount: unreadCount,
+                    onRequest: {
+                        intelligenceCoordinator.requestCatchUp(
+                            conversationId: conversation.id,
+                            messages: messages
+                        )
+                    },
+                    onDismiss: { intelligenceCoordinator.dismissCatchUp() }
+                )
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+
+        // Phase 4A: Smart pill row (max 3 context-aware pills)
+        if AMENFeatureFlags.shared.messagingSmartPillsEnabled,
+           !intelligenceCoordinator.activePills.isEmpty {
+            AmenSmartPillRow(pills: intelligenceCoordinator.activePills) { pillType in
+                handleSmartPillTap(pillType)
+            }
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+        }
+
+        // Live link preview above input
+        ComposerLinkPreview(controller: chatLinkController)
+            .padding(.horizontal, 12)
+            .padding(.top, 4)
+            .animation(.spring(response: 0.35, dampingFraction: 0.8), value: chatLinkController.activeURL)
+        if case .resolving = messageAttachmentState {
+            Text("Analyzing link...")
+                .font(.systemScaled(12, weight: .medium))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 12)
+        } else if let attachment = messageSmartAttachment {
+            VStack(alignment: .leading, spacing: 8) {
+                AmenUniversalLinkCard(attachment: attachment, mode: .composerPreview)
+                HStack(spacing: 10) {
+                    Button("Open") { openAttachmentURL(attachment) }
+                    Button("Save") { saveMessageAttachment(attachment) }
+                    Button("Ask Berean") { messageText = "@Berean summarize this link: \(attachment.canonicalUrl)" }
+                    Button("Reply Thoughtfully") { messageText += (messageText.isEmpty ? "" : " ") + "Thoughtful response to this: \(attachment.canonicalUrl)" }
+                }
+                .buttonStyle(.borderless)
+                .font(.systemScaled(11, weight: .semibold))
+                if !messageMentionedLinks.isEmpty {
+                    Text("Mentioned Links (\(messageMentionedLinks.count))")
+                        .font(.systemScaled(11))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(.horizontal, 12)
+        } else if case .blocked = messageAttachmentState {
+            Text("Restricted link. Message will send with plain URL.")
+                .font(.systemScaled(12))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 12)
+        }
+
+        // Smart reply chips — aligned with the text field inside the input bar
+        // Leading: 12 (outer hPad) + 40 (+ button) + 12 (spacing) = 64
+        if messageText.isEmpty && !smartReplySuggestions.isEmpty {
+            smartReplyChipsRow
+                .autoHideChips(isScrollingDown || isInputFocused)
+                .padding(.leading, 64)
+                .padding(.trailing, 12)
+                .padding(.bottom, 4)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+        }
+
+        // Feature 2: Reply preview strip — shown when replying to a message
+        if let replying = replyingTo {
+            ReplyPreviewStrip(
+                replyToText: replying.text.isEmpty ? "(attachment)" : replying.text,
+                replyToAuthor: replying.senderName ?? "Message"
+            ) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
+                    replyingTo = nil
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.bottom, 4)
+            .transition(.asymmetric(
+                insertion: .move(edge: .bottom).combined(with: .opacity),
+                removal: .move(edge: .bottom).combined(with: .opacity)
+            ))
+        }
+
+        // Scheduled messages + edit mode banners (above input bar)
+        scheduledMessagesBanner
+        editModeBanner
+
+        // Phase 7: Pre-send safety nudge
+        if let nudge = intelligenceCoordinator.pendingSafetyNudge,
+           AMENFeatureFlags.shared.messagingSafetyNudgesEnabled {
+            AmenSafetyNudgeCard(
+                context: nudge,
+                onEdit: {
+                    AmenMessagingAnalytics.track(.safetyNudgeEdited)
+                    intelligenceCoordinator.dismissSafetyNudge()
+                    safetyNudgeIsForEdit = false
+                },
+                onSendAnyway: nudge.canSendAnyway ? {
+                    AmenMessagingAnalytics.track(.safetyNudgeSentAnyway)
+                    intelligenceCoordinator.dismissSafetyNudge()
+                    if safetyNudgeIsForEdit {
+                        safetyNudgeIsForEdit = false
+                        saveEdit()
+                    } else {
+                        sendMessage()
+                    }
+                } : nil,
+                onDismiss: {
+                    AmenMessagingAnalytics.track(.safetyNudgeCancelled)
+                    intelligenceCoordinator.dismissSafetyNudge()
+                    if safetyNudgeIsForEdit {
+                        safetyNudgeIsForEdit = false
+                        cancelEditMode()
+                    } else {
+                        messageText = ""
+                    }
+                }
+            )
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+            .animation(.spring(response: 0.32, dampingFraction: 0.75), value: nudge)
+        }
+
+        // Compact input bar — collapses smoothly when scrolled into history.
+        // collapseProgress 0 = fully expanded, 1 = fully compact.
+        let p = composerCollapseProgress
+        let composerScale = 1.0 - 0.04 * p           // 1.0 → 0.96
+        let composerOpacity = 1.0 - 0.12 * p         // 1.0 → 0.88
+        let composerHPad = 12.0 + 16.0 * p           // 12 → 28 (narrows toward center)
+        let composerBPad = 4.0 - 2.0 * p             // 4 → 2
+        compactInputBar
+            .composerCompression(isInputFocused || !messageText.isEmpty || isRecording)
+            .padding(.horizontal, composerHPad)
+            .padding(.bottom, composerBPad)
+            .scaleEffect(composerScale)
+            .opacity(composerOpacity)
+            .amenComposerFocusGlass(
+                isFocused: isInputFocused && AMENFeatureFlags.shared.messagingLiquidGlassAnimationsEnabled
+            )
+    }
+
+    // MARK: - Message Row
+
+    @ViewBuilder
+    private func messageRowView(message: AppMessage, index: Int) -> some View {
+        let rowContext = messageRowContext(for: message, at: index)
+        let currentUID = rowContext.currentUID
+        let isFromCurrentUser = rowContext.isFromCurrentUser
+        let isLastInGroup = rowContext.isLastInGroup
+        let isLastOutgoing = rowContext.isLastOutgoing
+        let showDateHeader = rowContext.showDateHeader
+
+        VStack(spacing: 0) {
+            // Date group header
+            if showDateHeader {
+                messageDateHeader(date: message.timestamp)
+                    .padding(.vertical, 10)
+            }
+
+            // Unread separator
+            if message.id == firstUnreadMessageId {
+                unreadSeparator
+                    .padding(.vertical, 8)
+                    .id("unread-separator")
+            }
+
+            // Safety: warning banner shown to recipient above flagged messages
+            let isFromOther = !isFromCurrentUser
+            if isFromOther, let warnings = messageWarnings[message.id], !warnings.isEmpty {
+                MessageSafetyWarningBanner(
+                    signals: warnings,
+                    onReport: {
+                        guard let reportedId = otherUserId,
+                              let currentId = currentUID,
+                              !isSubmittingReport else { return }
+                        isSubmittingReport = true
+                        let evidenceIds = messages.suffix(5).map { $0.id }
+                        let submission = ReportSubmission(
+                            reporterId: currentId,
+                            reportedUserId: reportedId,
+                            conversationId: conversation.id,
+                            reason: .harassment,
+                            evidenceMessageIds: evidenceIds,
+                            additionalContext: "Flagged by in-chat safety scanner",
+                            blockImmediately: false
+                        )
+                        Task {
+                            _ = await SafetyReportingService.shared.submitReport(submission)
+                            isSubmittingReport = false
+                            reportConfirmationMessage = "Report submitted. Thank you for keeping the community safe."
+                        }
+                    },
+                    onBlock: {
+                        guard let reportedId = otherUserId,
+                              let currentId = currentUID,
+                              !isSubmittingReport else { return }
+                        isSubmittingReport = true
+                        let evidenceIds = messages.suffix(5).map { $0.id }
+                        let submission = ReportSubmission(
+                            reporterId: currentId,
+                            reportedUserId: reportedId,
+                            conversationId: conversation.id,
+                            reason: .harassment,
+                            evidenceMessageIds: evidenceIds,
+                            additionalContext: "One-tap block from in-chat safety banner",
+                            blockImmediately: true
+                        )
+                        Task {
+                            _ = await SafetyReportingService.shared.submitReport(submission)
+                            isSubmittingReport = false
+                        }
+                    }
+                )
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+
+            // Safety: held message indicator for sender's own held messages
+            if isFromCurrentUser
+                && !message.isSent && !message.isSendFailed
+                && message.text == pendingCrisisMessageText {
+                HeldMessageIndicator()
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 4)
+            } else {
+                messageBubbleContent(
+                    message: message,
+                    isFromCurrentUser: isFromCurrentUser,
+                    isLastInGroup: isLastInGroup,
+                    isLastOutgoing: isLastOutgoing
+                )
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func messageBubbleContent(
+        message: AppMessage,
+        isFromCurrentUser: Bool,
+        isLastInGroup: Bool,
+        isLastOutgoing: Bool
+    ) -> some View {
+        VStack(spacing: 4) {
+            // Feature 3: Poll card — rendered instead of the regular bubble
+            if let poll = message.poll {
+                GlassPollCard(
+                    poll: poll,
+                    currentUserId: Auth.auth().currentUser?.uid ?? ""
+                ) { optionId in
+                    togglePollVote(messageId: message.id, optionId: optionId, allowMultiple: poll.allowMultiple)
+                }
+                .frame(maxWidth: 300)
+                .frame(maxWidth: .infinity, alignment: isFromCurrentUser ? .trailing : .leading)
+            } else {
+                // Feature 2: Inline reply quote shown inside bubble area
+                if let replyText = message.replyToText,
+                   let replyAuthor = message.replyToAuthorName {
+                    InlineReplyQuote(text: replyText, authorName: replyAuthor)
+                        .frame(maxWidth: 280)
+                        .frame(maxWidth: .infinity, alignment: isFromCurrentUser ? .trailing : .leading)
+                        .padding(.bottom, 2)
+                }
+
+                messageBubbleView(
+                    message: message,
+                    isFromCurrentUser: isFromCurrentUser,
+                    isLastInGroup: isLastInGroup,
+                    isLastOutgoing: isLastOutgoing
+                )
+                // Feature 1: AMEN Reaction Capsules row
+                if !message.amenReactions.isEmpty {
+                    ReactionCapsulesRow(
+                        reactions: message.amenReactions,
+                        currentUserId: Auth.auth().currentUser?.uid ?? ""
+                    ) { reaction in
+                        toggleAmenReaction(messageId: message.id, reaction: reaction)
+                    }
+                    .frame(maxWidth: .infinity, alignment: isFromCurrentUser ? .trailing : .leading)
+                }
+
+                // Feature 2: Reply count badge
+                if message.replyCount > 0 {
+                    Text("↩ \(message.replyCount) \(message.replyCount == 1 ? "reply" : "replies")")
+                        .font(.systemScaled(12, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: isFromCurrentUser ? .trailing : .leading)
+                        .padding(.horizontal, 4)
+                }
+
+                // Link preview cards below the bubble
+                if let firstPreview = message.linkPreviews.first {
+                    let previewMeta: LinkPreviewMetadata = LinkPreviewService.shared.getCached(for: firstPreview.url)
+                        ?? LinkPreviewMetadata(url: firstPreview.url, title: firstPreview.title, siteName: firstPreview.url.host)
+                    if AMENFeatureFlags.shared.inAppBrowserEnabled {
+                        EnhancedLinkPreviewCard(url: firstPreview.url, metadata: previewMeta)
+                            .frame(maxWidth: 280)
+                            .padding(.horizontal, 8)
+                    } else {
+                        FeedLinkPreviewCard(url: firstPreview.url, metadata: previewMeta)
+                            .frame(maxWidth: 280)
+                            .padding(.horizontal, 8)
+                    }
+                }
+
+                // Phase 5: Inline translation
+                if AMENFeatureFlags.shared.messagingTranslationEnabled,
+                   !message.text.isEmpty {
+                    let msgId = message.id
+                    let tState = intelligenceCoordinator.translationState(for: msgId)
+                    if tState != .notNeeded && tState != .disabled {
+                        AmenTranslationMessageView(
+                            messageId: msgId,
+                            state: tState,
+                            isShowingOriginal: intelligenceCoordinator.isShowingOriginal(for: msgId),
+                            onToggle: {
+                                if case .translated = intelligenceCoordinator.translationState(for: msgId) {
+                                    intelligenceCoordinator.toggleOriginal(for: msgId)
+                                } else {
+                                    intelligenceCoordinator.requestTranslation(for: message)
+                                }
+                            },
+                            isFromCurrentUser: message.isFromCurrentUser
+                        )
+                    }
+                }
+                // Phase 12: Read receipt chip — outgoing only, behind presence polish flag
+                if AMENFeatureFlags.shared.messagingPresencePolishEnabled,
+                   isLastOutgoing {
+                    AmenMessageReadReceiptChip(
+                        isDelivered: message.isDelivered,
+                        isRead: message.isRead,
+                        readByCount: 0,
+                        readerName: conversation.name.components(separatedBy: " ").first
+                    )
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .padding(.horizontal, 8)
+                    .padding(.bottom, 2)
+                }
+            }
+        }
+        .padding(.bottom, isLastInGroup ? 6 : 2)
+        .id(message.id)
+        .amenMessageArrival(
+            timestamp: message.timestamp,
+            isEnabled: AMENFeatureFlags.shared.messagingLiquidGlassAnimationsEnabled
+        )
+    }
+
     var body: some View {
         ZStack {
             // Clean gradient background - black and white theme
             liquidGlassBackground
 
             mainStack
+
+            if showLiquidGlassAttachmentMenu {
+                AmenAttachmentMenu(
+                    items: attachmentMenuItems,
+                    onSelect: handleAttachmentMenuAction,
+                    onUnavailable: handleUnavailableAttachmentMenuItem,
+                    onDismiss: dismissLiquidGlassAttachmentMenu
+                )
+                .zIndex(70)
+            }
 
             if LiquidGlassEffectsFlags.floatingStatusPill, !networkMonitor.isConnected {
                 VStack {
@@ -402,57 +841,33 @@ struct UnifiedChatView: View {
 
             // Premium iMessage-quality reaction tray overlay (AMENReactionSystem)
             ReactionTrayOverlay(state: ReactionPresentationState.shared)
+
+            // Layer 3: Liquid Glass context menu overlay
+            AmenMessageContextMenuOverlay(presenter: AmenMessageContextMenuPresenter.shared)
         }
         .navigationBarHidden(true)
         .withToast()
         .successChips(successChips)
-        .sheet(isPresented: $showUserProfile) {
-            ChatUserProfileSheet(
-                conversation: conversation,
-                resolvedUserId: otherUserId ?? conversation.otherParticipantId
-            )
-        }
-        .sheet(isPresented: $showGroupInfo) {
-            GroupInfoView(conversation: conversation)
-        }
-        // Safety: crisis support interstitial — shown before sending, after message cleared
-        .sheet(isPresented: $showCrisisInterstitial) {
-            SelfHarmCrisisInterstitial(
-                onSendAnyway: {
-                    showCrisisInterstitial = false
-                    // Re-send the held crisis message with crisis flag set
-                    let text = pendingCrisisMessageText
-                    let id = pendingCrisisMessageId
-                    pendingCrisisMessageText = ""
-                    pendingCrisisMessageId = ""
-                    Task {
-                        try? await messagingService.sendMessage(
-                            conversationId: conversation.id,
-                            text: text,
-                            clientMessageId: id
-                        )
-                    }
-                },
-                onClose: {
-                    showCrisisInterstitial = false
-                    pendingCrisisMessageText = ""
-                    pendingCrisisMessageId = ""
-                    // Remove the optimistic message that was held
-                    messages.removeAll { $0.id == pendingCrisisMessageId }
-                    pendingMessages.removeValue(forKey: pendingCrisisMessageId)
-                }
-            )
-            .presentationDetents([.medium, .large])
-        }
+        .modifier(PrimaryChatSheetsModifier(
+            showUserProfile: $showUserProfile,
+            showGroupInfo: $showGroupInfo,
+            showCrisisInterstitial: $showCrisisInterstitial,
+            userProfileSheetView: { AnyView(userProfileSheetView) },
+            groupInfoSheetView: { AnyView(groupInfoSheetView) },
+            onCrisisSendAnyway: handleCrisisSendAnyway,
+            onCrisisClose: handleCrisisClose
+        ))
         .onChange(of: networkMonitor.isConnected) { oldValue, newValue in
             if !oldValue && newValue {
                 // Just came back online
                 toastManager.showSuccess("Back online")
                 
-                // Retry failed message if exists
+                // Retry the last failed message (tracked in state)
                 if let failedId = failedMessageId, let failedText = failedMessageText {
                     retryFailedMessage(messageId: failedId, text: failedText)
                 }
+                // Flush any messages that were queued while fully offline
+                Task { await OfflineMessageQueue.shared.processQueue() }
             } else if oldValue && !newValue {
                 // Just went offline
                 toastManager.showWarning("You're offline. Messages will send when connection is restored.")
@@ -464,12 +879,19 @@ struct UnifiedChatView: View {
                 reportConfirmationMessage = nil
             }
         }
-        .photosPicker(
-            isPresented: $showingPhotoPicker,
-            selection: $selectedImages,
-            maxSelectionCount: 5,
-            matching: .any(of: [.images])
-        )
+        .modifier(UnifiedChatPhotoAttachmentModifier(
+            selectedImages: $selectedImages,
+            showingPhotoPicker: $showingPhotoPicker,
+            showingCameraPicker: $showingCameraPicker,
+            capturedCameraImage: $capturedCameraImage,
+            showCameraPermissionAlert: $showCameraPermissionAlert,
+            onPhotoItemsSelected: { items in
+                Task { await handleSelectedPhotoItems(items) }
+            },
+            onCameraImageSelected: { image in
+                Task { await sendPhotoAttachments([image]) }
+            }
+        ))
         // Video picker sheet
         .sheet(isPresented: $showVideoPicker) {
             VideoPicker(conversationId: conversation.id) { videoURL in
@@ -478,9 +900,7 @@ struct UnifiedChatView: View {
         }
         // Document picker sheet
         .sheet(isPresented: $showDocumentPicker) {
-            DocumentPicker { fileURL, fileName, fileSize in
-                handleFileSelected(fileURL: fileURL, fileName: fileName, fileSize: fileSize)
-            }
+            documentPickerSheetView
         }
         // Link attach sheet
         .sheet(isPresented: $showLinkSheet) {
@@ -515,6 +935,49 @@ struct UnifiedChatView: View {
                 calendarBridge: chatCalendarBridge
             )
         }
+        // System 32: Conversation Memory Search sheet
+        .sheet(isPresented: $showConversationMemorySearch) {
+            ConversationMemorySearchView(
+                conversationId: conversation.id,
+                onSelectResult: { _ in showConversationMemorySearch = false },
+                onDismiss: { showConversationMemorySearch = false }
+            )
+        }
+        // System 32: Message Action Cluster overlay
+        .overlay(alignment: .bottom) {
+            messageActionClusterOverlay
+                .zIndex(100)
+        }
+        // System 32: Media Intelligence Dock overlay
+        .overlay(alignment: .bottom) {
+            mediaIntelligenceDockOverlay
+                .zIndex(99)
+        }
+        // System 32: Presence picker sheet
+        .sheet(isPresented: $showPresencePicker) {
+            PresenceModePickerSheet()
+        }
+        // Phase 6: Save / cross-surface actions sheet
+        .sheet(item: $pendingSaveMessage) { ctx in
+            AmenMessageSaveActionsSheet(
+                context: ctx,
+                flags: AMENFeatureFlags.shared,
+                onDismiss: { pendingSaveMessage = nil }
+            )
+        }
+        // CF-2: Voice transcript panel — honest unavailable state until STT is wired
+        .sheet(item: $pendingTranscriptMessage) { _ in
+            unavailableTranscriptPanel
+        }
+        // Phase 11: Media action overlay — floating tray over media messages
+        .overlay(alignment: .bottom) {
+            if let mediaMsg = activeMediaActionMessage {
+                mediaActionOverlayView(for: mediaMsg)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .padding(.bottom, 96) // above composer bar
+            }
+        }
+        .animation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75)), value: activeMediaActionMessage?.id)
         .alert("Add to Calendar?", isPresented: $chatCalendarBridge.showCalendarConfirmation) {
             Button("Add") {
                 Task { await chatCalendarBridge.confirmCalendarAdd() }
@@ -560,6 +1023,9 @@ struct UnifiedChatView: View {
             // Load chat memory items for this conversation
             await chatMemoryService.loadItems(for: conversation.id)
             chatExtractionEngine.resetSession()
+
+            // Wire voice recording completion → send audio message
+            voiceViewModel.onComplete = handleVoiceRecordingCompletion
         }
         .onAppear {
             isViewActive = true
@@ -567,6 +1033,10 @@ struct UnifiedChatView: View {
             generateRandomPlaceholder()
             NotificationAggregationService.shared.trackConversationViewing(conversation.id)
             scheduledMessagesService.startListening()
+            // Restore any unsent draft for this conversation
+            if let saved = UserDefaults.standard.string(forKey: messageDraftKey), !saved.isEmpty {
+                messageText = saved
+            }
         }
         .onDisappear {
             isViewActive = false
@@ -579,19 +1049,14 @@ struct UnifiedChatView: View {
             NotificationAggregationService.shared.updateCurrentScreen(.messages)
         }
         .onChange(of: scenePhase) { _, newPhase in
-            // FIX: Re-attach message listener when app returns to foreground.
-            // .task{} only runs once when the view first appears; if the app is backgrounded
-            // while the chat is open and then foregrounded, the listener is gone. Re-attach it.
-            if newPhase == .active {
-                Task { await setupChatViewAsync() }
-            } else if newPhase == .background {
-                cleanupChatView()
-            }
+            handleScenePhaseChange(newPhase)
+        }
+        // Phase 4A/4B: Update smart pill eligibility when message list changes
+        .onChange(of: messages) { _, newMessages in
+            updateSmartPillContext(for: newMessages)
         }
         .onChange(of: messageText) { _, newValue in
-            handleTypingIndicator(isTyping: !newValue.isEmpty)
-            chatLinkController.handleTextChange(newValue)
-            if !newValue.isEmpty { smartReplySuggestions = [] }
+            handleMessageTextChanged(newValue)
         }
         .onChange(of: isInputFocused) { _, newValue in
             withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
@@ -709,7 +1174,31 @@ struct UnifiedChatView: View {
     }
     
     // MARK: - Header
-    
+
+    private var chatHeaderStatus: (text: String, image: String, accessibility: String, isInteractive: Bool) {
+        if !remoteTypingNames.isEmpty {
+            let text = remoteTypingNames.count == 1 ? "\(remoteTypingNames[0]) is typing..." : "\(remoteTypingNames.count) people are typing..."
+            return (text, "ellipsis.message", "Real typing status: \(text)", false)
+        }
+        if isRecording {
+            return ("Recording voice...", "waveform", "Voice note recording is active", false)
+        }
+        if isIncomingRequest {
+            return ("Unknown Contact", "person.crop.circle.badge.questionmark", "This message request is from an unknown contact", true)
+        }
+        if !networkMonitor.isConnected {
+            return ("Offline", "wifi.slash", "Amen Messaging is offline. Messages will send after reconnecting.", false)
+        }
+        if conversation.isGroup {
+            return ("Group Chat", "person.3.fill", "Group chat details are available", true)
+        }
+        return ("Secure Chat", "lock.fill", "Direct message thread", false)
+    }
+
+    private var unreadIncomingCount: Int {
+        messages.filter { !$0.isRead && !$0.isFromCurrentUser }.count
+    }
+
     private var liquidGlassHeader: some View {
         HStack(spacing: 12) {
             // Back button - blends with background
@@ -729,8 +1218,21 @@ struct UnifiedChatView: View {
                                     .opacity(0.25)
                             )
                     )
+                    .overlay(alignment: .topTrailing) {
+                        if unreadIncomingCount > 0 {
+                            Text(unreadIncomingCount > 99 ? "99+" : "\(unreadIncomingCount)")
+                                .font(.systemScaled(9, weight: .bold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 5)
+                                .frame(minWidth: 18, minHeight: 18)
+                                .background(Capsule().fill(Color.red))
+                                .offset(x: 7, y: -7)
+                                .accessibilityHidden(true)
+                        }
+                    }
             }
             .buttonStyle(ScaleButtonStyle())
+            .accessibilityLabel(unreadIncomingCount > 0 ? "Back, \(unreadIncomingCount) unread messages" : "Back")
             
             // Avatar with real-time profile photo
             Button {
@@ -769,19 +1271,21 @@ struct UnifiedChatView: View {
                 Text(conversation.name)
                     .font(.systemScaled(16, weight: .semibold))
                     .foregroundColor(Color(red: 0.1, green: 0.1, blue: 0.1))
-                
-                // Network status indicator
-                if !networkMonitor.isConnected {
-                    HStack(spacing: 4) {
-                        Circle()
-                            .fill(Color.orange)
-                            .frame(width: 6, height: 6)
-                        
-                        Text("Offline")
-                            .font(.systemScaled(11, weight: .medium))
-                            .foregroundColor(.orange)
-                    }
-                }
+
+                let status = chatHeaderStatus
+                AmenChatStatusChip(
+                    text: status.text,
+                    systemImage: status.image,
+                    accessibilityDescription: status.accessibility,
+                    isInteractive: status.isInteractive,
+                    action: status.isInteractive ? {
+                        if conversation.isGroup {
+                            showGroupInfo = true
+                        } else {
+                            showUserProfile = true
+                        }
+                    } : nil
+                )
             }
             
             Spacer()
@@ -917,217 +1421,29 @@ struct UnifiedChatView: View {
                             .padding(.top, 8)
                         }
                         
+                        // System 32: Group Pulse Card (group conversations only)
+                        if AMENFeatureFlags.shared.groupDiscussionPulseEnabled,
+                           conversation.isGroup {
+                            GroupPulseCard(conversationId: conversation.id, isGroup: true)
+                                .padding(.horizontal, 16)
+                                .padding(.bottom, 8)
+                        }
+
                         ForEach(Array(messages.enumerated()), id: \.element.id) { index, message in
-                            let currentUID = Auth.auth().currentUser?.uid
-                            let isFromCurrentUser = message.senderId == currentUID
-                            // A message is last in its group when the next message is from a different sender
-                            // or when it's the last message overall.
-                            let nextMessage: AppMessage? = index + 1 < messages.count ? messages[index + 1] : nil
-                            let isLastInGroup = nextMessage == nil || nextMessage?.senderId != message.senderId
-                            // Show read receipt only on the very last outgoing message
-                            let isLastOutgoing = isFromCurrentUser && (nextMessage == nil || nextMessage?.senderId != currentUID)
-                            // Show date header when the day changes between messages
-                            let prevMessage: AppMessage? = index > 0 ? messages[index - 1] : nil
-                            let showDateHeader = prevMessage.map { !Calendar.current.isDate($0.timestamp, inSameDayAs: message.timestamp) } ?? true
-
-                            VStack(spacing: 0) {
-                                // Date group header
-                                if showDateHeader {
-                                    messageDateHeader(date: message.timestamp)
-                                        .padding(.vertical, 10)
-                                }
-
-                                // Unread separator
-                                if message.id == firstUnreadMessageId {
-                                    unreadSeparator
-                                        .padding(.vertical, 8)
-                                        .id("unread-separator")
-                                }
-
-                                // Safety: warning banner shown to recipient above flagged messages
-                                let isFromOther = !isFromCurrentUser
-                                if isFromOther, let warnings = messageWarnings[message.id], !warnings.isEmpty {
-                                    MessageSafetyWarningBanner(
-                                        signals: warnings,
-                                        onReport: {
-                                            guard let reportedId = otherUserId,
-                                                  let currentId = currentUID,
-                                                  !isSubmittingReport else { return }
-                                            isSubmittingReport = true
-                                            let evidenceIds = messages.suffix(5).map { $0.id }
-                                            let submission = ReportSubmission(
-                                                reporterId: currentId,
-                                                reportedUserId: reportedId,
-                                                conversationId: conversation.id,
-                                                reason: .harassment,
-                                                evidenceMessageIds: evidenceIds,
-                                                additionalContext: "Flagged by in-chat safety scanner",
-                                                blockImmediately: false
-                                            )
-                                            Task {
-                                                _ = await SafetyReportingService.shared.submitReport(submission)
-                                                isSubmittingReport = false
-                                                reportConfirmationMessage = "Report submitted. Thank you for keeping the community safe."
-                                            }
-                                        },
-                                        onBlock: {
-                                            guard let reportedId = otherUserId,
-                                                  let currentId = currentUID,
-                                                  !isSubmittingReport else { return }
-                                            isSubmittingReport = true
-                                            let evidenceIds = messages.suffix(5).map { $0.id }
-                                            let submission = ReportSubmission(
-                                                reporterId: currentId,
-                                                reportedUserId: reportedId,
-                                                conversationId: conversation.id,
-                                                reason: .harassment,
-                                                evidenceMessageIds: evidenceIds,
-                                                additionalContext: "One-tap block from in-chat safety banner",
-                                                blockImmediately: true
-                                            )
-                                            Task {
-                                                _ = await SafetyReportingService.shared.submitReport(submission)
-                                                isSubmittingReport = false
-                                            }
-                                        }
-                                    )
-                                    .transition(.opacity.combined(with: .move(edge: .top)))
-                                }
-
-                                // Safety: held message indicator for sender's own held messages
-                                if isFromCurrentUser
-                                    && !message.isSent && !message.isSendFailed
-                                    && message.text == pendingCrisisMessageText {
-                                    HeldMessageIndicator()
-                                        .padding(.horizontal, 12)
-                                        .padding(.vertical, 4)
-                                } else {
-                                    VStack(spacing: 4) {
-                                        // Feature 3: Poll card — rendered instead of the regular bubble
-                                        if let poll = message.poll {
-                                            GlassPollCard(
-                                                poll: poll,
-                                                currentUserId: Auth.auth().currentUser?.uid ?? ""
-                                            ) { optionId in
-                                                togglePollVote(messageId: message.id, optionId: optionId, allowMultiple: poll.allowMultiple)
-                                            }
-                                            .frame(maxWidth: 300)
-                                            .frame(maxWidth: .infinity, alignment: isFromCurrentUser ? .trailing : .leading)
-                                        } else {
-                                            // Feature 2: Inline reply quote shown inside bubble area
-                                            if let replyText = message.replyToText,
-                                               let replyAuthor = message.replyToAuthorName {
-                                                InlineReplyQuote(text: replyText, authorName: replyAuthor)
-                                                    .frame(maxWidth: 280)
-                                                    .frame(maxWidth: .infinity, alignment: isFromCurrentUser ? .trailing : .leading)
-                                                    .padding(.bottom, 2)
-                                            }
-
-                                            LiquidGlassMessageBubble(
-                                                message: message,
-                                                isFromCurrentUser: isFromCurrentUser,
-                                                isLastInGroup: isLastInGroup,
-                                                showReadReceipt: isLastOutgoing,
-                                                // FIX 1: Reflect auto-retry state in bubble UI
-                                                isRetrying: messagingService.retryingMessageIds.contains(message.id),
-                                                onReply: {
-                                                    replyingTo = message
-                                                    isInputFocused = true
-                                                },
-                                                onReact: { emoji in
-                                                    addReaction(to: message, emoji: emoji)
-                                                },
-                                                onLongPress: {
-                                                    selectedMessageForReaction = message
-                                                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
-                                                        showReactionPicker = true
-                                                    }
-                                                },
-                                                onDelete: {
-                                                    deleteMessage(message: message)
-                                                },
-                                                onEdit: isFromCurrentUser && prefsService.preferences.editMessageEnabled ? {
-                                                    beginEditMode(message: message)
-                                                } : nil,
-                                                onRetry: message.isSendFailed ? {
-                                                    retryFailedMessage(messageId: message.id, text: message.text)
-                                                } : nil,
-                                                onReport: !isFromCurrentUser ? {
-                                                    messageToReport = message
-                                                    showReportConfirmation = true
-                                                } : nil,
-                                                onBlock: !isFromCurrentUser ? {
-                                                    userIdToBlock = message.senderId
-                                                    showBlockConfirmation = true
-                                                } : nil,
-                                                onMute: !isFromCurrentUser ? {
-                                                    muteSender(userId: message.senderId)
-                                                } : nil
-                                            )
-                                            // Feature 2: Swipe-right-to-reply gesture on bubble
-                                            // Uses simultaneousGesture so the ScrollView scroll gesture
-                                            // is not consumed. The axis-lock guard (width > height * 1.5)
-                                            // ensures only horizontal swipes trigger a reply.
-                                            .simultaneousGesture(
-                                                DragGesture(minimumDistance: 20)
-                                                    .onEnded { value in
-                                                        guard abs(value.translation.width) > abs(value.translation.height) * 1.5 else { return }
-                                                        if value.translation.width > 50 {
-                                                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                                                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
-                                                                replyingTo = message
-                                                                isInputFocused = true
-                                                            }
-                                                        }
-                                                    }
-                                            )
-                                            // Feature 1: AMEN Reaction Capsules row — shown below bubble when reactions exist
-                                            if !message.amenReactions.isEmpty {
-                                                ReactionCapsulesRow(
-                                                    reactions: message.amenReactions,
-                                                    currentUserId: Auth.auth().currentUser?.uid ?? ""
-                                                ) { reaction in
-                                                    toggleAmenReaction(messageId: message.id, reaction: reaction)
-                                                }
-                                                .frame(maxWidth: .infinity, alignment: isFromCurrentUser ? .trailing : .leading)
-                                            }
-
-                                            // Feature 2: Reply count badge
-                                            if message.replyCount > 0 {
-                                                Text("↩ \(message.replyCount) \(message.replyCount == 1 ? "reply" : "replies")")
-                                                    .font(.systemScaled(12, weight: .medium))
-                                                    .foregroundStyle(.secondary)
-                                                    .frame(maxWidth: .infinity, alignment: isFromCurrentUser ? .trailing : .leading)
-                                                    .padding(.horizontal, 4)
-                                            }
-
-                                            // Link preview cards below the bubble
-                                            if let firstPreview = message.linkPreviews.first {
-                                                let previewMeta: LinkPreviewMetadata = LinkPreviewService.shared.getCached(for: firstPreview.url)
-                                                    ?? LinkPreviewMetadata(url: firstPreview.url, title: firstPreview.title, siteName: firstPreview.url.host)
-                                                if AMENFeatureFlags.shared.inAppBrowserEnabled {
-                                                    EnhancedLinkPreviewCard(url: firstPreview.url, metadata: previewMeta)
-                                                        .frame(maxWidth: 280)
-                                                        .padding(.horizontal, 8)
-                                                } else {
-                                                    FeedLinkPreviewCard(url: firstPreview.url, metadata: previewMeta)
-                                                        .frame(maxWidth: 280)
-                                                        .padding(.horizontal, 8)
-                                                }
-                                            }
-                                        }
-                                    }
-                                    .padding(.bottom, isLastInGroup ? 6 : 2)
-                                    .id(message.id)
-                                }
-                            }
+                            messageRowView(message: message, index: index)
                         }
 
                         // Typing indicator — shown when the other person is typing
                         if isTyping {
-                            LiquidGlassTypingIndicator()
-                                .padding(.horizontal, 16)
-                                .transition(.scale(scale: 0.8, anchor: .leading).combined(with: .opacity))
+                            if AMENFeatureFlags.shared.messagingTypingIndicatorEnabled {
+                                AmenChatTypingIndicator(names: remoteTypingNames)
+                                    .padding(.horizontal, 16)
+                                    .transition(.scale(scale: 0.8, anchor: .leading).combined(with: .opacity))
+                            } else {
+                                LiquidGlassTypingIndicator()
+                                    .padding(.horizontal, 16)
+                                    .transition(.scale(scale: 0.8, anchor: .leading).combined(with: .opacity))
+                            }
                         }
 
                         // Berean AI: typing indicator (before first token) or streaming bubble
@@ -1215,6 +1531,13 @@ struct UnifiedChatView: View {
                     if newCount > oldCount {
                         refreshSmartReplies()
                     }
+                    // System 32: Trigger smart context extraction once we have enough messages
+                    if AMENFeatureFlags.shared.messagesSmartContextEnabled, newCount >= 5 {
+                        intelligenceCoordinator.extractSmartContext(
+                            conversationId: conversation.id,
+                            messages: messages
+                        )
+                    }
                 }
                 // Berean: scroll to bottom when typing indicator appears
                 .onChange(of: isBereanStreaming) { _, isStreaming in
@@ -1231,6 +1554,9 @@ struct UnifiedChatView: View {
                     }
                 }
                 .onAppear {
+                    // Store proxy so jumpToUnreadButton can reach it from outside the closure
+                    chatScrollProxy = proxy
+
                     // Scroll to bottom on first load
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                         withAnimation {
@@ -1334,13 +1660,9 @@ struct UnifiedChatView: View {
     
     private var jumpToUnreadButton: some View {
         Button {
-            // Scroll to unread separator
-            // This will be implemented in the ScrollViewReader above
-            let haptic = UIImpactFeedbackGenerator(style: .medium)
-            haptic.impactOccurred()
-            
-            // Hide button after jumping
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
             withAnimation(.easeOut(duration: 0.3)) {
+                chatScrollProxy?.scrollTo("unread-separator", anchor: .top)
                 showJumpToUnread = false
             }
         } label: {
@@ -1424,6 +1746,182 @@ struct UnifiedChatView: View {
             .spring(response: 0.4, dampingFraction: 0.6)
                 .delay(Double(index) * 0.04),
             value: isAttachTrayOpen
+        )
+    }
+
+    private var attachmentMenuItems: [AmenMessagingAttachmentMenuItem] {
+        AmenMessagingAttachmentActionRouter.menuItems(
+            flags: AMENFeatureFlags.shared,
+            selectedMessage: selectedMessage,
+            hasDraftText: !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+            scheduleReplyEnabled: prefsService.preferences.scheduleReplyEnabled,
+            hasGroupShareTarget: false,
+            cameraAvailable: UIImagePickerController.isSourceTypeAvailable(.camera)
+        )
+    }
+
+    private func dismissLiquidGlassAttachmentMenu() {
+        withAnimation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.82))) {
+            showLiquidGlassAttachmentMenu = false
+        }
+    }
+
+    private func handleAttachmentMenuAction(_ action: AmenMessagingAttachmentAction) {
+        guard attachmentMenuItems.first(where: { $0.action == action })?.availability.isEnabled == true else {
+            let reason = attachmentMenuItems.first(where: { $0.action == action })?.availability.reason ?? "This action is unavailable."
+            AmenMessagingAnalytics.track(.attachmentMenuUnavailable, parameters: ["action": action.rawValue])
+            toastManager.showInfo(reason)
+            return
+        }
+
+        AmenMessagingAnalytics.track(.attachmentMenuActionTapped, parameters: ["action": action.rawValue])
+        dismissLiquidGlassAttachmentMenu()
+
+        switch action {
+        case .camera:
+            openCameraFromAttachmentMenu()
+        case .photos:
+            showingPhotoPicker = true
+        case .voice:
+            guard !isRecording else { return }
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
+                isRecording = true
+            }
+            voiceViewModel.startRecording()
+        case .files:
+            showDocumentPicker = true
+        case .poll:
+            showCreatePollSheet = true
+        case .sendLater:
+            guard !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                toastManager.showInfo("Write a message before scheduling.")
+                return
+            }
+            scheduledDate = Date().addingTimeInterval(60 * 30)
+            showSchedulePicker = true
+        case .saveToSelah:
+            presentSaveSheet(actions: [.saveToSelah])
+        case .addToChurchNotes:
+            presentSaveSheet(actions: [.addToChurchNotes])
+        case .saveToNotes:
+            presentSaveSheet(actions: [.saveToNotes])
+        case .startReflection:
+            presentSaveSheet(actions: [.startReflection])
+        case .createReminder:
+            presentSaveSheet(actions: [.remindMe])
+        case .askBerean:
+            if messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                messageText = "@Berean "
+            } else if !messageText.localizedCaseInsensitiveContains("@Berean") {
+                messageText = "@Berean \(messageText)"
+            }
+            isInputFocused = true
+        case .stickers, .prayerRequest, .shareWithGroup, .shareSafely:
+            let reason = attachmentMenuItems.first(where: { $0.action == action })?.availability.reason ?? "This action is unavailable."
+            toastManager.showInfo(reason)
+        }
+    }
+
+    private func openCameraFromAttachmentMenu() {
+        guard UIImagePickerController.isSourceTypeAvailable(.camera) else {
+            toastManager.showInfo("Camera is not available on this device.")
+            return
+        }
+
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .authorized:
+            showingCameraPicker = true
+        case .notDetermined:
+            AVCaptureDevice.requestAccess(for: .video) { granted in
+                Task { @MainActor in
+                    if granted {
+                        showingCameraPicker = true
+                    } else {
+                        showCameraPermissionAlert = true
+                    }
+                }
+            }
+        case .denied, .restricted:
+            showCameraPermissionAlert = true
+        @unknown default:
+            showCameraPermissionAlert = true
+        }
+    }
+
+    private func handleSelectedPhotoItems(_ items: [PhotosPickerItem]) async {
+        var images: [UIImage] = []
+        for item in items.prefix(5) {
+            do {
+                if let data = try await item.loadTransferable(type: Data.self),
+                   let image = UIImage(data: data) {
+                    images.append(image)
+                }
+            } catch {
+                dlog("⚠️ Failed to load selected photo: \(error)")
+            }
+        }
+
+        await MainActor.run {
+            selectedImages = []
+        }
+
+        await sendPhotoAttachments(images)
+    }
+
+    private func sendPhotoAttachments(_ images: [UIImage]) async {
+        guard !images.isEmpty else {
+            await MainActor.run {
+                toastManager.showInfo("No photo was selected.")
+            }
+            return
+        }
+
+        let caption = await MainActor.run {
+            messageText.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+
+        await MainActor.run {
+            isSendingMessage = true
+        }
+
+        do {
+            try await messagingService.sendMessageWithPhotos(
+                conversationId: conversation.id,
+                text: caption,
+                images: images
+            )
+            await MainActor.run {
+                messageText = ""
+                chatLinkController.reset()
+                isInputFocused = false
+                isSendingMessage = false
+                successChips.show(images.count == 1 ? "Photo sent" : "Photos sent")
+            }
+        } catch {
+            await MainActor.run {
+                isSendingMessage = false
+                errorMessage = error.localizedDescription
+                showErrorAlert = true
+            }
+        }
+    }
+
+    private func handleUnavailableAttachmentMenuItem(_ item: AmenMessagingAttachmentMenuItem) {
+        AmenMessagingAnalytics.track(.attachmentMenuUnavailable, parameters: ["action": item.action.rawValue])
+        toastManager.showInfo(item.availability.reason ?? "This action is unavailable.")
+    }
+
+    private func presentSaveSheet(actions: [AmenSaveActionType]) {
+        guard let message = selectedMessage else {
+            toastManager.showInfo("Select a message first.")
+            return
+        }
+        pendingSaveMessage = AmenMessageSaveContext(
+            message: message,
+            conversationName: conversation.name,
+            presentedActions: actions,
+            conversationId: conversation.id
         )
     }
     
@@ -1521,12 +2019,25 @@ struct UnifiedChatView: View {
                 haptic.impactOccurred()
 
                 withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.6))) {
-                    isMediaSectionExpanded.toggle()
-                    if isMediaSectionExpanded {
-                        isInputFocused = false
-                        isAttachTrayOpen = true
-                    } else {
+                    if AmenMessagingAttachmentMenuPresentationMode.resolve(
+                        liquidGlassMenuEnabled: AMENFeatureFlags.shared.messagingLiquidGlassAttachmentMenuEnabled
+                    ) == .liquidGlassMenu {
+                        showLiquidGlassAttachmentMenu.toggle()
+                        isMediaSectionExpanded = false
                         isAttachTrayOpen = false
+                        isInputFocused = false
+                        if showLiquidGlassAttachmentMenu {
+                            AmenMessagingAnalytics.track(.attachmentMenuOpened)
+                        }
+                    } else {
+                        showLiquidGlassAttachmentMenu = false
+                        isMediaSectionExpanded.toggle()
+                        if isMediaSectionExpanded {
+                            isInputFocused = false
+                            isAttachTrayOpen = true
+                        } else {
+                            isAttachTrayOpen = false
+                        }
                     }
                 }
             } label: {
@@ -1543,8 +2054,9 @@ struct UnifiedChatView: View {
                     Image(systemName: "plus")
                         .font(.systemScaled(15, weight: .medium))
                         .foregroundStyle(Color.primary.opacity(0.6))
-                        .rotationEffect(.degrees(isMediaSectionExpanded ? 45 : 0))
+                        .rotationEffect(.degrees((isMediaSectionExpanded || showLiquidGlassAttachmentMenu) ? 45 : 0))
                         .animation(.spring(response: 0.4, dampingFraction: 0.6), value: isMediaSectionExpanded)
+                        .animation(.spring(response: 0.4, dampingFraction: 0.6), value: showLiquidGlassAttachmentMenu)
                 }
             }
             .buttonStyle(SpringButtonStyle())
@@ -1607,23 +2119,24 @@ struct UnifiedChatView: View {
                 // Long-press (when text present) shows "Send Later" schedule picker.
                 Button {
                     if isRecording {
-                        // Stop recording
+                        // Stop recording — upload to Storage and send
                         withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                             isRecording = false
                         }
+                        voiceViewModel.stopAndSend()
                     } else if !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         if editingMessage != nil {
-                            saveEdit()
+                            Task { await performEditWithSafetyCheck() }
                         } else {
-                            sendMessage()
+                            Task { await performSendWithSafetyCheck() }
                         }
                     } else {
-                        // Mic tap — placeholder for voice recording
-                        let haptic = UIImpactFeedbackGenerator(style: .medium)
-                        haptic.impactOccurred()
+                        // Mic tap — start recording
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                         withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                             isRecording = true
                         }
+                        voiceViewModel.startRecording()
                     }
                 } label: {
                     ZStack {
@@ -1778,6 +2291,31 @@ struct UnifiedChatView: View {
 
         isLoadingSmartReplies = true
         Task {
+            // System 32: Use backend CF when smartRepliesEnabled, fall back to on-device service
+            if AMENFeatureFlags.shared.smartRepliesEnabled,
+               let lastIncoming = messages.last(where: { !$0.isFromCurrentUser && !$0.text.isEmpty }) {
+                do {
+                    let fn = Functions.functions()
+                    let contextLines = recentMessages.dropLast().map { msg -> String in
+                        let speaker = msg.isFromCurrentUser ? "You" : otherName
+                        return "\(speaker): \(String(msg.text.prefix(100)))"
+                    }
+                    let result = try await fn.httpsCallable("generateSmartReplies").call([
+                        "conversationId": conversation.id,
+                        "lastMessageText": String(lastIncoming.text.prefix(300)),
+                        "context": contextLines,
+                    ])
+                    let data = result.data as? [String: Any]
+                    let replies = data?["replies"] as? [String] ?? []
+                    await MainActor.run {
+                        smartReplySuggestions = replies.filter { !$0.isEmpty }
+                        isLoadingSmartReplies = false
+                    }
+                    return
+                } catch {
+                    // Fall through to on-device service on CF failure
+                }
+            }
             let request = SmartReplySuggestionRequest(
                 mode: .smartReply,
                 contextExcerpt: contextExcerpt,
@@ -1814,6 +2352,8 @@ struct UnifiedChatView: View {
             startListeningToProfilePhotoUpdates()
         }
 
+
+
         // Start typing indicator listener — shows "... is typing" bubble when other
         // participant is actively typing. The service already filters out the current
         // user and stale entries (>5s), so the callback contains only remote typers.
@@ -1821,6 +2361,7 @@ struct UnifiedChatView: View {
             Task { @MainActor in
                 withAnimation(.easeInOut(duration: 0.2)) {
                     self.isTyping = !typingNames.isEmpty
+                    self.remoteTypingNames = typingNames
                 }
             }
         }
@@ -1846,6 +2387,12 @@ struct UnifiedChatView: View {
         // P1 FIX: Reset send gate so user can send messages if they reopen this chat
         isSendingMessage = false
         inFlightMessageIDs.removeAll()
+
+        // Cancel any in-progress voice recording so mic isn't left open
+        if isRecording {
+            isRecording = false
+            voiceViewModel.cancelRecording()
+        }
 
         // P0-2 FIX: Cancel listener task immediately to prevent memory leaks
         listenerTask?.cancel()
@@ -1877,6 +2424,510 @@ struct UnifiedChatView: View {
             )
         }
     }
+
+    private func handleCrisisSendAnyway() {
+        showCrisisInterstitial = false
+        let text = pendingCrisisMessageText
+        let id = pendingCrisisMessageId
+        pendingCrisisMessageText = ""
+        pendingCrisisMessageId = ""
+        Task {
+            try? await messagingService.sendMessage(
+                conversationId: conversation.id,
+                text: text,
+                clientMessageId: id
+            )
+        }
+    }
+
+    private func handleCrisisClose() {
+        showCrisisInterstitial = false
+        pendingCrisisMessageText = ""
+        pendingCrisisMessageId = ""
+        messages.removeAll { $0.id == pendingCrisisMessageId }
+        pendingMessages.removeValue(forKey: pendingCrisisMessageId)
+    }
+
+    private func handleReplySwipeEnded(_ value: DragGesture.Value, for message: AppMessage) {
+        guard abs(value.translation.width) > abs(value.translation.height) * 1.5 else { return }
+        guard value.translation.width > 50 else { return }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
+            replyingTo = message
+            isInputFocused = true
+        }
+    }
+
+    private var userProfileSheetView: some View {
+        ChatUserProfileSheet(
+            conversation: conversation,
+            resolvedUserId: otherUserId ?? conversation.otherParticipantId
+        )
+    }
+
+    private var groupInfoSheetView: some View {
+        GroupInfoView(conversation: conversation)
+    }
+
+    private var documentPickerSheetView: some View {
+        DocumentPicker { fileURL, fileName, fileSize in
+            handleFileSelected(fileURL: fileURL, fileName: fileName, fileSize: fileSize)
+        }
+    }
+
+    private var unavailableTranscriptPanel: some View {
+        AmenVoiceTranscriptPanel(
+            state: .unavailable,
+            onClose: { pendingTranscriptMessage = nil },
+            onCopy: nil,
+            onTranslate: nil
+        )
+        .presentationDetents([.medium])
+        .presentationDragIndicator(.visible)
+    }
+
+    private func handleVoiceRecordingCompletion(_ audioURL: URL, _ duration: TimeInterval) {
+        Task { @MainActor in
+            isRecording = false
+            handleVoiceMessageRecorded(url: audioURL, duration: duration)
+        }
+    }
+
+    private func handleScenePhaseChange(_ newPhase: ScenePhase) {
+        if newPhase == .active {
+            Task { await setupChatViewAsync() }
+        } else if newPhase == .background {
+            cleanupChatView()
+        }
+    }
+
+    private func handleMessageTextChanged(_ newValue: String) {
+        handleTypingIndicator(isTyping: !newValue.isEmpty)
+        chatLinkController.handleTextChange(newValue)
+        resolveMessageAttachmentIfNeeded(for: newValue)
+        if !newValue.isEmpty {
+            smartReplySuggestions = []
+        }
+        guard editingMessage == nil else { return }
+        if newValue.isEmpty {
+            UserDefaults.standard.removeObject(forKey: messageDraftKey)
+        } else {
+            UserDefaults.standard.set(newValue, forKey: messageDraftKey)
+        }
+    }
+
+    private func resolveMessageAttachmentIfNeeded(for text: String) {
+        messageAttachmentTask?.cancel()
+        messageAttachmentTask = Task { @MainActor in
+            let urls = smartAttachmentResolver.extractSupportedURLs(from: text)
+            guard let url = urls.first else {
+                messageSmartAttachment = nil
+                messageMentionedLinks = []
+                messageAttachmentState = .empty
+                return
+            }
+            messageMentionedLinks = Array(urls.dropFirst())
+            if messageSmartAttachment?.canonicalUrl == url.absoluteString { return }
+            messageAttachmentState = .resolving
+            do {
+                let resolved = try await smartAttachmentResolver.resolve(url: url, source: "messagePaste")
+                if resolved.safetyStatus == .blocked {
+                    messageSmartAttachment = nil
+                    messageAttachmentState = .blocked("blocked")
+                    return
+                }
+                messageSmartAttachment = resolved
+                messageAttachmentState = .resolved(resolved)
+            } catch {
+                messageAttachmentState = .failed(.resolveFailed)
+            }
+        }
+    }
+
+    private func openAttachmentURL(_ attachment: AmenSmartAttachment) {
+        guard let url = URL(string: attachment.canonicalUrl) else { return }
+        UIApplication.shared.open(url)
+    }
+
+    private func saveMessageAttachment(_ attachment: AmenSmartAttachment) {
+        Task {
+            do {
+                try await AmenUniversalLinkIntelligenceService.shared.saveUniversalLink(linkId: attachment.id)
+                successChips.show("Saved")
+            } catch {
+                successChips.show("Save failed")
+            }
+        }
+    }
+
+    private func showContextMenu(for message: AppMessage, isFromCurrentUser: Bool, frame: CGRect) {
+        var menuActions: [AmenContextMenuAction] = []
+        menuActions.append(AmenContextMenuAction(
+            kind: .reply, label: "Reply",
+            systemImage: "arrowshape.turn.up.left",
+            handler: { replyingTo = message; isInputFocused = true }
+        ))
+        menuActions.append(AmenContextMenuAction(
+            kind: .react, label: "React",
+            systemImage: "face.smiling",
+            handler: {
+                selectedMessageForReaction = message
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
+                    showReactionPicker = true
+                }
+            }
+        ))
+        if message.messageType == .text || message.messageType == .image {
+            menuActions.append(AmenContextMenuAction(
+                kind: .copy, label: "Copy",
+                systemImage: "doc.on.doc",
+                handler: { UIPasteboard.general.string = message.text }
+            ))
+        }
+        if isFromCurrentUser,
+           message.messageType == .text,
+           !message.isDeleted,
+           message.timestamp.timeIntervalSinceNow > -900,
+           prefsService.preferences.editMessageEnabled {
+            menuActions.append(AmenContextMenuAction(
+                kind: .edit, label: "Edit",
+                systemImage: "pencil",
+                handler: { beginEditMode(message: message) }
+            ))
+        }
+        if isFromCurrentUser {
+            menuActions.append(AmenContextMenuAction(
+                kind: .delete, label: "Delete",
+                systemImage: "trash",
+                isDestructive: true,
+                handler: { deleteMessage(message: message) }
+            ))
+        }
+        if !isFromCurrentUser {
+            menuActions.append(AmenContextMenuAction(
+                kind: .report, label: "Report",
+                systemImage: "exclamationmark.bubble.fill",
+                isDestructive: true,
+                handler: {
+                    messageToReport = message
+                    showReportConfirmation = true
+                }
+            ))
+            menuActions.append(AmenContextMenuAction(
+                kind: .block, label: "Block",
+                systemImage: "person.slash.fill",
+                isDestructive: true,
+                handler: {
+                    userIdToBlock = message.senderId
+                    showBlockConfirmation = true
+                }
+            ))
+            menuActions.append(AmenContextMenuAction(
+                kind: .mute, label: "Mute",
+                systemImage: "speaker.slash.fill",
+                handler: { muteSender(userId: message.senderId) }
+            ))
+        }
+        menuActions.append(AmenContextMenuAction(kind: .translate, label: "Translate", systemImage: "globe", isEnabled: false))
+        menuActions.append(AmenContextMenuAction(
+            kind: .saveToSelah, label: "Save to Selah",
+            systemImage: "bookmark",
+            handler: {
+                pendingSaveMessage = AmenMessageSaveContext(
+                    message: message,
+                    conversationName: conversation.name,
+                    presentedActions: [.saveToSelah]
+                )
+            }
+        ))
+        menuActions.append(AmenContextMenuAction(
+            kind: .addToChurchNotes, label: "Add to Church Notes",
+            systemImage: "note.text",
+            handler: {
+                pendingSaveMessage = AmenMessageSaveContext(
+                    message: message,
+                    conversationName: conversation.name,
+                    presentedActions: [.addToChurchNotes]
+                )
+            }
+        ))
+        menuActions.append(AmenContextMenuAction(kind: .summarize, label: "Summarize", systemImage: "text.badge.checkmark", isEnabled: false))
+        menuActions.append(AmenContextMenuAction(
+            kind: .remindMe, label: "Remind Me",
+            systemImage: "bell",
+            handler: {
+                pendingSaveMessage = AmenMessageSaveContext(
+                    message: message,
+                    conversationName: conversation.name,
+                    presentedActions: [.remindMe]
+                )
+            }
+        ))
+        if let mediaAction = mediaActionsContextMenuAction(for: message) {
+            menuActions.append(mediaAction)
+        }
+        presentMessageContextMenu(anchorFrame: frame, actions: menuActions)
+    }
+
+    private func mediaActionsContextMenuAction(for message: AppMessage) -> AmenContextMenuAction? {
+        guard message.messageType == .image || message.messageType == .video else { return nil }
+        return AmenContextMenuAction(
+            kind: .saveToSelah,
+            label: "Media Actions",
+            systemImage: "photo.badge.ellipsis",
+            handler: { activeMediaActionMessage = message }
+        )
+    }
+
+    private func presentMessageContextMenu(anchorFrame: CGRect, actions: [AmenContextMenuAction]) {
+        AmenMessageContextMenuPresenter.shared.present(anchorFrame: anchorFrame, actions: actions)
+    }
+
+    private func editAction(for message: AppMessage, isFromCurrentUser: Bool) -> (() -> Void)? {
+        guard isFromCurrentUser, prefsService.preferences.editMessageEnabled else { return nil }
+        return { beginEditMode(message: message) }
+    }
+
+    private func retryAction(for message: AppMessage) -> (() -> Void)? {
+        guard message.isSendFailed else { return nil }
+        return { retryFailedMessage(messageId: message.id, text: message.text) }
+    }
+
+    private func reportAction(for message: AppMessage, isFromCurrentUser: Bool) -> (() -> Void)? {
+        guard !isFromCurrentUser else { return nil }
+        return {
+            messageToReport = message
+            showReportConfirmation = true
+        }
+    }
+
+    private func blockAction(for message: AppMessage, isFromCurrentUser: Bool) -> (() -> Void)? {
+        guard !isFromCurrentUser else { return nil }
+        return {
+            userIdToBlock = message.senderId
+            showBlockConfirmation = true
+        }
+    }
+
+    private func muteAction(for message: AppMessage, isFromCurrentUser: Bool) -> (() -> Void)? {
+        guard !isFromCurrentUser else { return nil }
+        return { muteSender(userId: message.senderId) }
+    }
+
+    private func mediaAction(for message: AppMessage) -> (() -> Void)? {
+        guard message.messageType == .image || message.messageType == .video else { return nil }
+        return { activeMediaActionMessage = message }
+    }
+
+    private func replyAction(for message: AppMessage) -> () -> Void {
+        {
+            replyingTo = message
+            isInputFocused = true
+        }
+    }
+
+    private func deleteAction(for message: AppMessage) -> () -> Void {
+        { deleteMessage(message: message) }
+    }
+
+    private func contextMenuRequestAction(for message: AppMessage, isFromCurrentUser: Bool) -> (CGRect) -> Void {
+        { frame in
+            showContextMenu(for: message, isFromCurrentUser: isFromCurrentUser, frame: frame)
+        }
+    }
+
+    private func mediaActionOverlayView(for mediaMsg: AppMessage) -> some View {
+        AmenMediaActionOverlay(
+            message: mediaMsg,
+            flags: AMENFeatureFlags.shared,
+            onSave: { handleMediaOverlayShare(mediaMsg) },
+            onShare: { handleMediaOverlayShare(mediaMsg) },
+            onSaveToSelah: saveMediaToSelahAction(for: mediaMsg),
+            onAddToNotes: addMediaToNotesAction(for: mediaMsg),
+            onDismiss: { activeMediaActionMessage = nil }
+        )
+    }
+
+    private func messageBubbleView(
+        message: AppMessage,
+        isFromCurrentUser: Bool,
+        isLastInGroup: Bool,
+        isLastOutgoing: Bool
+    ) -> some View {
+        LiquidGlassMessageBubble(
+            message: message,
+            isFromCurrentUser: isFromCurrentUser,
+            isLastInGroup: isLastInGroup,
+            showReadReceipt: isLastOutgoing,
+            isRetrying: messagingService.retryingMessageIds.contains(message.id),
+            onReply: replyAction(for: message),
+            onReact: { emoji in
+                addReaction(to: message, emoji: emoji)
+            },
+            onLongPress: longPressAction(for: message),
+            onDelete: deleteAction(for: message),
+            onEdit: editAction(for: message, isFromCurrentUser: isFromCurrentUser),
+            onRetry: retryAction(for: message),
+            onReport: reportAction(for: message, isFromCurrentUser: isFromCurrentUser),
+            onBlock: blockAction(for: message, isFromCurrentUser: isFromCurrentUser),
+            onMute: muteAction(for: message, isFromCurrentUser: isFromCurrentUser),
+            contextMenuEnabled: AMENFeatureFlags.shared.messagingLiquidGlassContextMenuEnabled,
+            onContextMenuRequest: contextMenuRequestAction(for: message, isFromCurrentUser: isFromCurrentUser),
+            onMediaAction: mediaAction(for: message)
+        )
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 20)
+                .onEnded { value in
+                    handleReplySwipeEnded(value, for: message)
+                }
+        )
+    }
+
+    private func handleMediaOverlayShare(_ mediaMsg: AppMessage) {
+        if let url = mediaMsg.attachments.first?.url {
+            let av = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+            UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }
+                .first?.windows.first?.rootViewController?
+                .present(av, animated: true)
+        }
+        activeMediaActionMessage = nil
+    }
+
+    private func saveMediaToSelahAction(for mediaMsg: AppMessage) -> (() -> Void)? {
+        guard AMENFeatureFlags.shared.selahMediaOSEnabled else { return nil }
+        return {
+            pendingSaveMessage = AmenMessageSaveContext(
+                message: mediaMsg,
+                conversationName: conversation.name,
+                presentedActions: [.saveToSelah]
+            )
+            activeMediaActionMessage = nil
+        }
+    }
+
+    private func addMediaToNotesAction(for mediaMsg: AppMessage) -> (() -> Void) {
+        {
+            pendingSaveMessage = AmenMessageSaveContext(
+                message: mediaMsg,
+                conversationName: conversation.name,
+                presentedActions: [.addToChurchNotes]
+            )
+            activeMediaActionMessage = nil
+        }
+    }
+
+    @ViewBuilder
+    private var messageActionClusterOverlay: some View {
+        if showMessageActionCluster, let msg = actionClusterMessage {
+            ZStack {
+                Color.black.opacity(0.35)
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        showMessageActionCluster = false
+                        actionClusterMessage = nil
+                    }
+                VStack {
+                    Spacer()
+                    MessageActionCluster(
+                        message: msg,
+                        onAction: { action in handleMessageClusterAction(action, message: msg) },
+                        onDismiss: {
+                            withAnimation(Motion.adaptive(.spring(response: 0.25))) {
+                                showMessageActionCluster = false
+                                actionClusterMessage = nil
+                            }
+                        }
+                    )
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 24)
+                }
+            }
+            .transition(.opacity)
+        }
+    }
+
+    @ViewBuilder
+    private var mediaIntelligenceDockOverlay: some View {
+        if showMediaIntelligenceDock, let mediaMsg = mediaDockMessage {
+            let attachType: AmenMediaAttachmentType = {
+                switch mediaMsg.messageType {
+                case .video: return .video
+                case .link:  return .link
+                case .file:  return .file
+                default:     return .photo
+                }
+            }()
+            ZStack {
+                Color.black.opacity(0.3)
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        withAnimation(Motion.adaptive(.spring(response: 0.25))) {
+                            showMediaIntelligenceDock = false
+                        }
+                    }
+                VStack {
+                    Spacer()
+                    MediaIntelligenceDock(
+                        messageId: mediaMsg.id,
+                        mediaUrl: mediaMsg.mediaURL ?? "",
+                        mediaType: attachType,
+                        onAction: { _ in },
+                        onDismiss: {
+                            withAnimation(Motion.adaptive(.spring(response: 0.25))) {
+                                showMediaIntelligenceDock = false
+                            }
+                        }
+                    )
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 24)
+                }
+            }
+            .transition(.opacity)
+        }
+    }
+
+    private func longPressAction(for message: AppMessage) -> () -> Void {
+        {
+            if AMENFeatureFlags.shared.messagesSmartContextEnabled {
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                actionClusterMessage = message
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
+                    showMessageActionCluster = true
+                }
+            } else {
+                selectedMessageForReaction = message
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
+                    showReactionPicker = true
+                }
+            }
+        }
+    }
+
+    private struct MessageRowContext {
+        let currentUID: String?
+        let isFromCurrentUser: Bool
+        let isLastInGroup: Bool
+        let isLastOutgoing: Bool
+        let showDateHeader: Bool
+    }
+
+    private func messageRowContext(for message: AppMessage, at index: Int) -> MessageRowContext {
+        let currentUID = Auth.auth().currentUser?.uid
+        let isFromCurrentUser = message.senderId == currentUID
+        let nextMessage: AppMessage? = index + 1 < messages.count ? messages[index + 1] : nil
+        let isLastInGroup = nextMessage?.senderId != message.senderId
+        let isLastOutgoing = isFromCurrentUser && (nextMessage == nil || nextMessage?.senderId != currentUID)
+        let prevMessage: AppMessage? = index > 0 ? messages[index - 1] : nil
+        let showDateHeader = prevMessage.map { !Calendar.current.isDate($0.timestamp, inSameDayAs: message.timestamp) } ?? true
+        return MessageRowContext(
+            currentUID: currentUID,
+            isFromCurrentUser: isFromCurrentUser,
+            isLastInGroup: isLastInGroup,
+            isLastOutgoing: isLastOutgoing,
+            showDateHeader: showDateHeader
+        )
+    }
     
     private func loadMessages() {
         // startListeningToMessages is synchronous — it attaches a Firestore snapshot listener
@@ -1888,15 +2939,8 @@ struct UnifiedChatView: View {
                 // Build a Set of all IDs returned by the snapshot for O(1) lookup.
                 let fetchedIDs = Set(fetchedMessages.map { $0.id })
 
-                // Any pending (optimistic) message whose ID now appears in the snapshot
-                // has been confirmed by Firestore — remove the optimistic copy.
-                seenMessageIDs.formUnion(fetchedIDs)
-                // P1 FIX: Prune seenMessageIDs to prevent unbounded memory growth.
-                // Each entry is a Firestore document ID (~28 bytes); 500 entries ≈ 14KB.
-                // When we exceed 500, trim to the 250 most recently fetched entries.
-                if seenMessageIDs.count > 500 {
-                    seenMessageIDs = Set(fetchedIDs.prefix(250))
-                }
+                // Remove any optimistic (pending) message whose ID now appears in the
+                // Firestore snapshot — the server-confirmed version wins in the merge below.
                 for id in fetchedIDs where pendingMessages[id] != nil {
                     pendingMessages.removeValue(forKey: id)
                 }
@@ -1961,6 +3005,7 @@ struct UnifiedChatView: View {
     // MARK: - Edit Message
 
     private func beginEditMode(message: AppMessage) {
+        draftBeforeEdit = messageText   // preserve any in-progress draft
         editingMessage = message
         editingOriginalText = message.text
         messageText = message.text
@@ -1972,7 +3017,8 @@ struct UnifiedChatView: View {
         withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
             editingMessage = nil
             editingOriginalText = ""
-            messageText = ""
+            messageText = draftBeforeEdit   // restore draft that was interrupted by edit mode
+            draftBeforeEdit = ""
             isInputFocused = false
         }
     }
@@ -1985,8 +3031,10 @@ struct UnifiedChatView: View {
             return
         }
         let newText = messageText
-        // Optimistic local update
+        // Optimistic local update: update text immediately so the user
+        // sees the new content before the Firestore snapshot arrives.
         if let idx = messages.firstIndex(where: { $0.id == msg.id }) {
+            messages[idx].text = newText
             messages[idx].editedAt = Date()
         }
         cancelEditMode()
@@ -2037,6 +3085,212 @@ struct UnifiedChatView: View {
                 dlog("❌ Schedule reply failed: \(error)")
                 toastManager.showError("Could not schedule message")
             }
+        }
+    }
+
+    // Phase 4B: Build pill context from current message state — extracted to avoid type-checker timeout.
+    private func updateSmartPillContext(for newMessages: [AppMessage]) {
+        guard AMENFeatureFlags.shared.messagingSmartPillsEnabled else { return }
+        let lastIncoming = newMessages.last(where: { !$0.isFromCurrentUser })
+        let sel = selectedMessage
+        let unread = newMessages.filter { !$0.isRead && !$0.isFromCurrentUser }.count
+        let langCode = Locale.current.language.languageCode?.identifier ?? "en"
+        let firstAttach = sel?.attachments.first
+        let isVoice = firstAttach?.type == .audio
+        let isMedia = firstAttach.map { $0.type == .photo || $0.type == .video } ?? false
+        let isLong = (sel?.text.count ?? 0) > AmenSmartPillPriorityEngine.longMessageCharThreshold
+        let context = AmenSmartPillEligibilityContext(
+            conversationId: conversation.id,
+            messageCount: newMessages.count,
+            unreadCount: unread,
+            lastMessage: newMessages.last,
+            selectedMessage: sel,
+            userLanguageCode: langCode,
+            isGroupConversation: conversation.isGroup,
+            detectedLanguage: lastIncoming?.detectedLanguage,
+            hasVoiceMessage: isVoice,
+            hasMediaMessage: isMedia,
+            hasLongText: isLong,
+            safetySignalPresent: false,
+            transcriptAvailable: false,
+            isNetworkAvailable: true
+        )
+        intelligenceCoordinator.update(context: context)
+    }
+
+    // Phase 7: Pre-send safety evaluation. Calls sendMessage() only after passing all layers.
+    private func performSendWithSafetyCheck() async {
+        let text = messageText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+
+        let senderUID = Auth.auth().currentUser?.uid ?? ""
+        let recipientUID = otherUserId ?? ""
+
+        let decision = await intelligenceCoordinator.evaluatePreSend(
+            text: text,
+            senderUID: senderUID,
+            recipientUID: recipientUID,
+            conversationId: conversation.id
+        )
+
+        switch decision {
+        case .allow, .flagged:
+            sendMessage()
+        case .softWarn, .requireEdit:
+            intelligenceCoordinator.presentSafetyNudge(decision: decision, messageText: text)
+        case .block(let reason):
+            dlog("[Safety] Message blocked: \(reason)")
+            errorMessage = "This message can't be sent."
+            showErrorAlert = true
+        }
+    }
+
+    // NB-5: Safety check for message edits — mirrors performSendWithSafetyCheck.
+    // When messagingSafetyNudgesEnabled is false, falls through to saveEdit() immediately.
+    // The shared nudge UI is reused; safetyNudgeIsForEdit routes "Send Anyway"→saveEdit().
+    private func performEditWithSafetyCheck() async {
+        guard AMENFeatureFlags.shared.messagingSafetyNudgesEnabled else {
+            saveEdit()
+            return
+        }
+        let text = messageText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty, text != editingOriginalText else {
+            cancelEditMode()
+            return
+        }
+        let senderUID = Auth.auth().currentUser?.uid ?? ""
+        let recipientUID = otherUserId ?? ""
+        let decision = await intelligenceCoordinator.evaluatePreSend(
+            text: text,
+            senderUID: senderUID,
+            recipientUID: recipientUID,
+            conversationId: conversation.id
+        )
+        switch decision {
+        case .allow, .flagged:
+            saveEdit()
+        case .softWarn, .requireEdit:
+            safetyNudgeIsForEdit = true
+            intelligenceCoordinator.presentSafetyNudge(decision: decision, messageText: text)
+        case .block(let reason):
+            dlog("[Safety] Edit blocked: \(reason)")
+            errorMessage = "This edit can't be saved."
+            showErrorAlert = true
+        }
+    }
+
+    // System 32: Route smart context bar chip taps.
+    private func handleSmartContextChip(_ chip: SmartContextChip) {
+        switch chip {
+        case .summary:
+            intelligenceCoordinator.requestCatchUp(conversationId: conversation.id, messages: messages)
+        case .decisions:
+            intelligenceCoordinator.extractSmartContext(conversationId: conversation.id, messages: messages)
+        case .questions:
+            intelligenceCoordinator.extractSmartContext(conversationId: conversation.id, messages: messages)
+        case .actions:
+            intelligenceCoordinator.extractSmartContext(conversationId: conversation.id, messages: messages)
+        case .media:
+            if let mediaMsg = messages.last(where: { $0.messageType == .image || $0.messageType == .video }) {
+                mediaDockMessage = mediaMsg
+                withAnimation(Motion.adaptive(.spring(response: 0.3))) {
+                    showMediaIntelligenceDock = true
+                }
+            }
+        case .catchUp:
+            intelligenceCoordinator.requestCatchUp(conversationId: conversation.id, messages: messages)
+        }
+    }
+
+    // System 32: Handle MessageActionCluster actions.
+    private func handleMessageClusterAction(_ action: MessageClusterAction, message: AppMessage) {
+        switch action {
+        case .react:
+            selectedMessageForReaction = message
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
+                showReactionPicker = true
+            }
+        case .reply:
+            replyingTo = message
+            isInputFocused = true
+        case .copy:
+            UIPasteboard.general.string = message.text
+            toastManager.showSuccess("Copied")
+        case .pin:
+            Task { try? await FirebaseMessagingService.shared.pinMessage(conversationId: conversation.id, messageId: message.id) }
+        case .save:
+            pendingSaveMessage = AmenMessageSaveContext(
+                message: message,
+                conversationName: conversation.name,
+                presentedActions: [.saveToSelah, .addToChurchNotes, .saveToNotes, .remindMe]
+            )
+        case .summarize:
+            intelligenceCoordinator.requestCatchUp(conversationId: conversation.id, messages: messages)
+        case .createTask:
+            intelligenceCoordinator.extractSmartContext(conversationId: conversation.id, messages: messages)
+        case .markDecision:
+            intelligenceCoordinator.extractSmartContext(conversationId: conversation.id, messages: messages)
+        case .remindMe:
+            pendingSaveMessage = AmenMessageSaveContext(
+                message: message,
+                conversationName: conversation.name,
+                presentedActions: [.remindMe]
+            )
+        case .forward:
+            Task {
+                if let shareText = URL(string: ""),
+                   !message.text.isEmpty {
+                    await MainActor.run {
+                        let activity = UIActivityViewController(activityItems: [message.text], applicationActivities: nil)
+                        if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                           let root = scene.windows.first?.rootViewController {
+                            root.present(activity, animated: true)
+                        }
+                    }
+                }
+            }
+        case .report:
+            messageToReport = message
+        }
+    }
+
+    // Phase 4A: Route smart pill taps to the appropriate action.
+    private func handleSmartPillTap(_ type: AmenSmartPillType) {
+        AmenMessagingAnalytics.track(.smartPillTapped, parameters: ["pill": type.rawValue])
+        switch type {
+        case .translate:
+            if let msg = messages.last(where: { !$0.isFromCurrentUser }) {
+                intelligenceCoordinator.requestTranslation(for: msg)
+            }
+        case .catchMeUp:
+            intelligenceCoordinator.requestCatchUp(
+                conversationId: conversation.id,
+                messages: messages
+            )
+        case .saveToSelah, .addToChurchNotes, .saveToNotes, .remindMe:
+            if let msg = selectedMessage ?? messages.last {
+                pendingSaveMessage = AmenMessageSaveContext(
+                    message: msg,
+                    conversationName: conversation.name,
+                    presentedActions: [.saveToSelah, .addToChurchNotes, .saveToNotes, .remindMe]
+                )
+            }
+        case .voiceTranscript:
+            // CF-2: open transcript panel in honest unavailable state; no silent no-op
+            AmenMessagingAnalytics.track(.voiceTranscriptUnavailable)
+            pendingTranscriptMessage = selectedMessage
+                ?? messages.last(where: { !$0.isFromCurrentUser })
+                ?? messages.last
+        case .mediaActions:
+            AmenMessagingAnalytics.track(.mediaActionsShown)
+            activeMediaActionMessage = selectedMessage
+                ?? messages.last(where: { $0.messageType == .image || $0.messageType == .video })
+        case .extractActions:
+            // CF-2: no action extraction backend exists yet — show honest info toast
+            AmenMessagingAnalytics.track(.extractActionsTapped)
+            toastManager.showInfo("Action extraction isn't available yet.")
+        default:
+            break
         }
     }
 
@@ -2396,7 +3650,7 @@ struct UnifiedChatView: View {
                     // Chat memory: extract from recent messages
                     let recentMessages = messages.suffix(5).map { msg in
                         ExtractableMessage(
-                            id: msg.id ?? UUID().uuidString,
+                            id: msg.id,
                             text: msg.text,
                             senderId: msg.senderId,
                             timestamp: msg.timestamp
@@ -3022,6 +4276,46 @@ struct UnifiedChatView: View {
         messages.append(msg)
     }
 
+    private func handleVoiceMessageRecorded(url: URL, duration: TimeInterval) {
+        let msgId = UUID().uuidString
+        let msg = AppMessage(
+            id: msgId,
+            text: "",
+            isFromCurrentUser: true,
+            timestamp: Date(),
+            senderId: Auth.auth().currentUser?.uid ?? "",
+            senderName: messagingService.currentUserName,
+            isSent: false,
+            isDelivered: false,
+            isSendFailed: false,
+            messageType: .file,
+            mediaURL: url.absoluteString,
+            mediaDuration: duration,
+            mediaFileName: "Voice Message",
+            mediaFileExtension: ".m4a"
+        )
+        appendAttachmentMessage(msg)
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+
+        Task {
+            do {
+                try await messagingService.sendMessage(
+                    conversationId: conversation.id,
+                    text: "[Voice Message] \(url.absoluteString)",
+                    clientMessageId: msgId
+                )
+            } catch {
+                dlog("❌ Voice message send failed: \(error)")
+                await MainActor.run {
+                    if let idx = messages.firstIndex(where: { $0.id == msgId }) {
+                        messages[idx].isSendFailed = true
+                    }
+                    toastManager.showError("Voice message failed to send")
+                }
+            }
+        }
+    }
+
     // MARK: - Berean AI Send
 
     /// Routes an @Berean message through the Claude streaming API instead of normal Firestore send.
@@ -3152,6 +4446,33 @@ struct UnifiedChatView: View {
                 }
             }
         }
+    }
+}
+
+private struct PrimaryChatSheetsModifier: ViewModifier {
+    @Binding var showUserProfile: Bool
+    @Binding var showGroupInfo: Bool
+    @Binding var showCrisisInterstitial: Bool
+    let userProfileSheetView: () -> AnyView
+    let groupInfoSheetView: () -> AnyView
+    let onCrisisSendAnyway: () -> Void
+    let onCrisisClose: () -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .sheet(isPresented: $showUserProfile) {
+                userProfileSheetView()
+            }
+            .sheet(isPresented: $showGroupInfo) {
+                groupInfoSheetView()
+            }
+            .sheet(isPresented: $showCrisisInterstitial) {
+                SelfHarmCrisisInterstitial(
+                    onSendAnyway: onCrisisSendAnyway,
+                    onClose: onCrisisClose
+                )
+                .presentationDetents([.medium, .large])
+            }
     }
 }
 
@@ -3787,9 +5108,13 @@ struct LiquidGlassMessageBubble: View {
     var onReport: (() -> Void)? = nil
     var onBlock: (() -> Void)? = nil
     var onMute: (() -> Void)? = nil
+    var contextMenuEnabled: Bool = false
+    var onContextMenuRequest: ((CGRect) -> Void)? = nil
+    var onMediaAction: (() -> Void)? = nil   // Phase 11: media overlay trigger
 
     // Inline double-tap reaction bar state
     @State private var showInlineReactions = false
+    @State private var capturedBubbleFrame: CGRect = .zero
 
     // Reactions for inline quick-tap (iMessage style)
     private let quickReactions = ["❤️", "🙏", "🔥", "😂", "😮", "👍"]
@@ -3871,8 +5196,8 @@ struct LiquidGlassMessageBubble: View {
 
                 VStack(alignment: isFromCurrentUser ? .trailing : .leading, spacing: 3) {
                     // Sender name (group chats)
-                    if !isFromCurrentUser, let name = message.senderName, isLastInGroup {
-                        Text(name)
+                    if !isFromCurrentUser, isLastInGroup {
+                        Text(message.senderName ?? "Deleted User")
                             .font(.systemScaled(11, weight: .medium))
                             .foregroundStyle(.secondary)
                             .padding(isFromCurrentUser ? .trailing : .leading, 14)
@@ -3950,54 +5275,73 @@ struct LiquidGlassMessageBubble: View {
                                 showInlineReactions.toggle()
                             }
                         }
+                        .background(
+                            GeometryReader { geo in
+                                Color.clear
+                                    .onAppear { capturedBubbleFrame = geo.frame(in: .global) }
+                            }
+                        )
                         .contextMenu {
-                            Button { onReply() } label: {
-                                Label("Reply", systemImage: "arrowshape.turn.up.left")
-                            }
-                            Button { onLongPress() } label: {
-                                Label("React", systemImage: "face.smiling")
-                            }
-                            if message.messageType == .text || message.messageType == .image {
-                                Button {
-                                    UIPasteboard.general.string = message.text
-                                } label: {
-                                    Label("Copy", systemImage: "doc.on.doc")
+                            if !contextMenuEnabled {
+                                Button { onReply() } label: {
+                                    Label("Reply", systemImage: "arrowshape.turn.up.left")
                                 }
-                            }
-                            // Edit Message — outgoing text only, within 15-minute window
-                            if isFromCurrentUser,
-                               message.messageType == .text,
-                               !message.isDeleted,
-                               let onEdit,
-                               message.timestamp.timeIntervalSinceNow > -900 {
-                                Button { onEdit() } label: {
-                                    Label("Edit", systemImage: "pencil")
+                                Button { onLongPress() } label: {
+                                    Label("React", systemImage: "face.smiling")
                                 }
-                            }
-                            if isFromCurrentUser {
-                                Divider()
-                                Button(role: .destructive) { onDelete() } label: {
-                                    Label("Delete", systemImage: "trash")
-                                }
-                            }
-                            if !isFromCurrentUser {
-                                Divider()
-                                if let onReport {
-                                    Button(role: .destructive) { onReport() } label: {
-                                        Label("Report", systemImage: "exclamationmark.bubble.fill")
+                                if message.messageType == .text || message.messageType == .image {
+                                    Button {
+                                        UIPasteboard.general.string = message.text
+                                    } label: {
+                                        Label("Copy", systemImage: "doc.on.doc")
                                     }
                                 }
-                                if let onBlock {
-                                    Button(role: .destructive) { onBlock() } label: {
-                                        Label("Block", systemImage: "person.slash.fill")
+                                if (message.messageType == .image || message.messageType == .video),
+                                   let onMediaAction {
+                                    Button { onMediaAction() } label: {
+                                        Label("Media Actions", systemImage: "photo.badge.ellipsis")
                                     }
                                 }
-                                if let onMute {
-                                    Button { onMute() } label: {
-                                        Label("Mute", systemImage: "speaker.slash.fill")
+                                // Edit Message — outgoing text only, within 15-minute window
+                                if isFromCurrentUser,
+                                   message.messageType == .text,
+                                   !message.isDeleted,
+                                   let onEdit,
+                                   message.timestamp.timeIntervalSinceNow > -900 {
+                                    Button { onEdit() } label: {
+                                        Label("Edit", systemImage: "pencil")
+                                    }
+                                }
+                                if isFromCurrentUser {
+                                    Divider()
+                                    Button(role: .destructive) { onDelete() } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
+                                }
+                                if !isFromCurrentUser {
+                                    Divider()
+                                    if let onReport {
+                                        Button(role: .destructive) { onReport() } label: {
+                                            Label("Report", systemImage: "exclamationmark.bubble.fill")
+                                        }
+                                    }
+                                    if let onBlock {
+                                        Button(role: .destructive) { onBlock() } label: {
+                                            Label("Block", systemImage: "person.slash.fill")
+                                        }
+                                    }
+                                    if let onMute {
+                                        Button { onMute() } label: {
+                                            Label("Mute", systemImage: "speaker.slash.fill")
+                                        }
                                     }
                                 }
                             }
+                        }
+                        .onLongPressGesture(minimumDuration: 0.4) {
+                            guard contextMenuEnabled else { return }
+                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                            onContextMenuRequest?(capturedBubbleFrame)
                         }
                     }
 
@@ -4102,13 +5446,14 @@ struct LiquidGlassMessageBubble: View {
 
     private var readReceiptView: some View {
         Group {
-            if message.isSendFailed {
+            switch message.deliveryStatus {
+            case .failed:
                 EmptyView()
-            } else if !message.isSent {
+            case .sending:
                 Image(systemName: "clock")
                     .font(.systemScaled(10))
                     .foregroundStyle(.secondary)
-            } else if message.isRead {
+            case .read:
                 HStack(spacing: 1) {
                     Image(systemName: "checkmark")
                         .font(.systemScaled(9, weight: .semibold))
@@ -4116,7 +5461,7 @@ struct LiquidGlassMessageBubble: View {
                         .font(.systemScaled(9, weight: .semibold))
                 }
                 .foregroundStyle(sentColor)
-            } else if message.isDelivered {
+            case .delivered:
                 HStack(spacing: 1) {
                     Image(systemName: "checkmark")
                         .font(.systemScaled(9, weight: .semibold))
@@ -4124,7 +5469,7 @@ struct LiquidGlassMessageBubble: View {
                         .font(.systemScaled(9, weight: .semibold))
                 }
                 .foregroundStyle(.secondary)
-            } else {
+            case .sent:
                 Image(systemName: "checkmark")
                     .font(.systemScaled(9, weight: .semibold))
                     .foregroundStyle(.secondary)
@@ -4194,7 +5539,7 @@ struct LiquidGlassMessageBubble: View {
             .fill(Color.accentColor.opacity(0.18))
             .frame(width: 28, height: 28)
             .overlay(
-                Text(String(message.senderName?.prefix(1) ?? "?").uppercased())
+                Text(String((message.senderName ?? "Deleted User").prefix(1)).uppercased())
                     .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(Color.accentColor)
             )
@@ -4591,7 +5936,7 @@ enum BereanStreamingService {
 
             guard let data = result.data as? [String: Any],
                   let text = data["text"] as? String else {
-                print("❌ BereanStreamingService: unexpected proxy response")
+                dlog("❌ BereanStreamingService: unexpected proxy response")
                 return "__error__: invalid proxy response"
             }
 
@@ -4605,10 +5950,10 @@ enum BereanStreamingService {
             return text
 
         } catch is CancellationError {
-            print("ℹ️ BereanStreamingService: task cancelled")
+            dlog("ℹ️ BereanStreamingService: task cancelled")
             return "__error__: cancelled"
         } catch {
-            print("❌ BereanStreamingService: \(error)")
+            dlog("❌ BereanStreamingService: \(error)")
             return "__error__: \(error.localizedDescription)"
         }
     }
