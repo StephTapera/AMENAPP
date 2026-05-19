@@ -1,0 +1,111 @@
+// BereanMemoryService.swift
+// AMENAPP
+// Server-authoritative Berean memory CRUD — bridges to bereanExtended callables.
+
+import Foundation
+import FirebaseAuth
+import FirebaseFirestore
+import FirebaseFunctions
+import Combine
+
+// MARK: - Models
+
+struct BereanInsight: Identifiable, Codable {
+    var id: String
+    var sessionId: String
+    var text: String
+    var linkedVerses: [String]
+    var tags: [String]
+    var category: String
+    var createdAt: Date
+    var lastReferencedAt: Date
+    var timesReferenced: Int
+    var isUserVisible: Bool
+}
+
+// MARK: - Service
+
+@MainActor
+final class BereanMemoryService: ObservableObject {
+    static let shared = BereanMemoryService()
+
+    @Published private(set) var insights: [BereanInsight] = []
+    @Published private(set) var isLoading = false
+
+    private let functions = Functions.functions()
+    private let db = Firestore.firestore()
+    private var listener: ListenerRegistration?
+
+    // MARK: Fetch / observe
+
+    func startObserving() {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        listener?.remove()
+        listener = db.collection("users").document(uid)
+            .collection("bereanMemory")
+            .whereField("isUserVisible", isEqualTo: true)
+            .order(by: "lastReferencedAt", descending: true)
+            .limit(to: 50)
+            .addSnapshotListener { [weak self] (snap: QuerySnapshot?, _: Error?) in
+                guard let snap else { return }
+                self?.insights = snap.documents.compactMap { self?.decodeInsight($0) }
+            }
+    }
+
+    func stopObserving() {
+        listener?.remove()
+        listener = nil
+    }
+
+    // MARK: Write
+
+    func saveInsight(
+        sessionId: String,
+        text: String,
+        linkedVerses: [String] = [],
+        tags: [String] = [],
+        category: String = "insight"
+    ) async throws -> String {
+        let result = try await functions.httpsCallable("saveBereanInsight").call([
+            "sessionId": sessionId,
+            "text": text,
+            "linkedVerses": linkedVerses,
+            "tags": tags,
+            "category": category
+        ])
+        let data = result.data as? [String: Any] ?? [:]
+        return data["entryId"] as? String ?? UUID().uuidString
+    }
+
+    func update(entryId: String, updates: [String: Any]) async throws {
+        _ = try await functions.httpsCallable("updateBereanMemory").call([
+            "entryId": entryId,
+            "updates": updates
+        ])
+    }
+
+    func delete(entryId: String) async throws {
+        _ = try await functions.httpsCallable("deleteBereanMemory").call([
+            "entryId": entryId
+        ])
+        insights.removeAll { $0.id == entryId }
+    }
+
+    // MARK: Decode
+
+    private func decodeInsight(_ doc: DocumentSnapshot) -> BereanInsight? {
+        guard let data = doc.data() else { return nil }
+        return BereanInsight(
+            id: doc.documentID,
+            sessionId: data["sessionId"] as? String ?? "",
+            text: data["text"] as? String ?? "",
+            linkedVerses: data["linkedVerses"] as? [String] ?? [],
+            tags: data["tags"] as? [String] ?? [],
+            category: data["category"] as? String ?? "insight",
+            createdAt: (data["createdAt"] as? Timestamp)?.dateValue() ?? Date(),
+            lastReferencedAt: (data["lastReferencedAt"] as? Timestamp)?.dateValue() ?? Date(),
+            timesReferenced: data["timesReferenced"] as? Int ?? 0,
+            isUserVisible: data["isUserVisible"] as? Bool ?? true
+        )
+    }
+}

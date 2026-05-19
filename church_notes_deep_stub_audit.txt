@@ -1,0 +1,6 @@
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSermonBridgeCard.swift:98:                placeholder: "What one truth do you want to hold onto?",
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSermonBridgeCard.swift:105:                placeholder: "What will you do before Sunday?",
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSermonBridgeCard.swift:112:                placeholder: "What do you want to bring to God?",
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSermonBridgeCard.swift:119:                placeholder: "Who came to mind during the sermon?",
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSermonBridgeCard.swift:128:        placeholder: String,
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSermonBridgeCard.swift:144:            TextField(placeholder, text: text, axis: .vertical)

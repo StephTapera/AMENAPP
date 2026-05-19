@@ -1,0 +1,78 @@
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteCommentsView.swift:26:                    Button {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteCommentsView.swift:60:                    Button("Done") { dismiss() }
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteCommentsView.swift:80:                Button {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteCommentsView.swift:107:                        Button("Reopen") {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteCommentsView.swift:112:                        Button("Resolve") {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteCommentsView.swift:117:                    Button("Delete", role: .destructive) {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNotesSearchView.swift:19:                    Button {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNotesSearchView.swift:79:                            Button {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNotesSearchView.swift:116:                    Button("Done") { dismiss() }
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSharePreviewCard.swift:223:                Button(action: onRemove) {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteAnchorPickerSheet.swift:52:                applyButton
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteAnchorPickerSheet.swift:60:                    Button("Cancel") { dismiss() }
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteAnchorPickerSheet.swift:100:        return Button {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteAnchorPickerSheet.swift:175:    // MARK: - Apply Button
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteAnchorPickerSheet.swift:177:    private var applyButton: some View {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteAnchorPickerSheet.swift:180:                Button {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteAnchorPickerSheet.swift:195:            Button {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteConnectionsSection.swift:35:        Button {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteConnectionsSection.swift:79:        Button {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteActionItemsView.swift:96:                    Button {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteActionItemsView.swift:106:                        Button("Reset") { editedDrafts[index] = nil }
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteActionItemsView.swift:120:            Button {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteActionItemsView.swift:130:            Button(role: .destructive) {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteActionItemsView.swift:169:            Button {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteCollaborationView.swift:61:                    Button {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteCollaborationView.swift:90:                    Button("Done") { dismiss() }
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteCollaborationView.swift:111:                        Button(role.displayName) {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteCollaborationView.swift:115:                    Button("Remove", role: .destructive) {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteReflectionReplayCard.swift:68:                    Button("Skip") {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteReflectionReplayCard.swift:75:                    Button {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteReflectionReplayCard.swift:195:        return Button {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteReflectionReplayCard.swift:283:            Button(action: onConfirm) {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteReflectionReplayCard.swift:307:        return Button {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteGodHasBeenSayingCard.swift:98:            Button {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteGodHasBeenSayingCard.swift:150:        Button(action: onViewDetail) {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteGodHasBeenSayingCard.swift:213:                    Button("Done") { dismiss() }
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:412:                    Button("Done") {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:429:                        Button {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:436:                        Button {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:442:                        Button {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:448:                        Button {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:454:                        Button {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:530:                            Button("Done") { vm.showBridgeCard = false }
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:607:                Button("OK", role: .cancel) { importError = nil }
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:870:                Button {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:893:                            Button {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:898:                            Button {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:905:                            Button {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:912:                            Button {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:917:                            Button {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:924:                            Button {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:944:                    Button {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:958:                Button {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:1020:        Button(action: onEdit) {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:1025:            Button("Edit", action: onEdit)
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:1026:            Button {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:1034:            Button {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:1043:            Button {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:1052:            Button(role: .destructive, action: onDelete) {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:1357:                blockTypeButton(type)
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:1360:            Button {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:1381:    private func blockTypeButton(_ type: ChurchNoteBlockV2Type) -> some View {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:1382:        Button {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:1404:                Button {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:1433:                Button {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:1546:                    Button("Cancel") { dismiss() }
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:1549:                    Button("Save") {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:1561:        return Button {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:1591:        return Button {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:1618:        return Button {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:1665:            Button {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSelahRenderView.swift:122:                    Button("Done") { dismiss() }
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSelahRenderView.swift:179:        return Button {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSermonBridgeCard.swift:49:        Button {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSermonBridgeCard.swift:194:                Button {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteReviewStrip.swift:28:                    Button {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteReviewStrip.swift:73:        Button {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteReviewStrip.swift:113:            Button(action: onTap) {

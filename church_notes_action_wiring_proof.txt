@@ -1,0 +1,86 @@
+AMENAPP/AMENAPP/ChurchNotes/Models/ChurchNoteActionItem.swift:53:    static func fromFirestore(id: String, data: [String: Any]) -> ChurchNoteActionItem? {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteCommentsView.swift:27:                        Task {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteCommentsView.swift:81:                    Task {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteCommentsView.swift:108:                            Task { await service.setResolved(noteId: noteId, commentId: comment.id, resolved: false) }
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteCommentsView.swift:113:                            Task { await service.setResolved(noteId: noteId, commentId: comment.id, resolved: true) }
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteCommentsView.swift:118:                        Task { await service.deleteOwnComment(noteId: noteId, commentId: comment.id) }
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNotesSearchView.swift:124:        Task { await service.search(query: query, filters: filters) }
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteActionItemsView.swift:97:                        Task { await approveSingle(index: index, jobId: jobId, original: original) }
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteActionItemsView.swift:118:    private func draftBatchActions(jobId: String) -> some View {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteActionItemsView.swift:121:                Task { await approveAll(jobId: jobId) }
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteActionItemsView.swift:131:                Task { await service.rejectDraft(noteId: noteId, jobId: jobId) }
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteActionItemsView.swift:167:    private func approvedRow(_ item: ChurchNoteActionItem) -> some View {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteActionItemsView.swift:171:                Task { await service.setCompletion(noteId: noteId, itemId: item.id, completed: !item.completed) }
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteCollaborationView.swift:62:                        Task {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteCollaborationView.swift:112:                            Task { await service.updateRole(noteId: noteId, collaboratorUid: collaborator.uid, role: role) }
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteCollaborationView.swift:116:                        Task { await service.remove(noteId: noteId, collaboratorUid: collaborator.uid) }
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:107:        Task {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:142:        Task {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:150:        autosaveTask = Task {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:159:        Task {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:167:        Task {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:179:        Task {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:218:        Task {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:225:            let found = await intelligenceService.findConnections(
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:247:        Task {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:269:        Task {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:278:        Task {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:575:            .fileImporter(
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:582:            .fileImporter(
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:589:            .fileImporter(
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:596:            .fileImporter(
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:603:            .alert("Import Failed", isPresented: Binding(
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:633:            Task {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:636:                await processingService.uploadVideoAndCreateJob(
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:651:            Task {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:654:                await processingService.uploadAudioAndCreateJob(
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:669:            Task {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:674:                    await processingService.uploadImageAndCreateJob(imageData: data, noteId: vm.note.id)
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:688:            Task {
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:691:                await processingService.uploadDocumentAndCreateJob(fileURL: url, noteId: vm.note.id)
+AMENAPP/AMENAPP/ChurchNotes/Views/ChurchNoteSemanticEditorView.swift:815:    private func handleReviewAction(_ action: CNReviewAction) {
+AMENAPP/AMENAPP/ChurchNotes/Services/ChurchNoteActionItemsService.swift:46:                Task { @MainActor [weak self] in
+AMENAPP/AMENAPP/ChurchNotes/Services/ChurchNoteActionItemsService.swift:71:                Task { @MainActor [weak self] in
+AMENAPP/AMENAPP/ChurchNotes/Services/ChurchNoteActionItemsService.swift:110:            _ = try await functions
+AMENAPP/AMENAPP/ChurchNotes/Services/ChurchNoteActionItemsService.swift:126:            _ = try await functions
+AMENAPP/AMENAPP/ChurchNotes/Services/ChurchNoteActionItemsService.swift:155:            _ = try await functions
+AMENAPP/AMENAPP/ChurchNotes/Services/SmartChurchNotesSearchService.swift:33:            let snapshot = try await db.collection("churchNotes")
+AMENAPP/AMENAPP/ChurchNotes/Services/SmartChurchNotesSearchService.swift:42:                let processingText = try await processingIndexText(noteId: noteId)
+AMENAPP/AMENAPP/ChurchNotes/Services/SmartChurchNotesSearchService.swift:69:        let snapshots = try await [jobs, transcripts, ocrResults]
+AMENAPP/AMENAPP/ChurchNotes/Services/ChurchNoteBlockRepository.swift:128:        try await createNote(note)
+AMENAPP/AMENAPP/ChurchNotes/Services/ChurchNoteBlockRepository.swift:129:        try await addBlock(block, to: note.id)
+AMENAPP/AMENAPP/ChurchNotes/Services/ChurchNoteBlockRepository.swift:151:        try await db
+AMENAPP/AMENAPP/ChurchNotes/Services/ChurchNoteBlockRepository.swift:163:        try await incrementBlockCount(noteId: noteId, by: 1)
+AMENAPP/AMENAPP/ChurchNotes/Services/ChurchNoteBlockRepository.swift:189:        try await refreshShareableFlag(noteId: noteId)
+AMENAPP/AMENAPP/ChurchNotes/Services/ChurchNoteBlockRepository.swift:193:        try await db
+AMENAPP/AMENAPP/ChurchNotes/Services/ChurchNoteBlockRepository.swift:197:        try await incrementBlockCount(noteId: noteId, by: -1)
+AMENAPP/AMENAPP/ChurchNotes/Services/ChurchNoteBlockRepository.swift:198:        try await refreshShareableFlag(noteId: noteId)
+AMENAPP/AMENAPP/ChurchNotes/Services/ChurchNoteBlockRepository.swift:209:        try await batch.commit()
+AMENAPP/AMENAPP/ChurchNotes/Services/ChurchNoteBlockRepository.swift:219:        try await db
+AMENAPP/AMENAPP/ChurchNotes/Services/ChurchNoteBlockRepository.swift:226:        try await refreshShareableFlag(noteId: noteId)
+AMENAPP/AMENAPP/ChurchNotes/Services/ChurchNoteBlockRepository.swift:234:        try await db
+AMENAPP/AMENAPP/ChurchNotes/Services/ChurchNoteBlockRepository.swift:241:        try await refreshPinnedBlockIds(noteId: noteId)
+AMENAPP/AMENAPP/ChurchNotes/Services/ChurchNoteBlockRepository.swift:248:        let blockRefs = try await db
+AMENAPP/AMENAPP/ChurchNotes/Services/ChurchNoteBlockRepository.swift:257:        try await batch.commit()
+AMENAPP/AMENAPP/ChurchNotes/Services/ChurchNoteBlockRepository.swift:312:        try await db
+AMENAPP/AMENAPP/ChurchNotes/Services/ChurchNoteBlockRepository.swift:321:        let snapshot = try await db
+AMENAPP/AMENAPP/ChurchNotes/Services/ChurchNoteBlockRepository.swift:331:        try await db
+AMENAPP/AMENAPP/ChurchNotes/Services/ChurchNoteBlockRepository.swift:337:        let snapshot = try await db
+AMENAPP/AMENAPP/ChurchNotes/Services/ChurchNoteBlockRepository.swift:345:        try await db
+AMENAPP/AMENAPP/ChurchNotes/Services/ChurchNotesCollaborationService.swift:32:                Task { @MainActor in
+AMENAPP/AMENAPP/ChurchNotes/Services/ChurchNotesCollaborationService.swift:50:                Task { @MainActor in
+AMENAPP/AMENAPP/ChurchNotes/Services/ChurchNotesCollaborationService.swift:125:            _ = try await functions.httpsCallable(name).call(payload)
+AMENAPP/AMENAPP/ChurchNotes/Services/ChurchNotesIntelligenceRepository.swift:63:        let noteSnap = try await noteRef.getDocument()
+AMENAPP/AMENAPP/ChurchNotes/Services/ChurchNotesIntelligenceRepository.swift:84:        let noteSnap = try await noteRef.getDocument()
+AMENAPP/AMENAPP/ChurchNotes/Services/ChurchNotesIntelligenceRepository.swift:144:        let noteSnap = try await noteRef.getDocument()
+AMENAPP/AMENAPP/ChurchNotes/Services/ChurchNotesIntelligenceRepository.swift:203:            let notePayloads = try await loadServerSummaryPayloads(userId: userId, noteIds: uniqueNoteIds)
+AMENAPP/AMENAPP/ChurchNotes/Services/ChurchNotesIntelligenceRepository.swift:206:            let result = try await functions
+AMENAPP/AMENAPP/ChurchNotes/Services/ChurchNotesIntelligenceRepository.swift:229:        let noteSnap = try await noteRef.getDocument()
+AMENAPP/AMENAPP/ChurchNotes/Services/ChurchNotesIntelligenceRepository.swift:238:        try await db
+AMENAPP/AMENAPP/ChurchNotes/Services/ChurchNotesIntelligenceRepository.swift:243:        try await db.collection("churchNotes").document(noteId)
+AMENAPP/AMENAPP/ChurchNotes/Services/ChurchNotesIntelligenceRepository.swift:252:            let noteSnap = try await noteRef.getDocument()
+AMENAPP/AMENAPP/ChurchNotes/Services/ChurchNotesIntelligenceRepository.swift:258:            let blocksSnap = try await noteRef
+AMENAPP/AMENAPP/ChurchNotes/Services/ChurchNotesCommentsService.swift:34:                Task { @MainActor in
+AMENAPP/AMENAPP/ChurchNotes/Services/ChurchNotesCommentsService.swift:88:            try await db.collection("churchNotes")
+AMENAPP/AMENAPP/ChurchNotes/Services/ChurchNotesCommentsService.swift:104:            try await db.collection("churchNotes")
+AMENAPP/AMENAPP/ChurchNotes/Services/ChurchNotesCommentsService.swift:146:            try await ref.setData(data)

@@ -1,0 +1,412 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // True if the caller holds a custom claim that marks them as an admin.
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.admin == true;
+    }
+
+    // True if the caller holds the "moderator" or "admin" custom claim.
+    function isModerator() {
+      return isSignedIn() &&
+        (request.auth.token.moderator == true || request.auth.token.admin == true);
+    }
+
+    // ── Users ─────────────────────────────────────────────────────────────────
+
+    match /users/{uid} {
+      allow read: if isSignedIn();
+      allow create: if isOwner(uid);
+      allow update: if isOwner(uid);
+      allow delete: if isOwner(uid) || isAdmin();
+    }
+
+    // ── Posts / feed ─────────────────────────────────────────────────────────
+
+    match /posts/{postId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
+      allow update: if isSignedIn() && resource.data.authorId == request.auth.uid;
+      allow delete: if isSignedIn() &&
+        (resource.data.authorId == request.auth.uid || isModerator());
+    }
+
+    // ── Churches ─────────────────────────────────────────────────────────────
+
+    match /churches/{churchId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (
+        resource.data.adminUids.hasAny([request.auth.uid]) || isAdmin()
+      );
+      allow delete: if isAdmin();
+
+      // Hashed phone list: write only by authenticated user adding their own
+      // hash; no one can read the raw list (security through opacity).
+      match /memberHashedPhones/{docId} {
+        allow read: if false; // server-side only
+        allow create: if isSignedIn()
+          && request.resource.data.keys().hasOnly(['hashedPhone', 'addedAt'])
+          && request.resource.data.hashedPhone is string
+          && request.resource.data.hashedPhone.size() == 64; // SHA-256 hex
+        allow update, delete: if false; // immutable once written
+      }
+    }
+
+    // ── Berean AI conversations ───────────────────────────────────────────────
+    // Each user owns their own conversation tree; no one else can read it.
+
+    match /bereanConversations/{uid}/{conversationId} {
+      allow read, write: if isOwner(uid);
+    }
+
+    match /bereanConversations/{uid}/{conversationId}/messages/{messageId} {
+      allow read, write: if isOwner(uid);
+    }
+
+    // ── Moderation queue ─────────────────────────────────────────────────────
+    // Any signed-in user can submit a report; only moderators can read/manage.
+
+    match /moderationQueue/{reportId} {
+      allow create: if isSignedIn()
+        && request.resource.data.reporterId == request.auth.uid
+        && request.resource.data.keys().hasAll(['reporterId', 'contentId', 'reason', 'timestamp']);
+      allow read, update, delete: if isModerator();
+    }
+
+    // ── User safety records ───────────────────────────────────────────────────
+    // Written by safety-gate code on the client; readable only by admins.
+    // The writer must be the subject of the record (self-report) or an admin.
+
+    match /userSafetyRecords/{uid} {
+      allow read: if isAdmin();
+      allow create, update: if isOwner(uid) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ── Data export requests ──────────────────────────────────────────────────
+    // A user can submit exactly one request for their own data; admins manage.
+
+    match /dataExportRequests/{uid} {
+      allow create: if isOwner(uid)
+        && request.resource.data.keys().hasAll(['requestedAt', 'status'])
+        && request.resource.data.status == 'pending';
+      allow read: if isOwner(uid) || isAdmin();
+      // Only admins can update status (e.g. mark fulfilled) or delete.
+      allow update, delete: if isAdmin();
+    }
+
+    // ── Longitudinal / growth profiles ───────────────────────────────────────
+    // Personal spiritual-growth data; only the owning user can read or write.
+
+    match /longitudinalProfiles/{uid} {
+      allow read, write: if isOwner(uid);
+    }
+
+    // ── Communities / Covenant rooms ─────────────────────────────────────────
+    // Legacy /communities (Ark) path. Client direct create is denied — community
+    // creation must go through a server-authoritative callable that seeds
+    // creatorId, adminUids, memberCount, moderationStatus, and safetyStatus.
+    // Server-owned fields (adminUids, memberCount, postCount, rankingScore,
+    // safetyStatus, moderationStatus, isOfficial, isArchived, isDeleted) are
+    // never client-writable.
+
+    function communityServerOwnedKeys() {
+      return [
+        'adminUids', 'memberCount', 'postCount', 'rankingScore',
+        'safetyStatus', 'moderationStatus', 'isOfficial',
+        'isArchived', 'isDeleted', 'creatorId', 'createdAt'
+      ];
+    }
+
+    function communityUpdateAffectsServerOwnedKeys() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasAny(communityServerOwnedKeys());
+    }
+
+    match /communities/{communityId} {
+      // Read remains permitted only for non-private communities; private
+      // communities require server-resolved membership and are not yet
+      // exposed via client-readable rule — keep them server-mediated.
+      allow read: if isSignedIn()
+        && (!('visibility' in resource.data) || resource.data.visibility != 'private');
+      // Direct client create is denied. Creation must go through a callable.
+      allow create: if false;
+      // Update is allowed only for admins/creator AND only when no
+      // server-owned field is touched. Moderation status changes must
+      // go through a callable.
+      allow update: if isSignedIn()
+        && (resource.data.adminUids.hasAny([request.auth.uid]) || isAdmin())
+        && !communityUpdateAffectsServerOwnedKeys();
+      allow delete: if isAdmin();
+
+      match /posts/{postId} {
+        allow read: if isSignedIn()
+          // Read is denied if the parent community is private/members-only.
+          // Membership-gated reads must use a callable; client direct read of
+          // a private community's posts is blocked here.
+          && (
+            !exists(/databases/$(database)/documents/communities/$(communityId))
+            || !('visibility' in get(/databases/$(database)/documents/communities/$(communityId)).data)
+            || get(/databases/$(database)/documents/communities/$(communityId)).data.visibility == 'public'
+          );
+        allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
+        allow update, delete: if isSignedIn() &&
+          (resource.data.authorId == request.auth.uid || isModerator());
+      }
+    }
+
+    // ── Covenant tiers / subscriptions ───────────────────────────────────────
+
+    match /covenantSubscriptions/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      // Writes are performed server-side (Cloud Functions) after payment
+      allow write: if false;
+    }
+
+    // ── Stripe customer ↔ uid mapping (P1-1) ─────────────────────────────────
+    // Written only by createCovenantCheckoutSession callable; the webhook
+    // reads this to validate that subscription.metadata.userId matches the
+    // Firebase uid that actually paid for this Stripe customer.
+
+    match /stripeCustomers/{customerId} {
+      allow read, write: if false;
+    }
+
+    // ── Saved Communities (Phase F) ──────────────────────────────────────────
+    // Owner-isolated. Direct client writes are blocked; the setCommunitySaved
+    // callable performs all writes server-side after validating visibility.
+
+    match /users/{uid}/savedCommunities/{communityKey} {
+      allow read:  if isOwner(uid);
+      allow write: if false;
+    }
+
+    // ── Church Notes ─────────────────────────────────────────────────────────
+    // Notes and their subcollections are private to the owning user.
+    // Server-owned fields (processing output, AI drafts) cannot be written by clients.
+
+    function isNoteOwner(noteId) {
+      return isSignedIn() &&
+        get(/databases/$(database)/documents/churchNotes/$(noteId)).data.userId == request.auth.uid;
+    }
+
+    function isNoteCollaboratorWithRole(noteId, roles) {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/churchNotes/$(noteId)/collaborators/$(request.auth.uid))
+        && roles.hasAny([
+          get(/databases/$(database)/documents/churchNotes/$(noteId)/collaborators/$(request.auth.uid)).data.role
+        ]);
+    }
+
+    // Safe user-editable fields on the top-level note document.
+    function churchNoteAllowedUpdateFields() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly(['title', 'sermonTitle', 'sermonSpeaker', 'churchId', 'serviceDate',
+                  'journeyId', 'tags', 'scriptureReferences', 'updatedAt',
+                  'blockCount', 'hasShareableBlocks', 'pinnedBlockIds']);
+    }
+
+    match /churchNotes/{noteId} {
+      allow read:   if isSignedIn() && (
+        resource.data.userId == request.auth.uid ||
+        isNoteCollaboratorWithRole(noteId, ['owner', 'editor', 'commenter', 'viewer'])
+      );
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid
+                      && request.resource.data.keys().hasAll(['userId', 'title', 'createdAt']);
+      allow update: if isSignedIn()
+                      && (resource.data.userId == request.auth.uid ||
+                          isNoteCollaboratorWithRole(noteId, ['owner', 'editor']))
+                      && churchNoteAllowedUpdateFields();
+      // Clients cannot delete notes directly — soft-delete via callable.
+      allow delete: if false;
+
+      // Blocks — owner reads/writes individual blocks; no server-owned field restrictions
+      // since blocks contain user-typed content only.
+      match /blocks/{blockId} {
+        allow read: if isSignedIn() && (
+          isNoteOwner(noteId) ||
+          isNoteCollaboratorWithRole(noteId, ['owner', 'editor', 'commenter', 'viewer'])
+        );
+        allow write: if isSignedIn() && (
+          isNoteOwner(noteId) ||
+          isNoteCollaboratorWithRole(noteId, ['owner', 'editor'])
+        );
+      }
+
+      // Reflections, bridge, and linked prayers — owner read/write.
+      match /reflections/{reflectionId} {
+        allow read, write: if isSignedIn() && isNoteOwner(noteId);
+      }
+      match /bridge/{docId} {
+        allow read, write: if isSignedIn() && isNoteOwner(noteId);
+      }
+      match /linkedPrayers/{prayerId} {
+        allow read, write: if isSignedIn() && isNoteOwner(noteId);
+      }
+
+      // Processing jobs — owner can read and create the initial shell;
+      // server-owned output fields (status, transcriptText, ocrText, drafts,
+      // safetyStatus, moderationStatus) cannot be written by the client.
+      match /processingJobs/{jobId} {
+        allow read:   if isSignedIn() && (
+          isNoteOwner(noteId) ||
+          isNoteCollaboratorWithRole(noteId, ['owner', 'editor', 'commenter', 'viewer'])
+        );
+        // Client may create a job shell only through the callable (enforced by callable).
+        // Direct client creates are blocked to prevent field injection.
+        allow create: if false;
+        // Client can cancel (set status = "canceled") only — no other fields.
+        allow update: if isSignedIn() && isNoteOwner(noteId)
+                        && request.resource.data.diff(resource.data).affectedKeys()
+                            .hasOnly(['status', 'updatedAt'])
+                        && request.resource.data.status == 'canceled';
+        allow delete: if false;
+      }
+
+      match /collaborators/{uid} {
+        allow read: if isSignedIn() && (
+          isNoteOwner(noteId) ||
+          request.auth.uid == uid ||
+          isNoteCollaboratorWithRole(noteId, ['owner', 'editor', 'commenter', 'viewer'])
+        );
+        allow write: if false;
+      }
+
+      match /comments/{commentId} {
+        allow read: if isSignedIn() && (
+          isNoteOwner(noteId) ||
+          isNoteCollaboratorWithRole(noteId, ['owner', 'editor', 'commenter', 'viewer'])
+        );
+        allow create: if isSignedIn()
+          && isNoteCollaboratorWithRole(noteId, ['owner', 'editor', 'commenter'])
+          && request.resource.data.authorUid == request.auth.uid
+          && request.resource.data.keys().hasOnly([
+            'id', 'noteId', 'authorUid', 'authorName', 'body',
+            'anchorBlockId', 'anchorRange',
+            'anchorText', 'anchorStart', 'anchorEnd',
+            'resolved', 'createdAt', 'updatedAt'
+          ]);
+        allow update: if isSignedIn()
+          && resource.data.authorUid == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['body', 'resolved', 'updatedAt']);
+        // Author may delete their own comment. Owner/editor cannot delete others' comments —
+        // they should resolve or, if removal is required, perform deletion via a callable
+        // that records moderation context.
+        allow delete: if isSignedIn() && resource.data.authorUid == request.auth.uid;
+      }
+
+      match /media/{mediaId} {
+        allow read: if isSignedIn() && (
+          isNoteOwner(noteId) ||
+          isNoteCollaboratorWithRole(noteId, ['owner', 'editor', 'commenter', 'viewer'])
+        );
+        allow write: if false;
+      }
+
+      match /transcripts/{transcriptId} {
+        allow read: if isSignedIn() && (
+          isNoteOwner(noteId) ||
+          isNoteCollaboratorWithRole(noteId, ['owner', 'editor', 'commenter', 'viewer'])
+        );
+        allow write: if false;
+      }
+
+      match /ocrResults/{ocrId} {
+        allow read: if isSignedIn() && (
+          isNoteOwner(noteId) ||
+          isNoteCollaboratorWithRole(noteId, ['owner', 'editor', 'commenter', 'viewer'])
+        );
+        allow write: if false;
+      }
+
+      match /aiDrafts/{draftId} {
+        allow read: if isSignedIn() && (
+          isNoteOwner(noteId) ||
+          isNoteCollaboratorWithRole(noteId, ['owner', 'editor'])
+        );
+        allow write: if false;
+      }
+
+      match /studyGuides/{guideId} {
+        allow read: if isSignedIn() && (
+          isNoteOwner(noteId) ||
+          isNoteCollaboratorWithRole(noteId, ['owner', 'editor', 'commenter', 'viewer'])
+        );
+        allow write: if false;
+      }
+
+      match /translations/{translationId} {
+        allow read: if isSignedIn() && (
+          isNoteOwner(noteId) ||
+          isNoteCollaboratorWithRole(noteId, ['owner', 'editor', 'commenter', 'viewer'])
+        );
+        allow write: if false;
+      }
+
+      match /events/{eventId} {
+        allow read: if isSignedIn() && (
+          isNoteOwner(noteId) ||
+          isNoteCollaboratorWithRole(noteId, ['owner', 'editor'])
+        );
+        allow write: if false;
+      }
+
+      // Action items — created server-side via approveChurchNoteActionItems callable.
+      // Clients can read (any collaborator) and toggle completion (owner/editor only).
+      match /actionItems/{itemId} {
+        allow read: if isSignedIn() && (
+          isNoteOwner(noteId) ||
+          isNoteCollaboratorWithRole(noteId, ['owner', 'editor', 'commenter', 'viewer'])
+        );
+        allow create: if false;
+        // Only completion-related fields can be updated client-side; everything else
+        // (text, sourceJobId, approvedBy, etc.) is server-owned.
+        allow update: if isSignedIn()
+          && (isNoteOwner(noteId) || isNoteCollaboratorWithRole(noteId, ['owner', 'editor']))
+          && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['completed', 'completedBy', 'completedAt', 'updatedAt']);
+        // Owner can delete an action item; editors cannot.
+        allow delete: if isSignedIn() && isNoteOwner(noteId);
+      }
+    }
+
+    // AI drafts stored under users/{uid}/churchNotes/{noteId}/aiDrafts
+    // (legacy path used by createChurchNotesAIDraft callable).
+    // Clients can read their own drafts but cannot write AI output fields.
+    match /users/{uid}/churchNotes/{noteId}/aiDrafts/{draftId} {
+      allow read:   if isOwner(uid);
+      // Only callable/admin can create — client cannot write generatedText or moderationStatus.
+      allow create, update, delete: if false;
+    }
+
+    // Rate limit windows — server writes only; clients never touch these.
+    match /rateLimits/{uid}/windows/{windowKey} {
+      allow read, write: if false;
+    }
+
+    // System flags — admin-only; clients never read/write.
+    match /system/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    // ── Default deny ─────────────────────────────────────────────────────────
+    // Catch-all: deny everything not matched above.
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

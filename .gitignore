@@ -93,3 +93,26 @@ extensions/*.env
 .claude/
 
 .localDerivedData/
+.codex-source-packages/
+Backend/functions/lib/
+functions/dist-notifications/
+
+.sourcePackages/
+
+# Local Xcode / SwiftPM cache
+.derivedData/
+.sourcePackages/
+.codex-source-packages/
+
+# Generated build outputs
+Backend/functions/lib/
+functions/dist-notifications/
+
+.local/
+.derivedData/
+.sourcePackages/
+.codex-source-packages/
+Backend/functions/lib/
+functions/dist-notifications/
+
+.home/
