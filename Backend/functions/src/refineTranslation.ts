@@ -11,7 +11,7 @@
  *   firebase functions:secrets:set ANTHROPIC_API_KEY
  */
 
-import {onCall} from "firebase-functions/v2/https";
+import {onCall, HttpsError} from "firebase-functions/v2/https";
 import {defineSecret} from "firebase-functions/params";
 
 interface RefineTranslationRequest {
@@ -49,12 +49,12 @@ export const refineTranslation = onCall(
         timeoutSeconds: 30,
         memory: "256MiB",
         // 5.1 FIX: Reject calls from clients without a valid App Check token.
-        enforceAppCheck: false,
+        enforceAppCheck: true,
     },
     async (request) => {
         // Verify authentication
         if (!request.auth) {
-            throw new Error("User must be authenticated");
+            throw new HttpsError("unauthenticated", "User must be authenticated");
         }
 
         const data = request.data as RefineTranslationRequest;
@@ -70,17 +70,17 @@ export const refineTranslation = onCall(
 
         // Validate
         if (!originalText || !literalTranslation || !mode) {
-            throw new Error("originalText, literalTranslation, and mode are required");
+            throw new HttpsError("invalid-argument", "originalText, literalTranslation, and mode are required");
         }
 
         if (mode !== "natural" && mode !== "contextual") {
-            throw new Error("mode must be 'natural' or 'contextual'");
+            throw new HttpsError("invalid-argument", "mode must be 'natural' or 'contextual'");
         }
 
         // Get API key
         const apiKey = anthropicApiKey.value();
         if (!apiKey) {
-            throw new Error("Translation refinement is not configured");
+            throw new HttpsError("unavailable", "Translation refinement is not configured");
         }
 
         // Build entity preservation instructions
@@ -134,9 +134,8 @@ export const refineTranslation = onCall(
 
             console.log(
                 `refineTranslation (${mode}/${model}) — ` +
-                `User: ${request.auth.uid} — ` +
                 `${sourceLanguage}→${targetLanguage} — ` +
-                `Tokens: ${result.usage?.output_tokens || 0}`
+                `tokens: ${result.usage?.output_tokens || 0}`
             );
 
             return {

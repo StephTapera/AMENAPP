@@ -76,15 +76,45 @@ struct ModernPrayerWallView: View {
                     }
                     .padding(.horizontal)
                     
+                    // Error state
+                    if let error = viewModel.errorMessage {
+                        HStack(spacing: 8) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundStyle(.orange)
+                            Text(error)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Button("Retry") {
+                                Task { await viewModel.loadPrayers() }
+                            }
+                            .font(.subheadline.bold())
+                        }
+                        .padding()
+                        .background(.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
+                        .padding(.horizontal)
+                    }
+
                     // Prayer Cards
-                    LazyVStack(spacing: 16) {
-                        ForEach(filteredPrayers) { prayer in
-                            ModernPrayerCard(prayer: prayer) {
-                                await viewModel.prayForRequest(prayer)
+                    if viewModel.isLoading && viewModel.prayers.isEmpty {
+                        VStack(spacing: 12) {
+                            ProgressView()
+                            Text("Loading prayers…")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 40)
+                    } else {
+                        LazyVStack(spacing: 16) {
+                            ForEach(filteredPrayers) { prayer in
+                                ModernPrayerCard(prayer: prayer) {
+                                    await viewModel.prayForRequest(prayer)
+                                }
                             }
                         }
+                        .padding(.horizontal)
                     }
-                    .padding(.horizontal)
                 }
                 .padding(.vertical)
             }
@@ -543,24 +573,29 @@ class PrayerWallViewModel: ObservableObject {
     @Published var totalPrayers = 0
     @Published var activePrayerWarriors = 0
     @Published var answeredToday = 0
-    
+    @Published var isLoading = false
+    @Published var errorMessage: String?
+
     private lazy var db = Firestore.firestore()
-    
+
     func loadPrayers() async {
+        isLoading = true
+        errorMessage = nil
+        defer { isLoading = false }
         do {
             let snapshot = try await db.collection("prayerWall")
                 .order(by: "timestamp", descending: true)
                 .limit(to: 50)
                 .getDocuments()
-            
+
             prayers = snapshot.documents.compactMap { doc in
                 let data = doc.data()
-                
+
                 guard let categoryStr = data["category"] as? String,
                       let category = PrayerWallCategory(rawValue: categoryStr) else {
                     return nil
                 }
-                
+
                 return PrayerWallItem(
                     id: doc.documentID,
                     authorId: data["authorId"] as? String ?? "",
@@ -574,12 +609,13 @@ class PrayerWallViewModel: ObservableObject {
                     isAnswered: data["isAnswered"] as? Bool ?? false
                 )
             }
-            
+
             totalPrayers = prayers.count
-            activePrayerWarriors = Int.random(in: 100...500) // Placeholder
+            activePrayerWarriors = Set(prayers.map { $0.authorId }).count
             answeredToday = prayers.filter { $0.isAnswered }.count
-            
+
         } catch {
+            errorMessage = "Unable to load prayers. Please try again."
             dlog("❌ Failed to load prayers: \(error)")
         }
     }

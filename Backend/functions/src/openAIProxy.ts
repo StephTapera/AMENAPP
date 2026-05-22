@@ -9,7 +9,7 @@
  *   firebase functions:secrets:set OPENAI_API_KEY
  */
 
-import {onCall} from "firebase-functions/v2/https";
+import {onCall, HttpsError} from "firebase-functions/v2/https";
 import {defineSecret} from "firebase-functions/params";
 import {enforceRateLimit, RATE_LIMITS} from "./rateLimit";
 
@@ -48,12 +48,12 @@ export const openAIProxy = onCall(
         timeoutSeconds: 60,
         memory: "256MiB",
         // 5.1 FIX: Reject calls from clients without a valid App Check token.
-        enforceAppCheck: false,
+        enforceAppCheck: true,
     },
     async (request) => {
         // Verify authentication
         if (!request.auth) {
-            throw new Error("User must be authenticated to use AI features");
+            throw new HttpsError("unauthenticated", "User must be authenticated to use AI features");
         }
 
         // CRITICAL-CF FIX: Per-user rate limiting.
@@ -65,18 +65,21 @@ export const openAIProxy = onCall(
         ]);
 
         const data = request.data as OpenAIProxyRequest;
-        const context = request;
 
         const {
             messages,
             maxTokens = 1000,
             temperature = 0.7,
-            model = "gpt-4o-mini", // Cost-effective default
+            model: requestedModel = "gpt-4o-mini",
         } = data;
+
+        // Allowlist prevents clients from specifying expensive models (e.g. gpt-4)
+        const ALLOWED_MODELS = new Set(["gpt-4o-mini", "gpt-4o"]);
+        const model = ALLOWED_MODELS.has(requestedModel) ? requestedModel : "gpt-4o-mini";
 
         // Validate input
         if (!messages || !Array.isArray(messages) || messages.length === 0) {
-            throw new Error("Messages array is required and must not be empty");
+            throw new HttpsError("invalid-argument", "Messages array is required and must not be empty");
         }
 
         // HIGH FIX #8: Enforce maximum per-message content length.
@@ -87,11 +90,11 @@ export const openAIProxy = onCall(
         const MAX_MESSAGE_CONTENT_LENGTH = 4000;
         const MAX_MESSAGES_COUNT = 50;
         if (messages.length > MAX_MESSAGES_COUNT) {
-            throw new Error(`Messages array exceeds maximum count of ${MAX_MESSAGES_COUNT}.`);
+            throw new HttpsError("invalid-argument", `Messages array exceeds maximum count of ${MAX_MESSAGES_COUNT}.`);
         }
         for (const msg of messages) {
             if (typeof msg.content === "string" && msg.content.length > MAX_MESSAGE_CONTENT_LENGTH) {
-                throw new Error(`Message content exceeds maximum length of ${MAX_MESSAGE_CONTENT_LENGTH} characters.`);
+                throw new HttpsError("invalid-argument", `Message content exceeds maximum length of ${MAX_MESSAGE_CONTENT_LENGTH} characters.`);
             }
         }
 
@@ -99,7 +102,7 @@ export const openAIProxy = onCall(
         const apiKey = openaiApiKey.value();
         if (!apiKey) {
             console.error("❌ OPENAI_API_KEY not configured");
-            throw new Error("OpenAI is not configured. Please contact support.");
+            throw new HttpsError("unavailable", "OpenAI is not configured. Please contact support.");
         }
 
         try {
@@ -121,7 +124,7 @@ export const openAIProxy = onCall(
             if (!response.ok) {
                 const errorText = await response.text();
                 console.error(`❌ OpenAI API error: ${response.status}`, errorText);
-                throw new Error(`OpenAI API error: ${response.status}`);
+                throw new HttpsError("unavailable", `OpenAI API error: ${response.status}`);
             }
 
             const result = await response.json() as OpenAIResponse;
@@ -129,8 +132,8 @@ export const openAIProxy = onCall(
             // Extract response
             const responseText = result.choices?.[0]?.message?.content || "";
 
-            // Log usage for monitoring
-            console.log(`✅ OpenAI (${model}) - User: ${context.auth!.uid} - Tokens: ${result.usage?.total_tokens || 0}`);
+            // Log usage for monitoring (no UID — use opaque metrics only)
+            console.log(`✅ OpenAI (${model}) — tokens: ${result.usage?.total_tokens || 0}`);
 
             return {
                 response: responseText,
@@ -139,8 +142,9 @@ export const openAIProxy = onCall(
             };
 
         } catch (error: any) {
+            if (error instanceof HttpsError) throw error;
             console.error("❌ OpenAI Proxy error:", error);
-            throw new Error("Failed to process OpenAI request");
+            throw new HttpsError("internal", "Failed to process OpenAI request");
         }
     }
 );

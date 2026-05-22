@@ -8,7 +8,7 @@
  *   firebase functions:secrets:set OPENAI_API_KEY
  */
 
-import {onCall} from "firebase-functions/v2/https";
+import {onCall, HttpsError} from "firebase-functions/v2/https";
 import {defineSecret} from "firebase-functions/params";
 import * as admin from "firebase-admin";
 
@@ -35,32 +35,31 @@ export const whisperProxy = onCall(
         timeoutSeconds: 540, // 9 minutes (Whisper can take time for long audio)
         memory: "512MiB",
         // 5.1 FIX: Reject calls from clients without a valid App Check token.
-        enforceAppCheck: false,
+        enforceAppCheck: true,
     },
     async (request) => {
         // Verify authentication
         if (!request.auth) {
-            throw new Error("User must be authenticated to transcribe audio");
+            throw new HttpsError("unauthenticated", "User must be authenticated to transcribe audio");
         }
 
         const data = request.data as WhisperProxyRequest;
-        const context = request;
         const { audioURL, language, prompt } = data;
 
         // Validate input
         if (!audioURL || typeof audioURL !== "string") {
-            throw new Error("audioURL is required and must be a string");
+            throw new HttpsError("invalid-argument", "audioURL is required and must be a string");
         }
 
         // Get API key from secret
         const apiKey = openaiApiKey.value();
         if (!apiKey) {
             console.error("❌ OPENAI_API_KEY not configured");
-            throw new Error("Transcription is not configured. Please contact support.");
+            throw new HttpsError("unavailable", "Transcription is not configured. Please contact support.");
         }
 
         try {
-            console.log(`🎤 Starting transcription for user ${context.auth!.uid}`);
+            console.log("🎤 Starting transcription");
 
             // Download audio file
             let audioBuffer: Buffer;
@@ -82,7 +81,7 @@ export const whisperProxy = onCall(
                 const [exists] = await file.exists();
 
                 if (!exists) {
-                    throw new Error("Audio file not found in storage");
+                    throw new HttpsError("not-found", "Audio file not found in storage");
                 }
 
                 const [contents] = await file.download();
@@ -92,12 +91,12 @@ export const whisperProxy = onCall(
                 // External HTTPS URL
                 const response = await fetch(audioURL);
                 if (!response.ok) {
-                    throw new Error(`Failed to download audio: ${response.status}`);
+                    throw new HttpsError("unavailable", `Failed to download audio: ${response.status}`);
                 }
                 audioBuffer = Buffer.from(await response.arrayBuffer());
 
             } else {
-                throw new Error("audioURL must be a Firebase Storage URL or HTTPS URL");
+                throw new HttpsError("invalid-argument", "audioURL must be a Firebase Storage URL or HTTPS URL");
             }
 
             // Prepare form data for Whisper API
@@ -131,12 +130,12 @@ export const whisperProxy = onCall(
             if (!response.ok) {
                 const errorText = await response.text();
                 console.error(`❌ Whisper API error: ${response.status}`, errorText);
-                throw new Error(`Whisper API error: ${response.status}`);
+                throw new HttpsError("unavailable", `Whisper API error: ${response.status}`);
             }
 
             const result = await response.json() as WhisperResponse;
 
-            console.log(`✅ Transcription complete - User: ${context.auth!.uid}`);
+            console.log("✅ Transcription complete");
 
             return {
                 text: result.text,
@@ -144,8 +143,9 @@ export const whisperProxy = onCall(
             };
 
         } catch (error: any) {
+            if (error instanceof HttpsError) throw error;
             console.error("❌ Whisper Proxy error:", error);
-            throw new Error("Failed to transcribe audio");
+            throw new HttpsError("internal", "Failed to transcribe audio");
         }
     }
 );
