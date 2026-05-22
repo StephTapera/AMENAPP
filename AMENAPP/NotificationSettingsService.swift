@@ -3,6 +3,7 @@ import Combine
 import FirebaseAuth
 import FirebaseFirestore
 
+@MainActor
 final class NotificationSettingsService: ObservableObject {
     static let shared = NotificationSettingsService()
     private init() {}

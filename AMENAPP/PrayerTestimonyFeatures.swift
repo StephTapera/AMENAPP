@@ -14,6 +14,7 @@ import UserNotifications
 
 // MARK: - Feature 1: Scripture Anchor
 
+@MainActor
 class ScriptureAnchorService: ObservableObject {
     static let shared = ScriptureAnchorService()
     @Published var suggestions: [ScriptureAnchorSuggestion] = []
@@ -307,6 +308,7 @@ struct TestimonyArcView: View {
 
 // MARK: - Feature 4: Church Pulse
 
+@MainActor
 class ChurchPulseService: ObservableObject {
     @Published var activePrayerCount = 0
     @Published var recentTestimonies: [Post] = []
@@ -398,6 +400,7 @@ struct ChurchPulseSection: View {
 
 // MARK: - Feature 5: Sermon Connect
 
+@MainActor
 class SermonConnectService: ObservableObject {
     static let shared = SermonConnectService()
     @Published var matchedNoteTitle: String?
@@ -493,6 +496,7 @@ struct PrayerRoom: Identifiable, Codable {
     var createdAt: Date
 }
 
+@MainActor
 class PrayerRoomService: ObservableObject {
     static let shared = PrayerRoomService()
     @Published var upcomingRooms: [PrayerRoom] = []
@@ -663,6 +667,7 @@ struct CreatePrayerRoomView: View {
 
 // MARK: - Feature 7: Burden Match
 
+@MainActor
 class BurdenMatchService: ObservableObject {
     static let shared = BurdenMatchService()
     @Published var pendingMatchUserId: String?
@@ -769,6 +774,7 @@ struct FastingEntry: Codable, Identifiable {
     var completedAt: Date?
 }
 
+@MainActor
 class FastingChainService: ObservableObject {
     @Published var totalFastingDays = 0
     @Published var fasterCount = 0
@@ -858,6 +864,7 @@ struct FastingChainView: View {
 
 // MARK: - Feature 9: Notes-to-Prayer Bridge
 
+@MainActor
 class PrayerPreSeedState: ObservableObject {
     static let shared = PrayerPreSeedState()
     @Published var verseReference: String?

@@ -33,6 +33,7 @@ private func xorObfuscate(_ text: String, seed: Int) -> String {
 
 // MARK: - Manager
 
+@MainActor
 final class TimeCapsuleManager: ObservableObject {
     static let shared = TimeCapsuleManager()
 

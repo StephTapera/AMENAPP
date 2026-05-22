@@ -24,6 +24,7 @@ enum CrisisLevel: Int, Comparable {
 
 // MARK: - Manager
 
+@MainActor
 final class CrisisToneDetector: ObservableObject {
     static let shared = CrisisToneDetector()
 

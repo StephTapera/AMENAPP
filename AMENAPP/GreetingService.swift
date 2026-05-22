@@ -9,6 +9,7 @@ import SwiftUI
 import Combine
 
 /// Manages personalized greetings with priority-based logic and user permissions
+@MainActor
 class GreetingService: ObservableObject {
     static let shared = GreetingService()
     

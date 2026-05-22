@@ -25,6 +25,7 @@ struct TestimonyDraft: Identifiable {
 
 // MARK: - Manager
 
+@MainActor
 final class TestimonyDraftManager: ObservableObject {
     static let shared = TestimonyDraftManager()
 

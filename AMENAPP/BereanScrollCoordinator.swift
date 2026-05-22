@@ -17,6 +17,7 @@ enum BereanScrollContext: Equatable {
     case reversingDirection
 }
 
+@MainActor
 final class BereanScrollCoordinator: ObservableObject {
     @Published private(set) var context: BereanScrollContext = .nearBottom
     @Published private(set) var isNearBottom: Bool = true

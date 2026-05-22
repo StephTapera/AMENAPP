@@ -35,6 +35,7 @@ struct AccountabilityCheckIn: Identifiable {
 
 // MARK: - Manager
 
+@MainActor
 final class AccountabilityThreadManager: ObservableObject {
     static let shared = AccountabilityThreadManager()
 

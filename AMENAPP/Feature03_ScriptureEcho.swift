@@ -20,6 +20,7 @@ struct ScriptureEchoResult: Equatable {
 
 // MARK: - Manager
 
+@MainActor
 final class ScriptureEchoManager: ObservableObject {
     static let shared = ScriptureEchoManager()
 

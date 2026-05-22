@@ -63,6 +63,7 @@ struct CommentInsights {
 
 // MARK: - AI Service
 
+@MainActor
 class CommentAIService: ObservableObject {
     static let shared = CommentAIService()
     

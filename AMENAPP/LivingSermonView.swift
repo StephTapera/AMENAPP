@@ -95,6 +95,7 @@ enum LivingSermonTab: String, CaseIterable {
 
 // MARK: - ViewModel
 
+@MainActor
 final class LivingSermonViewModel: ObservableObject {
     @Published var notes: [SermonNote] = []
     @Published var transcript: [LivingTranscriptSegment] = []
@@ -978,6 +979,7 @@ private struct ListeningDotsRow: View {
     @State private var d1: Bool = false
     @State private var d2: Bool = false
     @State private var d3: Bool = false
+    @State private var dotsTimer: Timer?
 
     var body: some View {
         HStack(spacing: 6) {
@@ -994,6 +996,7 @@ private struct ListeningDotsRow: View {
             }
         }
         .onAppear { startDots() }
+        .onDisappear { dotsTimer?.invalidate(); dotsTimer = nil }
     }
 
     @ViewBuilder
@@ -1006,7 +1009,7 @@ private struct ListeningDotsRow: View {
 
     private func startDots() {
         let interval = 0.5
-        Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { _ in
+        dotsTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { _ in
             DispatchQueue.main.async {
                 withAnimation { d1.toggle() }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {

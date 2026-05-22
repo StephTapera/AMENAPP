@@ -3,6 +3,7 @@ import FirebaseFirestore
 import Combine
 
 /// Observes post.testimonyStrength and exposes counts for the UI chips.
+@MainActor
 final class TestimonyStrengthService: ObservableObject {
     @Published var strength: Int = 0         // 0-100
     @Published var witnessCount: Int = 0

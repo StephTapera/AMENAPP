@@ -14,6 +14,7 @@ import Combine
 
 // MARK: - Manager
 
+@MainActor
 final class AnonymousGraceDropManager: ObservableObject {
     static let shared = AnonymousGraceDropManager()
 

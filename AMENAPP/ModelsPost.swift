@@ -7,8 +7,9 @@
 
 import Foundation
 
-// Legacy Post model - being replaced by the one in PostsManager.swift
-// TODO: Migrate all usages to the new Post model and remove this
+// DEAD CODE — zero external references as of 2026-05-21 audit.
+// Safe to delete: remove from Xcode project group first, then delete this file.
+// Canonical post model: PostsManager.swift → struct Post
 struct LegacyPost: Identifiable, Codable, Hashable {
     let id: String
     let authorId: String

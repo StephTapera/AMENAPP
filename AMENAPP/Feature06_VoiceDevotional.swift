@@ -27,6 +27,7 @@ struct VoiceDevotional: Codable {
 
 // MARK: - Manager
 
+@MainActor
 final class VoiceDevotionalManager: NSObject, ObservableObject {
     static let shared = VoiceDevotionalManager()
 

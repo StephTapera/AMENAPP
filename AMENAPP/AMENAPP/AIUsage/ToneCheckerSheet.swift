@@ -8,10 +8,11 @@ struct ToneCheckerSheet: View {
     let onKeepOriginal: () -> Void
     let onSaveForMonday: (() -> Void)?
 
-    @StateObject private var aiUsageService = AIUsageService.shared
+    @ObservedObject private var aiUsageService = AIUsageService.shared
     @State private var result: ToneCheckResult?
     @State private var isLoading = true
     @State private var selectedMode: ToneMode = .clear
+    @State private var recheckTask: Task<Void, Never>?
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -74,7 +75,7 @@ struct ToneCheckerSheet: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
                         ForEach(ToneMode.allCases) { mode in
-                            Button(action: { selectedMode = mode; Task { await recheck(mode: mode) } }) {
+                            Button(action: { selectedMode = mode; scheduleRecheck(mode: mode) }) {
                                 Text(mode.rawValue)
                                     .font(.caption.weight(selectedMode == mode ? .semibold : .regular))
                                     .foregroundStyle(selectedMode == mode ? Color.primary : Color.secondary)
@@ -263,6 +264,15 @@ struct ToneCheckerSheet: View {
             isRestModeActive: isRestModeActive
         )
         isLoading = false
+    }
+
+    private func scheduleRecheck(mode: ToneMode) {
+        recheckTask?.cancel()
+        recheckTask = Task {
+            try? await Task.sleep(for: .milliseconds(500))
+            guard !Task.isCancelled else { return }
+            await recheck(mode: mode)
+        }
     }
 
     private func recheck(mode: ToneMode) async {

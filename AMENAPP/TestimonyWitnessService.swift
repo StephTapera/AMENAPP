@@ -5,6 +5,7 @@ import FirebaseFirestore
 
 /// Manages real-time witness presence for testimony posts.
 /// Writes/deletes the current user's presence doc and listens to the active count.
+@MainActor
 final class TestimonyWitnessService: ObservableObject {
     @Published var activeWitnesses: [WitnessPresence] = []
 

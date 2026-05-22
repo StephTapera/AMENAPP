@@ -22,12 +22,14 @@ jobs:
 
       - name: Create Config.xcconfig
         run: |
-          cat > Config.xcconfig << 'EOF'
+          cat > AMENAPP/Config.xcconfig << 'EOF'
           OPENAI_API_KEY = test-key-ci
           ANTHROPIC_API_KEY = test-key-ci
           GOOGLE_VISION_API_KEY = test-key-ci
           YOUVERSION_API_KEY = test-key-ci
           VERTEX_AI_KEY = test-key-ci
+          CLAUDE_API_KEY = test-key-ci
+          XAI_KEY = test-key-ci
           EOF
 
       - name: Build
@@ -52,12 +54,14 @@ jobs:
 
       - name: Create Config.xcconfig
         run: |
-          cat > Config.xcconfig << 'EOF'
+          cat > AMENAPP/Config.xcconfig << 'EOF'
           OPENAI_API_KEY = test-key-ci
           ANTHROPIC_API_KEY = test-key-ci
           GOOGLE_VISION_API_KEY = test-key-ci
           YOUVERSION_API_KEY = test-key-ci
           VERTEX_AI_KEY = test-key-ci
+          CLAUDE_API_KEY = test-key-ci
+          XAI_KEY = test-key-ci
           EOF
 
       - name: Test

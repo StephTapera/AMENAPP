@@ -9,7 +9,11 @@ enum LiquidGlassEffectsFlags {
     static let jumpToLatestPill = true
     static let composerCompression = true
     static let hideOnScrollChips = true
+    /// Controls the soft reaction sheet UI system throughout the app (like/react popups).
     static let reactionSheet = true
+    /// Controls the spiritual silent-reaction bar (Prayed, Encouraged, Reflected, etc.).
+    /// Independent of reactionSheet — silent reactions are a distinct privacy-safe feature.
+    static let silentReactions = true
     static let buttonHighlightSweep = true
     static let badgeMorphDot = true
     static let stickyHeaderSoften = true
@@ -79,6 +83,7 @@ struct SuccessChip: Identifiable, Equatable {
     let systemIcon: String?
 }
 
+@MainActor
 final class SuccessChipCenter: ObservableObject {
     @Published private(set) var chips: [SuccessChip] = []
 

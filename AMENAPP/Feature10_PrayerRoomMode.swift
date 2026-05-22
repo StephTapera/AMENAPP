@@ -21,6 +21,7 @@ struct PrayerRoomLog: Identifiable {
 
 // MARK: - Manager
 
+@MainActor
 final class PrayerRoomManager: ObservableObject {
     static let shared = PrayerRoomManager()
 

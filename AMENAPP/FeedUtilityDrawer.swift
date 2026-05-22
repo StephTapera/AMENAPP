@@ -86,6 +86,7 @@ extension DrawerCommunity {
 
 // MARK: - Drawer State
 
+@MainActor
 final class FeedDrawerState: ObservableObject {
     @Published var isOpen = false
     @Published var dragOffset: CGFloat = 0

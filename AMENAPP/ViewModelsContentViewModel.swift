@@ -14,7 +14,7 @@ class ContentViewModel: ObservableObject {
     // MARK: - Published Properties
     @Published var selectedTab = 0  // Default to Home tab (OpenTable view)
     @Published var isAuthenticated = false
-    @Published var currentUser: AppUser?  // Changed from User to AppUser
+    @Published var currentUser: UserModel?
     
     // MARK: - Public Methods
     func switchToTab(_ tab: Int) {
@@ -33,17 +33,16 @@ class ContentViewModel: ObservableObject {
     }
     
     func checkAuthenticationStatus() {
-        // TODO: Check if user is logged in
-        // For now, assume authenticated
-        isAuthenticated = true
+        isAuthenticated = Auth.auth().currentUser != nil
     }
     
     func signOut() {
         // Run full listener teardown and cache clear before invalidating credentials.
-        AppLifecycleManager.shared.performFullSignOutCleanup()
-        try? Auth.auth().signOut()
-        isAuthenticated = false
-        currentUser = nil
+        Task(priority: .userInitiated) {
+            await AppLifecycleManager.shared.performFullSignOutCleanup()
+            try? FirebaseManager.shared.signOut()
+            isAuthenticated = false
+            currentUser = nil
+        }
     }
 }
-

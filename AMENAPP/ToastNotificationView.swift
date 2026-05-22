@@ -136,14 +136,29 @@ struct ToastNotificationView: View {
 }
 
 /// Toast notification manager
+@MainActor
 class ToastManager: ObservableObject {
     static let shared = ToastManager()
     
     @Published var currentToast: ToastNotification?
+    @Published var showCopyHUD: Bool = false
     
     private var dismissTimer: Timer?
+    private var copyHUDTimer: Timer?
     
     private init() {}
+    
+    func showCopyLinkHUD() {
+        copyHUDTimer?.invalidate()
+        withAnimation(.spring(response: 0.32, dampingFraction: 0.72)) {
+            showCopyHUD = true
+        }
+        copyHUDTimer = Timer.scheduledTimer(withTimeInterval: 1.9, repeats: false) { [weak self] _ in
+            withAnimation(.easeOut(duration: 0.22)) {
+                self?.showCopyHUD = false
+            }
+        }
+    }
     
     func show(_ toast: ToastNotification, duration: TimeInterval = 4.0) {
         // Dismiss any existing toast
@@ -201,7 +216,7 @@ struct MessagingToastModifier: ViewModifier {
         ZStack {
             content
             
-            // Toast overlay
+            // Top-banner toast
             if let toast = toastManager.currentToast {
                 VStack {
                     ToastNotificationView(toast: toast, onDismiss: {
@@ -210,10 +225,21 @@ struct MessagingToastModifier: ViewModifier {
                     .padding(.horizontal, 16)
                     .padding(.top, 60)
                     .transition(.move(edge: .top).combined(with: .opacity))
-                    
                     Spacer()
                 }
                 .zIndex(999)
+            }
+            
+            // Centered Liquid Glass copy HUD
+            if toastManager.showCopyHUD {
+                LiquidGlassCopyHUD()
+                    .transition(
+                        .asymmetric(
+                            insertion: .scale(scale: 0.76).combined(with: .opacity),
+                            removal: .scale(scale: 0.88).combined(with: .opacity)
+                        )
+                    )
+                    .zIndex(1000)
             }
         }
     }
@@ -223,5 +249,83 @@ extension View {
     /// Add toast notification support to any view
     func withToast() -> some View {
         self.modifier(MessagingToastModifier())
+    }
+}
+
+// MARK: - Liquid Glass Copy HUD
+
+/// Centered floating capsule with animated checkmark — shown on copy-link long press.
+struct LiquidGlassCopyHUD: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var checkTrim: CGFloat = 0
+    @State private var appeared = false
+
+    var body: some View {
+        HStack(spacing: 11) {
+            // Checkmark circle
+            ZStack {
+                Circle()
+                    .fill(Color.primary.opacity(0.07))
+                    .frame(width: 30, height: 30)
+
+                CheckmarkPath()
+                    .trim(from: 0, to: checkTrim)
+                    .stroke(
+                        Color.primary.opacity(0.80),
+                        style: StrokeStyle(lineWidth: 2.2, lineCap: .round, lineJoin: .round)
+                    )
+                    .frame(width: 15, height: 15)
+                    .animation(
+                        reduceMotion ? .none : .easeOut(duration: 0.34).delay(0.10),
+                        value: checkTrim
+                    )
+            }
+
+            Text("Link copied")
+                .font(AMENFont.semiBold(16))
+                .foregroundStyle(.primary)
+        }
+        .padding(.horizontal, 22)
+        .padding(.vertical, 14)
+        .background(
+            ZStack {
+                Capsule(style: .continuous).fill(.ultraThinMaterial)
+                Capsule(style: .continuous).fill(
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.70), Color.white.opacity(0.42)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+            }
+        )
+        .clipShape(Capsule(style: .continuous))
+        .overlay(
+            Capsule(style: .continuous)
+                .strokeBorder(Color.white.opacity(0.72), lineWidth: 0.8)
+        )
+        .shadow(color: .black.opacity(0.14), radius: 22, y: 6)
+        .scaleEffect(appeared ? 1.0 : 0.76)
+        .opacity(appeared ? 1.0 : 0)
+        .onAppear {
+            withAnimation(
+                reduceMotion
+                    ? .easeOut(duration: 0.15)
+                    : .spring(response: 0.30, dampingFraction: 0.70)
+            ) {
+                appeared = true
+            }
+            checkTrim = 1
+        }
+    }
+}
+
+private struct CheckmarkPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        p.move(to: CGPoint(x: rect.width * 0.18, y: rect.height * 0.52))
+        p.addLine(to: CGPoint(x: rect.width * 0.42, y: rect.height * 0.76))
+        p.addLine(to: CGPoint(x: rect.width * 0.82, y: rect.height * 0.26))
+        return p
     }
 }

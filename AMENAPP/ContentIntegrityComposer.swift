@@ -11,6 +11,7 @@ import Combine
 
 // MARK: - Composer Integrity Tracker
 
+@MainActor
 class ComposerIntegrityTracker: ObservableObject {
     
     // Typing behavior signals
@@ -190,6 +191,7 @@ extension View {
 
 // MARK: - Rate Limiter
 
+@MainActor
 class ComposerRateLimiter: ObservableObject {
     static let shared = ComposerRateLimiter()
     

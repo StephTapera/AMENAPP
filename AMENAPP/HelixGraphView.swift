@@ -9,6 +9,7 @@ import FirebaseFirestore
 
 // MARK: - HelixGraphViewModel
 
+@MainActor
 class HelixGraphViewModel: ObservableObject {
 
     @Published var nodes: [HelixNode] = []

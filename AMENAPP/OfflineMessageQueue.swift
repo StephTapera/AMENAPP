@@ -9,6 +9,7 @@ import Foundation
 import SwiftUI
 import Combine
 
+@MainActor
 class OfflineMessageQueue: ObservableObject {
     static let shared = OfflineMessageQueue()
     

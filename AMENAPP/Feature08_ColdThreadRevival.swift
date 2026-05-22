@@ -25,6 +25,7 @@ struct RevivalNudge: Identifiable {
 
 // MARK: - Manager
 
+@MainActor
 final class ColdThreadRevivalManager: ObservableObject {
     static let shared = ColdThreadRevivalManager()
 
