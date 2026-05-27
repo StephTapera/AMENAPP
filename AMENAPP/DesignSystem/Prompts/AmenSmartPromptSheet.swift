@@ -68,7 +68,7 @@ struct AmenSmartPromptSheet: View {
         VStack(spacing: 8) {
             Text(prompt.title)
                 .font(.title3.weight(.semibold))
-                .foregroundStyle(.black)
+                .foregroundStyle(AmenTheme.Colors.textPrimary)
                 .multilineTextAlignment(.center)
                 .accessibilityAddTraits(.isHeader)
 
@@ -87,10 +87,10 @@ struct AmenSmartPromptSheet: View {
             } label: {
                 Text(prompt.primaryAction.title)
                     .font(.body.weight(.semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color(.systemBackground))
                     .frame(maxWidth: .infinity)
                     .frame(height: 50)
-                    .background(Capsule().fill(Color.black))
+                    .background(Capsule().fill(Color(.label)))
             }
             .buttonStyle(.plain)
             .accessibilityLabel(prompt.primaryAction.title)

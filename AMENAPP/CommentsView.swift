@@ -44,6 +44,8 @@ struct CommentsView: View {
     /// When nil, category is derived from `post.category` inside CommentService.
     let threadCategoryOverride: String?
 
+    // [AGENT-4] Color scheme for adaptive reply hairline rail
+    @Environment(\.colorScheme) private var colorSchemeForReplyRail
     @Environment(\.dismiss) var dismiss
     @ObservedObject private var commentService = CommentService.shared  // P0 FIX: ObservedObject for singletons (faster init)
     @ObservedObject private var userService = UserService.shared  // P0 FIX: ObservedObject for singletons (faster init)
@@ -128,6 +130,16 @@ struct CommentsView: View {
     // Smart reply chips
     @State private var smartReplySuggestions: [String] = []
     @State private var isLoadingSmartReplies = false
+
+    // Scripture reference detection in composer
+    @State private var detectedComposerScriptureRefs: [ScriptureVerificationService.ScriptureReference] = []
+    @State private var scriptureDetectionTask: Task<Void, Never>?
+    @State private var showScripturePreview = false
+    @State private var scripturePreviewRef: ScriptureVerificationService.ScriptureReference?
+
+    // Smart prompts (behind commentsSmartPromptsV1 flag)
+    @State private var smartPromptIdleTimer: Task<Void, Never>?
+    @State private var showIdleReplyPrompt = false
 
     @StateObject private var successChips = SuccessChipCenter()
     @State private var scrollViewHeight: CGFloat = 0
@@ -662,10 +674,11 @@ struct CommentsView: View {
                             ForEach(Array(commentsWithReplies.enumerated()), id: \.element.id) { index, commentWithReplies in
                                 VStack(alignment: .leading, spacing: 8) {
                                     mainCommentRow(for: commentWithReplies)
-                                    
+
                                     expandedRepliesSection(for: commentWithReplies)
                                 }
-                                .padding(.vertical, 8)
+                                // [AGENT-4] Spec: 16pt between top-level comments
+                                .padding(.vertical, 16)
                                 .id(commentWithReplies.comment.id ?? UUID().uuidString)
                                 // B) Staggered cascade reveal — header at 0ms, body +40ms, capped at 200ms
                                 .staggeredReveal(index: index, baseDelay: 0.04, maxDelay: 0.20)
@@ -886,168 +899,12 @@ struct CommentsView: View {
                             .focused($isInputFocused)
                             .accessibilityLabel(replyingTo != nil ? "Reply" : "Comment")
                             .onChange(of: commentText) { _, newValue in
-                                // Safety OS: debounced tone check
-                                safetyComposer.onTextChange(newValue, contentType: "comment")
-                                // P0 FIX: Trigger debounced tone analysis only if service loaded
-                                toneGuidanceService?.analyzeText(newValue)
-                                // Detect @mention typing
-                                handleMentionDetection(in: newValue)
-                                // Clear smart reply chips once user starts typing
-                                if !newValue.isEmpty { smartReplySuggestions = [] }
-                                alignmentPreviewTask?.cancel()
-                                alignmentPreviewTask = Task {
-                                    try? await Task.sleep(nanoseconds: 350_000_000)
-                                    guard !Task.isCancelled else { return }
-                                    await commentService.previewAlignment(text: newValue)
-                                }
-                                spiritualComposeAnalysis = AmenSpiritualSystemsService.shared.analyzeComposer(text: newValue)
-                                safetyOSTriggers = AmenLocalTriggerEngine.shared.analyze(
-                                    text: newValue,
-                                    surface: replyingTo == nil ? .comment : .reply
-                                )
-                                safetyOSCanonicalTask?.cancel()
-                                safetyOSCanonicalTask = Task { @MainActor in
-                                    try? await Task.sleep(nanoseconds: 450_000_000)
-                                    guard !Task.isCancelled, commentText == newValue else { return }
-                                    safetyOSTriggers = await AmenLocalTriggerEngine.shared.analyzeWithCanonicalServer(
-                                        text: newValue,
-                                        surface: replyingTo == nil ? .comment : .reply
-                                    )
-                                }
-                                contextualComposerObserver.update(text: newValue)
-                                resolveCommentAttachmentIfNeeded(for: newValue)
+                                onCommentTextChanged(newValue)
                             }
 
-                        if case .resolving = commentAttachmentState {
-                            Text("Analyzing link...")
-                                .font(.systemScaled(12))
-                                .foregroundStyle(.secondary)
-                        } else if let attachment = commentSmartAttachment {
-                            AmenUniversalLinkCard(attachment: attachment, mode: .composerPreview)
-                            if !commentMentionedLinks.isEmpty {
-                                Text("Mentioned Links (\(commentMentionedLinks.count))")
-                                    .font(.systemScaled(12))
-                                    .foregroundStyle(.secondary)
-                            }
-                        } else if case .blocked = commentAttachmentState {
-                            Text("Link restricted. Comment will post with plain URL.")
-                                .font(.systemScaled(12))
-                                .foregroundStyle(.secondary)
-                        } else if case .failed = commentAttachmentState {
-                            Text("Preview unavailable. Comment will post normally.")
-                                .font(.systemScaled(12))
-                                .foregroundStyle(.secondary)
-                        }
+                        commentAttachmentPreview
 
-                        if let alignmentResult = commentService.composerAlignmentResult,
-                           alignmentResult.status == .needsDiscernment || alignmentResult.status == .blocked {
-                            LiquidGlassAlignmentBanner(
-                                result: alignmentResult,
-                                onViewContext: {},
-                                onCorrectAI: nil,
-                                onRewrite: {
-                                    requestBereanRewrite()
-                                },
-                                onContinue: nil,
-                                onHold: alignmentResult.status == .humanReview ? {} : nil
-                            )
-                        }
-
-                        // @mention picker row
-                        if showMentionPicker && !mentionResults.isEmpty {
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 8) {
-                                    ForEach(mentionResults, id: \.objectID) { user in
-                                        mentionSuggestionButton(for: user)
-                                        .buttonStyle(.plain)
-                                    }
-                                }
-                                .padding(.vertical, 2)
-                            }
-                            .transition(.opacity.combined(with: .move(edge: .top)))
-                        }
-
-                        // Tone guidance feedback (if present)
-                        if let feedback = toneGuidanceService?.currentFeedback {
-                            ToneFeedbackView(feedback: feedback) {
-                                // Use suggestion
-                                if let suggestion = feedback.suggestion {
-                                    commentText = suggestion
-                                    toneGuidanceService?.clearFeedback()
-                                    bereanSuggestion = nil
-                                }
-                            }
-                            .transition(.move(edge: .top).combined(with: .opacity))
-                        }
-
-                        IntentComposeAssistantBar(
-                            analysis: spiritualComposeAnalysis,
-                            onApplySuggestion: { suggestion in
-                                if let replacement = suggestion.replacementText {
-                                    commentText = replacement
-                                    spiritualComposeAnalysis = AmenSpiritualSystemsService.shared.analyzeComposer(text: replacement)
-                                }
-                            },
-                            onDismissSuggestion: { suggestion in
-                                spiritualComposeAnalysis = AmenComposeAnalysis(
-                                    intent: spiritualComposeAnalysis.intent,
-                                    suggestions: spiritualComposeAnalysis.suggestions.filter { $0.id != suggestion.id },
-                                    shouldShowDiscernmentGate: spiritualComposeAnalysis.shouldShowDiscernmentGate,
-                                    discernmentTitle: spiritualComposeAnalysis.discernmentTitle,
-                                    discernmentMessage: spiritualComposeAnalysis.discernmentMessage
-                                )
-                            },
-                            onWhy: { suggestion in
-                                errorMessage = suggestion.reason
-                                showError = true
-                            }
-                        )
-                        AmenComposerDiscernmentOverlay(triggers: safetyOSTriggers)
-                        AmenContextualReactionLayer(results: contextualComposerObserver.results, maxVisible: 3)
-                        
-                        // Berean AI rewrite suggestion banner
-                        if let suggestion = bereanSuggestion {
-                            bereanSuggestionBanner(suggestion)
-                        }
-                        
-                        // Attached photo preview
-                        if let photoData = commentPhotoData,
-                           let uiImage = UIImage(data: photoData) {
-                            attachedPhotoPreview(uiImage)
-                        }
-
-                        // Slow mode cooldown indicator
-                        if cooldownRemaining > 0 {
-                            HStack(spacing: 6) {
-                                Image(systemName: "timer")
-                                    .font(.systemScaled(12, weight: .medium))
-                                    .foregroundStyle(.orange)
-                                Text("Comment in \(Int(cooldownRemaining))s")
-                                    .font(.systemScaled(12, weight: .medium))
-                                    .foregroundStyle(.orange)
-                                Spacer()
-                            }
-                            .padding(.horizontal, 4)
-                            .padding(.bottom, 2)
-                            .transition(.opacity.combined(with: .move(edge: .top)))
-                        }
-
-                        // Rate limit banner — shown proactively if daily limit is already hit
-                        if let limitMsg = rateLimitMessage {
-                            HStack(spacing: 6) {
-                                Image(systemName: "clock.badge.xmark")
-                                    .font(.systemScaled(12, weight: .medium))
-                                    .foregroundStyle(.red.opacity(0.8))
-                                Text(limitMsg)
-                                    .font(.systemScaled(12, weight: .medium))
-                                    .foregroundStyle(.red.opacity(0.85))
-                                    .fixedSize(horizontal: false, vertical: true)
-                                Spacer()
-                            }
-                            .padding(.horizontal, 4)
-                            .padding(.bottom, 2)
-                            .transition(.opacity.combined(with: .move(edge: .top)))
-                        }
+                        composerAnnotations
 
                         // Action buttons row
                         HStack(spacing: 12) {
@@ -1160,8 +1017,11 @@ struct CommentsView: View {
                                         submitComment()
                                     }
                                 },
-                                isDisabled: commentText.isEmpty || isSubmittingComment || rateLimitMessage != nil
+                                isDisabled: commentText.isEmpty || isSubmittingComment || rateLimitMessage != nil || cooldownRemaining > 0
                             )
+                            .accessibilityLabel(safetyOSTriggers.contains(where: { $0.type == .shameTone || $0.type == .conflictTone }) ? "Paused — review tone" : "Send comment")
+                            .accessibilityHint("Double tap to post your comment")
+                            .keyboardShortcut(.return, modifiers: .command)
                             .highlightSweep(trigger: sendSweepTrigger)
                             .successSeal(
                                 isActive: commentSeal.isVisible,
@@ -1317,6 +1177,53 @@ struct CommentsView: View {
                 .presentationDragIndicator(.visible)
             }
         }
+        .sheet(isPresented: $showScripturePreview) {
+            if let ref = scripturePreviewRef {
+                NavigationStack {
+                    VStack(spacing: 20) {
+                        Image(systemName: "book.fill")
+                            .font(.system(size: 36))
+                            .foregroundStyle(Color.amenBlue)
+                        Text(ref.fullReference)
+                            .font(.title2.weight(.semibold))
+                            .foregroundStyle(.primary)
+                        Text("Tap \"Open in Bible\" to read this passage in the Selah Bible reader.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 24)
+                        Button {
+                            showScripturePreview = false
+                            // Navigate to Selah reader — post notification for nav layer to handle
+                            NotificationCenter.default.post(
+                                name: Notification.Name("openSelahScriptureRef"),
+                                object: nil,
+                                userInfo: ["reference": ref.fullReference]
+                            )
+                        } label: {
+                            Label("Open in Bible", systemImage: "book.pages")
+                                .font(.body.weight(.semibold))
+                                .foregroundStyle(.white)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 50)
+                                .background(Capsule().fill(Color.amenBlue))
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.horizontal, 24)
+                        Spacer()
+                    }
+                    .padding(.top, 32)
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Done") { showScripturePreview = false }
+                        }
+                    }
+                }
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
+            }
+        }
         .alert("Photo Not Allowed", isPresented: Binding(get: { photoModerationError != nil }, set: { if !$0 { photoModerationError = nil; selectedPhotoItem = nil } })) {
             Button("OK", role: .cancel) { }
         } message: {
@@ -1370,6 +1277,10 @@ struct CommentsView: View {
             stopRealtimeListener()
             participantsRebuildTask?.cancel()
             participantsRebuildTask = nil
+            scriptureDetectionTask?.cancel()
+            scriptureDetectionTask = nil
+            smartPromptIdleTimer?.cancel()
+            smartPromptIdleTimer = nil
             commentBridge.reset()
         }
         // P1 PERF FIX: Rebuild top participants only when comments actually change.
@@ -1393,13 +1304,13 @@ struct CommentsView: View {
             // Check if this notification is for our post
             if let notificationPostId = notification.userInfo?["postId"] as? String,
                notificationPostId == self.postId {
-                // Call synchronously on main actor — no Task.sleep, no async hop.
-                // The listener has already committed its writes to commentService before
-                // posting this notification, so no delay is needed. The delay + async Task
-                // was causing a second SwiftUI layout pass over an already-updating LazyVStack,
-                // corrupting its internal cell buffer (SIGABRT heap corruption).
+                // [AGENT-4] Wrap real-time inserts in spec animation so new comments
+                // animate in with opacity+offset(y:12) spring(0.4, 0.85).
+                // Reduce Motion is handled inside PostCommentRow's transition.
                 Task { @MainActor in
-                    _ = await updateCommentsFromService()
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+                        Task { _ = await updateCommentsFromService() }
+                    }
                 }
             }
         }
@@ -1417,6 +1328,19 @@ struct CommentsView: View {
         .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { _ in
             // ✅ Timestamp auto-refresh: Update current time every 60 seconds
             // This triggers view refresh, causing "5m ago" → "6m ago" updates
+            currentTime = Date()
+        }
+        // [AGENT-3] Per-second tick to drive the rolling-window rate-limit countdown.
+        // Only active while a cooldown is in progress to avoid unnecessary redraws.
+        .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { _ in
+            guard cooldownRemaining > 0 else {
+                // Cooldown expired — clear the banner if it was set by a rolling-window error
+                if rateLimitMessage == "Slow down — give the conversation room to breathe." {
+                    rateLimitMessage = nil
+                }
+                return
+            }
+            // Force recompute of cooldownRemaining (it reads Date() directly)
             currentTime = Date()
         }
         .alert("Error", isPresented: $showError) {
@@ -1559,6 +1483,249 @@ struct CommentsView: View {
         }
     }
     
+    // Extracted to avoid Swift type-checker complexity limit on the deeply-nested VStack body
+    // that held 12+ conditional child views — broken into commentAttachmentPreview + composerAnnotations.
+    @ViewBuilder private var composerAnnotations: some View {
+        if let alignmentResult = commentService.composerAlignmentResult,
+           alignmentResult.status == .needsDiscernment || alignmentResult.status == .blocked {
+            LiquidGlassAlignmentBanner(
+                result: alignmentResult,
+                onViewContext: {},
+                onCorrectAI: nil,
+                onRewrite: { requestBereanRewrite() },
+                onContinue: nil,
+                onHold: alignmentResult.status == .humanReview ? {} : nil
+            )
+        }
+        if !detectedComposerScriptureRefs.isEmpty {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    ForEach(Array(detectedComposerScriptureRefs.enumerated()), id: \.offset) { _, ref in
+                        Button {
+                            scripturePreviewRef = ref
+                            showScripturePreview = true
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "book.fill")
+                                    .font(.system(size: 10, weight: .semibold))
+                                Text(ref.fullReference)
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .lineLimit(1)
+                            }
+                            .foregroundStyle(Color.amenBlue)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .background(
+                                Capsule()
+                                    .fill(Color.amenBlue.opacity(0.1))
+                                    .overlay(Capsule().strokeBorder(Color.amenBlue.opacity(0.25), lineWidth: 1))
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("View scripture: \(ref.fullReference)")
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+            .transition(.opacity.combined(with: .move(edge: .top)))
+        }
+        if AMENFeatureFlags.shared.commentsSmartPromptsV1, safetyComposer.toneCheckSuggestion != nil {
+            AmenSmartPill(title: "Want help rephrasing this kindly?", systemImage: "sparkles", variant: .regular,
+                          accessibilityHint: "Tap to get a Berean AI rewrite suggestion") { requestBereanRewrite() }
+                .transition(.opacity.combined(with: .move(edge: .top)))
+        }
+        if AMENFeatureFlags.shared.commentsSmartPromptsV1, replyingTo == nil,
+           (post.category == .prayer || post.category == .anonCrisisPost), commentText.isEmpty {
+            AmenSmartPill(title: "Need help responding with care?", systemImage: "heart", variant: .regular,
+                          accessibilityHint: "Tap to get compassionate response suggestions") {
+                Task {
+                    let request = SmartReplySuggestionRequest(
+                        mode: .smartReply, contextExcerpt: String(post.content.prefix(200)),
+                        actorDisplayName: nil, actorIsMinor: false)
+                    let result = await SmartReplySuggestionService.shared.generate(request: request)
+                    var chips: [String] = []
+                    for s in [result.suggestion1, result.suggestion2, result.suggestion3] {
+                        if !s.isEmpty, !chips.contains(s) { chips.append(s) }
+                    }
+                    withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.8))) {
+                        smartReplySuggestions = chips.isEmpty
+                            ? ["I'm praying for you.", "You're not alone.", "Thank you for sharing."]
+                            : chips
+                    }
+                }
+            }
+            .transition(.opacity.combined(with: .move(edge: .top)))
+        }
+        if AMENFeatureFlags.shared.commentsSmartPromptsV1, showIdleReplyPrompt,
+           replyingTo != nil, commentText.isEmpty {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(["I hear you", "Praying for you", "Share scripture", "Ask a follow-up"], id: \.self) { starter in
+                        AmenSmartPill(title: starter, systemImage: nil, variant: .regular,
+                                      accessibilityHint: "Insert \(starter) as starter text") {
+                            applyReflectionStarter(starter)
+                            showIdleReplyPrompt = false
+                        }
+                    }
+                }
+            }
+            .transition(.opacity.combined(with: .move(edge: .top)))
+        }
+        if showMentionPicker && !mentionResults.isEmpty {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(mentionResults, id: \.objectID) { user in
+                        mentionSuggestionButton(for: user).buttonStyle(.plain)
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+            .transition(.opacity.combined(with: .move(edge: .top)))
+        }
+        if let feedback = toneGuidanceService?.currentFeedback {
+            ToneFeedbackView(feedback: feedback) {
+                if let suggestion = feedback.suggestion {
+                    commentText = suggestion
+                    toneGuidanceService?.clearFeedback()
+                    bereanSuggestion = nil
+                }
+            }
+            .transition(.move(edge: .top).combined(with: .opacity))
+        }
+        IntentComposeAssistantBar(
+            analysis: spiritualComposeAnalysis,
+            onApplySuggestion: { suggestion in
+                if let replacement = suggestion.replacementText {
+                    commentText = replacement
+                    spiritualComposeAnalysis = AmenSpiritualSystemsService.shared.analyzeComposer(text: replacement)
+                }
+            },
+            onDismissSuggestion: { suggestion in
+                spiritualComposeAnalysis = AmenComposeAnalysis(
+                    intent: spiritualComposeAnalysis.intent,
+                    suggestions: spiritualComposeAnalysis.suggestions.filter { $0.id != suggestion.id },
+                    shouldShowDiscernmentGate: spiritualComposeAnalysis.shouldShowDiscernmentGate,
+                    discernmentTitle: spiritualComposeAnalysis.discernmentTitle,
+                    discernmentMessage: spiritualComposeAnalysis.discernmentMessage
+                )
+            },
+            onWhy: { suggestion in errorMessage = suggestion.reason; showError = true }
+        )
+        AmenComposerDiscernmentOverlay(triggers: safetyOSTriggers)
+        AmenContextualReactionLayer(results: contextualComposerObserver.results, maxVisible: 3)
+        if let suggestion = bereanSuggestion { bereanSuggestionBanner(suggestion) }
+        if let photoData = commentPhotoData, let uiImage = UIImage(data: photoData) {
+            attachedPhotoPreview(uiImage)
+        }
+        if cooldownRemaining > 0 {
+            HStack(spacing: 6) {
+                Image(systemName: "timer").font(.systemScaled(12, weight: .medium)).foregroundStyle(.orange)
+                Text("Comment in \(Int(cooldownRemaining))s").font(.systemScaled(12, weight: .medium)).foregroundStyle(.orange)
+                Spacer()
+            }
+            .padding(.horizontal, 4).padding(.bottom, 2)
+            .transition(.opacity.combined(with: .move(edge: .top)))
+        }
+        if let limitMsg = rateLimitMessage {
+            HStack(spacing: 6) {
+                Image(systemName: "clock.badge.xmark").font(.systemScaled(12, weight: .medium)).foregroundStyle(.red.opacity(0.8))
+                Text(limitMsg).font(.systemScaled(12, weight: .medium)).foregroundStyle(.red.opacity(0.85))
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer()
+            }
+            .padding(.horizontal, 4).padding(.bottom, 2)
+            .transition(.opacity.combined(with: .move(edge: .top)))
+        }
+        if Double(commentText.count) / 800.0 > 0.8 {
+            HStack {
+                Spacer()
+                Text("\(commentText.count) / 800")
+                    .font(.system(size: 11, weight: .regular))
+                    .foregroundStyle(commentText.count >= 800 ? Color.red.opacity(0.85) : Color.secondary)
+                    .monospacedDigit()
+            }
+            .padding(.horizontal, 4).padding(.bottom, 2)
+            .transition(.opacity.combined(with: .move(edge: .top)))
+        }
+    }
+
+    @ViewBuilder private var commentAttachmentPreview: some View {
+        if case .resolving = commentAttachmentState {
+            Text("Analyzing link...")
+                .font(.systemScaled(12))
+                .foregroundStyle(.secondary)
+        } else if let attachment = commentSmartAttachment {
+            AmenUniversalLinkCard(attachment: attachment, mode: .composerPreview)
+            if !commentMentionedLinks.isEmpty {
+                Text("Mentioned Links (\(commentMentionedLinks.count))")
+                    .font(.systemScaled(12))
+                    .foregroundStyle(.secondary)
+            }
+        } else if case .blocked = commentAttachmentState {
+            Text("Link restricted. Comment will post with plain URL.")
+                .font(.systemScaled(12))
+                .foregroundStyle(.secondary)
+        } else if case .failed = commentAttachmentState {
+            Text("Preview unavailable. Comment will post normally.")
+                .font(.systemScaled(12))
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    // Extracted from onChange(of: commentText) to avoid Swift type-checker timeout on the
+    // combined closure body (7 nested Tasks + multiple service calls in one expression).
+    private func onCommentTextChanged(_ newValue: String) {
+        safetyComposer.onTextChange(newValue, contentType: "comment")
+        toneGuidanceService?.analyzeText(newValue)
+        handleMentionDetection(in: newValue)
+        if !newValue.isEmpty { smartReplySuggestions = [] }
+        alignmentPreviewTask?.cancel()
+        alignmentPreviewTask = Task {
+            try? await Task.sleep(nanoseconds: 350_000_000)
+            guard !Task.isCancelled else { return }
+            await commentService.previewAlignment(text: newValue)
+        }
+        spiritualComposeAnalysis = AmenSpiritualSystemsService.shared.analyzeComposer(text: newValue)
+        safetyOSTriggers = AmenLocalTriggerEngine.shared.analyze(
+            text: newValue,
+            surface: replyingTo == nil ? .comment : .reply
+        )
+        safetyOSCanonicalTask?.cancel()
+        safetyOSCanonicalTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 450_000_000)
+            guard !Task.isCancelled, commentText == newValue else { return }
+            safetyOSTriggers = await AmenLocalTriggerEngine.shared.analyzeWithCanonicalServer(
+                text: newValue,
+                surface: replyingTo == nil ? .comment : .reply
+            )
+        }
+        contextualComposerObserver.update(text: newValue)
+        resolveCommentAttachmentIfNeeded(for: newValue)
+        scriptureDetectionTask?.cancel()
+        if newValue.isEmpty {
+            detectedComposerScriptureRefs = []
+        } else {
+            scriptureDetectionTask = Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 200_000_000)
+                guard !Task.isCancelled else { return }
+                detectedComposerScriptureRefs = ScriptureVerificationService.shared.detectScriptures(in: newValue)
+            }
+        }
+        if AMENFeatureFlags.shared.commentsSmartPromptsV1 {
+            smartPromptIdleTimer?.cancel()
+            showIdleReplyPrompt = false
+            if replyingTo != nil && newValue.isEmpty {
+                smartPromptIdleTimer = Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 5_000_000_000)
+                    guard !Task.isCancelled, commentText.isEmpty, replyingTo != nil else { return }
+                    withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.8))) {
+                        showIdleReplyPrompt = true
+                    }
+                }
+            }
+        }
+    }
+
     private func handleMentionDetection(in text: String) {
         // Find the word being typed that starts with @
         let words = text.components(separatedBy: .whitespaces)
@@ -1728,8 +1895,18 @@ struct CommentsView: View {
         }
     }
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotionForInsert
+
     private func mainCommentRow(for commentWithReplies: CommentWithReplies) -> some View {
         let comment = commentWithReplies.comment
+        // [AGENT-4] Insert animation: spec opacity+offset(y:12) with spring(0.4, 0.85)
+        // Reduce Motion: opacity-only fade (0.15s)
+        let insertTransition: AnyTransition = reduceMotionForInsert
+            ? .opacity
+            : .asymmetric(
+                insertion: .opacity.combined(with: .offset(y: 12)),
+                removal: .opacity
+              )
 
         return PostCommentRow(
             post: post,
@@ -1763,10 +1940,7 @@ struct CommentsView: View {
             currentTime: currentTime
         )
         .id("\(comment.id ?? "")-main")
-        .transition(.asymmetric(
-            insertion: .scale.combined(with: .opacity),
-            removal: .scale.combined(with: .opacity)
-        ))
+        .transition(insertTransition)
     }
 
     private func focusReplyComposer(for comment: Comment, quoteText: String? = nil) {
@@ -1776,6 +1950,12 @@ struct CommentsView: View {
                 commentText = quoteText
             }
             isInputFocused = true
+        }
+        // Scroll composer into view so the "Replying to" chip is visible
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            withAnimation(.easeOut(duration: 0.3)) {
+                scrollProxy?.scrollTo("commentsBottom", anchor: .bottom)
+            }
         }
     }
 
@@ -1881,10 +2061,14 @@ struct CommentsView: View {
     @ViewBuilder
     private func replyRow(_ reply: Comment, parent: Comment) -> some View {
         HStack(spacing: 0) {
+            // [AGENT-4] Spec hairline rail: 1pt width, 12pt left padding
+            // Light: Color.primary.opacity(0.08) | Dark: amenGold.opacity(0.2)
             Rectangle()
-                .fill(.black.opacity(0.1))
-                .frame(width: 2)
-                .padding(.leading, 28)
+                .fill(colorSchemeForReplyRail == .dark
+                      ? Color.amenGold.opacity(0.2)
+                      : Color.primary.opacity(0.08))
+                .frame(width: 1)
+                .padding(.leading, 12)
                 .transition(.scale(scale: 0.1, anchor: .top))
 
             PostCommentRow(
@@ -1928,7 +2112,8 @@ struct CommentsView: View {
     private func expandedRepliesSection(for commentWithReplies: CommentWithReplies) -> some View {
         let commentId = commentWithReplies.comment.id ?? ""
         if !commentWithReplies.replies.isEmpty && expandedThreads.contains(commentId) {
-            VStack(spacing: 0) {
+            // [AGENT-4] Spec: 10pt spacing between replies
+            VStack(spacing: 10) {
                 threadSummarySection(for: commentWithReplies)
 
                 ForEach(commentWithReplies.replies, id: \.stableId) { reply in
@@ -2344,8 +2529,17 @@ struct CommentsView: View {
                     }
                     let nsError = error as NSError
                     if nsError.domain == "CommentService" && nsError.code == -11 {
-                        // Rate limit hit — show inline banner and disable send button
+                        // Firestore daily rate limit — show inline banner and disable send button
                         rateLimitMessage = nsError.localizedDescription
+                    } else if nsError.domain == "CommentService" && nsError.code == -20 {
+                        // [AGENT-3] Rolling-window rate limit — show cooldown timer
+                        // Extract retryAfter from userInfo if present; fall back to 60 s.
+                        let retryAfter = nsError.userInfo["retryAfter"] as? TimeInterval ?? 60
+                        rateLimitMessage = "Slow down — give the conversation room to breathe."
+                        if retryAfter > 0 {
+                            startCooldownTimer(remaining: retryAfter)
+                        }
+                        commentText = text // Restore text so the user can retry
                     } else {
                         errorMessage = error.localizedDescription
                         showError = true
@@ -2647,17 +2841,27 @@ struct CommentsView: View {
             allComments = rawComments.filter { !blockedUsers.contains($0.authorId) }
         }
 
+        // Moderation filter (AGENT-2 FIX): General users must never see hidden or removed comments.
+        // Only `.approved` and `.pending` states are visible. `.rejected`, `.removed`, `.hidden`,
+        // `.escalated`, and `.flagged` are kept off the read path.
+        let visibleComments = allComments.filter {
+            $0.moderationState.status == .approved || $0.moderationState.status == .pending
+        }
+
         // Build commentsWithReplies from service data
         var newCommentsWithReplies: [CommentWithReplies] = []
 
-        for comment in allComments {
+        for comment in visibleComments {
             guard let commentId = comment.id else {
                 continue
             }
-            
-            // Also filter replies from blocked users
+
+            // Also filter replies from blocked users and by moderation state
             let rawReplies = commentService.commentReplies[commentId] ?? []
-            let replies = blockedUsers.isEmpty ? rawReplies : rawReplies.filter { !blockedUsers.contains($0.authorId) }
+            let unblocked = blockedUsers.isEmpty ? rawReplies : rawReplies.filter { !blockedUsers.contains($0.authorId) }
+            let replies = unblocked.filter {
+                $0.moderationState.status == .approved || $0.moderationState.status == .pending
+            }
 
             // Update reply count
             var updatedComment = comment
@@ -2848,8 +3052,12 @@ private struct PostCommentRow: View {
     var onToggleThread: (() -> Void)? = nil
     var isThreadExpanded: Bool = true
     var replyCount: Int = 0
-    var currentTime: Date = Date() // ✅ For timestamp auto-refresh
-    
+    var currentTime: Date = Date() // For timestamp auto-refresh
+
+    // [AGENT-4] Reduce Motion support
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
+
     @ObservedObject private var followService = FollowService.shared
 
     @State private var showOptions = false
@@ -2861,6 +3069,8 @@ private struct PostCommentRow: View {
     @State private var textSelection: PostTextSelection?
     @State private var isTextSelecting = false
     @State private var showSoftReactions = false
+    // [AGENT-4] Reaction scale state for spec-compliant tap animation
+    @State private var amenReactionScale: CGFloat = 1.0
     // reaction picker is handled by AMENReactionSystem (.reactionPicker modifier on MentionTextView)
     
     private enum CommentSheet: Identifiable {
@@ -2893,10 +3103,11 @@ private struct PostCommentRow: View {
 
     @ViewBuilder
     private var commentSelectableText: some View {
+        // [AGENT-4] Body font: spec 15pt top-level, 13pt reply
         let base = SelectablePostTextView(
             text: comment.content,
             mentions: nil,
-            font: UIFont(name: "OpenSans-Regular", size: isReply ? 13 : 14) ?? .systemFont(ofSize: isReply ? 13 : 14),
+            font: UIFont(name: "OpenSans-Regular", size: isReply ? 13 : 15) ?? .systemFont(ofSize: isReply ? 13 : 15),
             lineSpacing: 3,
             lineLimit: nil,
             onMentionTap: { _ in },
@@ -2971,11 +3182,12 @@ private struct PostCommentRow: View {
     private var authorHeaderRow: some View {
         HStack(spacing: 8) {
             HStack(spacing: 4) {
+                // [AGENT-4] Author name: spec 13pt semibold (both levels per spec)
                 Text(comment.authorName)
-                    .font(.custom("OpenSans-SemiBold", size: isReply ? 13 : 14))
+                    .font(.custom("OpenSans-SemiBold", size: 13))
                     .foregroundStyle(.primary)
 
-                // ✅ Verified badge
+                // Verified badge
                 if VerifiedBadgeHelper.shared.isVerified(userId: comment.authorId) {
                     VerifiedBadge(
                         type: VerifiedBadgeHelper.shared.getVerificationType(userId: comment.authorId),
@@ -2984,15 +3196,15 @@ private struct PostCommentRow: View {
                 }
             }
 
+            // [AGENT-4] Username: .secondary (adaptive, dark-mode safe)
             Text(comment.authorUsername.hasPrefix("@") ? comment.authorUsername : "@\(comment.authorUsername)")
                 .font(.custom("OpenSans-Regular", size: isReply ? 11 : 12))
-                .foregroundStyle(.black.opacity(0.5))
+                .foregroundStyle(.secondary)
 
             // Subtle follow chip — only shown when not yet following this commenter
             if showFollowChip {
                 Button {
                     didJustFollow = true
-                    // haptic
                     HapticManager.impact(style: .light)
                     Task {
                         try? await FollowService.shared.followUser(userId: comment.authorId)
@@ -3004,12 +3216,12 @@ private struct PostCommentRow: View {
                         Text("Follow")
                             .font(.custom("OpenSans-SemiBold", size: isReply ? 10 : 11))
                     }
-                    .foregroundStyle(.black.opacity(0.55))
+                    .foregroundStyle(.secondary)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 2)
                     .background(
                         Capsule()
-                            .strokeBorder(Color.black.opacity(0.2), lineWidth: 1)
+                            .strokeBorder(Color.secondary.opacity(0.35), lineWidth: 1)
                     )
                 }
                 .buttonStyle(PlainButtonStyle())
@@ -3019,12 +3231,12 @@ private struct PostCommentRow: View {
 
             Text("•")
                 .font(.custom("OpenSans-Regular", size: isReply ? 11 : 12))
-                .foregroundStyle(.black.opacity(0.3))
+                .foregroundStyle(.secondary)
 
-            // ✅ Timestamp auto-refresh: Recomputes when currentTime changes
+            // [AGENT-4] Timestamp: spec 12pt regular, .secondary (adaptive)
             Text(timeAgoString(for: comment.createdAt, currentTime: currentTime))
-                .font(.custom("OpenSans-Regular", size: isReply ? 11 : 12))
-                .foregroundStyle(.black.opacity(0.5))
+                .font(.system(size: 12, weight: .regular))
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -3052,24 +3264,37 @@ private struct PostCommentRow: View {
 
     private var actionsRow: some View {
         HStack(spacing: 20) {
-            // Amen with animation (heart icon like reference)
+            // [AGENT-4] Amen reaction: spec-compliant scale 1.0→1.3→1.0, spring(response:0.35, dampingFraction:0.7)
+            // Reduce Motion: opacity-only fade, no scale
             Button {
-                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.5))) {
+                if reduceMotion {
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        hasAmened.toggle()
+                    }
+                } else {
                     hasAmened.toggle()
+                    // Bounce: scale up then back down
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                        amenReactionScale = 1.3
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                            amenReactionScale = 1.0
+                        }
+                    }
                 }
                 onAmen()
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: hasAmened ? "heart.fill" : "heart")
                         .font(.systemScaled(14, weight: .medium))
-                        .foregroundStyle(hasAmened ? Color.red : Color.black.opacity(0.5))
-                        .scaleEffect(hasAmened ? 1.15 : 1.0)
-                        .animation(.spring(response: 0.3, dampingFraction: 0.5), value: hasAmened)
+                        .foregroundStyle(hasAmened ? Color.red : Color.secondary)
+                        .scaleEffect(reduceMotion ? 1.0 : amenReactionScale)
 
                     if comment.amenCount > 0 {
                         Text("\(comment.amenCount)")
                             .font(.custom("OpenSans-Medium", size: 13))
-                            .foregroundStyle(hasAmened ? Color.red : Color.black.opacity(0.5))
+                            .foregroundStyle(hasAmened ? Color.red : Color.secondary)
                             .contentTransition(.numericText())
                     }
                 }
@@ -3128,6 +3353,8 @@ private struct PostCommentRow: View {
                         .font(.systemScaled(12))
                         .foregroundStyle(.black.opacity(0.6))
                 }
+                .accessibilityLabel("Comment options")
+                .accessibilityHint("Double tap to delete this comment")
                 .confirmationDialog("Comment Options", isPresented: $showOptions) {
                     Button("Delete Comment", role: .destructive) {
                         onDelete()

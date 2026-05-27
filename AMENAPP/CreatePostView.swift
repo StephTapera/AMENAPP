@@ -9,6 +9,7 @@ import SwiftUI
 import PhotosUI
 import FirebaseAuth
 import FirebaseFirestore
+import FirebaseFunctions
 import FirebaseStorage
 
 /// A comprehensive view for creating and publishing posts to the AMEN community
@@ -27,10 +28,18 @@ import FirebaseStorage
 ///   media uploads, and scheduling. Posts can be published immediately or scheduled
 ///   for future publication.
 struct CreatePostView: View {
+    private static let shortTimeFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.timeStyle = .short
+        return f
+    }()
+
     @Environment(\.dismiss) var dismiss
+    @Environment(\.scenePhase) private var scenePhase
     @ObservedObject private var postsManager: PostsManager = .shared
     @ObservedObject private var draftsManager: DraftsManager = .shared
     @ObservedObject private var userService: UserService = .shared
+    @ObservedObject private var featureFlags = AMENFeatureFlags.shared
     @AppStorage("currentUserProfileImageURL") private var cachedProfileImageURL: String = ""
     @State private var postText = ""
     @State private var selectedCategory: PostCategory = .openTable
@@ -58,6 +67,9 @@ struct CreatePostView: View {
     @State private var errorMessage = ""
     @State private var errorTitle = "Error"
     @State private var showingSuccessNotice = false
+    /// P1-7: Persistent inline failure banner — stays visible after the toast dismisses
+    /// so the user knows their last publish attempt failed before they try again.
+    @State private var publishFailureBannerMessage: String?
     @State private var showCancelConfirmation = false
     @State private var shouldPersistDraftOnExit = true
 
@@ -71,6 +83,13 @@ struct CreatePostView: View {
     @State private var autoSaveTask: Task<Void, Never>?
     @State private var mentionSearchTask: Task<Void, Never>?
     @StateObject private var linkController = ComposerLinkPreviewController()
+    @StateObject private var smartAttachmentResolver = AmenSmartAttachmentResolverService.shared
+    @State private var smartAttachmentState: AmenAttachmentComposerState = .empty
+    @State private var smartAttachment: AmenSmartAttachment?
+    @State private var mentionedLinkURLs: [URL] = []
+    @State private var smartAttachmentResolutionTask: Task<Void, Never>?
+    @State private var useSmartAttachmentAsSoundtrack = false
+    @State private var showingMediaAttachmentPicker = false
     @StateObject private var insightEngine = ComposerInsightEngine.shared
     @State private var showMentionSuggestions = false
     @State private var mentionSuggestions: [AlgoliaUser] = []
@@ -79,10 +98,33 @@ struct CreatePostView: View {
     @State private var recoveredDraft: Draft?
     @State private var uploadProgress: Double = 0.0
     @State private var isUploadingImages = false
+    @State private var activePublishTask: Task<Void, Never>?
+    @State private var pendingUploadCleanupPaths: Set<String> = []
+    @State private var uploadCapsuleState: UploadCapsuleState?
+    @State private var uploadCapsuleProgress: Double = 0.0
+    @State private var isUploadCapsuleExpanded = false
+    @State private var uploadCapsuleMediaStatuses: [String: UploadCapsuleMediaStatus] = [:]
+    @State private var uploadCapsuleClientRequestId: String?
+    @State private var uploadCapsuleIdempotencyKey: String?
+    @State private var pendingPublishPostID: String?
+    @StateObject private var cameraCoordinator = CreatePostCameraCoordinator()
+    @State private var mediaMetadataDraft = CreatePostMediaMetadataDraft()
+    @State private var showMediaMetadataAuthoring = false
+    @State private var showAmenAudioComposer = false
+    @State private var selectedMediaIndex: Int = 0
+    @State private var showPerMediaCaptionEducation = false
+    @State private var hasCheckedPerMediaCaptionEducation = false
+    @State private var activePerMediaCaptionEditor: PerMediaCaptionEditorRoute?
+    @State private var perMediaCaptionModerationTask: Task<Void, Never>?
+    @State private var perMediaCaptionModeratingIndex: Int?
+    @State private var perMediaCaptionGeneratingAltIndex: Int?
+    @State private var perMediaCaptionStatusMessages: [Int: String] = [:]
+    @State private var perMediaCaptionErrorMessages: [Int: String] = [:]
+    private var isUITestAttachMockMedia: Bool {
+        ProcessInfo.processInfo.arguments.contains("--ui-test-attach-mock-media")
+    }
 
-    // MARK: - Camera (instant photo)
-    @State private var showingCamera = false
-    @State private var cameraImage: UIImage? = nil  // single captured photo
+    // MARK: - Camera
 
     // MARK: - Poll composer
     @State private var showingPoll = false
@@ -90,11 +132,20 @@ struct CreatePostView: View {
     @State private var pollOptions: [String] = ["", ""]  // start with 2 blank options
     @State private var pollDuration: PollDuration = .oneDay
 
-    // MARK: - Action card (camera / poll menu)
-    @State private var showingActionCard = false
+    /// Unified publish pipeline state. Read this in UI code instead of checking
+    /// `isPublishing`/`isUploadingImages` separately.
+    enum PublishState: Equatable {
+        case idle
+        case uploadingMedia  // media upload in progress (implies isPublishing too)
+        case publishing      // network post write in progress
+    }
 
-    // MARK: - Toolbar expand/collapse
-    @State private var isToolbarExpanded = false
+    /// Derived from the two existing boolean flags — zero mutation risk.
+    var publishState: PublishState {
+        if isUploadingImages { return .uploadingMedia }
+        if isPublishing { return .publishing }
+        return .idle
+    }
 
     enum PostButtonMorphState { case idle, sending, sent }
 
@@ -118,9 +169,23 @@ struct CreatePostView: View {
     @State private var taggedUsers: [MentionedUser] = []
     @State private var showingTagPeopleSheet = false
 
+    // MARK: - System 28: Feed Intelligence OS
+    @State private var feedDirectionDetection: FeedDirectionDetectionResult = .empty
+    @State private var feedDirectionDraft = FeedDirectionDraft(
+        rawText: "", interpretedSummary: nil, intentType: .unknown,
+        duration: .today, intensity: .medium, visibility: .privateOnly, affectedSurfaces: [])
+    @State private var showGuideMyFeedSheet = false
+    @State private var feedDirectionResponse: SubmitFeedDirectionResponse? = nil
+    @State private var showFeedDirectionToast = false
+
     // Audience / visibility
     @State private var postVisibility: Post.PostVisibility = .everyone
     @State private var showingAudienceSheet = false
+
+    // HeyFeed intent — what this post is for (optional, aids distribution + feed learning)
+    @State private var selectedPostIntent: PostIntent?
+    // HeyFeed audience hint - who this post is for (optional, aids feed routing)
+    @State private var selectedAudienceHint: AudienceHint?
 
     // Scripture verse - two-stage Liquid Glass drawer
     @State private var attachedVerseReference: String = ""
@@ -138,6 +203,10 @@ struct CreatePostView: View {
     // P0-1 FIX: Prevent duplicate post creation using a UUID idempotency token.
     // Using UUID instead of hashValue (hashValue is unstable across launches and collision-prone).
     @State private var inFlightPostId: String? = nil
+    @State private var draftVM = CreatePostDraftViewModel()
+    /// Pre-seeded Firestore document IDs for thread segments, preserved across retries
+    /// so a partial-failure retry writes to the same docs instead of creating duplicates.
+    @State private var pendingThreadSegmentIds: [String] = []
     
     // P0-2 FIX: Store delayed tasks for cancellation
     @State private var delayedTasks: [Task<Void, Never>] = []
@@ -171,11 +240,34 @@ struct CreatePostView: View {
     @State private var showThinkFirstPrompt = false
     @State private var thinkFirstCheckResult: ThinkFirstGuardrailsService.ContentCheckResult?
     @State private var pendingPostContent = ""  // Store content during guardrail check
+
+    // Phase P1-4: server-authoritative ThinkFirst gate. When the server
+    // validator overrides the client verdict (block/requireEdit) or fails
+    // (serverError/inputRejected), the publish path fails-closed and the
+    // user sees this alert instead of the existing client-driven sheet.
+    @State private var showServerThinkFirstAlert = false
+    @State private var serverThinkFirstAlertMessage: String = ""
     
     // Berean AI tone assist
     @State private var bereanToneSuggestion: String?
     @State private var isLoadingBereanTone = false
     @State private var showBereanToneSheet = false
+    @StateObject private var alignmentViewModel = BiblicalAlignmentViewModel()
+    @State private var showCorrectAIForPost = false
+    @State private var showPostDiscernmentPrompt = false
+    @State private var spiritualComposeAnalysis = AmenComposeAnalysis(intent: .unknown, suggestions: [], shouldShowDiscernmentGate: false, discernmentTitle: nil, discernmentMessage: nil)
+    @State private var showSpiritualDiscernmentGate = false
+    @State private var bypassSpiritualDiscernmentGate = false
+    // AI Usage Label tracking — set when the user accepts a tone rewrite via Safety OS
+    @State private var pendingAIUsage: PostAIUsage? = nil
+    @State private var safetyOSDraftTriggers: [AmenTriggerResult] = []
+    @State private var activeSafetyOSTrigger: AmenTriggerResult?
+    @State private var safetyOSCanonicalTask: Task<Void, Never>?
+    @State private var pendingWellnessContext: WellnessInterventionContext? = nil
+    @State private var wellnessClearedForPublish = false
+    @State private var showBotChallenge = false
+    @State private var botChallengeCleared = false
+    @StateObject private var contextualComposerObserver = AmenMagicWordComposerObserver()
     @ObservedObject private var supportDetectionService = SupportDetectionService.shared
     @ObservedObject private var supportActionExecutor = SupportActionExecutor.shared
     @State private var supportDraftPayload: SupportInterventionPayload?
@@ -313,8 +405,129 @@ struct CreatePostView: View {
     
     var body: some View {
         mainView
+            .sheet(isPresented: $showCorrectAIForPost) {
+                CorrectTheAIView(
+                    originalText: postText,
+                    onSave: { lens, correction, remember in
+                        Task {
+                            _ = await alignmentViewModel.saveCorrection(
+                                originalText: postText,
+                                correctionText: correction,
+                                targetType: "post",
+                                lens: lens,
+                                correctionIntent: "tone",
+                                savedToProfile: remember
+                            )
+                            showCorrectAIForPost = false
+                        }
+                    },
+                    onApplyRewrite: { lens in
+                        Task {
+                            await alignmentViewModel.requestRewrite(for: postText, lens: lens, targetType: "post")
+                            if let rewritten = alignmentViewModel.rewrittenText {
+                                postText = rewritten
+                            }
+                            showCorrectAIForPost = false
+                        }
+                    },
+                    onCancel: {
+                        showCorrectAIForPost = false
+                    }
+                )
+            }
+            .sheet(isPresented: $showPostDiscernmentPrompt) {
+                if let prompt = alignmentViewModel.discernmentPrompt {
+                    SpiritualDiscernmentPromptView(
+                        prompt: prompt,
+                        onSelect: { _ in
+                            showPostDiscernmentPrompt = false
+                            proceedWithPublish()
+                        },
+                        onDismiss: {
+                            showPostDiscernmentPrompt = false
+                            proceedWithPublish()
+                        }
+                    )
+                }
+            }
+            .sheet(isPresented: $showSpiritualDiscernmentGate) {
+                DiscernmentGateSheet(
+                    title: spiritualComposeAnalysis.discernmentTitle ?? "Discernment Moment",
+                    message: spiritualComposeAnalysis.discernmentMessage ?? "This may land differently than intended.",
+                    rewrite: spiritualComposeAnalysis.suggestions.first(where: { $0.id == "soften" || $0.id == "clarify" })?.replacementText,
+                    onEdit: {
+                        bypassSpiritualDiscernmentGate = false
+                        showSpiritualDiscernmentGate = false
+                        isTextFieldFocused = true
+                    },
+                    onRewrite: {
+                        if let replacement = spiritualComposeAnalysis.suggestions.first(where: { $0.id == "soften" || $0.id == "clarify" })?.replacementText {
+                            postText = replacement
+                            spiritualComposeAnalysis = AmenSpiritualSystemsService.shared.analyzeComposer(text: replacement)
+                        }
+                        bypassSpiritualDiscernmentGate = false
+                        showSpiritualDiscernmentGate = false
+                        isTextFieldFocused = true
+                    },
+                    onPause: {
+                        postText = "I want to pause and pray before I say more."
+                        spiritualComposeAnalysis = AmenSpiritualSystemsService.shared.analyzeComposer(text: postText)
+                        bypassSpiritualDiscernmentGate = false
+                        showSpiritualDiscernmentGate = false
+                        isTextFieldFocused = true
+                    },
+                    onSendAnyway: {
+                        bypassSpiritualDiscernmentGate = true
+                        showSpiritualDiscernmentGate = false
+                        publishPost()
+                    }
+                )
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+            }
+            .sheet(item: $activeSafetyOSTrigger) { trigger in
+                AmenDiscernmentSheet(
+                    trigger: trigger,
+                    originalText: postText,
+                    suggestedRewrite: AmenLocalTriggerEngine.shared.suggestedRewrite(for: trigger, originalText: postText)
+                ) { action in
+                    handleSafetyOSDraftAction(action, trigger: trigger)
+                }
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+            }
+            .sheet(item: $pendingWellnessContext) { ctx in
+                WellnessPauseSheet(
+                    context: ctx,
+                    onContinue: {
+                        wellnessClearedForPublish = true
+                        Task { @MainActor in
+                            try? await Task.sleep(nanoseconds: 300_000_000)
+                            publishPost()
+                        }
+                    },
+                    onPause: {}
+                )
+            }
+            .sheet(isPresented: $showBotChallenge) {
+                BotSuspicionFrictionView(
+                    onChallengePassed: {
+                        AmenBotDefenseService.shared.markChallengeCompleted()
+                        botChallengeCleared = true
+                        showBotChallenge = false
+                        Task { @MainActor in
+                            try? await Task.sleep(nanoseconds: 300_000_000)
+                            publishPost()
+                        }
+                    },
+                    onCancel: {
+                        showBotChallenge = false
+                    }
+                )
+                .presentationDetents([.medium])
+            }
     }
-    
+
     private var topicTagButtonText: String {
         if selectedTopicTag.isEmpty {
             return selectedCategory == .testimonies ? "Add category" : "Add topic tag"
@@ -325,6 +538,33 @@ struct CreatePostView: View {
     @ViewBuilder
     private var composeContentArea: some View {
         VStack(alignment: .leading, spacing: 12) {
+            if let result = alignmentViewModel.result,
+               result.status != .aligned {
+                LiquidGlassAlignmentBanner(
+                    result: result,
+                    onViewContext: {
+                        if result.status == .contextNeeded {
+                            showPostDiscernmentPrompt = true
+                        }
+                    },
+                    onCorrectAI: {
+                        showCorrectAIForPost = true
+                    },
+                    onRewrite: {
+                        Task {
+                            await alignmentViewModel.requestRewrite(for: postText, lens: .balancedBiblical, targetType: "post")
+                            if let rewritten = alignmentViewModel.rewrittenText {
+                                postText = rewritten
+                            }
+                        }
+                    },
+                    onContinue: result.status == .contextNeeded ? {
+                        proceedWithPublish()
+                    } : nil,
+                    onHold: result.status == .humanReview ? {} : nil
+                )
+            }
+
             // TRUST & SAFETY: Show personalize nudge banner
             if showModerationNudge {
                 PersonalizeNudgeBanner(
@@ -335,7 +575,32 @@ struct CreatePostView: View {
             }
 
             textEditorView
+            AmenComposerDiscernmentOverlay(triggers: safetyOSDraftTriggers)
+            AmenContextualReactionLayer(results: contextualComposerObserver.results, maxVisible: 3)
             supportDraftPresentation
+            IntentComposeAssistantBar(
+                analysis: spiritualComposeAnalysis,
+                onApplySuggestion: { suggestion in
+                    if let replacement = suggestion.replacementText {
+                        postText = replacement
+                    } else if suggestion.id == "scripture_context" {
+                        showingVersePickerSheet = true
+                    }
+                    spiritualComposeAnalysis = AmenSpiritualSystemsService.shared.analyzeComposer(text: postText)
+                },
+                onDismissSuggestion: { suggestion in
+                    spiritualComposeAnalysis = AmenComposeAnalysis(
+                        intent: spiritualComposeAnalysis.intent,
+                        suggestions: spiritualComposeAnalysis.suggestions.filter { $0.id != suggestion.id },
+                        shouldShowDiscernmentGate: spiritualComposeAnalysis.shouldShowDiscernmentGate,
+                        discernmentTitle: spiritualComposeAnalysis.discernmentTitle,
+                        discernmentMessage: spiritualComposeAnalysis.discernmentMessage
+                    )
+                },
+                onWhy: { suggestion in
+                    showError(title: suggestion.title, message: suggestion.reason)
+                }
+            )
             
             versePreviewBadge
             
@@ -362,10 +627,41 @@ struct CreatePostView: View {
             
             taggedUsersChips
 
+            // MARK: - Quick Category Chips (Testimony / Prayer / Scripture shortcuts)
+            if !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                ComposerSuggestionChips(
+                    selectedCategory: $selectedCategory,
+                    onAddScripture: { verseAttachmentVM.openMiniAttach(draftText: postText) }
+                )
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
+
+            // MARK: - Guide My Feed chip (Feed Intelligence OS)
+            if feedDirectionDetection.isDetected && featureFlags.guideMyFeedEnabled {
+                GuideMyFeedComposerChip(detection: feedDirectionDetection) {
+                    feedDirectionDraft = AmenFeedDirectionDetector.shared.buildDraft(
+                        from: feedDirectionDetection, rawText: postText)
+                    showGuideMyFeedSheet = true
+                }
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
+
             // MARK: - Smart Composition Cues
             composerSuggestionRow
 
-            // Topic tag selector (required for OpenTable/Prayer)
+            // MARK: - Post Intent (optional HeyFeed signal)
+            if postText.count > 20 {
+                CreatePostIntentRow(selectedIntent: $selectedPostIntent)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+
+            // MARK: - Audience Hint (optional HeyFeed routing signal)
+            if postText.count > 20 {
+                CreatePostAudienceHintRow(selectedHint: $selectedAudienceHint)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+
+            // Topic tags are optional routing signals.
             if selectedCategory == .openTable || selectedCategory == .prayer || selectedCategory == .testimonies {
                 Button {
                     showingTopicTagSheet = true
@@ -375,8 +671,8 @@ struct CreatePostView: View {
                             .font(.systemScaled(12, weight: .medium))
                         Text(topicTagButtonText)
                             .font(.systemScaled(13, weight: .medium))
-                        if selectedTopicTag.isEmpty && selectedCategory != .testimonies {
-                            Text("Required")
+                        if selectedTopicTag.isEmpty {
+                            Text("Optional")
                                 .font(.systemScaled(10, weight: .medium))
                                 .foregroundStyle(.secondary.opacity(0.7))
                                 .padding(.horizontal, 5)
@@ -393,14 +689,16 @@ struct CreatePostView: View {
                     }
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(selectedTopicTag.isEmpty ? "Select topic tag" : "Topic: \(selectedTopicTag)")
+                .accessibilityHint("Double tap to choose a topic tag for your post")
                 .modifier(ShakeEffect(shakes: shakeTopicTag ? 3 : 0))
             }
 
-            // Camera photo preview
-            if let capturedImage = cameraImage {
-                CameraAttachmentPreview(image: capturedImage) {
+            // Witness camera preview
+            if let attachment = cameraCoordinator.attachedWitnessMedia {
+                WitnessDraftAttachmentPreview(attachment: attachment) {
                     withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
-                        cameraImage = nil
+                        cameraCoordinator.removeAttachedMedia()
                     }
                 }
                 .transition(.scale(scale: 0.92).combined(with: .opacity))
@@ -409,6 +707,85 @@ struct CreatePostView: View {
             // Library photo grid
             if !selectedImageData.isEmpty {
                 ImagePreviewGrid(images: $selectedImageData, onAddMore: { showingImagePicker = true })
+            }
+
+            if !selectedImageData.isEmpty || cameraCoordinator.attachedWitnessMedia != nil {
+                Button {
+                    showMediaMetadataAuthoring = true
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "captions.bubble")
+                            .font(.systemScaled(14, weight: .semibold))
+                            .foregroundStyle(.primary)
+
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Prepare media details")
+                                .font(.systemScaled(13, weight: .semibold))
+                                .foregroundStyle(.primary)
+                            Text(mediaMetadataSummaryText)
+                                .font(.systemScaled(11, weight: .medium))
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Spacer()
+
+                        Image(systemName: "chevron.right")
+                            .font(.systemScaled(11, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .fill(Color(.tertiarySystemFill))
+                    )
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint("Double tap to add captions, alt text, and other media details")
+            }
+
+            if featureFlags.composerApprovedAudioEnabled, (!selectedImageData.isEmpty || cameraCoordinator.attachedWitnessMedia != nil) {
+                Button {
+                    showAmenAudioComposer = true
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "music.note")
+                            .font(.systemScaled(14, weight: .semibold))
+                            .foregroundStyle(.primary)
+
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(mediaMetadataDraft.audioAttachment == nil ? "Add Music" : "Music added")
+                                .font(.systemScaled(13, weight: .semibold))
+                                .foregroundStyle(.primary)
+                            Text({
+                                guard let title = mediaMetadataDraft.audioAttachment?.title.trimmingCharacters(in: .whitespacesAndNewlines),
+                                      !title.isEmpty else {
+                                    return "Worship, instrumental, prayer, testimony, and approved original audio"
+                                }
+                                return title
+                            }())
+                                .font(.systemScaled(11, weight: .medium))
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+
+                        Spacer()
+
+                        Image(systemName: "chevron.right")
+                            .font(.systemScaled(11, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .fill(Color(.tertiarySystemFill))
+                    )
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(mediaMetadataDraft.audioAttachment == nil ? "Add music to post" : "Music added — tap to change")
+                .accessibilityHint("Double tap to attach worship music or approved audio to your post")
+                .accessibilityIdentifier("composer_add_music_button")
             }
 
             // Poll composer
@@ -429,6 +806,7 @@ struct CreatePostView: View {
 
             ComposerLinkPreview(controller: linkController)
                 .animation(.spring(response: 0.35, dampingFraction: 0.8), value: linkController.activeURL)
+            smartAttachmentComposerPreview
 
             // Inline toolbar — simple gray icons
             threadsAttachmentBar
@@ -485,18 +863,14 @@ struct CreatePostView: View {
                                     .padding(.leading, 16)
 
                                 Button {
-                                    // Append a new empty thread segment
-                                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
-                                        isThreadMode = true
-                                        threadPosts = [postText, ""]  // Move main text to thread array
-                                        currentThreadIndex = 1
-                                    }
+                                    beginThreadMode()
                                 } label: {
                                     Text("Add to thread…")
                                         .font(.systemScaled(15))
                                         .foregroundStyle(Color(.tertiaryLabel))
                                 }
                                 .buttonStyle(.plain)
+                                .accessibilityHint("Double tap to post as a thread with multiple connected posts")
 
                                 Spacer()
                             }
@@ -526,6 +900,7 @@ struct CreatePostView: View {
                                         .font(.systemScaled(16))
                                         .lineLimit(10...20)
                                         .textFieldStyle(.plain)
+                                        .accessibilityLabel("Thread post \(index + 1)")
                                         
                                         // Remove thread post button
                                         if threadPosts.count > 2 || !threadPosts[index].isEmpty {
@@ -548,6 +923,7 @@ struct CreatePostView: View {
                                                 .foregroundStyle(.secondary)
                                             }
                                             .buttonStyle(.plain)
+                                            .accessibilityLabel("Remove thread post \(index + 1)")
                                         }
                                     }
                                 }
@@ -573,6 +949,7 @@ struct CreatePostView: View {
                                             .font(.systemScaled(15))
                                             .foregroundStyle(Color(.tertiaryLabel))
                                     }
+                                    .accessibilityHint("Double tap to add a new post to this thread")
                                     .buttonStyle(.plain)
                                     
                                     Spacer()
@@ -588,35 +965,72 @@ struct CreatePostView: View {
                 threadsBottomBar
                     .padding(.bottom, 8)
 
+                // P1-7: Persistent publish-failure banner — visible until user dismisses or retries
+                if let failMsg = publishFailureBannerMessage {
+                    HStack(spacing: 10) {
+                        Image(systemName: "exclamationmark.circle.fill")
+                            .foregroundStyle(.white)
+                        Text(failMsg)
+                            .font(.systemScaled(13, weight: .medium))
+                            .foregroundStyle(.white)
+                        Spacer()
+                        Button {
+                            guard publishState == .idle else { return }
+                            publishPost()
+                            publishFailureBannerMessage = nil
+                        } label: {
+                            Text("Retry")
+                                .font(.systemScaled(13, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
+                                .background(Color.white.opacity(0.25), in: Capsule())
+                        }
+                        .disabled(publishState != .idle)
+                        Button {
+                            publishFailureBannerMessage = nil
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.systemScaled(11, weight: .semibold))
+                                .foregroundStyle(.white.opacity(0.7))
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(Color.red.opacity(0.85), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .padding(.horizontal, 12)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .animation(.spring(response: 0.3, dampingFraction: 0.8), value: publishFailureBannerMessage != nil)
+                }
+
                 // Upload progress overlay
-                if isUploadingImages {
+                if let uploadCapsuleState {
                     VStack {
                         Spacer()
-                        VStack(spacing: 16) {
-                            ProgressView(value: uploadProgress, total: 1.0)
-                                .progressViewStyle(.linear)
-                                .tint(.blue)
-                            HStack(spacing: 12) {
-                                ProgressView().tint(.blue)
-                                Text("Uploading images... \(Int(uploadProgress * 100))%")
-                                    .font(AMENFont.semiBold(14))
-                                    .foregroundStyle(.primary)
-                            }
-                        }
-                        .padding(20)
-                        .background(
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(Color(.systemBackground))
-                                .shadow(color: .black.opacity(0.15), radius: 20, y: 8)
+                        LiquidGlassUploadCapsule(
+                            state: uploadCapsuleState,
+                            progress: uploadCapsuleProgress,
+                            uploadedCount: uploadCapsuleUploadedCount,
+                            totalCount: uploadCapsuleMediaItems.count,
+                            mediaItems: uploadCapsuleMediaItems,
+                            isExpanded: isUploadCapsuleExpanded,
+                            onToggleExpanded: {
+                                withAnimation(Motion.adaptive(.spring(response: 0.32, dampingFraction: 0.82))) {
+                                    isUploadCapsuleExpanded.toggle()
+                                }
+                            },
+                            onRetry: retryUploadCapsuleAction,
+                            onCancel: nil
                         )
-                        .padding(.bottom, 100)
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 102)
                     }
                     .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .animation(.easeOut(duration: 0.2), value: isUploadingImages)
+                    .animation(.easeOut(duration: 0.2), value: uploadCapsuleState)
                 }
 
                 // Success notification
-                if showingSuccessNotice {
+                if showingSuccessNotice && uploadCapsuleState == nil {
                     VStack {
                         Spacer()
                         PostedPill()
@@ -627,6 +1041,7 @@ struct CreatePostView: View {
                 }
             }
         }
+        .accessibilityIdentifier("create_post_view")
     }
     
     // MARK: - Navigation Stack Content with Toolbar
@@ -647,8 +1062,9 @@ struct CreatePostView: View {
                 isTextFieldFocused = false
                 let hasContent = !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                     || !selectedImageData.isEmpty
-                    || cameraImage != nil
+                    || cameraCoordinator.attachedWitnessMedia != nil
                     || showingPoll
+                    || isThreadMode
                 if hasContent {
                     showCancelConfirmation = true
                 } else {
@@ -663,14 +1079,20 @@ struct CreatePostView: View {
                 }
                 .foregroundStyle(.primary)
             }
+            .accessibilityHint("Double tap to go back and discard or save as draft")
             .confirmationDialog("", isPresented: $showCancelConfirmation, titleVisibility: .hidden) {
                 Button("Save Draft") {
                     shouldPersistDraftOnExit = false
+                    autoSaveDraft()
                     saveDraft()
                     dismiss()
                 }
                 Button("Discard Post", role: .destructive) {
                     shouldPersistDraftOnExit = false
+                    draftVM.clearDraft()
+                    recoveredDraft = nil
+                    cameraCoordinator.removeAttachedMedia()
+                    cleanupPendingUploadArtifacts()
                     dismiss()
                 }
                 Button("Cancel", role: .cancel) { }
@@ -691,6 +1113,8 @@ struct CreatePostView: View {
                     .font(.systemScaled(16, weight: .regular))
                     .foregroundStyle(.primary)
             }
+            .accessibilityLabel("Saved drafts")
+            .accessibilityHint("Double tap to view and restore previously saved post drafts")
         }
 
         // Liquid Glass Post Button
@@ -720,10 +1144,10 @@ struct CreatePostView: View {
                 background: .balanced,
                 placement: .overlay
             ))
-            .disabled(!canPost)
+            .disabled(!canPost || publishState != .idle)
         }
     }
-    
+
     // MARK: - Photo Picker Modifiers
     private func applyPhotoPickerModifiers<Content: View>(_ content: Content) -> some View {
         content
@@ -747,6 +1171,21 @@ struct CreatePostView: View {
                                 continue
                             }
                             selectedImageData.append(data)
+                        }
+                    }
+
+                    mediaMetadataDraft.syncForImages(count: selectedImageData.count)
+                    selectedMediaIndex = 0
+
+                    // Trigger education modal on first multi-image selection
+                    if AMENFeatureFlags.shared.perMediaCaptionsEnabled,
+                       AMENFeatureFlags.shared.perMediaCaptionEducationEnabled,
+                       !hasCheckedPerMediaCaptionEducation,
+                       let uid = Auth.auth().currentUser?.uid {
+                        hasCheckedPerMediaCaptionEducation = true
+                        let seen = await MediaCaptionEducationService.shared.hasSeenEducation(uid: uid)
+                        if !seen {
+                            await MainActor.run { showPerMediaCaptionEducation = true }
                         }
                     }
 
@@ -780,13 +1219,64 @@ struct CreatePostView: View {
                     scheduledDate: $scheduledDate,
                     postText: postText,
                     hasImages: !selectedImageData.isEmpty,
-                    hasVideo: false
+                    hasVideo: cameraCoordinator.attachedWitnessMedia?.isVideo == true
                 )
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
             }
             .sheet(isPresented: $showDraftsSheet) {
                 DraftsView()
+            }
+            .sheet(isPresented: $showMediaMetadataAuthoring) {
+                MediaMetadataAuthoringSheet(
+                    draft: $mediaMetadataDraft,
+                    photoPreviewImages: selectedImageData.compactMap(UIImage.init(data:)),
+                    witnessAttachment: cameraCoordinator.attachedWitnessMedia
+                ) {
+                    showMediaMetadataAuthoring = false
+                }
+            }
+            .sheet(isPresented: $showAmenAudioComposer) {
+                AmenAudioComposerSheet(
+                    draft: mediaMetadataDraft.audioAttachment,
+                    onCancel: { showAmenAudioComposer = false },
+                    onApply: { updated in
+                        mediaMetadataDraft.audioAttachment = updated
+                        showAmenAudioComposer = false
+                    }
+                )
+            }
+            .sheet(item: $activePerMediaCaptionEditor) { route in
+                if route.index < mediaMetadataDraft.frameCaptions.count {
+                    PerMediaCaptionMetadataSheet(
+                        route: route,
+                        draft: $mediaMetadataDraft.frameCaptions[route.index],
+                        onGenerateAltText: {
+                            Task { await generateAltTextForMediaCaption(index: route.index) }
+                        },
+                        isGeneratingAltText: perMediaCaptionGeneratingAltIndex == route.index,
+                        onSave: {
+                            activePerMediaCaptionEditor = nil
+                            Task { await moderateMediaCaptionIfNeeded(index: route.index, force: true) }
+                        },
+                        onCancel: {
+                            activePerMediaCaptionEditor = nil
+                        }
+                    )
+                }
+            }
+            .sheet(isPresented: $showingMediaAttachmentPicker) {
+                AmenMediaAttachmentPickerView(
+                    currentState: smartAttachmentState,
+                    onAttach: { attachment in
+                        withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.8))) {
+                            smartAttachment = attachment
+                            smartAttachmentState = .resolved(attachment)
+                        }
+                        showingMediaAttachmentPicker = false
+                    },
+                    onDismiss: { showingMediaAttachmentPicker = false }
+                )
             }
             .sheet(isPresented: $showCommentControls) {
                 PostCommentControlsSheet(selectedPermission: $commentPermission)
@@ -795,9 +1285,56 @@ struct CreatePostView: View {
                         allowComments = (newValue != .nobody)
                     }
             }
+            .sheet(isPresented: $showingTagPeopleSheet) {
+                TagPeopleSheet(taggedUsers: $taggedUsers)
+                    .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
+            }
             .sheet(isPresented: $showingAudienceSheet) {
                 PostAudienceSheet(selectedVisibility: $postVisibility)
                     .presentationDetents([.medium])
+            }
+            .sheet(isPresented: $showGuideMyFeedSheet) {
+                GuideMyFeedSheet(
+                    draft: $feedDirectionDraft,
+                    onApply: { draft in
+                        Task {
+                            let context = ComposerFeedDirectionContext(
+                                source: "composer",
+                                timezone: TimeZone.current.identifier,
+                                localHour: Calendar.current.component(.hour, from: Date()),
+                                isSunday: Calendar.current.component(.weekday, from: Date()) == 1,
+                                reduceMotionEnabled: UIAccessibility.isReduceMotionEnabled,
+                                reduceTransparencyEnabled: UIAccessibility.isReduceTransparencyEnabled
+                            )
+                            let request = SubmitFeedDirectionRequest(
+                                rawText: draft.rawText,
+                                composerContext: context,
+                                duration: draft.duration,
+                                intensity: draft.intensity,
+                                visibility: draft.visibility,
+                                affectedSurfaces: draft.affectedSurfaces,
+                                clientDetectionConfidence: feedDirectionDetection.confidence
+                            )
+                            FeedDirectionAnalytics.submitted(
+                                intentType: draft.intentType.rawValue,
+                                duration: draft.duration.rawValue,
+                                intensity: draft.intensity.rawValue,
+                                surfaces: draft.affectedSurfaces.map(\.rawValue)
+                            )
+                            do {
+                                let response = try await AmenFeedDirectionService.shared.submitFeedDirection(request)
+                                feedDirectionResponse = response
+                                showFeedDirectionToast = true
+                                feedDirectionDetection = .empty
+                                FeedDirectionAnalytics.applySuccess(signalId: response.signalId, intentType: response.intentType.rawValue)
+                            } catch {
+                                FeedDirectionAnalytics.applyFailed(reason: error.localizedDescription)
+                            }
+                        }
+                    },
+                    onCancel: { feedDirectionDetection = .empty }
+                )
             }
 
             .sheet(isPresented: $showingChurchTagSheet) {
@@ -878,6 +1415,13 @@ struct CreatePostView: View {
             .sheet(isPresented: $showAltTextSheet) {
                 altTextSheetContent
             }
+            // Phase P1-4: server-authoritative ThinkFirst override. Has no
+            // "proceed anyway" affordance — the user must revise or retry.
+            .alert("Safety check", isPresented: $showServerThinkFirstAlert) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(serverThinkFirstAlertMessage)
+            }
             .onReceive(NotificationCenter.default.publisher(for: Notification.Name("aiContentDetected"))) { notification in
                 if let userInfo = notification.userInfo,
                    let confidence = userInfo["confidence"] as? Double,
@@ -892,7 +1436,8 @@ struct CreatePostView: View {
     // MARK: - Final Modifiers (Camera, Alerts, Lifecycle)
     private func applyFinalModifiers<Content: View>(_ content: Content) -> some View {
         content
-        .interactiveDismissDisabled(!postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !selectedImageData.isEmpty || !linkURL.isEmpty || cameraImage != nil || showingPoll)
+        .interactiveDismissDisabled(!postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !selectedImageData.isEmpty || !linkURL.isEmpty || cameraCoordinator.attachedWitnessMedia != nil || showingPoll || isThreadMode)
+        .perMediaCaptionEducation(isPresented: $showPerMediaCaptionEducation) {}
         // Verse drawer — top-level so it doesn't conflict with other sheets
         .verseDrawer(isPresented: $showingVersePickerSheet) { verse in
             attachedVerseReference = verse.reference
@@ -931,10 +1476,20 @@ struct CreatePostView: View {
                 .presentationCornerRadius(28)
             }
         }
-        // Camera sheet — native UIImagePickerController for instant capture
-        .sheet(isPresented: $showingCamera) {
-            CameraImagePicker(image: $cameraImage)
+        .fullScreenCover(isPresented: $cameraCoordinator.isPresentingCamera) {
+            WitnessCameraView(coordinator: cameraCoordinator)
                 .ignoresSafeArea()
+        }
+        .onChange(of: cameraCoordinator.shouldRestoreFocusAfterDismiss) { _, shouldRestore in
+            guard shouldRestore else { return }
+            isTextFieldFocused = true
+            cameraCoordinator.clearRestoreRequest()
+        }
+        .onChange(of: selectedImageData.count) { _, _ in
+            syncMediaMetadataDraftFromCurrentAttachments()
+        }
+        .onChange(of: cameraCoordinator.attachedWitnessMedia?.id) { _, _ in
+            syncMediaMetadataDraftFromCurrentAttachments()
         }
         .sheet(isPresented: $showSupportDraftSheet) {
             if let payload = supportDraftPayload,
@@ -955,13 +1510,15 @@ struct CreatePostView: View {
                     retry()
                 }
                 Button("Cancel", role: .cancel) {
-                    isPublishing = false
+                    activePublishTask?.cancel()
+                    activePublishTask = nil
+                    stopPublishAttempt()
                     isRetryableError = false
                     retryAction = nil
                 }
             } else {
                 Button("OK", role: .cancel) {
-                    isPublishing = false
+                    stopPublishAttempt()
                 }
             }
         } message: {
@@ -969,7 +1526,9 @@ struct CreatePostView: View {
         }
         .alert("Share Your Own Voice", isPresented: $showAIContentAlert) {
             Button("Edit Post", role: .cancel) {
-                isPublishing = false
+                activePublishTask?.cancel()
+                activePublishTask = nil
+                stopPublishAttempt()
                 // User can edit their post
             }
         } message: {
@@ -985,9 +1544,28 @@ struct CreatePostView: View {
                     },
                     onCancel: {
                         showGuidelinesGate = false
+                        activePublishTask?.cancel()
+                        activePublishTask = nil
+                        stopPublishAttempt()
                     }
                 )
                 .transition(.opacity)
+            }
+        }
+        .overlay(alignment: .top) {
+            if showFeedDirectionToast, let response = feedDirectionResponse {
+                GuideMyFeedConfirmationToast(
+                    response: response,
+                    onUndo: {
+                        showFeedDirectionToast = false
+                        if let response = feedDirectionResponse {
+                            FeedDirectionAnalytics.undoTapped(signalId: response.signalId)
+                        }
+                        Task { try? await AmenFeedDirectionService.shared.resetFeedPreference(scope: .temporary) }
+                    },
+                    onDismiss: { showFeedDirectionToast = false }
+                )
+                .padding(.top, 60)
             }
         }
         .task {
@@ -1000,12 +1578,21 @@ struct CreatePostView: View {
         .onAppear {
             isTextFieldFocused = true
             updateHashtagSuggestions()
+            if isUITestAttachMockMedia, selectedImageData.isEmpty {
+                injectUITestMockMedia()
+            }
 
             // Check for auto-saved draft recovery
             checkForDraftRecovery()
 
             // Start auto-save timer (every 30 seconds)
             startAutoSaveTimer()
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .background {
+                // App is backgrounding — flush draft immediately so data survives a crash/kill.
+                autoSaveDraft()
+            }
         }
         .onDisappear {
             persistDraftIfNeeded()
@@ -1023,6 +1610,20 @@ struct CreatePostView: View {
             
             // Cancel pending link preview
             linkController.reset()
+            
+            // Cancel in-flight image upload if the user dismisses mid-upload.
+            // Task.isCancelled is already checked in the upload loop, so the
+            // Storage write stops cleanly. The 48h orphanedMediaCleanup CF
+            // handles any partial uploads that slipped through.
+            if isUploadingImages {
+                activePublishTask?.cancel()
+                activePublishTask = nil
+                stopPublishAttempt(markDraftFailed: true)
+            }
+
+            if !pendingUploadCleanupPaths.isEmpty {
+                cleanupPendingUploadArtifacts()
+            }
             
             // P0-2 FIX: Cancel all delayed tasks to prevent crash on rapid navigation
             delayedTasks.forEach { $0.cancel() }
@@ -1042,6 +1643,14 @@ struct CreatePostView: View {
             Text("You have an unsaved draft from earlier. Would you like to continue editing it?")
         }
     }
+
+    private func injectUITestMockMedia() {
+        // 1x1 transparent PNG for deterministic UI-test media attachment.
+        let tinyPNGBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/w8AAgMBgN6byd4AAAAASUVORK5CYII="
+        guard let data = Data(base64Encoded: tinyPNGBase64) else { return }
+        selectedImageData = [data]
+        mediaMetadataDraft.syncForImages(count: selectedImageData.count)
+    }
     
     // MARK: - Navigation Stack View
     private var navigationStackView: some View {
@@ -1057,8 +1666,9 @@ struct CreatePostView: View {
         let trimmedText = postText.trimmingCharacters(in: .whitespacesAndNewlines)
         return !trimmedText.isEmpty
             || !selectedImageData.isEmpty
-            || cameraImage != nil
+            || cameraCoordinator.attachedWitnessMedia != nil
             || showingPoll
+            || isThreadMode
             || !linkURL.isEmpty
             || !attachedVerseReference.isEmpty
     }
@@ -1068,16 +1678,12 @@ struct CreatePostView: View {
         let isWithinLimit = postText.count <= 500
         guard isWithinLimit else { return false }
 
-        let hasCameraPhoto = cameraImage != nil
+        let hasWitnessMedia = cameraCoordinator.attachedWitnessMedia != nil
         let hasValidPoll = showingPoll && pollHasValidOptions
 
-        // Any of: text, camera photo, or valid poll qualifies as content
-        let hasContent = hasText || hasCameraPhoto || hasValidPoll
+        // Any of: text, witness capture, or valid poll qualifies as content
+        let hasContent = hasText || hasWitnessMedia || hasValidPoll || !selectedImageData.isEmpty
 
-        // Prayer requires a topic tag
-        if selectedCategory == .prayer {
-            return hasContent && !selectedTopicTag.isEmpty
-        }
         return hasContent
     }
 
@@ -1177,7 +1783,7 @@ struct CreatePostView: View {
         case .addCalendarDate:
             showingScheduleSheet = true
         case .switchToThread:
-            break // Future: thread mode toggle
+            beginThreadMode()
         case .tagPeople:
             showingTagPeopleSheet = true
         case .adjustAudience:
@@ -1187,6 +1793,28 @@ struct CreatePostView: View {
         case .addPoll:
             withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                 showingPoll = true
+            }
+        case .markAsTestimony:
+            selectedCategory = .testimonies
+        case .markAsPrayer:
+            selectedCategory = .prayer
+        case .markAsChurchNote:
+            selectedPostIntent = .teaching
+        }
+    }
+
+    private func beginThreadMode() {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
+            if isThreadMode {
+                if threadPosts.last?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false,
+                   threadPosts.count < 10 {
+                    threadPosts.append("")
+                    currentThreadIndex = threadPosts.count - 1
+                }
+            } else {
+                isThreadMode = true
+                threadPosts = [postText, ""]
+                currentThreadIndex = 1
             }
         }
     }
@@ -1236,6 +1864,8 @@ struct CreatePostView: View {
                 TextField("Reason (optional — grief, trauma, etc.)", text: $sensitiveContentReason)
                     .font(AMENFont.regular(13))
                     .foregroundStyle(Color.primary)
+                    .accessibilityLabel("Sensitive content reason")
+                    .accessibilityHint("Optionally describe why this content is sensitive")
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 9)
@@ -1300,6 +1930,8 @@ struct CreatePostView: View {
                                 .padding(12)
                                 .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
                                 .lineLimit(3...6)
+                                .accessibilityLabel("Image \(index + 1) description")
+                                .accessibilityHint("Describe this image for people using screen readers")
                             }
                             .padding(.horizontal, 20)
                         }
@@ -1359,8 +1991,9 @@ struct CreatePostView: View {
                 onProceed: {
                     showThinkFirstPrompt = false
                     thinkFirstCheckResult = nil
-                    // User chose to proceed anyway
-                    proceedWithPublish()
+                    let content = pendingPostContent.isEmpty ? sanitizeContent(postText) : pendingPostContent
+                    let hasMedia = !selectedImageData.isEmpty || cameraCoordinator.attachedWitnessMedia != nil
+                    Task { await runAlignmentGuardThenProceed(content: content, hasMedia: hasMedia) }
                 }
             )
             .presentationDetents([.medium, .large])
@@ -1403,22 +2036,73 @@ struct CreatePostView: View {
                 }
                 textEditorView
 
-                // Camera photo preview (instant capture)
-                if let capturedImage = cameraImage {
-                    CameraAttachmentPreview(image: capturedImage) {
+                // Witness camera preview
+                if let attachment = cameraCoordinator.attachedWitnessMedia {
+                    WitnessDraftAttachmentPreview(attachment: attachment) {
                         withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
-                            cameraImage = nil
+                            cameraCoordinator.removeAttachedMedia()
                         }
                     }
                     .padding(.horizontal, 20)
                     .transition(.scale(scale: 0.92).combined(with: .opacity))
-                    .animation(.spring(response: 0.35, dampingFraction: 0.8), value: cameraImage != nil)
+                    .animation(.spring(response: 0.35, dampingFraction: 0.8), value: cameraCoordinator.attachedWitnessMedia != nil)
                 }
 
                 // Library photo grid
                 if !selectedImageData.isEmpty {
-                    ImagePreviewGrid(images: $selectedImageData, onAddMore: { showingImagePicker = true })
-                        .padding(.horizontal, 20)
+                    ImagePreviewGrid(
+                        images: $selectedImageData,
+                        onAddMore: { showingImagePicker = true },
+                        selectedIndex: AMENFeatureFlags.shared.perMediaCaptionsEnabled
+                            ? $selectedMediaIndex
+                            : nil
+                    )
+                    .padding(.horizontal, 20)
+                }
+
+                // Per-media caption composer — one caption per swipe
+                if AMENFeatureFlags.shared.perMediaCaptionsEnabled,
+                   !selectedImageData.isEmpty,
+                   selectedMediaIndex < mediaMetadataDraft.frameCaptions.count {
+                    PerMediaCaptionComposer(
+                        draft: $mediaMetadataDraft.frameCaptions[selectedMediaIndex],
+                        index: selectedMediaIndex,
+                        totalCount: selectedImageData.count,
+                        mediaType: .image,
+                        altTextEnabled: AMENFeatureFlags.shared.perMediaCaptionAltTextEnabled,
+                        scriptureEnabled: AMENFeatureFlags.shared.perMediaCaptionScriptureRefsEnabled,
+                        isModerating: perMediaCaptionModeratingIndex == selectedMediaIndex,
+                        isGeneratingAltText: perMediaCaptionGeneratingAltIndex == selectedMediaIndex,
+                        statusMessage: perMediaCaptionStatusMessages[selectedMediaIndex],
+                        errorMessage: perMediaCaptionErrorMessages[selectedMediaIndex],
+                        onCaptionFocusChanged: { focused in
+                            guard !focused else { return }
+                            Task { await moderateMediaCaptionIfNeeded(index: selectedMediaIndex) }
+                        },
+                        onClearCaption: {
+                            perMediaCaptionStatusMessages[selectedMediaIndex] = nil
+                            perMediaCaptionErrorMessages[selectedMediaIndex] = nil
+                            AMENAnalyticsService.shared.track(.mediaCaptionRemoved(mediaIndex: selectedMediaIndex, mediaType: "image"))
+                        },
+                        onScriptureTapped: {
+                            activePerMediaCaptionEditor = PerMediaCaptionEditorRoute(index: selectedMediaIndex, kind: .scripture)
+                        },
+                        onReflectionTapped: {
+                            activePerMediaCaptionEditor = PerMediaCaptionEditorRoute(index: selectedMediaIndex, kind: .reflection)
+                        },
+                        onAltTextTapped: {
+                            activePerMediaCaptionEditor = PerMediaCaptionEditorRoute(index: selectedMediaIndex, kind: .altText)
+                        },
+                        onGenerateAltText: {
+                            Task { await generateAltTextForMediaCaption(index: selectedMediaIndex) }
+                        }
+                    )
+                    .padding(.horizontal, 20)
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+                    .id("caption-\(selectedMediaIndex)")
+                    .onAppear {
+                        AMENAnalyticsService.shared.track(.mediaCaptionComposerShown(mediaCount: selectedImageData.count))
+                    }
                 }
 
                 // Poll composer card
@@ -1442,6 +2126,8 @@ struct CreatePostView: View {
                 ComposerLinkPreview(controller: linkController)
                     .padding(.horizontal, 20)
                     .animation(.spring(response: 0.35, dampingFraction: 0.8), value: linkController.activeURL)
+                smartAttachmentComposerPreview
+                    .padding(.horizontal, 20)
 
                 // Rich link card — shown when user manually adds a link URL via the sheet
                 if !linkURL.isEmpty && linkController.activeURL == nil {
@@ -1469,10 +2155,80 @@ struct CreatePostView: View {
     
     // MARK: - Threads-Style Compose Components
 
+    @ViewBuilder
+    private var smartAttachmentComposerPreview: some View {
+        if featureFlags.smartAttachmentsEnabled {
+            switch smartAttachmentState {
+            case .detecting, .resolving:
+                AmenSmartAttachmentSkeletonCard()
+            case .resolved(let attachment):
+                VStack(alignment: .leading, spacing: 10) {
+                    AmenUniversalLinkCard(
+                        attachment: attachment,
+                        mode: .composerPreview,
+                        onTap: nil
+                    )
+                    if attachment.type == .song {
+                        Toggle("Use this song as post soundtrack", isOn: $useSmartAttachmentAsSoundtrack)
+                            .font(.systemScaled(13, weight: .medium))
+                    }
+                    if !mentionedLinkURLs.isEmpty {
+                        Text("Mentioned Links (\(mentionedLinkURLs.count))")
+                            .font(.systemScaled(12, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                    Button("Remove attached media", role: .destructive) {
+                        smartAttachment = nil
+                        mentionedLinkURLs = []
+                        smartAttachmentState = .empty
+                        useSmartAttachmentAsSoundtrack = false
+                        AMENAnalyticsService.shared.track(.musicAttachmentRemoved(provider: attachment.provider.rawValue))
+                    }
+                    .font(.systemScaled(12, weight: .semibold))
+                }
+            default:
+                EmptyView()
+            }
+        } else {
+            EmptyView()
+        }
+    }
+
+    private func resolveSmartAttachmentIfNeeded(for text: String) {
+        guard featureFlags.smartAttachmentComposerPasteEnabled else { return }
+        smartAttachmentResolutionTask?.cancel()
+        smartAttachmentResolutionTask = Task { @MainActor in
+            let urls = smartAttachmentResolver.extractSupportedURLs(from: text)
+            guard let url = urls.first else {
+                if case .resolved = smartAttachmentState { return }
+                smartAttachment = nil
+                mentionedLinkURLs = []
+                smartAttachmentState = .empty
+                return
+            }
+            if smartAttachment?.canonicalUrl == url.absoluteString { return }
+            mentionedLinkURLs = Array(urls.dropFirst())
+            smartAttachmentState = .resolving
+            do {
+                let resolved = try await smartAttachmentResolver.resolve(url: url, source: "composerPaste")
+                if resolved.safetyStatus == .blocked {
+                    smartAttachment = nil
+                    smartAttachmentState = .blocked("blocked")
+                    return
+                }
+                smartAttachment = resolved
+                smartAttachmentState = .resolved(resolved)
+                AMENAnalyticsService.shared.track(.musicAttachmentResolved(provider: resolved.provider.rawValue, entityType: resolved.type.rawValue))
+            } catch {
+                smartAttachmentState = .failed(.resolveFailed)
+            }
+        }
+    }
+
     private var canPublish: Bool {
         !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         || !selectedImageData.isEmpty
-        || cameraImage != nil
+        || cameraCoordinator.attachedWitnessMedia != nil
     }
 
     /// User row: avatar + name + category picker (Threads-style)
@@ -1549,6 +2305,8 @@ struct CreatePostView: View {
                     }
                 }
             }
+            .accessibilityLabel("Post category: \(selectedCategory.displayName)")
+            .accessibilityHint("Double tap to choose a category for your post")
 
             Spacer()
         }
@@ -1563,33 +2321,73 @@ struct CreatePostView: View {
     @ViewBuilder
     private var threadsAttachmentBar: some View {
         let recommended = recommendedAttachmentIcon
+        let canOpenCamera = !showingPoll
+        let canCreatePoll = cameraCoordinator.attachedWitnessMedia == nil
         HStack(spacing: 20) {
-            attachmentBarIcon("photo", recommended: recommended) { showingImagePicker = true }
-            attachmentBarIcon("camera", recommended: recommended) { showingCamera = true }
-            attachmentBarIcon("chart.bar.xaxis", recommended: recommended) {
+            attachmentBarIcon("photo", recommended: recommended, accessibilityLabel: "Add photos") {
+                showingImagePicker = true
+            }
+            attachmentBarIcon(
+                "camera",
+                recommended: recommended,
+                accessibilityLabel: "Take photo",
+                isEnabled: canOpenCamera,
+                disabledHint: "Remove the poll before taking a photo."
+            ) {
+                guard canOpenCamera else { return }
+                cameraCoordinator.openCamera(restoreComposerFocus: isTextFieldFocused)
+            }
+            attachmentBarIcon(
+                "chart.bar.xaxis",
+                recommended: recommended,
+                accessibilityLabel: showingPoll ? "Remove poll" : "Create poll",
+                isEnabled: canCreatePoll,
+                disabledHint: "Remove the camera attachment before creating a poll."
+            ) {
+                guard canCreatePoll else { return }
                 withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                     showingPoll.toggle()
+                    if !showingPoll {
+                        pollOptions = ["", ""]
+                        pollDuration = .oneDay
+                    }
                 }
             }
-            attachmentBarIcon("text.book.closed", recommended: recommended) { showingVersePickerSheet = true }
-            attachmentBarIcon("link", recommended: recommended) { showingLinkSheet = true }
-            attachmentBarIcon("calendar", recommended: recommended) { showingScheduleSheet = true }
+            attachmentBarIcon("text.book.closed", recommended: recommended, accessibilityLabel: "Attach scripture") {
+                showingVersePickerSheet = true
+            }
+            attachmentBarIcon("link", recommended: recommended, accessibilityLabel: "Add link") {
+                showingLinkSheet = true
+            }
+            attachmentBarIcon("calendar", recommended: recommended, accessibilityLabel: "Schedule post") {
+                showingScheduleSheet = true
+            }
 
             Spacer()
         }
     }
 
     @ViewBuilder
-    private func attachmentBarIcon(_ icon: String, recommended: String?, action: @escaping () -> Void) -> some View {
+    private func attachmentBarIcon(
+        _ icon: String,
+        recommended: String?,
+        accessibilityLabel: String,
+        isEnabled: Bool = true,
+        disabledHint: String? = nil,
+        action: @escaping () -> Void
+    ) -> some View {
         let isHighlighted = (icon == recommended)
         Button(action: action) {
             Image(systemName: icon)
                 .font(.systemScaled(18, weight: .light))
-                .foregroundStyle(isHighlighted ? Color.primary.opacity(0.85) : .secondary.opacity(0.55))
+                .foregroundStyle(isHighlighted && isEnabled ? Color.primary.opacity(0.85) : .secondary.opacity(isEnabled ? 0.55 : 0.28))
                 .scaleEffect(isHighlighted ? 1.08 : 1.0)
                 .animation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75)), value: isHighlighted)
         }
         .buttonStyle(.plain)
+        .disabled(!isEnabled)
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityHint(disabledHint ?? "")
     }
 
     /// Bottom bar: reply options + action icons + character count + context panels
@@ -1615,6 +2413,8 @@ struct CreatePostView: View {
                     .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Attach a Bible verse")
+                .accessibilityHint("Double tap to search and attach a scripture reference to your post")
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 14)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -1640,6 +2440,8 @@ struct CreatePostView: View {
                     }
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(allAlt ? "Alt text added for all images" : "Add alt text for images")
+                .accessibilityHint("Double tap to add descriptions for your images so screen reader users can understand them")
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 14)
                 .transition(.opacity)
@@ -1670,7 +2472,9 @@ struct CreatePostView: View {
                         .foregroundStyle(Color.primary.opacity(0.75))
                 }
                 .buttonStyle(.plain)
-                
+                .accessibilityLabel("Reply permission: \(commentPermission == .everyone ? "anyone" : commentPermission.rawValue)")
+                .accessibilityHint("Double tap to change who can reply to this post")
+
                 // Audience/Visibility selector
                 Button {
                     showingAudienceSheet = true
@@ -1684,6 +2488,8 @@ struct CreatePostView: View {
                     .foregroundStyle(Color.primary.opacity(0.75))
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Post visibility: \(postVisibility.displayName)")
+                .accessibilityHint("Double tap to change who can see this post")
 
                 Spacer()
 
@@ -1765,305 +2571,6 @@ struct CreatePostView: View {
         .animation(.easeOut(duration: 0.2), value: insightEngine.result.readinessState)
     }
 
-    private var bottomToolbar: some View {
-        VStack(spacing: 0) {
-            // Character count indicator above toolbar (only when approaching limit)
-            if postText.count > 400 {
-                HStack(spacing: 3) {
-                    Image(systemName: characterCountIcon)
-                        .font(.systemScaled(9, weight: .semibold))
-                    Text("\(postText.count)/500")
-                        .font(AMENFont.semiBold(10))
-                }
-                .foregroundStyle(characterCountColor)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(
-                    Capsule()
-                        .fill(Color(.systemBackground))
-                        .shadow(color: characterCountColor.opacity(0.2), radius: 4, y: 1)
-                )
-                .padding(.bottom, 6)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-                .animation(.easeOut(duration: 0.15), value: postText.count > 400)
-            }
-
-            // Collapsible toolbar pill: X | [scrollable tools] | POST
-            // X and POST are always pinned at the ends; the middle section
-            // scrolls horizontally so it never overflows the capsule bounds.
-            HStack(spacing: 0) {
-
-                // X (close) — always visible, left anchor
-                CompactGlassButton(icon: "xmark", isActive: false) {
-                    isTextFieldFocused = false
-                    if hasDraftableContent {
-                        shouldPersistDraftOnExit = false
-                        saveDraft()
-                    } else {
-                        shouldPersistDraftOnExit = false
-                    }
-                    dismiss()
-                }
-                .accessibilityLabel("Close")
-                .padding(.leading, 4)
-
-                // ── Scrollable middle: expand toggle + tools ─────────────
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 6) {
-
-                        // Expand / Collapse toggle — leftmost in the scroll area
-                        Button {
-                            withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.75, blendDuration: 0.2))) {
-                                isToolbarExpanded.toggle()
-                            }
-                            let haptic = UIImpactFeedbackGenerator(style: .light)
-                            haptic.prepare()
-                            haptic.impactOccurred(intensity: 0.7)
-                        } label: {
-                            Image(systemName: isToolbarExpanded ? "chevron.left" : "ellipsis")
-                                .font(.systemScaled(14, weight: .semibold))
-                                .foregroundStyle(Color.primary.opacity(0.6))
-                                .frame(width: 32, height: 32)
-                                .scaleEffect(isToolbarExpanded ? 0.95 : 1.0)
-                                .contentTransition(.symbolEffect(.replace.magic(fallback: .replace)))
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(isToolbarExpanded ? "Collapse toolbar" : "Expand toolbar")
-
-                        // ── Tools (only when expanded) ────────────────────
-                        if isToolbarExpanded {
-
-                            Rectangle()
-                                .fill(Color.white.opacity(0.25))
-                                .frame(width: 0.5, height: 22)
-                                .transition(.opacity)
-
-                            // Photo library
-                            CompactGlassButton(
-                                icon: "photo.fill",
-                                isActive: !selectedImageData.isEmpty,
-                                count: selectedImageData.count
-                            ) {
-                                showingImagePicker = true
-                            }
-                            .accessibilityLabel("Add photos")
-                            .transition(.scale.combined(with: .opacity))
-
-                            // Camera
-                            CompactGlassButton(
-                                icon: "camera.fill",
-                                isActive: cameraImage != nil
-                            ) {
-                                guard !showingPoll else { return }
-                                showingCamera = true
-                            }
-                            .accessibilityLabel("Take photo")
-                            .opacity(showingPoll ? 0.35 : 1.0)
-                            .transition(.scale.combined(with: .opacity))
-
-                            // Poll
-                            CompactGlassButton(
-                                icon: showingPoll ? "chart.bar.fill" : "chart.bar",
-                                isActive: showingPoll
-                            ) {
-                                guard cameraImage == nil else { return }
-                                withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.8))) {
-                                    showingPoll.toggle()
-                                    if !showingPoll {
-                                        pollOptions = ["", ""]
-                                        pollDuration = .oneDay
-                                    }
-                                }
-                            }
-                            .accessibilityLabel(showingPoll ? "Remove poll" : "Create poll")
-                            .opacity(cameraImage != nil ? 0.35 : 1.0)
-                            .transition(.scale.combined(with: .opacity))
-
-                            // Link
-                            CompactGlassButton(
-                                icon: "link",
-                                isActive: !linkURL.isEmpty || linkController.activeURL != nil
-                            ) {
-                                showingLinkSheet = true
-                            }
-                            .accessibilityLabel("Add link")
-                            .transition(.scale.combined(with: .opacity))
-
-                            // Schedule — smart glass pill (shows state inline)
-                            ComposerSchedulePill(
-                                scheduledDate: scheduledDate,
-                                onTap: { showingScheduleSheet = true },
-                                onClear: {
-                                    withAnimation(Motion.adaptive(.spring(response: 0.30, dampingFraction: 0.78))) {
-                                        scheduledDate = nil
-                                    }
-                                    HapticManager.impact(style: .light)
-                                }
-                            )
-                            .transition(.scale.combined(with: .opacity))
-
-                            // Community (comment controls)
-                            CompactGlassButton(
-                                icon: allowComments ? "bubble.left.and.bubble.right.fill" : "bubble.left.and.bubble.right",
-                                isActive: allowComments
-                            ) {
-                                showCommentControls = true
-                            }
-                            .accessibilityLabel("Comment controls")
-                            .transition(.scale.combined(with: .opacity))
-
-                            // Tag people
-                            CompactGlassButton(
-                                icon: "person.badge.plus",
-                                isActive: !taggedUsers.isEmpty,
-                                count: taggedUsers.count
-                            ) {
-                                showingTagPeopleSheet = true
-                            }
-                            .accessibilityLabel("Tag people")
-                            .transition(.scale.combined(with: .opacity))
-
-                            // Content warning
-                            CompactGlassButton(
-                                icon: hasSensitiveContent ? "exclamationmark.triangle.fill" : "exclamationmark.triangle",
-                                isActive: hasSensitiveContent
-                            ) {
-                                withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.82))) {
-                                    hasSensitiveContent.toggle()
-                                }
-                                HapticManager.impact(style: .light)
-                            }
-                            .accessibilityLabel(hasSensitiveContent ? "Remove content warning" : "Mark as sensitive content")
-                            .transition(.scale.combined(with: .opacity))
-
-                            // Draft (only when text exists)
-                            if !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                                CompactGlassButton(icon: "square.and.arrow.down", isActive: false) {
-                                    isTextFieldFocused = false
-                                    saveDraft()
-                                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
-                                        showingDraftSavedNotice = true
-                                    }
-                                    scheduleDelayedAction(seconds: 1.5) {
-                                        withAnimation { showingDraftSavedNotice = false }
-                                    }
-                                }
-                                .accessibilityLabel("Save draft")
-                                .transition(.scale.combined(with: .opacity))
-                            }
-
-                            // Berean AI tone checker — only when text exists
-                            if !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                                BereanToneButton(isLoading: isLoadingBereanTone) {
-                                    requestBereanToneAssist()
-                                }
-                                .accessibilityLabel("Check tone with Berean AI")
-                                .transition(.scale.combined(with: .opacity))
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 6)
-                    .animation(.spring(response: 0.35, dampingFraction: 0.75, blendDuration: 0.2), value: isToolbarExpanded)
-                    .animation(.easeOut(duration: 0.15), value: postText.isEmpty)
-                }
-                // Clip so tools don't visually bleed past the POST button
-                .clipped()
-
-                // ── POST button — always visible, right anchor ───────────
-                Button(action: {
-                    guard canPost && !isPublishing else { return }
-                    isTextFieldFocused = false
-                    publishPost()
-                }) {
-                    ZStack {
-                        Circle()
-                            .fill(.ultraThinMaterial)
-                            .overlay(Circle().fill(Color.white.opacity(canPost ? 0.80 : 0.40)))
-                            .overlay(Circle().strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5))
-                            .frame(width: 38, height: 38)
-                            .shadow(color: Color.black.opacity(canPost ? 0.10 : 0.04), radius: 6, x: 0, y: 2)
-
-                        if isPublishing {
-                            ProgressView()
-                                .tint(Color(red: 0.92, green: 0.15, blue: 0.26))
-                                .scaleEffect(0.80)
-                        } else if scheduledDate != nil {
-                            Image(systemName: "calendar.badge.clock")
-                                .font(.systemScaled(14, weight: .bold))
-                                .foregroundStyle(canPost
-                                    ? Color(red: 0.92, green: 0.15, blue: 0.26)
-                                    : Color(red: 0.92, green: 0.15, blue: 0.26).opacity(0.30))
-                        } else {
-                            UpwardArrowIcon(
-                                size: 18,
-                                color: canPost
-                                    ? Color(red: 0.92, green: 0.15, blue: 0.26)
-                                    : Color(red: 0.92, green: 0.15, blue: 0.26).opacity(0.30)
-                            )
-                        }
-                    }
-                }
-                .disabled(!canPost || isPublishing || isUploadingImages)
-                .accessibilityLabel(scheduledDate != nil ? "Schedule post" : "Publish post")
-                .modifier(ShakeEffect(shakes: shakePublishButton ? 3 : 0))
-                .shadow(
-                    color: insightEngine.result.readinessState == .ready
-                        ? Color(hex: "6B48FF").opacity(0.35) : .clear,
-                    radius: 8, y: 0
-                )
-                .animation(.easeInOut(duration: 0.4), value: insightEngine.result.readinessState == .ready)
-                .padding(.trailing, 4)
-            }
-            .padding(.horizontal, 4)
-            .padding(.vertical, 8)
-            .background(
-                ZStack {
-                    Capsule()
-                        .fill(.ultraThinMaterial)
-                    Capsule()
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    Color.white.opacity(0.3),
-                                    Color.white.opacity(0.05)
-                                ],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-                    Capsule()
-                        .strokeBorder(
-                            LinearGradient(
-                                colors: [
-                                    Color.white.opacity(0.5),
-                                    Color.white.opacity(0.1)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 0.5
-                        )
-                }
-            )
-            .shadow(color: .black.opacity(0.06), radius: 12, y: 3)
-            .shadow(color: .white.opacity(0.4), radius: 6, y: -1)
-            .padding(.horizontal, 20)
-            .padding(.bottom, 6)
-        }
-        .animation(.spring(response: 0.35, dampingFraction: 0.75, blendDuration: 0.2), value: isToolbarExpanded)
-        .animation(.easeOut(duration: 0.15), value: selectedImageData.count)
-        .animation(.easeOut(duration: 0.15), value: linkURL)
-        .animation(.easeOut(duration: 0.15), value: scheduledDate)
-        .animation(.easeOut(duration: 0.15), value: allowComments)
-        .animation(.easeOut(duration: 0.15), value: taggedUsers.count)
-        .animation(.spring(response: 0.25, dampingFraction: 0.75), value: postText.isEmpty)
-        .sheet(isPresented: $showingTagPeopleSheet) {
-            TagPeopleSheet(taggedUsers: $taggedUsers)
-                .presentationDetents([.medium, .large])
-                .presentationDragIndicator(.visible)
-        }
-    }
-    
     // MARK: - View Components
     
     private var categorySelectorView: some View {
@@ -2105,13 +2612,7 @@ struct CreatePostView: View {
             
             Spacer()
             
-            if selectedTopicTag.isEmpty && selectedCategory != .testimonies {
-                Text("* Required")
-                    .font(AMENFont.regular(12))
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-            } else if selectedTopicTag.isEmpty && selectedCategory == .testimonies {
+            if selectedTopicTag.isEmpty {
                 Text("Optional")
                     .font(AMENFont.semiBold(12))
                     .foregroundStyle(.secondary)
@@ -2132,14 +2633,12 @@ struct CreatePostView: View {
                     Text(selectedCategory == .testimonies ? "Select a category (optional)" : selectedCategory == .openTable ? "Select a topic tag" : "Select prayer type")
                         .font(AMENFont.regular(15))
                         .foregroundStyle(.secondary)
-                    if selectedCategory != .testimonies {
-                        Text("Required")
-                            .font(.systemScaled(10, weight: .medium))
-                            .foregroundStyle(.secondary.opacity(0.7))
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Capsule().fill(Color.primary.opacity(0.06)))
-                    }
+                    Text("Optional")
+                        .font(.systemScaled(10, weight: .medium))
+                        .foregroundStyle(.secondary.opacity(0.7))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Capsule().fill(Color.primary.opacity(0.06)))
                 }
             } else {
                 // Show icon for prayer types
@@ -2205,6 +2704,8 @@ struct CreatePostView: View {
                 )
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Audience: \(postVisibility.displayName)")
+            .accessibilityHint("Double tap to change who can see this post")
         }
         .padding(.horizontal, 20)
         .padding(.top, 4)
@@ -2370,6 +2871,8 @@ struct CreatePostView: View {
                         .font(AMENFont.regular(17))
                         .focused($isTextFieldFocused)
                         .scrollContentBackground(.hidden)
+                        .accessibilityLabel("Post content")
+                        .accessibilityHint("Write what you want to share with the community")
                         .onChange(of: postText) { oldValue, newValue in
                             // Defer side effects so they don't trigger a re-render mid-paste,
                             // which would interrupt the paste operation on SwiftUI TextEditor.
@@ -2386,6 +2889,7 @@ struct CreatePostView: View {
                                 detectHashtags(in: snapshot)
                             }
                             linkController.handleTextChange(newValue)
+                            resolveSmartAttachmentIfNeeded(for: newValue)
                             // Smart composition insight analysis
                             insightEngine.analyzeText(
                                 newValue,
@@ -2400,6 +2904,23 @@ struct CreatePostView: View {
                             // Scripture intent detection for inline suggestions
                             verseAttachmentVM.analyzeDraftText(newValue)
                             scheduleSupportDraftAnalysis(for: newValue)
+                            spiritualComposeAnalysis = AmenSpiritualSystemsService.shared.analyzeComposer(text: newValue)
+                            safetyOSDraftTriggers = AmenLocalTriggerEngine.shared.analyze(text: newValue, surface: .post)
+                            safetyOSCanonicalTask?.cancel()
+                            safetyOSCanonicalTask = Task { @MainActor in
+                                try? await Task.sleep(nanoseconds: 450_000_000)
+                                guard !Task.isCancelled, postText == newValue else { return }
+                                safetyOSDraftTriggers = await AmenLocalTriggerEngine.shared.analyzeWithCanonicalServer(
+                                    text: newValue,
+                                    surface: .post
+                                )
+                            }
+                            contextualComposerObserver.update(text: newValue)
+                            if featureFlags.guideMyFeedEnabled {
+                                feedDirectionDetection = AmenFeedDirectionDetector.shared.detect(text: newValue)
+                            } else {
+                                feedDirectionDetection = .empty
+                            }
                         }
                     
                     // Placeholder overlay
@@ -3027,7 +3548,15 @@ struct CreatePostView: View {
             topicTag: selectedTopicTag.isEmpty ? nil : selectedTopicTag,
             linkURL: linkURL.isEmpty ? nil : linkURL,
             visibility: postVisibility.rawValue,
-            scriptureAttachment: verseAttachmentVM.attachedScripture
+            scriptureAttachment: verseAttachmentVM.attachedScripture,
+            witnessAttachment: cameraCoordinator.attachedWitnessMedia,
+            showingPoll: showingPoll,
+            pollQuestion: pollQuestion,
+            pollOptions: pollOptions,
+            pollDurationRawValue: pollDuration.rawValue,
+            isThreadMode: isThreadMode,
+            threadPosts: threadPosts,
+            currentThreadIndex: currentThreadIndex
         )
 
         guard showNotice else { return }
@@ -3046,7 +3575,27 @@ struct CreatePostView: View {
 
     private func persistDraftIfNeeded() {
         guard shouldPersistDraftOnExit, !isPublishing else { return }
+        autoSaveDraft()
         saveDraft(showNotice: false)
+    }
+
+    @MainActor
+    private func trackPendingUploadCleanupPath(_ path: String) {
+        pendingUploadCleanupPaths.insert(path)
+    }
+
+    @MainActor
+    private func clearPendingUploadCleanupPaths() {
+        pendingUploadCleanupPaths.removeAll()
+    }
+
+    @MainActor
+    private func cleanupPendingUploadArtifacts() {
+        let paths = pendingUploadCleanupPaths
+        pendingUploadCleanupPaths.removeAll()
+        for path in paths {
+            deleteStorageFolder(path: path)
+        }
     }
 
     /// Triggers a short shake animation on the publish button to signal rejection.
@@ -3081,6 +3630,7 @@ struct CreatePostView: View {
                 metadata: [
                     "category": selectedCategory.rawValue,
                     "hasImages": selectedImageData.isEmpty ? "false" : "true",
+                    "hasWitnessMedia": cameraCoordinator.attachedWitnessMedia == nil ? "false" : "true",
                     "hasVerse": attachedVerseReference.isEmpty ? "false" : "true"
                 ]
             )
@@ -3111,6 +3661,7 @@ struct CreatePostView: View {
         showSupportDraftSheet = false
     }
 
+    @MainActor
     private func continuePostAfterSupportPrompt() {
         bypassSupportDraftGate = true
         showSupportDraftSheet = false
@@ -3128,7 +3679,18 @@ struct CreatePostView: View {
         return true
     }
 
+    @MainActor
     private func publishPost() {
+        guard !isPublishing else {
+            dlog("⚠️ Already publishing, skipping")
+            return
+        }
+
+        guard inFlightPostId == nil else {
+            dlog("⚠️ [P0-1] Duplicate post blocked (in-flight id: \(inFlightPostId ?? "unknown"))")
+            return
+        }
+
         dlog("🔵 publishPost() called")
         dlog("   isPublishing: \(isPublishing)")
         dlog("   canPost: \(canPost)")
@@ -3149,29 +3711,13 @@ struct CreatePostView: View {
         showMentionSuggestions = false
         mentionSuggestions = []
         
-        // P0-1 FIX: Check isPublishing FIRST — fastest, cheapest guard.
-        guard !isPublishing else {
-            dlog("⚠️ Already publishing, skipping")
-            return
-        }
-
-        // P0-1 FIX: Block duplicate taps using a UUID idempotency token.
-        // A non-nil inFlightPostId means a publish is already in progress;
-        // nil it out on every success/failure/validation path so the user can retry.
-        guard inFlightPostId == nil else {
-            dlog("⚠️ [P0-1] Duplicate post blocked (in-flight id: \(inFlightPostId!))")
-            return
-        }
-        
         // P0-4 FIX: Check rate limiting before posting
         if rateLimiter.isRateLimited(for: .post) {
             let unlockMessage: String
             if let unlockDate = rateLimiter.getUnlockTime(for: .post) {
-                let formatter = DateFormatter()
-                formatter.timeStyle = .short
                 let seconds = Int(unlockDate.timeIntervalSinceNow)
                 let mins = max(1, (seconds + 59) / 60)
-                unlockMessage = "You can post again at \(formatter.string(from: unlockDate)) (\(mins) min\(mins == 1 ? "" : "s") from now)."
+                unlockMessage = "You can post again at \(CreatePostView.shortTimeFormatter.string(from: unlockDate)) (\(mins) min\(mins == 1 ? "" : "s") from now)."
             } else {
                 unlockMessage = "Please wait a few minutes before sharing more."
             }
@@ -3198,8 +3744,17 @@ struct CreatePostView: View {
             return
         }
 
-        // Set idempotency token immediately to block concurrent duplicates
-        inFlightPostId = UUID().uuidString
+        // Auth check must pass before any upload or session work begins.
+        guard Auth.auth().currentUser?.uid != nil else {
+            showError(title: "Not Signed In", message: "Please sign in again to post.")
+            return
+        }
+
+        // Seed the durable publish session immediately. This ID is reused as the
+        // Firestore document ID, upload group, and idempotency key across retries.
+        let publishToken = ensurePendingPublishSession()
+        inFlightPostId = publishToken
+        draftVM.markPublishing(token: publishToken)
         
         // Dismiss keyboard
         isTextFieldFocused = false
@@ -3208,10 +3763,12 @@ struct CreatePostView: View {
         let sanitizedContent = sanitizeContent(postText)
         dlog("📝 Post content: '\(sanitizedContent)'")
         dlog("   Content length: \(sanitizedContent.count)")
-        
-        guard !sanitizedContent.isEmpty else {
-            dlog("❌ Empty post detected")
-            inFlightPostId = nil  // P1 FIX: Allow retry after fixing validation error
+
+        // Media-only posts (photos, videos, witness captures) are valid without caption text.
+        let hasAttachedMedia = !selectedImageData.isEmpty || cameraCoordinator.attachedWitnessMedia != nil
+        guard !sanitizedContent.isEmpty || hasAttachedMedia else {
+            dlog("❌ Empty post detected (no text, no media)")
+            stopPublishAttempt()
             showError(
                 title: "Empty Post",
                 message: "Please write something before posting."
@@ -3221,7 +3778,7 @@ struct CreatePostView: View {
         
         guard sanitizedContent.count <= 500 else {
             dlog("❌ Post too long: \(sanitizedContent.count) characters")
-            inFlightPostId = nil  // P1 FIX: Allow retry after fixing validation error
+            stopPublishAttempt()
             showError(
                 title: "Post Too Long",
                 message: "Your post is \(sanitizedContent.count - 500) characters over the limit. Please shorten it to 500 characters or less."
@@ -3230,37 +3787,28 @@ struct CreatePostView: View {
         }
 
         if shouldPresentSupportDraftGate(for: sanitizedContent) {
-            inFlightPostId = nil
+            stopPublishAttempt()
             showSupportDraftSheet = true
             return
         }
-        
-        // Validate topic tag for #OPENTABLE and Prayer
-        if (selectedCategory == .openTable || selectedCategory == .prayer) && selectedTopicTag.isEmpty {
-            dlog("❌ Topic tag required but missing")
-            inFlightPostId = nil  // P1 FIX: Allow retry after fixing validation error
-            
-            // P1 FIX: Shake topic tag button and show inline error
-            withAnimation(.default) {
-                shakeTopicTag = true
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                shakeTopicTag = false
-            }
-            
-            showError(
-                title: "Topic Tag Required",
-                message: selectedCategory == .openTable ? 
-                    "Please select a topic tag for your #OPENTABLE post." :
-                    "Please select a prayer type for your prayer post."
-            )
+
+        if let trigger = safetyOSDraftTriggers.first(where: \.shouldShowDiscernmentSheet), !bypassSpiritualDiscernmentGate {
+            stopPublishAttempt()
+            activeSafetyOSTrigger = trigger
             return
         }
+
+        if spiritualComposeAnalysis.shouldShowDiscernmentGate && !bypassSpiritualDiscernmentGate {
+            stopPublishAttempt()
+            showSpiritualDiscernmentGate = true
+            return
+        }
+        bypassSpiritualDiscernmentGate = false
         
         // Validate link URL if provided
         if !linkURL.isEmpty && !isValidURL(linkURL) {
             dlog("❌ Invalid link URL: \(linkURL)")
-            inFlightPostId = nil  // P1 FIX: Allow retry after fixing validation error
+            stopPublishAttempt()
             showError(
                 title: "Invalid Link",
                 message: "The link you provided is not valid. Please enter a complete URL starting with http:// or https://"
@@ -3271,27 +3819,57 @@ struct CreatePostView: View {
         // Validate image count
         if selectedImageData.count > 4 {
             dlog("❌ Too many images: \(selectedImageData.count)")
-            inFlightPostId = nil  // P1 FIX: Allow retry after fixing validation error
+            stopPublishAttempt()
             showError(
                 title: "Too Many Images",
                 message: "You can only attach up to 4 images per post. Please remove \(selectedImageData.count - 4) image(s)."
             )
             return
         }
-        
+
+        if let perMediaCaptionMessage = perMediaCaptionValidationMessageForPublish() {
+            stopPublishAttempt()
+            showError(
+                title: "Check Media Captions",
+                message: perMediaCaptionMessage
+            )
+            return
+        }
+
+        if let scriptureMessage = scriptureValidationMessageForPublish() {
+            stopPublishAttempt()
+            showError(
+                title: "Check Scripture",
+                message: scriptureMessage
+            )
+            return
+        }
+
+        // Wellness pause: reflect before posting borderline or session-escalated content
+        if !wellnessClearedForPublish,
+           let wellnessCtx = AmenWellnessInterventionService.shared.checkBeforePost(text: sanitizedContent) {
+            stopPublishAttempt()
+            pendingWellnessContext = wellnessCtx
+            return
+        }
+        wellnessClearedForPublish = false
+
         dlog("✅ All validations passed!")
-        
+
         // ============================================================================
         // ✅ HEY FEED: Think First Guardrails + MODERATION CONSTITUTION Stage 1
         // ============================================================================
+        if hasAttachedMedia {
+            beginUploadCapsuleSession()
+        }
+
         // P1-5: Show loading state immediately so the user gets feedback during safety evaluation
         isPublishing = true
         Task {
             // ── Stage 1: ModerationIngestService (local guard + doxxing + grooming) ──
             guard let authorId = Auth.auth().currentUser?.uid else {
                 await MainActor.run {
-                    isPublishing = false
-                    inFlightPostId = nil
+                    stopPublishAttempt()
                     showError(title: "Not Signed In", message: "Please sign in again to post.")
                 }
                 return
@@ -3313,15 +3891,17 @@ struct CreatePostView: View {
             switch preSubmitResult {
             case .block(let reason, _):
                 await MainActor.run {
-                    isPublishing = false  // P1-5: clear loading state on block
-                    inFlightPostId = nil
+                    presentBlockedUploadCapsule(reason: reason)
+                    stopPublishAttempt()
+                    draftVM.markModerationBlocked()
                     showError(title: "Can't Post This", message: reason)
                 }
                 return
             case .requireEdit(let message, let redacted):
                 await MainActor.run {
-                    isPublishing = false  // P1-5: clear loading state on edit required
-                    inFlightPostId = nil
+                    presentFailedUploadCapsule(message: message)
+                    stopPublishAttempt()
+                    draftVM.markModerationEditRequired()
                     if let redacted { postText = redacted }
                     showError(title: "Edit Required", message: message)
                 }
@@ -3329,8 +3909,8 @@ struct CreatePostView: View {
             case .softPrompt(let message, let canOverride):
                 if !canOverride {
                     await MainActor.run {
-                        isPublishing = false  // P1-5: clear loading state on soft block
-                        inFlightPostId = nil
+                        presentFailedUploadCapsule(message: message)
+                        stopPublishAttempt()
                         showError(title: "Content Notice", message: message)
                     }
                     return
@@ -3339,6 +3919,44 @@ struct CreatePostView: View {
             case .allow:
                 break
             }
+
+            // ── Trust + Safety backend preflight (authoritative) ──────────────
+            if AmenSafetyFeatureFlags.shared.contentPreflightEnabled,
+               !AmenSafetyFeatureFlags.shared.trustSafetyKillSwitch {
+                if !botChallengeCleared {
+                    let botOutcome = await AmenBotDefenseService.shared.evaluateBeforeAction(type: .post)
+                    if botOutcome != .proceed {
+                        await MainActor.run {
+                            stopPublishAttempt()
+                            if botOutcome == .challengeRequired {
+                                showBotChallenge = true
+                            } else {
+                                showError(
+                                    title: "Slow Down",
+                                    message: "Please slow down before posting again."
+                                )
+                            }
+                        }
+                        return
+                    }
+                }
+                botChallengeCleared = false
+                let tsCanPost = await AmenContentPreflightService.shared.runFinalPreflight(
+                    text: sanitizedContent.isEmpty ? nil : sanitizedContent,
+                    surface: .post,
+                    contentId: publishToken
+                )
+                if !tsCanPost {
+                    await MainActor.run {
+                        let reason = AmenTrustSafetyService.shared.lastDecision?.userFacingReason
+                            ?? "This post cannot be shared."
+                        stopPublishAttempt()
+                        showError(title: "Post Blocked", message: reason)
+                    }
+                    return
+                }
+            }
+            // ─────────────────────────────────────────────────────────────────
 
             // ── Stage 2: ThinkFirst Guardrails ──────────────────────────────────
             let context: ContentContext = {
@@ -3359,26 +3977,74 @@ struct CreatePostView: View {
                 sanitizedContent,
                 context: context
             )
-            
+
+            // ── Phase P1-4: server-authoritative second pass ─────────────────────
+            // The on-device check above is advisory. The validateThinkFirstCheck
+            // Cloud Function is the authoritative gate. We honor the stricter of
+            // (client, server) and fail-closed on any server error so the publish
+            // path cannot silently bypass the server when offline or under abuse.
+            let serverOutcome = await ThinkFirstServerValidator.shared.validate(
+                sanitizedContent,
+                surface: .createPost
+            )
+
+            // Treat server errors and input-rejection as a hard halt with a
+            // user-readable message. No "proceed anyway" affordance.
+            if case .serverError(let message) = serverOutcome {
+                await MainActor.run {
+                    stopPublishAttempt()
+                    serverThinkFirstAlertMessage = message
+                    showServerThinkFirstAlert = true
+                }
+                return
+            }
+            if case .inputRejected(let message) = serverOutcome {
+                await MainActor.run {
+                    stopPublishAttempt()
+                    serverThinkFirstAlertMessage = message
+                    showServerThinkFirstAlert = true
+                }
+                return
+            }
+
+            // Server returned a decision. If it escalates to block/requireEdit,
+            // override the client verdict and refuse to publish — the user must
+            // revise. We deliberately show this via the dedicated alert (not the
+            // existing client sheet) because the client sheet has a "proceed
+            // anyway" path that must not bypass the server gate.
+            if case .decided(let serverResult) = serverOutcome,
+               (serverResult.action == .block || serverResult.action == .requireEdit) {
+                await MainActor.run {
+                    stopPublishAttempt()
+                    serverThinkFirstAlertMessage = serverResult.userMessage.isEmpty
+                        ? "We can't publish this as written. Please revise and try again."
+                        : serverResult.userMessage
+                    showServerThinkFirstAlert = true
+                }
+                return
+            }
+
             await MainActor.run {
                 // Store result for sheet display
                 thinkFirstCheckResult = checkResult
                 pendingPostContent = sanitizedContent
-                
+
                 switch checkResult.action {
                 case .allow:
                     // All clear - proceed with posting
                     #if DEBUG
                     dlog("✅ Think First: Content approved, proceeding")
                     #endif
-                    proceedWithPublish()
-                    
+                    Task {
+                        await runAlignmentGuardThenProceed(content: sanitizedContent, hasMedia: hasAttachedMedia)
+                    }
+
                 case .softPrompt:
                     // Show gentle prompt but allow posting
                     #if DEBUG
                     dlog("⚠️ Think First: Soft prompt - showing user suggestions")
                     #endif
-                    isPublishing = false  // P1-5: clear spinner while user reviews the prompt sheet
+                    stopPublishAttempt()
                     showThinkFirstPrompt = true
 
                 case .requireEdit:
@@ -3386,7 +4052,7 @@ struct CreatePostView: View {
                     #if DEBUG
                     dlog("⚠️ Think First: Edit required - showing redaction options")
                     #endif
-                    isPublishing = false  // P1-5: clear spinner while user reviews the prompt sheet
+                    stopPublishAttempt()
                     showThinkFirstPrompt = true
 
                 case .block:
@@ -3394,25 +4060,353 @@ struct CreatePostView: View {
                     #if DEBUG
                     dlog("🚫 Think First: Content blocked")
                     #endif
-                    isPublishing = false  // P1-5: clear spinner while user sees blocked sheet
+                    stopPublishAttempt()
                     showThinkFirstPrompt = true
                 }
             }
         }
     }
+
+    private func handleSafetyOSDraftAction(_ action: AmenDiscernmentAction, trigger: AmenTriggerResult) {
+        AMENAnalyticsService.shared.track(
+            .safetyOSDiscernmentAction(
+                postId: pendingPublishPostID ?? "draft",
+                surface: "post_composer",
+                trigger: trigger.type.rawValue,
+                action: action.rawValue
+            )
+        )
+
+        switch action {
+        case .editWithGrace, .cancel:
+            bypassSpiritualDiscernmentGate = false
+            activeSafetyOSTrigger = nil
+            isTextFieldFocused = true
+        case .rewriteGently, .addContext:
+            if let replacement = AmenLocalTriggerEngine.shared.suggestedRewrite(for: trigger, originalText: postText) {
+                postText = replacement
+                spiritualComposeAnalysis = AmenSpiritualSystemsService.shared.analyzeComposer(text: replacement)
+                safetyOSDraftTriggers = AmenLocalTriggerEngine.shared.analyze(text: replacement, surface: .post)
+                // Mark AI-assisted tone rewrite for disclosure label on published post
+                let aiType: AIUseType = (action == .rewriteGently) ? .toneRewriteMinor : .toneRewriteMajor
+                pendingAIUsage = PostAIUsage(
+                    usedAI: true,
+                    aiUseTypes: [aiType],
+                    primaryLabel: .aiAssistedTone,
+                    secondaryDetail: "Tone adjusted before publishing",
+                    userAcceptedSuggestion: true,
+                    disclosureRequired: false,
+                    rawPromptStored: false,
+                    rawUserTextStored: false
+                )
+                AMENAnalyticsService.shared.track(.homeInlinePostStarted)
+            }
+            bypassSpiritualDiscernmentGate = false
+            activeSafetyOSTrigger = nil
+            isTextFieldFocused = true
+        case .pauseAndPray:
+            postText = "I want to pause and pray before I say more."
+            spiritualComposeAnalysis = AmenSpiritualSystemsService.shared.analyzeComposer(text: postText)
+            safetyOSDraftTriggers = AmenLocalTriggerEngine.shared.analyze(text: postText, surface: .post)
+            bypassSpiritualDiscernmentGate = false
+            activeSafetyOSTrigger = nil
+            isTextFieldFocused = true
+        case .saveDraft:
+            saveDraft(showNotice: false)
+            bypassSpiritualDiscernmentGate = false
+            activeSafetyOSTrigger = nil
+        case .openScripture, .joinPrayer, .keepAsText, .postAnyway:
+            bypassSpiritualDiscernmentGate = true
+            activeSafetyOSTrigger = nil
+            publishPost()
+        }
+    }
+
+    private var mediaMetadataSummaryText: String {
+        if let videoDraft = mediaMetadataDraft.videoDraft,
+           cameraCoordinator.attachedWitnessMedia?.isVideo == true {
+            let cueCount = videoDraft.captionCues.count
+            let momentCount = videoDraft.keyMoments.count
+            return "\(cueCount) caption cue\(cueCount == 1 ? "" : "s") • \(momentCount) moment\(momentCount == 1 ? "" : "s")"
+        }
+
+        if !mediaMetadataDraft.frameCaptions.isEmpty {
+            let featured = mediaMetadataDraft.featuredFrameIndex + 1
+            return "\(mediaMetadataDraft.frameCaptions.count) frame caption\(mediaMetadataDraft.frameCaptions.count == 1 ? "" : "s") • featured \(featured)"
+        }
+
+        return "Add captions, key moments, frame text, and featured frames"
+    }
+
+    @MainActor
+    private func perMediaCaptionValidationMessageForPublish() -> String? {
+        guard AMENFeatureFlags.shared.perMediaCaptionsEnabled else { return nil }
+
+        for (index, draft) in mediaMetadataDraft.frameCaptions.enumerated() {
+            let caption = draft.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            let altText = draft.altText.trimmingCharacters(in: .whitespacesAndNewlines)
+            let reflection = draft.reflectionPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            if caption.count > 2200 {
+                return "Caption for photo \(index + 1) is too long."
+            }
+            if altText.count > 1000 {
+                return "Alt text for photo \(index + 1) is too long."
+            }
+            if reflection.count > 500 {
+                return "Reflection for photo \(index + 1) is too long."
+            }
+            if draft.scriptureRefs.count > 10 {
+                return "Photo \(index + 1) has too many scripture references."
+            }
+            if draft.captionModerationState == .rejected {
+                return "Caption for photo \(index + 1) needs edits before posting."
+            }
+            if draft.captionModerationState == .pending {
+                return "Caption for photo \(index + 1) is still being checked. Please wait a moment and try again."
+            }
+        }
+
+        return nil
+    }
+
+    @MainActor
+    private func moderateMediaCaptionIfNeeded(index: Int, force: Bool = false) async {
+        guard AMENFeatureFlags.shared.perMediaCaptionsEnabled,
+              AMENFeatureFlags.shared.perMediaCaptionModerationEnabled,
+              AMENFeatureFlags.shared.perMediaCaptionIncrementalModerationEnabled,
+              index < mediaMetadataDraft.frameCaptions.count else {
+            return
+        }
+
+        let draft = mediaMetadataDraft.frameCaptions[index]
+        let caption = draft.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let altText = draft.altText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let reflection = draft.reflectionPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        let hasModeratableContent = !caption.isEmpty || !altText.isEmpty || !reflection.isEmpty
+
+        guard force || hasModeratableContent else {
+            mediaMetadataDraft.frameCaptions[index].captionModerationState = .notRequired
+            perMediaCaptionStatusMessages[index] = nil
+            perMediaCaptionErrorMessages[index] = nil
+            return
+        }
+
+        perMediaCaptionModerationTask?.cancel()
+        perMediaCaptionModerationTask = Task {
+            try? await Task.sleep(for: .milliseconds(force ? 0 : 450))
+            guard !Task.isCancelled else { return }
+
+            await MainActor.run {
+                perMediaCaptionModeratingIndex = index
+                perMediaCaptionErrorMessages[index] = nil
+                mediaMetadataDraft.frameCaptions[index].captionModerationState = .pending
+                perMediaCaptionStatusMessages[index] = "Checking caption safety"
+            }
+
+            do {
+                let result = try await Functions.functions().httpsCallable("moderateMediaCaption").call([
+                    "mediaIndex": index,
+                    "mediaId": mediaMetadataDraft.frameCaptions[index].id,
+                    "type": "image",
+                    "url": "draft://local/\(index)",
+                    "caption": caption,
+                    "altText": altText,
+                    "scriptureRefs": Array(draft.scriptureRefs.prefix(10)),
+                    "reflectionPrompt": reflection
+                ])
+                let data = result.data as? [String: Any]
+                let statusRaw = data?["status"] as? String ?? "pending"
+                let status = MediaCaptionModerationState(rawValue: statusRaw) ?? .pending
+                let reason = data?["reason"] as? String
+
+                await MainActor.run {
+                    guard index < mediaMetadataDraft.frameCaptions.count else { return }
+                    mediaMetadataDraft.frameCaptions[index].captionModerationState = status
+                    perMediaCaptionModeratingIndex = nil
+                    switch status {
+                    case .approved:
+                        perMediaCaptionStatusMessages[index] = "Caption approved"
+                        perMediaCaptionErrorMessages[index] = nil
+                        AMENAnalyticsService.shared.track(.mediaCaptionEdited(mediaIndex: index, mediaType: "image"))
+                    case .notRequired:
+                        perMediaCaptionStatusMessages[index] = nil
+                        perMediaCaptionErrorMessages[index] = nil
+                    case .pending:
+                        perMediaCaptionStatusMessages[index] = "Caption queued for review"
+                        perMediaCaptionErrorMessages[index] = nil
+                    case .rejected:
+                        perMediaCaptionStatusMessages[index] = nil
+                        perMediaCaptionErrorMessages[index] = reason ?? "This caption needs edits before posting."
+                    case .removed:
+                        perMediaCaptionStatusMessages[index] = nil
+                        perMediaCaptionErrorMessages[index] = nil
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    guard index < mediaMetadataDraft.frameCaptions.count else { return }
+                    mediaMetadataDraft.frameCaptions[index].captionModerationState = .pending
+                    perMediaCaptionModeratingIndex = nil
+                    perMediaCaptionStatusMessages[index] = "Caption queued for review"
+                    perMediaCaptionErrorMessages[index] = nil
+                }
+            }
+        }
+    }
+
+    @MainActor
+    private func generateAltTextForMediaCaption(index: Int) async {
+        guard AMENFeatureFlags.shared.perMediaCaptionsEnabled,
+              AMENFeatureFlags.shared.perMediaCaptionAltTextEnabled,
+              index < mediaMetadataDraft.frameCaptions.count else {
+            return
+        }
+
+        perMediaCaptionGeneratingAltIndex = index
+        perMediaCaptionErrorMessages[index] = nil
+        defer { perMediaCaptionGeneratingAltIndex = nil }
+
+        do {
+            let result = try await Functions.functions().httpsCallable("generateAltText").call([
+                "mediaId": mediaMetadataDraft.frameCaptions[index].id,
+                "mediaIndex": index,
+                "type": "image",
+                "url": "draft://local/\(index)"
+            ])
+            let data = result.data as? [String: Any]
+            let suggestion = (data?["altText"] as? String ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !suggestion.isEmpty else {
+                perMediaCaptionErrorMessages[index] = "Couldn't generate alt text right now."
+                return
+            }
+            mediaMetadataDraft.frameCaptions[index].altText = String(suggestion.prefix(1000))
+            perMediaCaptionStatusMessages[index] = "Alt text suggestion added"
+            await moderateMediaCaptionIfNeeded(index: index, force: true)
+        } catch {
+            perMediaCaptionErrorMessages[index] = "Couldn't generate alt text right now."
+        }
+    }
+
+    private func applyMetadataToImageItems(urls: [String]) -> [PostMediaItem] {
+        urls.enumerated().map { index, url in
+            let frameDraft = mediaMetadataDraft.frameCaption(for: index)
+            return PostMediaItem(
+                type: .image,
+                url: url,
+                thumbnailURL: url,
+                order: index,
+                frameCaption: frameDraft?.text.nilIfEmpty,
+                frameCaptionMetadata: frameDraft?.asFrameCaption,
+                audioBed: mediaMetadataDraft.audioAttachment?.asMediaAudioBed,
+                isFeaturedFrame: mediaMetadataDraft.featuredFrameIndex == index,
+                previewURL: url,
+                originalURL: url,
+                processingStatus: MediaGenerationStatus(
+                    mediaProcessing: .ready,
+                    captions: .notRequested,
+                    keyMoments: .notRequested,
+                    featuredFrame: .ready,
+                    lastUpdatedAt: Date(),
+                    errorMessage: nil
+                ),
+                userEditedMetadata: frameDraft != nil
+            )
+        }
+    }
+
+    private func applyMetadataToVideoItem(_ item: PostMediaItem) -> PostMediaItem {
+        guard let videoDraft = mediaMetadataDraft.videoDraft else { return item }
+        return PostMediaItem(
+            id: item.id,
+            type: item.type,
+            url: item.url,
+            thumbnailURL: item.thumbnailURL,
+            aspectRatio: item.aspectRatio,
+            order: item.order,
+            duration: item.duration,
+            fileSize: item.fileSize,
+            width: item.width,
+            height: item.height,
+            captionTrack: videoDraft.captionTrack,
+            keyMoments: videoDraft.persistedKeyMoments,
+            frameCaption: item.frameCaption,
+            frameCaptionMetadata: item.frameCaptionMetadata,
+            audioBed: videoDraft.audioBed ?? mediaMetadataDraft.audioAttachment?.asMediaAudioBed,
+            isFeaturedFrame: true,
+            featuredFrameTime: videoDraft.featuredFrameTime,
+            previewURL: item.thumbnailURL ?? item.url,
+            originalURL: item.url,
+            processingStatus: videoDraft.generationStatus,
+            userEditedMetadata: videoDraft.userEdited
+        )
+    }
+
+    private func syncMediaMetadataDraftFromCurrentAttachments() {
+        mediaMetadataDraft.syncForImages(count: selectedImageData.count)
+        if let witnessAttachment = cameraCoordinator.attachedWitnessMedia,
+           witnessAttachment.isVideo {
+            mediaMetadataDraft.syncForWitnessVideo(duration: witnessAttachment.durationSec)
+        } else {
+            mediaMetadataDraft.videoDraft = nil
+        }
+    }
     
     /// Fires the .postingFailed notification so ContentView hides the posting bar.
     /// Call this on every path that sets isPublishing = false due to an error.
-    @MainActor private func notifyPostingFailed() {
+    @MainActor private func notifyPostingFailed(message: String = "Post failed. Tap Retry to try again.") {
         NotificationCenter.default.post(name: .postingFailed, object: nil)
+        publishFailureBannerMessage = message
+    }
+
+    @MainActor
+    private func stopPublishAttempt(markDraftFailed: Bool = false) {
+        isPublishing = false
+        isUploadingImages = false
+        uploadProgress = 0
+        inFlightPostId = nil
+        if markDraftFailed {
+            draftVM.markFailed()
+        } else {
+            draftVM.cancelPublishing()
+        }
+    }
+
+    @MainActor
+    private func scriptureValidationMessageForPublish() -> String? {
+        guard verseAttachmentVM.attachedScripture == nil else { return nil }
+        let reference = attachedVerseReference.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !reference.isEmpty else { return nil }
+
+        let detectedReferences = ScriptureVerificationService.shared.detectScriptures(in: reference)
+        guard let detected = detectedReferences.first else {
+            return "The attached scripture reference could not be recognized. Please replace it with a standard reference like John 3:16."
+        }
+
+        let normalizedDetected = detected.fullReference
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        guard normalizedDetected == reference.lowercased() else {
+            return "Please attach one clear scripture reference before posting."
+        }
+
+        return nil
     }
 
     // ============================================================================
     // ✅ NEW: Proceed with publish after guardrails check
     // ============================================================================
+    @MainActor
     private func proceedWithPublish() {
         let sanitizedContent = pendingPostContent.isEmpty ? sanitizeContent(postText) : pendingPostContent
-        
+
+        if inFlightPostId == nil {
+            let publishToken = ensurePendingPublishSession()
+            inFlightPostId = publishToken
+            draftVM.markPublishing(token: publishToken)
+        }
+
         dlog("   Setting isPublishing = true")
         isPublishing = true
         // Notify the feed so the Threads-style posting bar appears immediately
@@ -3446,14 +4440,124 @@ struct CreatePostView: View {
             )
         } else {
             dlog("📤 Publishing immediately")
+            // If user chose an intent but no topic tag, use the intent's feed key as the tag.
+            let resolvedTopicTag: String? = selectedTopicTag.isEmpty
+                ? selectedPostIntent?.feedTopicKey
+                : selectedTopicTag
             // Publish immediately
             publishImmediately(
                 content: sanitizedContent,
                 category: postCategory,
-                topicTag: selectedTopicTag.isEmpty ? nil : selectedTopicTag,
+                topicTag: resolvedTopicTag,
                 allowComments: allowComments,
                 linkURL: linkURL.isEmpty ? linkController.activeURL?.absoluteString : linkURL
             )
+        }
+    }
+
+    private func runAlignmentGuardThenProceed(content: String, hasMedia: Bool) async {
+        let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        alignmentViewModel.clear()
+
+        if trimmed.isEmpty && hasMedia {
+            await MainActor.run {
+                proceedWithPublish()
+            }
+            return
+        }
+
+        guard !trimmed.isEmpty else {
+            await MainActor.run {
+                proceedWithPublish()
+            }
+            return
+        }
+
+        await alignmentViewModel.scan(
+            text: trimmed,
+            targetType: "post",
+            sourceSurface: "create_post",
+            hasMedia: hasMedia
+        )
+
+        guard let result = alignmentViewModel.result else {
+            await MainActor.run {
+                proceedWithPublish()
+            }
+            return
+        }
+
+        switch result.status {
+        case .aligned:
+            // Social Safety OS backend check runs after local alignment for every publish.
+            let mediaURLs: [String] = []  // upload URLs not yet available at this stage
+            let decision = await AmenContentSafetyService.shared.gate(
+                draft: trimmed,
+                mediaURLs: mediaURLs,
+                contentType: "post"
+            )
+            if decision.actions.contains(.blockSend) {
+                await MainActor.run {
+                    stopPublishAttempt()
+                    showError(
+                        title: "Post Blocked",
+                        message: decision.userFacingMessage ?? "This post can't be shared in this community."
+                    )
+                }
+                return
+            }
+            if decision.actions.contains(.holdForReview) || decision.actions.contains(.escalateToHumanReview) {
+                await MainActor.run {
+                    stopPublishAttempt()
+                    showError(
+                        title: "Safety Review Needed",
+                        message: decision.userFacingMessage ?? "This post needs human review before it can be shared."
+                    )
+                }
+                return
+            }
+            if decision.actions.contains(.requireSource) {
+                await MainActor.run {
+                    stopPublishAttempt()
+                    showError(
+                        title: "Add Context First",
+                        message: decision.userFacingMessage ?? "Please add a source, scripture reference, or clarify that this is your opinion before sharing."
+                    )
+                }
+                return
+            }
+            if decision.actions.contains(.requireRewrite) || decision.actions.contains(.promptBeforePost) {
+                await MainActor.run {
+                    stopPublishAttempt()
+                    showError(
+                        title: "Think First",
+                        message: decision.userFacingMessage ?? "Please revise this before sharing."
+                    )
+                }
+                return
+            }
+            await MainActor.run {
+                proceedWithPublish()
+            }
+        case .contextNeeded:
+            await alignmentViewModel.loadDiscernmentPrompt(text: trimmed, surface: "create_post")
+            await MainActor.run {
+                stopPublishAttempt()
+                showPostDiscernmentPrompt = true
+            }
+        case .needsDiscernment:
+            await MainActor.run {
+                stopPublishAttempt()
+            }
+        case .blocked:
+            await MainActor.run {
+                stopPublishAttempt()
+                showError(title: "Needs a Rewrite", message: result.userVisibleSummary)
+            }
+        case .humanReview:
+            await MainActor.run {
+                stopPublishAttempt()
+            }
         }
     }
     
@@ -3464,7 +4568,7 @@ struct CreatePostView: View {
         allowComments: Bool,
         linkURL: String?
     ) {
-        Task {
+        activePublishTask = Task {
             // Safety net: if any unhandled throw escapes the do/catch below,
             // ensure isPublishing and inFlightPostId are always cleared.
             // Individual error paths each reset these explicitly; this defer
@@ -3472,16 +4576,10 @@ struct CreatePostView: View {
             defer {
                 Task { @MainActor in
                     if isPublishing {
-                        isPublishing = false
-                        inFlightPostId = nil
-                        isUploadingImages = false
-                        uploadProgress = 0.0
+                        stopPublishAttempt()
                     }
                 }
             }
-            // Track uploaded Storage folder path so we can delete orphaned images
-            // if the Firestore write subsequently fails (see catch blocks below).
-            var uploadedGroupPath: String? = nil
             do {
                 dlog("🚀 Starting post creation...")
                 dlog("   Content length: \(content.count)")
@@ -3495,6 +4593,7 @@ struct CreatePostView: View {
                     throw NSError(domain: "CreatePostView", code: 401, 
                                   userInfo: [NSLocalizedDescriptionKey: "Not authenticated"])
                 }
+                let hasAttachedMedia = !selectedImageData.isEmpty || cameraCoordinator.attachedWitnessMedia != nil
                 
                 // ============================================================================
                 // ⚡ INSTAGRAM-FAST: Run moderation and post creation in parallel
@@ -3507,8 +4606,7 @@ struct CreatePostView: View {
                 if localGuard.isBlocked {
                     dlog("🚫 [LocalGuard] Blocked (\(localGuard.category.rawValue)): content rejected before network")
                     await MainActor.run {
-                        isPublishing = false
-                        inFlightPostId = nil
+                        stopPublishAttempt()
                         notifyPostingFailed()
                         showError(
                             title: "Post Not Allowed",
@@ -3540,8 +4638,7 @@ struct CreatePostView: View {
                     dlog("🚫 AI content detected - blocking post (confidence: \(Int(aiResult.confidence * 100))%)")
                     dlog("   Reason: \(aiResult.reason)")
                     await MainActor.run {
-                        isPublishing = false
-                        inFlightPostId = nil
+                        stopPublishAttempt()
                         notifyPostingFailed()
                         showError(
                             title: "Share Your Own Voice",
@@ -3555,8 +4652,7 @@ struct CreatePostView: View {
                 else if aiResult.confidence >= 0.25 && aiResult.confidence < 0.4 {
                     dlog("⚠️ Pasted/AI content detected - showing source label prompt (confidence: \(Int(aiResult.confidence * 100))%)")
                     await MainActor.run {
-                        isPublishing = false
-                        inFlightPostId = nil
+                        stopPublishAttempt()
                         notifyPostingFailed()
                         showSourcePrompt = true
                     }
@@ -3570,7 +4666,8 @@ struct CreatePostView: View {
                     throw NSError(domain: "CreatePostView", code: 401, userInfo: [NSLocalizedDescriptionKey: "Not authenticated"])
                 }
                 
-                let postId = UUID()
+                let postIDString = ensurePendingPublishSession()
+                let postId = UUID(uuidString: postIDString) ?? UUID()
                 let timestamp = Date()
                 
                 // ⚡ PARALLEL: Fetch profile picture while other tasks run
@@ -3582,19 +4679,24 @@ struct CreatePostView: View {
                         .getDocument()
                 }
                 
-                // Merge camera image (if any) into the selectedImageData upload batch
-                if let camImg = cameraImage, let camData = camImg.jpegData(compressionQuality: 0.85) {
-                    await MainActor.run { selectedImageData.insert(camData, at: 0) }
-                }
-
                 // P0-3 FIX: Make image upload BLOCKING if images attached
                 var imageURLs: [String]? = nil
+                var structuredMediaItems: [PostMediaItem] = []
+                var witnessMediaMetadata: PostWitnessMediaMetadata? = nil
+                var mediaStoragePaths: [String] = []
                 if !selectedImageData.isEmpty {
                     dlog("📤 Uploading \(selectedImageData.count) images (blocking)...")
                     do {
+                        await MainActor.run {
+                            setUploadCapsuleState(.uploading, stageProgress: 0)
+                        }
                         let uploadResult = try await uploadImages()
                         imageURLs = uploadResult.urls
-                        uploadedGroupPath = uploadResult.groupPath
+                        structuredMediaItems = applyMetadataToImageItems(urls: uploadResult.urls)
+                        mediaStoragePaths = uploadResult.storagePaths
+                        await MainActor.run {
+                            setUploadCapsuleState(.processing, stageProgress: 0.2)
+                        }
                         dlog("✅ Images uploaded: \(imageURLs?.count ?? 0)")
                         
                         // Verify we got URLs back
@@ -3609,8 +4711,8 @@ struct CreatePostView: View {
                         // P0-3 FIX: Show error and STOP post creation if images fail
                         // P1-6 FIX: Offer retry for network/upload errors
                         await MainActor.run {
-                            isPublishing = false
-                            inFlightPostId = nil
+                            presentFailedUploadCapsule(message: getUserFriendlyError(from: error).message)
+                            stopPublishAttempt(markDraftFailed: true)
                             notifyPostingFailed()
                             let friendlyError = getUserFriendlyError(from: error)
                             
@@ -3632,6 +4734,37 @@ struct CreatePostView: View {
                             )
                         }
                         dlog("❌ [P0-3] Image upload failed - aborting post creation")
+                        return
+                    }
+                }
+
+                if let witnessAttachment = cameraCoordinator.attachedWitnessMedia {
+                    do {
+                        await MainActor.run {
+                            let stage: UploadCapsuleState = witnessAttachment.isVideo ? .processing : .uploading
+                            setUploadCapsuleState(stage, stageProgress: 0.45)
+                            updateUploadCapsuleMediaStatus(for: uploadCapsuleWitnessId, to: .processing)
+                        }
+                        let uploadResult = try await uploadWitnessAttachment(witnessAttachment, startingOrder: structuredMediaItems.count)
+                        structuredMediaItems.append(applyMetadataToVideoItem(uploadResult.mediaItem))
+                        witnessMediaMetadata = uploadResult.metadata
+                        if let storagePath = uploadResult.metadata.finalAsset.storagePath {
+                            mediaStoragePaths.append(storagePath)
+                        }
+                        await MainActor.run {
+                            updateUploadCapsuleMediaStatus(
+                                for: uploadCapsuleWitnessId,
+                                to: witnessAttachment.isVideo ? .moderating : .uploaded
+                            )
+                            setUploadCapsuleState(.moderating, stageProgress: 0.1)
+                        }
+                    } catch {
+                        await MainActor.run {
+                            presentFailedUploadCapsule(message: getUserFriendlyError(from: error).message)
+                            stopPublishAttempt(markDraftFailed: true)
+                            notifyPostingFailed()
+                            showError(title: "Witness Capture Failed", message: getUserFriendlyError(from: error).message)
+                        }
                         return
                     }
                 }
@@ -3718,6 +4851,8 @@ struct CreatePostView: View {
                     allowComments: allowComments,
                     commentPermissions: allowComments ? mapToPostCommentPermissions(commentPermission) : .off,
                     imageURLs: imageURLs,
+                    mediaItems: structuredMediaItems.isEmpty ? nil : structuredMediaItems,
+                    witnessMedia: witnessMediaMetadata,
                     linkURL: linkURL ?? linkController.activeURL?.absoluteString,
                     linkPreviewTitle: linkController.metadata?.title,
                     linkPreviewDescription: linkController.metadata?.description,
@@ -3729,7 +4864,11 @@ struct CreatePostView: View {
                     amenCount: 0,
                     lightbulbCount: 0,
                     commentCount: 0,
-                    repostCount: 0
+                    repostCount: 0,
+                    smartAttachment: smartAttachment,
+                    hasSmartAttachment: smartAttachment != nil,
+                    attachmentCount: smartAttachment == nil ? 0 : 1,
+                    primaryAttachmentId: smartAttachment?.id
                 )
                 
                 // Set mentions if any were found
@@ -3751,7 +4890,14 @@ struct CreatePostView: View {
                     newPost.taggedChurchId = taggedChurchId
                     newPost.taggedChurchName = taggedChurchName.isEmpty ? nil : taggedChurchName
                 }
-                
+                newPost.mediaItems = structuredMediaItems.isEmpty ? nil : structuredMediaItems
+                newPost.witnessMedia = witnessMediaMetadata
+                // Attach AI usage label if tone check / rewrite was accepted
+                if let usage = pendingAIUsage { newPost.aiUsage = usage }
+                newPost.publicationVisibility = hasAttachedMedia ? "private_pending" : "public"
+                newPost.status = hasAttachedMedia ? "moderating" : "publishing"
+                newPost.moderationStatus = hasAttachedMedia ? "pending" : "not_required"
+
                 dlog("   ✅ Post object created: \(postId)")
                 
                 // Save to Firestore immediately
@@ -3763,15 +4909,49 @@ struct CreatePostView: View {
                     "category": category.rawValue,
                     "topicTag": topicTag as Any,
                     "visibility": postVisibility.rawValue,
+                    "requestedVisibility": postVisibility.rawValue,
+                    "publicationVisibility": hasAttachedMedia ? "private_pending" : "public",
+                    "uploadGroupId": postIDString,
                     "allowComments": allowComments,
                     "imageURLs": imageURLs as Any,
+                    "mediaStoragePaths": mediaStoragePaths,
                     "linkURL": (linkURL ?? linkController.activeURL?.absoluteString) as Any? as Any,
                     "createdAt": Timestamp(date: timestamp),
+                    "updatedAt": Timestamp(date: timestamp),
+                    "status": hasAttachedMedia ? "moderating" : "publishing",
+                    "mediaCount": structuredMediaItems.count,
                     "amenCount": 0,
                     "commentCount": 0,
                     "repostCount": 0,
-                    "lightbulbCount": 0
+                    "lightbulbCount": 0,
+                    "clientRequestId": uploadCapsuleClientRequestId ?? inFlightPostId ?? UUID().uuidString,
+                    "idempotencyKey": uploadCapsuleIdempotencyKey ?? inFlightPostId ?? postId.uuidString
                 ]
+
+                if !structuredMediaItems.isEmpty,
+                   let encodedMediaItems = try? Firestore.Encoder().encode(structuredMediaItems) {
+                    postData["mediaItems"] = encodedMediaItems
+                }
+                if let smartAttachment,
+                   let encodedAttachment = try? Firestore.Encoder().encode(smartAttachment) {
+                    postData["smartAttachment"] = encodedAttachment
+                    postData["hasSmartAttachment"] = true
+                    postData["attachmentCount"] = 1
+                    postData["primaryAttachmentId"] = smartAttachment.id
+                    postData["soundtrackEnabled"] = useSmartAttachmentAsSoundtrack
+                    postData["smartObjectIds"] = [smartAttachment.id]
+                    postData["primarySmartObjectId"] = smartAttachment.id
+                    postData["objectType"] = smartAttachment.type.rawValue
+                    postData["sourceProvider"] = smartAttachment.provider.rawValue
+                    postData["canonicalUrl"] = smartAttachment.canonicalUrl
+                    postData["safetyState"] = smartAttachment.safetyStatus.rawValue
+                    postData["explicitContentState"] = smartAttachment.safetyStatus == .blocked ? "blocked" : "unknown"
+                }
+
+                if let witnessMediaMetadata,
+                   let encodedWitnessMedia = try? Firestore.Encoder().encode(witnessMediaMetadata) {
+                    postData["witnessMedia"] = encodedWitnessMedia
+                }
                 
                 // ✅ Add profile picture if available
                 if let authorProfileImageURL = authorProfileImageURL {
@@ -3882,8 +5062,14 @@ struct CreatePostView: View {
                 // runs a second-pass moderation check. A modified client that bypasses
                 // the pre-write checks above will still have this field present, and the
                 // Cloud Function will evaluate and delete the post if it violates policy.
-                postData["moderationStatus"] = "pending"
+                postData["moderationStatus"] = hasAttachedMedia ? "pending" : "not_required"
                 postData["clientSafetyVersion"] = 1
+                if hasAttachedMedia {
+                    postData["moderationSummary"] = [
+                        "safe": false,
+                        "decision": "pending"
+                    ]
+                }
 
                 // P0-4 FIX: Check if post already exists (idempotency)
                 dlog("   🔍 Checking for existing post (idempotency)...")
@@ -3899,10 +5085,23 @@ struct CreatePostView: View {
                         inFlightPostId = nil
                         linkController.reset()
                         UserDefaults.standard.removeObject(forKey: "autoSavedDraft")
+                        draftVM.markPublished()
                         shouldPersistDraftOnExit = false
-                        withAnimation { showingSuccessNotice = true }
+                        clearPendingPublishSession()
+                        clearPendingUploadCleanupPaths()
+                        if hasAttachedMedia {
+                            markAllUploadCapsuleMediaReady()
+                            completeUploadCapsuleSession()
+                        } else {
+                            cameraCoordinator.removeAttachedMedia()
+                            mediaMetadataDraft = CreatePostMediaMetadataDraft()
+                            publishFailureBannerMessage = nil
+                            withAnimation { showingSuccessNotice = true }
+                        }
                         // P0-2 FIX: Critical - cancellable dismiss task
-                        scheduleDelayedAction(seconds: 0.15) {
+                        scheduleDelayedAction(seconds: hasAttachedMedia ? 1.0 : 0.15) {
+                            cameraCoordinator.removeAttachedMedia()
+                            mediaMetadataDraft = CreatePostMediaMetadataDraft()
                             dismiss()
                         }
                         isPublishing = false
@@ -3911,15 +5110,89 @@ struct CreatePostView: View {
                 }
                 
                 dlog("   📤 Saving to Firestore immediately...")
+                await MainActor.run {
+                    if hasAttachedMedia {
+                        setUploadCapsuleState(.finalizing, stageProgress: 0.2)
+                    }
+                }
                 try await FirebaseManager.shared.firestore
                     .collection("posts")
                     .document(postId.uuidString)
                     .setData(postData)
+
+                // Best-effort: index post into community hub so the optimistic PostCard
+                // can show the Inline Object Hub pill as soon as the trusted backend
+                // preview is returned. Errors are swallowed by the service so posting
+                // still succeeds as a normal post.
+                if let smartAttachment, AMENFeatureFlags.shared.communityHubsEnabled {
+                    let preview = await AmenCommunityHubService.shared.attachHubPreview(
+                        postId: postId.uuidString,
+                        url: smartAttachment.canonicalUrl,
+                        objectType: smartAttachment.type.rawValue,
+                        title: smartAttachment.title
+                    )
+                    if let preview {
+                        newPost.communityHubPreview = preview
+                    }
+                }
+
+                if let checkId = alignmentViewModel.result?.checkId {
+                    Task {
+                        try? await BiblicalAlignmentService.shared.attachSharedKnowledgeIntegrity(
+                            targetType: "post",
+                            targetId: postId.uuidString,
+                            checkId: checkId
+                        )
+                    }
+                }
+
+                if !structuredMediaItems.isEmpty {
+                    try await MediaMetadataPersistenceService.shared.persistMetadataMirror(
+                        postId: postId.uuidString,
+                        authorId: currentUser.uid,
+                        mediaItems: structuredMediaItems
+                    )
+                }
                 
                 dlog("✅ Post saved to Firestore successfully!")
                 dlog("   Post ID: \(newPost.id)")
                 dlog("   Category: \(newPost.category.rawValue)")
                 dlog("   Author: \(newPost.authorName)")
+
+                await MainActor.run {
+                    clearPendingUploadCleanupPaths()
+                }
+
+                // Increment user's post count (fire-and-forget, same as FirebasePostService.createPost)
+                let _uid = currentUser.uid
+                Task.detached(priority: .utility) {
+                    try? await FirebaseManager.shared.firestore
+                        .collection("users").document(_uid)
+                        .updateData(["postsCount": FieldValue.increment(Int64(1))])
+                }
+
+                // HeyFeed authoring signal — records intent + audience choice for post-level feed learning
+                let _hfPostId = postId.uuidString
+                let _hfIntentRaw = selectedPostIntent?.rawValue
+                let _hfFeedTopicKey = selectedPostIntent?.feedTopicKey
+                let _hfAudienceHintId = selectedAudienceHint?.id
+                let _hfDetectedIntent = insightEngine.result.intent.rawValue
+                let _hfHasVerse = verseAttachmentVM.attachedScripture != nil || !attachedVerseReference.isEmpty
+                Task.detached(priority: .utility) {
+                    var doc: [String: Any] = [
+                        "postId": _hfPostId,
+                        "detectedIntent": _hfDetectedIntent,
+                        "scriptureAttached": _hfHasVerse,
+                        "createdAt": Timestamp(date: Date())
+                    ]
+                    if let intent = _hfIntentRaw { doc["selectedIntent"] = intent }
+                    if let key = _hfFeedTopicKey { doc["feedTopicKey"] = key }
+                    if let hint = _hfAudienceHintId { doc["audienceHint"] = hint }
+                    try? await FirebaseManager.shared.firestore
+                        .collection("users").document(_uid)
+                        .collection("heyfeedAuthoring").document(_hfPostId)
+                        .setData(doc)
+                }
 
                 // ⚡ FIRE-AND-FORGET: Post-write content moderation pipeline.
                 // ContentModerationService (Cloud Function, 500–1500ms) runs after the
@@ -4000,20 +5273,34 @@ struct CreatePostView: View {
                     
                     // Clear state (P0-1, P1-2)
                     inFlightPostId = nil
+                    draftVM.markPublished()
                     postContentSource = nil  // reset source label for next post
                     UserDefaults.standard.removeObject(forKey: "autoSavedDraft")
                     shouldPersistDraftOnExit = false
-                    
+                    clearPendingPublishSession()
                     // ✅ Show success and dismiss ONLY after Firestore success
-                    withAnimation {
-                        showingSuccessNotice = true
+                    if hasAttachedMedia {
+                        markAllUploadCapsuleMediaReady()
+                        completeUploadCapsuleSession()
+                    } else {
+                        cameraCoordinator.removeAttachedMedia()
+                        mediaMetadataDraft = CreatePostMediaMetadataDraft()
+                        withAnimation {
+                            showingSuccessNotice = true
+                        }
                     }
 
                     // Record post for community guidelines eligibility tracking
                     CommunityGuidelinesEligibilityService.shared.recordPostPublished()
+                    AMENAnalyticsService.shared.track(.postPublished(
+                        category: selectedCategory.rawValue,
+                        hasMedia: hasAttachedMedia
+                    ))
                     
                     // P0-2 FIX: Critical - cancellable dismiss task
-                    scheduleDelayedAction(seconds: 0.15) {
+                    scheduleDelayedAction(seconds: hasAttachedMedia ? 1.0 : 0.15) {
+                        cameraCoordinator.removeAttachedMedia()
+                        mediaMetadataDraft = CreatePostMediaMetadataDraft()
                         dlog("Dismissing CreatePostView (safe after Firestore)")
                         dismiss()
                     }
@@ -4061,21 +5348,34 @@ struct CreatePostView: View {
                 dlog("   Localized failure reason: \(error.localizedFailureReason ?? "none")")
                 dlog("   Localized recovery suggestion: \(error.localizedRecoverySuggestion ?? "none")")
 
-                // P0-7 FIX: Delete orphaned Storage images if the Firestore write failed.
-                if let groupPath = uploadedGroupPath {
-                    deleteStorageFolder(path: groupPath)
+                await MainActor.run {
+                    cleanupPendingUploadArtifacts()
                 }
 
                 await MainActor.run {
-                    isPublishing = false
-                    inFlightPostId = nil  // P0-1 FIX: Clear hash on error
+                    presentFailedUploadCapsule(message: "Post failed to send. Please try again.")
+                    stopPublishAttempt(markDraftFailed: true)
                     notifyPostingFailed()
-                    ToastManager.shared.show(ToastNotification(
-                        message: "Post failed to send. Please try again.",
-                        style: .error,
-                        action: { publishPost() },
-                        actionLabel: "Retry"
-                    ))
+                    // 4.4 FIX: Surface actionable message for email-verification PERMISSION_DENIED.
+                    // Firestore rules reject writes from unverified email/password accounts —
+                    // the generic "try again" toast is misleading because retrying will also fail.
+                    let isPermissionDenied = error.domain == "FIRFirestoreErrorDomain" && error.code == 7
+                    let user = Auth.auth().currentUser
+                    let isPasswordUser = user?.providerData.first?.providerID == "password"
+                    let isUnverified = user?.isEmailVerified == false
+                    if isPermissionDenied && isPasswordUser && isUnverified {
+                        ToastManager.shared.show(ToastNotification(
+                            message: "Please verify your email before posting. Check your inbox for the verification link.",
+                            style: .error
+                        ))
+                    } else {
+                        ToastManager.shared.show(ToastNotification(
+                            message: "Post failed to send. Please try again.",
+                            style: .error,
+                            action: { publishPost() },
+                            actionLabel: "Retry"
+                        ))
+                    }
                 }
             } catch {
                 // ⚠️ Post creation failed in background - user already saw success
@@ -4091,14 +5391,13 @@ struct CreatePostView: View {
                     dlog("   Recovery suggestion: \(error.recoverySuggestion ?? "none")")
                 }
 
-                // P0-7 FIX: Delete orphaned Storage images if the Firestore write failed.
-                if let groupPath = uploadedGroupPath {
-                    deleteStorageFolder(path: groupPath)
+                await MainActor.run {
+                    cleanupPendingUploadArtifacts()
                 }
 
                 await MainActor.run {
-                    isPublishing = false
-                    inFlightPostId = nil  // P0-1 FIX: Clear hash on error
+                    presentFailedUploadCapsule(message: "Post failed to send. Please try again.")
+                    stopPublishAttempt(markDraftFailed: true)
                     notifyPostingFailed()
                     ToastManager.shared.show(ToastNotification(
                         message: "Post failed to send. Please try again.",
@@ -4112,10 +5411,9 @@ struct CreatePostView: View {
     }
     
     /// Async wrapper for publishPost() - called by CirclePostButton
+    @MainActor
     private func publishPostAsync() async {
-        await MainActor.run {
-            publishPost()
-        }
+        publishPost()
     }
 
     /// Drives LiquidGlassPostButton visual states while calling the real publish pipeline.
@@ -4143,9 +5441,158 @@ struct CreatePostView: View {
             withAnimation(Motion.adaptive(.spring(response: 0.34, dampingFraction: 0.88))) { uploadState = .idle }
         }
     }
+
+    private var uploadCapsuleMediaItems: [UploadCapsuleMediaItem] {
+        var items: [UploadCapsuleMediaItem] = selectedImageData.enumerated().map { index, data in
+            UploadCapsuleMediaItem(
+                id: uploadCapsuleImageId(for: index),
+                thumbnailImage: UIImage(data: data),
+                kind: .image,
+                status: uploadCapsuleMediaStatuses[uploadCapsuleImageId(for: index)] ?? .waiting
+            )
+        }
+
+        if let attachment = cameraCoordinator.attachedWitnessMedia {
+            let thumbnailImage: UIImage? = {
+                if let url = attachment.thumbnailFileURL,
+                   let image = UIImage(contentsOfFile: url.path) {
+                    return image
+                }
+                if !attachment.isVideo,
+                   let url = attachment.finalFileURL,
+                   let image = UIImage(contentsOfFile: url.path) {
+                    return image
+                }
+                return nil
+            }()
+
+            items.append(
+                UploadCapsuleMediaItem(
+                    id: uploadCapsuleWitnessId,
+                    thumbnailImage: thumbnailImage,
+                    kind: attachment.isVideo ? .video : .image,
+                    status: uploadCapsuleMediaStatuses[uploadCapsuleWitnessId] ?? .waiting
+                )
+            )
+        }
+
+        return items
+    }
+
+    private var uploadCapsuleUploadedCount: Int {
+        uploadCapsuleMediaItems.reduce(into: 0) { count, item in
+            switch item.status {
+            case .uploaded, .processing, .moderating, .passed, .reviewRequired:
+                count += 1
+            default:
+                break
+            }
+        }
+    }
+
+    private var retryUploadCapsuleAction: (() -> Void)? {
+        guard case .failed = uploadCapsuleState else { return nil }
+        return {
+            guard !isPublishing else { return }
+            publishPost()
+        }
+    }
+
+    private var uploadCapsuleWitnessId: String {
+        "witness-\(cameraCoordinator.attachedWitnessMedia?.id ?? "none")"
+    }
+
+    private func uploadCapsuleImageId(for index: Int) -> String {
+        "image-\(index)"
+    }
+
+    @MainActor
+    private func ensurePendingPublishSession() -> String {
+        if let pendingPublishPostID {
+            if uploadCapsuleIdempotencyKey == nil {
+                uploadCapsuleIdempotencyKey = pendingPublishPostID
+            }
+            if uploadCapsuleClientRequestId == nil {
+                uploadCapsuleClientRequestId = pendingPublishPostID
+            }
+            return pendingPublishPostID
+        }
+
+        let postID = UUID().uuidString
+        pendingPublishPostID = postID
+        uploadCapsuleIdempotencyKey = postID
+        uploadCapsuleClientRequestId = postID
+        return postID
+    }
+
+    @MainActor
+    private func clearPendingPublishSession() {
+        pendingPublishPostID = nil
+        uploadCapsuleClientRequestId = nil
+        uploadCapsuleIdempotencyKey = nil
+    }
+
+    @MainActor
+    private func beginUploadCapsuleSession() {
+        _ = ensurePendingPublishSession()
+        uploadCapsuleMediaStatuses = Dictionary(uniqueKeysWithValues: uploadCapsuleMediaItems.map { ($0.id, .waiting) })
+        uploadCapsuleState = .preparing
+        uploadCapsuleProgress = UploadCapsuleMetrics.weightedProgress(for: .preparing, stageProgress: 0.15)
+        isUploadCapsuleExpanded = false
+    }
+
+    @MainActor
+    private func setUploadCapsuleState(_ state: UploadCapsuleState, stageProgress: Double) {
+        uploadCapsuleState = state
+        uploadCapsuleProgress = UploadCapsuleMetrics.weightedProgress(for: state, stageProgress: stageProgress)
+    }
+
+    @MainActor
+    private func updateUploadCapsuleMediaStatus(for id: String, to status: UploadCapsuleMediaStatus) {
+        uploadCapsuleMediaStatuses[id] = status
+    }
+
+    @MainActor
+    private func markAllUploadCapsuleMediaReady() {
+        for item in uploadCapsuleMediaItems {
+            uploadCapsuleMediaStatuses[item.id] = .passed
+        }
+    }
+
+    @MainActor
+    private func completeUploadCapsuleSession() {
+        uploadCapsuleState = .success
+        uploadCapsuleProgress = 1
+        isUploadCapsuleExpanded = false
+    }
+
+    @MainActor
+    private func presentFailedUploadCapsule(message: String) {
+        guard uploadCapsuleState != nil else { return }
+        uploadCapsuleState = .failed(message: message)
+        uploadCapsuleProgress = max(uploadCapsuleProgress, 0.22)
+        isUploadCapsuleExpanded = true
+        UIAccessibility.post(notification: .announcement, argument: "Upload failed. Tap retry.")
+    }
+
+    @MainActor
+    private func presentBlockedUploadCapsule(reason: String) {
+        guard uploadCapsuleState != nil else { return }
+        uploadCapsuleState = .blocked(reason: reason)
+        uploadCapsuleProgress = max(uploadCapsuleProgress, 0.84)
+        isUploadCapsuleExpanded = true
+        UIAccessibility.post(notification: .announcement, argument: "Cannot post media. Review the selected media.")
+    }
     
-    /// Sync post to Algolia for instant search (non-blocking)
+    /// Sync post to Algolia for instant search (non-blocking).
+    /// Only public, feed-eligible posts are indexed so drafts, private/followers-only,
+    /// pending moderation, and removed posts cannot leak through search.
     private func syncPostToAlgolia(_ post: Post) {
+        guard post.visibility == .everyone, post.isEligibleForFeedDisplay else {
+            dlog("⏭️ Skipping Algolia sync for non-public or non-approved post: \(post.id.uuidString)")
+            return
+        }
+
         // Run in background - don't block UI or show errors
         Task.detached(priority: .background) {
             do {
@@ -4159,7 +5606,8 @@ struct CreatePostView: View {
                     "commentCount": post.commentCount,
                     "repostCount": post.repostCount,
                     "createdAt": post.createdAt.timeIntervalSince1970,
-                    "isPublic": true,
+                    "isPublic": post.visibility == .everyone,
+                    "visibility": post.visibility.rawValue,
                     "shareCount": 0  // Add shareCount for Algolia
                 ]
                 
@@ -4178,8 +5626,9 @@ struct CreatePostView: View {
     
     /// Upload all selected images and return their download URLs along with the Storage group path
     /// so callers can delete the whole folder if the subsequent Firestore write fails.
-    private func uploadImages() async throws -> (urls: [String], groupPath: String) {
+    private func uploadImages() async throws -> (urls: [String], groupPath: String, storagePaths: [String]) {
         var imageURLs: [String] = []
+        var storagePaths: [String] = []
         
         guard let userId = Auth.auth().currentUser?.uid else {
             throw NSError(
@@ -4191,18 +5640,24 @@ struct CreatePostView: View {
         
         // Validate image data before upload
         guard !selectedImageData.isEmpty else {
-            return (urls: [], groupPath: "")
+            return (urls: [], groupPath: "", storagePaths: [])
         }
         
         await MainActor.run {
             isUploadingImages = true
             uploadProgress = 0.0
+            setUploadCapsuleState(.uploading, stageProgress: 0)
         }
         
         var failedUploads = 0
         let totalImages = selectedImageData.count
         // Stable folder ID groups all images for this post under post_media/{userId}/{uploadGroupId}/
-        let uploadGroupId = UUID().uuidString
+        let uploadGroupId = await MainActor.run { ensurePendingPublishSession() }
+        let groupPath = "post_media/\(userId)/\(uploadGroupId)"
+
+        await MainActor.run {
+            trackPendingUploadCleanupPath(groupPath)
+        }
 
         for (index, imageData) in selectedImageData.enumerated() {
             guard !Task.isCancelled else {
@@ -4211,8 +5666,11 @@ struct CreatePostView: View {
             }
 
             do {
+                await MainActor.run {
+                    updateUploadCapsuleMediaStatus(for: uploadCapsuleImageId(for: index), to: .preparing)
+                }
                 // Create a unique filename under the canonical post_media path
-                let filename = "\(UUID().uuidString)_\(index).jpg"
+                let filename = "image_\(index).jpg"
                 let storageRef = FirebaseManager.shared.storage.reference()
                     .child("post_media")
                     .child(userId)
@@ -4226,6 +5684,9 @@ struct CreatePostView: View {
                 
                 guard let compressedData = compressedData else {
                     dlog("⚠️ Failed to compress image \(index)")
+                    await MainActor.run {
+                        updateUploadCapsuleMediaStatus(for: uploadCapsuleImageId(for: index), to: .failed)
+                    }
                     failedUploads += 1
                     continue
                 }
@@ -4238,10 +5699,19 @@ struct CreatePostView: View {
                         context: .postImage
                     )
                     
-                    if !moderationDecision.isApproved {
+                    switch moderationDecision {
+                    case .approved:
+                        break
+                    case .review:
+                        dlog("ℹ️ [IMAGE MOD] Image \(index + 1) queued for server-side review; continuing upload")
+                        await MainActor.run {
+                            updateUploadCapsuleMediaStatus(for: uploadCapsuleImageId(for: index), to: .moderating)
+                        }
+                    case .blocked:
                         await MainActor.run {
                             isUploadingImages = false
                             uploadProgress = 0.0
+                            updateUploadCapsuleMediaStatus(for: uploadCapsuleImageId(for: index), to: .blocked)
                         }
                         throw NSError(
                             domain: "ImageModeration",
@@ -4253,6 +5723,7 @@ struct CreatePostView: View {
                     await MainActor.run {
                         isUploadingImages = false
                         uploadProgress = 0.0
+                        updateUploadCapsuleMediaStatus(for: uploadCapsuleImageId(for: index), to: .failed)
                     }
                     throw NSError(
                         domain: "ImageModeration",
@@ -4270,17 +5741,23 @@ struct CreatePostView: View {
                 // Get download URL
                 let downloadURL = try await storageRef.downloadURL()
                 imageURLs.append(downloadURL.absoluteString)
+                storagePaths.append(storageRef.fullPath)
                 
                 // Update progress
                 let progress = Double(index + 1) / Double(totalImages)
                 await MainActor.run {
                     uploadProgress = progress
+                    updateUploadCapsuleMediaStatus(for: uploadCapsuleImageId(for: index), to: .uploaded)
+                    setUploadCapsuleState(.uploading, stageProgress: progress)
                 }
                 
                 dlog("✅ Uploaded image \(index + 1)/\(totalImages)")
             } catch {
                 dlog("❌ Failed to upload image \(index): \(error)")
                 failedUploads += 1
+                await MainActor.run {
+                    updateUploadCapsuleMediaStatus(for: uploadCapsuleImageId(for: index), to: .failed)
+                }
                 
                 // If more than half the images fail, throw error
                 if failedUploads > totalImages / 2 {
@@ -4312,8 +5789,135 @@ struct CreatePostView: View {
             )
         }
 
-        let groupPath = "post_media/\(userId)/\(uploadGroupId)"
-        return (urls: imageURLs, groupPath: groupPath)
+        return (urls: imageURLs, groupPath: groupPath, storagePaths: storagePaths)
+    }
+
+    private func uploadWitnessAttachment(
+        _ attachment: WitnessDraftAttachment,
+        startingOrder: Int
+    ) async throws -> WitnessUploadResult {
+        guard let userId = Auth.auth().currentUser?.uid else {
+            throw NSError(
+                domain: "CreatePostView",
+                code: 401,
+                userInfo: [NSLocalizedDescriptionKey: "User not authenticated"]
+            )
+        }
+
+        guard let finalURL = attachment.finalFileURL else {
+            throw NSError(
+                domain: "WitnessUpload",
+                code: -10,
+                userInfo: [NSLocalizedDescriptionKey: "Witness capture file is missing."]
+            )
+        }
+
+        WitnessCameraAnalytics.track("witness_upload_started", parameters: [
+            "mode": attachment.mode.rawValue
+        ])
+
+        let storage = FirebaseManager.shared.storage.reference()
+        let postID = await MainActor.run { ensurePendingPublishSession() }
+        let rootPath = "post_media/\(userId)/\(postID)/witness"
+
+        await MainActor.run {
+            trackPendingUploadCleanupPath(rootPath)
+        }
+
+        let finalRef = storage.child(rootPath).child("final").child(finalURL.lastPathComponent)
+        let finalData = try Data(contentsOf: finalURL)
+        let finalMetadata = StorageMetadata()
+        finalMetadata.contentType = attachment.isVideo ? "video/mp4" : "image/jpeg"
+        _ = try await finalRef.putDataAsync(finalData, metadata: finalMetadata)
+        let finalDownloadURL = try await finalRef.downloadURL()
+
+        var thumbnailDescriptor: WitnessMediaAssetDescriptor?
+        var thumbnailDownloadURL: URL?
+        if let thumbnailURL = attachment.thumbnailFileURL {
+            let thumbnailRef = storage.child(rootPath).child("thumbs").child(thumbnailURL.lastPathComponent)
+            let thumbnailData = try Data(contentsOf: thumbnailURL)
+            let thumbnailMetadata = StorageMetadata()
+            thumbnailMetadata.contentType = "image/jpeg"
+            _ = try await thumbnailRef.putDataAsync(thumbnailData, metadata: thumbnailMetadata)
+            let downloadURL = try await thumbnailRef.downloadURL()
+            thumbnailDownloadURL = downloadURL
+            thumbnailDescriptor = WitnessMediaAssetDescriptor(
+                url: downloadURL.absoluteString,
+                storagePath: thumbnailRef.fullPath,
+                thumbnailURL: nil,
+                width: attachment.thumbnailAsset?.width,
+                height: attachment.thumbnailAsset?.height,
+                durationSec: nil,
+                contentType: "image/jpeg"
+            )
+        }
+
+        func uploadRawAsset(_ asset: WitnessMediaAssetDescriptor?, folder: String) async throws -> WitnessMediaAssetDescriptor? {
+            guard let asset, let localPath = asset.localPath else { return nil }
+            let sourceURL = URL(fileURLWithPath: localPath)
+            let ref = storage.child(rootPath).child("raw").child(folder).child(sourceURL.lastPathComponent)
+            let data = try Data(contentsOf: sourceURL)
+            let metadata = StorageMetadata()
+            metadata.contentType = asset.contentType
+            _ = try await ref.putDataAsync(data, metadata: metadata)
+            let downloadURL = try await ref.downloadURL()
+            return WitnessMediaAssetDescriptor(
+                url: downloadURL.absoluteString,
+                storagePath: ref.fullPath,
+                width: asset.width,
+                height: asset.height,
+                durationSec: asset.durationSec,
+                contentType: asset.contentType
+            )
+        }
+
+        let uploadedFrontAsset = try await uploadRawAsset(attachment.frontAsset, folder: "front")
+        let uploadedBackAsset = try await uploadRawAsset(attachment.backAsset, folder: "back")
+
+        let finalDescriptor = WitnessMediaAssetDescriptor(
+            url: finalDownloadURL.absoluteString,
+            storagePath: finalRef.fullPath,
+            thumbnailURL: thumbnailDownloadURL?.absoluteString,
+            width: attachment.finalAsset.width,
+            height: attachment.finalAsset.height,
+            durationSec: attachment.durationSec,
+            contentType: attachment.finalAsset.contentType
+        )
+
+        let mediaItem = PostMediaItem(
+            type: attachment.postMediaType,
+            url: finalDownloadURL.absoluteString,
+            thumbnailURL: thumbnailDownloadURL?.absoluteString,
+            aspectRatio: {
+                guard let width = attachment.finalAsset.width,
+                      let height = attachment.finalAsset.height,
+                      height > 0 else { return nil }
+                return CGFloat(width) / CGFloat(height)
+            }(),
+            order: startingOrder,
+            duration: attachment.durationSec,
+            fileSize: Int64(finalData.count),
+            width: attachment.finalAsset.width,
+            height: attachment.finalAsset.height
+        )
+
+        let metadata = PostWitnessMediaMetadata(
+            mode: attachment.mode,
+            layout: attachment.layout,
+            durationSec: attachment.durationSec,
+            frontAsset: uploadedFrontAsset,
+            backAsset: uploadedBackAsset,
+            finalAsset: finalDescriptor,
+            thumbnailAsset: thumbnailDescriptor,
+            captureTimestamp: attachment.captureTimestamp,
+            retakesUsed: attachment.retakeCount,
+            deviceMultiCamSupported: attachment.deviceMultiCamSupported
+        )
+
+        WitnessCameraAnalytics.track("witness_upload_completed", parameters: [
+            "mode": attachment.mode.rawValue
+        ])
+        return WitnessUploadResult(mediaItem: mediaItem, metadata: metadata, storageRootPath: rootPath)
     }
 
     /// Delete an entire Storage folder path to clean up orphaned images after a failed post write.
@@ -4323,7 +5927,11 @@ struct CreatePostView: View {
             do {
                 let listing = try await folderRef.listAll()
                 for item in listing.items {
-                    try? await item.delete()
+                    do {
+                        try await item.delete()
+                    } catch {
+                        dlog("⚠️ CreatePostView: failed to delete orphaned upload — \(error)")
+                    }
                 }
                 dlog("🗑️ Cleaned up orphaned upload folder: \(path)")
             } catch {
@@ -4377,10 +5985,10 @@ struct CreatePostView: View {
             return
         }
 
-        Task {
+        activePublishTask = Task {
             defer {
                 Task { @MainActor in
-                    if isPublishing { isPublishing = false; inFlightPostId = nil }
+                    if isPublishing { stopPublishAttempt() }
                 }
             }
 
@@ -4389,9 +5997,9 @@ struct CreatePostView: View {
             guard let currentUser = Auth.auth().currentUser else {
                 dlog("❌ [Thread DEBUG] No currentUser found!")
                 await MainActor.run {
-                    isPublishing = false
-                    inFlightPostId = nil
+                    stopPublishAttempt()
                     errorMessage = "You must be signed in to post."
+                    showingErrorAlert = true
                 }
                 return
             }
@@ -4404,17 +6012,27 @@ struct CreatePostView: View {
 
             // Fetch author profile image once
             authorProfileImageURL = UserProfileImageCache.shared.cachedProfileImageURL
-            
+
             dlog("🧵 [Thread DEBUG] Profile image URL: \(authorProfileImageURL ?? "nil")")
             dlog("🧵 [Thread] Publishing \(threadCount) posts with threadId: \(threadId)")
 
+            // Seed per-segment Firestore document IDs on first attempt; reuse on retry
+            // so setData() is idempotent — a partial-failure retry overwrites the same
+            // documents rather than creating duplicates.
+            await MainActor.run {
+                if pendingThreadSegmentIds.count != threadCount {
+                    pendingThreadSegmentIds = (0..<threadCount).map { _ in UUID().uuidString }
+                }
+            }
+            let segmentIds = await MainActor.run { pendingThreadSegmentIds }
+
             for (index, postContent) in filledPosts.enumerated() {
                 dlog("🧵 [Thread DEBUG] Preparing post \(index + 1)/\(threadCount)...")
-                
-                let postId = UUID()
+
+                let postId = segmentIds[index]
                 let timestamp = Date().addingTimeInterval(Double(index) * 0.05)
                 
-                dlog("🧵 [Thread DEBUG] Post ID: \(postId.uuidString), timestamp: \(timestamp)")
+                dlog("🧵 [Thread DEBUG] Post ID: \(postId), timestamp: \(timestamp)")
                 
                 var postData: [String: Any] = [
                     "authorId": currentUser.uid,
@@ -4454,22 +6072,46 @@ struct CreatePostView: View {
                     postData["linkPreviewSiteName"] = lm.siteName as Any
                     dlog("🧵 [Thread DEBUG] Added link preview to first post")
                 }
-                
+                if index == 0, let smartAttachment,
+                   let encodedAttachment = try? Firestore.Encoder().encode(smartAttachment) {
+                    postData["smartAttachment"] = encodedAttachment
+                    postData["hasSmartAttachment"] = true
+                    postData["attachmentCount"] = 1
+                    postData["primaryAttachmentId"] = smartAttachment.id
+                    postData["soundtrackEnabled"] = useSmartAttachmentAsSoundtrack
+                    postData["smartObjectIds"] = [smartAttachment.id]
+                    postData["primarySmartObjectId"] = smartAttachment.id
+                    postData["objectType"] = smartAttachment.type.rawValue
+                    postData["sourceProvider"] = smartAttachment.provider.rawValue
+                    postData["canonicalUrl"] = smartAttachment.canonicalUrl
+                    postData["safetyState"] = smartAttachment.safetyStatus.rawValue
+                    postData["explicitContentState"] = smartAttachment.safetyStatus == .blocked ? "blocked" : "unknown"
+                }
+
                 dlog("🧵 [Thread DEBUG] Writing post \(index + 1) to Firestore...")
 
                 do {
                     try await FirebaseManager.shared.firestore
                         .collection("posts")
-                        .document(postId.uuidString)
+                        .document(postId)
                         .setData(postData)
                     dlog("✅ [Thread] Post \(index + 1)/\(threadCount) published successfully")
+                    // Wire hub preview for the thread head post
+                    if index == 0, let smartAttachment, AMENFeatureFlags.shared.communityHubsEnabled {
+                        _ = await AmenCommunityHubService.shared.attachHubPreview(
+                            postId: postId,
+                            url: smartAttachment.canonicalUrl,
+                            objectType: smartAttachment.type.rawValue,
+                            title: smartAttachment.title
+                        )
+                    }
                 } catch {
                     dlog("❌ [Thread] Failed to publish post \(index + 1): \(error)")
                     dlog("❌ [Thread DEBUG] Error details: \(error.localizedDescription)")
                     await MainActor.run {
-                        isPublishing = false
-                        inFlightPostId = nil
+                        stopPublishAttempt(markDraftFailed: true)
                         errorMessage = "Thread post \(index + 1) failed to publish. Please try again."
+                        showingErrorAlert = true
                     }
                     return
                 }
@@ -4477,15 +6119,28 @@ struct CreatePostView: View {
 
             dlog("🧵 [Thread DEBUG] All posts written successfully, cleaning up UI state...")
 
+            // Increment user's post count by the number of thread segments published
+            let _uid = currentUser.uid
+            let _count = threadCount
+            Task.detached(priority: .utility) {
+                try? await FirebaseManager.shared.firestore
+                    .collection("users").document(_uid)
+                    .updateData(["postsCount": FieldValue.increment(Int64(_count))])
+            }
+
             await MainActor.run {
                 dlog("🧵 [Thread DEBUG] On MainActor, resetting state...")
                 inFlightPostId = nil
+                draftVM.markPublished()
+                pendingThreadSegmentIds = []  // Clear so a future thread gets fresh IDs
                 isThreadMode = false
                 threadPosts = [""]
                 currentThreadIndex = 0
                 linkController.reset()
                 UserDefaults.standard.removeObject(forKey: "autoSavedDraft")
                 shouldPersistDraftOnExit = false
+                cameraCoordinator.removeAttachedMedia()
+                mediaMetadataDraft = CreatePostMediaMetadataDraft()
                 withAnimation { showingSuccessNotice = true }
                 HapticManager.notification(type: .success)
                 // Record post for community guidelines eligibility tracking
@@ -4506,13 +6161,25 @@ struct CreatePostView: View {
         linkURL: String?,
         scheduledFor: Date
     ) {
-        Task {
+        let scheduledPostId = ensurePendingPublishSession()
+        let scheduledClientRequestId = uploadCapsuleClientRequestId ?? scheduledPostId
+        let scheduledIdempotencyKey = uploadCapsuleIdempotencyKey ?? scheduledPostId
+        activePublishTask = Task {
             do {
                 // Upload images first if any
                 var imageURLs: [String]? = nil
+                var mediaItems: [PostMediaItem] = []
+                var witnessMedia: PostWitnessMediaMetadata? = nil
                 if !selectedImageData.isEmpty {
                     let uploadResult = try await uploadImages()
                     imageURLs = uploadResult.urls
+                    mediaItems = applyMetadataToImageItems(urls: uploadResult.urls)
+                }
+
+                if let witnessAttachment = cameraCoordinator.attachedWitnessMedia {
+                    let witnessUpload = try await uploadWitnessAttachment(witnessAttachment, startingOrder: mediaItems.count)
+                    mediaItems.append(applyMetadataToVideoItem(witnessUpload.mediaItem))
+                    witnessMedia = witnessUpload.metadata
                 }
                 
                 // MARK: - ✅ IMPLEMENTED: Scheduled Posts with Cloud Functions
@@ -4534,12 +6201,24 @@ struct CreatePostView: View {
                     "scheduledFor": Timestamp(date: scheduledFor),
                     "createdAt": Timestamp(date: Date()),
                     "authorId": scheduledAuthorId,
-                    "status": "pending"
+                    "status": "pending",
+                    "clientRequestId": scheduledClientRequestId,
+                    "idempotencyKey": scheduledIdempotencyKey
                 ]
+                var mutableScheduledPostData = scheduledPostData
+                if !mediaItems.isEmpty,
+                   let encodedMediaItems = try? Firestore.Encoder().encode(mediaItems) {
+                    mutableScheduledPostData["mediaItems"] = encodedMediaItems
+                }
+                if let witnessMedia,
+                   let encodedWitnessMedia = try? Firestore.Encoder().encode(witnessMedia) {
+                    mutableScheduledPostData["witnessMedia"] = encodedWitnessMedia
+                }
                 
                 try await FirebaseManager.shared.firestore
                     .collection("scheduled_posts")
-                    .addDocument(data: scheduledPostData)
+                    .document(scheduledPostId)
+                    .setData(mutableScheduledPostData)
                 
                 await MainActor.run {
                     
@@ -4549,7 +6228,11 @@ struct CreatePostView: View {
                     
                     isPublishing = false
                     inFlightPostId = nil  // FIX: clear hash so user can post again after scheduling
+                    draftVM.markPublished()
                     shouldPersistDraftOnExit = false
+                    clearPendingPublishSession()
+                    clearPendingUploadCleanupPaths()
+                    cameraCoordinator.removeAttachedMedia()
                     
                     // P0-2 FIX: Cancellable dismiss
                     scheduleDelayedAction(seconds: 0.5) {
@@ -4565,6 +6248,7 @@ struct CreatePostView: View {
                 
             } catch {
                 await MainActor.run {
+                    cleanupPendingUploadArtifacts()
                     let friendlyError = getUserFriendlyError(from: error)
                     
                     // P1-6 FIX: Offer retry for network errors
@@ -4583,7 +6267,7 @@ struct CreatePostView: View {
                             publishPost()
                         } : nil
                     )
-                    isPublishing = false
+                    stopPublishAttempt(markDraftFailed: true)
                 }
             }
         }
@@ -4674,7 +6358,12 @@ struct CreatePostView: View {
         }
         
         // Only auto-save if there's content
-        guard !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+        let hasText = !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        guard hasText
+            || cameraCoordinator.attachedWitnessMedia != nil
+            || !selectedImageData.isEmpty
+            || showingPoll
+            || isThreadMode else {
             return
         }
         
@@ -4694,20 +6383,118 @@ struct CreatePostView: View {
         if !linkURL.isEmpty {
             autoSaveDraft["linkURL"] = linkURL
         }
+
+        if let witnessAttachment = cameraCoordinator.attachedWitnessMedia,
+           let encoded = try? JSONEncoder().encode(witnessAttachment),
+           let encodedString = String(data: encoded, encoding: .utf8) {
+            autoSaveDraft["witnessAttachment"] = encodedString
+        }
+
+        if let encodedMetadata = try? JSONEncoder().encode(mediaMetadataDraft),
+           let encodedString = String(data: encodedMetadata, encoding: .utf8) {
+            autoSaveDraft["mediaMetadataDraft"] = encodedString
+        }
+
+        let effectiveVerseReference = verseAttachmentVM.attachedScripture?.canonicalReference ?? attachedVerseReference
+        let effectiveVerseText = verseAttachmentVM.attachedScripture?.previewText ?? attachedVerseText
+        autoSaveDraft["showingPoll"] = showingPoll
+        autoSaveDraft["pollQuestion"] = pollQuestion
+        autoSaveDraft["pollOptions"] = pollOptions
+        autoSaveDraft["pollDuration"] = pollDuration.rawValue
+        autoSaveDraft["attachedVerseReference"] = effectiveVerseReference
+        autoSaveDraft["attachedVerseText"] = effectiveVerseText
+        autoSaveDraft["isThreadMode"] = isThreadMode
+        autoSaveDraft["threadPosts"] = threadPosts
+        autoSaveDraft["currentThreadIndex"] = currentThreadIndex
         
         UserDefaults.standard.set(autoSaveDraft, forKey: "autoSavedDraft")
-        
+
+        // Persist to SwiftData via ViewModel — includes phase state alongside content snapshot
+        draftVM.persistSnapshot(
+            postText: postText,
+            categoryRawValue: selectedCategory.rawValue,
+            topicTag: selectedTopicTag,
+            linkURL: linkURL,
+            pollQuestion: pollQuestion,
+            pollOptions: pollOptions,
+            pollDurationRawValue: pollDuration.rawValue,
+            showingPoll: showingPoll,
+            isThreadMode: isThreadMode,
+            threadPosts: threadPosts,
+            currentThreadIndex: currentThreadIndex,
+            postVisibilityRawValue: postVisibility.rawValue,
+            commentPermissionRawValue: commentPermission.rawValue,
+            attachedVerseReference: effectiveVerseReference,
+            attachedVerseText: effectiveVerseText,
+            taggedChurchId: taggedChurchId,
+            taggedChurchName: taggedChurchName,
+            hideEngagementCounts: hideEngagementCounts,
+            hasSensitiveContent: hasSensitiveContent,
+            sensitiveContentReason: sensitiveContentReason,
+            imageAltTexts: imageAltTexts,
+            imageCount: selectedImageData.count,
+            witnessAttachmentJSON: autoSaveDraft["witnessAttachment"] as? String,
+            mediaMetadataDraftJSON: autoSaveDraft["mediaMetadataDraft"] as? String
+        )
+
         dlog("💾 Auto-saved draft at \(Date())")
     }
     
     /// Check for draft recovery on appear
     private func checkForDraftRecovery() {
-        guard let autoSaved = UserDefaults.standard.dictionary(forKey: "autoSavedDraft"),
-              let content = autoSaved["content"] as? String,
-              let timestamp = autoSaved["timestamp"] as? TimeInterval,
-              !content.isEmpty else {
+        // Prefer SwiftData via ViewModel — restores phase state + returns content draft
+        if let sd = draftVM.restoreIfAvailable() {
+            let draft = Draft(
+                id: UUID().uuidString,
+                content: sd.postText,
+                category: sd.categoryRawValue.isEmpty ? selectedCategory.rawValue : sd.categoryRawValue,
+                topicTag: sd.topicTag.isEmpty ? nil : sd.topicTag,
+                linkURL: sd.linkURL.isEmpty ? nil : sd.linkURL,
+                visibility: sd.postVisibilityRawValue,
+                createdAt: sd.createdAt,
+                witnessAttachment: Self.decodeWitnessAttachment(from: sd.witnessAttachmentJSON),
+                mediaMetadataDraft: Self.decodeMediaMetadataDraft(from: sd.mediaMetadataDraftJSON),
+                attachedVerseReference: sd.attachedVerseReference,
+                attachedVerseText: sd.attachedVerseText,
+                showingPoll: sd.showingPoll,
+                pollQuestion: sd.pollQuestion,
+                pollOptions: sd.pollOptions,
+                pollDurationRawValue: sd.pollDurationRawValue.isEmpty ? nil : sd.pollDurationRawValue,
+                isThreadMode: sd.isThreadMode,
+                threadPosts: sd.threadPosts,
+                currentThreadIndex: sd.currentThreadIndex
+            )
+            recoveredDraft = draft
+            if sd.inFlightPostId != nil || sd.uploadPhaseRawValue == LocalPostDraftUploadPhase.uploading.rawValue {
+                if let recoveredPostId = sd.inFlightPostId, !recoveredPostId.isEmpty {
+                    pendingPublishPostID = recoveredPostId
+                    uploadCapsuleClientRequestId = recoveredPostId
+                    uploadCapsuleIdempotencyKey = recoveredPostId
+                }
+                draftVM.markFailed()
+                publishFailureBannerMessage = "Your last publish did not finish. Review the draft and try again."
+            }
+            showDraftRecovery = true
             return
         }
+
+        // Fall back to UserDefaults (legacy, non-user-scoped)
+        guard let autoSaved = UserDefaults.standard.dictionary(forKey: "autoSavedDraft"),
+              let timestamp = autoSaved["timestamp"] as? TimeInterval else {
+            return
+        }
+        let content = autoSaved["content"] as? String ?? ""
+        let witnessAttachment = Self.decodeWitnessAttachment(from: autoSaved["witnessAttachment"] as? String)
+        let metadataDraft = Self.decodeMediaMetadataDraft(from: autoSaved["mediaMetadataDraft"] as? String)
+        let recoveredThreadPosts = autoSaved["threadPosts"] as? [String] ?? [""]
+        let recoveredIsThreadMode = autoSaved["isThreadMode"] as? Bool ?? false
+        let recoveredShowingPoll = autoSaved["showingPoll"] as? Bool ?? false
+        let recoveredPollOptions = autoSaved["pollOptions"] as? [String] ?? ["", ""]
+        guard !content.isEmpty
+            || witnessAttachment != nil
+            || recoveredShowingPoll
+            || recoveredIsThreadMode
+            || recoveredThreadPosts.contains(where: { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) else { return }
         
         // Only offer recovery if draft is less than 24 hours old
         let draftAge = Date().timeIntervalSince1970 - timestamp
@@ -4724,7 +6511,18 @@ struct CreatePostView: View {
             topicTag: autoSaved["topicTag"] as? String,
             linkURL: autoSaved["linkURL"] as? String,
             visibility: "everyone",
-            createdAt: Date(timeIntervalSince1970: timestamp)
+            createdAt: Date(timeIntervalSince1970: timestamp),
+            witnessAttachment: witnessAttachment,
+            mediaMetadataDraft: metadataDraft,
+            attachedVerseReference: autoSaved["attachedVerseReference"] as? String ?? "",
+            attachedVerseText: autoSaved["attachedVerseText"] as? String ?? "",
+            showingPoll: recoveredShowingPoll,
+            pollQuestion: autoSaved["pollQuestion"] as? String ?? "",
+            pollOptions: recoveredPollOptions,
+            pollDurationRawValue: autoSaved["pollDuration"] as? String,
+            isThreadMode: recoveredIsThreadMode,
+            threadPosts: recoveredThreadPosts,
+            currentThreadIndex: autoSaved["currentThreadIndex"] as? Int ?? 0
         )
         
         recoveredDraft = draft
@@ -4742,14 +6540,44 @@ struct CreatePostView: View {
         
         selectedTopicTag = draft.topicTag ?? ""
         linkURL = draft.linkURL ?? ""
+        attachedVerseReference = draft.attachedVerseReference
+        attachedVerseText = draft.attachedVerseText
+        if !draft.attachedVerseReference.isEmpty {
+            verseAttachmentVM.restoreFromLegacy(reference: draft.attachedVerseReference, text: draft.attachedVerseText)
+        }
+        cameraCoordinator.restoreDraftAttachment(draft.witnessAttachment)
+        mediaMetadataDraft = draft.mediaMetadataDraft ?? CreatePostMediaMetadataDraft()
+        showingPoll = draft.showingPoll
+        pollQuestion = draft.pollQuestion
+        pollOptions = max(2, draft.pollOptions.count) >= 2 ? draft.pollOptions : ["", ""]
+        if let rawValue = draft.pollDurationRawValue,
+           let duration = PollDuration(rawValue: rawValue) {
+            pollDuration = duration
+        } else {
+            pollDuration = .oneDay
+        }
+        isThreadMode = draft.isThreadMode
+        threadPosts = draft.threadPosts.isEmpty ? [""] : draft.threadPosts
+        currentThreadIndex = min(draft.currentThreadIndex, max(threadPosts.count - 1, 0))
+        syncMediaMetadataDraftFromCurrentAttachments()
         
         dlog("✅ Recovered draft from \(draft.createdAt)")
     }
     
     /// Clear recovered draft
     private func clearRecoveredDraft() {
-        UserDefaults.standard.removeObject(forKey: "autoSavedDraft")
+        draftVM.clearDraft()  // clears SwiftData + UserDefaults "autoSavedDraft"
         recoveredDraft = nil
+    }
+
+    private static func decodeWitnessAttachment(from string: String?) -> WitnessDraftAttachment? {
+        guard let string, let data = string.data(using: .utf8) else { return nil }
+        return try? JSONDecoder().decode(WitnessDraftAttachment.self, from: data)
+    }
+
+    private static func decodeMediaMetadataDraft(from string: String?) -> CreatePostMediaMetadataDraft? {
+        guard let string, let data = string.data(using: .utf8) else { return nil }
+        return try? JSONDecoder().decode(CreatePostMediaMetadataDraft.self, from: data)
     }
     
     // Link preview is handled by linkController (ComposerLinkPreviewController).
@@ -5346,11 +7174,11 @@ private struct GlassCategorySegment: View {
     // Short label to keep the pill compact
     private var segmentLabel: String {
         switch category {
-        case .openTable:   return "OpenTable"
-        case .testimonies: return "Testimony"
-        case .prayer:      return "Prayer"
-        case .tip:         return "Tip"
-        case .funFact:     return "Fun Fact"
+        case .openTable:      return "OpenTable"
+        case .testimonies:    return "Testimony"
+        case .prayer:         return "Prayer"
+        case .tip:            return "Tip"
+        case .funFact:        return "Fun Fact"
         }
     }
 }
@@ -5401,7 +7229,16 @@ struct TopicTagSheet: View {
     @Binding var selectedTag: String
     @Binding var isPresented: Bool
     @Binding var selectedCategory: CreatePostView.PostCategory
+    @ObservedObject private var premiumManager = PremiumManager.shared
     @State private var searchText = ""
+    @State private var newCustomTag = ""
+    @State private var customTopicTags = TopicTagSheet.loadCustomTopicTags()
+    @State private var isSyncingCustomTopicTags = false
+    @State private var showCustomTagLimitPaywall = false
+    @State private var showPremiumUpgrade = false
+    @State private var customTagErrorMessage: String?
+
+    private static let customTopicTagsBaseKey = "amen.createPost.customTopicTags"
     
     // OpenTable topic tags
     var openTableTags: [(String, String, Color)] {
@@ -5477,12 +7314,16 @@ struct TopicTagSheet: View {
         ("Family", "house.fill", .blue)
     ]
     
-    var displayTags: [(String, String, Color)] {
+    var defaultDisplayTags: [(String, String, Color)] {
         switch selectedCategory {
         case .prayer: return prayerTypes
         case .testimonies: return testimonyTags
         default: return openTableTags
         }
+    }
+
+    var displayTags: [(String, String, Color)] {
+        defaultDisplayTags + customTopicTags.map { ($0, "tag.fill", Color.secondary) }
     }
     
     var filteredTags: [(String, String, Color)] {
@@ -5493,20 +7334,32 @@ struct TopicTagSheet: View {
             tag.0.localizedCaseInsensitiveContains(searchText)
         }
     }
+
+    private var sanitizedCustomTag: String {
+        Self.normalizedTag(newCustomTag)
+    }
+
+    private var customTagsRemainingText: String {
+        guard let limit = premiumManager.customTopicTagLimit else {
+            return "Unlimited custom tags with \(premiumManager.currentTier.displayName)"
+        }
+        let remaining = max(limit - customTopicTags.count, 0)
+        return "\(remaining) of \(limit) custom tags remaining on \(premiumManager.currentTier.displayName)"
+    }
     
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text(selectedCategory == .prayer ? "Select Prayer Type" : selectedCategory == .testimonies ? "Testimony Category" : "Select a Topic Tag")
+                        Text(selectedCategory == .prayer ? "Choose Prayer Type" : selectedCategory == .testimonies ? "Testimony Category" : "Choose a Topic Tag")
                             .font(AMENFont.bold(20))
                         
                         Text(selectedCategory == .prayer ?
-                             "Let others know what kind of prayer this is" :
+                             "Optional: let others know what kind of prayer this is" :
                              selectedCategory == .testimonies ?
-                             "Choose a category so others can find your testimony" :
-                             "Help others discover your post in #OPENTABLE")
+                             "Optional: choose a category so others can find your testimony" :
+                             "Optional: help others discover your post in #OPENTABLE")
                             .font(AMENFont.regular(14))
                             .foregroundStyle(.secondary)
                     }
@@ -5523,7 +7376,8 @@ struct TopicTagSheet: View {
                         TextField("Search topics...", text: $searchText)
                             .font(AMENFont.regular(15))
                             .autocorrectionDisabled()
-                        
+                            .accessibilityLabel("Search topics")
+
                         if !searchText.isEmpty {
                             Button {
                                 withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.7))) {
@@ -5547,6 +7401,9 @@ struct TopicTagSheet: View {
                             )
                     )
                     .padding(.horizontal)
+
+                    customTopicTagComposer
+                        .padding(.horizontal)
                     
                     if filteredTags.isEmpty {
                         VStack(spacing: 12) {
@@ -5556,7 +7413,7 @@ struct TopicTagSheet: View {
                             Text("No topics found")
                                 .font(AMENFont.semiBold(16))
                                 .foregroundStyle(.secondary)
-                            Text("Try a different search term")
+                            Text("Create it as a custom tag above")
                                 .font(AMENFont.regular(14))
                                 .foregroundStyle(.secondary.opacity(0.7))
                         }
@@ -5594,9 +7451,167 @@ struct TopicTagSheet: View {
                         isPresented = false
                     }
                 }
+                if !selectedTag.isEmpty {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button("Clear") {
+                            selectedTag = ""
+                            isPresented = false
+                        }
+                    }
+                }
             }
         }
+        .alert("Custom tag limit reached", isPresented: $showCustomTagLimitPaywall) {
+            Button("Upgrade") {
+                showPremiumUpgrade = true
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("Free includes 3 custom tags. AMEN Plus includes 15, and AMEN Pro removes the limit.")
+        }
+        .sheet(isPresented: $showPremiumUpgrade) {
+            PremiumUpgradeView(context: .customTopicTags)
+        }
+        .alert("Could not create tag", isPresented: Binding(
+            get: { customTagErrorMessage != nil },
+            set: { if !$0 { customTagErrorMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) { customTagErrorMessage = nil }
+        } message: {
+            Text(customTagErrorMessage ?? "Please try again.")
+        }
+        .task {
+            await loadRemoteCustomTopicTags()
+        }
         .presentationDetents([.large])
+    }
+
+    private var customTopicTagComposer: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                Image(systemName: "plus.circle.fill")
+                    .font(.systemScaled(18, weight: .semibold))
+                    .foregroundStyle(.blue)
+
+                TextField("Create your own topic tag", text: $newCustomTag)
+                    .font(AMENFont.regular(15))
+                    .textInputAutocapitalization(.words)
+                    .autocorrectionDisabled()
+                    .accessibilityLabel("Custom topic tag")
+
+                Button("Create") {
+                    Task { await createCustomTopicTag() }
+                }
+                .font(AMENFont.semiBold(14))
+                .disabled(sanitizedCustomTag.isEmpty || isSyncingCustomTopicTags)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color(.secondarySystemBackground))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+                    )
+            )
+
+            Text(customTagsRemainingText)
+                .font(AMENFont.regular(12))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 2)
+        }
+    }
+
+    private func createCustomTopicTag() async {
+        let tag = sanitizedCustomTag
+        guard !tag.isEmpty else { return }
+
+        if displayTags.contains(where: { $0.0.caseInsensitiveCompare(tag) == .orderedSame }) {
+            selectedTag = tag
+            isPresented = false
+            return
+        }
+
+        guard premiumManager.canCreateCustomTopicTag(currentCount: customTopicTags.count) else {
+            showCustomTagLimitPaywall = true
+            return
+        }
+
+        isSyncingCustomTopicTags = true
+        defer { isSyncingCustomTopicTags = false }
+
+        do {
+            let createdTag = try await Self.createRemoteCustomTopicTag(tag)
+            if !customTopicTags.contains(where: { $0.caseInsensitiveCompare(createdTag) == .orderedSame }) {
+                customTopicTags.append(createdTag)
+                Self.saveCustomTopicTags(customTopicTags)
+            }
+            selectedTag = createdTag
+            isPresented = false
+        } catch {
+            if (error as NSError).code == FunctionsErrorCode.resourceExhausted.rawValue {
+                showCustomTagLimitPaywall = true
+            } else {
+                customTagErrorMessage = "AMEN could not save this topic tag securely. Please try again."
+            }
+        }
+    }
+
+    private func loadRemoteCustomTopicTags() async {
+        guard Auth.auth().currentUser != nil else { return }
+        do {
+            let remoteTags = try await Self.loadRemoteCustomTopicTags()
+            customTopicTags = remoteTags
+            Self.saveCustomTopicTags(remoteTags)
+        } catch {
+            dlog("⚠️ Could not load custom topic tags: \(error.localizedDescription)")
+        }
+    }
+
+    private static func normalizedTag(_ value: String) -> String {
+        value
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "#"))
+            .split(whereSeparator: { $0.isWhitespace })
+            .joined(separator: " ")
+            .prefix(32)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func customTopicTagsKey() -> String {
+        if let uid = Auth.auth().currentUser?.uid {
+            return "\(customTopicTagsBaseKey).\(uid)"
+        }
+        return customTopicTagsBaseKey
+    }
+
+    private static func loadCustomTopicTags() -> [String] {
+        UserDefaults.standard.stringArray(forKey: customTopicTagsKey()) ?? []
+    }
+
+    private static func saveCustomTopicTags(_ tags: [String]) {
+        UserDefaults.standard.set(tags, forKey: customTopicTagsKey())
+    }
+
+    private static func loadRemoteCustomTopicTags() async throws -> [String] {
+        let result = try await Functions.functions().httpsCallable("listCustomTopicTags").call([:])
+        guard let data = result.data as? [String: Any],
+              let tags = data["tags"] as? [String] else {
+            return []
+        }
+        return tags
+    }
+
+    private static func createRemoteCustomTopicTag(_ label: String) async throws -> String {
+        let result = try await Functions.functions().httpsCallable("createCustomTopicTag").call([
+            "label": label
+        ])
+        guard let data = result.data as? [String: Any],
+              let tag = data["tag"] as? String else {
+            return label
+        }
+        return tag
     }
 }
 
@@ -6130,324 +8145,6 @@ struct EnhancedCategoryChip: View {
     }
 }
 
-struct ImagePreviewGrid: View {
-    @Binding var images: [Data]
-    var onAddMore: (() -> Void)? = nil
-    @State private var draggingItem: Data?
-
-    var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 12) {
-                ForEach(images, id: \.self) { imageData in
-                    DraggableImageCell(
-                        imageData: imageData,
-                        images: $images,
-                        draggingItem: $draggingItem
-                    )
-                }
-
-                // "+" add more cell (up to 4 images)
-                if images.count < 4, let onAddMore {
-                    AddImageButton(onAddMore: onAddMore)
-                }
-            }
-        }
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: images.count)
-    }
-}
-
-// MARK: - Draggable Image Cell
-
-private struct DraggableImageCell: View {
-    let imageData: Data
-    @Binding var images: [Data]
-    @Binding var draggingItem: Data?
-    
-    var body: some View {
-        if let uiImage = UIImage(data: imageData) {
-            ZStack(alignment: .topTrailing) {
-                Image(uiImage: uiImage)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: 120, height: 120)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .opacity(draggingItem == imageData ? 0.5 : 1.0)
-
-                Button {
-                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
-                        images.removeAll { $0 == imageData }
-                    }
-                } label: {
-                    ZStack {
-                        Circle()
-                            .fill(Color.black.opacity(0.7))
-                            .frame(width: 28, height: 28)
-
-                        Image(systemName: "xmark")
-                            .font(.systemScaled(12, weight: .bold))
-                            .foregroundStyle(.white)
-                    }
-                }
-                .padding(8)
-            }
-            .transition(.scale.combined(with: .opacity))
-            .onDrag {
-                draggingItem = imageData
-                let provider = NSItemProvider()
-                provider.suggestedName = UUID().uuidString
-                return provider
-            }
-            .onDrop(of: [.data], delegate: ImageDropDelegate(
-                item: imageData,
-                items: $images,
-                draggingItem: $draggingItem
-            ))
-        }
-    }
-}
-
-private struct AddImageButton: View {
-    let onAddMore: () -> Void
-    
-    var body: some View {
-        Button(action: onAddMore) {
-            RoundedRectangle(cornerRadius: 12)
-                .strokeBorder(Color.primary.opacity(0.15), style: StrokeStyle(lineWidth: 1.5, dash: [6]))
-                .frame(width: 120, height: 120)
-                .overlay(
-                    Image(systemName: "plus")
-                        .font(.systemScaled(24, weight: .light))
-                        .foregroundStyle(.secondary)
-                )
-        }
-        .buttonStyle(.plain)
-        .transition(.scale.combined(with: .opacity))
-    }
-}
-
-// Drag and drop delegate for image reordering
-struct ImageDropDelegate: DropDelegate {
-    let item: Data
-    @Binding var items: [Data]
-    @Binding var draggingItem: Data?
-    
-    func performDrop(info: DropInfo) -> Bool {
-        draggingItem = nil
-        return true
-    }
-    
-    func dropEntered(info: DropInfo) {
-        guard let draggingItem = draggingItem,
-              draggingItem != item,
-              let fromIndex = items.firstIndex(of: draggingItem),
-              let toIndex = items.firstIndex(of: item) else { return }
-        
-        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
-            items.move(fromOffsets: IndexSet(integer: fromIndex), toOffset: toIndex > fromIndex ? toIndex + 1 : toIndex)
-        }
-    }
-}
-
-struct LinkInputSheet: View {
-    @Binding var url: String
-    @Binding var isPresented: Bool
-    @State private var inputURL = ""
-    var onLinkAdded: ((String) -> Void)?
-    
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 24) {
-                headerView
-                
-                urlInputField
-                
-                Spacer()
-                
-                addLinkButton
-            }
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        isPresented = false
-                    }
-                }
-            }
-        }
-        .presentationDetents([.height(300)])
-    }
-    
-    private var headerView: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Add Link")
-                .font(AMENFont.bold(18))
-                .foregroundStyle(.primary)
-            
-            Text("Paste or enter a URL to add to your post")
-                .font(AMENFont.regular(14))
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 20)
-        .padding(.top, 20)
-    }
-    
-    private var urlInputField: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            TextField("https://example.com", text: $inputURL)
-                .font(AMENFont.regular(16))
-                .padding(16)
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(Color(.systemGray6))
-                )
-                .autocapitalization(.none)
-                .keyboardType(.URL)
-                .textContentType(.URL)
-            
-            if !inputURL.isEmpty && !isValidURL(inputURL) {
-                HStack(spacing: 6) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.systemScaled(12))
-                        .foregroundStyle(.orange)
-                    
-                    Text("Please enter a valid URL")
-                        .font(AMENFont.regular(13))
-                        .foregroundStyle(.orange)
-                }
-            }
-        }
-        .padding(.horizontal, 20)
-    }
-    
-    private var addLinkButton: some View {
-        Button {
-            url = inputURL
-            onLinkAdded?(inputURL)
-            isPresented = false
-        } label: {
-            Text("Add Link")
-                .font(AMENFont.bold(16))
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(isValidURL(inputURL) ? Color.black : Color.black.opacity(0.3))
-                        .shadow(color: isValidURL(inputURL) ? Color.black.opacity(0.2) : Color.clear, radius: 8, y: 2)
-                )
-        }
-        .disabled(!isValidURL(inputURL))
-        .padding(.horizontal, 20)
-        .padding(.bottom, 20)
-    }
-    
-    private func isValidURL(_ string: String) -> Bool {
-        guard !string.isEmpty,
-              let url = URL(string: string),
-              let scheme = url.scheme,
-              ["http", "https"].contains(scheme.lowercased()),
-              url.host != nil else {
-            return false
-        }
-        return true
-    }
-}
-
-struct LinkPreviewCardView: View {
-    let url: String
-    let metadata: LinkPreviewMetadata?
-    let isLoading: Bool
-    let onRemove: () -> Void
-    
-    var body: some View {
-        HStack(spacing: 12) {
-            // Thumbnail or icon
-            if isLoading {
-                ProgressView()
-                    .frame(width: 60, height: 60)
-                    .background(
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(Color(.systemGray6))
-                    )
-            } else if let imageURL = metadata?.imageURL {
-                CachedAsyncImage(url: imageURL) { image in
-                    image
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: 60, height: 60)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                } placeholder: {
-                    linkIconPlaceholder
-                }
-            } else {
-                linkIconPlaceholder
-            }
-            
-            // URL text and metadata
-            VStack(alignment: .leading, spacing: 4) {
-                if let title = metadata?.title {
-                    Text(title)
-                        .font(AMENFont.bold(14))
-                        .foregroundStyle(.primary)
-                        .lineLimit(2)
-                } else {
-                    Text("Link")
-                        .font(AMENFont.bold(14))
-                        .foregroundStyle(.primary)
-                }
-                
-                if let description = metadata?.description {
-                    Text(description)
-                        .font(AMENFont.regular(11))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-                
-                Text(url)
-                    .font(AMENFont.regular(10))
-                    .foregroundStyle(.tertiary)
-                    .lineLimit(1)
-            }
-            
-            Spacer()
-            
-            // Remove button
-            Button(action: {
-                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
-                    onRemove()
-                }
-            }) {
-                Image(systemName: "xmark.circle.fill")
-                    .font(.systemScaled(22))
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .padding(12)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(.systemGray6))
-        )
-        .transition(.scale.combined(with: .opacity))
-    }
-    
-    private var linkIconPlaceholder: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color.blue.opacity(0.1))
-                .frame(width: 60, height: 60)
-            
-            Image(systemName: "link")
-                .font(.systemScaled(20, weight: .semibold))
-                .foregroundStyle(Color.blue)
-        }
-    }
-}
-
-// MARK: - Floating Post Button (Removed - Using LiquidGlassPostButton instead)
-
-// MARK: - Consolidated Toolbar
-
 struct ConsolidatedToolbar: View {
     @Binding var selectedImageData: [Data]
     @Binding var linkURL: String
@@ -6695,303 +8392,6 @@ struct GlassToolbarIcon: View {
 // MARK: - Camera Image Picker
 
 /// Wraps UIImagePickerController to give instant camera access from SwiftUI.
-struct CameraImagePicker: UIViewControllerRepresentable {
-    @Binding var image: UIImage?
-    @Environment(\.dismiss) private var dismiss
-
-    func makeCoordinator() -> Coordinator { Coordinator(self) }
-
-    func makeUIViewController(context: Context) -> UIImagePickerController {
-        let picker = UIImagePickerController()
-        picker.sourceType = UIImagePickerController.isSourceTypeAvailable(.camera) ? .camera : .photoLibrary
-        picker.allowsEditing = false
-        picker.delegate = context.coordinator
-        return picker
-    }
-
-    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
-
-    class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
-        let parent: CameraImagePicker
-        init(_ parent: CameraImagePicker) { self.parent = parent }
-
-        func imagePickerController(_ picker: UIImagePickerController,
-                                   didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
-            if let img = info[.originalImage] as? UIImage {
-                parent.image = img
-            }
-            parent.dismiss()
-        }
-
-        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
-            parent.dismiss()
-        }
-    }
-}
-
-// MARK: - Camera Attachment Preview
-
-/// Shows the captured photo inside the composer with a remove button.
-struct CameraAttachmentPreview: View {
-    let image: UIImage
-    let onRemove: () -> Void
-
-    var body: some View {
-        ZStack(alignment: .topTrailing) {
-            Image(uiImage: image)
-                .resizable()
-                .scaledToFill()
-                .frame(maxWidth: .infinity)
-                .frame(height: 220)
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-
-            // Remove button
-            Button(action: onRemove) {
-                ZStack {
-                    Circle()
-                        .fill(Color(.systemBackground).opacity(0.92))
-                        .frame(width: 30, height: 30)
-                    Image(systemName: "xmark")
-                        .font(.systemScaled(12, weight: .bold))
-                        .foregroundStyle(.primary)
-                }
-            }
-            .padding(8)
-            .accessibilityLabel("Remove photo")
-        }
-    }
-}
-
-// MARK: - Poll Composer Card
-
-/// Inline poll creation card inserted beneath the text editor.
-struct PollComposerCard: View {
-    @Binding var options: [String]
-    @Binding var duration: CreatePostView.PollDuration
-    let onRemove: () -> Void
-
-    // Focus tracking for individual option fields
-    @FocusState private var focusedIndex: Int?
-
-    private let maxOptions = 4
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Header
-            HStack {
-                Image(systemName: "chart.bar.fill")
-                    .font(.systemScaled(13, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                Text("Poll")
-                    .font(AMENFont.semiBold(14))
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Button(action: onRemove) {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.systemScaled(20))
-                        .foregroundStyle(.secondary)
-                }
-                .accessibilityLabel("Remove poll")
-            }
-            .padding(.horizontal, 14)
-            .padding(.top, 12)
-            .padding(.bottom, 10)
-
-            Divider()
-                .padding(.horizontal, 14)
-
-            // Poll options
-            VStack(spacing: 0) {
-                ForEach(options.indices, id: \.self) { index in
-                    HStack(spacing: 10) {
-                        // Option label circle
-                        ZStack {
-                            Circle()
-                                .strokeBorder(Color(.systemGray4), lineWidth: 1.5)
-                                .frame(width: 22, height: 22)
-                            Text(optionLabel(index))
-                                .font(.systemScaled(11, weight: .semibold))
-                                .foregroundStyle(.secondary)
-                        }
-
-                        TextField(index < 2 ? "Option \(index + 1)" : "Add option \(index + 1)",
-                                  text: $options[index])
-                            .font(AMENFont.regular(15))
-                            .focused($focusedIndex, equals: index)
-                            .submitLabel(index < options.count - 1 ? .next : .done)
-                            .onSubmit {
-                                if index < options.count - 1 {
-                                    focusedIndex = index + 1
-                                } else {
-                                    focusedIndex = nil
-                                }
-                            }
-
-                        // Remove button (only for options beyond the first 2)
-                        if index >= 2 {
-                            removeOptionButton(at: index)
-                        }
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 12)
-
-                    if index < options.count - 1 {
-                        Divider().padding(.leading, 50)
-                    }
-                }
-            }
-
-            // Add option button
-            if options.count < maxOptions {
-                Divider().padding(.horizontal, 14)
-
-                Button {
-                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
-                        options.append("")
-                        focusedIndex = options.count - 1
-                    }
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "plus.circle")
-                            .font(.systemScaled(15, weight: .medium))
-                        Text("Add option")
-                            .font(AMENFont.regular(14))
-                    }
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 12)
-                }
-                .accessibilityLabel("Add poll option")
-            }
-
-            Divider().padding(.horizontal, 14)
-
-            // Duration picker
-            HStack {
-                Image(systemName: "clock")
-                    .font(.systemScaled(13))
-                    .foregroundStyle(.secondary)
-                Text("Duration")
-                    .font(AMENFont.regular(14))
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Picker("Duration", selection: $duration) {
-                    ForEach(CreatePostView.PollDuration.allCases) { d in
-                        Text(d.rawValue).tag(d)
-                    }
-                }
-                .pickerStyle(.menu)
-                .font(AMENFont.regular(14))
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-        }
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(Color(.systemGray5), lineWidth: 1)
-        )
-    }
-
-    private func optionLabel(_ index: Int) -> String {
-        let labels = ["A", "B", "C", "D"]
-        return index < labels.count ? labels[index] : "\(index + 1)"
-    }
-
-    @ViewBuilder
-    private func removeOptionButton(at index: Int) -> some View {
-        let accessLabel = "Remove option \(index + 1)"
-        Button {
-            var copy = options
-            copy.remove(at: index)
-            withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
-                options = copy
-            }
-        } label: {
-            Image(systemName: "minus.circle.fill")
-                .font(.systemScaled(18))
-                .foregroundStyle(Color(.systemGray3))
-        }
-        .accessibilityLabel(accessLabel)
-    }
-}
-
-// MARK: - Compact Glass Button (NEW - Smaller, Production-Ready)
-
-struct CompactGlassButton: View {
-    let icon: String
-    let isActive: Bool
-    var count: Int = 0
-    let action: () -> Void
-    
-    @State private var isPressed = false
-    
-    private var isClose: Bool { icon == "xmark" }
-
-    var body: some View {
-        Button(action: {
-            withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.7))) {
-                isPressed = true
-            }
-            action()
-            
-            // Button animation reset (non-critical)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.7))) {
-                    isPressed = false
-                }
-            }
-        }) {
-            ZStack(alignment: .topTrailing) {
-                if isClose {
-                    // Close button: same gray-circle style as the Post button
-                    ZStack {
-                        Circle()
-                            .fill(Color(red: 0.91, green: 0.91, blue: 0.93))
-                            .frame(width: 38, height: 38)
-                            .shadow(color: Color.black.opacity(0.10), radius: 4, x: 0, y: 2)
-                        Image(systemName: icon)
-                            .font(.systemScaled(15, weight: .bold))
-                            .foregroundStyle(Color.primary.opacity(0.75))
-                    }
-                    .scaleEffect(isPressed ? 0.88 : 1.0)
-                } else {
-                    Image(systemName: icon)
-                        .font(.systemScaled(16, weight: .light))
-                        .foregroundStyle(isActive ? Color.primary.opacity(0.7) : Color.primary.opacity(0.3))
-                        .frame(width: 36, height: 36)
-                        .scaleEffect(isPressed ? 0.85 : 1.0)
-                    
-                    // Badge for count (e.g., image count)
-                    if count > 0 {
-                        Text("\(count)")
-                            .font(AMENFont.bold(9))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 2)
-                            .background(
-                                Capsule()
-                                    .fill(Color.blue)
-                            )
-                            .offset(x: 8, y: -8)
-                            .transition(.scale.combined(with: .opacity))
-                    }
-                }
-            }
-        }
-        .buttonStyle(PlainButtonStyle())
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isActive)
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: count)
-    }
-}
-
-// MARK: - ComposerSchedulePill
-// Liquid Glass schedule pill — shows "Schedule" when idle, "Scheduled · Day Time ×" when set.
-
 struct ComposerSchedulePill: View {
     var scheduledDate: Date?
     var onTap: () -> Void
@@ -7014,11 +8414,11 @@ struct ComposerSchedulePill: View {
                 HStack(spacing: 5) {
                     Image(systemName: isScheduled ? "calendar.badge.clock" : "calendar")
                         .font(.systemScaled(12, weight: .medium))
-                        .foregroundStyle(isScheduled ? Color.black : Color(white: 0.45))
+                        .foregroundStyle(isScheduled ? Color.primary : Color.secondary)
 
                     Text(isScheduled ? "Scheduled · \(formattedDate)" : "Schedule")
                         .font(AMENFont.semiBold(12))
-                        .foregroundStyle(isScheduled ? Color.black : Color(white: 0.45))
+                        .foregroundStyle(isScheduled ? Color.primary : Color.secondary)
                         .lineLimit(1)
                 }
                 .padding(.leading, isScheduled ? 10 : 8)
@@ -7211,6 +8611,58 @@ struct Draft: Identifiable {
     let linkURL: String?
     let visibility: String
     let createdAt: Date
+
+    let witnessAttachment: WitnessDraftAttachment?
+    let mediaMetadataDraft: CreatePostMediaMetadataDraft?
+    let attachedVerseReference: String
+    let attachedVerseText: String
+    let showingPoll: Bool
+    let pollQuestion: String
+    let pollOptions: [String]
+    let pollDurationRawValue: String?
+    let isThreadMode: Bool
+    let threadPosts: [String]
+    let currentThreadIndex: Int
+
+    init(
+        id: String,
+        content: String,
+        category: String?,
+        topicTag: String?,
+        linkURL: String?,
+        visibility: String,
+        createdAt: Date,
+        witnessAttachment: WitnessDraftAttachment? = nil,
+        mediaMetadataDraft: CreatePostMediaMetadataDraft? = nil,
+        attachedVerseReference: String = "",
+        attachedVerseText: String = "",
+        showingPoll: Bool = false,
+        pollQuestion: String = "",
+        pollOptions: [String] = ["", ""],
+        pollDurationRawValue: String? = nil,
+        isThreadMode: Bool = false,
+        threadPosts: [String] = [""],
+        currentThreadIndex: Int = 0
+    ) {
+        self.id = id
+        self.content = content
+        self.category = category
+        self.topicTag = topicTag
+        self.linkURL = linkURL
+        self.visibility = visibility
+        self.createdAt = createdAt
+        self.witnessAttachment = witnessAttachment
+        self.mediaMetadataDraft = mediaMetadataDraft
+        self.attachedVerseReference = attachedVerseReference
+        self.attachedVerseText = attachedVerseText
+        self.showingPoll = showingPoll
+        self.pollQuestion = pollQuestion
+        self.pollOptions = pollOptions
+        self.pollDurationRawValue = pollDurationRawValue
+        self.isThreadMode = isThreadMode
+        self.threadPosts = threadPosts
+        self.currentThreadIndex = currentThreadIndex
+    }
 }
 
 // MARK: - Authenticity Prompt Sheet
@@ -7225,7 +8677,7 @@ struct AuthenticityPromptSheet: View {
     @FocusState private var isTextFieldFocused: Bool
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(alignment: .leading, spacing: 20) {
                 // Header
                 VStack(alignment: .leading, spacing: 8) {
@@ -7271,6 +8723,7 @@ struct AuthenticityPromptSheet: View {
                         .background(Color(.systemGray6))
                         .cornerRadius(12)
                         .focused($isTextFieldFocused)
+                        .accessibilityLabel("Personal thoughts")
                         .overlay(
                             RoundedRectangle(cornerRadius: 12)
                                 .stroke(Color.orange.opacity(0.3), lineWidth: 1)
@@ -7412,6 +8865,58 @@ private struct TaggedUsersView: View {
 }
 
 // MARK: - Dynamic Island–style "Posted" pill
+
+// MARK: - Upload Ring Capsule
+
+/// Thin determinate ring around a black center dot, enclosed in a glass capsule.
+/// Shows upload progress with the percentage as the only text — no spinner, no label.
+private struct UploadRingCapsule: View {
+    let progress: Double   // 0.0 – 1.0
+
+    private let ringSize: CGFloat   = 22
+    private let dotSize: CGFloat    = 5
+    private let strokeWidth: CGFloat = 2
+
+    var body: some View {
+        HStack(spacing: 9) {
+            ZStack {
+                // Track
+                Circle()
+                    .stroke(Color.primary.opacity(0.10), lineWidth: strokeWidth)
+                    .frame(width: ringSize, height: ringSize)
+
+                // Progress arc
+                Circle()
+                    .trim(from: 0, to: progress)
+                    .stroke(
+                        Color.primary,
+                        style: StrokeStyle(lineWidth: strokeWidth, lineCap: .round)
+                    )
+                    .frame(width: ringSize, height: ringSize)
+                    .rotationEffect(.degrees(-90))
+                    .animation(.linear(duration: 0.15), value: progress)
+
+                // Center dot
+                Circle()
+                    .fill(Color.primary)
+                    .frame(width: dotSize, height: dotSize)
+            }
+
+            Text("\(Int(progress * 100))%")
+                .font(.system(size: 13, weight: .semibold).monospacedDigit())
+                .foregroundStyle(.primary)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 9)
+        .background(
+            Capsule()
+                .fill(.ultraThinMaterial)
+                .overlay(Capsule().strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5))
+        )
+    }
+}
+
+// MARK: - Posted Pill
 
 private struct PostedPill: View {
     // Blocks animation state
@@ -7644,635 +9149,6 @@ private struct BereanToneButton: View {
 // MARK: - Algolia Mention Suggestion Row
 
 /// Mention row for CreatePostView's inline @-trigger, which uses AlgoliaUser.
-struct AlgoliaMentionSuggestionRow: View {
-    let user: AlgoliaUser
-    let onTap: () -> Void
-
-    @State private var isPressed = false
-    // Fallback profile image URL fetched from Firestore when Algolia index lacks it
-    @State private var resolvedImageURL: String? = nil
-
-    var body: some View {
-        Button(action: onTap) {
-            HStack(spacing: 12) {
-                // ── Avatar ─────────────────────────────────────────────
-                ZStack {
-                    Circle()
-                        .fill(Color(uiColor: .tertiarySystemFill))
-                        .frame(width: 40, height: 40)
-
-                    let effectiveURL = resolvedImageURL ?? user.profileImageURL
-
-                    if let urlStr = effectiveURL,
-                       !urlStr.isEmpty,
-                       let url = URL(string: urlStr) {
-                        CachedAsyncImage(url: url) { img in
-                            img.resizable().scaledToFill()
-                                .frame(width: 40, height: 40)
-                                .clipShape(Circle())
-                        } placeholder: {
-                            Text(user.displayName.prefix(1).uppercased())
-                                .font(AMENFont.bold(16))
-                                .foregroundStyle(.primary)
-                        }
-                    } else {
-                        Text(user.displayName.prefix(1).uppercased())
-                            .font(AMENFont.bold(16))
-                            .foregroundStyle(.primary)
-                    }
-                }
-                .task(id: user.objectID) {
-                    // Only fetch from Firestore when Algolia didn't return a profile image
-                    guard (user.profileImageURL ?? "").isEmpty else { return }
-                    if let url = await fetchProfileImageURL(userId: user.objectID) {
-                        resolvedImageURL = url
-                    }
-                }
-
-                // ── Name + username ────────────────────────────────────
-                VStack(alignment: .leading, spacing: 2) {
-                    // Display name with yellow marker highlight
-                    Text(user.displayName)
-                        .font(AMENFont.bold(15))
-                        .foregroundStyle(.primary)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 1)
-                        .background(alignment: .center) {
-                            AlgoliaBrushstrokeHighlight()
-                                .foregroundStyle(Color(red: 1.0, green: 0.88, blue: 0.15, opacity: 0.75))
-                        }
-
-                    Text("@\(user.username)")
-                        .font(AMENFont.regular(13))
-                        .foregroundStyle(.secondary)
-                }
-
-                Spacer()
-
-                // Subtle chevron affordance
-                Image(systemName: "arrow.up.left")
-                    .font(.systemScaled(11, weight: .medium))
-                    .foregroundStyle(.tertiary)
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .contentShape(Rectangle())
-            .background(
-                isPressed
-                    ? Color(uiColor: .tertiarySystemFill)
-                    : Color.clear
-            )
-            .animation(.easeOut(duration: 0.1), value: isPressed)
-        }
-        .buttonStyle(PlainButtonStyle())
-        ._onButtonGesture { pressing in
-            isPressed = pressing
-        } perform: {}
-    }
-
-    /// Fetches profileImageURL from Firestore when Algolia's index doesn't have it.
-    private func fetchProfileImageURL(userId: String) async -> String? {
-        guard !userId.isEmpty else { return nil }
-        do {
-            let doc = try await Firestore.firestore().collection("users").document(userId).getDocument()
-            return doc.data()?["profileImageURL"] as? String
-        } catch {
-            return nil
-        }
-    }
-}
-
-// MARK: - Brushstroke highlight shape
-
-private struct AlgoliaBrushstrokeHighlight: Shape {
-    func path(in rect: CGRect) -> Path {
-        var p = Path()
-        let w = rect.width, h = rect.height
-        // Slightly irregular rounded rect that mimics a marker sweep
-        p.move(to: CGPoint(x: w * 0.02, y: h * 0.55))
-        p.addCurve(
-            to: CGPoint(x: w * 0.98, y: h * 0.45),
-            control1: CGPoint(x: w * 0.25, y: h * 0.20),
-            control2: CGPoint(x: w * 0.75, y: h * 0.10)
-        )
-        p.addCurve(
-            to: CGPoint(x: w * 0.04, y: h * 0.95),
-            control1: CGPoint(x: w * 0.80, y: h * 1.10),
-            control2: CGPoint(x: w * 0.30, y: h * 1.05)
-        )
-        p.closeSubpath()
-        return p
-    }
-}
-
-// MARK: - Berean Tone Popup
-
-// MARK: - Berean Tone Popup (Liquid Glass + Sticker Label Aesthetic)
-private struct BereanTonePopup: View {
-    let suggestion: String?
-    let onUse: (String) -> Void
-    let onDismiss: () -> Void
-
-    @State private var cardScale: CGFloat = 0.88
-    @State private var cardOpacity: Double = 0
-    @State private var sparkleRotation: Double = -8
-    @State private var usePressed = false
-    @State private var keepPressed = false
-    @State private var labelWiggle: Double = 0
-
-    // Sticker label highlight color (warm yellow)
-    private let stickerYellow = Color(red: 1.0, green: 0.90, blue: 0.25)
-    private let stickerMint   = Color(red: 0.72, green: 0.98, blue: 0.88)
-    private let stickerBlue   = Color(red: 0.72, green: 0.88, blue: 1.0)
-
-    var body: some View {
-        ZStack {
-            Color.black.opacity(0.01)
-                .ignoresSafeArea()
-
-            VStack(spacing: 0) {
-                Spacer()
-
-                // ── Main card: frosted white glass ────────────────────
-                VStack(spacing: 0) {
-                    // Drag pill
-                    Capsule()
-                        .fill(Color.black.opacity(0.15))
-                        .frame(width: 36, height: 4)
-                        .padding(.top, 14)
-                        .padding(.bottom, 16)
-
-                    // ── Header row ────────────────────────────────────
-                    HStack(alignment: .top) {
-                        VStack(alignment: .leading, spacing: 6) {
-                            // Sticker-label title — tilted, on yellow strip
-                            HStack(spacing: 8) {
-                                Image(systemName: "sparkles")
-                                    .font(.systemScaled(17, weight: .black))
-                                    .foregroundStyle(Color(red: 0.15, green: 0.15, blue: 0.15))
-                                    .rotationEffect(.degrees(sparkleRotation))
-                                Text("Tone Check")
-                                    .font(.custom("OpenSans-ExtraBold", size: 19))
-                                    .foregroundStyle(Color(red: 0.10, green: 0.10, blue: 0.10))
-                            }
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 5)
-                            .background(
-                                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                    .fill(stickerYellow)
-                                    .rotationEffect(.degrees(-1.2))
-                            )
-                            .rotationEffect(.degrees(-1.2))
-                            .rotationEffect(.degrees(labelWiggle))
-
-                            Text(suggestion != nil
-                                 ? "Here's a kinder way to say this"
-                                 : "Your post sounds great as-is!")
-                                .font(AMENFont.regular(13))
-                                .foregroundStyle(Color.secondary)
-                        }
-                        Spacer()
-                        // Close button
-                        Button { onDismiss() } label: {
-                            ZStack {
-                                Circle()
-                                    .fill(Color.black.opacity(0.08))
-                                    .frame(width: 30, height: 30)
-                                Image(systemName: "xmark")
-                                    .font(.systemScaled(11, weight: .bold))
-                                    .foregroundStyle(Color.secondary)
-                            }
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 16)
-
-                    // ── Suggestion area ───────────────────────────────
-                    if let suggestion = suggestion {
-                        VStack(alignment: .leading, spacing: 12) {
-                            // Context label — plain language explanation
-                            HStack(spacing: 6) {
-                                Image(systemName: "lightbulb.fill")
-                                    .font(.systemScaled(11))
-                                    .foregroundStyle(Color(red: 0.10, green: 0.45, blue: 0.35))
-                                Text("Suggested rewrite — tap \"Use this\" to replace your post")
-                                    .font(AMENFont.semiBold(11))
-                                    .foregroundStyle(Color(red: 0.10, green: 0.45, blue: 0.35))
-                            }
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 5)
-                            .background(
-                                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                    .fill(stickerMint.opacity(0.7))
-                            )
-                            .padding(.horizontal, 16)
-
-                            // Suggestion text on frosted glass card
-                            Text(suggestion)
-                                .font(AMENFont.regular(15))
-                                .foregroundStyle(Color.primary)
-                                .lineSpacing(5)
-                                .padding(16)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                        .fill(.regularMaterial)
-                                        .overlay {
-                                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                                .strokeBorder(
-                                                    LinearGradient(
-                                                        colors: [Color.white.opacity(0.7), Color.white.opacity(0.2)],
-                                                        startPoint: .topLeading,
-                                                        endPoint: .bottomTrailing
-                                                    ),
-                                                    lineWidth: 1
-                                                )
-                                        }
-                                )
-                                .padding(.horizontal, 16)
-
-                            // ── Action buttons ────────────────────────
-                            HStack(spacing: 10) {
-                                // "Use this" — replaces the post text with the suggestion
-                                Button { onUse(suggestion) } label: {
-                                    HStack(spacing: 6) {
-                                        Image(systemName: "checkmark.circle.fill")
-                                            .font(.systemScaled(15, weight: .semibold))
-                                        Text("Use this")
-                                            .font(AMENFont.bold(15))
-                                    }
-                                    .foregroundStyle(.white)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 15)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                            .fill(
-                                                LinearGradient(
-                                                    colors: [
-                                                        Color(red: 0.25, green: 0.55, blue: 1.0),
-                                                        Color(red: 0.45, green: 0.72, blue: 1.0)
-                                                    ],
-                                                    startPoint: .leading,
-                                                    endPoint: .trailing
-                                                )
-                                            )
-                                            .shadow(color: Color(red: 0.25, green: 0.55, blue: 1.0).opacity(0.35), radius: 8, y: 4)
-                                    )
-                                    .scaleEffect(usePressed ? 0.94 : 1.0)
-                                    .animation(.spring(response: 0.2, dampingFraction: 0.6), value: usePressed)
-                                }
-                                .buttonStyle(PlainButtonStyle())
-                                ._onButtonGesture { pressing in usePressed = pressing } perform: {}
-
-                                // "Keep mine" — closes popup, post unchanged
-                                Button { onDismiss() } label: {
-                                    HStack(spacing: 6) {
-                                        Image(systemName: "pencil")
-                                            .font(.systemScaled(13, weight: .semibold))
-                                        Text("Keep mine")
-                                            .font(AMENFont.bold(15))
-                                    }
-                                    .foregroundStyle(Color.primary)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 15)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                            .fill(.regularMaterial)
-                                            .overlay {
-                                                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                                    .strokeBorder(Color.primary.opacity(0.12), lineWidth: 1)
-                                            }
-                                    )
-                                    .scaleEffect(keepPressed ? 0.94 : 1.0)
-                                    .animation(.spring(response: 0.2, dampingFraction: 0.6), value: keepPressed)
-                                }
-                                .buttonStyle(PlainButtonStyle())
-                                ._onButtonGesture { pressing in keepPressed = pressing } perform: {}
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.top, 4)
-                            .padding(.bottom, 36)
-                        }
-                    } else {
-                        // No rewrite needed — tone is already good
-                        VStack(spacing: 16) {
-                            Text("✅")
-                                .font(.systemScaled(40))
-                            Text("Your post has a great tone!\nNo changes needed.")
-                                .font(AMENFont.regular(15))
-                                .foregroundStyle(Color.secondary)
-                                .multilineTextAlignment(.center)
-                                .lineSpacing(4)
-                            Button { onDismiss() } label: {
-                                Text("Got it")
-                                    .font(AMENFont.bold(15))
-                                    .foregroundStyle(.white)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 15)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                            .fill(
-                                                LinearGradient(
-                                                    colors: [Color(red: 0.25, green: 0.55, blue: 1.0), Color(red: 0.45, green: 0.72, blue: 1.0)],
-                                                    startPoint: .leading, endPoint: .trailing
-                                                )
-                                            )
-                                    )
-                            }
-                            .buttonStyle(PlainButtonStyle())
-                            .padding(.horizontal, 16)
-                        }
-                        .padding(.bottom, 36)
-                    }
-                }
-                // Liquid glass card background: bright frosted white
-                .background(
-                    RoundedRectangle(cornerRadius: 28, style: .continuous)
-                        .fill(.regularMaterial)
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                                .fill(
-                                    LinearGradient(
-                                        colors: [Color.white.opacity(0.55), Color.white.opacity(0.15)],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                )
-                        }
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                                .strokeBorder(
-                                    LinearGradient(
-                                        colors: [Color.white.opacity(0.8), Color.white.opacity(0.2)],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    ),
-                                    lineWidth: 1
-                                )
-                        }
-                        .shadow(color: .black.opacity(0.10), radius: 24, y: 8)
-                )
-                .scaleEffect(cardScale)
-                .opacity(cardOpacity)
-                .onAppear {
-                    withAnimation(Motion.adaptive(.spring(response: 0.40, dampingFraction: 0.70))) {
-                        cardScale = 1.0
-                        cardOpacity = 1.0
-                    }
-                    // Sparkle rocks back and forth
-                    withAnimation(.easeInOut(duration: 1.4).repeatForever(autoreverses: true).delay(0.3)) {
-                        sparkleRotation = 8
-                    }
-                    // Label has a tiny playful wiggle on appear
-                    withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.4)).delay(0.45)) {
-                        labelWiggle = 2
-                    }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) {
-                        withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.5))) {
-                            labelWiggle = 0
-                        }
-                    }
-                }
-            }
-            .ignoresSafeArea(edges: .bottom)
-        }
-    }
-}
-
-// MARK: - Source Label Prompt (shown when AI/pasted content detected at medium confidence)
-private struct SourceLabelPrompt: View {
-    let onPostWithSource: (String) -> Void   // passes the source string e.g. "ChatGPT"
-    let onEdit: () -> Void                    // user wants to rewrite
-
-    @State private var cardScale: CGFloat = 0.88
-    @State private var cardOpacity: Double = 0
-    @State private var selectedSource: String = "ChatGPT"
-    @State private var postPressed = false
-    @State private var editPressed = false
-
-    private let sourceOptions = ["ChatGPT", "External", "Other AI"]
-    private let stickerOrange = Color(red: 1.0, green: 0.75, blue: 0.30)
-    private let stickerBlue   = Color(red: 0.72, green: 0.88, blue: 1.0)
-
-    var body: some View {
-        ZStack {
-            Color.black.opacity(0.01).ignoresSafeArea()
-
-            VStack(spacing: 0) {
-                Spacer()
-
-                VStack(spacing: 0) {
-                    // Drag pill
-                    Capsule()
-                        .fill(Color.black.opacity(0.15))
-                        .frame(width: 36, height: 4)
-                        .padding(.top, 14)
-                        .padding(.bottom, 18)
-
-                    // ── Header ────────────────────────────────────────
-                    VStack(spacing: 8) {
-                        // Icon
-                        ZStack {
-                            Circle()
-                                .fill(stickerOrange.opacity(0.2))
-                                .frame(width: 56, height: 56)
-                            Text("🔍")
-                                .font(.systemScaled(26))
-                        }
-
-                        // Title on orange sticker label
-                        Text("Looks copy-pasted")
-                            .font(.custom("OpenSans-ExtraBold", size: 18))
-                            .foregroundStyle(Color(red: 0.12, green: 0.10, blue: 0.08))
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(
-                                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                    .fill(stickerOrange)
-                                    .rotationEffect(.degrees(-1))
-                            )
-                            .rotationEffect(.degrees(-1))
-
-                        Text("AMEN values your authentic voice.\nIf this isn't fully your own writing, label it so your community knows.")
-                            .font(AMENFont.regular(14))
-                            .foregroundStyle(Color.secondary)
-                            .multilineTextAlignment(.center)
-                            .lineSpacing(3)
-                            .padding(.horizontal, 24)
-                    }
-                    .padding(.bottom, 20)
-
-                    // ── Source picker ─────────────────────────────────
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack(spacing: 5) {
-                            Image(systemName: "tag.fill")
-                                .font(.systemScaled(10, weight: .bold))
-                                .foregroundStyle(Color(red: 0.20, green: 0.40, blue: 0.80))
-                            Text("source label")
-                                .font(AMENFont.bold(10))
-                                .foregroundStyle(Color(red: 0.20, green: 0.40, blue: 0.80))
-                                .textCase(.uppercase)
-                                .kerning(0.8)
-                        }
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(
-                            RoundedRectangle(cornerRadius: 5, style: .continuous)
-                                .fill(stickerBlue)
-                                .rotationEffect(.degrees(0.6))
-                        )
-                        .rotationEffect(.degrees(0.6))
-                        .padding(.leading, 20)
-
-                        // Pill selector
-                        HStack(spacing: 8) {
-                            ForEach(sourceOptions, id: \.self) { opt in
-                                Button {
-                                    withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.6))) {
-                                        selectedSource = opt
-                                    }
-                                } label: {
-                                    Text(opt)
-                                        .font(.custom(selectedSource == opt ? "OpenSans-Bold" : "OpenSans-Regular", size: 13))
-                                        .foregroundStyle(selectedSource == opt ? .white : Color.primary)
-                                        .padding(.horizontal, 14)
-                                        .padding(.vertical, 8)
-                                        .background(
-                                            Capsule()
-                                                .fill(selectedSource == opt
-                                                    ? Color(red: 0.25, green: 0.55, blue: 1.0)
-                                                    : Color.primary.opacity(0.08))
-                                        )
-                                }
-                                .buttonStyle(PlainButtonStyle())
-                            }
-                        }
-                        .padding(.horizontal, 20)
-                    }
-                    .padding(.bottom, 20)
-
-                    // ── Preview badge ─────────────────────────────────
-                    HStack(spacing: 6) {
-                        Image(systemName: "info.circle.fill")
-                            .font(.systemScaled(11))
-                            .foregroundStyle(Color.secondary)
-                        Text("Your post will show a \"via \(selectedSource)\" label")
-                            .font(AMENFont.regular(12))
-                            .foregroundStyle(Color.secondary)
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .fill(.regularMaterial)
-                    )
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 20)
-
-                    // ── Action buttons ────────────────────────────────
-                    VStack(spacing: 10) {
-                        // Post with source label
-                        Button { onPostWithSource(selectedSource) } label: {
-                            HStack(spacing: 7) {
-                                Image(systemName: "paperplane.fill")
-                                    .font(.systemScaled(14, weight: .semibold))
-                                Text("Post with source label")
-                                    .font(AMENFont.bold(15))
-                            }
-                            .foregroundStyle(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 15)
-                            .background(
-                                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                    .fill(
-                                        LinearGradient(
-                                            colors: [
-                                                Color(red: 0.25, green: 0.55, blue: 1.0),
-                                                Color(red: 0.45, green: 0.72, blue: 1.0)
-                                            ],
-                                            startPoint: .leading,
-                                            endPoint: .trailing
-                                        )
-                                    )
-                                    .shadow(color: Color(red: 0.25, green: 0.55, blue: 1.0).opacity(0.35), radius: 8, y: 4)
-                            )
-                            .scaleEffect(postPressed ? 0.94 : 1.0)
-                            .animation(.spring(response: 0.2, dampingFraction: 0.6), value: postPressed)
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                        ._onButtonGesture { pressing in postPressed = pressing } perform: {}
-
-                        // Edit — write it yourself
-                        Button { onEdit() } label: {
-                            HStack(spacing: 7) {
-                                Image(systemName: "pencil")
-                                    .font(.systemScaled(13, weight: .semibold))
-                                Text("Write it myself")
-                                    .font(AMENFont.bold(15))
-                            }
-                            .foregroundStyle(Color.primary)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 15)
-                            .background(
-                                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                    .fill(.regularMaterial)
-                                    .overlay {
-                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                            .strokeBorder(Color.primary.opacity(0.12), lineWidth: 1)
-                                    }
-                            )
-                            .scaleEffect(editPressed ? 0.94 : 1.0)
-                            .animation(.spring(response: 0.2, dampingFraction: 0.6), value: editPressed)
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                        ._onButtonGesture { pressing in editPressed = pressing } perform: {}
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 36)
-                }
-                .background(
-                    RoundedRectangle(cornerRadius: 28, style: .continuous)
-                        .fill(.regularMaterial)
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                                .fill(
-                                    LinearGradient(
-                                        colors: [Color.white.opacity(0.55), Color.white.opacity(0.15)],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                )
-                        }
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                                .strokeBorder(
-                                    LinearGradient(
-                                        colors: [Color.white.opacity(0.8), Color.white.opacity(0.2)],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    ),
-                                    lineWidth: 1
-                                )
-                        }
-                        .shadow(color: .black.opacity(0.10), radius: 24, y: 8)
-                )
-                .scaleEffect(cardScale)
-                .opacity(cardOpacity)
-                .onAppear {
-                    withAnimation(Motion.adaptive(.spring(response: 0.40, dampingFraction: 0.70))) {
-                        cardScale = 1.0
-                        cardOpacity = 1.0
-                    }
-                }
-            }
-            .ignoresSafeArea(edges: .bottom)
-        }
-    }
-}
-
-// MARK: - Post Audience Sheet
-
 struct PostAudienceSheet: View {
     @Binding var selectedVisibility: Post.PostVisibility
     @Environment(\.dismiss) private var dismiss
@@ -8408,6 +9284,7 @@ struct PostVersePickerSheet: View {
                             .focused($searchFocused)
                             .autocorrectionDisabled()
                             .submitLabel(.search)
+                            .accessibilityLabel("Search verse or reference")
                             .onSubmit { triggerSearch() }
                             .onChange(of: searchQuery) { _, newValue in
                                 scheduleSearch(newValue)
@@ -8729,6 +9606,7 @@ struct PostChurchTagSheet: View {
                     TextField("Search churches by name", text: $searchText)
                         .font(AMENFont.regular(15))
                         .focused($searchFocused)
+                        .accessibilityLabel("Search churches")
                         .onChange(of: searchText) { _, newValue in
                             triggerSearch(query: newValue)
                         }
@@ -8993,7 +9871,7 @@ struct LiquidGlassPostButtonAnimated: View {
                 }
                 Text("Post")
                     .font(.systemScaled(min(max(height * 0.30, 17), 19), weight: .bold))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(AmenTheme.Colors.textPrimary)
             }
         }
         .frame(width: width, height: height)
@@ -9075,7 +9953,7 @@ struct LiquidGlassPostButtonAnimated: View {
                 }
                 Text("Posted")
                     .font(.systemScaled(min(max(height * 0.29, 16), 18), weight: .bold))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(AmenTheme.Colors.textPrimary)
             }
         }
         .frame(width: width, height: height)
@@ -9161,7 +10039,7 @@ struct LiquidGlassPostButtonDemoView: View {
 
     var body: some View {
         ZStack {
-            Color.white.ignoresSafeArea()
+            AmenTheme.Colors.backgroundPrimary.ignoresSafeArea()
             VStack(spacing: 28) {
                 Spacer()
                 VStack(spacing: 8) {

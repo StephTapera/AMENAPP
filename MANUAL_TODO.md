@@ -144,6 +144,19 @@ _(Code work is [AUTO]; these are the human steps.)_
 
 ---
 
+## ⚠️ UX Gaps Found During Code Audit (2026-05-27)
+
+- [ ] **"Reset hidden labels" needs confirmation** — `YourFeedView.swift` line 323 has a button that resets all hidden topic labels with no confirmation dialog. One accidental tap destroys the user's curated feed preferences. Add an `.alert` or confirmation sheet before executing the reset.
+  - **WHERE**: `AMENAPP/YourFeedView.swift` around line 323.
+
+- [ ] **No visual feedback when user tries to illuminate own post** — `PostCard.swift` lines 1715–1720 block self-illumination with a haptic warning only. Users with reduced haptics or hearing difficulties get no feedback about why the tap did nothing. Should show a brief in-app toast (e.g., "You can't illuminate your own post").
+  - **WHERE**: `AMENAPP/PostCard.swift` — `lightbulbButton` action handler.
+
+- [ ] **ChurchNeighborhoodMapView neighborhood names in dlog** — `ChurchNeighborhoodMapView.swift` logs neighborhood names via `dlog`. If neighborhood name + church ID can be correlated with a specific user, this could constitute PII in aggregate. Review and remove or hash the neighborhood name from any production-accessible log sink.
+  - **WHERE**: `AMENAPP/ChurchNeighborhoodMapView.swift` — dlog call near line 649.
+
+---
+
 ## 🧪 Nice-to-Have / Deferred
 
 - [ ] **Parental consent flow (under-13)** — COPPA requires verified parental consent for users under 13. The current age gate blocks <13 from proceeding. Confirm this is enforced server-side (not just client-side) and that no data is collected before the gate passes.

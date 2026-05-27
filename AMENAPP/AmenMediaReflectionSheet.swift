@@ -241,10 +241,10 @@ struct AmenMediaReflectionSheet: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
             .background(
-                isSelected ? Color.black : Color(.secondarySystemBackground),
+                isSelected ? Color(.label) : Color(.secondarySystemBackground),
                 in: RoundedRectangle(cornerRadius: 12, style: .continuous)
             )
-            .foregroundStyle(isSelected ? .white : .primary)
+            .foregroundStyle(isSelected ? Color(.systemBackground) : .primary)
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .strokeBorder(
