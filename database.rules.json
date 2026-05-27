@@ -1,0 +1,75 @@
+{
+  "rules": {
+    // ── postInteractions ─────────────────────────────────────────────────────
+    // Comments, likes, and interaction counters for posts.
+    // Structure: /postInteractions/{postId}/comments/{commentId}
+    //
+    // Security contract:
+    //   - All read/write requires Firebase Auth.
+    //   - Comment create: userId field MUST match the authenticated UID.
+    //   - Comment update: can only update own comment (userId matches auth).
+    //   - Comment delete: can only delete own comment (userId matches auth).
+    //   - userId and authorId are immutable after create (prevent spoofing).
+    //   - commentCount is append-only integer (optimistic local update; server reconciles).
+    "postInteractions": {
+      "$postId": {
+        "comments": {
+          ".read": "auth != null",
+          "$commentId": {
+            ".write": "auth != null && (\n              (!newData.exists() && data.child('userId').val() === auth.uid) ||\n              (newData.exists() && newData.child('userId').val() === auth.uid)\n            )",
+            ".validate": "!newData.exists() || (\n              newData.hasChildren(['userId', 'text', 'createdAt']) &&\n              newData.child('userId').isString() &&\n              newData.child('userId').val() === auth.uid &&\n              newData.child('text').isString() &&\n              newData.child('text').val().length <= 10000\n            )",
+            "userId": {
+              ".validate": "newData.val() === auth.uid"
+            },
+            "authorId": {
+              ".validate": "newData.val() === auth.uid"
+            },
+            "likedBy": {
+              "$uid": {
+                ".write": "auth != null && auth.uid === $uid"
+              }
+            },
+            "likes": {
+              ".write": "auth != null"
+            }
+          }
+        },
+        "commentCount": {
+          ".read": "auth != null",
+          ".write": "auth != null",
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+        "replyCount": {
+          ".read": "auth != null",
+          ".write": "auth != null",
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        }
+      }
+    },
+
+    // ── savedPosts (RTDB) ─────────────────────────────────────────────────────
+    // RealtimeSavedPostsService stores saved post IDs under the user's UID.
+    // Only the owner can read/write their saved posts.
+    "savedPosts": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+
+    // ── userPresence ──────────────────────────────────────────────────────────
+    // Online/offline presence signals. Only the owning user can write.
+    "userPresence": {
+      "$uid": {
+        ".read": "auth != null",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+
+    // ── Default: deny everything not explicitly allowed ───────────────────────
+    "$other": {
+      ".read": false,
+      ".write": false
+    }
+  }
+}

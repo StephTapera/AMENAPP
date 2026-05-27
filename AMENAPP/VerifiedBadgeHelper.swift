@@ -32,12 +32,12 @@ class VerifiedBadgeHelper: ObservableObject {
     
     /// Check if a user is verified (checks cache first, then Firestore)
     func isVerified(userId: String) -> Bool {
-        return verifiedUsersCache[userId] != nil && verifiedUsersCache[userId] != .none
+        return (verifiedUsersCache[userId] ?? VerificationType.none) != VerificationType.none
     }
     
     /// Get verification type for a user
     func getVerificationType(userId: String) -> VerificationType {
-        return verifiedUsersCache[userId] ?? .none
+        return verifiedUsersCache[userId] ?? VerificationType.none
     }
     
     /// Load verification status from Firestore
@@ -56,14 +56,14 @@ class VerifiedBadgeHelper: ObservableObject {
                 if let type = VerificationType(rawValue: typeString) {
                     verifiedUsersCache[userId] = type
                 } else {
-                    verifiedUsersCache[userId] = .none
+                    verifiedUsersCache[userId] = VerificationType.none
                 }
             } else {
-                verifiedUsersCache[userId] = .none
+                verifiedUsersCache[userId] = VerificationType.none
             }
         } catch {
             dlog("❌ Failed to load verification status for \(userId): \(error)")
-            verifiedUsersCache[userId] = .none
+            verifiedUsersCache[userId] = VerificationType.none
         }
     }
     

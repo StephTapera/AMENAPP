@@ -19,6 +19,7 @@ final class AmenCovenantPostComposerViewModel: ObservableObject {
     @Published var visibilityOption: PostVisibilityOption = .allMembers
     @Published var scriptureReference: String = ""
     @Published var isCheckingTone: Bool = false
+    @Published var fabricPreflight: AmenIntelligenceSnapshot?
 
     enum PostVisibilityOption: String, CaseIterable, Identifiable {
         case allMembers  = "all_members"
@@ -54,15 +55,127 @@ final class AmenCovenantPostComposerViewModel: ObservableObject {
         !isBodyEmpty && !isSending && moderationState != .blocked
     }
 
+    private var draftSourceContext: String {
+        selectedType.rawValue
+    }
+
+    /// P1-5: Real server-authoritative tone check.
+    /// Calls the `validateCovenantPostSafety` Cloud Function (Auth + App Check
+    /// enforced server-side). Maps `severity` → `moderationState` so the
+    /// existing Submit button gate (`moderationState != .blocked`) continues
+    /// to work. Never logs raw post text on either side of the wire.
     func checkTone() async {
         guard !isCheckingTone else { return }
+        let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            moderationState = .safe
+            showToneCheck = false
+            fabricPreflight = nil
+            return
+        }
+
         isCheckingTone = true
         showToneCheck = false
         defer { isCheckingTone = false }
-        // 1-second simulated AI tone check — replace with callable in production
-        try? await Task.sleep(nanoseconds: 1_000_000_000)
-        moderationState = .safe
-        showToneCheck = true
+
+        let kind: String = (selectedType == .post || selectedType == .announcement) ? "post" : "message"
+        let snapshot = AmenIntelligenceFabric.shared.snapshot(
+            for: trimmed,
+            surface: .group,
+            sourceContext: draftSourceContext
+        )
+        fabricPreflight = snapshot
+
+        await AmenIntelligenceFabricStore.shared.persist(
+            snapshot: snapshot,
+            contentId: covenantIdForPreflight,
+            contentType: "covenantDraft",
+            metadata: [
+                "composerType": selectedType.rawValue,
+                "visibility": visibilityOption.rawValue
+            ]
+        )
+        if snapshot.policy.shouldPersistAudit {
+            await AmenIntelligenceFabricStore.shared.persistAuditEvent(
+                .composerPreflight,
+                snapshot: snapshot,
+                contentId: covenantIdForPreflight,
+                contentType: "covenantDraft",
+                metadata: [
+                    "composerType": selectedType.rawValue,
+                    "visibility": visibilityOption.rawValue
+                ]
+            )
+        }
+
+        switch snapshot.policy.level {
+        case .crisisEscalation:
+            moderationState = .blocked
+            error = snapshot.policy.composerSuggestion
+            showToneCheck = true
+            await AmenIntelligenceFabricStore.shared.activateSafetyMode(
+                snapshot: snapshot,
+                contentId: covenantIdForPreflight,
+                contentType: "covenantDraft",
+                metadata: ["composerType": selectedType.rawValue]
+            )
+            return
+        case .restrict:
+            moderationState = .blocked
+            error = snapshot.policy.composerSuggestion ?? "This post needs review before publishing."
+            showToneCheck = true
+            return
+        case .requireReview:
+            moderationState = .sensitive
+            error = snapshot.policy.composerSuggestion
+            showToneCheck = true
+        case .nudge:
+            moderationState = .needsEdit(suggestion: snapshot.policy.composerSuggestion ?? "Use supportive, clear wording before publishing.")
+            showToneCheck = true
+        case .allow:
+            break
+        }
+
+        // Phase-5: Analytics — safe payload, no raw text.
+        CommunitiesAnalytics.toneCheckStarted(kind: kind)
+
+        let payload: [String: Any] = [
+            "text": trimmed,
+            "kind": kind,
+        ]
+
+        do {
+            let result = try await functions
+                .httpsCallable("validateCovenantPostSafety")
+                .call(payload)
+            let data = result.data as? [String: Any] ?? [:]
+            let severity = (data["severity"] as? String) ?? "safe"
+            let categoriesCount = (data["categories"] as? [String])?.count ?? 0
+            switch severity {
+            case "block":
+                moderationState = .blocked
+                CommunitiesAnalytics.toneCheckBlocked(kind: kind, categoriesCount: categoriesCount)
+            case "warn":
+                if moderationState == .safe {
+                    moderationState = .sensitive
+                }
+                CommunitiesAnalytics.toneCheckSucceeded(kind: kind, severity: "warn", categoriesCount: categoriesCount)
+            default:
+                if moderationState == .safe {
+                    moderationState = .safe
+                }
+                CommunitiesAnalytics.toneCheckSucceeded(kind: kind, severity: "safe", categoriesCount: 0)
+            }
+            showToneCheck = true
+        } catch {
+            // Recoverable failure — do NOT permit publish on an unknown
+            // moderation verdict. Surface the error and keep Submit gated
+            // until the user retries or fixes their text.
+            moderationState = .blocked
+            self.error = "We couldn't verify this post right now. Please try again."
+            showToneCheck = true
+            CommunitiesAnalytics.toneCheckFailed(kind: kind)
+        }
     }
 
     func submit(covenantId: String) async throws {
@@ -74,6 +187,32 @@ final class AmenCovenantPostComposerViewModel: ObservableObject {
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedRef = scriptureReference.trimmingCharacters(in: .whitespacesAndNewlines)
 
+        if AMENFeatureFlags.shared.socialSafetyOSEnabled && !showToneCheck {
+            await checkTone()
+        }
+
+        guard moderationState != .blocked else {
+            throw NSError(
+                domain: "AmenCovenantPostComposer",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "This post needs a safety check before it can be published."]
+            )
+        }
+
+        if let snapshot = fabricPreflight {
+            let eventType: AmenFabricAuditEventType = snapshot.policy.shouldVerifyFundraising ? .trustReviewRequired : .composerPreflight
+            await AmenIntelligenceFabricStore.shared.persistAuditEvent(
+                eventType,
+                snapshot: snapshot,
+                contentId: covenantId,
+                contentType: "covenantPost",
+                metadata: [
+                    "composerType": selectedType.rawValue,
+                    "visibility": visibilityOption.rawValue
+                ]
+            )
+        }
+
         switch selectedType {
         case .post, .announcement:
             var payload: [String: Any] = [
@@ -83,10 +222,10 @@ final class AmenCovenantPostComposerViewModel: ObservableObject {
                 "visibility": visibilityOption.rawValue
             ]
             if !trimmedTitle.isEmpty { payload["title"] = trimmedTitle }
-            try await functions.httpsCallable("createCovenantPost").call(payload)
+            _ = try await functions.httpsCallable("createCovenantPost").call(payload)
 
         case .prayerRequest:
-            try await functions.httpsCallable("createCovenantMessage").call([
+            _ = try await functions.httpsCallable("createCovenantMessage").call([
                 "covenantId": covenantId,
                 "body": trimmedBody,
                 "messageType": "prayer_request",
@@ -102,7 +241,7 @@ final class AmenCovenantPostComposerViewModel: ObservableObject {
                 "visibility": visibilityOption.rawValue
             ]
             if !trimmedRef.isEmpty { payload["scriptureReference"] = trimmedRef }
-            try await functions.httpsCallable("createCovenantMessage").call(payload)
+            _ = try await functions.httpsCallable("createCovenantMessage").call(payload)
 
         case .testimony:
             var payload: [String: Any] = [
@@ -112,10 +251,14 @@ final class AmenCovenantPostComposerViewModel: ObservableObject {
                 "visibility": visibilityOption.rawValue
             ]
             if !trimmedRef.isEmpty { payload["scriptureReference"] = trimmedRef }
-            try await functions.httpsCallable("createCovenantMessage").call(payload)
+            _ = try await functions.httpsCallable("createCovenantMessage").call(payload)
         }
 
         sentSuccessfully = true
+    }
+
+    private var covenantIdForPreflight: String {
+        "draft_\(Auth.auth().currentUser?.uid ?? "anonymous")"
     }
 }
 
@@ -129,6 +272,7 @@ struct AmenCovenantPostComposerView: View {
     @EnvironmentObject var vm: AmenCovenantViewModel
 
     @StateObject private var composerVM = AmenCovenantPostComposerViewModel()
+    @StateObject private var safetyComposer = SafetyComposerState()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @FocusState private var bodyFieldFocused: Bool
 
@@ -290,6 +434,16 @@ struct AmenCovenantPostComposerView: View {
                 typeSelector
             }
 
+            // Tone check banner — appears when typing slows
+            if let suggestion = safetyComposer.toneCheckSuggestion {
+                ToneCheckBanner(
+                    suggestion: suggestion,
+                    onApply: { composerVM.body = safetyComposer.applyToneSuggestion($0) },
+                    onDismiss: { safetyComposer.dismissToneSuggestion() }
+                )
+                .padding(.bottom, 8)
+            }
+
             contentFields
 
             if isCreatorOrAdmin {
@@ -297,6 +451,23 @@ struct AmenCovenantPostComposerView: View {
             }
 
             toneCheckSection
+
+            // Rewrite panel — shown when content is blocked by moderation
+            if safetyComposer.showRewritePanel {
+                TextRewriteView(
+                    blockedText: $composerVM.body,
+                    harmCategoryId: safetyComposer.blockedCategoryId ?? "harassment",
+                    contentType: "post"
+                ) { accepted in
+                    safetyComposer.onRewriteDecision(
+                        accepted,
+                        harmCategoryId: safetyComposer.blockedCategoryId ?? "harassment",
+                        contentType: "post"
+                    )
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 16)
+            }
 
             submitSection
         }
@@ -386,7 +557,7 @@ struct AmenCovenantPostComposerView: View {
                     accessibilityLabel: "Post body"
                 )
             }
-            .glassCard()
+            .covenantComposerGlassCard()
         }
     }
 
@@ -416,7 +587,7 @@ struct AmenCovenantPostComposerView: View {
                 .padding(.vertical, 12)
                 .accessibilityLabel("Post anonymously")
             }
-            .glassCard()
+            .covenantComposerGlassCard()
         }
     }
 
@@ -440,7 +611,7 @@ struct AmenCovenantPostComposerView: View {
                     .padding(.vertical, 12)
                     .accessibilityLabel("Scripture reference, optional")
             }
-            .glassCard()
+            .covenantComposerGlassCard()
         }
     }
 
@@ -464,7 +635,7 @@ struct AmenCovenantPostComposerView: View {
                     .padding(.vertical, 12)
                     .accessibilityLabel("Scripture reference, optional")
             }
-            .glassCard()
+            .covenantComposerGlassCard()
         }
     }
 
@@ -483,6 +654,9 @@ struct AmenCovenantPostComposerView: View {
             .padding(.vertical, 8)
             .focused($bodyFieldFocused)
             .accessibilityLabel(accessibilityLabel)
+            .onChange(of: binding.wrappedValue) { _, newValue in
+                safetyComposer.onTextChange(newValue, contentType: "post")
+            }
             .overlay(alignment: .topLeading) {
                 if binding.wrappedValue.isEmpty {
                     Text(placeholder)
@@ -538,7 +712,7 @@ struct AmenCovenantPostComposerView: View {
                     }
                 }
             }
-            .glassCard()
+            .covenantComposerGlassCard()
         }
     }
 
@@ -576,9 +750,12 @@ struct AmenCovenantPostComposerView: View {
             .accessibilityLabel("Check the tone of your post with AI before posting")
 
             if composerVM.showToneCheck {
-                CovenantModerationBanner(state: composerVM.moderationState)
-                    .padding(.horizontal, 20)
-                    .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
+                VStack(alignment: .leading, spacing: 8) {
+                    AmenSafetyPill(state: safetyPillState)
+                    CovenantModerationBanner(state: composerVM.moderationState)
+                }
+                .padding(.horizontal, 20)
+                .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
             }
         }
         .padding(.bottom, 20)
@@ -586,6 +763,19 @@ struct AmenCovenantPostComposerView: View {
             reduceMotion ? .none : .spring(response: 0.35, dampingFraction: 0.85),
             value: composerVM.showToneCheck
         )
+    }
+
+    private var safetyPillState: AmenSafetyPillState {
+        switch composerVM.moderationState {
+        case .safe:
+            return .safe
+        case .needsEdit:
+            return .rewriteSuggested
+        case .sensitive:
+            return .contextAvailable
+        case .blocked:
+            return .heldForReview
+        }
     }
 
     // MARK: - Submit Section
@@ -598,6 +788,8 @@ struct AmenCovenantPostComposerView: View {
         ) {
             guard let cid = effectiveCovenantId else { return }
             Task {
+                let ok = await safetyComposer.checkBeforeSubmit(text: composerVM.body, contentType: "post")
+                guard ok else { return }
                 do {
                     try await composerVM.submit(covenantId: cid)
                 } catch {
@@ -628,7 +820,7 @@ struct AmenCovenantPostComposerView: View {
 // MARK: - Glass Card Modifier (composer-scoped)
 
 private extension View {
-    func glassCard() -> some View {
+    func covenantComposerGlassCard() -> some View {
         self
             .background(
                 RoundedRectangle(cornerRadius: 22, style: .continuous)

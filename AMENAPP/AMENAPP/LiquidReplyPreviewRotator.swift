@@ -2,23 +2,20 @@ import SwiftUI
 
 // MARK: - LiquidReplyPreviewRotator
 
-/// Manages client-side rotation between server-approved reply preview candidates.
+/// Displays the server-selected reply preview for a post.
 ///
-/// Rotation rules:
-///   - Rotates every 8–15 s (randomised per post to avoid synchronised feed animation)
-///   - Pauses when the view leaves screen (onDisappear)
-///   - Pauses when Reduce Motion is enabled (shows highest-ranked candidate only)
-///   - Clients rotate between server-approved candidates only — no text is generated here
-///   - Timer is cancelled and deallocated on disappear to prevent battery drain
+/// The client never runs a carousel or chooses a new preview over time. Presence
+/// is decided at fetch, and changes crossfade only when the server writes a new
+/// preview (detected via a stable contentHash of postId + type + previewText).
+///
+/// Gated by `AMENFeatureFlags.shared.replyPreviewRotationEnabled`. When the flag
+/// is off the rotator renders nothing (EmptyView).
 struct LiquidReplyPreviewRotator: View {
     let candidates: [DynamicReplyPreview]
     let onOpenReplies: (DynamicReplyPreview) -> Void
+    var onLongPress: (DynamicReplyPreview) -> Void = { _ in }
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    @State private var currentIndex = 0
-    @State private var isVisible = false
-    @State private var timerTask: Task<Void, Never>?
 
     // MARK: - Derived
 
@@ -29,83 +26,43 @@ struct LiquidReplyPreviewRotator: View {
     }
 
     private var current: DynamicReplyPreview? {
-        guard !safeCandidates.isEmpty else { return nil }
-        return safeCandidates[currentIndex % safeCandidates.count]
+        safeCandidates.first
     }
 
-    private var shouldRotate: Bool {
-        isVisible && !reduceMotion && safeCandidates.count > 1
+    /// Stable identity string for SwiftUI `.id()` — crossfade fires only when
+    /// server changes the post, type, or text. Timestamp changes alone do not
+    /// trigger an animation unless the content itself changes.
+    private var contentHash: String? {
+        guard let preview = current else { return nil }
+        return "\(preview.postId)|\(preview.type.rawValue)|\(preview.previewText)"
     }
 
     // MARK: - Body
 
     var body: some View {
-        Group {
-            if let preview = current {
-                LiquidReplyPreviewChip(preview: preview) {
-                    onOpenReplies(preview)
-                }
-                .id(preview.id)
-                .transition(
-                    .opacity.combined(with: .scale(scale: 0.986, anchor: .leading))
-                )
-            }
+        guard AMENFeatureFlags.shared.replyPreviewRotationEnabled else {
+            return AnyView(EmptyView())
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .animation(
-            reduceMotion ? .none : .easeInOut(duration: LiquidGlassTokens.motionFast),
-            value: current?.id
+
+        return AnyView(
+            Group {
+                if let preview = current, let hash = contentHash {
+                    LiquidReplyPreviewChip(
+                        preview: preview,
+                        onTap: { onOpenReplies(preview) },
+                        onLongPress: { onLongPress(preview) }
+                    )
+                    .id(hash)
+                    .transition(.opacity)
+                }
+            }
+            .frame(height: 38, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .animation(
+                reduceMotion ? .none : .easeInOut(duration: LiquidGlassTokens.motionFast),
+                value: contentHash
+            )
         )
-        .onAppear {
-            isVisible = true
-            updateRotationState()
-        }
-        .onDisappear {
-            isVisible = false
-            stopRotation()
-        }
-        .onChange(of: candidates) { _, _ in
-            currentIndex = 0
-            updateRotationState()
-        }
-        .onChange(of: reduceMotion) { _, _ in
-            updateRotationState()
-        }
-    }
-
-    // MARK: - Rotation Control
-
-    private func updateRotationState() {
-        if shouldRotate {
-            startRotationIfNeeded()
-        } else {
-            stopRotation()
-        }
-    }
-
-    private func startRotationIfNeeded() {
-        guard shouldRotate, timerTask == nil else { return }
-
-        timerTask = Task {
-            while !Task.isCancelled {
-                // Randomise interval per post so all cards don't flip at the same moment
-                let delayNs = UInt64(Int.random(in: 8...15)) * 1_000_000_000
-                try? await Task.sleep(nanoseconds: delayNs)
-                guard !Task.isCancelled else { return }
-
-                await MainActor.run {
-                    guard shouldRotate else { return }
-                    withAnimation(.easeInOut(duration: LiquidGlassTokens.motionFast)) {
-                        currentIndex = (currentIndex + 1) % max(1, safeCandidates.count)
-                    }
-                }
-            }
-        }
-    }
-
-    private func stopRotation() {
-        timerTask?.cancel()
-        timerTask = nil
     }
 }
 

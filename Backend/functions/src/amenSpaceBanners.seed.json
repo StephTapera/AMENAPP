@@ -1,0 +1,51 @@
+{
+  "bannerSources": {
+    "seed-approved-spaces-home-rsvp": {
+      "title": "Young Adults Night",
+      "subtitle": "Friday at 7 PM near you",
+      "imageURL": "https://example.com/banner-young-adults.jpg",
+      "iconURL": null,
+      "type": "event",
+      "cta": {
+        "action": "rsvp",
+        "label": "RSVP",
+        "route": "selah://event/event-seed-1/rsvp"
+      },
+      "surfaceAllowlist": ["spacesHome"],
+      "spaceId": "space-seed-1",
+      "visibility": "authenticated",
+      "moderationStatus": "approved",
+      "startsAt": "2026-05-25T00:00:00Z",
+      "endsAt": "2026-06-25T00:00:00Z",
+      "createdBy": "seed-admin",
+      "priority": 10,
+      "localScore": 3,
+      "relevanceScore": 2,
+      "trustedParticipationScore": 1,
+      "createdAt": "2026-05-25T00:00:00Z",
+      "updatedAt": "2026-05-25T00:00:00Z"
+    },
+    "seed-pending-spaces-home-join": {
+      "title": "New Bible Study Group",
+      "subtitle": "Pending moderation",
+      "imageURL": null,
+      "iconURL": null,
+      "type": "group",
+      "cta": {
+        "action": "join",
+        "label": "Join",
+        "route": "selah://group/group-seed-pending"
+      },
+      "surfaceAllowlist": ["spacesHome"],
+      "spaceId": "space-seed-1",
+      "visibility": "authenticated",
+      "moderationStatus": "pending",
+      "startsAt": "2026-05-25T00:00:00Z",
+      "endsAt": "2026-06-25T00:00:00Z",
+      "createdBy": "seed-admin",
+      "priority": 8,
+      "createdAt": "2026-05-25T00:00:00Z",
+      "updatedAt": "2026-05-25T00:00:00Z"
+    }
+  }
+}

@@ -1,0 +1,108 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isAuthenticated() && request.auth.uid == uid;
+    }
+
+    function isServer() {
+      return isAuthenticated() && request.auth.token.get('admin', false) == true;
+    }
+
+    function isSelahSensitiveTheme(theme) {
+      return theme in ['selfHarm', 'abuse', 'trafficking', 'coercion'];
+    }
+
+    function validSelahSafetyTheme(theme) {
+      return theme in ['neutral', 'anxiety', 'grief', 'doubt', 'addiction', 'selfHarm', 'abuse', 'trafficking', 'coercion'];
+    }
+
+    function validSelahShareScope(scope) {
+      return scope in ['justMe', 'accountabilityPartner', 'namedGroup'];
+    }
+
+    function validSelahReflection(data) {
+      return data.keys().hasAll([
+          'id', 'ownerUid', 'body', 'safetyTheme', 'shareScope',
+          'isShareEligible', 'relationalSignals', 'createdAt', 'updatedAt'
+        ])
+        && data.ownerUid == request.auth.uid
+        && data.body is string
+        && data.body.size() <= 8000
+        && validSelahSafetyTheme(data.safetyTheme)
+        && validSelahShareScope(data.shareScope)
+        && data.relationalSignals is map
+        && data.relationalSignals.get('prayedByGroupCount', 0) is int
+        && (
+          data.shareScope == 'justMe'
+          || (data.shareScope == 'accountabilityPartner' && data.sharedWithUid is string)
+          || (data.shareScope == 'namedGroup' && data.sharedWithGroupId is string)
+        )
+        && (!isSelahSensitiveTheme(data.safetyTheme) || (data.isShareEligible == false && data.shareScope == 'justMe'));
+    }
+
+    function validGuidedSelahStep(step) {
+      return step in ['read', 'listen', 'understand', 'reflect', 'pray', 'apply', 'complete'];
+    }
+
+    function validGuidedSelahSession(data) {
+      return data.keys().hasAll([
+          'id', 'ownerUid', 'verseId', 'translation', 'currentStep',
+          'completedSteps', 'recentThemes', 'startedAt', 'updatedAt'
+        ])
+        && data.ownerUid == request.auth.uid
+        && data.verseId is string
+        && data.translation in ['KJV', 'ESV']
+        && validGuidedSelahStep(data.currentStep)
+        && data.completedSteps is list
+        && data.recentThemes is list;
+    }
+
+    match /reflections/{reflectionId} {
+      allow create: if isAuthenticated()
+        && request.resource.data.id == reflectionId
+        && validSelahReflection(request.resource.data);
+
+      allow read: if isOwner(resource.data.ownerUid)
+        || (resource.data.shareScope == 'accountabilityPartner' && resource.data.sharedWithUid == request.auth.uid)
+        || (resource.data.shareScope == 'namedGroup'
+          && exists(/databases/$(database)/documents/groups/$(resource.data.sharedWithGroupId)/members/$(request.auth.uid)));
+
+      allow update: if isOwner(resource.data.ownerUid)
+        && request.resource.data.ownerUid == resource.data.ownerUid
+        && request.resource.data.id == resource.data.id
+        && validSelahReflection(request.resource.data);
+
+      allow delete: if isOwner(resource.data.ownerUid);
+    }
+
+    match /studySheetCache/{cacheKey} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isServer();
+    }
+
+    match /guidedSessions/{sessionId} {
+      allow create: if isAuthenticated()
+        && request.resource.data.id == sessionId
+        && validGuidedSelahSession(request.resource.data);
+
+      allow read: if isOwner(resource.data.ownerUid);
+
+      allow update: if isOwner(resource.data.ownerUid)
+        && request.resource.data.ownerUid == resource.data.ownerUid
+        && request.resource.data.id == resource.data.id
+        && validGuidedSelahSession(request.resource.data);
+
+      allow delete: if isOwner(resource.data.ownerUid);
+    }
+
+    match /verseThemeTags/{tagId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isServer();
+    }
+  }
+}

@@ -27,6 +27,7 @@ struct IceBreakerCard: View {
                     Image(systemName: "sparkles")
                         .font(.systemScaled(14, weight: .semibold))
                         .foregroundColor(.blue)
+                        .accessibilityHidden(true)
 
                     Text("AI Suggestion")
                         .font(.custom("OpenSans-SemiBold", size: 11))
@@ -37,11 +38,12 @@ struct IceBreakerCard: View {
                     Image(systemName: "arrow.right.circle.fill")
                         .font(.systemScaled(18))
                         .foregroundColor(.blue)
+                        .accessibilityHidden(true)
                 }
 
                 Text(iceBreaker.message)
                     .font(.custom("OpenSans-SemiBold", size: 15))
-                    .foregroundColor(.black)
+                    .foregroundColor(AmenTheme.Colors.textPrimary)
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -50,6 +52,7 @@ struct IceBreakerCard: View {
                         Image(systemName: "heart.fill")
                             .font(.systemScaled(10))
                             .foregroundColor(.red.opacity(0.7))
+                            .accessibilityHidden(true)
 
                         Text("Shared: \(sharedInterest)")
                             .font(.custom("OpenSans-Regular", size: 11))
@@ -66,6 +69,7 @@ struct IceBreakerCard: View {
             .scaleEffect(isPressed ? 0.98 : 1.0)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(iceBreaker.message)
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in isPressed = true }
@@ -119,6 +123,7 @@ struct SmartReplyChip: View {
             HStack(spacing: 6) {
                 Image(systemName: icon)
                     .font(.systemScaled(12, weight: .semibold))
+                    .accessibilityHidden(true)
 
                 Text(suggestion.text)
                     .font(.custom("OpenSans-SemiBold", size: 14))
@@ -152,6 +157,7 @@ struct IceBreakersSection: View {
                         Image(systemName: "sparkles")
                             .font(.systemScaled(16, weight: .semibold))
                             .foregroundColor(.blue)
+                            .accessibilityHidden(true)
 
                         Text("Start the Conversation")
                             .font(.custom("OpenSans-Bold", size: 18))
@@ -169,6 +175,7 @@ struct IceBreakersSection: View {
                         .font(.systemScaled(24))
                         .foregroundColor(.gray.opacity(0.5))
                 }
+                .accessibilityLabel("Dismiss suggestions")
             }
             .padding(.horizontal, 20)
             .padding(.top, 16)
@@ -201,6 +208,7 @@ struct SmartRepliesBar: View {
                 Image(systemName: "sparkles")
                     .font(.systemScaled(11, weight: .semibold))
                     .foregroundColor(.blue)
+                    .accessibilityHidden(true)
 
                 Text("Smart Replies")
                     .font(.custom("OpenSans-SemiBold", size: 11))
@@ -229,6 +237,7 @@ struct SmartRepliesBar: View {
 struct ConversationInsightsCard: View {
     let insight: ConversationInsight
     @State private var isExpanded = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var toneColor: Color {
         switch insight.tone {
@@ -253,6 +262,7 @@ struct ConversationInsightsCard: View {
                     Image(systemName: "brain")
                         .font(.systemScaled(16, weight: .semibold))
                         .foregroundColor(toneColor)
+                        .accessibilityHidden(true)
 
                     Text(insight.title)
                         .font(.custom("OpenSans-Bold", size: 15))
@@ -261,7 +271,7 @@ struct ConversationInsightsCard: View {
                 Spacer()
 
                 Button(action: {
-                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
+                    withAnimation(reduceMotion ? nil : Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                         isExpanded.toggle()
                     }
                 }) {
@@ -269,6 +279,7 @@ struct ConversationInsightsCard: View {
                         .font(.systemScaled(14, weight: .semibold))
                         .foregroundColor(.gray)
                 }
+                .accessibilityLabel(isExpanded ? "Collapse insight" : "Expand insight")
             }
 
             // Insight text
@@ -284,6 +295,7 @@ struct ConversationInsightsCard: View {
                         Image(systemName: "book.fill")
                             .font(.systemScaled(12))
                             .foregroundColor(.purple)
+                            .accessibilityHidden(true)
 
                         Text(scripture)
                             .font(.custom("OpenSans-SemiBold", size: 13))
@@ -308,6 +320,7 @@ struct ConversationInsightsCard: View {
                                 Image(systemName: "checkmark.circle")
                                     .font(.systemScaled(12))
                                     .foregroundColor(toneColor)
+                                    .accessibilityHidden(true)
 
                                 Text(action)
                                     .font(.custom("OpenSans-Regular", size: 13))
@@ -349,7 +362,7 @@ struct AILoadingIndicator: View {
         .padding(.vertical, 12)
         .background(
             Capsule()
-                .fill(Color(white: 0.95))
+                .fill(Color(white, 0.95))
         )
     }
 }

@@ -40,11 +40,15 @@ private struct CommentsScrollViewHeightKey: PreferenceKey {
 struct CommentsView: View {
     let post: Post
     let prefillText: String?
+    /// Canonical Replies thread category override (e.g. "church_note", "verse_discussion", "berean").
+    /// When nil, category is derived from `post.category` inside CommentService.
+    let threadCategoryOverride: String?
 
     @Environment(\.dismiss) var dismiss
     @ObservedObject private var commentService = CommentService.shared  // P0 FIX: ObservedObject for singletons (faster init)
     @ObservedObject private var userService = UserService.shared  // P0 FIX: ObservedObject for singletons (faster init)
     @ObservedObject private var commentBridge = CommentTranslationBridge.shared
+    @ObservedObject private var mediaMomentInteraction = MediaMomentInteractionService.shared
     
     // P0 FIX: Lazy load AI services - only initialize when needed, not on sheet open
     @State private var summarizationService: AIThreadSummarizationService?
@@ -52,6 +56,11 @@ struct CommentsView: View {
     
     @State private var commentText = ""
     @State private var replyingTo: Comment?
+    @StateObject private var smartAttachmentResolver = AmenSmartAttachmentResolverService.shared
+    @State private var commentAttachmentState: AmenAttachmentComposerState = .empty
+    @State private var commentSmartAttachment: AmenSmartAttachment?
+    @State private var commentMentionedLinks: [URL] = []
+    @State private var commentAttachmentTask: Task<Void, Never>?
 
     // @mention picker state
     @State private var showMentionPicker = false
@@ -100,6 +109,21 @@ struct CommentsView: View {
     // Berean AI rewrite assist
     @State private var bereanSuggestion: String?
     @State private var isLoadingBereanSuggestion = false
+    @State private var alignmentPreviewTask: Task<Void, Never>?
+    @State private var spiritualComposeAnalysis = AmenComposeAnalysis(intent: .unknown, suggestions: [], shouldShowDiscernmentGate: false, discernmentTitle: nil, discernmentMessage: nil)
+    @State private var showSpiritualDiscernmentGate = false
+    @State private var bypassSpiritualDiscernmentGate = false
+    @State private var safetyOSTriggers: [AmenTriggerResult] = []
+    @State private var activeSafetyOSTrigger: AmenTriggerResult?
+    @State private var activeSafetyOSEffectPolicy: AmenReactionEffectPolicy?
+    @State private var safetyOSEffectSeed = UUID()
+    @State private var safetyOSCanonicalTask: Task<Void, Never>?
+    @State private var pendingWellnessContext: WellnessInterventionContext? = nil
+    @State private var wellnessClearedForComment = false
+    @State private var showBotChallenge = false
+    @State private var botChallengeCleared = false
+    @StateObject private var contextualComposerObserver = AmenMagicWordComposerObserver()
+    @StateObject private var safetyComposer = SafetyComposerState()
 
     // Smart reply chips
     @State private var smartReplySuggestions: [String] = []
@@ -141,16 +165,42 @@ struct CommentsView: View {
 
     // Proactive rate limit banner (shown immediately if daily limit already hit)
     @State private var rateLimitMessage: String? = nil
-    
-    init(post: Post, prefillText: String? = nil) {
+    @State private var silentReactionSummaryOverride: AmenSilentReactionSummary?
+    @State private var showContextualMemoryLayer = false
+    @State private var contextualMemoryLayer: AmenContextualMemoryLayer?
+
+    // When set, CommentsView scrolls to the first target comment and briefly highlights
+    // related comments on appear. Used by the dynamic reply preview routing.
+    var highlightedCommentIds: [String] = []
+    @State private var transientHighlightedCommentIds: Set<String> = []
+
+    init(post: Post, prefillText: String? = nil, threadCategoryOverride: String? = nil, highlightedCommentId: String? = nil, highlightedCommentIds: [String] = []) {
         self.post = post
         self.prefillText = prefillText
+        if let highlightedCommentId, !highlightedCommentId.isEmpty {
+            self.highlightedCommentIds = [highlightedCommentId]
+        } else {
+            self.highlightedCommentIds = highlightedCommentIds
+        }
+        // An explicit override always wins. Otherwise, auto-derive "verse_discussion"
+        // for posts that carry a scripture reference so the Replies filter tab is truthful.
+        if let explicit = threadCategoryOverride, !explicit.isEmpty {
+            self.threadCategoryOverride = explicit
+        } else if let ref = post.verseReference, !ref.isEmpty {
+            self.threadCategoryOverride = "verse_discussion"
+        } else {
+            self.threadCategoryOverride = nil
+        }
         _commentText = State(initialValue: prefillText ?? "")
     }
 
     // Use full firestoreId — RTDB listener paths use the same full UUID as Firestore.
     // PostDetailView uses post.firestoreId directly; CommentsView must match.
     private var postId: String { post.firestoreId }
+    private var activeMomentAnchor: MediaMomentAnchor? {
+        guard let anchor = mediaMomentInteraction.activeCommentAnchor, anchor.postId == postId else { return nil }
+        return anchor
+    }
     
     @FocusState private var isInputFocused: Bool
     
@@ -504,6 +554,59 @@ struct CommentsView: View {
         }
     }
 
+    // MARK: - Post Interaction Row
+
+    @ViewBuilder
+    private var postInteractionRow: some View {
+        if let summary = silentReactionSummaryOverride ?? AmenSpiritualSystemsService.shared.silentReactionSummary(
+            for: post, isAuthor: post.authorId == (Auth.auth().currentUser?.uid ?? "")
+        ) {
+            SilentReactionSummaryView(summary: summary)
+                .padding(.horizontal, 16)
+                .padding(.top, 10)
+        }
+        if post.authorId != (Auth.auth().currentUser?.uid ?? "") {
+            SilentReactionBar { reaction in
+                Task {
+                    await AmenSpiritualCloudService.shared.addSilentReaction(
+                        sourceId: post.firestoreId.isEmpty ? post.id.uuidString : post.firestoreId,
+                        sourceType: "post",
+                        reactionType: reaction
+                    )
+                    await MainActor.run {
+                        silentReactionSummaryOverride = AmenSilentReactionSummary(
+                            summaryText: "\(reaction.title) recorded privately.",
+                            reactionTypes: [reaction]
+                        )
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 10)
+        }
+        Button {
+            Task {
+                contextualMemoryLayer = await AmenSpiritualSystemsService.shared.contextualMemoryLayer(for: post)
+                showContextualMemoryLayer = true
+            }
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: "square.stack.3d.up")
+                    .font(.systemScaled(11))
+                Text("Open deeper context")
+                    .font(.systemScaled(12, weight: .medium))
+            }
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(Capsule().fill(Color(.systemGray6)))
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 16)
+        .padding(.top, 6)
+        .padding(.bottom, 4)
+    }
+
     @ViewBuilder
     private var mainStack: some View {
         ZStack {
@@ -525,6 +628,10 @@ struct CommentsView: View {
                     .frame(height: 0)
 
                     LazyVStack(spacing: 0) {
+                        postInteractionRow
+                        Divider()
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 4)
                         if isLoading {
                             // P0 FIX: Skeleton loading UI - shows immediately, no blocking
                             commentsSkeletonView
@@ -554,162 +661,9 @@ struct CommentsView: View {
 
                             ForEach(Array(commentsWithReplies.enumerated()), id: \.element.id) { index, commentWithReplies in
                                 VStack(alignment: .leading, spacing: 8) {
-                                    // Main Comment with animation
-                                    PostCommentRow(
-                                        post: post,
-                                        comment: commentWithReplies.comment,
-                                        isNew: newCommentIds.contains(commentWithReplies.comment.id ?? ""),
-                                        onReply: {
-                                            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
-                                                replyingTo = commentWithReplies.comment
-                                                isInputFocused = true
-                                            }
-                                            
-                                            // Haptic feedback
-                                            // haptic
-                                            HapticManager.impact(style: .light)
-                                        },
-                                        onReplyWithQuote: { quoteText in
-                                            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
-                                                replyingTo = commentWithReplies.comment
-                                                commentText = quoteText
-                                                isInputFocused = true
-                                            }
-                                        },
-                                        onDelete: {
-                                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
-                                                deleteComment(commentWithReplies.comment)
-                                            }
-                                        },
-                                        onAmen: {
-                                            toggleAmen(comment: commentWithReplies.comment)
-                                        },
-                                        onProfileTap: {
-                                            selectedUserId = commentWithReplies.comment.authorId
-                                            showUserProfile = true
-                                        },
-                                        onToggleThread: {
-                                            withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.75))) {
-                                                if expandedThreads.contains(commentWithReplies.comment.id ?? "") {
-                                                    expandedThreads.remove(commentWithReplies.comment.id ?? "")
-                                                } else {
-                                                    expandedThreads.insert(commentWithReplies.comment.id ?? "")
-                                                    
-                                                    // Load thread summary for 10+ reply threads
-                                                    if commentWithReplies.replies.count >= 10,
-                                                       let commentId = commentWithReplies.comment.id,
-                                                       threadSummaries[commentId] == nil {
-                                                        Task {
-                                                            do {
-                                                                // P0 FIX: Use optional chaining for lazy-loaded service
-                                                                if let summary = try await summarizationService?.getSummary(
-                                                                    for: commentId,
-                                                                    replies: commentWithReplies.replies
-                                                                ) {
-                                                                    await MainActor.run {
-                                                                        threadSummaries[commentId] = summary
-                                                                    }
-                                                                }
-                                                            } catch {
-                                                                dlog("❌ [SUMMARY] Failed to load: \(error)")
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        },
-                                        isThreadExpanded: expandedThreads.contains(commentWithReplies.comment.id ?? ""),
-                                        replyCount: commentWithReplies.replies.count,
-                                        currentTime: currentTime
-                                    )
-                                    .id("\(commentWithReplies.comment.id ?? "")-main")
-                                    .transition(.asymmetric(
-                                        insertion: .scale.combined(with: .opacity),
-                                        removal: .scale.combined(with: .opacity)
-                                    ))
+                                    mainCommentRow(for: commentWithReplies)
                                     
-                                    // Replies with expand/collapse animation
-                                    if !commentWithReplies.replies.isEmpty && 
-                                       expandedThreads.contains(commentWithReplies.comment.id ?? "") {
-                                        VStack(spacing: 0) {
-                                            // Thread Summary (for 10+ replies)
-                                            if commentWithReplies.replies.count >= 10,
-                                               let commentId = commentWithReplies.comment.id {
-                                                if let summary = threadSummaries[commentId] {
-                                                    ThreadSummaryView(summary: summary)
-                                                        .padding(.horizontal, 20)
-                                                        .padding(.vertical, 12)
-                                                        .transition(.move(edge: .top).combined(with: .opacity))
-                                                } else if summarizationService?.isGeneratingSummary == true {
-                                                    // Loading state
-                                                    HStack(spacing: 12) {
-                                                        ProgressView()
-                                                            .tint(.secondary)
-                                                        
-                                                        Text("Generating thread summary...")
-                                                            .font(.systemScaled(13))
-                                                            .foregroundStyle(.secondary)
-                                                    }
-                                                    .padding(.horizontal, 20)
-                                                    .padding(.vertical, 16)
-                                                    .transition(.move(edge: .top).combined(with: .opacity))
-                                                }
-                                            }
-                                            
-                                            ForEach(commentWithReplies.replies, id: \.stableId) { reply in
-                                                HStack(spacing: 0) {
-                                                    // Animated reply indicator line
-                                                    Rectangle()
-                                                        .fill(.black.opacity(0.1))
-                                                        .frame(width: 2)
-                                                        .padding(.leading, 28)
-                                                        .transition(.scale(scale: 0.1, anchor: .top))
-                                                    
-                                                    PostCommentRow(
-                                                        post: post,
-                                                        comment: reply,
-                                                        isReply: true,
-                                                        isNew: newCommentIds.contains(reply.id ?? ""),
-                                                        onReply: {
-                                                            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
-                                                                replyingTo = commentWithReplies.comment
-                                                                isInputFocused = true
-                                                            }
-                                                            
-                                                            // haptic
-                                                            HapticManager.impact(style: .light)
-                                                        },
-                                                        onReplyWithQuote: { quoteText in
-                                                            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
-                                                                replyingTo = commentWithReplies.comment
-                                                                commentText = quoteText
-                                                                isInputFocused = true
-                                                            }
-                                                        },
-                                                        onDelete: {
-                                                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
-                                                                deleteComment(reply)
-                                                            }
-                                                        },
-                                                        onAmen: {
-                                                            toggleAmen(comment: reply)
-                                                        },
-                                                        onProfileTap: {
-                                                            selectedUserId = reply.authorId
-                                                            showUserProfile = true
-                                                        },
-                                                        currentTime: currentTime
-                                                    )
-                                                }
-                                                .id("\(reply.id ?? "")-reply")
-                                                .transition(.asymmetric(
-                                                    insertion: .move(edge: .leading).combined(with: .opacity),
-                                                    removal: .move(edge: .leading).combined(with: .opacity)
-                                                ))
-                                            }
-                                        }
-                                        .transition(.move(edge: .top).combined(with: .opacity))
-                                    }
+                                    expandedRepliesSection(for: commentWithReplies)
                                 }
                                 .padding(.vertical, 8)
                                 .id(commentWithReplies.comment.id ?? UUID().uuidString)
@@ -721,6 +675,14 @@ struct CommentsView: View {
                             }
                         }
                     }
+                    // Voice Prayer & Testimony Comments section
+                    // Only renders when voicePrayerCommentsEnabled or voiceTestimonyCommentsEnabled
+                    // and the post is a prayer or testimony. No-op otherwise.
+                    VoicePrayerCommentsSection(
+                        post: post,
+                        currentUserId: Auth.auth().currentUser?.uid ?? ""
+                    )
+
                     Color.clear
                         .frame(height: 1)
                         .background(GeometryReader { proxy in
@@ -750,6 +712,19 @@ struct CommentsView: View {
                 }
                 .onAppear {
                     scrollProxy = proxy
+                    // If opened from a dynamic reply preview chip, scroll to
+                    // and briefly highlight the specific reply after load settles.
+                    if let targetId = highlightedCommentIds.first {
+                        Task { @MainActor in
+                            try? await Task.sleep(nanoseconds: 600_000_000)
+                            transientHighlightedCommentIds = Set(highlightedCommentIds)
+                            withAnimation(.easeOut(duration: 0.35)) {
+                                proxy.scrollTo("\(targetId)-main", anchor: .center)
+                            }
+                            try? await Task.sleep(nanoseconds: 2_000_000_000)
+                            transientHighlightedCommentIds.removeAll()
+                        }
+                    }
                 }
             }
             .overlay(alignment: .bottomTrailing) {
@@ -809,28 +784,30 @@ struct CommentsView: View {
                     .padding(.vertical, 4)
                 }
 
+                if commentText.isEmpty {
+                    commentReflectionChipRow
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
+                        .padding(.bottom, 2)
+                        .autoHideChips(isScrollingDown || isInputFocused)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+
                 // Smart reply chips — shown when input is empty and suggestions exist
                 if commentText.isEmpty && !smartReplySuggestions.isEmpty {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
                             ForEach(smartReplySuggestions, id: \.self) { suggestion in
-                                Button {
+                                AmenSmartPill(
+                                    title: suggestion,
+                                    systemImage: nil,
+                                    variant: .regular,
+                                    accessibilityHint: "Inserts suggested response"
+                                ) {
                                     HapticManager.impact(style: .light)
                                     commentText = suggestion
                                     isInputFocused = true
-                                } label: {
-                                    Text(suggestion)
-                                        .font(.systemScaled(13, weight: .medium))
-                                        .foregroundStyle(.primary)
-                                        .padding(.horizontal, 14)
-                                        .padding(.vertical, 7)
-                                        .background(
-                                            Capsule()
-                                                .fill(.ultraThinMaterial)
-                                                .overlay(Capsule().strokeBorder(Color.primary.opacity(0.10), lineWidth: 0.8))
-                                        )
                                 }
-                                .buttonStyle(.plain)
                             }
                         }
                         .padding(.horizontal, 16)
@@ -839,6 +816,33 @@ struct CommentsView: View {
                     .padding(.bottom, 2)
                     .autoHideChips(isScrollingDown || isInputFocused)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+
+                // Safety OS: tone check banner — appears when typing slows
+                if let suggestion = safetyComposer.toneCheckSuggestion {
+                    ToneCheckBanner(
+                        suggestion: suggestion,
+                        onApply: { commentText = safetyComposer.applyToneSuggestion($0) },
+                        onDismiss: { safetyComposer.dismissToneSuggestion() }
+                    )
+                    .padding(.bottom, 4)
+                }
+
+                // Safety OS: rewrite panel — shown when content is blocked by moderation
+                if safetyComposer.showRewritePanel {
+                    TextRewriteView(
+                        blockedText: $commentText,
+                        harmCategoryId: safetyComposer.blockedCategoryId ?? "harassment",
+                        contentType: "comment"
+                    ) { accepted in
+                        safetyComposer.onRewriteDecision(
+                            accepted,
+                            harmCategoryId: safetyComposer.blockedCategoryId ?? "harassment",
+                            contentType: "comment"
+                        )
+                    }
+                    .padding(.horizontal, 4)
+                    .padding(.bottom, 4)
                 }
 
                 // Input field with glass buttons
@@ -880,63 +884,81 @@ struct CommentsView: View {
                             .font(.custom("OpenSans-Regular", size: 15))
                             .lineLimit(1...4)
                             .focused($isInputFocused)
+                            .accessibilityLabel(replyingTo != nil ? "Reply" : "Comment")
                             .onChange(of: commentText) { _, newValue in
+                                // Safety OS: debounced tone check
+                                safetyComposer.onTextChange(newValue, contentType: "comment")
                                 // P0 FIX: Trigger debounced tone analysis only if service loaded
                                 toneGuidanceService?.analyzeText(newValue)
                                 // Detect @mention typing
                                 handleMentionDetection(in: newValue)
                                 // Clear smart reply chips once user starts typing
                                 if !newValue.isEmpty { smartReplySuggestions = [] }
+                                alignmentPreviewTask?.cancel()
+                                alignmentPreviewTask = Task {
+                                    try? await Task.sleep(nanoseconds: 350_000_000)
+                                    guard !Task.isCancelled else { return }
+                                    await commentService.previewAlignment(text: newValue)
+                                }
+                                spiritualComposeAnalysis = AmenSpiritualSystemsService.shared.analyzeComposer(text: newValue)
+                                safetyOSTriggers = AmenLocalTriggerEngine.shared.analyze(
+                                    text: newValue,
+                                    surface: replyingTo == nil ? .comment : .reply
+                                )
+                                safetyOSCanonicalTask?.cancel()
+                                safetyOSCanonicalTask = Task { @MainActor in
+                                    try? await Task.sleep(nanoseconds: 450_000_000)
+                                    guard !Task.isCancelled, commentText == newValue else { return }
+                                    safetyOSTriggers = await AmenLocalTriggerEngine.shared.analyzeWithCanonicalServer(
+                                        text: newValue,
+                                        surface: replyingTo == nil ? .comment : .reply
+                                    )
+                                }
+                                contextualComposerObserver.update(text: newValue)
+                                resolveCommentAttachmentIfNeeded(for: newValue)
                             }
+
+                        if case .resolving = commentAttachmentState {
+                            Text("Analyzing link...")
+                                .font(.systemScaled(12))
+                                .foregroundStyle(.secondary)
+                        } else if let attachment = commentSmartAttachment {
+                            AmenUniversalLinkCard(attachment: attachment, mode: .composerPreview)
+                            if !commentMentionedLinks.isEmpty {
+                                Text("Mentioned Links (\(commentMentionedLinks.count))")
+                                    .font(.systemScaled(12))
+                                    .foregroundStyle(.secondary)
+                            }
+                        } else if case .blocked = commentAttachmentState {
+                            Text("Link restricted. Comment will post with plain URL.")
+                                .font(.systemScaled(12))
+                                .foregroundStyle(.secondary)
+                        } else if case .failed = commentAttachmentState {
+                            Text("Preview unavailable. Comment will post normally.")
+                                .font(.systemScaled(12))
+                                .foregroundStyle(.secondary)
+                        }
+
+                        if let alignmentResult = commentService.composerAlignmentResult,
+                           alignmentResult.status == .needsDiscernment || alignmentResult.status == .blocked {
+                            LiquidGlassAlignmentBanner(
+                                result: alignmentResult,
+                                onViewContext: {},
+                                onCorrectAI: nil,
+                                onRewrite: {
+                                    requestBereanRewrite()
+                                },
+                                onContinue: nil,
+                                onHold: alignmentResult.status == .humanReview ? {} : nil
+                            )
+                        }
 
                         // @mention picker row
                         if showMentionPicker && !mentionResults.isEmpty {
                             ScrollView(.horizontal, showsIndicators: false) {
                                 HStack(spacing: 8) {
                                     ForEach(mentionResults, id: \.objectID) { user in
-                                        Button {
-                                            insertCommentMention(user)
-                                        } label: {
-                                            HStack(spacing: 6) {
-                                                Group {
-                                                    if let urlStr = user.profileImageURL,
-                                                       let url = URL(string: urlStr) {
-                                                        CachedAsyncImage(url: url) { img in
-                                                            img.resizable().scaledToFill()
-                                                        } placeholder: {
-                                                            Circle().fill(Color.purple.opacity(0.15))
-                                                                .overlay(
-                                                                    Text(user.displayName.prefix(1))
-                                                                        .font(.custom("OpenSans-Bold", size: 11))
-                                                                        .foregroundStyle(.purple)
-                                                                )
-                                                        }
-                                                        .frame(width: 26, height: 26)
-                                                        .clipShape(Circle())
-                                                    } else {
-                                                        Circle()
-                                                            .fill(Color.purple.opacity(0.15))
-                                                            .frame(width: 26, height: 26)
-                                                            .overlay(
-                                                                Text(user.displayName.prefix(1))
-                                                                    .font(.custom("OpenSans-Bold", size: 11))
-                                                                    .foregroundStyle(.purple)
-                                                            )
-                                                    }
-                                                }
-                                                VStack(alignment: .leading, spacing: 1) {
-                                                    Text(user.displayName)
-                                                        .font(.custom("OpenSans-SemiBold", size: 12))
-                                                        .foregroundStyle(.primary)
-                                                    Text("@\(user.username)")
-                                                        .font(.custom("OpenSans-Regular", size: 11))
-                                                        .foregroundStyle(.secondary)
-                                                }
-                                            }
-                                            .padding(.horizontal, 10)
-                                            .padding(.vertical, 6)
-                                            .background(RoundedRectangle(cornerRadius: 8).fill(Color(.systemGray6)))
-                                        }
+                                        mentionSuggestionButton(for: user)
                                         .buttonStyle(.plain)
                                     }
                                 }
@@ -957,107 +979,41 @@ struct CommentsView: View {
                             }
                             .transition(.move(edge: .top).combined(with: .opacity))
                         }
+
+                        IntentComposeAssistantBar(
+                            analysis: spiritualComposeAnalysis,
+                            onApplySuggestion: { suggestion in
+                                if let replacement = suggestion.replacementText {
+                                    commentText = replacement
+                                    spiritualComposeAnalysis = AmenSpiritualSystemsService.shared.analyzeComposer(text: replacement)
+                                }
+                            },
+                            onDismissSuggestion: { suggestion in
+                                spiritualComposeAnalysis = AmenComposeAnalysis(
+                                    intent: spiritualComposeAnalysis.intent,
+                                    suggestions: spiritualComposeAnalysis.suggestions.filter { $0.id != suggestion.id },
+                                    shouldShowDiscernmentGate: spiritualComposeAnalysis.shouldShowDiscernmentGate,
+                                    discernmentTitle: spiritualComposeAnalysis.discernmentTitle,
+                                    discernmentMessage: spiritualComposeAnalysis.discernmentMessage
+                                )
+                            },
+                            onWhy: { suggestion in
+                                errorMessage = suggestion.reason
+                                showError = true
+                            }
+                        )
+                        AmenComposerDiscernmentOverlay(triggers: safetyOSTriggers)
+                        AmenContextualReactionLayer(results: contextualComposerObserver.results, maxVisible: 3)
                         
                         // Berean AI rewrite suggestion banner
                         if let suggestion = bereanSuggestion {
-                            VStack(alignment: .leading, spacing: 8) {
-                                // Header row
-                                HStack(spacing: 6) {
-                                    Image("amen-logo")
-                                        .resizable()
-                                        .renderingMode(.original)
-                                        .scaledToFit()
-                                        .frame(width: 14, height: 14)
-                                    Text("Berean suggested a rewrite")
-                                        .font(.custom("OpenSans-SemiBold", size: 12))
-                                        .foregroundStyle(.purple)
-                                    Spacer()
-                                    Button {
-                                        withAnimation(.easeOut(duration: 0.2)) {
-                                            bereanSuggestion = nil
-                                        }
-                                    } label: {
-                                        Image(systemName: "xmark")
-                                            .font(.systemScaled(11, weight: .medium))
-                                            .foregroundStyle(.secondary)
-                                    }
-                                }
-                                // Divider between header and suggestion text
-                                Rectangle()
-                                    .fill(Color.purple.opacity(0.2))
-                                    .frame(height: 1)
-                                // Suggested text — always rendered as plain text
-                                Text(suggestion)
-                                    .font(.custom("OpenSans-Regular", size: 13))
-                                    .foregroundStyle(.primary)
-                                    .lineLimit(5)
-                                    .fixedSize(horizontal: false, vertical: true)
-                                // Action buttons
-                                HStack(spacing: 8) {
-                                    Button {
-                                        commentText = suggestion
-                                        withAnimation(.easeOut(duration: 0.2)) {
-                                            bereanSuggestion = nil
-                                        }
-                                    } label: {
-                                        Text("Use this")
-                                            .font(.custom("OpenSans-SemiBold", size: 12))
-                                            .foregroundStyle(.white)
-                                            .padding(.horizontal, 14)
-                                            .padding(.vertical, 6)
-                                            .background(Color.purple, in: Capsule())
-                                    }
-                                    Button {
-                                        withAnimation(.easeOut(duration: 0.2)) {
-                                            bereanSuggestion = nil
-                                        }
-                                    } label: {
-                                        Text("Keep mine")
-                                            .font(.custom("OpenSans-Regular", size: 12))
-                                            .foregroundStyle(.secondary)
-                                            .padding(.horizontal, 14)
-                                            .padding(.vertical, 6)
-                                            .background(Color(uiColor: .systemFill), in: Capsule())
-                                    }
-                                }
-                            }
-                            .padding(12)
-                            .background(Color.purple.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color.purple.opacity(0.18), lineWidth: 1)
-                            )
-                            .transition(.move(edge: .top).combined(with: .opacity))
+                            bereanSuggestionBanner(suggestion)
                         }
                         
                         // Attached photo preview
                         if let photoData = commentPhotoData,
                            let uiImage = UIImage(data: photoData) {
-                            HStack(spacing: 8) {
-                                Image(uiImage: uiImage)
-                                    .resizable()
-                                    .scaledToFill()
-                                    .frame(width: 56, height: 56)
-                                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 8)
-                                            .strokeBorder(Color(uiColor: .separator), lineWidth: 0.5)
-                                    )
-                                Button {
-                                    withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
-                                        commentPhotoData = nil
-                                        selectedPhotoItem = nil
-                                    }
-                                } label: {
-                                    Image(systemName: "xmark.circle.fill")
-                                        .font(.systemScaled(18))
-                                        .foregroundStyle(Color(uiColor: .secondaryLabel))
-                                        .background(Color(uiColor: .systemBackground), in: Circle())
-                                }
-                                .buttonStyle(.plain)
-                                Spacer()
-                            }
-                            .transition(.scale(scale: 0.85).combined(with: .opacity))
+                            attachedPhotoPreview(uiImage)
                         }
 
                         // Slow mode cooldown indicator
@@ -1190,13 +1146,19 @@ struct CommentsView: View {
                             
                             // Glass Circular Send Button
                             GlassCircularButton(
-                                icon: "paperplane.fill",
+                                icon: safetyOSTriggers.contains(where: { $0.type == .shameTone || $0.type == .conflictTone })
+                                    ? "pause.fill"
+                                    : "paperplane.fill",
                                 action: {
                                     sendSweepTrigger = true
                                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
                                         sendSweepTrigger = false
                                     }
-                                    submitComment()
+                                    Task {
+                                        let ok = await safetyComposer.checkBeforeSubmit(text: commentText, contentType: "comment")
+                                        guard ok else { return }
+                                        submitComment()
+                                    }
                                 },
                                 isDisabled: commentText.isEmpty || isSubmittingComment || rateLimitMessage != nil
                             )
@@ -1209,14 +1171,23 @@ struct CommentsView: View {
                         }
                     }
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 16)
-                .composerCompression(isInputFocused || !commentText.isEmpty)
-                .background(Color(.systemBackground))
+
+                momentAnchorCapsuleRow
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 16)
+                    .composerCompression(isInputFocused || !commentText.isEmpty)
+                    .background(Color(.systemBackground))
             }
         }
         .background(Color(.systemBackground))
         .successChips(successChips)
+        .overlay {
+            if let activeSafetyOSEffectPolicy {
+                AmenReactionEffectHost(policy: activeSafetyOSEffectPolicy)
+                    .id(safetyOSEffectSeed)
+                    .padding(.horizontal, 18)
+            }
+        }
         .gesture(
             // Tap to dismiss keyboard
             TapGesture()
@@ -1240,6 +1211,82 @@ struct CommentsView: View {
             .presentationDetents([.height(200)])
             .presentationDragIndicator(.visible)
         }
+        .sheet(isPresented: $showSpiritualDiscernmentGate) {
+            DiscernmentGateSheet(
+                title: spiritualComposeAnalysis.discernmentTitle ?? "Discernment Moment",
+                message: spiritualComposeAnalysis.discernmentMessage ?? "This may land differently than intended.",
+                rewrite: discernmentRewriteText,
+                onEdit: {
+                    bypassSpiritualDiscernmentGate = false
+                    showSpiritualDiscernmentGate = false
+                    isInputFocused = true
+                },
+                onRewrite: {
+                    if let replacement = discernmentRewriteText {
+                        commentText = replacement
+                        spiritualComposeAnalysis = AmenSpiritualSystemsService.shared.analyzeComposer(text: replacement)
+                    }
+                    bypassSpiritualDiscernmentGate = false
+                    showSpiritualDiscernmentGate = false
+                    isInputFocused = true
+                },
+                onPause: {
+                    commentText = "I want to pause and pray before I say more."
+                    spiritualComposeAnalysis = AmenSpiritualSystemsService.shared.analyzeComposer(text: commentText)
+                    bypassSpiritualDiscernmentGate = false
+                    showSpiritualDiscernmentGate = false
+                    isInputFocused = true
+                },
+                onSendAnyway: {
+                    bypassSpiritualDiscernmentGate = true
+                    showSpiritualDiscernmentGate = false
+                    submitComment()
+                }
+            )
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+        }
+        .sheet(item: $activeSafetyOSTrigger) { trigger in
+            AmenDiscernmentSheet(
+                trigger: trigger,
+                originalText: commentText,
+                suggestedRewrite: AmenLocalTriggerEngine.shared.suggestedRewrite(for: trigger, originalText: commentText)
+            ) { action in
+                handleSafetyOSComposerAction(action, trigger: trigger)
+            }
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+        }
+        .sheet(item: $pendingWellnessContext) { ctx in
+            WellnessPauseSheet(
+                context: ctx,
+                onContinue: {
+                    wellnessClearedForComment = true
+                    Task { @MainActor in
+                        try? await Task.sleep(nanoseconds: 300_000_000)
+                        submitComment()
+                    }
+                },
+                onPause: {}
+            )
+        }
+        .sheet(isPresented: $showBotChallenge) {
+            BotSuspicionFrictionView(
+                onChallengePassed: {
+                    AmenBotDefenseService.shared.markChallengeCompleted()
+                    botChallengeCleared = true
+                    showBotChallenge = false
+                    Task { @MainActor in
+                        try? await Task.sleep(nanoseconds: 300_000_000)
+                        submitComment()
+                    }
+                },
+                onCancel: {
+                    showBotChallenge = false
+                }
+            )
+            .presentationDetents([.medium])
+        }
         .sheet(isPresented: $showBerean) {
             BereanAIAssistantView(initialQuery: bereanQuery.isEmpty ? nil : bereanQuery)
         }
@@ -1259,6 +1306,16 @@ struct CommentsView: View {
                 onApprove: { comment in approveComment(comment, approved: true) },
                 onReject: { comment in approveComment(comment, approved: false) }
             )
+        }
+        .sheet(isPresented: $showContextualMemoryLayer) {
+            if let layer = contextualMemoryLayer {
+                ContextualMemoryLayerSheet(
+                    layer: layer,
+                    sourceTitle: post.authorName
+                )
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+            }
         }
         .alert("Photo Not Allowed", isPresented: Binding(get: { photoModerationError != nil }, set: { if !$0 { photoModerationError = nil; selectedPhotoItem = nil } })) {
             Button("OK", role: .cancel) { }
@@ -1376,6 +1433,54 @@ struct CommentsView: View {
     var body: some View {
         mainStack
     }
+
+    private var discernmentRewriteText: String? {
+        spiritualComposeAnalysis.suggestions.first {
+            $0.id == "soften" || $0.id == "clarify"
+        }?.replacementText
+    }
+
+    private var commentReflectionChipRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                AmenSmartPill(
+                    title: "Pray",
+                    systemImage: "hands.sparkles",
+                    accessibilityHint: "Insert a prayerful response starter"
+                ) {
+                    applyReflectionStarter("I’m praying for you.")
+                    AmenPrivateResonanceStore.shared.recordPray(contentId: postId)
+                }
+                AmenSmartPill(
+                    title: "Encourage",
+                    systemImage: "heart",
+                    accessibilityHint: "Insert an encouragement starter"
+                ) {
+                    applyReflectionStarter("Thank you for sharing this. Be encouraged.")
+                }
+                AmenSmartPill(
+                    title: "Ask",
+                    systemImage: "questionmark.circle",
+                    accessibilityHint: "Insert a thoughtful question starter"
+                ) {
+                    applyReflectionStarter("What stood out most to you?")
+                }
+                AmenSmartPill(
+                    title: "Reflect",
+                    systemImage: "sparkles",
+                    accessibilityHint: "Insert a reflection starter"
+                ) {
+                    applyReflectionStarter("What stood out to me was")
+                }
+            }
+        }
+    }
+
+    private func applyReflectionStarter(_ text: String) {
+        HapticManager.impact(style: .light)
+        commentText = text
+        isInputFocused = true
+    }
     
     // MARK: - Load Current User Data
     
@@ -1443,7 +1548,6 @@ struct CommentsView: View {
                         bereanSuggestion = suggestion
                         isLoadingBereanSuggestion = false
                     }
-                    let haptic = UIImpactFeedbackGenerator(style: .soft)
                     HapticManager.impact(style: .light)
                 }
             } catch {
@@ -1500,11 +1604,416 @@ struct CommentsView: View {
         HapticManager.impact(style: .light)
     }
 
+    private func mentionSuggestionButton(for user: AlgoliaUser) -> some View {
+        Button {
+            insertCommentMention(user)
+        } label: {
+            HStack(spacing: 6) {
+                mentionSuggestionAvatar(for: user)
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(user.displayName)
+                        .font(.custom("OpenSans-SemiBold", size: 12))
+                        .foregroundStyle(.primary)
+                    Text("@\(user.username)")
+                        .font(.custom("OpenSans-Regular", size: 11))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(RoundedRectangle(cornerRadius: 8).fill(Color(.systemGray6)))
+        }
+    }
+
+    @ViewBuilder
+    private func mentionSuggestionAvatar(for user: AlgoliaUser) -> some View {
+        if let urlStr = user.profileImageURL,
+           let url = URL(string: urlStr) {
+            CachedAsyncImage(url: url) { img in
+                img.resizable().scaledToFill()
+            } placeholder: {
+                mentionSuggestionAvatarPlaceholder(for: user)
+            }
+            .frame(width: 26, height: 26)
+            .clipShape(Circle())
+        } else {
+            mentionSuggestionAvatarPlaceholder(for: user)
+        }
+    }
+
+    private func mentionSuggestionAvatarPlaceholder(for user: AlgoliaUser) -> some View {
+        Circle()
+            .fill(Color.purple.opacity(0.15))
+            .frame(width: 26, height: 26)
+            .overlay(
+                Text(user.displayName.prefix(1))
+                    .font(.custom("OpenSans-Bold", size: 11))
+                    .foregroundStyle(.purple)
+            )
+    }
+
+    private func bereanSuggestionBanner(_ suggestion: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Image("amen-logo")
+                    .resizable()
+                    .renderingMode(.original)
+                    .scaledToFit()
+                    .frame(width: 14, height: 14)
+                Text("Berean suggested a rewrite")
+                    .font(.custom("OpenSans-SemiBold", size: 12))
+                    .foregroundStyle(.purple)
+                Spacer()
+                Button {
+                    dismissBereanSuggestion()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.systemScaled(11, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Rectangle()
+                .fill(Color.purple.opacity(0.2))
+                .frame(height: 1)
+
+            Text(suggestion)
+                .font(.custom("OpenSans-Regular", size: 13))
+                .foregroundStyle(.primary)
+                .lineLimit(5)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 8) {
+                Button {
+                    applyBereanSuggestion(suggestion)
+                } label: {
+                    Text("Use this")
+                        .font(.custom("OpenSans-SemiBold", size: 12))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 6)
+                        .background(Color.purple, in: Capsule())
+                }
+
+                Button {
+                    dismissBereanSuggestion()
+                } label: {
+                    Text("Keep mine")
+                        .font(.custom("OpenSans-Regular", size: 12))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 6)
+                        .background(Color(uiColor: .systemFill), in: Capsule())
+                }
+            }
+        }
+        .padding(12)
+        .background(Color.purple.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.purple.opacity(0.18), lineWidth: 1)
+        )
+        .transition(.move(edge: .top).combined(with: .opacity))
+    }
+
+    private func applyBereanSuggestion(_ suggestion: String) {
+        commentText = suggestion
+        dismissBereanSuggestion()
+    }
+
+    private func dismissBereanSuggestion() {
+        withAnimation(.easeOut(duration: 0.2)) {
+            bereanSuggestion = nil
+        }
+    }
+
+    private func mainCommentRow(for commentWithReplies: CommentWithReplies) -> some View {
+        let comment = commentWithReplies.comment
+
+        return PostCommentRow(
+            post: post,
+            comment: comment,
+            isNew: newCommentIds.contains(comment.id ?? ""),
+            isHighlighted: transientHighlightedCommentIds.contains(comment.id ?? ""),
+            onReply: {
+                focusReplyComposer(for: comment)
+                HapticManager.impact(style: .light)
+            },
+            onReplyWithQuote: { quoteText in
+                focusReplyComposer(for: comment, quoteText: quoteText)
+            },
+            onDelete: {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
+                    deleteComment(comment)
+                }
+            },
+            onAmen: {
+                toggleAmen(comment: comment)
+            },
+            onProfileTap: {
+                selectedUserId = comment.authorId
+                showUserProfile = true
+            },
+            onToggleThread: {
+                toggleThread(for: commentWithReplies)
+            },
+            isThreadExpanded: expandedThreads.contains(comment.id ?? ""),
+            replyCount: commentWithReplies.replies.count,
+            currentTime: currentTime
+        )
+        .id("\(comment.id ?? "")-main")
+        .transition(.asymmetric(
+            insertion: .scale.combined(with: .opacity),
+            removal: .scale.combined(with: .opacity)
+        ))
+    }
+
+    private func focusReplyComposer(for comment: Comment, quoteText: String? = nil) {
+        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
+            replyingTo = comment
+            if let quoteText {
+                commentText = quoteText
+            }
+            isInputFocused = true
+        }
+    }
+
+    private func toggleThread(for commentWithReplies: CommentWithReplies) {
+        let commentId = commentWithReplies.comment.id ?? ""
+
+        withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.75))) {
+            if expandedThreads.contains(commentId) {
+                expandedThreads.remove(commentId)
+            } else {
+                expandedThreads.insert(commentId)
+                loadThreadSummaryIfNeeded(for: commentWithReplies)
+            }
+        }
+    }
+
+    private func loadThreadSummaryIfNeeded(for commentWithReplies: CommentWithReplies) {
+        guard commentWithReplies.replies.count >= 10,
+              let commentId = commentWithReplies.comment.id,
+              threadSummaries[commentId] == nil else {
+            return
+        }
+
+        Task {
+            do {
+                if let summary = try await summarizationService?.getSummary(
+                    for: commentId,
+                    replies: commentWithReplies.replies
+                ) {
+                    await MainActor.run {
+                        threadSummaries[commentId] = summary
+                    }
+                }
+            } catch {
+                dlog("❌ [SUMMARY] Failed to load: \(error)")
+            }
+        }
+    }
+
+    @ViewBuilder private var momentAnchorCapsuleRow: some View {
+        if let anchor = activeMomentAnchor {
+            activeMomentAnchorCapsule(anchor)
+        }
+    }
+
+    private func activeMomentAnchorCapsule(_ anchor: MediaMomentAnchor) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "scope")
+                .font(.systemScaled(12, weight: .semibold))
+                .foregroundStyle(.black.opacity(0.5))
+            Text("Commenting on \(anchor.displayLabel)")
+                .font(.systemScaled(12, weight: .semibold))
+                .foregroundStyle(.black.opacity(0.6))
+            Spacer()
+            Button {
+                mediaMomentInteraction.clearActiveCommentAnchor()
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.systemScaled(14))
+                    .foregroundStyle(.black.opacity(0.35))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(Capsule().fill(Color.black.opacity(0.05)))
+        .padding(.horizontal, 16)
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+    }
+
+    private func attachedPhotoPreview(_ uiImage: UIImage) -> some View {
+        HStack(spacing: 8) {
+            Image(uiImage: uiImage)
+                .resizable()
+                .scaledToFill()
+                .frame(width: 56, height: 56)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .strokeBorder(Color(uiColor: .separator), lineWidth: 0.5)
+                )
+            Button {
+                clearAttachedPhoto()
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.systemScaled(18))
+                    .foregroundStyle(Color(uiColor: .secondaryLabel))
+                    .background(Color(uiColor: .systemBackground), in: Circle())
+            }
+            .buttonStyle(.plain)
+            Spacer()
+        }
+        .transition(.scale(scale: 0.85).combined(with: .opacity))
+    }
+
+    private func clearAttachedPhoto() {
+        withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
+            commentPhotoData = nil
+            selectedPhotoItem = nil
+        }
+    }
+
+    @ViewBuilder
+    private func replyRow(_ reply: Comment, parent: Comment) -> some View {
+        HStack(spacing: 0) {
+            Rectangle()
+                .fill(.black.opacity(0.1))
+                .frame(width: 2)
+                .padding(.leading, 28)
+                .transition(.scale(scale: 0.1, anchor: .top))
+
+            PostCommentRow(
+                post: post,
+                comment: reply,
+                isReply: true,
+                isNew: newCommentIds.contains(reply.id ?? ""),
+                isHighlighted: transientHighlightedCommentIds.contains(reply.id ?? ""),
+                onReply: {
+                    withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
+                        replyingTo = parent
+                        isInputFocused = true
+                    }
+                    HapticManager.impact(style: .light)
+                },
+                onReplyWithQuote: { quoteText in
+                    withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
+                        replyingTo = parent
+                        commentText = quoteText
+                        isInputFocused = true
+                    }
+                },
+                onDelete: {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
+                        deleteComment(reply)
+                    }
+                },
+                onAmen: {
+                    toggleAmen(comment: reply)
+                },
+                onProfileTap: {
+                    selectedUserId = reply.authorId
+                    showUserProfile = true
+                },
+                currentTime: currentTime
+            )
+        }
+    }
+
+    @ViewBuilder
+    private func expandedRepliesSection(for commentWithReplies: CommentWithReplies) -> some View {
+        let commentId = commentWithReplies.comment.id ?? ""
+        if !commentWithReplies.replies.isEmpty && expandedThreads.contains(commentId) {
+            VStack(spacing: 0) {
+                threadSummarySection(for: commentWithReplies)
+
+                ForEach(commentWithReplies.replies, id: \.stableId) { reply in
+                    replyRow(reply, parent: commentWithReplies.comment)
+                        .id(replyRowID(for: reply))
+                }
+            }
+            .transition(.move(edge: .top).combined(with: .opacity))
+        }
+    }
+
+    @ViewBuilder
+    private func threadSummarySection(for commentWithReplies: CommentWithReplies) -> some View {
+        if commentWithReplies.replies.count >= 10,
+           let commentId = commentWithReplies.comment.id {
+            if let summary = threadSummaries[commentId] {
+                ThreadSummaryView(summary: summary)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 12)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            } else if summarizationService?.isGeneratingSummary == true {
+                HStack(spacing: 12) {
+                    ProgressView()
+                        .tint(.secondary)
+
+                    Text("Generating thread summary...")
+                        .font(.systemScaled(13))
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 16)
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
+    }
+
+    private func replyRowID(for reply: Comment) -> String {
+        (reply.id ?? reply.stableId) + "-reply"
+    }
+
+    private func resolveCommentAttachmentIfNeeded(for text: String) {
+        commentAttachmentTask?.cancel()
+        commentAttachmentTask = Task { @MainActor in
+            let urls = smartAttachmentResolver.extractSupportedURLs(from: text)
+            guard let url = urls.first else {
+                commentSmartAttachment = nil
+                commentMentionedLinks = []
+                commentAttachmentState = .empty
+                return
+            }
+            commentMentionedLinks = Array(urls.dropFirst())
+            if commentSmartAttachment?.canonicalUrl == url.absoluteString { return }
+            commentAttachmentState = .resolving
+            do {
+                let resolved = try await smartAttachmentResolver.resolve(url: url, source: "commentPaste")
+                if resolved.safetyStatus == .blocked {
+                    commentSmartAttachment = nil
+                    commentAttachmentState = .blocked("blocked")
+                    return
+                }
+                commentSmartAttachment = resolved
+                commentAttachmentState = .resolved(resolved)
+            } catch {
+                commentAttachmentState = .failed(.resolveFailed)
+            }
+        }
+    }
+
     private func submitComment() {
         guard !commentText.isEmpty else { return }
         
         // P0-1 FIX: Prevent duplicate submissions
         guard !isSubmittingComment else { return }
+
+        if let trigger = safetyOSTriggers.first(where: \.shouldShowDiscernmentSheet),
+           !bypassSpiritualDiscernmentGate {
+            activeSafetyOSTrigger = trigger
+            return
+        }
+
+        if spiritualComposeAnalysis.shouldShowDiscernmentGate && !bypassSpiritualDiscernmentGate {
+            showSpiritualDiscernmentGate = true
+            return
+        }
+        bypassSpiritualDiscernmentGate = false
 
         // Community guidelines check — show once on first comment
         if !UserDefaults.standard.bool(forKey: "hasSeenCommentGuidelines") {
@@ -1530,7 +2039,20 @@ struct CommentsView: View {
         }
 
         let text = commentText
-        
+        let momentAnchor = activeMomentAnchor
+        let submittedSafetyOSTriggers = AmenLocalTriggerEngine.shared.analyze(
+            text: text,
+            surface: replyingTo == nil ? .comment : .reply
+        )
+
+        // Wellness pause: offer reflection on borderline session content
+        if !wellnessClearedForComment,
+           let wellnessCtx = AmenWellnessInterventionService.shared.checkBeforePost(text: text) {
+            pendingWellnessContext = wellnessCtx
+            return
+        }
+        wellnessClearedForComment = false
+
         isSubmittingComment = true
         
         Task {
@@ -1620,7 +2142,47 @@ struct CommentsView: View {
                 }
                 return
             }
-            
+
+            // ── Trust + Safety backend preflight (authoritative) ──────────────
+            if AmenSafetyFeatureFlags.shared.contentPreflightEnabled,
+               !AmenSafetyFeatureFlags.shared.trustSafetyKillSwitch {
+                let surface: ContentSurface = replyingTo == nil ? .comment : .reply
+                if !botChallengeCleared {
+                    let botOutcome = await AmenBotDefenseService.shared.evaluateBeforeAction(type: .comment)
+                    if botOutcome != .proceed {
+                        await MainActor.run {
+                            isSubmittingComment = false
+                            commentText = text
+                            if botOutcome == .challengeRequired {
+                                showBotChallenge = true
+                            } else {
+                                errorMessage = "Please slow down before commenting again."
+                                showError = true
+                            }
+                        }
+                        return
+                    }
+                }
+                botChallengeCleared = false
+                let tsCanPost = await AmenContentPreflightService.shared.runFinalPreflight(
+                    text: text,
+                    surface: surface,
+                    contentId: UUID().uuidString
+                )
+                if !tsCanPost {
+                    await MainActor.run {
+                        errorMessage = AmenTrustSafetyService.shared.lastDecision?.userFacingReason
+                            ?? "This comment cannot be posted."
+                        showError = true
+                        isSubmittingComment = false
+                        commentText = text
+                    }
+                    return
+                }
+                AmenBotDefenseService.shared.trackComment(text)
+            }
+            // ─────────────────────────────────────────────────────────────────
+
             // Clear comment text after validation passes
             await MainActor.run {
                 commentText = ""
@@ -1657,10 +2219,7 @@ struct CommentsView: View {
                     amenCount: 0,
                     lightbulbCount: 0,
                     replyCount: 0,
-                    amenUserIds: [],
-                    parentCommentId: nil,
-                    mentionedUserIds: nil,
-                    approvalStatus: nil
+                    amenUserIds: []
                 )
                 await MainActor.run {
                     optimisticCommentTempId = oid
@@ -1688,7 +2247,9 @@ struct CommentsView: View {
                         postId: postId,
                         parentCommentId: parentCommentId,
                         content: text,
-                        post: self.post  // ✅ Pass Post object to bypass Firestore lookup
+                        post: self.post,  // ✅ Pass Post object to bypass Firestore lookup
+                        threadCategory: self.threadCategoryOverride,
+                        momentAnchor: momentAnchor
                     )
                     newCommentId = newComment.id
                     
@@ -1708,9 +2269,12 @@ struct CommentsView: View {
                     let newComment = try await commentService.addComment(
                         postId: postId,
                         content: text,
-                        post: self.post  // ✅ Pass the Post object to bypass Firestore lookup
+                        post: self.post,  // ✅ Pass the Post object to bypass Firestore lookup
+                        threadCategory: self.threadCategoryOverride,
+                        momentAnchor: momentAnchor
                     )
                     newCommentId = newComment.id
+                    AMENAnalyticsService.shared.track(.commentSubmitted(postId: postId))
                     // Record for slow mode cooldown tracking and start visual timer
                     let currentUID = FirebaseManager.shared.currentUser?.uid ?? ""
                     InteractionThrottleService.shared.recordCommentPosted(userId: currentUID, postId: postId)
@@ -1725,6 +2289,7 @@ struct CommentsView: View {
                         if let id = newCommentId {
                             expandedThreads.insert(id)
                         }
+                        mediaMomentInteraction.clearActiveCommentAnchor()
                     }
                 }
                 
@@ -1766,6 +2331,7 @@ struct CommentsView: View {
                     HapticManager.notification(type: .success)
                     commentSeal.trigger()
                     successChips.show("Comment sent")
+                    triggerCommentSafetyOSFeedback(for: submittedSafetyOSTriggers)
                     isSubmittingComment = false  // Re-enable after write completes
                 }
             } catch {
@@ -1788,6 +2354,69 @@ struct CommentsView: View {
                     isSubmittingComment = false
                 }
             }
+        }
+    }
+
+    private func triggerCommentSafetyOSFeedback(for triggers: [AmenTriggerResult]) {
+        guard let policy = AmenLocalTriggerEngine.shared.effectPolicy(for: triggers) else {
+            return
+        }
+
+        activeSafetyOSEffectPolicy = policy
+        safetyOSEffectSeed = UUID()
+
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: UInt64(policy.durationMs) * 1_000_000)
+            if activeSafetyOSEffectPolicy == policy {
+                activeSafetyOSEffectPolicy = nil
+            }
+        }
+    }
+
+    private func handleSafetyOSComposerAction(_ action: AmenDiscernmentAction, trigger: AmenTriggerResult) {
+        Task {
+            await PostInteractionsService.shared.recordSafetyOSAction(
+                postId: postId,
+                surface: replyingTo == nil ? .comment : .reply,
+                trigger: trigger,
+                action: action
+            )
+        }
+
+        switch action {
+        case .editWithGrace, .cancel:
+            bypassSpiritualDiscernmentGate = false
+            activeSafetyOSTrigger = nil
+            isInputFocused = true
+        case .rewriteGently, .addContext:
+            if let replacement = AmenLocalTriggerEngine.shared.suggestedRewrite(for: trigger, originalText: commentText) {
+                commentText = replacement
+                spiritualComposeAnalysis = AmenSpiritualSystemsService.shared.analyzeComposer(text: replacement)
+                safetyOSTriggers = AmenLocalTriggerEngine.shared.analyze(
+                    text: replacement,
+                    surface: replyingTo == nil ? .comment : .reply
+                )
+            }
+            bypassSpiritualDiscernmentGate = false
+            activeSafetyOSTrigger = nil
+            isInputFocused = true
+        case .pauseAndPray:
+            commentText = "I want to pause and pray before I say more."
+            spiritualComposeAnalysis = AmenSpiritualSystemsService.shared.analyzeComposer(text: commentText)
+            safetyOSTriggers = AmenLocalTriggerEngine.shared.analyze(
+                text: commentText,
+                surface: replyingTo == nil ? .comment : .reply
+            )
+            bypassSpiritualDiscernmentGate = false
+            activeSafetyOSTrigger = nil
+            isInputFocused = true
+        case .saveDraft:
+            activeSafetyOSTrigger = nil
+            bypassSpiritualDiscernmentGate = false
+        case .openScripture, .joinPrayer, .keepAsText, .postAnyway:
+            bypassSpiritualDiscernmentGate = true
+            activeSafetyOSTrigger = nil
+            submitComment()
         }
     }
 
@@ -2210,6 +2839,7 @@ private struct PostCommentRow: View {
     let comment: Comment
     var isReply: Bool = false
     var isNew: Bool = false
+    var isHighlighted: Bool = false
     let onReply: () -> Void
     let onReplyWithQuote: (String) -> Void
     let onDelete: () -> Void
@@ -2513,6 +3143,32 @@ private struct PostCommentRow: View {
             // Author and time
             authorHeaderRow
 
+            if let anchor = comment.momentAnchor {
+                Button {
+                    NotificationCenter.default.post(
+                        name: .amenMediaCommentAnchorSelected,
+                        object: nil,
+                        userInfo: ["anchor": anchor]
+                    )
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "scope")
+                            .font(.system(size: 10, weight: .semibold))
+                        Text(anchor.displayLabel)
+                            .lineLimit(1)
+                    }
+                    .font(.custom("OpenSans-SemiBold", size: 11))
+                    .foregroundStyle(.black.opacity(0.55))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
+                    .background(
+                        Capsule()
+                            .fill(Color.black.opacity(0.05))
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+
             // Content with highlight-to-quote support
             contentBlock
 
@@ -2538,6 +3194,15 @@ private struct PostCommentRow: View {
             contentColumn
         }
         .padding(.horizontal, isReply ? 12 : 16)
+        .padding(.vertical, 4)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color(red: 1.0, green: 0.96, blue: 0.82).opacity(isHighlighted ? 0.55 : 0))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(Color.white.opacity(isHighlighted ? 0.4 : 0), lineWidth: 0.8)
+        )
         .onLongPressGesture(minimumDuration: 0.35) {
             guard LiquidGlassEffectsFlags.reactionSheet, !isTextSelecting else { return }
             withAnimation(.easeOut(duration: 0.2)) {
@@ -2546,16 +3211,35 @@ private struct PostCommentRow: View {
         }
         .overlay(alignment: .topLeading) {
             if showSoftReactions {
-                SoftReactionSheet(actions: ["❤️", "🙏", "👍"]) { action in
-                    if action == "❤️" || action == "🙏" {
-                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
-                            hasAmened.toggle()
+                VStack(alignment: .leading, spacing: 6) {
+                    SoftReactionSheet(actions: ["❤️", "🙏", "👍"]) { action in
+                        if action == "❤️" || action == "🙏" {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
+                                hasAmened.toggle()
+                            }
+                            onAmen()
                         }
-                        onAmen()
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            showSoftReactions = false
+                        }
                     }
-                    withAnimation(.easeOut(duration: 0.2)) {
-                        showSoftReactions = false
+
+                    // Spiritual silent reactions — no public counter shown to anyone
+                    SilentReactionBar { reactionType in
+                        guard let commentId = comment.id else { return }
+                        Task {
+                            await AmenSpiritualCloudService.shared.addSilentReaction(
+                                sourceId: commentId,
+                                sourceType: "comment",
+                                reactionType: reactionType
+                            )
+                        }
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            showSoftReactions = false
+                        }
                     }
+                    .padding(.horizontal, 4)
                 }
                 .offset(x: isReply ? 44 : 52, y: -8)
                 .transition(.opacity.combined(with: .move(edge: .top)))
@@ -2802,10 +3486,13 @@ struct PendingCommentsQueueView: View {
                                     .font(.systemScaled(12))
                                     .foregroundStyle(.secondary)
                             }
-                            Text(comment.content)
-                                .font(.systemScaled(14))
-                                .foregroundStyle(.primary)
-                                .lineLimit(4)
+                            SmartMessageText(
+                                text: comment.content,
+                                context: .local(messageId: comment.id ?? UUID().uuidString, surface: "comment_moderation"),
+                                foregroundColor: .primary
+                            )
+                            .font(.systemScaled(14))
+                            .lineLimit(4)
                             HStack(spacing: 12) {
                                 Button {
                                     onApprove(comment)
@@ -2848,6 +3535,10 @@ struct ParticipantInfo: Identifiable {
     let initials: String
     let profileImageURL: String?
     let score: Double
+}
+
+extension Notification.Name {
+    static let amenMediaCommentAnchorSelected = Notification.Name("amenMediaCommentAnchorSelected")
 }
 
 // MARK: - Linked Text View

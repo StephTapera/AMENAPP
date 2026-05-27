@@ -1,4 +1,3 @@
-import * as functions from "firebase-functions"; // kept for onCall callables
 import {
     onDocumentCreated,
     onDocumentDeleted,
@@ -113,7 +112,42 @@ async function writeFeedItems(
             `Fan-out capped — migrate to Pub/Sub for full delivery.`
         );
     }
-    const targets = Array.from(new Set([authorId, ...followerIds]));
+
+    // Mode filter: skip recipients who have opted into modes where canViewPublicFeed is false.
+    // "quiet" and "study" users have chosen to limit their feed — respect that choice.
+    // We batch-fetch recipient modes to avoid N individual reads.
+    const MODES_WITHOUT_PUBLIC_FEED = new Set(["quiet", "study"]);
+    let filteredFollowerIds = followerIds;
+    if (followerIds.length > 0) {
+        try {
+            // Fetch in batches of 400 (Firestore getAll limit)
+            const modeFilteredIds: string[] = [];
+            for (let i = 0; i < followerIds.length; i += 400) {
+                const chunk = followerIds.slice(i, i + 400);
+                const refs = chunk.map((id) => db.collection("users").doc(id));
+                const snaps = await db.getAll(...refs);
+                for (const snap of snaps) {
+                    const mode = snap.exists ? (snap.data()?.interactionMode as string | undefined) : undefined;
+                    if (!mode || !MODES_WITHOUT_PUBLIC_FEED.has(mode)) {
+                        modeFilteredIds.push(snap.id);
+                    }
+                }
+            }
+            filteredFollowerIds = modeFilteredIds;
+            if (filteredFollowerIds.length < followerIds.length) {
+                logger.info(
+                    `[FeedBuilder] Mode filter: skipped ${followerIds.length - filteredFollowerIds.length} ` +
+                    `recipients in quiet/study mode for post ${postId ?? "unknown"}`
+                );
+            }
+        } catch (modeFilterErr) {
+            // Non-fatal: if mode fetch fails, deliver to all followers
+            logger.warn("[FeedBuilder] Mode filter failed — delivering to all followers", modeFilterErr);
+            filteredFollowerIds = followerIds;
+        }
+    }
+
+    const targets = Array.from(new Set([authorId, ...filteredFollowerIds]));
 
     for (let i = 0; i < targets.length; i += FEED_BATCH_LIMIT) {
         const batch = db.batch();
@@ -147,6 +181,8 @@ async function deleteFeedItems(postId: string, authorId: string): Promise<void> 
     }
 }
 
+const BLOCKED_MODERATION_STATUSES = ["blocked", "escalated", "removed_after_publish"];
+
 export const onPostCreateFeed = onDocumentCreated("posts/{postId}", async (event) => {
     const snap = event.data;
     if (!snap) return;
@@ -157,6 +193,13 @@ export const onPostCreateFeed = onDocumentCreated("posts/{postId}", async (event
     const postId = event.params.postId;
     const authorId = data.authorId as string | undefined;
     if (!authorId) return;
+
+    // Safety OS: never fan out blocked or escalated content into follower feeds.
+    const moderationStatus = data.moderationStatus as string | undefined;
+    if (moderationStatus && BLOCKED_MODERATION_STATUSES.includes(moderationStatus)) {
+        logger.info(`[FeedBuilder] Skipping fanout for post ${postId} — moderationStatus=${moderationStatus}`);
+        return;
+    }
 
     const visibility = normalizeVisibility(data.visibility);
     if (visibility === "everyone") return;
@@ -190,6 +233,17 @@ export const onPostUpdateFeed = onDocumentUpdated("posts/{postId}", async (event
     const postId = event.params.postId;
     const authorId = (after.authorId ?? before?.authorId) as string | undefined;
     if (!authorId) return;
+
+    // Safety OS: if post transitions to a blocked status, remove it from all feeds.
+    const afterStatus = after.moderationStatus as string | undefined;
+    const beforeStatus = before?.moderationStatus as string | undefined;
+    if (afterStatus && BLOCKED_MODERATION_STATUSES.includes(afterStatus)) {
+        if (!beforeStatus || !BLOCKED_MODERATION_STATUSES.includes(beforeStatus)) {
+            logger.info(`[FeedBuilder] Removing post ${postId} from feeds — moderationStatus changed to ${afterStatus}`);
+            await deleteFeedItems(postId, authorId);
+        }
+        return;
+    }
 
     const beforeVisibility = normalizeVisibility(before?.visibility);
     const afterVisibility = normalizeVisibility(after.visibility);

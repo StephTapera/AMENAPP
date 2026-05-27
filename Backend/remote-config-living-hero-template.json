@@ -1,0 +1,105 @@
+{
+  "conditions": [
+    {
+      "name": "internal_living_hero_beta",
+      "expression": "app.id == 'YOUR_APP_ID'",
+      "tagColor": "BLUE"
+    },
+    {
+      "name": "living_hero_pilot",
+      "expression": "app.id == 'YOUR_APP_ID'",
+      "tagColor": "GREEN"
+    }
+  ],
+  "parameters": {
+    "ambient_spatial_hero_enabled": {
+      "defaultValue": { "value": "false" },
+      "conditionalValues": {
+        "internal_living_hero_beta": { "value": "true" }
+      },
+      "description": "Amen Living Hero System master gate. Emergency rollback: false."
+    },
+    "living_editorial_banner_enabled": {
+      "defaultValue": { "value": "false" },
+      "conditionalValues": {
+        "internal_living_hero_beta": { "value": "true" }
+      },
+      "description": "Enables Living Editorial Banner presentation. Requires ambient_spatial_hero_enabled."
+    },
+    "spatial_hero_reduce_motion_fallback_enabled": {
+      "defaultValue": { "value": "true" },
+      "description": "Always keep true. Forces static fallback paths for accessibility and low-power conditions."
+    },
+    "spatial_hero_performance_telemetry_enabled": {
+      "defaultValue": { "value": "false" },
+      "conditionalValues": {
+        "internal_living_hero_beta": { "value": "true" }
+      },
+      "description": "Tracks living_hero_impression, living_hero_action, and living_hero_fallback_shown."
+    },
+    "daily_verse_living_hero_enabled": {
+      "defaultValue": { "value": "false" },
+      "conditionalValues": {
+        "internal_living_hero_beta": { "value": "true" },
+        "living_hero_pilot": { "value": "true" }
+      },
+      "description": "Pilot surface: Daily Verse Living mode. Classic remains available."
+    },
+    "daily_digest_living_hero_enabled": {
+      "defaultValue": { "value": "false" },
+      "conditionalValues": {
+        "internal_living_hero_beta": { "value": "true" },
+        "living_hero_pilot": { "value": "true" }
+      },
+      "description": "Pilot surface: Amen Daily Digest context."
+    },
+    "discover_living_hero_enabled": {
+      "defaultValue": { "value": "false" },
+      "conditionalValues": {
+        "internal_living_hero_beta": { "value": "true" },
+        "living_hero_pilot": { "value": "true" }
+      },
+      "description": "Pilot surface: Amen Discover. Hidden during active search."
+    },
+    "selah_living_hero_enabled": {
+      "defaultValue": { "value": "false" },
+      "conditionalValues": {
+        "internal_living_hero_beta": { "value": "true" },
+        "living_hero_pilot": { "value": "true" }
+      },
+      "description": "Pilot surface: Selah read tab only."
+    },
+    "berean_pulse_living_hero_enabled": {
+      "defaultValue": { "value": "false" },
+      "conditionalValues": {
+        "internal_living_hero_beta": { "value": "true" }
+      },
+      "description": "First-wave beta surface: Berean Pulse."
+    },
+    "church_profile_living_hero_enabled": {
+      "defaultValue": { "value": "false" },
+      "conditionalValues": {
+        "internal_living_hero_beta": { "value": "true" }
+      },
+      "description": "First-wave beta surface: Church Profile and Church Discovery."
+    },
+    "live_event_living_hero_enabled": {
+      "defaultValue": { "value": "false" },
+      "conditionalValues": {
+        "internal_living_hero_beta": { "value": "true" }
+      },
+      "description": "First-wave beta surface: Live Events and Worship Experiences."
+    },
+    "creator_kit_living_hero_enabled": {
+      "defaultValue": { "value": "false" },
+      "conditionalValues": {
+        "internal_living_hero_beta": { "value": "true" },
+        "living_hero_pilot": { "value": "true" }
+      },
+      "description": "Pilot surface: Amen Creator Kit Home."
+    }
+  },
+  "version": {
+    "description": "Amen Living Hero System rollout template. Defaults fail closed; enable by condition."
+  }
+}

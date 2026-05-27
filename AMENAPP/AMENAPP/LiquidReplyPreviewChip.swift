@@ -1,41 +1,124 @@
 import SwiftUI
 
+struct LiquidReplyPreviewTint: Equatable {
+    let overlayColor: Color
+    let overlayOpacity: Double
+    let strokeOpacity: Double
+
+    static func style(for type: ReplyPreviewType, reduceTransparency: Bool) -> LiquidReplyPreviewTint {
+        let tintOpacity = reduceTransparency ? 0.0 : 0.12
+
+        switch type {
+        case .topReply, .followedReply:
+            return LiquidReplyPreviewTint(
+                overlayColor: .white,
+                overlayOpacity: reduceTransparency ? 0 : 0.02,
+                strokeOpacity: 0.20
+            )
+        case .prayerMomentum:
+            return LiquidReplyPreviewTint(
+                overlayColor: Color(red: 0.86, green: 0.92, blue: 1.0),
+                overlayOpacity: tintOpacity,
+                strokeOpacity: 0.22
+            )
+        case .bereanInsight:
+            return LiquidReplyPreviewTint(
+                overlayColor: Color(red: 0.92, green: 0.88, blue: 1.0),
+                overlayOpacity: tintOpacity,
+                strokeOpacity: 0.22
+            )
+        case .communityPulse:
+            return LiquidReplyPreviewTint(
+                overlayColor: Color(red: 1.0, green: 0.94, blue: 0.82),
+                overlayOpacity: tintOpacity,
+                strokeOpacity: 0.22
+            )
+        case .trustedCommunitySignal:
+            return LiquidReplyPreviewTint(
+                overlayColor: Color(red: 0.87, green: 0.96, blue: 0.89),
+                overlayOpacity: tintOpacity,
+                strokeOpacity: 0.22
+            )
+        }
+    }
+}
+
 // MARK: - LiquidReplyPreviewChip
 
 /// Threads-inspired inline reply preview row, styled with AMEN Liquid Glass.
 ///
-/// Layout: [avatar cluster] [translucent capsule pill with author + preview text]
+/// Layout: [avatar cluster / type icon] [translucent capsule pill with author + preview text]
 ///
 /// The chip must feel embedded in the PostCard — not a separate floating widget.
 /// Visual tone: calm, premium, translucent, connected to the post below it.
 struct LiquidReplyPreviewChip: View {
     let preview: DynamicReplyPreview
     let onTap: () -> Void
+    var onLongPress: () -> Void = {}
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
         HStack(spacing: 8) {
-            if !preview.avatarURLs.isEmpty {
-                DynamicAvatarCluster(urls: preview.avatarURLs)
-                    .transition(.opacity.combined(with: .scale(scale: 0.96)))
-            }
+            leadingVisual
+                .transition(.opacity.combined(with: .scale(scale: 0.96)))
 
             glassTextPill
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .contentShape(Rectangle())
-        .onTapGesture { onTap() }
-        .accessibilityElement(children: .combine)
+        .onTapGesture {
+            AMENAnalyticsService.shared.track(
+                .replyPreviewTapped(
+                    postId: preview.postId,
+                    type: preview.type.rawValue,
+                    replyId: preview.replyId
+                )
+            )
+            onTap()
+        }
+        .onLongPressGesture {
+            onLongPress()
+        }
+        .accessibilityElement(children: .ignore)
         .accessibilityLabel(voiceOverLabel)
-        .accessibilityHint("Double tap to open replies")
         .accessibilityAddTraits(.isButton)
+        .onAppear {
+            AMENAnalyticsService.shared.track(
+                .replyPreviewShown(postId: preview.postId, type: preview.type.rawValue)
+            )
+            AMENAnalyticsService.shared.track(
+                .replyPreviewType(type: preview.type.rawValue)
+            )
+        }
+    }
+
+    // MARK: - Leading Visual
+
+    @ViewBuilder
+    private var leadingVisual: some View {
+        switch preview.type {
+        case .followedReply, .topReply:
+            if !preview.avatarURLs.isEmpty {
+                DynamicAvatarCluster(urls: preview.avatarURLs)
+            }
+        case .bereanInsight:
+            Image(systemName: "sparkles")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(AmenTheme.Colors.amenGold)
+                .frame(width: 28, height: 28)
+        default:
+            if !preview.avatarURLs.isEmpty {
+                DynamicAvatarCluster(urls: preview.avatarURLs)
+            }
+        }
     }
 
     // MARK: - Glass Pill
 
     private var glassTextPill: some View {
-        HStack(spacing: 4) {
+        let tint = LiquidReplyPreviewTint.style(for: preview.type, reduceTransparency: reduceTransparency)
+        return HStack(spacing: 4) {
             if let name = preview.authorDisplayName, !name.isEmpty {
                 Text(name)
                     .fontWeight(.semibold)
@@ -53,45 +136,44 @@ struct LiquidReplyPreviewChip: View {
         .padding(.vertical, 7)
         .background {
             Capsule()
-                .fill(
-                    reduceTransparency
-                        ? AnyShapeStyle(LiquidGlassTokens.blurRegular)
-                        : AnyShapeStyle(LiquidGlassTokens.blurThin)
-                )
-                .opacity(reduceTransparency ? 1.0 : 0.80)
+                .fill(reduceTransparency ? AnyShapeStyle(LiquidGlassTokens.blurRegular) : AnyShapeStyle(LiquidGlassTokens.blurThin))
+                .opacity(reduceTransparency ? 1.0 : 0.84)
+                .overlay {
+                    Capsule()
+                        .fill(tint.overlayColor.opacity(tint.overlayOpacity))
+                }
         }
         .overlay {
             Capsule()
                 .stroke(Color.white.opacity(0.20), lineWidth: 0.7)
         }
         .shadow(
-            color: LiquidGlassTokens.shadowSoft.color,
-            radius: LiquidGlassTokens.shadowSoft.radius * 0.4,
-            y: LiquidGlassTokens.shadowSoft.y * 0.4
+            color: Color.black.opacity(0.08),
+            radius: 14,
+            y: 6
         )
     }
 
     // MARK: - Accessibility
 
     private var voiceOverLabel: String {
+        let name = preview.authorDisplayName ?? ""
+        let text = preview.previewText
+
         switch preview.type {
         case .topReply, .followedReply:
-            if let name = preview.authorDisplayName, !name.isEmpty {
-                return "\(name) said \(preview.previewText)"
+            if !name.isEmpty {
+                return "Reply from \(name): \(text). Double-tap to open thread."
             }
-            return preview.previewText
-
+            return "Reply: \(text). Double-tap to open thread."
         case .prayerMomentum:
-            return preview.previewText
-
+            return "Reply: \(text). Double-tap to open thread."
         case .bereanInsight:
-            return "Berean: \(preview.previewText)"
-
+            return "Reply from Berean: \(text). Double-tap to open thread."
         case .communityPulse:
-            return "Community: \(preview.previewText)"
-
+            return "Reply from Community: \(text). Double-tap to open thread."
         case .trustedCommunitySignal:
-            return preview.previewText
+            return "Reply: \(text). Double-tap to open thread."
         }
     }
 }

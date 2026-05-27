@@ -1,0 +1,63 @@
+{
+  "conditions": [],
+  "parameters": {
+    "conversation_os_enabled": {
+      "defaultValue": { "value": "true" },
+      "description": "Master kill switch for the Intelligent Conversation OS. Set false to disable all ConversationOS features instantly.",
+      "valueType": "BOOLEAN"
+    },
+    "conversation_summaries_enabled": {
+      "defaultValue": { "value": "false" },
+      "description": "Enable AI summary generation for spaces. Enable for staff only in Phase 2; general users in Phase 5.",
+      "valueType": "BOOLEAN"
+    },
+    "catch_up_recaps_enabled": {
+      "defaultValue": { "value": "false" },
+      "description": "Show the catch-up recap banner and sheet when users have unread messages.",
+      "valueType": "BOOLEAN"
+    },
+    "topic_clustering_enabled": {
+      "defaultValue": { "value": "false" },
+      "description": "Enable semantic topic cluster extraction (Phase 3).",
+      "valueType": "BOOLEAN"
+    },
+    "action_extraction_enabled": {
+      "defaultValue": { "value": "false" },
+      "description": "Enable action item and decision extraction from threads (Phase 3).",
+      "valueType": "BOOLEAN"
+    },
+    "organizational_memory_enabled": {
+      "defaultValue": { "value": "false" },
+      "description": "Enable org-level weekly memory persistence and query (Phase 4).",
+      "valueType": "BOOLEAN"
+    },
+    "personalized_insights_enabled": {
+      "defaultValue": { "value": "false" },
+      "description": "Enable role-aware personalized summaries (Phase 4).",
+      "valueType": "BOOLEAN"
+    },
+    "ambient_conversation_intelligence_enabled": {
+      "defaultValue": { "value": "false" },
+      "description": "Show the ambient top banner with catch-up / topic / action chips.",
+      "valueType": "BOOLEAN"
+    },
+    "conversation_os_liquid_glass_enabled": {
+      "defaultValue": { "value": "false" },
+      "description": "Enable Liquid Glass rendering for ConversationOS cards (Phase 5).",
+      "valueType": "BOOLEAN"
+    },
+    "conversation_os_debug_telemetry_enabled": {
+      "defaultValue": { "value": "false" },
+      "description": "Enable verbose debug telemetry for ConversationOS (staff/QA only).",
+      "valueType": "BOOLEAN"
+    },
+    "conversation_os_sensitive_space_restrictions_enabled": {
+      "defaultValue": { "value": "true" },
+      "description": "Block AI access to prayer_room, leadership_room, and admin_channel unless explicitly opted in. MUST default true.",
+      "valueType": "BOOLEAN"
+    }
+  },
+  "version": {
+    "description": "Intelligent Conversation OS — Phase 1 defaults"
+  }
+}

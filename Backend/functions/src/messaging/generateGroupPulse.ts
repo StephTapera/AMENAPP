@@ -1,12 +1,15 @@
 import * as admin from "firebase-admin";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { defineSecret } from "firebase-functions/params";
+import {
+    callClaudeJson,
+    getAuthorizedConversation,
+    loadRecentMessages,
+    requireMessagingBudget,
+    stringArray,
+} from "./threadIntelligenceUtils";
 
 const anthropicApiKey = defineSecret("ANTHROPIC_API_KEY");
-
-// generateGroupPulse
-// Generates a GroupPulse snapshot for a group conversation.
-// Returns: {activeTopic, openQuestions[], pendingDecisions[], suggestedNextAction}.
 
 export const generateGroupPulse = onCall(
     { enforceAppCheck: true, region: "us-central1", secrets: ["ANTHROPIC_API_KEY"] },
@@ -16,75 +19,58 @@ export const generateGroupPulse = onCall(
         }
         const uid = request.auth.uid;
         const { conversationId } = request.data;
+        await requireMessagingBudget(uid);
 
-        if (!conversationId || typeof conversationId !== "string") {
-            throw new HttpsError("invalid-argument", "conversationId is required.");
-        }
+        const { ref, data } = await getAuthorizedConversation(uid, conversationId);
+        if (data.isGroup !== true) throw new HttpsError("invalid-argument", "Not a group conversation.");
 
-        const db = admin.firestore();
-
-        // Verify participation
-        const convDoc = await db.collection("conversations").doc(conversationId).get();
-        if (!convDoc.exists) throw new HttpsError("not-found", "Conversation not found.");
-        const convData = convDoc.data() ?? {};
-        const participants: string[] = convData.participants ?? [];
-        if (!participants.includes(uid)) throw new HttpsError("permission-denied", "Not a participant.");
-        if (!convData.isGroup) throw new HttpsError("invalid-argument", "Not a group conversation.");
-
-        // Last 48 hours of messages
         const since = admin.firestore.Timestamp.fromMillis(Date.now() - 172800000);
-        const msgsSnap = await db.collection("conversations").doc(conversationId)
-            .collection("messages")
-            .where("timestamp", ">=", since)
-            .orderBy("timestamp", "asc")
-            .limit(80)
-            .get();
-
-        if (msgsSnap.empty) {
-            return { activeTopic: null, openQuestions: [], pendingDecisions: [], suggestedNextAction: null };
-        }
-
-        const messagesText = msgsSnap.docs
-            .filter(d => !d.data().isDeleted)
-            .map(d => {
-                const d2 = d.data();
-                return d2.text ? `${d2.senderName ?? "User"}: ${d2.text}` : null;
-            })
-            .filter(Boolean)
-            .join("\n");
-
-        const prompt = `Analyze this group conversation and return a pulse summary as JSON with: activeTopic (string or null — the main topic being discussed), openQuestions (array of strings, max 3 unanswered questions), pendingDecisions (array of strings, max 3 decisions not yet confirmed), suggestedNextAction (string or null — one concrete recommended action for the group). Be concise. Do not invent information.\n\nMessages:\n${messagesText}`;
-
-        const response = await fetch("https://api.anthropic.com/v1/messages", {
-            method: "POST",
-            headers: {
-                "x-api-key": anthropicApiKey.value(),
-                "anthropic-version": "2023-06-01",
-                "content-type": "application/json",
-            },
-            body: JSON.stringify({
-                model: "claude-haiku-4-5-20251001",
-                max_tokens: 400,
-                messages: [{ role: "user", content: prompt }],
-            }),
-        });
-
-        if (!response.ok) throw new HttpsError("internal", "Failed to generate group pulse.");
-
-        const data = await response.json() as { content: { text: string }[] };
-        const raw = data.content?.[0]?.text ?? "{}";
-
-        try {
-            const jsonMatch = raw.match(/\{[\s\S]*\}/);
-            const parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : {};
-            return {
-                activeTopic: parsed.activeTopic ?? null,
-                openQuestions: Array.isArray(parsed.openQuestions) ? parsed.openQuestions.slice(0, 3) : [],
-                pendingDecisions: Array.isArray(parsed.pendingDecisions) ? parsed.pendingDecisions.slice(0, 3) : [],
-                suggestedNextAction: parsed.suggestedNextAction ?? null,
+        const messages = await loadRecentMessages(ref, 100, since);
+        if (messages.length === 0) {
+            const emptyPulse = {
+                activeTopic: "",
+                activityLevel: "quiet",
+                openQuestionsCount: 0,
+                pendingDecisionCount: 0,
+                taskCount: 0,
+                recentMediaCount: 0,
+                peopleNeedingResponse: [],
+                suggestedNextAction: null,
+                generatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                createdBy: "system",
             };
-        } catch {
-            return { activeTopic: null, openQuestions: [], pendingDecisions: [], suggestedNextAction: null };
+            await ref.collection("pulse").doc("main").set(emptyPulse, { merge: true });
+            return emptyPulse;
         }
+
+        const prompt = [
+            "Analyze this group conversation and return a privacy-safe pulse.",
+            "Return strict JSON with keys: activeTopic, activityLevel (quiet|active|high), openQuestionsCount, pendingDecisionCount, taskCount, recentMediaCount, peopleNeedingResponse, suggestedNextAction.",
+            "Do not expose creepy behavioral details. Do not invent people or decisions.",
+            `Messages JSON: ${JSON.stringify(messages)}`,
+        ].join("\n");
+
+        const parsed = await callClaudeJson(anthropicApiKey.value(), prompt, 700);
+        const activityLevel = ["quiet", "active", "high"].includes(String(parsed.activityLevel)) ? String(parsed.activityLevel) : "active";
+        const pulse = {
+            activeTopic: typeof parsed.activeTopic === "string" ? parsed.activeTopic.slice(0, 160) : "",
+            activityLevel,
+            openQuestionsCount: boundedInt(parsed.openQuestionsCount, 0, 99),
+            pendingDecisionCount: boundedInt(parsed.pendingDecisionCount, 0, 99),
+            taskCount: boundedInt(parsed.taskCount, 0, 99),
+            recentMediaCount: boundedInt(parsed.recentMediaCount, 0, 99),
+            peopleNeedingResponse: stringArray(parsed.peopleNeedingResponse, 8),
+            suggestedNextAction: typeof parsed.suggestedNextAction === "string" ? parsed.suggestedNextAction.slice(0, 180) : null,
+            generatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            createdBy: "system",
+        };
+
+        await ref.collection("pulse").doc("main").set(pulse, { merge: true });
+        return pulse;
     }
 );
+
+function boundedInt(value: unknown, min: number, max: number): number {
+    const numberValue = typeof value === "number" ? Math.round(value) : 0;
+    return Math.max(min, Math.min(max, numberValue));
+}

@@ -1,11 +1,16 @@
 /**
- * Notification Cloud Functions
- * 
+ * Notification Cloud Functions — V1
+ *
  * Sends push notifications for:
  * - New followers
  * - Amens on posts
  * - Comments on posts
  * - New messages
+ *
+ * Security hardening applied 2026-05-24:
+ *  - Block check before every send (recipient's blockedUsers subcollection)
+ *  - Privacy-safe push body (no raw message or comment text)
+ *  - Deduplication via deterministic Firestore document IDs (idempotent on retry)
  */
 
 import * as functions from "firebase-functions";
@@ -16,7 +21,28 @@ const db = admin.firestore();
 // MARK: - Helper Functions
 
 /**
- * Send push notification to user via FCM
+ * Returns true if actorId is blocked by recipientId.
+ * Reads from blockedUsers/{recipientId}/blocked/{actorId}.
+ */
+async function isBlocked(recipientId: string, actorId: string): Promise<boolean> {
+  try {
+    const doc = await db
+      .collection("blockedUsers")
+      .doc(recipientId)
+      .collection("blocked")
+      .doc(actorId)
+      .get();
+    return doc.exists;
+  } catch {
+    // If the read fails (e.g. missing rule), allow the notification rather than
+    // silently suppressing legitimate activity.
+    return false;
+  }
+}
+
+/**
+ * Send push notification to user via FCM.
+ * Handles invalid token detection and soft-disables the token on permanent failure.
  */
 async function sendPushNotification(
   userId: string,
@@ -25,86 +51,107 @@ async function sendPushNotification(
   data: { [key: string]: string }
 ): Promise<void> {
   try {
-    // Get user's FCM token
     const userDoc = await db.collection("users").doc(userId).get();
-    const fcmToken = userDoc.data()?.fcmToken;
+    const userData = userDoc.data();
+    const fcmToken = userData?.fcmToken;
 
     if (!fcmToken) {
-      console.log(`No FCM token for user ${userId}`);
+      console.log(`[notif] No FCM token for user ${userId}`);
       return;
     }
 
-    // Check if user allows notifications
-    const notificationSettings = userDoc.data();
-    if (!notificationSettings?.allowNotifications) {
-      console.log(`User ${userId} has notifications disabled`);
+    if (!userData?.allowNotifications) {
+      console.log(`[notif] Notifications disabled for user ${userId}`);
       return;
     }
 
-    // Send notification
-    const message = {
-      notification: {
-        title: title,
-        body: body,
-      },
-      data: data,
+    const badgeCount = await getUnreadNotificationCount(userId);
+
+    const message: admin.messaging.Message = {
+      notification: { title, body },
+      data,
       token: fcmToken,
       apns: {
         payload: {
           aps: {
-            badge: await getUnreadNotificationCount(userId),
-            sound: notificationSettings?.soundEnabled ? "default" : undefined,
+            badge: badgeCount,
+            sound: userData?.soundEnabled !== false ? "default" : undefined,
           },
         },
       },
     };
 
-    const response = await admin.messaging().send(message);
-    console.log(`✅ Push notification sent to ${userId}: ${response}`);
-  } catch (error) {
-    console.error(`❌ Error sending push notification to ${userId}:`, error);
+    await admin.messaging().send(message);
+    console.log(`[notif] ✅ Sent to ${userId}`);
+  } catch (error: unknown) {
+    // Mark token as invalid so the backend can clean it up.
+    const fcmError = error as { code?: string };
+    if (
+      fcmError?.code === "messaging/invalid-registration-token" ||
+      fcmError?.code === "messaging/registration-token-not-registered"
+    ) {
+      console.warn(`[notif] Invalid token for user ${userId} — disabling`);
+      await db.collection("users").doc(userId).update({
+        fcmToken: admin.firestore.FieldValue.delete(),
+        fcmTokenInvalidatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      }).catch(() => { /* best effort */ });
+    } else {
+      console.error(`[notif] ❌ Error sending to ${userId}:`, error);
+    }
   }
 }
 
 /**
- * Get unread notification count for badge
+ * Get unread notification count for badge (capped at 99).
  */
 async function getUnreadNotificationCount(userId: string): Promise<number> {
-  const snapshot = await db
-    .collection("notifications")
-    .where("userId", "==", userId)
-    .where("read", "==", false)
-    .count()
-    .get();
-
-  return snapshot.data().count;
+  try {
+    const snapshot = await db
+      .collection("notifications")
+      .where("userId", "==", userId)
+      .where("read", "==", false)
+      .count()
+      .get();
+    return Math.min(snapshot.data().count, 99);
+  } catch {
+    return 0;
+  }
 }
 
 /**
- * Create notification document in Firestore
+ * Create notification document using a deterministic ID for idempotency.
+ * A repeated function execution for the same event will hit the same doc
+ * (setData with merge:false is a no-op if the doc already exists).
  */
 async function createNotification(
+  dedupeId: string,
   userId: string,
   type: string,
   actorId: string,
   actorName: string,
   actorUsername: string,
-  postId?: string,
-  commentText?: string
+  postId?: string
 ): Promise<void> {
-  await db.collection("notifications").add({
-    userId: userId,
-    type: type,
-    actorId: actorId,
-    actorName: actorName,
-    actorUsername: actorUsername,
-    postId: postId || null,
-    commentText: commentText || null,
-    read: false,
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  const ref = db.collection("notifications").doc(dedupeId);
+  // Only create if not already present — prevents double-send on retries.
+  await db.runTransaction(async (tx) => {
+    const existing = await tx.get(ref);
+    if (existing.exists) {
+      console.log(`[notif] Dedupe hit for ${dedupeId} — skipping`);
+      return;
+    }
+    tx.set(ref, {
+      userId,
+      type,
+      actorId,
+      actorName,
+      actorUsername,
+      postId: postId ?? null,
+      read: false,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
   });
-
-  console.log(`✅ Created ${type} notification for user ${userId}`);
+  console.log(`[notif] Created ${type} notification for ${userId}`);
 }
 
 // MARK: - Follow Notification
@@ -117,32 +164,30 @@ export const onFollowCreated = functions.firestore
   .document("follows/{followId}")
   .onCreate(async (snapshot, context) => {
     const followData = snapshot.data();
-    const followerId = followData.followerId;
-    const followedId = followData.followedId;
+    const followerId = followData.followerId as string;
+    const followedId = followData.followedId as string;
+    const followId = context.params.followId as string;
 
-    console.log(`👥 New follow: ${followerId} followed ${followedId}`);
+    console.log(`[notif] Follow: ${followerId} → ${followedId}`);
 
     try {
-      // Get follower info
       const followerDoc = await db.collection("users").doc(followerId).get();
       const followerData = followerDoc.data();
+      if (!followerData) return;
 
-      if (!followerData) {
-        console.log("Follower user not found");
-        return;
-      }
-
-      // Check if followed user wants follow notifications
       const followedDoc = await db.collection("users").doc(followedId).get();
       const followedData = followedDoc.data();
+      if (!followedData?.followNotifications) return;
 
-      if (!followedData?.followNotifications) {
-        console.log("User has follow notifications disabled");
+      // Block check: don't notify if recipient has blocked the actor
+      if (await isBlocked(followedId, followerId)) {
+        console.log(`[notif] Follow notification suppressed — ${followerId} is blocked by ${followedId}`);
         return;
       }
 
-      // Create notification document
+      const dedupeId = `follow_${followId}_${followedId}`;
       await createNotification(
+        dedupeId,
         followedId,
         "follow",
         followerId,
@@ -150,7 +195,6 @@ export const onFollowCreated = functions.firestore
         followerData.username || "unknown"
       );
 
-      // Send push notification
       await sendPushNotification(
         followedId,
         "New Follower",
@@ -162,7 +206,7 @@ export const onFollowCreated = functions.firestore
         }
       );
     } catch (error) {
-      console.error("Error in onFollowCreated:", error);
+      console.error("[notif] Error in onFollowCreated:", error);
     }
   });
 
@@ -175,50 +219,38 @@ export const onFollowCreated = functions.firestore
 export const onAmenCreated = functions.firestore
   .document("posts/{postId}/amens/{amenId}")
   .onCreate(async (snapshot, context) => {
-    const postId = context.params.postId;
+    const postId = context.params.postId as string;
+    const amenId = context.params.amenId as string;
     const amenData = snapshot.data();
-    const amenUserId = amenData.userId;
+    const amenUserId = amenData.userId as string;
 
-    console.log(`🙏 New Amen on post ${postId} by user ${amenUserId}`);
+    console.log(`[notif] Amen on post ${postId} by ${amenUserId}`);
 
     try {
-      // Get post to find author
       const postDoc = await db.collection("posts").doc(postId).get();
       const postData = postDoc.data();
+      if (!postData) return;
 
-      if (!postData) {
-        console.log("Post not found");
-        return;
-      }
+      const postAuthorId = postData.authorId as string;
+      if (amenUserId === postAuthorId) return; // self-action
 
-      const postAuthorId = postData.authorId;
-
-      // Don't send notification if user liked their own post
-      if (amenUserId === postAuthorId) {
-        console.log("User liked their own post, skipping notification");
-        return;
-      }
-
-      // Get Amen user info
       const amenUserDoc = await db.collection("users").doc(amenUserId).get();
       const amenUserData = amenUserDoc.data();
+      if (!amenUserData) return;
 
-      if (!amenUserData) {
-        console.log("Amen user not found");
-        return;
-      }
-
-      // Check if post author wants Amen notifications
       const authorDoc = await db.collection("users").doc(postAuthorId).get();
       const authorData = authorDoc.data();
+      if (!authorData?.amenNotifications) return;
 
-      if (!authorData?.amenNotifications) {
-        console.log("User has Amen notifications disabled");
+      // Block check
+      if (await isBlocked(postAuthorId, amenUserId)) {
+        console.log(`[notif] Amen notification suppressed — ${amenUserId} is blocked by ${postAuthorId}`);
         return;
       }
 
-      // Create notification document
+      const dedupeId = `amen_${amenId}_${postAuthorId}`;
       await createNotification(
+        dedupeId,
         postAuthorId,
         "amen",
         amenUserId,
@@ -227,7 +259,6 @@ export const onAmenCreated = functions.firestore
         postId
       );
 
-      // Send push notification
       await sendPushNotification(
         postAuthorId,
         "New Amen",
@@ -236,11 +267,11 @@ export const onAmenCreated = functions.firestore
           type: "amen",
           actorId: amenUserId,
           actorName: amenUserData.fullName || "Someone",
-          postId: postId,
+          postId,
         }
       );
     } catch (error) {
-      console.error("Error in onAmenCreated:", error);
+      console.error("[notif] Error in onAmenCreated:", error);
     }
   });
 
@@ -249,82 +280,81 @@ export const onAmenCreated = functions.firestore
 /**
  * Trigger: When a new comment is created
  * Action: Send notification to post author
+ *
+ * Privacy: The raw comment text is never included in the push body.
+ * Recipients open the app to read the comment content.
  */
 export const onCommentCreated = functions.firestore
   .document("comments/{commentId}")
   .onCreate(async (snapshot, context) => {
+    const commentId = context.params.commentId as string;
     const commentData = snapshot.data();
-    const postId = commentData.postId;
-    const commentUserId = commentData.userId;
-    const commentText = commentData.text;
+    const postId = commentData.postId as string;
+    const commentUserId = commentData.userId as string;
 
-    console.log(`💬 New comment on post ${postId} by user ${commentUserId}`);
+    console.log(`[notif] Comment ${commentId} on post ${postId} by ${commentUserId}`);
 
     try {
-      // Get post to find author
       const postDoc = await db.collection("posts").doc(postId).get();
       const postData = postDoc.data();
+      if (!postData) return;
 
-      if (!postData) {
-        console.log("Post not found");
-        return;
-      }
+      const postAuthorId = postData.authorId as string;
+      if (commentUserId === postAuthorId) return; // self-action
 
-      const postAuthorId = postData.authorId;
-
-      // Don't send notification if user commented on their own post
-      if (commentUserId === postAuthorId) {
-        console.log("User commented on their own post, skipping notification");
-        return;
-      }
-
-      // Get commenter info
-      const commenterDoc = await db
-        .collection("users")
-        .doc(commentUserId)
-        .get();
+      const commenterDoc = await db.collection("users").doc(commentUserId).get();
       const commenterData = commenterDoc.data();
+      if (!commenterData) return;
 
-      if (!commenterData) {
-        console.log("Commenter user not found");
-        return;
-      }
-
-      // Check if post author wants comment notifications
       const authorDoc = await db.collection("users").doc(postAuthorId).get();
       const authorData = authorDoc.data();
+      if (!authorData?.commentNotifications) return;
 
-      if (!authorData?.commentNotifications) {
-        console.log("User has comment notifications disabled");
+      // Block check
+      if (await isBlocked(postAuthorId, commentUserId)) {
+        console.log(`[notif] Comment notification suppressed — ${commentUserId} is blocked by ${postAuthorId}`);
         return;
       }
 
-      // Create notification document
-      await createNotification(
-        postAuthorId,
-        "comment",
-        commentUserId,
-        commenterData.fullName || "Someone",
-        commenterData.username || "unknown",
-        postId,
-        commentText
-      );
-
-      // Send push notification
-      await sendPushNotification(
-        postAuthorId,
-        "New Comment",
-        `${commenterData.fullName || "Someone"} commented: ${commentText.substring(0, 50)}${commentText.length > 50 ? "..." : ""}`,
-        {
+      const dedupeId = `comment_${commentId}_${postAuthorId}`;
+      // Store the commentId in the notification for deep-link routing; never store raw text here.
+      await db.runTransaction(async (tx) => {
+        const ref = db.collection("notifications").doc(dedupeId);
+        const existing = await tx.get(ref);
+        if (existing.exists) {
+          console.log(`[notif] Dedupe hit for ${dedupeId} — skipping`);
+          return;
+        }
+        tx.set(ref, {
+          userId: postAuthorId,
           type: "comment",
           actorId: commentUserId,
           actorName: commenterData.fullName || "Someone",
-          postId: postId,
-          commentText: commentText,
+          actorUsername: commenterData.username || "unknown",
+          postId,
+          commentId,
+          read: false,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      });
+
+      // Privacy-safe push body: never include raw comment text
+      const actorName = commenterData.fullName || "Someone";
+      await sendPushNotification(
+        postAuthorId,
+        "New Comment",
+        `${actorName} commented on your post`,
+        {
+          type: "comment",
+          actorId: commentUserId,
+          actorName,
+          postId,
+          commentId,
+          // commentText intentionally omitted from push data
         }
       );
     } catch (error) {
-      console.error("Error in onCommentCreated:", error);
+      console.error("[notif] Error in onCommentCreated:", error);
     }
   });
 
@@ -333,81 +363,84 @@ export const onCommentCreated = functions.firestore
 /**
  * Trigger: When a new message is created
  * Action: Send notification to all participants except sender
+ *
+ * Privacy: The raw message text is never included in the push body or data payload.
+ * Recipients open the app to read the message content.
  */
 export const onMessageCreated = functions.firestore
   .document("conversations/{conversationId}/messages/{messageId}")
   .onCreate(async (snapshot, context) => {
-    const conversationId = context.params.conversationId;
+    const conversationId = context.params.conversationId as string;
+    const messageId = context.params.messageId as string;
     const messageData = snapshot.data();
-    const senderId = messageData.senderId;
-    const senderName = messageData.senderName;
-    const messageText = messageData.text;
+    const senderId = messageData.senderId as string;
+    const senderName = messageData.senderName as string;
 
-    console.log(`💬 New message in conversation ${conversationId}`);
+    console.log(`[notif] Message ${messageId} in conversation ${conversationId}`);
 
     try {
-      // Get conversation to find participants
-      const conversationDoc = await db
-        .collection("conversations")
-        .doc(conversationId)
-        .get();
+      const conversationDoc = await db.collection("conversations").doc(conversationId).get();
       const conversationData = conversationDoc.data();
-
-      if (!conversationData) {
-        console.log("Conversation not found");
-        return;
-      }
+      if (!conversationData) return;
 
       const participantIds = conversationData.participantIds as string[];
 
-      // Send notification to all participants except sender
       for (const participantId of participantIds) {
-        if (participantId === senderId) {
-          continue; // Skip sender
-        }
+        if (participantId === senderId) continue;
 
-        // Check if participant wants message notifications
-        const participantDoc = await db
-          .collection("users")
-          .doc(participantId)
-          .get();
+        const participantDoc = await db.collection("users").doc(participantId).get();
         const participantData = participantDoc.data();
+        if (!participantData?.messageNotifications) continue;
 
-        if (!participantData?.messageNotifications) {
-          console.log(`User ${participantId} has message notifications disabled`);
+        // Block check
+        if (await isBlocked(participantId, senderId)) {
+          console.log(`[notif] Message notification suppressed — ${senderId} is blocked by ${participantId}`);
           continue;
         }
 
-        // Create notification document
-        await createNotification(
-          participantId,
-          "message",
-          senderId,
-          senderName,
-          "", // Username not needed for messages
-          undefined,
-          messageText
-        );
+        const dedupeId = `message_${messageId}_${participantId}`;
+        // Create notification record (no raw text stored in push-facing doc)
+        await db.runTransaction(async (tx) => {
+          const ref = db.collection("notifications").doc(dedupeId);
+          const existing = await tx.get(ref);
+          if (existing.exists) {
+            console.log(`[notif] Dedupe hit for ${dedupeId} — skipping`);
+            return;
+          }
+          tx.set(ref, {
+            userId: participantId,
+            type: "message",
+            actorId: senderId,
+            actorName: senderName,
+            actorUsername: "",
+            conversationId,
+            read: false,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+        });
 
-        // Send push notification
+        // Privacy-safe push body: never include raw message text
+        const pushTitle = conversationData.isGroup
+          ? conversationData.groupName || "Group Message"
+          : senderName;
+        const pushBody = conversationData.isGroup
+          ? `${senderName} sent a message`
+          : "You have a new message";
+
         await sendPushNotification(
           participantId,
-          conversationData.isGroup
-            ? conversationData.groupName || "Group Message"
-            : senderName,
-          conversationData.isGroup
-            ? `${senderName}: ${messageText}`
-            : messageText,
+          pushTitle,
+          pushBody,
           {
             type: "message",
             actorId: senderId,
             actorName: senderName,
-            conversationId: conversationId,
-            messageText: messageText,
+            conversationId,
+            // messageText intentionally omitted from push data
           }
         );
       }
     } catch (error) {
-      console.error("Error in onMessageCreated:", error);
+      console.error("[notif] Error in onMessageCreated:", error);
     }
   });

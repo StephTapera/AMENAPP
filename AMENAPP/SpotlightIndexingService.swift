@@ -18,9 +18,30 @@ class SpotlightIndexingService {
     private let searchableIndex = CSSearchableIndex.default()
     private init() {}
 
+    // MARK: - Visibility Guard
+
+    /// Returns true only when a post is safe to expose in iOS Spotlight.
+    /// Conditions that block indexing:
+    ///   • visibility is not `.everyone` (followers-only or community-only posts stay private)
+    ///   • category is `.prayer` (prayer requests are personal and must not leak)
+    ///   • `removed` flag is set (moderation-removed content must never surface)
+    private func isSpotlightIndexable(_ post: Post) -> Bool {
+        guard post.visibility == .everyone else { return false }
+        guard post.category != .prayer else { return false }
+        guard !post.removed else { return false }
+        return true
+    }
+
     // MARK: - Index Posts
 
     func indexPost(_ post: Post) {
+        // Security guard: only index publicly visible, non-removed, non-prayer posts.
+        guard isSpotlightIndexable(post) else {
+            // If the post was previously indexed but no longer qualifies, remove it.
+            deindexPost(postId: post.firebaseId ?? post.id.uuidString)
+            return
+        }
+
         let attributeSet = CSSearchableItemAttributeSet(contentType: .text)
         attributeSet.title = "\(post.authorName)'s \(post.category.rawValue.capitalized)"
         attributeSet.contentDescription = String(post.content.prefix(200))
@@ -39,7 +60,20 @@ class SpotlightIndexingService {
     }
 
     func indexPosts(_ posts: [Post]) {
-        let items = posts.map { post -> CSSearchableItem in
+        // Filter to only spotlight-eligible posts before building any CSSearchableItem.
+        let eligible = posts.filter { isSpotlightIndexable($0) }
+
+        // De-index any posts in the batch that failed the guard (e.g. since-removed posts).
+        let ineligibleIds = posts
+            .filter { !isSpotlightIndexable($0) }
+            .map { "post_\($0.firebaseId ?? $0.id.uuidString)" }
+        if !ineligibleIds.isEmpty {
+            searchableIndex.deleteSearchableItems(withIdentifiers: ineligibleIds)
+        }
+
+        guard !eligible.isEmpty else { return }
+
+        let items = eligible.map { post -> CSSearchableItem in
             let attributeSet = CSSearchableItemAttributeSet(contentType: .text)
             attributeSet.title = "\(post.authorName)'s \(post.category.rawValue.capitalized)"
             attributeSet.contentDescription = String(post.content.prefix(200))
@@ -83,6 +117,12 @@ class SpotlightIndexingService {
     // MARK: - Index Saved Posts
 
     func indexSavedPost(_ post: Post) {
+        // Security guard: apply the same visibility/removal/category rules for saved posts.
+        guard isSpotlightIndexable(post) else {
+            removeSavedPost(post.firebaseId ?? post.id.uuidString)
+            return
+        }
+
         let attributeSet = CSSearchableItemAttributeSet(contentType: .text)
         attributeSet.title = "Saved: \(post.authorName)'s Post"
         attributeSet.contentDescription = String(post.content.prefix(200))
@@ -110,6 +150,16 @@ class SpotlightIndexingService {
 
     func removeAllItems() {
         searchableIndex.deleteAllSearchableItems()
+    }
+
+    /// De-indexes a post from Spotlight by its Firebase or UUID identifier.
+    /// Call this whenever a post is deleted, removed by moderation, or its
+    /// visibility is changed away from `.everyone`.
+    func deindexPost(postId: String) {
+        searchableIndex.deleteSearchableItems(withIdentifiers: [
+            "post_\(postId)",
+            "saved_\(postId)"
+        ])
     }
 
     // MARK: - Handle Spotlight Launch

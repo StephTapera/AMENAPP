@@ -14,27 +14,27 @@ import FirebaseAuth
 /// This reduces re-render cascades and improves scroll performance by 15-20%
 @MainActor
 class PostCardViewModel: ObservableObject {
-    
+
     // MARK: - Post Data
     let post: Post?
     let authorName: String
     let timeAgo: String
     let content: String
     let isUserPost: Bool
-    
+
     // MARK: - Interaction State
     @Published var hasLitLightbulb = false
     @Published var hasSaidAmen = false
     @Published var hasReposted = false
     @Published var isSaved = false
-    
+
     // MARK: - Real-time Counts
     @Published var lightbulbCount = 0
     @Published var amenCount = 0
     @Published var commentCount = 0
     @Published var repostCount = 0
     @Published var prayingNowCount = 0
-    
+
     // MARK: - UI State
     @Published var showingMenu = false
     @Published var showingEditSheet = false
@@ -44,24 +44,24 @@ class PostCardViewModel: ObservableObject {
     @Published var showUserProfile = false
     @Published var showChurchNoteDetail = false
     @Published var showReportSheet = false
-    
+
     // MARK: - Animation State
     @Published var isLightbulbAnimating = false
     @Published var isPraying = false
-    
+
     // MARK: - Relationship State
     @Published var isFollowing = false
-    
+
     // MARK: - Loading States
     @Published var isSaveInFlight = false
     @Published var isLightbulbToggleInFlight = false
     @Published var isRepostToggleInFlight = false
     @Published var isTranslating = false
-    
+
     // MARK: - Expected States (Optimistic UI)
     @Published var expectedLightbulbState = false
     @Published var expectedRepostState = false
-    
+
     // MARK: - Moderation State
     @Published var showMuteConfirmation = false
     @Published var showBlockConfirmation = false
@@ -69,24 +69,27 @@ class PostCardViewModel: ObservableObject {
     @Published var showMuteSuccess = false
     @Published var showBlockSuccess = false
     @Published var showNotInterestedSuccess = false
-    
+
     // MARK: - Translation State
     @Published var showTranslatedContent = false
     @Published var translatedContent: String?
     @Published var detectedLanguage: String?
-    
+
     // MARK: - Error Handling
     @Published var showErrorAlert = false
     @Published var errorMessage = ""
-    
+
     // MARK: - Profile State
     @Published var currentProfileImageURL: String?
     @Published var churchNote: ChurchNote?
-    
+
     // MARK: - Debouncing
     var lastSaveActionTimestamp: Date?
     var saveActionCounter = 0
-    
+
+    // Cancellable auto-stop task for praying presence
+    private var prayingTask: Task<Void, Never>?
+
     // MARK: - Services (Shared Instances)
     let postsManager = PostsManager.shared
     let savedPostsService = RealtimeSavedPostsService.shared
@@ -94,7 +97,7 @@ class PostCardViewModel: ObservableObject {
     let moderationService = ModerationService.shared
     let interactionsService = PostInteractionsService.shared
     let translationService = PostTranslationService.shared
-    
+
     // MARK: - Initialization
     init(post: Post?, authorName: String, timeAgo: String, content: String, isUserPost: Bool) {
         self.post = post
@@ -103,135 +106,171 @@ class PostCardViewModel: ObservableObject {
         self.content = content
         self.isUserPost = isUserPost
     }
-    
+
     // MARK: - Computed Properties
-    
+
     var canEdit: Bool {
         isUserPost
     }
-    
+
     var canDelete: Bool {
         isUserPost
     }
-    
+
     var shouldShowFollowButton: Bool {
         !isUserPost && !isFollowing
     }
-    
+
     // MARK: - Action Methods
-    
+
     func toggleLightbulb() {
         guard !isLightbulbToggleInFlight else { return }
-        
+        guard let postId = post?.firestoreId, !postId.isEmpty else { return }
+
         isLightbulbToggleInFlight = true
         expectedLightbulbState.toggle()
         isLightbulbAnimating = true
-        
-        // Haptic feedback
+
         let haptic = UIImpactFeedbackGenerator(style: .medium)
         haptic.impactOccurred()
-        
+
+        // Optimistic UI update
+        hasLitLightbulb = expectedLightbulbState
+
         Task {
-            // Simulate toggle (actual implementation would call service)
-            try? await Task.sleep(nanoseconds: 300_000_000)
-            await MainActor.run {
-                hasLitLightbulb = expectedLightbulbState
-                isLightbulbToggleInFlight = false
-                isLightbulbAnimating = false
+            do {
+                try await interactionsService.toggleLightbulb(postId: postId)
+            } catch {
+                // Roll back optimistic update on failure
+                hasLitLightbulb = !expectedLightbulbState
+                expectedLightbulbState = !expectedLightbulbState
+                errorMessage = "Couldn't update lightbulb. Please try again."
+                showErrorAlert = true
             }
+            isLightbulbToggleInFlight = false
+            isLightbulbAnimating = false
         }
     }
-    
+
     func toggleSave() {
         guard !isSaveInFlight else { return }
-        
+        guard let postId = post?.firestoreId, !postId.isEmpty else { return }
+
         // Debounce rapid taps
         if let lastTimestamp = lastSaveActionTimestamp,
            Date().timeIntervalSince(lastTimestamp) < 0.5 {
             return
         }
-        
+
         isSaveInFlight = true
         lastSaveActionTimestamp = Date()
         saveActionCounter += 1
-        
+
         // Optimistic UI update
+        let previousState = isSaved
         isSaved.toggle()
-        
-        // Haptic feedback
+
         let haptic = UIImpactFeedbackGenerator(style: .light)
         haptic.impactOccurred()
-        
+
         Task {
-            // Actual save operation would go here
-            try? await Task.sleep(nanoseconds: 200_000_000)
-            await MainActor.run {
-                isSaveInFlight = false
+            do {
+                _ = try await savedPostsService.toggleSavePost(postId: postId)
+            } catch {
+                // Roll back optimistic update on failure
+                isSaved = previousState
+                errorMessage = error.localizedDescription
+                showErrorAlert = true
             }
+            isSaveInFlight = false
         }
     }
-    
+
     func toggleRepost() {
         guard !isRepostToggleInFlight else { return }
-        
+        guard let postId = post?.firestoreId, !postId.isEmpty else { return }
+
         isRepostToggleInFlight = true
         expectedRepostState.toggle()
-        
+
         // Optimistic UI
+        let previousState = hasReposted
         hasReposted = expectedRepostState
-        
-        // Haptic feedback
+
         let haptic = UIImpactFeedbackGenerator(style: .medium)
         haptic.impactOccurred()
-        
+
         Task {
-            try? await Task.sleep(nanoseconds: 300_000_000)
-            await MainActor.run {
-                isRepostToggleInFlight = false
+            do {
+                _ = try await interactionsService.toggleRepost(postId: postId)
+            } catch {
+                // Roll back optimistic update on failure
+                hasReposted = previousState
+                expectedRepostState = !expectedRepostState
+                errorMessage = "Couldn't update repost. Please try again."
+                showErrorAlert = true
             }
+            isRepostToggleInFlight = false
         }
     }
-    
+
     func startPraying() {
         isPraying = true
         prayingNowCount += 1
-        
-        // Haptic
+
         let haptic = UINotificationFeedbackGenerator()
         haptic.notificationOccurred(.success)
-        
-        // Auto-stop after 5 seconds
-        Task {
+
+        // Cancel any previous auto-stop before starting a new one
+        prayingTask?.cancel()
+        prayingTask = Task {
             try? await Task.sleep(nanoseconds: 5_000_000_000)
-            await MainActor.run {
-                if isPraying {
-                    stopPraying()
-                }
+            guard !Task.isCancelled else { return }
+            if isPraying {
+                stopPraying()
             }
         }
     }
-    
+
     func stopPraying() {
+        prayingTask?.cancel()
+        prayingTask = nil
         isPraying = false
     }
-    
+
     func translateContent() {
         guard !isTranslating else { return }
-        
+        guard !content.isEmpty else { return }
+
         isTranslating = true
-        
+
         Task {
-            // Simulate translation
-            try? await Task.sleep(nanoseconds: 1_000_000_000)
-            await MainActor.run {
-                translatedContent = "Translated: \(content)"
-                detectedLanguage = "Spanish"
+            do {
+                let sourceLang = try await translationService.detectLanguage(content)
+                let targetLang = translationService.getDeviceLanguage()
+
+                guard sourceLang != targetLang else {
+                    // Already in the user's language — nothing to translate
+                    isTranslating = false
+                    return
+                }
+
+                let translated = try await translationService.translateText(
+                    content,
+                    from: sourceLang,
+                    to: targetLang
+                )
+                translatedContent = translated
+                detectedLanguage = sourceLang
                 showTranslatedContent = true
-                isTranslating = false
+            } catch {
+                errorMessage = error.localizedDescription
+                showErrorAlert = true
             }
+            isTranslating = false
         }
     }
-    
+
     func showOriginalContent() {
         showTranslatedContent = false
     }
@@ -241,16 +280,16 @@ class PostCardViewModel: ObservableObject {
 
 /*
  Instead of 81 @State properties in PostCard:
- 
+
  // OLD:
  @State private var hasLitLightbulb = false
  @State private var lightbulbCount = 0
  @State private var isSaveInFlight = false
  // ... 78 more @State properties
- 
+
  // NEW:
  @StateObject private var viewModel: PostCardViewModel
- 
+
  init(post: Post?, authorName: String, ...) {
      _viewModel = StateObject(wrappedValue: PostCardViewModel(
          post: post,
@@ -260,11 +299,11 @@ class PostCardViewModel: ObservableObject {
          isUserPost: isUserPost
      ))
  }
- 
+
  // Then use:
  viewModel.hasLitLightbulb
  viewModel.toggleLightbulb()
- 
+
  Performance Impact:
  - Grouped @Published properties reduce unnecessary re-renders
  - ViewModel can be tested independently

@@ -1,8 +1,14 @@
 import * as admin from "firebase-admin";
+import { defineSecret } from "firebase-functions/params";
 
 if (!admin.apps.length) {
     admin.initializeApp();
 }
+
+// Secrets — declared here so Functions v2 binds them at deploy time.
+// Use: process.env.ANTHROPIC_API_KEY (populated automatically for functions that reference this)
+export const anthropicApiKey = defineSecret("ANTHROPIC_API_KEY");
+export const perspectiveApiKey = defineSecret("PERSPECTIVE_API_KEY");
 
 
 // AI Proxy Functions
@@ -40,9 +46,30 @@ export * from "./berean/controllers/generateDiscipleshipNextStep";
 export * from "./berean/controllers/saveReflectionEntry";
 export * from "./berean/controllers/generateChurchNotesSummary";
 export * from "./berean/controllers/premiumBereanCallables";
+export * from "./contextual/contextualActionRouter";
+export {
+    analyzeSmartMessage,
+    detectScriptureReferences,
+    detectSmartDateEvents,
+    detectPrayerRequest,
+    summarizeDiscussion,
+    getContextualBereanActions,
+    extractDiscussionTopics,
+    semanticSearchAmenSpace,
+    startSmartStudyMode,
+    transcribeVoiceMessage,
+    buildKnowledgeGraphMemory,
+    indexSmartPrayerRequest,
+    backfillSmartMessageVectorIndex,
+    getSmartMessageVectorIndexStatus,
+    scheduledSmartMessageVectorBackfill,
+} from "./smartMessageIntelligence/smartMessageRouter";
 
 // Selah Media OS (System 18)
 export * from "./selahMedia";
+
+// Selah Bible Engine — Study sheet, verse theme classification, safety classification
+export * from "./selah/index";
 
 // Smart Media Attachments (System 22)
 // resolveSmartAttachment, saveMediaGraphItem, getRecentMediaAttachments, getSavedMediaItems
@@ -78,10 +105,22 @@ export * from "./suggestedAccounts";
 // UserProfileMini context callable
 export * from "./profileMini/getUserProfileMiniContext";
 
+// Creator Spaces — trusted media, provenance, daily portion, and memory graph callables
+export * from "./creatorSpaces";
+
+// Amen Spatial Rooms OS — server-authoritative creation, theme generation, and backfill.
+export * from "./spatialRooms";
+
 // Trust + Intelligence (Berean infrastructure)
 export * from "./trustIntelligence";
+export * from "./profileBanners";
 export * from "./amenConnect";
+export * from "./spaces";
+export * from "./amenSpacesDiscovery";
+export * from "./amenSpaceBanners";
+export * from "./amenNationalDirectory";
 export * from "./legacyAiSafetyBridge";
+export * from "./integrations";
 
 // Action Threads — server-authoritative care workflow CRUD
 // All state transitions and participant invitations are validated server-side.
@@ -97,9 +136,46 @@ export * from "./feedContext";
 export * from "./bereanPulse";
 
 // Dynamic Reply Preview system — server-ranked inline PostCard preview candidates
-export * from "./generateDynamicReplyPreviews";
+// onReplyCreate and rebuildReplyPreviews are intentionally omitted here; the
+// CONTRACT.md-authoritative versions are exported from ./replyPreview below.
+export {
+    onCommentCreatedUpdatePreviews,
+    onCommentDeletedUpdatePreviews,
+    onCommentUpdatedUpdatePreviews,
+    onCommentUpdatedUpdatePreviewsTrigger,
+    onPostUpdatedUpdatePreviews,
+    onPostUpdatedUpdatePreviewsTrigger,
+    onPostPreviewDirtyRebuild,
+    onPostDeletedClearPreviews,
+    onPostDeletedClearPreviewsTrigger,
+    onBlockRelationshipUpdatedRefreshPreviews,
+    onBlockRelationshipUpdatedRefreshPreviewsTrigger,
+    onUserProfileImageUpdatedRefreshPreviews,
+    refreshDynamicReplyPreviews,
+    scheduledReplyPreviewRefresh,
+    detectCommunityPulse,
+    selectFollowedReplyCandidate,
+    hasStrongRelationship,
+    selectFollowedReplyFromRelationships,
+    countVisibleCommunityMatches,
+    generateBereanInsightCandidate,
+    passesPreviewModeration,
+    denormalizePreviewCandidates,
+    shouldRefreshPreviewAvatars,
+    shouldSkipPostPreviewUpdate,
+    recordPreviewImpression,
+} from "./generateDynamicReplyPreviews";
+
+// CONTRACT.md §12 — authoritative onReplyCreate + rebuildReplyPreviews
+// Implements resolver ladder (§13), scoring formula (§15), dirty thresholds (§16).
+export { onReplyCreate, rebuildReplyPreviews, rebuildReplyPreviewsOnDirty } from "./replyPreview";
 export * from "./churchDiscoveryPhase2";
 export * from "./churchDiscoveryPhase3";
+export * from "./churchDiscovery";
+
+// Smart Community Search — Ask Amen (System: Smart Finder)
+export * from "./smartCommunitySearch";
+export * from "./smartChurchSearch";
 
 // Server-authoritative feature flags (CRITICAL-3)
 // Safety flags are read from Firestore by Cloud Functions — never trusted from the client.
@@ -186,6 +262,10 @@ export * from "./notifications/deliverQuietHoursDigest";
 // Triggered on attended/reflected phase transitions in users/{uid}/churchInteractions/{churchId}
 export * from "./churchVisitLifecycle";
 
+// Amen Intelligence Fabric — server-authoritative trust, safety, crisis,
+// moderation, and reputation decisions derived from client/context snapshots.
+export * from "./amenIntelligenceFabric";
+
 // Church Journey System — full Find Church → Plan → Notes → Reflection orchestration
 // createChurchJourney, updateChurchJourneyTiming, promoteJourneyToPrepActive,
 // promoteJourneyToArrived, generateReflectionSeedFromNotes,
@@ -258,6 +338,11 @@ export * from "./creator/retryFailedCreatorJob";
 // Living Entries — unified notes, reminders, church follow-up, reflections
 export * from "./livingEntries/livingEntryFunctions";
 
+// Universal Content + Create foundations. Existing post/comment/note flows
+// remain canonical until Remote Config enables the new surfaces.
+export * from "./universalContent/contentNodeFunctions";
+export * from "./universalContent/platformFunctions";
+
 // Media Metadata Generation Pipeline — Phase 3
 // Firestore trigger: onPostCreatedGenerateMediaMetadata (posts/{postId})
 // Callable: retryMediaGeneration (retry failed generation for a media item)
@@ -278,6 +363,24 @@ export * from "./biblicalAlignmentFunctions";
 // Scheduled: generateNextYearHolidayCalendar (Nov 1, 06:00 UTC)
 // Callable:  backfillHolidayCalendar (admin-only), validateHolidayCalendarYear (admin-only)
 export * from "./holidayCalendarGenerator";
+
+// Permissions Engine — single source of truth for what each account may do.
+// Derives effective PermissionSet from ageTier × identityMode × trustLevel × accountState.
+// Resolution: intersect(ceiling, modeGrant) → applyTrustModifiers → applyHardOverrides.
+//
+// Callables:
+//   setDateOfBirth         — records DOB, derives ageTier (teen/adult), triggers recompute
+//   setMode                — validate + update identityMode + recompute PermissionSet
+//   initiateDM             — pairwise canMessage() check before opening a conversation
+//   requestGuardianConsent  — initiates guardian consent flow (future under-13 support)
+//   confirmGuardianConsent  — guardian confirms link (7-day TTL), child permissions recomputed
+//   resolvePermissionsCallable — admin-only debug/remediation
+//
+// Triggers:
+//   onUserWrite           — recomputes on any watched field change in users/{uid}
+//   dailyAgeTierPromotion — promotes tier on birthday, forces token refresh
+export { setMode, initiateDM, requestGuardianConsent, confirmGuardianConsent, resolvePermissionsCallable, setDateOfBirth } from "./permissions/permissionsCallables";
+export { onUserWrite, dailyAgeTierPromotion } from "./permissions/permissionsTriggers";
 
 // Lord's Day Rest Mode — server-side policy evaluation + AI label resolution
 // Callables: evaluateRestMode, setRestModePolicy, resolvePostAILabel
@@ -456,10 +559,12 @@ export * from "./semanticIntelligence";
 
 // System 30: Per-Media Captions
 // Callables: validateMediaCaptions, updatePostMediaCaptions
-export * from "./validateMediaCaptions";
+export {
+  validateMediaCaptions,
+} from "./validateMediaCaptions";
 
 // System 32: Communication OS — Next-Gen Messaging + Group Discussions
-// Callables: generateDMCatchUp, extractThreadDecisions, detectOpenQuestions,
+// Callables: generateDMCatchUp/generateCatchUpDigest, extractThreadDecisions, detectOpenQuestions,
 //            extractThreadActions, generateGroupPulse, generateMediaContext,
 //            searchConversationMemory, generateSmartReplies
 // All callables require Auth + App Check. Participant membership verified server-side.
@@ -505,6 +610,7 @@ export * from "./agents/agentObservability";
 export * from "./agents/agentResultFormatter";
 
 export * from "./amenAI/draftLifecycle";
+export * from "./amenAI/modelRouter";
 export * from "./churchNotes/createChurchNotesAIDraft";
 
 // Church Notes Media Intelligence — processing jobs, OCR, audio, content generation, draft approval
@@ -525,3 +631,190 @@ export { registerMediaProvenance } from "./media/registerMediaProvenance";
 export * from "./giving/processGivingCharge";
 
 export * from "./giving/analyzePostTrustLogoMatch";
+
+// Amen Access Passes (System 37) — QR / NFC / universal link / share-link access
+// Callables: createAccessPass, resolveAccessPass, acceptAccessPass, revokeAccessPass,
+//   pauseAccessPass, resumeAccessPass, rotateAccessPassToken, approveAccessRequest,
+//   denyAccessRequest, listAccessPassesForTarget, listAccessRequestsForTarget
+// Auth + App Check enforced. tokenHash never leaves the server; rawToken in URLs only.
+export * from "./accessPasses";
+
+// Verification & Trust System — identity, organization, role, creator verification
+// Callables: startIdentityVerification, requestOrganizationVerification,
+//   verifyOrganizationDomain, requestRoleVerification, approveRoleVerification,
+//   revokeRoleVerification, requestCreatorVerification, refreshVerificationSummary,
+//   reportImpersonation
+// Webhook: handleIdentityVerificationWebhook (HTTPS onRequest, HMAC-verified)
+// Security: Auth + App Check on all callables. No raw ID data stored.
+//   Verification truth fields are backend-only writes (Admin SDK).
+export * from "./verification/index";
+
+// ─── Amen Safety OS — Full Trust & Safety Stack ───────────────────────────────
+//
+// AmenSafetyPolicy   — canonical policy catalog (50+ harm categories → enforcement)
+// TextModerationService — Perspective API + deterministic banned-term pipeline
+// ImageModerationService — Cloud Vision SafeSearch + CSAM hash check
+// VideoModerationService — frame sampling + SafeSearch moderation
+// AudioModerationService — Whisper transcription + text moderation
+// LinkSafetyService  — Safe Browsing API + domain blocklist + heuristics
+// YouthSafetyService — minor account defaults, age-gating, DM restrictions
+// GuardianConnectionService — parent/guardian connection and safety alerts
+// TrustAndStrikeService — strike tracking, trust score, account threshold actions
+// HumanReviewQueueService — claim/resolve workflow + SLA monitoring
+// EvidencePreservationService — immutable evidence storage for severe cases
+// ModerationAuditLogService — immutable audit log writes and moderator queries
+//
+// All callables: Auth + App Check enforced.
+// All moderation decisions enforce moderationStatus lifecycle:
+//   pending → approved | blocked | needs_human_review | escalated | removed_after_publish
+// Feeds and search MUST only read content where moderationStatus == "approved".
+
+export { moderateTextCallable } from "./safety/TextModerationService";
+export { moderateImageCallable } from "./safety/ImageModerationService";
+export { moderateVideoCallable } from "./safety/VideoModerationService";
+export { moderateAudioCallable } from "./safety/AudioModerationService";
+export { checkLinkSafetyCallable } from "./safety/LinkSafetyService";
+export {
+  checkYouthSafetyCallable,
+  updateYouthSettings,
+  enforceYouthAccountDefaults,
+} from "./safety/YouthSafetyService";
+export {
+  requestGuardianConnection,
+  approveGuardianConnection,
+  revokeGuardianConnection,
+  approveContactForMinor,
+  forwardYouthAlertToGuardians,
+} from "./safety/GuardianConnectionService";
+export {
+  adminIssueStrike,
+  adminGetTrustProfile,
+  autoIssueStrikeOnBlock,
+} from "./safety/TrustAndStrikeService";
+export {
+  claimReviewItem,
+  resolveReviewItem,
+  getReviewQueue,
+  checkQueueSLABreaches,
+} from "./safety/HumanReviewQueueService";
+export {
+  preserveEvidenceCallable,
+  getEvidenceRecord,
+  markEvidenceProvided,
+  searchEvidenceByUser,
+} from "./safety/EvidencePreservationService";
+export {
+  queryAuditLog,
+  getAuditSummary,
+} from "./safety/ModerationAuditLogService";
+export {
+  reportAbuse,
+  getMyReports,
+} from "./safety/ReportAbuseService";
+// NOTE: TextRewriteService functions require ANTHROPIC_API_KEY secret.
+// Run: firebase functions:secrets:set ANTHROPIC_API_KEY before deploying.
+export * from "./safety/TextRewriteService";
+export {
+  getTrustProfile,
+  adminGrantTrustEvent,
+  initializeNewAccount,
+} from "./safety/ProgressiveTrustService";
+export {
+  setInteractionMode,
+  getInteractionMode,
+  enforcePostModeConstraints,
+  initializeModeForNewUser,
+} from "./safety/InteractionModeService";
+export {
+  scanGroomingVelocity,
+  scanCoordinatedHarassment,
+} from "./safety/BehavioralPatternService";
+export * from "./safety/AuditLogService";
+export * from "./safety/BehavioralAlertConsumerService";
+export {
+  requestMentorship,
+  approveMentorship,
+  endMentorship,
+  getMyMentorships,
+  requestChurchVerification,
+  issueChurchVerificationCode,
+  getChurchVerificationStatus,
+} from "./safety/MentorshipVerificationService";
+
+// ─── Amen Trust + Safety OS — Extended Modules ──────────────────────────────
+//
+// safetyTypes         — unified SafetyDecision model, all shared types
+// moderateText        — layered text preflight (banned-terms + Perspective API)
+// moderateImage       — Cloud Vision SafeSearch image preflight
+// moderateVideo       — video preflight (transcript + thumbnail analysis)
+// moderateAudio       — audio transcript preflight
+// provenance          — Amen True Source: upload hash, AI detection, source chain
+// botDefense          — BotScore evaluation: velocity + device + comment signals
+// identityTrust       — identity trust levels, church verification, impersonation
+// rankingSafety       — safety-first ranking (penalizes outrage/bots/fake virality)
+// reportAbuse (ts)    — full report flow: quarantine, escalate, preserve evidence
+// enforcement         — strike ladder, account status, appeals
+// safetyAuditLog (ts) — immutable append-only audit event writer
+//
+// All callables: App Check + Auth enforced.
+
+export {
+  runTextPreflight,
+} from "./trustSafety/moderateText";
+
+export {
+  runImagePreflight,
+} from "./trustSafety/moderateImage";
+
+export {
+  runVideoPreflight,
+} from "./trustSafety/moderateVideo";
+
+export {
+  runAudioPreflight,
+} from "./trustSafety/moderateAudio";
+
+export {
+  getMediaProvenance,
+} from "./trustSafety/provenance";
+
+export {
+  evaluateBotScore,
+  getBotProfile,
+} from "./trustSafety/botDefense";
+
+export {
+  getIdentityTrustProfile,
+  setChurchVerificationStatus,
+  flagSuspectedImpersonation,
+  updateCreatorTrustDeclaration,
+} from "./trustSafety/identityTrust";
+
+export {
+  computeRankingScore,
+  markContentTrendIneligible,
+} from "./trustSafety/rankingSafety";
+
+export {
+  submitAbuseReport,
+  getMyAbuseReports,
+  resolveAbuseReport,
+  escalateAbuseReport,
+} from "./trustSafety/reportAbuse";
+
+export {
+  issueEnforcementStrike,
+  getEnforcementProfile,
+  submitAppeal,
+  resolveAppeal,
+} from "./trustSafety/enforcement";
+
+export {
+  queryAuditLog as queryTrustSafetyAuditLog,
+} from "./trustSafety/safetyAuditLog";
+
+export {
+  moderateMediaCaption,
+  publishPostWithMedia,
+  generateAltText,
+} from "./mediaCaptions";

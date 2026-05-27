@@ -107,7 +107,7 @@ class ChurchNotesStressTests: ObservableObject {
                 content: "This is test content for note number \(i). Lorem ipsum dolor sit amet."
             )
             
-            try await notesService.createNote(note)
+            _ = try await notesService.createNote(note)
             
             if let id = note.id {
                 var fetchedNote = note
@@ -120,7 +120,7 @@ class ChurchNotesStressTests: ObservableObject {
         for i in 0..<25 {
             var note = createdNotes[i]
             note.content = "Updated content for note \(i)"
-            try await notesService.updateNote(note)
+            _ = try await notesService.updateNote(note)
         }
         
         // Verify all exist
@@ -147,7 +147,7 @@ class ChurchNotesStressTests: ObservableObject {
         )
         
         let startTime = Date()
-        try await notesService.createNote(note)
+        _ = try await notesService.createNote(note)
         let duration = Date().timeIntervalSince(startTime)
         
         // Should complete in under 3 seconds
@@ -173,7 +173,7 @@ class ChurchNotesStressTests: ObservableObject {
             content: "Test content"
         )
         
-        try await notesService.createNote(note)
+        _ = try await notesService.createNote(note)
         
         // Simulate rapid open/close
         for _ in 1...50 {
@@ -218,7 +218,7 @@ class ChurchNotesStressTests: ObservableObject {
             content: "This note tests offline persistence"
         )
         
-        try await notesService.createNote(note)
+        _ = try await notesService.createNote(note)
         
         // Verify it's cached
         try await Task.sleep(for: .milliseconds(500))
@@ -241,14 +241,14 @@ class ChurchNotesStressTests: ObservableObject {
             content: "Test sharing"
         )
         
-        try await notesService.createNote(note)
+        _ = try await notesService.createNote(note)
         
         // Generate 20 share links
         for i in 1...20 {
             // Update permission
             note.permission = NotePermission.shared
             note.shareLinkId = "test_link_\(i)_\(UUID().uuidString)"
-            try await notesService.updateNote(note)
+            _ = try await notesService.updateNote(note)
             
             // Verify share link exists
             guard note.shareLinkId != nil else {
@@ -259,7 +259,7 @@ class ChurchNotesStressTests: ObservableObject {
         // Revoke sharing
         note.permission = NotePermission.privateNote
         note.sharedWith = []
-        try await notesService.updateNote(note)
+        _ = try await notesService.updateNote(note)
         
         // Cleanup
         if let id = note.id {
@@ -279,7 +279,7 @@ class ChurchNotesStressTests: ObservableObject {
             content: "Original content"
         )
         
-        try await notesService.createNote(note)
+        _ = try await notesService.createNote(note)
         
         guard let noteId = note.id else {
             throw TestError.assertion("Note ID not set after creation")
@@ -292,13 +292,13 @@ class ChurchNotesStressTests: ObservableObject {
         
         // User 1 edits
         note1.content = "User 1 content"
-        try await notesService.updateNote(note1)
+        _ = try await notesService.updateNote(note1)
         
         // User 2 tries to edit (should detect conflict)
         note2.content = "User 2 content"
         
         do {
-            try await notesService.updateNote(note2)
+            _ = try await notesService.updateNote(note2)
             throw TestError.assertion("Expected conflict error but update succeeded")
         } catch let error as NSError {
             // Should get conflict error (409)
@@ -357,7 +357,7 @@ class ChurchNotesStressTests: ObservableObject {
                 tags: ["test", "search"]
             )
             
-            try await notesService.createNote(note)
+            _ = try await notesService.createNote(note)
             if let id = note.id {
                 var created = note
                 created.id = id

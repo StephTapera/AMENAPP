@@ -11,6 +11,17 @@ struct PerMediaCaptionComposer: View {
     let mediaType: PostMediaType
     let altTextEnabled: Bool
     let scriptureEnabled: Bool
+    var reflectionEnabled: Bool = true
+    var isModerating: Bool = false
+    var isGeneratingAltText: Bool = false
+    var statusMessage: String? = nil
+    var errorMessage: String? = nil
+    var onCaptionFocusChanged: (Bool) -> Void = { _ in }
+    var onClearCaption: () -> Void = {}
+    var onScriptureTapped: () -> Void = {}
+    var onReflectionTapped: () -> Void = {}
+    var onAltTextTapped: () -> Void = {}
+    var onGenerateAltText: () -> Void = {}
 
     @FocusState private var captionFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -18,9 +29,6 @@ struct PerMediaCaptionComposer: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private let captionLimit = 2200
-    private let altTextLimit = 1000
-    private let scriptureLimit = 10
-    private let reflectionLimit = 500
 
     private var headerLabel: String {
         let position = "\(index + 1) of \(totalCount)"
@@ -37,10 +45,7 @@ struct PerMediaCaptionComposer: View {
         }
     }
 
-    private var captionCount: Int {
-        draft.text.count
-    }
-
+    private var captionCount: Int { draft.text.count }
     private var nearLimit: Bool { captionCount > captionLimit - 200 }
     private var overLimit: Bool { captionCount > captionLimit }
 
@@ -48,16 +53,10 @@ struct PerMediaCaptionComposer: View {
         VStack(alignment: .leading, spacing: 10) {
             headerRow
             captionField
-            if nearLimit {
-                characterCountRow
-            }
-            if overLimit {
-                limitWarning
-            }
-            if draft.captionModerationState == .rejected {
-                moderationWarning
-            }
-            if altTextEnabled || scriptureEnabled {
+            if nearLimit { characterCountRow }
+            if overLimit { limitWarning }
+            moderationStatusRow
+            if altTextEnabled || scriptureEnabled || reflectionEnabled {
                 chipRow
             }
         }
@@ -70,12 +69,15 @@ struct PerMediaCaptionComposer: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel(headerLabel)
         .accessibilityHint("This caption appears only on this media item.")
+        .onChange(of: captionFocused) { _, focused in
+            onCaptionFocusChanged(focused)
+        }
     }
 
     // MARK: - Subviews
 
     private var headerRow: some View {
-        HStack {
+        HStack(spacing: 8) {
             Image(systemName: mediaType == .video ? "video.fill" : "photo.fill")
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -83,17 +85,25 @@ struct PerMediaCaptionComposer: View {
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
             Spacer()
+            if isModerating {
+                ProgressView()
+                    .controlSize(.mini)
+                    .accessibilityLabel("Checking caption safety")
+            }
             if draft.hasMediaCaption {
                 Button {
                     withAnimation(reduceMotion ? nil : .easeOut(duration: 0.18)) {
                         draft.text = ""
-                        draft.captionModerationState = .notChecked
+                        draft.captionModerationState = .notRequired
+                        onClearCaption()
                     }
                 } label: {
                     Image(systemName: "xmark.circle.fill")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+                .buttonStyle(.plain)
+                .disabled(isModerating)
                 .accessibilityLabel("Clear caption")
             }
         }
@@ -105,12 +115,13 @@ struct PerMediaCaptionComposer: View {
             .foregroundStyle(.primary)
             .lineLimit(1...5)
             .focused($captionFocused)
+            .disabled(isModerating)
             .onChange(of: draft.text) { _, new in
                 if new.count > captionLimit {
                     draft.text = String(new.prefix(captionLimit))
                 }
                 if draft.captionModerationState == .rejected {
-                    draft.captionModerationState = .notChecked
+                    draft.captionModerationState = .notRequired
                 }
             }
             .accessibilityLabel(headerLabel)
@@ -133,10 +144,21 @@ struct PerMediaCaptionComposer: View {
             .foregroundStyle(.red)
     }
 
-    private var moderationWarning: some View {
-        Label("This caption needs edits before posting.", systemImage: "shield.slash.fill")
-            .font(.caption)
-            .foregroundStyle(.orange)
+    @ViewBuilder
+    private var moderationStatusRow: some View {
+        if draft.captionModerationState == .rejected {
+            Label(errorMessage ?? "This caption needs edits before posting.", systemImage: "shield.slash.fill")
+                .font(.caption)
+                .foregroundStyle(.orange)
+        } else if let errorMessage, !errorMessage.isEmpty {
+            Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
+                .font(.caption)
+                .foregroundStyle(.orange)
+        } else if let statusMessage, !statusMessage.isEmpty {
+            Label(statusMessage, systemImage: draft.captionModerationState == .approved ? "checkmark.shield.fill" : "shield.lefthalf.filled")
+                .font(.caption)
+                .foregroundStyle(draft.captionModerationState == .approved ? .green : .secondary)
+        }
     }
 
     private var chipRow: some View {
@@ -146,28 +168,35 @@ struct PerMediaCaptionComposer: View {
                     PerMediaCaptionChip(
                         icon: "book.closed.fill",
                         label: draft.scriptureRefs.isEmpty ? "Scripture" : "\(draft.scriptureRefs.count) verse\(draft.scriptureRefs.count == 1 ? "" : "s")",
-                        isActive: !draft.scriptureRefs.isEmpty
-                    ) {
-                        // Scripture ref sheet — handled by parent if needed
-                    }
+                        isActive: !draft.scriptureRefs.isEmpty,
+                        isEnabled: !isModerating && !isGeneratingAltText,
+                        action: onScriptureTapped
+                    )
                 }
-                if !draft.reflectionPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || scriptureEnabled {
+                if reflectionEnabled {
                     PerMediaCaptionChip(
                         icon: "heart.text.square.fill",
-                        label: draft.reflectionPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Reflection" : "Reflection ✓",
-                        isActive: !draft.reflectionPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                    ) {
-                        // Reflection sheet — handled by parent if needed
-                    }
+                        label: draft.reflectionPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Reflection" : "Reflection done",
+                        isActive: !draft.reflectionPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                        isEnabled: !isModerating && !isGeneratingAltText,
+                        action: onReflectionTapped
+                    )
                 }
                 if altTextEnabled {
                     PerMediaCaptionChip(
                         icon: "a.magnify",
-                        label: draft.altText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Alt Text" : "Alt Text ✓",
-                        isActive: !draft.altText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                    ) {
-                        // Alt text sheet — handled by parent if needed
-                    }
+                        label: draft.altText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Alt Text" : "Alt Text done",
+                        isActive: !draft.altText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                        isEnabled: !isModerating && !isGeneratingAltText,
+                        action: onAltTextTapped
+                    )
+                    PerMediaCaptionChip(
+                        icon: isGeneratingAltText ? "hourglass" : "sparkles",
+                        label: isGeneratingAltText ? "Generating" : "Suggest Alt",
+                        isActive: isGeneratingAltText,
+                        isEnabled: !isModerating && !isGeneratingAltText,
+                        action: onGenerateAltText
+                    )
                 }
             }
             .padding(.horizontal, 2)
@@ -187,12 +216,20 @@ struct PerMediaCaptionComposer: View {
 
     private var composerBorder: some View {
         RoundedRectangle(cornerRadius: 16, style: .continuous)
-            .strokeBorder(
-                draft.captionModerationState == .rejected
-                    ? Color.orange.opacity(0.5)
-                    : Color.white.opacity(0.25),
-                lineWidth: 0.5
-            )
+            .strokeBorder(borderColor, lineWidth: 0.5)
+    }
+
+    private var borderColor: Color {
+        switch draft.captionModerationState {
+        case .rejected:
+            return .orange.opacity(0.5)
+        case .pending:
+            return .yellow.opacity(0.45)
+        case .approved:
+            return .green.opacity(0.35)
+        case .notRequired, .removed:
+            return .white.opacity(0.25)
+        }
     }
 }
 
@@ -202,6 +239,7 @@ struct PerMediaCaptionChip: View {
     let icon: String
     let label: String
     let isActive: Bool
+    var isEnabled: Bool = true
     let action: () -> Void
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
@@ -221,6 +259,8 @@ struct PerMediaCaptionChip: View {
                 )
         }
         .buttonStyle(.plain)
+        .disabled(!isEnabled)
+        .opacity(isEnabled ? 1 : 0.55)
         .accessibilityLabel(label)
     }
 

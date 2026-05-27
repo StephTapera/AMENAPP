@@ -1,15 +1,18 @@
 import SwiftUI
 import AVKit
+import AVFoundation
 
 struct WitnessDraftAttachmentPreview: View {
     let attachment: WitnessDraftAttachment
     let onRemove: () -> Void
 
+    @State private var videoPlayer: AVPlayer?
+
     var body: some View {
         ZStack(alignment: .topTrailing) {
             Group {
-                if attachment.isVideo, let url = attachment.finalFileURL {
-                    VideoPlayer(player: AVPlayer(url: url))
+                if attachment.isVideo {
+                    VideoPlayer(player: videoPlayer)
                         .frame(height: 240)
                 } else if let url = attachment.finalFileURL,
                           let image = UIImage(contentsOfFile: url.path) {
@@ -46,6 +49,22 @@ struct WitnessDraftAttachmentPreview: View {
                     .background(.ultraThinMaterial, in: Circle())
             }
             .padding(12)
+        }
+        .onAppear {
+            guard attachment.isVideo, let url = attachment.finalFileURL else { return }
+            // FIX: Configure AVAudioSession before instantiating AVPlayer.
+            // .mixWithOthers prevents silently interrupting Apple Music or other audio.
+            do {
+                try AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback, options: [.mixWithOthers])
+                try AVAudioSession.sharedInstance().setActive(true)
+            } catch {
+                // Non-fatal: video may still play without audio session config
+            }
+            videoPlayer = AVPlayer(url: url)
+        }
+        .onDisappear {
+            videoPlayer?.pause()
+            videoPlayer = nil
         }
     }
 }

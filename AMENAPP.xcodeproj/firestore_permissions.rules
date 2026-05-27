@@ -1,0 +1,129 @@
+// Firestore Security Rules — Permissions Engine
+// Append the rules inside this file into your main firestore.rules.
+//
+// Core invariant enforced here:
+//   permissions/{uid} is written ONLY by Cloud Functions (Admin SDK).
+//   Clients may read their own document. No client may write or delete it.
+//
+// The hot-path fields (ageTier, canPostPublic, reachTier) are also synced into
+// Auth custom claims by the resolver, so post/space rules can gate on
+// request.auth.token.canPostPublic without an extra Firestore read.
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // =========================================================
+    // PERMISSIONS — resolved set, server-write only
+    // =========================================================
+
+    match /permissions/{uid} {
+      // Any authenticated user may read their own permission set.
+      // Admins may read any uid's document.
+      allow read: if request.auth != null
+                  && (request.auth.uid == uid || hasAdminClaim());
+
+      // Clients NEVER write. Only Cloud Functions via the Admin SDK.
+      allow write: if false;
+    }
+
+    // =========================================================
+    // GUARDIAN LINKS
+    // =========================================================
+
+    match /guardianLinks/{linkId} {
+      // The child account (childUid) may read the link they initiated.
+      // The guardian who confirmed may also read it.
+      // Admins may read any link.
+      allow read: if request.auth != null
+                  && (
+                    resource.data.childUid    == request.auth.uid ||
+                    resource.data.guardianUid == request.auth.uid ||
+                    hasAdminClaim()
+                  );
+
+      // Links are created by the requestGuardianConsent callable (Admin SDK). No direct client writes.
+      allow write: if false;
+    }
+
+    // =========================================================
+    // POSTS — gate on custom claim so rules need no extra reads
+    // =========================================================
+
+    match /posts/{postId} {
+      // Existing post rules stay as-is. Add this condition to allow create:
+      //   && request.auth.token.canPostPublic == true
+      //
+      // Example (merge with your existing post rules):
+      allow create: if request.auth != null
+                    && request.auth.token.canPostPublic == true
+                    && request.resource.data.authorId == request.auth.uid;
+
+      // Reads and updates use your existing rules — no change needed here.
+    }
+
+    // =========================================================
+    // USERS — guard mode writes through the setMode callable
+    // =========================================================
+
+    match /users/{uid} {
+      // Existing rules stay as-is. Add this to prevent direct client mode writes:
+      //
+      // The mode field must only be changed via the setMode callable (which validates
+      // the mode is allowed for the account's age tier before persisting).
+      //
+      // In your existing allow update rule, add:
+      //   && (request.resource.data.mode == resource.data.mode
+      //       || !request.resource.data.keys().hasAny(['mode']))
+      //
+      // This prevents a client from writing mode=social on a teen account directly.
+      //
+      // Permissions-related fields that only functions should write:
+      //   ageTier, guardianConsentStatus, mentorApproved, accountState, csamFlag
+      // Add these to your existing write deny-list for client updates.
+    }
+
+    // =========================================================
+    // TRUST EDGES — read-only for clients, written by trust module
+    // =========================================================
+
+    match /trustEdges/{edgeId} {
+      allow read: if request.auth != null
+                  && (resource.data.fromUid == request.auth.uid
+                      || resource.data.toUid == request.auth.uid);
+      allow write: if false; // trust-graph module owns writes
+    }
+
+    // =========================================================
+    // HELPER FUNCTIONS
+    // =========================================================
+
+    function hasAdminClaim() {
+      return request.auth != null && request.auth.token.admin == true;
+    }
+
+    function isAdultTier() {
+      return request.auth != null && request.auth.token.ageTier == "adult";
+    }
+
+    function canPostPublicClaim() {
+      return request.auth != null && request.auth.token.canPostPublic == true;
+    }
+
+    // Reads the resolved PermissionSet for an arbitrary uid.
+    // Use sparingly — prefer custom claims for hot-path rules.
+    function getPermissions(uid) {
+      return get(/databases/$(database)/documents/permissions/$(uid)).data;
+    }
+
+    function canSendDM(uid) {
+      let perms = getPermissions(uid);
+      return perms != null && perms.sendDM != "none";
+    }
+
+    function canReceiveDM(uid) {
+      let perms = getPermissions(uid);
+      return perms != null && perms.receiveDM != "none";
+    }
+  }
+}

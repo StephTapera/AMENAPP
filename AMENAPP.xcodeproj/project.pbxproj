@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0A184BB749D1A438DE65BD8C /* ShareModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBA825A73525A8278C170A89 /* ShareModels.swift */; };
+		51C3BBBD35529A184D2CB268 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 390ED0CA4592100B3231632F /* Foundation.framework */; };
+		B4FF91C2C7FE78C9A0B230B5 /* ShareExtensionViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DEC61D1C5B12A257081E278 /* ShareExtensionViewController.swift */; };
+		C2CB9C52A4416FBC0C451EBE /* AMENShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 045CC55D491DB352A8011889 /* AMENShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		EF38A1212F2D114F004E694A /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = EF38A1202F2D114F004E694A /* GoogleSignIn */; };
 		EF38A1232F2D114F004E694A /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = EF38A1222F2D114F004E694A /* GoogleSignInSwift */; };
 		EF3AD06C2F32F5AD00596905 /* genkit-server-index.js in Resources */ = {isa = PBXBuildFile; fileRef = EF3AD06B2F32F5AD00596905 /* genkit-server-index.js */; };
@@ -58,6 +62,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		906CE4C82C5A4631338C9E7F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = EF8151932F184E97008912E3 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 561EF8B533472521CEBD6FE3;
+			remoteInfo = AMENShareExtension;
+		};
 		EF56F7452F2881A40019B94A /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = EF8151932F184E97008912E3 /* Project object */;
@@ -100,6 +111,7 @@
 			files = (
 				EF5B39152F5BA7A600152D09 /* AMENWidgetExtensionExtension.appex in Embed Foundation Extensions */,
 				EFA100012F90000100000001 /* AMENNotificationServiceExtension.appex in Embed Foundation Extensions */,
+				C2CB9C52A4416FBC0C451EBE /* AMENShareExtension.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -107,13 +119,17 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		045CC55D491DB352A8011889 /* AMENShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = AMENShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		0804F587EA71407AA64D8634 /* AmenSyncModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmenSyncModels.swift; sourceTree = "<group>"; };
 		0F485E8816FD4F539AA958C5 /* AmenSyncHubCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmenSyncHubCard.swift; sourceTree = "<group>"; };
 		27CFD76466884F5BBD04A1F2 /* AmenSyncCaptionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmenSyncCaptionService.swift; sourceTree = "<group>"; };
 		3120D71872D94559AEBE38F9 /* CreationPromptBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreationPromptBar.swift; sourceTree = "<group>"; };
 		35FFF8CDEC8642A68C258780 /* CreationModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreationModels.swift; sourceTree = "<group>"; };
+		390ED0CA4592100B3231632F /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		5AA9B8E644D04ABEAAC1B73F /* CreationStudioView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreationStudioView.swift; sourceTree = "<group>"; };
 		5F61F9D6175143FC800638E8 /* AssetSelectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssetSelectionView.swift; sourceTree = "<group>"; };
+		6DEC61D1C5B12A257081E278 /* ShareExtensionViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShareExtensionViewController.swift; sourceTree = "<group>"; };
+		8E1E62701DA9B39E93900124 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		8ED726DB5CDC452EB1AFB438 /* AmenSyncDraftsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmenSyncDraftsView.swift; sourceTree = "<group>"; };
 		922950E8CC9D46569F7E0EC3 /* SceneBuilderViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneBuilderViewModel.swift; sourceTree = "<group>"; };
 		A2C11335A649489CA118C3F3 /* CreationDraftService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreationDraftService.swift; sourceTree = "<group>"; };
@@ -123,7 +139,9 @@
 		D65C30C1C1AF4F71B03AA3D0 /* CreationPublishView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreationPublishView.swift; sourceTree = "<group>"; };
 		D75E708FF5164132A318EA58 /* CreationTimelineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreationTimelineView.swift; sourceTree = "<group>"; };
 		D9249F2C56B94D75A3A87527 /* AmenSyncStudioView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmenSyncStudioView.swift; sourceTree = "<group>"; };
+		DBA825A73525A8278C170A89 /* ShareModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShareModels.swift; sourceTree = "<group>"; };
 		E42C295EA4584A44B2D88197 /* TemplatePickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemplatePickerView.swift; sourceTree = "<group>"; };
+		E64F45D293E1B44B076FE726 /* AMENShareExtension.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = AMENShareExtension.entitlements; sourceTree = "<group>"; };
 		E96B1EDAE41B4A07A7C0A567 /* AmenSyncModerationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmenSyncModerationService.swift; sourceTree = "<group>"; };
 		EF03BC942F2B31ED0026395A /* DEBUG_CHAT_NOT_OPENING.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = DEBUG_CHAT_NOT_OPENING.md; sourceTree = "<group>"; };
 		EF03BCA22F2B36EC0026395A /* FIX_TYPING_INDICATORS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = FIX_TYPING_INDICATORS.md; sourceTree = "<group>"; };
@@ -135,6 +153,10 @@
 		EF156EE52F80A46F000C4448 /* GreetingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GreetingService.swift; sourceTree = "<group>"; };
 		EF156EE62F80A48D000C4448 /* PersonalizedGreetingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonalizedGreetingView.swift; sourceTree = "<group>"; };
 		EF156EE72F80A4B3000C4448 /* GreetingSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GreetingSettingsView.swift; sourceTree = "<group>"; };
+		EF2ED8AA2FBD482F0020F3E0 /* AmenThreadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmenThreadView.swift; sourceTree = "<group>"; };
+		EF2ED8AB2FBD484A0020F3E0 /* AmenDesignStudioView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmenDesignStudioView.swift; sourceTree = "<group>"; };
+		EF2ED8AC2FBD48600020F3E0 /* AmenImmersiveFeedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmenImmersiveFeedView.swift; sourceTree = "<group>"; };
+		EF2ED8AD2FBD4A540020F3E0 /* AmenDesignExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmenDesignExportService.swift; sourceTree = "<group>"; };
 		EF3ACF7D2F30027C00596905 /* FIX_CONTACTS_PERMISSION_CRASH.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = FIX_CONTACTS_PERMISSION_CRASH.md; sourceTree = "<group>"; };
 		EF3ACF9D2F30603500596905 /* UNIFIED_CHAT_ENHANCEMENTS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = UNIFIED_CHAT_ENHANCEMENTS.md; sourceTree = "<group>"; };
 		EF3AD06B2F32F5AD00596905 /* genkit-server-index.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = "genkit-server-index.js"; sourceTree = "<group>"; };
@@ -251,6 +273,9 @@
 		EF5FB00E2F50EE34004D2993 /* IMPLEMENTATION_SUMMARY.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = IMPLEMENTATION_SUMMARY.md; sourceTree = "<group>"; };
 		EF5FB0102F50EE7E004D2993 /* ToastManagerExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToastManagerExtensions.swift; sourceTree = "<group>"; };
 		EF5FB0122F50EEBB004D2993 /* INTERACTIONS_FINAL_DELIVERY.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = INTERACTIONS_FINAL_DELIVERY.md; sourceTree = "<group>"; };
+		EF6854572FAB95B9000B840E /* AMENAPPUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AMENAPPUITestsLaunchTests.swift; sourceTree = "<group>"; };
+		EF6854582FAB95B9000B840E /* ContextualReactionUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextualReactionUITests.swift; sourceTree = "<group>"; };
+		EF6854A72FAD7480000B840E /* Phase34DiscoveryComposerUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Phase34DiscoveryComposerUITests.swift; sourceTree = "<group>"; };
 		EF6873C42F40F194006DC25E /* CloudStorageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudStorageService.swift; sourceTree = "<group>"; };
 		EF6873D42F40F394006DC25E /* RichTextEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RichTextEditorView.swift; sourceTree = "<group>"; };
 		EF6873E62F4170D7006DC25E /* CHURCH_NOTES_USER_FLOWS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CHURCH_NOTES_USER_FLOWS.md; sourceTree = "<group>"; };
@@ -270,6 +295,60 @@
 		EF72D8F72F4FEBCE00F51E08 /* BiometricOnboardingPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BiometricOnboardingPage.swift; sourceTree = "<group>"; };
 		EF72D8F92F4FEFB400F51E08 /* PrivacySettingsOnboardingPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacySettingsOnboardingPage.swift; sourceTree = "<group>"; };
 		EF7475D82F2C85CD00A4434F /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = Platforms/iPhoneOS.platform/Developer/Library/Frameworks/XCTest.framework; sourceTree = DEVELOPER_DIR; };
+		EF7DBC642FC4C8E0005CA8BC /* smartChurches.seed.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = smartChurches.seed.json; sourceTree = "<group>"; };
+		EF7DBCFF2FC555EA005CA8BC /* ImpactDashboardModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImpactDashboardModels.swift; sourceTree = "<group>"; };
+		EF7DBD022FC555F5005CA8BC /* ImpactDashboardService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImpactDashboardService.swift; sourceTree = "<group>"; };
+		EF7DBD032FC55608005CA8BC /* ImpactDashboardCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImpactDashboardCard.swift; sourceTree = "<group>"; };
+		EF7DBD062FC55617005CA8BC /* BadgeDetailSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BadgeDetailSheet.swift; sourceTree = "<group>"; };
+		EF7DBD092FC5562D005CA8BC /* MyImpactView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MyImpactView.swift; sourceTree = "<group>"; };
+		EF7DBD0A2FC55639005CA8BC /* ImpactInsightsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImpactInsightsService.swift; sourceTree = "<group>"; };
+		EF7DBD172FC55848005CA8BC /* SupportGroupModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupportGroupModels.swift; sourceTree = "<group>"; };
+		EF7DBD182FC55848005CA8BC /* SupportGroupService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupportGroupService.swift; sourceTree = "<group>"; };
+		EF7DBD192FC5584A005CA8BC /* SupportGroupsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupportGroupsView.swift; sourceTree = "<group>"; };
+		EF7DBD1A2FC5584B005CA8BC /* SupportGroupDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupportGroupDetailView.swift; sourceTree = "<group>"; };
+		EF7DBD1B2FC55878005CA8BC /* SupportGroupComposer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupportGroupComposer.swift; sourceTree = "<group>"; };
+		EF7DBD1C2FC55879005CA8BC /* CrisisModeModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrisisModeModels.swift; sourceTree = "<group>"; };
+		EF7DBD1D2FC5587A005CA8BC /* CrisisIndicatorService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrisisIndicatorService.swift; sourceTree = "<group>"; };
+		EF7DBD1E2FC5587B005CA8BC /* CrisisNotificationSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrisisNotificationSettingsView.swift; sourceTree = "<group>"; };
+		EF7DBD1F2FC558A2005CA8BC /* AnonCrisisPostModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnonCrisisPostModels.swift; sourceTree = "<group>"; };
+		EF7DBD202FC558A3005CA8BC /* AnonCrisisPostCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnonCrisisPostCard.swift; sourceTree = "<group>"; };
+		EF7DBD212FC558A4005CA8BC /* GivingPostModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GivingPostModels.swift; sourceTree = "<group>"; };
+		EF7DBD222FC558A4005CA8BC /* AnonCrisisPostComposer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnonCrisisPostComposer.swift; sourceTree = "<group>"; };
+		EF7DBD232FC558A5005CA8BC /* GivingPostCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GivingPostCard.swift; sourceTree = "<group>"; };
+		EF7DBD242FC558A6005CA8BC /* GivingPostComposer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GivingPostComposer.swift; sourceTree = "<group>"; };
+		EF7DBD252FC558A6005CA8BC /* OrgVerificationModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrgVerificationModels.swift; sourceTree = "<group>"; };
+		EF7DBD262FC558A7005CA8BC /* OrgTrustScoreSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrgTrustScoreSection.swift; sourceTree = "<group>"; };
+		EF7DBD272FC558A7005CA8BC /* GivingGoalModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GivingGoalModels.swift; sourceTree = "<group>"; };
+		EF7DBD282FC558A7005CA8BC /* GivingGoalService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GivingGoalService.swift; sourceTree = "<group>"; };
+		EF7DBD292FC558A8005CA8BC /* GivingGoalDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GivingGoalDetailView.swift; sourceTree = "<group>"; };
+		EF7DBD2A2FC558A9005CA8BC /* CreateGivingGoalSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateGivingGoalSheet.swift; sourceTree = "<group>"; };
+		EF7DBD2B2FC558AA005CA8BC /* GivingGoalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GivingGoalView.swift; sourceTree = "<group>"; };
+		EF7DBD2C2FC558AB005CA8BC /* GivingCalendarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GivingCalendarView.swift; sourceTree = "<group>"; };
+		EF7DBD2D2FC55951005CA8BC /* Config.local.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.local.xcconfig; sourceTree = "<group>"; };
+		EF7DBD2E2FC559CE005CA8BC /* FeedContextModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedContextModels.swift; sourceTree = "<group>"; };
+		EF7DBD2F2FC559CE005CA8BC /* FeedPreferencesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedPreferencesView.swift; sourceTree = "<group>"; };
+		EF7DBD302FC559CE005CA8BC /* NotificationOrchestratorModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationOrchestratorModels.swift; sourceTree = "<group>"; };
+		EF7DBD312FC559CF005CA8BC /* NotificationPreferencesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationPreferencesView.swift; sourceTree = "<group>"; };
+		EF7DBD322FC55A15005CA8BC /* ModerationModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModerationModels.swift; sourceTree = "<group>"; };
+		EF7DBD332FC55A16005CA8BC /* ModerationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModerationService.swift; sourceTree = "<group>"; };
+		EF7DBD342FC55A16005CA8BC /* ModerationDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModerationDashboardView.swift; sourceTree = "<group>"; };
+		EF7DBD352FC55A16005CA8BC /* ModerationCaseDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModerationCaseDetailView.swift; sourceTree = "<group>"; };
+		EF7DBD362FC55A16005CA8BC /* CrisisEscalationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrisisEscalationView.swift; sourceTree = "<group>"; };
+		EF7DBD372FC55A16005CA8BC /* OnboardingModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingModels.swift; sourceTree = "<group>"; };
+		EF7DBD382FC55A17005CA8BC /* OnboardingFunnelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingFunnelView.swift; sourceTree = "<group>"; };
+		EF7DBD392FC55A17005CA8BC /* DeepLinkRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepLinkRouter.swift; sourceTree = "<group>"; };
+		EF7DBD3E2FC55A9F005CA8BC /* SelahContracts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelahContracts.swift; sourceTree = "<group>"; };
+		EF7DBD3F2FC55ABD005CA8BC /* selahContracts.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = selahContracts.ts; sourceTree = "<group>"; };
+		EF7DBD402FC55AD0005CA8BC /* firestore.schema.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = firestore.schema.md; sourceTree = "<group>"; };
+		EF7DBD412FC55AE5005CA8BC /* firestore.rules */ = {isa = PBXFileReference; lastKnownFileType = text; path = firestore.rules; sourceTree = "<group>"; };
+		EF7DBD442FC55AF8005CA8BC /* firestore.rules.test.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = firestore.rules.test.ts; sourceTree = "<group>"; };
+		EF7DBD452FC55AFC005CA8BC /* ButtonInventory.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = ButtonInventory.md; sourceTree = "<group>"; };
+		EF7DBD462FC55B0B005CA8BC /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
+		EF7DBD492FC55CF0005CA8BC /* contracts.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = contracts.ts; sourceTree = "<group>"; };
+		EF7DBD4A2FC55CFA005CA8BC /* studySheet.v1.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = studySheet.v1.ts; sourceTree = "<group>"; };
+		EF7DBD4B2FC55D00005CA8BC /* classifiers.v1.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = classifiers.v1.ts; sourceTree = "<group>"; };
+		EF7DBD572FC55D5E005CA8BC /* index.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = index.ts; sourceTree = "<group>"; };
+		EF7DBD5C2FC55D7E005CA8BC /* index.test.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = index.test.ts; sourceTree = "<group>"; };
 		EF7F00562F8957A400B31A9A /* groupLinks.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = groupLinks.ts; sourceTree = "<group>"; };
 		EF7FF4B92F88A22400B31A9A /* ActionThreadModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionThreadModels.swift; sourceTree = "<group>"; };
 		EF7FF4BA2F88A22500B31A9A /* CompoundIdentityModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompoundIdentityModels.swift; sourceTree = "<group>"; };
@@ -405,9 +484,14 @@
 		EFAE0A7A2F4E6DA1009D7209 /* AntiHarassmentEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AntiHarassmentEngine.swift; sourceTree = "<group>"; };
 		EFAE0A7E2F4E6E7E009D7209 /* SafetyUIComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafetyUIComponents.swift; sourceTree = "<group>"; };
 		EFAE0A802F4E87B0009D7209 /* NetworkTimeoutHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkTimeoutHandler.swift; sourceTree = "<group>"; };
+		EFB133592FC2ACD600C250CF /* profileBanners.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = profileBanners.ts; sourceTree = "<group>"; };
+		EFB133B22FC4AAB600C250CF /* types.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = types.ts; sourceTree = "<group>"; };
+		EFB133B32FC4AAB700C250CF /* index.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = index.ts; sourceTree = "<group>"; };
+		EFB133BE2FC4AABD00C250CF /* index.test.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = index.test.ts; sourceTree = "<group>"; };
 		EFB9554E2F7A48F9001FEE47 /* Assets2.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets2.xcassets; sourceTree = "<group>"; };
 		EFB955D72F7CD850001FEE47 /* MESSAGING_PERMISSIONS_FIX.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = MESSAGING_PERMISSIONS_FIX.md; sourceTree = "<group>"; };
 		EFBA28C02F6F429600B54517 /* NotificationScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationScheduler.swift; sourceTree = "<group>"; };
+		EFC737A62FB8DED900335EDB /* SelahScriptureReaderUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelahScriptureReaderUITests.swift; sourceTree = "<group>"; };
 		EFCC00012F7000000099AA01 /* ScriptureIntelligenceEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScriptureIntelligenceEngine.swift; sourceTree = "<group>"; };
 		EFCC00022F7000000099AA02 /* PersonalSpiritualGraphService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonalSpiritualGraphService.swift; sourceTree = "<group>"; };
 		EFCC00032F7000000099AA03 /* SpiritualStateModeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpiritualStateModeService.swift; sourceTree = "<group>"; };
@@ -438,6 +522,10 @@
 		EFD4FEC72F5F2B1400672160 /* TestimonyContextDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestimonyContextDetector.swift; sourceTree = "<group>"; };
 		EFD4FEC92F5F2B5900672160 /* PoliticalDiscussionGuard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoliticalDiscussionGuard.swift; sourceTree = "<group>"; };
 		EFD4FECB2F5F2BB800672160 /* HumorToneClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HumorToneClassifier.swift; sourceTree = "<group>"; };
+		EFDDE9862FB5352B00026DBC /* AmenTouchedFeatures10GoUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmenTouchedFeatures10GoUITests.swift; sourceTree = "<group>"; };
+		EFDDE9A72FB65AC100026DBC /* amenConnect.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = amenConnect.ts; sourceTree = "<group>"; };
+		EFFA73202FC63153004D4A2D /* AmenAmbientActionOrbit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmenAmbientActionOrbit.swift; sourceTree = "<group>"; };
+		EFFA73242FC63F2D004D4A2D /* spatialRooms.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = spatialRooms.ts; sourceTree = "<group>"; };
 		FE6331EA2267427EBCD3177B /* AmenSyncReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmenSyncReviewView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -452,7 +540,19 @@
 		EF7F3C6A2F2352350016C6EE /* Exceptions for "AMENAPP" folder in "AMENAPP" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				AmenDailyDigest.swift,
+				AmenOnboardingCompletionRouting.swift,
+				Impact/BadgeDetailSheet.swift,
+				Impact/ImpactDashboardCard.swift,
+				Impact/ImpactDashboardModels.swift,
+				Impact/ImpactDashboardService.swift,
+				Impact/ImpactInsightsService.swift,
+				Impact/MyImpactView.swift,
 				Info.plist,
+				Integrations/AmenConnectedAppsView.swift,
+				Integrations/AmenIntegrationsModels.swift,
+				Integrations/AmenIntegrationsService.swift,
+				SelahScripture/SelahContracts.swift,
 			);
 			target = EF81519A2F184E97008912E3 /* AMENAPP */;
 		};
@@ -470,11 +570,21 @@
 			);
 			target = EFA100072F90000100000001 /* AMENNotificationServiceExtension */;
 		};
+		EFAA00102FA1000100000001 /* Exceptions for "AMENAPPTests" folder in "AMENAPPTests" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = EF56F7402F2881A30019B94A /* AMENAPPTests */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		EF56F7422F2881A30019B94A /* AMENAPPTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				EFAA00102FA1000100000001 /* Exceptions for "AMENAPPTests" folder in "AMENAPPTests" target */,
+			);
 			path = AMENAPPTests;
 			sourceTree = "<group>";
 		};
@@ -506,6 +616,14 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		04B9DDF6B12D6082215D6F45 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				51C3BBBD35529A184D2CB268 /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		EF56F73E2F2881A30019B94A /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -580,6 +698,198 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		532D988A95B88B47EAAEC22B /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				390ED0CA4592100B3231632F /* Foundation.framework */,
+			);
+			name = iOS;
+			sourceTree = "<group>";
+		};
+		6DFCFDE551EA437159BF3A3B /* AMENShareExtension */ = {
+			isa = PBXGroup;
+			children = (
+				6DEC61D1C5B12A257081E278 /* ShareExtensionViewController.swift */,
+				DBA825A73525A8278C170A89 /* ShareModels.swift */,
+				8E1E62701DA9B39E93900124 /* Info.plist */,
+				E64F45D293E1B44B076FE726 /* AMENShareExtension.entitlements */,
+			);
+			path = AMENShareExtension;
+			sourceTree = "<group>";
+		};
+		EF68538B2FA839CE000B840E /* livingEntries */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = livingEntries;
+			sourceTree = "<group>";
+		};
+		EF6854562FAB959A000B840E /* AMENAPPUITests 2 */ = {
+			isa = PBXGroup;
+			children = (
+				EF6854572FAB95B9000B840E /* AMENAPPUITestsLaunchTests.swift */,
+				EF6854582FAB95B9000B840E /* ContextualReactionUITests.swift */,
+				EF6854A72FAD7480000B840E /* Phase34DiscoveryComposerUITests.swift */,
+				EFDDE9862FB5352B00026DBC /* AmenTouchedFeatures10GoUITests.swift */,
+				EFC737A62FB8DED900335EDB /* SelahScriptureReaderUITests.swift */,
+			);
+			path = "AMENAPPUITests 2";
+			sourceTree = "<group>";
+		};
+		EF7DBC632FC4C882005CA8BC /* seeds */ = {
+			isa = PBXGroup;
+			children = (
+				EF7DBC642FC4C8E0005CA8BC /* smartChurches.seed.json */,
+			);
+			path = seeds;
+			sourceTree = "<group>";
+		};
+		EF7DBCF42FC55475005CA8BC /* Impact */ = {
+			isa = PBXGroup;
+			children = (
+				EF7DBCFF2FC555EA005CA8BC /* ImpactDashboardModels.swift */,
+				EF7DBD022FC555F5005CA8BC /* ImpactDashboardService.swift */,
+				EF7DBD032FC55608005CA8BC /* ImpactDashboardCard.swift */,
+				EF7DBD062FC55617005CA8BC /* BadgeDetailSheet.swift */,
+				EF7DBD092FC5562D005CA8BC /* MyImpactView.swift */,
+				EF7DBD0A2FC55639005CA8BC /* ImpactInsightsService.swift */,
+			);
+			path = Impact;
+			sourceTree = "<group>";
+		};
+		EF7DBCF52FC55476005CA8BC /* SupportGroups */ = {
+			isa = PBXGroup;
+			children = (
+				EF7DBD172FC55848005CA8BC /* SupportGroupModels.swift */,
+				EF7DBD182FC55848005CA8BC /* SupportGroupService.swift */,
+				EF7DBD192FC5584A005CA8BC /* SupportGroupsView.swift */,
+				EF7DBD1A2FC5584B005CA8BC /* SupportGroupDetailView.swift */,
+				EF7DBD1B2FC55878005CA8BC /* SupportGroupComposer.swift */,
+			);
+			path = SupportGroups;
+			sourceTree = "<group>";
+		};
+		EF7DBCF62FC55476005CA8BC /* Crisis */ = {
+			isa = PBXGroup;
+			children = (
+				EF7DBD1C2FC55879005CA8BC /* CrisisModeModels.swift */,
+				EF7DBD1D2FC5587A005CA8BC /* CrisisIndicatorService.swift */,
+				EF7DBD1E2FC5587B005CA8BC /* CrisisNotificationSettingsView.swift */,
+				EF7DBD1F2FC558A2005CA8BC /* AnonCrisisPostModels.swift */,
+				EF7DBD202FC558A3005CA8BC /* AnonCrisisPostCard.swift */,
+				EF7DBD222FC558A4005CA8BC /* AnonCrisisPostComposer.swift */,
+			);
+			path = Crisis;
+			sourceTree = "<group>";
+		};
+		EF7DBCF72FC55476005CA8BC /* Moderation */ = {
+			isa = PBXGroup;
+			children = (
+				EF7DBD322FC55A15005CA8BC /* ModerationModels.swift */,
+				EF7DBD332FC55A16005CA8BC /* ModerationService.swift */,
+				EF7DBD342FC55A16005CA8BC /* ModerationDashboardView.swift */,
+				EF7DBD352FC55A16005CA8BC /* ModerationCaseDetailView.swift */,
+				EF7DBD362FC55A16005CA8BC /* CrisisEscalationView.swift */,
+			);
+			path = Moderation;
+			sourceTree = "<group>";
+		};
+		EF7DBCF82FC55476005CA8BC /* Onboarding */ = {
+			isa = PBXGroup;
+			children = (
+				EF7DBD372FC55A16005CA8BC /* OnboardingModels.swift */,
+				EF7DBD382FC55A17005CA8BC /* OnboardingFunnelView.swift */,
+				EF7DBD392FC55A17005CA8BC /* DeepLinkRouter.swift */,
+				EFFA73202FC63153004D4A2D /* AmenAmbientActionOrbit.swift */,
+			);
+			path = Onboarding;
+			sourceTree = "<group>";
+		};
+		EF7DBCF92FC55476005CA8BC /* Giving */ = {
+			isa = PBXGroup;
+			children = (
+				EF7DBD212FC558A4005CA8BC /* GivingPostModels.swift */,
+				EF7DBD232FC558A5005CA8BC /* GivingPostCard.swift */,
+				EF7DBD242FC558A6005CA8BC /* GivingPostComposer.swift */,
+				EF7DBD272FC558A7005CA8BC /* GivingGoalModels.swift */,
+				EF7DBD282FC558A7005CA8BC /* GivingGoalService.swift */,
+				EF7DBD292FC558A8005CA8BC /* GivingGoalDetailView.swift */,
+				EF7DBD2A2FC558A9005CA8BC /* CreateGivingGoalSheet.swift */,
+				EF7DBD2B2FC558AA005CA8BC /* GivingGoalView.swift */,
+				EF7DBD2C2FC558AB005CA8BC /* GivingCalendarView.swift */,
+			);
+			path = Giving;
+			sourceTree = "<group>";
+		};
+		EF7DBCFA2FC55476005CA8BC /* Organizations */ = {
+			isa = PBXGroup;
+			children = (
+				EF7DBD252FC558A6005CA8BC /* OrgVerificationModels.swift */,
+				EF7DBD262FC558A7005CA8BC /* OrgTrustScoreSection.swift */,
+			);
+			path = Organizations;
+			sourceTree = "<group>";
+		};
+		EF7DBCFB2FC55476005CA8BC /* Feed */ = {
+			isa = PBXGroup;
+			children = (
+				EF7DBD2E2FC559CE005CA8BC /* FeedContextModels.swift */,
+				EF7DBD2F2FC559CE005CA8BC /* FeedPreferencesView.swift */,
+			);
+			path = Feed;
+			sourceTree = "<group>";
+		};
+		EF7DBCFC2FC55476005CA8BC /* Notifications */ = {
+			isa = PBXGroup;
+			children = (
+				EF7DBD302FC559CE005CA8BC /* NotificationOrchestratorModels.swift */,
+				EF7DBD312FC559CF005CA8BC /* NotificationPreferencesView.swift */,
+			);
+			path = Notifications;
+			sourceTree = "<group>";
+		};
+		EF7DBD3C2FC55A76005CA8BC /* Selah */ = {
+			isa = PBXGroup;
+			children = (
+				EF7DBD3D2FC55A7A005CA8BC /* _contracts */,
+			);
+			path = Selah;
+			sourceTree = "<group>";
+		};
+		EF7DBD3D2FC55A7A005CA8BC /* _contracts */ = {
+			isa = PBXGroup;
+			children = (
+				EF7DBD3E2FC55A9F005CA8BC /* SelahContracts.swift */,
+				EF7DBD3F2FC55ABD005CA8BC /* selahContracts.ts */,
+				EF7DBD402FC55AD0005CA8BC /* firestore.schema.md */,
+				EF7DBD412FC55AE5005CA8BC /* firestore.rules */,
+				EF7DBD442FC55AF8005CA8BC /* firestore.rules.test.ts */,
+				EF7DBD452FC55AFC005CA8BC /* ButtonInventory.md */,
+				EF7DBD462FC55B0B005CA8BC /* README.md */,
+			);
+			path = _contracts;
+			sourceTree = "<group>";
+		};
+		EF7DBD472FC55CDD005CA8BC /* selahBibleEngine */ = {
+			isa = PBXGroup;
+			children = (
+				EF7DBD482FC55CDF005CA8BC /* prompts */,
+				EF7DBD492FC55CF0005CA8BC /* contracts.ts */,
+				EF7DBD572FC55D5E005CA8BC /* index.ts */,
+				EF7DBD5C2FC55D7E005CA8BC /* index.test.ts */,
+			);
+			path = selahBibleEngine;
+			sourceTree = "<group>";
+		};
+		EF7DBD482FC55CDF005CA8BC /* prompts */ = {
+			isa = PBXGroup;
+			children = (
+				EF7DBD4A2FC55CFA005CA8BC /* studySheet.v1.ts */,
+				EF7DBD4B2FC55D00005CA8BC /* classifiers.v1.ts */,
+			);
+			path = prompts;
+			sourceTree = "<group>";
+		};
 		EF8151922F184E97008912E3 = {
 			isa = PBXGroup;
 			children = (
@@ -882,6 +1192,24 @@
 				EF7FF4C32F88A3AB00B31A9A /* ProofOfHumanService.swift */,
 				EF7FF4C42F88A3AB00B31A9A /* ProofOfCareService.swift */,
 				EF9B624D2F90C2F200D0E71B /* Recovered References */,
+				EF6854562FAB959A000B840E /* AMENAPPUITests 2 */,
+				6DFCFDE551EA437159BF3A3B /* AMENShareExtension */,
+				EF2ED8AA2FBD482F0020F3E0 /* AmenThreadView.swift */,
+				EF2ED8AB2FBD484A0020F3E0 /* AmenDesignStudioView.swift */,
+				EF2ED8AC2FBD48600020F3E0 /* AmenImmersiveFeedView.swift */,
+				EF2ED8AD2FBD4A540020F3E0 /* AmenDesignExportService.swift */,
+				EFB132522FBFE0CE00C250CF /* Integrations */,
+				EF7DBCF42FC55475005CA8BC /* Impact */,
+				EF7DBCF52FC55476005CA8BC /* SupportGroups */,
+				EF7DBCF62FC55476005CA8BC /* Crisis */,
+				EF7DBCF72FC55476005CA8BC /* Moderation */,
+				EF7DBCF82FC55476005CA8BC /* Onboarding */,
+				EF7DBCF92FC55476005CA8BC /* Giving */,
+				EF7DBCFA2FC55476005CA8BC /* Organizations */,
+				EF7DBCFB2FC55476005CA8BC /* Feed */,
+				EF7DBCFC2FC55476005CA8BC /* Notifications */,
+				EF7DBD2D2FC55951005CA8BC /* Config.local.xcconfig */,
+				EF7DBD3C2FC55A76005CA8BC /* Selah */,
 			);
 			sourceTree = "<group>";
 		};
@@ -892,6 +1220,7 @@
 				EF56F7412F2881A30019B94A /* AMENAPPTests.xctest */,
 				EF5B39042F5BA7A500152D09 /* AMENWidgetExtensionExtension.appex */,
 				EFA100032F90000100000001 /* AMENNotificationServiceExtension.appex */,
+				045CC55D491DB352A8011889 /* AMENShareExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -916,6 +1245,7 @@
 			children = (
 				EF9FD0232F821BA000EBF035 /* functions */,
 				EF9FE6952F821ED000EBF035 /* firestore.creator.rules.md */,
+				EF7DBC632FC4C882005CA8BC /* seeds */,
 			);
 			path = Backend;
 			sourceTree = "<group>";
@@ -941,6 +1271,12 @@
 				EF9B3B9A2F8B230900D0E71B /* suggestedAccounts.ts */,
 				EF9B3BD62F8D023900D0E71B /* feedBuilder.ts */,
 				EF9B3C082F8DACFB00D0E71B /* trustIntelligence.ts */,
+				EF68538B2FA839CE000B840E /* livingEntries */,
+				EFDDE9A72FB65AC100026DBC /* amenConnect.ts */,
+				EFB133592FC2ACD600C250CF /* profileBanners.ts */,
+				EFB133982FC4A7E200C250CF /* creatorSpaces */,
+				EF7DBD472FC55CDD005CA8BC /* selahBibleEngine */,
+				EFFA73242FC63F2D004D4A2D /* spatialRooms.ts */,
 			);
 			path = src;
 			sourceTree = "<group>";
@@ -975,6 +1311,23 @@
 			path = creator;
 			sourceTree = "<group>";
 		};
+		EFB132522FBFE0CE00C250CF /* Integrations */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Integrations;
+			sourceTree = "<group>";
+		};
+		EFB133982FC4A7E200C250CF /* creatorSpaces */ = {
+			isa = PBXGroup;
+			children = (
+				EFB133B22FC4AAB600C250CF /* types.ts */,
+				EFB133B32FC4AAB700C250CF /* index.ts */,
+				EFB133BE2FC4AABD00C250CF /* index.test.ts */,
+			);
+			path = creatorSpaces;
+			sourceTree = "<group>";
+		};
 		EFBDED3F2F251CD1001E650E /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
@@ -982,6 +1335,7 @@
 				EF7475D82F2C85CD00A4434F /* XCTest.framework */,
 				EF5B39052F5BA7A500152D09 /* WidgetKit.framework */,
 				EF5B39072F5BA7A500152D09 /* SwiftUI.framework */,
+				532D988A95B88B47EAAEC22B /* iOS */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -989,6 +1343,23 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		561EF8B533472521CEBD6FE3 /* AMENShareExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 09D54B2B9C933A860D770F15 /* Build configuration list for PBXNativeTarget "AMENShareExtension" */;
+			buildPhases = (
+				B39B16AB639FA4FB2B9FC22B /* Sources */,
+				04B9DDF6B12D6082215D6F45 /* Frameworks */,
+				4B0FB458F234E808B9E1D489 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = AMENShareExtension;
+			productName = AMENShareExtension;
+			productReference = 045CC55D491DB352A8011889 /* AMENShareExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		EF56F7402F2881A30019B94A /* AMENAPPTests */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = EF56F7472F2881A40019B94A /* Build configuration list for PBXNativeTarget "AMENAPPTests" */;
@@ -1006,8 +1377,6 @@
 				EF56F7422F2881A30019B94A /* AMENAPPTests */,
 			);
 			name = AMENAPPTests;
-			packageProductDependencies = (
-			);
 			productName = AMENAPPTests;
 			productReference = EF56F7412F2881A30019B94A /* AMENAPPTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
@@ -1028,8 +1397,6 @@
 				EF5B39092F5BA7A500152D09 /* AMENWidgetExtension */,
 			);
 			name = AMENWidgetExtensionExtension;
-			packageProductDependencies = (
-			);
 			productName = AMENWidgetExtensionExtension;
 			productReference = EF5B39042F5BA7A500152D09 /* AMENWidgetExtensionExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
@@ -1050,6 +1417,7 @@
 			dependencies = (
 				EF5B39142F5BA7A600152D09 /* PBXTargetDependency */,
 				EFA1000A2F90000100000001 /* PBXTargetDependency */,
+				6AF0387C43F62F34A91993ED /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				EF81519D2F184E97008912E3 /* AMENAPP */,
@@ -1116,8 +1484,6 @@
 				EFA100052F90000100000001 /* AMENNotificationServiceExtension */,
 			);
 			name = AMENNotificationServiceExtension;
-			packageProductDependencies = (
-			);
 			productName = AMENNotificationServiceExtension;
 			productReference = EFA100032F90000100000001 /* AMENNotificationServiceExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
@@ -1172,11 +1538,19 @@
 				EF56F7402F2881A30019B94A /* AMENAPPTests */,
 				EF5B39032F5BA7A500152D09 /* AMENWidgetExtensionExtension */,
 				EFA100072F90000100000001 /* AMENNotificationServiceExtension */,
+				561EF8B533472521CEBD6FE3 /* AMENShareExtension */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		4B0FB458F234E808B9E1D489 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		EF56F73F2F2881A30019B94A /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1231,6 +1605,15 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		B39B16AB639FA4FB2B9FC22B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B4FF91C2C7FE78C9A0B230B5 /* ShareExtensionViewController.swift in Sources */,
+				0A184BB749D1A438DE65BD8C /* ShareModels.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		EF56F73D2F2881A30019B94A /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1262,6 +1645,12 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		6AF0387C43F62F34A91993ED /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = AMENShareExtension;
+			target = 561EF8B533472521CEBD6FE3 /* AMENShareExtension */;
+			targetProxy = 906CE4C82C5A4631338C9E7F /* PBXContainerItemProxy */;
+		};
 		EF56F7462F2881A40019B94A /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = EF81519A2F184E97008912E3 /* AMENAPP */;
@@ -1280,6 +1669,63 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		275A15ACA7BCF55DF2ED588A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = AMENShareExtension/AMENShareExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 5;
+				DEVELOPMENT_TEAM = FGLL559H83;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AMENShareExtension/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = tapera.AMENAPP.AMENShareExtension;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		E155FB5354F5CC96F9FA8EC6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = AMENShareExtension/AMENShareExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 5;
+				DEVELOPMENT_TEAM = FGLL559H83;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AMENShareExtension/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = tapera.AMENAPP.AMENShareExtension;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
 		EF56F7482F2881A40019B94A /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1288,7 +1734,7 @@
 				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_TEAM = FGLL559H83;
 				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = tapera.AMENAPPTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
@@ -1309,7 +1755,7 @@
 				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_TEAM = FGLL559H83;
 				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = tapera.AMENAPPTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
@@ -1335,13 +1781,13 @@
 				INFOPLIST_FILE = AMENWidgetExtension/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = AMENWidgetExtension;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = tapera.AMENAPP.AMENWidgetExtension;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -1366,13 +1812,13 @@
 				INFOPLIST_FILE = AMENWidgetExtension/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = AMENWidgetExtension;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = tapera.AMENAPP.AMENWidgetExtension;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -1438,7 +1884,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
@@ -1496,7 +1942,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
@@ -1512,7 +1958,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = AMENAPP/AMENAPP.entitlements;
+				CODE_SIGN_ENTITLEMENTS = AMENAPP/AMENAPP.release.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_TEAM = FGLL559H83;
@@ -1540,7 +1986,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = tapera.AMENAPP;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -1559,7 +2005,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = AMENAPP/AMENAPP.entitlements;
+				CODE_SIGN_ENTITLEMENTS = AMENAPP/AMENAPP.release.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_TEAM = FGLL559H83;
@@ -1587,7 +2033,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = tapera.AMENAPP;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -1608,13 +2054,13 @@
 				DEVELOPMENT_TEAM = FGLL559H83;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = AMENNotificationServiceExtension/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = tapera.AMENAPP.AMENNotificationServiceExtension;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -1635,13 +2081,13 @@
 				DEVELOPMENT_TEAM = FGLL559H83;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = AMENNotificationServiceExtension/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = tapera.AMENAPP.AMENNotificationServiceExtension;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -1657,6 +2103,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		09D54B2B9C933A860D770F15 /* Build configuration list for PBXNativeTarget "AMENShareExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				275A15ACA7BCF55DF2ED588A /* Release */,
+				E155FB5354F5CC96F9FA8EC6 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		EF56F7472F2881A40019B94A /* Build configuration list for PBXNativeTarget "AMENAPPTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
