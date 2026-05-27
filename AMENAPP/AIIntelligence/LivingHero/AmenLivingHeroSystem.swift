@@ -116,7 +116,7 @@ struct AmenLivingHeroView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-    @Environment(\.accessibilityContrast) private var contrast
+    @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var floated = false
 
@@ -131,6 +131,13 @@ struct AmenLivingHeroView: View {
 
     private var useFallback: Bool {
         reduceMotion || reduceTransparency || ProcessInfo.processInfo.isLowPowerModeEnabled
+    }
+
+    private var fallbackReason: String {
+        if reduceMotion { return "reduce_motion" }
+        if reduceTransparency { return "reduce_transparency" }
+        if ProcessInfo.processInfo.isLowPowerModeEnabled { return "low_power_mode" }
+        return "none"
     }
 
     var body: some View {
@@ -150,7 +157,11 @@ struct AmenLivingHeroView: View {
             }
         }
         .onAppear {
-            AmenLivingHeroTelemetry.shared.trackImpression(scene)
+            if useFallback {
+                AmenLivingHeroTelemetry.shared.trackFallback(scene, reason: fallbackReason)
+            } else {
+                AmenLivingHeroTelemetry.shared.trackImpression(scene)
+            }
             guard motion.shouldAnimate else { return }
             withAnimation(motion.driftAnimation) { floated = true }
         }
@@ -186,7 +197,7 @@ struct AmenLivingHeroCard: View {
 
                     Text(scene.title)
                         .font(.headline.weight(.semibold))
-                        .foregroundStyle(.black)
+                        .foregroundStyle(AmenTheme.Colors.textPrimary)
                         .fixedSize(horizontal: false, vertical: true)
 
                     Text(scene.subtitle)
@@ -198,7 +209,7 @@ struct AmenLivingHeroCard: View {
                         Text(detail)
                             .font(.footnote)
                             .foregroundStyle(.black.opacity(highContrast ? 0.82 : 0.58))
-                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
 
                     actionRow
@@ -249,7 +260,7 @@ struct AmenLivingHeroCard: View {
                     } label: {
                         Label(title, systemImage: "sparkles")
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(.black)
+                            .foregroundStyle(AmenTheme.Colors.textPrimary)
                             .lineLimit(1)
                     }
                     .buttonStyle(.bordered)
@@ -283,10 +294,14 @@ struct AmenLivingHeroCard: View {
     private func offset(for index: Int) -> CGSize {
         let direction: CGFloat = floated && motion.shouldAnimate ? 1 : -1
         switch index {
-        case 0: return CGSize(width: direction * 1, y: direction * -2)
-        case 1: return CGSize(width: 26 + direction * 3, y: -19 + direction * 2)
-        case 2: return CGSize(width: -22 + direction * -2, y: 20 + direction * -1)
-        default: return CGSize(width: 28 + direction * -2, y: 24 + direction * 2)
+        case 0:
+            return CGSize(width: direction, height: direction * -2)
+        case 1:
+            return CGSize(width: 26 + direction * 3, height: -19 + direction * 2)
+        case 2:
+            return CGSize(width: -22 + direction * -2, height: 20 + direction * -1)
+        default:
+            return CGSize(width: 28 + direction * -2, height: 24 + direction * 2)
         }
     }
 }
@@ -336,24 +351,24 @@ struct AmenLivingHeroReduceMotionFallback: View {
 
             Text(scene.title)
                 .font(.headline.weight(.semibold))
-                .foregroundStyle(.black)
+                .foregroundStyle(AmenTheme.Colors.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
 
             Text(scene.subtitle)
                 .font(.subheadline)
-                .foregroundStyle(.black.opacity(0.72))
+                .foregroundStyle(AmenTheme.Colors.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
             if let detail = scene.detail, !detail.isEmpty {
                 Text(detail)
                     .font(.footnote)
-                    .foregroundStyle(.black.opacity(0.62))
+                    .foregroundStyle(AmenTheme.Colors.textTertiary)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(18)
-        .background(Color.white, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(Color.black.opacity(0.10), lineWidth: 1))
+        .background(AmenTheme.Colors.surfaceCard, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(AmenTheme.Colors.borderSoft, lineWidth: 1))
         .accessibilityElement(children: .combine)
     }
 }
@@ -492,13 +507,17 @@ final class AmenLivingHeroTelemetry {
 
     func trackImpression(_ scene: AmenLivingHeroScene) {
         guard AMENFeatureFlags.shared.spatialHeroPerformanceTelemetryEnabled else { return }
-        // Hook point for production analytics. Kept no-op until event taxonomy is approved.
-        _ = scene.analyticsName
+        AMENAnalyticsService.shared.track(.livingHeroImpression(surface: scene.analyticsName, sceneId: scene.id))
     }
 
     func trackAction(_ scene: AmenLivingHeroScene, action: String) {
         guard AMENFeatureFlags.shared.spatialHeroPerformanceTelemetryEnabled else { return }
-        _ = "\(scene.analyticsName)_\(action)"
+        AMENAnalyticsService.shared.track(.livingHeroAction(surface: scene.analyticsName, sceneId: scene.id, action: action))
+    }
+
+    func trackFallback(_ scene: AmenLivingHeroScene, reason: String) {
+        guard AMENFeatureFlags.shared.spatialHeroPerformanceTelemetryEnabled else { return }
+        AMENAnalyticsService.shared.track(.livingHeroFallbackShown(surface: scene.analyticsName, sceneId: scene.id, reason: reason))
     }
 }
 

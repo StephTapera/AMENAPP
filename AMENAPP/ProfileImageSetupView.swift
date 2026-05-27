@@ -133,6 +133,8 @@ final class ProfileImageFlowViewModel: ObservableObject {
 }
 
 struct ProfileImageUploadService {
+    nonisolated init() {}
+
     func uploadProfileImage(_ image: UIImage) async throws {
         guard let uid = Auth.auth().currentUser?.uid else {
             throw NSError(domain: "ProfileImageUpload", code: 401, userInfo: [NSLocalizedDescriptionKey: "Sign in before saving a profile image."])
@@ -154,6 +156,8 @@ struct ProfileImageUploadService {
             "profileImageUpdatedAt": FieldValue.serverTimestamp(),
             "profileImageVisibility": "friends"
         ], merge: true)
+
+        NotificationCenter.default.post(name: Notification.Name("profileDataUpdated"), object: nil)
     }
 }
 
@@ -240,7 +244,7 @@ struct ProfileImageSetupView: View {
 
             Text("Add an Image to your Profile")
                 .font(.largeTitle.weight(.semibold))
-                .foregroundStyle(.black)
+                .foregroundStyle(AmenTheme.Colors.textPrimary)
                 .minimumScaleFactor(0.75)
             Text("Your image will be visible only to friends.")
                 .font(.body)
@@ -304,7 +308,7 @@ struct LiquidWhiteAvatarPlaceholder: View {
 
             Image(systemName: "plus")
                 .font(.system(size: 19, weight: .semibold))
-                .foregroundStyle(.black)
+                .foregroundStyle(AmenTheme.Colors.textPrimary)
                 .frame(width: 54, height: 54)
                 .background(reduceTransparency ? Color.white : Color.white.opacity(0.74), in: Circle())
                 .overlay(Circle().stroke(.white.opacity(0.9), lineWidth: 1))
@@ -343,10 +347,10 @@ struct LiquidWhiteBottomActionCard: View {
 
             Button("Choose from Library", action: libraryAction)
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.black)
+                .foregroundStyle(AmenTheme.Colors.textPrimary)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 13)
-                .background(.white.opacity(0.58), in: Capsule())
+                .background(AmenTheme.Colors.surfaceChip, in: Capsule())
                 .accessibilityLabel("Choose profile image from photo library")
 
             if showRemove {
@@ -372,7 +376,7 @@ struct ImageSourceBottomSheet: View {
         VStack(spacing: 16) {
             Text("Choose Image Source")
                 .font(.headline)
-                .foregroundStyle(.black)
+                .foregroundStyle(AmenTheme.Colors.textPrimary)
             VStack(spacing: 10) {
                 PhotosPicker(selection: $pickerItem, matching: .images) {
                     sourceRow(.photoLibrary)
@@ -401,10 +405,10 @@ struct ImageSourceBottomSheet: View {
                 .font(.caption)
                 .foregroundStyle(.tertiary)
         }
-        .foregroundStyle(.black)
+        .foregroundStyle(AmenTheme.Colors.textPrimary)
         .padding(14)
-        .background(.white, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(.black.opacity(0.06)))
+        .background(AmenTheme.Colors.surfaceCard, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(AmenTheme.Colors.borderSoft))
         .accessibilityLabel(source.title)
     }
 }
@@ -480,7 +484,7 @@ struct ProfileImagePreviewView: View {
         VStack(spacing: 28) {
             Text("Preview")
                 .font(.largeTitle.weight(.semibold))
-                .foregroundStyle(.black)
+                .foregroundStyle(AmenTheme.Colors.textPrimary)
                 .padding(.top, 48)
             if let image = vm.displayImage {
                 Image(uiImage: image)
@@ -499,8 +503,8 @@ struct ProfileImagePreviewView: View {
                 Spacer()
             }
             .padding(16)
-            .background(.white, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(.black.opacity(0.06)))
+            .background(AmenTheme.Colors.surfaceCard, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(AmenTheme.Colors.borderSoft))
             .padding(.horizontal, 24)
             Spacer()
             Button { Task { await vm.save() } } label: {
@@ -536,7 +540,7 @@ struct ProfileImageSuccessView: View {
                 }
                 Image(systemName: "checkmark")
                     .font(.system(size: 20, weight: .bold))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(AmenTheme.Colors.textPrimary)
                     .frame(width: 48, height: 48)
                     .background(.regularMaterial, in: Circle())
                     .overlay(Circle().stroke(.white.opacity(0.8)))

@@ -1,5 +1,5 @@
 // SpaceCardView.swift — AMEN App
-// Glass card representing a single Community/Space in the discovery list
+// White Amen Flow card representing a single Community/Space in discovery.
 
 import SwiftUI
 
@@ -10,162 +10,151 @@ struct SpaceCardView: View {
     let onTap: () -> Void
 
     @State private var joinPressed = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    private let accentPurple   = Color(red: 0.6,  green: 0.35, blue: 1.0)
-    private let accentPurpleDim = Color(red: 0.45, green: 0.2,  blue: 0.85)
+    private let accent = Color(red: 0.70, green: 0.12, blue: 0.30)
 
     var body: some View {
         Button(action: onTap) {
-            VStack(alignment: .leading, spacing: 12) {
-
-                // ── Top Row: name + join button ──────────────────────────
-                HStack(alignment: .center, spacing: 10) {
-                    Text(space.name)
-                        .font(AMENFont.bold(17))
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
-
-                    Spacer()
-
-                    joinButton
-                }
-
-                // ── AI Topic Pills ───────────────────────────────────────
-                if !space.aiDetectedTopics.isEmpty {
-                    HStack(spacing: 6) {
-                        ForEach(Array(space.aiDetectedTopics.prefix(3)), id: \.self) { topic in
-                            Text(topic)
-                                .font(AMENFont.semiBold(11))
-                                .foregroundStyle(.white.opacity(0.85))
-                                .padding(.horizontal, 9)
-                                .padding(.vertical, 4)
-                                .background(
-                                    Capsule()
-                                        .fill(accentPurple.opacity(0.15))
-                                        .overlay(
-                                            Capsule()
-                                                .strokeBorder(accentPurple.opacity(0.25), lineWidth: 0.75)
-                                        )
-                                )
-                        }
-                        Spacer()
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .top, spacing: 12) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(accent.opacity(0.10))
+                        Image(systemName: "person.3.fill")
+                            .font(.systemScaled(18, weight: .semibold))
+                            .foregroundStyle(accent)
                     }
+                    .frame(width: 48, height: 48)
+
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(space.name)
+                            .font(AMENFont.bold(17))
+                            .foregroundStyle(AmenTheme.Colors.textPrimary)
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        Text(space.description)
+                            .font(AMENFont.regular(14))
+                            .foregroundStyle(AmenTheme.Colors.textSecondary)
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    Spacer(minLength: 0)
                 }
 
-                // ── Description ──────────────────────────────────────────
-                Text(space.description)
-                    .font(AMENFont.regular(14))
-                    .foregroundStyle(.white.opacity(0.55))
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                // ── Stats Row ────────────────────────────────────────────
-                HStack(spacing: 14) {
-                    statItem(icon: "person.fill",
-                             value: space.memberCount.compactFormatted,
-                             label: "members")
-
-                    statItem(icon: "doc.fill",
-                             value: space.postCount.compactFormatted,
-                             label: "posts")
-
-                    statItem(icon: "flame.fill",
-                             value: space.weeklyActiveUsers.compactFormatted,
-                             label: "this week")
-
-                    Spacer()
+                if !space.aiDetectedTopics.isEmpty {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 6) {
+                            ForEach(Array(space.aiDetectedTopics.prefix(3)), id: \.self) { topic in
+                                Text(topic)
+                                    .font(AMENFont.semiBold(11))
+                                    .foregroundStyle(AmenTheme.Colors.textSecondary)
+                                    .padding(.horizontal, 9)
+                                    .padding(.vertical, 5)
+                                    .background(AmenTheme.Colors.surfaceChip, in: Capsule())
+                            }
+                        }
+                    }
+                    .accessibilityLabel("Spiritual topics")
                 }
 
-                // ── Recent Poster Avatar Stack ───────────────────────────
-                if !space.recentPosterPhotoURLs.isEmpty {
-                    avatarStack
+                statsBlock
+
+                HStack(spacing: 10) {
+                    if !space.recentPosterPhotoURLs.isEmpty {
+                        avatarStack
+                    } else {
+                        Label("Community conversation", systemImage: "bubble.left.and.bubble.right")
+                            .font(AMENFont.regular(12))
+                            .foregroundStyle(AmenTheme.Colors.textTertiary)
+                    }
+
+                    Spacer(minLength: 0)
+                    joinButton
                 }
             }
             .padding(16)
-            .background(
+            .background(AmenTheme.Colors.surfaceCard, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .overlay {
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(.ultraThinMaterial)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 20, style: .continuous)
-                            .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
-                    )
-                    .shadow(color: Color.black.opacity(0.35), radius: 12, x: 0, y: 6)
-            )
-            .contentShape(Rectangle())
+                    .strokeBorder(AmenTheme.Colors.borderSoft, lineWidth: 0.7)
+            }
+            .shadow(color: .black.opacity(0.055), radius: 14, y: 6)
+            .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         }
-        .buttonStyle(ScaleButtonStyle())
+        .buttonStyle(.plain)
+        .scaleEffect(joinPressed && !reduceMotion ? 0.992 : 1.0)
+        .animation(reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.28, dampingFraction: 0.82), value: joinPressed)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(space.name). \(space.memberCount) members. \(isJoined ? "Joined" : "Join")")
     }
-
-    // MARK: - Join Button
 
     private var joinButton: some View {
         Button {
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.65))) {
+            withAnimation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.72))) {
                 joinPressed = true
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
-                withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.65))) {
+                withAnimation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.72))) {
                     joinPressed = false
                 }
             }
             onJoin()
         } label: {
-            Group {
-                if isJoined {
-                    Text("Joined")
-                        .font(AMENFont.semiBold(13))
-                        .foregroundStyle(accentPurple)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 7)
-                        .background(
-                            Capsule()
-                                .fill(accentPurple.opacity(0.12))
-                                .overlay(
-                                    Capsule()
-                                        .strokeBorder(accentPurple.opacity(0.5), lineWidth: 1)
-                                )
-                        )
-                } else {
-                    Text("Join")
-                        .font(AMENFont.semiBold(13))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 18)
-                        .padding(.vertical, 7)
-                        .background(
-                            Capsule()
-                                .fill(
-                                    LinearGradient(
-                                        colors: [accentPurple, accentPurpleDim],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                )
-                                .shadow(color: accentPurple.opacity(0.4), radius: 6, y: 2)
-                        )
+            Text(isJoined ? "Joined" : "Join")
+                .font(AMENFont.semiBold(13))
+                .foregroundStyle(isJoined ? accent : .white)
+                .padding(.horizontal, isJoined ? 14 : 18)
+                .padding(.vertical, 8)
+                .background(joinButtonBackground, in: Capsule())
+                .overlay {
+                    Capsule()
+                        .strokeBorder(isJoined ? accent.opacity(0.35) : Color.clear, lineWidth: 1)
                 }
-            }
-            .scaleEffect(joinPressed ? 0.92 : 1.0)
-            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: joinPressed)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(isJoined ? "Joined" : "Join space")
     }
 
-    // MARK: - Stat Item
+    private var joinButtonBackground: some ShapeStyle {
+        isJoined ? AnyShapeStyle(accent.opacity(0.10)) : AnyShapeStyle(accent)
+    }
+
+    @ViewBuilder
+    private var statsBlock: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: 6) {
+                statItem(icon: "person.fill", value: space.memberCount.compactFormatted, label: "members")
+                statItem(icon: "doc.fill", value: space.postCount.compactFormatted, label: "posts")
+                statItem(icon: "shield.checkered", value: "Safe", label: "moderated")
+            }
+        } else {
+            HStack(spacing: 12) {
+                statItem(icon: "person.fill", value: space.memberCount.compactFormatted, label: "members")
+                statItem(icon: "doc.fill", value: space.postCount.compactFormatted, label: "posts")
+                statItem(icon: "shield.checkered", value: "Safe", label: "moderated")
+                Spacer(minLength: 0)
+            }
+        }
+    }
 
     private func statItem(icon: String, value: String, label: String) -> some View {
         HStack(spacing: 4) {
             Image(systemName: icon)
                 .font(.systemScaled(10, weight: .medium))
-                .foregroundStyle(.white.opacity(0.4))
+                .foregroundStyle(AmenTheme.Colors.textTertiary)
 
             Text("\(value) \(label)")
                 .font(AMENFont.regular(12))
-                .foregroundStyle(.white.opacity(0.4))
+                .foregroundStyle(AmenTheme.Colors.textTertiary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.82)
         }
     }
-
-    // MARK: - Avatar Stack
 
     private var avatarStack: some View {
         HStack(spacing: 6) {
@@ -174,12 +163,11 @@ struct SpaceCardView: View {
                     AsyncImage(url: URL(string: urlString)) { image in
                         image.resizable().scaledToFill()
                     } placeholder: {
-                        Circle()
-                            .fill(accentPurple.opacity(0.25))
+                        Circle().fill(accent.opacity(0.16))
                     }
                     .frame(width: 22, height: 22)
                     .clipShape(Circle())
-                    .overlay(Circle().strokeBorder(Color.black.opacity(0.6), lineWidth: 1.5))
+                    .overlay(Circle().strokeBorder(Color.white, lineWidth: 1.5))
                     .offset(x: CGFloat(index) * -6)
                     .zIndex(Double(3 - index))
                 }
@@ -189,7 +177,7 @@ struct SpaceCardView: View {
 
             Text("Recent activity")
                 .font(AMENFont.regular(12))
-                .foregroundStyle(.white.opacity(0.4))
+                .foregroundStyle(AmenTheme.Colors.textTertiary)
         }
     }
 }

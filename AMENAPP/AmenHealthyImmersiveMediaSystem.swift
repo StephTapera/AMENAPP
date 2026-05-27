@@ -63,6 +63,8 @@ enum AmenMediaSessionType: String, Codable, CaseIterable, Identifiable {
     case familySafeWatch
     case localChurchUpdates
     case savedVideos
+    case communityMoments
+    case discoverFeed
 
     var id: String { rawValue }
 
@@ -76,6 +78,8 @@ enum AmenMediaSessionType: String, Codable, CaseIterable, Identifiable {
         case .familySafeWatch: return "Family-safe Watch"
         case .localChurchUpdates: return "Local Church Updates"
         case .savedVideos: return "Saved Videos"
+        case .communityMoments: return "Community Moments"
+        case .discoverFeed: return "Discover"
         }
     }
 }
@@ -162,21 +166,6 @@ struct AmenMediaSessionItem: Identifiable, Codable, Equatable {
     let requiresInterruption: Bool
 }
 
-struct AmenMediaSession: Identifiable, Codable, Equatable {
-    let id: String
-    let sessionType: AmenMediaSessionType
-    let itemIds: [String]
-    var currentIndex: Int
-    var completed: Bool
-    let sourceSurface: AmenMediaSourceSurface
-    let safetyMode: AmenMediaSafetyMode?
-    let maxItems: Int
-    let maxDurationSeconds: Int
-
-    var isFinite: Bool { maxItems > 0 && itemIds.count <= maxItems }
-    var progressLabel: String { "\(min(currentIndex + 1, max(itemIds.count, 1))) of \(itemIds.count)" }
-}
-
 struct AmenMediaAccessibilitySettings: Codable, Equatable {
     var captionsDefaultOn: Bool = true
     var captionSize: Double = 1.0
@@ -232,6 +221,259 @@ enum AmenMediaFiniteSessionPolicy {
             || elapsedSeconds >= TimeInterval(checkpointSeconds)
             || rapidSkips >= 3
             || sensitiveContentAhead
+    }
+}
+
+enum MediaSessionCheckpointReason {
+    case itemsWatched
+    case timeElapsed
+    case rapidSkipping
+    case sensitiveTransition
+    case sensitiveContent
+    case sessionEnd
+}
+
+struct MediaSessionCheckpoint: Identifiable, Equatable {
+    let id = UUID()
+    let title: String
+    let message: String
+    let options: [CheckpointOption]
+
+    struct CheckpointOption: Identifiable, Equatable {
+        let id = UUID()
+        let label: String
+        let icon: String
+        let action: Action
+
+        enum Action: Equatable {
+            case `continue`
+            case reflect
+            case journal
+            case discuss
+            case save
+            case endSession
+        }
+    }
+
+    static func checkpoint(for reason: MediaSessionCheckpointReason) -> MediaSessionCheckpoint {
+        let copy: (String, String)
+        switch reason {
+        case .itemsWatched:
+            copy = ("Take a moment?", "You have completed a few items. Reflect now or continue intentionally.")
+        case .timeElapsed:
+            copy = ("Pause here?", "You have been in this session for a while. Choose what feels useful next.")
+        case .rapidSkipping:
+            copy = ("Slow the pace?", "You moved through several items quickly. You can pause, reflect, or keep going.")
+        case .sensitiveTransition, .sensitiveContent:
+            copy = ("Sensitive moment ahead", "Continue intentionally or take a break before the next item.")
+        case .sessionEnd:
+            copy = ("Session complete", "Reflect on what was useful, save what matters, or end here intentionally.")
+        }
+
+        return MediaSessionCheckpoint(
+            title: copy.0,
+            message: copy.1,
+            options: [
+                CheckpointOption(label: "Continue", icon: "arrow.right.circle", action: .continue),
+                CheckpointOption(label: "Reflect", icon: "text.bubble", action: .reflect),
+                CheckpointOption(label: "Journal", icon: "square.and.pencil", action: .journal),
+                CheckpointOption(label: "Discuss", icon: "bubble.left.and.bubble.right", action: .discuss),
+                CheckpointOption(label: "Save for Later", icon: "bookmark", action: .save),
+                CheckpointOption(label: "End Session", icon: "checkmark.circle", action: .endSession)
+            ]
+        )
+    }
+}
+
+extension AmenMediaSession {
+    var progressFraction: Double {
+        guard !itemIds.isEmpty else { return 1 }
+        return min(max(Double(currentIndex) / Double(itemIds.count), 0), 1)
+    }
+
+    var remainingCount: Int {
+        max(itemIds.count - currentIndex, 0)
+    }
+
+    var isComplete: Bool {
+        status == .completed || currentIndex >= itemIds.count
+    }
+}
+
+extension AmenMediaSession.SessionType: CaseIterable {
+    static var allCases: [AmenMediaSession.SessionType] {
+        [
+            .morningInspiration,
+            .friendsAndFamily,
+            .creativeDiscovery,
+            .worshipAndMusic,
+            .learningSession,
+            .sermonHighlights,
+            .selahReflection,
+            .testimonies,
+            .churchMoments,
+            .encouragement,
+            .custom
+        ]
+    }
+
+    var displayName: String {
+        switch self {
+        case .morningInspiration: return "Morning Inspiration"
+        case .friendsAndFamily: return "Friends & Family"
+        case .creativeDiscovery: return "Creative Discovery"
+        case .worshipAndMusic: return "Worship & Music"
+        case .learningSession: return "Learning Session"
+        case .sermonHighlights: return "Sermon Highlights"
+        case .selahReflection: return "Selah Reflection"
+        case .testimonies: return "Testimonies"
+        case .churchMoments: return "Church Moments"
+        case .encouragement: return "Encouragement"
+        case .custom: return "Custom Session"
+        }
+    }
+
+    var systemIcon: String {
+        switch self {
+        case .morningInspiration: return "sunrise"
+        case .friendsAndFamily: return "person.3"
+        case .creativeDiscovery: return "paintpalette"
+        case .worshipAndMusic: return "music.note"
+        case .learningSession: return "book"
+        case .sermonHighlights: return "quote.bubble"
+        case .selahReflection: return "moon.stars"
+        case .testimonies: return "heart.text.square"
+        case .churchMoments: return "building.columns"
+        case .encouragement: return "hands.sparkles"
+        case .custom: return "sparkles"
+        }
+    }
+
+    var defaultMaxItems: Int {
+        switch self {
+        case .selahReflection: return 3
+        case .learningSession, .sermonHighlights: return 5
+        case .custom: return 6
+        default: return 6
+        }
+    }
+}
+
+struct AIDisclosureRecord: Identifiable, Codable, Equatable {
+    let id: String
+    let postId: String
+    let mediaId: String
+    let ownerUid: String
+    let actionType: String
+    let modelProvider: String?
+    let purpose: String
+    let userVisibleLabel: String
+    let userVisibleExplanation: String
+    let confidence: Double
+}
+
+extension MediaProvenance {
+    var requiresDisclosureBadge: Bool {
+        disclosureRequired && !disclosureSatisfied
+    }
+
+    var isSafe: Bool {
+        moderationStatus == "approved"
+            && syntheticMediaStatus != .deepfakeRisk
+            && syntheticMediaStatus != .aiGeneratedMedia
+            && authenticityConfidence >= 0.5
+    }
+}
+
+extension AuthenticityLabel {
+    static func labels(for provenance: MediaProvenance) -> [AuthenticityLabel] {
+        var labels: [AuthenticityLabel] = []
+
+        if provenance.capturedOnDevice && provenance.syntheticMediaStatus == .clean {
+            labels.append(
+                AuthenticityLabel(
+                    kind: .realMedia,
+                    title: "Real Media",
+                    detail: "Captured from a device source with no synthetic media risk currently detected.",
+                    confident: provenance.authenticityConfidence >= 0.7
+                )
+            )
+        }
+
+        if provenance.contentCredentialsStatus == .verified {
+            labels.append(
+                AuthenticityLabel(
+                    kind: .creatorVerified,
+                    title: "Verified Origin",
+                    detail: "Content credentials or provenance signals were verified.",
+                    confident: true
+                )
+            )
+        }
+
+        switch provenance.syntheticMediaStatus {
+        case .aiAssistedMetadata:
+            labels.append(
+                AuthenticityLabel(
+                    kind: .aiAssistedCaptions,
+                    title: "AI-Assisted Metadata",
+                    detail: "AI helped with accessibility or descriptive metadata only.",
+                    confident: true
+                )
+            )
+        case .aiEditedMedia:
+            labels.append(
+                AuthenticityLabel(
+                    kind: .editedRealFootage,
+                    title: "Edited Real Footage",
+                    detail: "The media may include editing while still representing real footage.",
+                    confident: provenance.authenticityConfidence >= 0.6
+                )
+            )
+        case .aiGeneratedMedia, .deepfakeRisk:
+            labels.append(
+                AuthenticityLabel(
+                    kind: .syntheticWarning,
+                    title: "Synthetic Risk",
+                    detail: "This media requires review before it can be treated as authentic.",
+                    confident: false
+                )
+            )
+        case .clean, .unknown:
+            break
+        }
+
+        if provenance.disclosureRequired && !provenance.disclosureSatisfied {
+            labels.append(
+                AuthenticityLabel(
+                    kind: .pendingReview,
+                    title: "Pending Disclosure",
+                    detail: "AI disclosure is required before this metadata can be final.",
+                    confident: false
+                )
+            )
+        }
+
+        return labels.isEmpty ? [
+            AuthenticityLabel(
+                kind: .pendingReview,
+                title: "Pending Review",
+                detail: "Amen is still checking provenance signals for this media.",
+                confident: false
+            )
+        ] : labels
+    }
+
+    var systemIcon: String {
+        switch kind {
+        case .realMedia: return "camera"
+        case .creatorVerified, .communityVerified, .churchMedia: return "checkmark.seal"
+        case .editedRealFootage: return "slider.horizontal.3"
+        case .aiAssistedCaptions, .aiAssistedTranslation: return "wand.and.stars"
+        case .transcriptApproved: return "captions.bubble"
+        case .pendingReview: return "clock"
+        case .syntheticWarning: return "exclamationmark.triangle"
+        }
     }
 }
 
@@ -359,7 +601,7 @@ final class AmenMediaSearchService: ObservableObject {
 }
 
 @MainActor
-final class OfflineMediaManager: ObservableObject {
+private final class AmenLegacyOfflineMediaManager: ObservableObject {
     @Published private(set) var mode: LowBandwidthMediaMode = .automatic
     @Published private(set) var errorMessage: String?
 
@@ -423,74 +665,8 @@ enum AmenMediaAnalytics {
     }
 }
 
-extension AMENFeatureFlags {
-    var healthyImmersiveMediaEnabled: Bool { immersiveMediaChromeEnabled && mediaChromeLiquidGlassEnabled }
-    var mediaFiniteSessionsEnabled: Bool { antiDoomscrollEnabled && feedSessionPacingEnabled }
-    var mediaCompletionReflectionEnabled: Bool { feedReflectionPromptsEnabled }
-    var mediaAIDraftMetadataEnabled: Bool { autoCaptionsEnabled && amenAIUsageLabelsRequired }
-    var mediaReportingEnabled: Bool { moderationV2Enabled }
-    var mediaSafetyModesEnabled: Bool { socialSafetyOSEnabled || moderationV2Enabled }
-    var mediaLowBandwidthModeEnabled: Bool { mediaCreationEnabled }
-    var mediaAccessibilityControlsEnabled: Bool { adaptiveAccessibilityEnabled }
-}
 
-// MARK: - Reusable Frontend Surfaces
-
-struct MediaCaptionOverlay: View {
-    let text: String
-    var settings: AmenMediaAccessibilitySettings = AmenMediaAccessibilitySettings()
-
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-
-    var body: some View {
-        Text(text)
-            .font(.system(size: settings.highContrastCaptions ? 19 : 17, weight: .semibold))
-            .multilineTextAlignment(.center)
-            .foregroundStyle(settings.highContrastCaptions ? .white : .primary)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .background(backgroundStyle, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(Color.white.opacity(settings.highContrastCaptions ? 0.8 : 0.45), lineWidth: 1)
-            )
-            .accessibilityLabel("Captions")
-            .accessibilityValue(text)
-    }
-
-    private var backgroundStyle: some ShapeStyle {
-        if reduceTransparency || settings.reduceTransparency || settings.highContrastCaptions {
-            return AnyShapeStyle(Color.black.opacity(0.82))
-        }
-        return AnyShapeStyle(.ultraThinMaterial)
-    }
-}
-
-struct MediaKeyMomentsRail: View {
-    let moments: [MediaKeyMoment]
-    let onSelect: (MediaKeyMoment) -> Void
-
-    var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(moments.filter(\.isPubliclyApproved)) { moment in
-                    AmenLiquidGlassPillButton(
-                        title: "\(moment.timestampLabel) \(moment.label)",
-                        systemImage: "sparkle.magnifyingglass",
-                        isLoading: false,
-                        isDisabled: false
-                    ) {
-                        onSelect(moment)
-                    }
-                    .accessibilityHint("Seek to this approved key moment")
-                }
-            }
-            .padding(.horizontal)
-        }
-    }
-}
-
-struct TimestampedCommentComposer: View {
+private struct AmenLegacyTimestampedCommentComposer: View {
     let timestampSeconds: TimeInterval?
     let imageIndex: Int?
     let onSubmit: (String) -> Void
@@ -536,7 +712,7 @@ struct TimestampedCommentComposer: View {
     }
 }
 
-struct TimestampedCommentRow: View {
+private struct AmenLegacyTimestampedCommentRow: View {
     let authorName: String
     let text: String
     let timestampSeconds: TimeInterval?
@@ -572,7 +748,9 @@ struct TimestampedCommentRow: View {
     }
 }
 
-struct AmenMediaCompletionReflectionView: View {
+/// Lightweight card variant used only within AmenHealthyImmersiveMediaSystem.
+/// The full canonical completion screen lives in AmenMediaCompletionReflectionView.swift.
+private struct _AmenMediaCompletionReflectionCard: View {
     let title: String
     let sessionLabel: String?
     let onAction: (AmenMediaCompletionAction) -> Void
@@ -679,12 +857,12 @@ struct MediaSafetyGateView: View {
             }
         }
         .padding(24)
-        .background(Color.white, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .background(AmenTheme.Colors.surfaceCard, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
         .accessibilityElement(children: .contain)
     }
 }
 
-struct SensitiveContentInterruptionView: View {
+private struct AmenLegacySensitiveContentInterruptionView: View {
     let topicLabel: String
     let onContinue: () -> Void
     let onExit: () -> Void
@@ -762,34 +940,9 @@ struct ReportMediaSheet: View {
     }
 }
 
-struct NotInterestedSheet: View {
-    let postId: String
-    let mediaId: String
-    let onComplete: () -> Void
-    @State private var reason = ""
+// NotInterestedSheet is defined in NotInterestedSheet.swift
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Not Interested")
-                .font(.title3.weight(.bold))
-            Text("This helps keep sessions intentional and safe.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            TextField("Optional reason", text: $reason, axis: .vertical)
-                .textFieldStyle(.roundedBorder)
-            Button("Hide Similar Media") {
-                Task {
-                    try? await AmenMediaSafetyService.shared.notInterested(postId: postId, mediaId: mediaId, reason: reason)
-                    onComplete()
-                }
-            }
-            .buttonStyle(.borderedProminent)
-        }
-        .padding()
-    }
-}
-
-struct TakeBreakPromptView: View {
+private struct AmenLegacyTakeBreakPromptView: View {
     let onContinue: () -> Void
     let onEndSession: () -> Void
 
@@ -840,7 +993,7 @@ struct SelahMediaPlayerView: View {
             }
         }
         .padding()
-        .background(Color.white)
+        .background(AmenTheme.Colors.backgroundPrimary)
     }
 }
 
@@ -874,5 +1027,507 @@ struct AmenMediaLoadingStateView: View {
         ProgressView("Loading media")
             .controlSize(.large)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+// MARK: - Human-First Immersive Media Shells
+
+struct AmenLiquidGlassMediaDock<Content: View>: View {
+    @ViewBuilder let content: () -> Content
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    var body: some View {
+        HStack(spacing: 10, content: content)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(reduceTransparency ? AnyShapeStyle(Color.white) : AnyShapeStyle(.ultraThinMaterial), in: Capsule())
+            .overlay(Capsule().stroke(Color.white.opacity(0.7), lineWidth: 1))
+            .shadow(color: Color.black.opacity(0.08), radius: 16, x: 0, y: 8)
+            .accessibilityElement(children: .contain)
+    }
+}
+
+struct AmenLiquidGlassSessionCapsule: View {
+    let title: String
+    let progressLabel: String
+    let communityLabel: String?
+
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "play.rectangle.on.rectangle")
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                Text([progressLabel, communityLabel].compactMap { $0 }.joined(separator: " · "))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(reduceTransparency ? AnyShapeStyle(Color.white) : AnyShapeStyle(.ultraThinMaterial), in: Capsule())
+        .overlay(Capsule().stroke(Color.white.opacity(0.7), lineWidth: 1))
+        .accessibilityLabel("\(title), \(progressLabel)")
+    }
+}
+
+struct AmenLiquidGlassCommunityLayer: View {
+    let title: String
+    let comments: [String]
+    let onDiscuss: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Label(title, systemImage: "person.3")
+                    .font(.headline)
+                Spacer()
+                Button("Discuss", action: onDiscuss)
+                    .buttonStyle(.bordered)
+            }
+
+            ForEach(comments.prefix(3), id: \.self) { comment in
+                Text(comment)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+        }
+        .padding()
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(Color.white.opacity(0.6), lineWidth: 1))
+    }
+}
+
+struct AmenLiquidGlassSelahOverlay: View {
+    let title: String
+    let message: String
+    let onReflect: () -> Void
+    let onEnd: () -> Void
+    let onContinue: () -> Void
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Text(title)
+                .font(.title3.weight(.bold))
+            Text(message)
+                .font(.body)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            HStack(spacing: 10) {
+                Button("End", action: onEnd)
+                    .buttonStyle(.bordered)
+                Button("Reflect", action: onReflect)
+                    .buttonStyle(.bordered)
+                Button("Continue", action: onContinue)
+                    .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding(24)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 26, style: .continuous).stroke(Color.white.opacity(0.65), lineWidth: 1))
+        .shadow(color: Color.black.opacity(0.1), radius: 22, x: 0, y: 12)
+    }
+}
+
+struct AmenMediaSessionCompletionView: View {
+    let sessionTitle: String
+    let onAction: (AmenMediaCompletionAction) -> Void
+
+    var body: some View {
+        _AmenMediaCompletionReflectionCard(
+            title: "Session Complete",
+            sessionLabel: sessionTitle,
+            onAction: onAction
+        )
+    }
+}
+
+struct AmenImmersiveMediaHomeView: View {
+    let onStartSession: (AmenMediaSessionType) -> Void
+    var continueSessionTitle: String? = nil
+    var onContinueSession: (() -> Void)? = nil
+
+    var body: some View {
+        NavigationStack {
+            ScrollView(showsIndicators: false) {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    continueSessionSection
+                    morningSection
+                    intentionalSection
+                    friendsFamilySection
+                    communityMomentsSection
+                    localNearbySection
+                    selahSection
+                    churchCreatorSection
+                    learningSection
+                    discoverSection
+                    savedSection
+                }
+                .padding(.top, 4)
+                .padding(.bottom, 40)
+            }
+            .background(Color(.systemBackground))
+            .navigationTitle("Media")
+            .navigationBarTitleDisplayMode(.large)
+        }
+    }
+
+    // MARK: 1 — Continue Session
+
+    @ViewBuilder
+    private var continueSessionSection: some View {
+        if let title = continueSessionTitle, let onContinue = onContinueSession {
+            VStack(alignment: .leading, spacing: 10) {
+                sectionLabel("Continue where you left off")
+                    .padding(.horizontal, 16)
+                Button(action: onContinue) { continueCard(title: title) }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, 16)
+            }
+            .padding(.bottom, 28)
+        }
+    }
+
+    // MARK: 2 — Good Morning
+
+    private var morningSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            sectionLabel("Good morning")
+                .padding(.horizontal, 16)
+            Button { onStartSession(.morningInspiration) } label: {
+                heroCard(
+                    session: .morningInspiration,
+                    subtitle: "Begin with something that matters"
+                )
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 16)
+        }
+        .padding(.bottom, 28)
+    }
+
+    // MARK: 3 — Intentional Sessions
+
+    private var intentionalSection: some View {
+        horizontalScrollSection(
+            label: "Start an intentional session",
+            sessions: [.fiveMinuteSelah, .prayerSafeTestimonies, .familySafeWatch, .morningInspiration]
+        )
+    }
+
+    // MARK: 4 — Friends & Family
+
+    private var friendsFamilySection: some View {
+        horizontalScrollSection(
+            label: "Friends & family",
+            sessions: [.familySafeWatch, .prayerSafeTestimonies]
+        )
+    }
+
+    // MARK: 5 — Community Moments
+
+    @ViewBuilder
+    private var communityMomentsSection: some View {
+        if AMENFeatureFlags.shared.communityMediaLayersEnabled {
+            horizontalScrollSection(
+                label: "Community moments",
+                sessions: [.communityMoments]
+            )
+        }
+    }
+
+    // MARK: 6 — Local & Nearby
+
+    private var localNearbySection: some View {
+        horizontalScrollSection(
+            label: "Local & nearby",
+            sessions: [.localChurchUpdates]
+        )
+    }
+
+    // MARK: 7 — Selah & Reflection
+
+    private var selahSection: some View {
+        horizontalScrollSection(
+            label: "Selah & reflection",
+            sessions: [.fiveMinuteSelah, .prayerSafeTestimonies]
+        )
+    }
+
+    // MARK: 8 — Church & Creator
+
+    private var churchCreatorSection: some View {
+        horizontalScrollSection(
+            label: "Church & creator",
+            sessions: [.sermonClipReflection, .churchNotesStudyPath, .localChurchUpdates]
+        )
+    }
+
+    // MARK: 9 — Learning & Teaching
+
+    private var learningSection: some View {
+        horizontalScrollSection(
+            label: "Learning & teaching",
+            sessions: [.sermonClipReflection, .churchNotesStudyPath]
+        )
+    }
+
+    // MARK: 10 — Discover
+
+    private var discoverSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            sectionLabel("Discover")
+                .padding(.horizontal, 16)
+            Button { onStartSession(.discoverFeed) } label: {
+                discoverCard
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 16)
+        }
+        .padding(.bottom, 28)
+    }
+
+    // MARK: 11 — Saved for Later
+
+    private var savedSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            sectionLabel("Saved for later")
+                .padding(.horizontal, 16)
+            Button { onStartSession(.savedVideos) } label: { savedCard }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 16)
+        }
+        .padding(.bottom, 28)
+    }
+
+    // MARK: Reusable Section Builder
+
+    private func horizontalScrollSection(label: String, sessions: [AmenMediaSessionType]) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            sectionLabel(label)
+                .padding(.horizontal, 16)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(sessions) { session in
+                        sessionCard(session)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 4)
+            }
+        }
+        .padding(.bottom, 28)
+    }
+
+    // MARK: Card Builders
+
+    private func continueCard(title: String) -> some View {
+        HStack(spacing: 14) {
+            Image(systemName: "play.circle.fill")
+                .font(.system(size: 32, weight: .light))
+                .foregroundStyle(.primary)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                Text("Continue session")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Text("Resume")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(Color.black, in: Capsule())
+        }
+        .padding(16)
+        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color(.separator).opacity(0.3), lineWidth: 0.5))
+    }
+
+    private func heroCard(session: AmenMediaSessionType, subtitle: String) -> some View {
+        HStack(spacing: 16) {
+            Image(systemName: sessionIcon(for: session))
+                .font(.system(size: 28, weight: .light))
+                .foregroundStyle(.primary)
+                .frame(width: 52, height: 52)
+                .background(Color(.tertiarySystemFill), in: Circle())
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(session.title)
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                Text(subtitle)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                Text(sessionMetaLabel(for: session))
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+            Spacer()
+            startPill
+        }
+        .padding(16)
+        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Color(.separator).opacity(0.3), lineWidth: 0.5))
+    }
+
+    private func sessionCard(_ session: AmenMediaSessionType) -> some View {
+        Button { onStartSession(session) } label: {
+            VStack(alignment: .leading, spacing: 12) {
+                Image(systemName: sessionIcon(for: session))
+                    .font(.system(size: 24, weight: .light))
+                    .foregroundStyle(.primary)
+                    .frame(width: 44, height: 44)
+                    .background(Color(.tertiarySystemFill), in: Circle())
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(session.title)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                        .lineLimit(2)
+                    Text(sessionMetaLabel(for: session))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+                Spacer(minLength: 0)
+                startPill.frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(16)
+            .frame(width: 200, height: 190)
+            .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Color(.separator).opacity(0.3), lineWidth: 0.5))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(session.title). \(sessionMetaLabel(for: session)). Double-tap to start.")
+    }
+
+    private var discoverCard: some View {
+        HStack(spacing: 14) {
+            Image(systemName: "sparkles")
+                .font(.title2)
+                .foregroundStyle(.primary)
+                .frame(width: 44, height: 44)
+                .background(Color(.tertiarySystemFill), in: Circle())
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Discover")
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                Text("New voices · Curated for your walk")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            startPill
+        }
+        .padding(16)
+        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color(.separator).opacity(0.3), lineWidth: 0.5))
+    }
+
+    private var savedCard: some View {
+        HStack(spacing: 14) {
+            Image(systemName: "bookmark.fill")
+                .font(.title2)
+                .foregroundStyle(.primary)
+                .frame(width: 44, height: 44)
+                .background(Color(.tertiarySystemFill), in: Circle())
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Saved Media")
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                Text("Your personal queue · Continue anytime")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            startPill
+        }
+        .padding(16)
+        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color(.separator).opacity(0.3), lineWidth: 0.5))
+    }
+
+    private var startPill: some View {
+        Text("Start")
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(Color.black, in: Capsule())
+            .accessibilityHidden(true)
+    }
+
+    private func sectionLabel(_ title: String) -> some View {
+        Text(title)
+            .font(.headline)
+            .foregroundStyle(.primary)
+    }
+
+    // MARK: Session Metadata Helpers
+
+    private func sessionIcon(for session: AmenMediaSessionType) -> String {
+        switch session {
+        case .morningInspiration:    return "sunrise"
+        case .fiveMinuteSelah:       return "moon.stars"
+        case .prayerSafeTestimonies: return "hands.sparkles"
+        case .churchNotesStudyPath:  return "note.text"
+        case .sermonClipReflection:  return "quote.bubble"
+        case .familySafeWatch:       return "person.3"
+        case .localChurchUpdates:    return "building.columns"
+        case .savedVideos:           return "bookmark"
+        case .communityMoments:      return "person.2.wave.2"
+        case .discoverFeed:          return "sparkles"
+        @unknown default:            return "play.rectangle"
+        }
+    }
+
+    private func sessionMetaLabel(for session: AmenMediaSessionType) -> String {
+        switch session {
+        case .morningInspiration:    return "6 clips · ~8 min · People you trust"
+        case .fiveMinuteSelah:       return "3 clips · ~5 min · Quiet reflection"
+        case .prayerSafeTestimonies: return "5 clips · ~10 min · Trusted voices"
+        case .churchNotesStudyPath:  return "4 clips · ~12 min · Linked to your notes"
+        case .sermonClipReflection:  return "3 clips · ~15 min · Sermon highlights"
+        case .familySafeWatch:       return "6 clips · ~8 min · Safe for all ages"
+        case .localChurchUpdates:    return "5 clips · ~6 min · Your local community"
+        case .savedVideos:           return "Your saved media · Continue anytime"
+        case .communityMoments:      return "Moments from your community · No metrics"
+        case .discoverFeed:          return "Curated voices · Finite session"
+        @unknown default:            return "Finite session · Intentional media"
+        }
+    }
+}
+
+struct AmenImmersiveMediaSessionView: View {
+    let session: AmenMediaSession
+    var onReflect: (() -> Void)?
+    var onJournal: (() -> Void)?
+    var onDiscuss: (() -> Void)?
+
+    var body: some View {
+        if AMENFeatureFlags.shared.mediaFiniteSessionsEnabled {
+            AmenMediaSessionView(
+                session: session,
+                onReflect: onReflect,
+                onJournal: onJournal,
+                onDiscuss: onDiscuss
+            )
+        } else {
+            AmenMediaEmptyStateView(message: "Finite media sessions are not enabled.")
+        }
     }
 }

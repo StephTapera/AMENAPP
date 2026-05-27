@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import FirebaseAuth
 import FirebaseFunctions
 
@@ -80,6 +81,7 @@ enum AmenSpaceBannerSurface: String, CaseIterable, Codable, Identifiable {
     case messagesRooms
     case bereanSuggestions
     case homeFeed
+    case userProfile
 
     var id: String { rawValue }
 
@@ -89,6 +91,7 @@ enum AmenSpaceBannerSurface: String, CaseIterable, Codable, Identifiable {
         case .events: return "FEATURED"
         case .messagesRooms: return "ACTIVE DISCUSSIONS"
         case .discovery, .churchProfile, .schoolProfile, .businessProfile: return "NEAR YOU"
+        case .userProfile: return "FEATURED"
         default: return "HAPPENING NOW"
         }
     }
@@ -109,10 +112,42 @@ enum AmenSpaceBannerCTA: String, CaseIterable, Codable {
     case open = "Open"
     case pray = "Pray"
     case watch = "Watch"
+
+    var actionValue: String {
+        switch self {
+        case .join: return "join"
+        case .rsvp: return "rsvp"
+        case .apply: return "apply"
+        case .open: return "open"
+        case .pray: return "pray"
+        case .watch: return "watch"
+        }
+    }
+
+    init?(actionValue: String) {
+        switch actionValue {
+        case "join": self = .join
+        case "rsvp": self = .rsvp
+        case "apply": self = .apply
+        case "open": self = .open
+        case "pray": self = .pray
+        case "watch": self = .watch
+        default: return nil
+        }
+    }
+}
+
+enum AmenSpaceBannerAnalyticsEvent: String, CaseIterable, Codable {
+    case impression = "banner_impression"
+    case tap = "banner_tap"
+    case dismiss = "banner_dismiss"
+    case ctaComplete = "banner_cta_complete"
+    case hiddenReason = "banner_hidden_reason"
 }
 
 struct AmenSpaceBannerItem: Identifiable, Hashable, Codable {
     var id: String
+    var sourceId: String = ""
     var type: AmenSpaceBannerType
     var title: String
     var subtitle: String
@@ -131,6 +166,8 @@ struct AmenSpaceBannerItem: Identifiable, Hashable, Codable {
     var trustedContext: String?
     var rankingReason: String
     var resolvedSize: AmenSpaceBannerSize
+    var rank: Int = 0
+    var score: Double = 0
 
     var accessibilitySummary: String {
         [title, subtitle, ctaLabel.rawValue, rankingReason]
@@ -139,9 +176,134 @@ struct AmenSpaceBannerItem: Identifiable, Hashable, Codable {
     }
 }
 
+enum AmenSpaceBannerRoute: Equatable, Hashable {
+    case joinGroup(id: String)
+    case rsvpEvent(id: String)
+    case applyJob(id: String)
+    case openSpace(id: String)
+    case pray(id: String)
+    case watchSermon(id: String)
+
+    var completionSource: String {
+        switch self {
+        case .joinGroup: return "group_join"
+        case .rsvpEvent: return "event_rsvp"
+        case .applyJob: return "job_apply"
+        case .openSpace: return "space_open"
+        case .pray: return "prayer"
+        case .watchSermon: return "sermon_watch"
+        }
+    }
+
+    var entityId: String {
+        switch self {
+        case .joinGroup(let id), .rsvpEvent(let id), .applyJob(let id), .openSpace(let id), .pray(let id), .watchSermon(let id):
+            return id
+        }
+    }
+
+    var completionKey: String {
+        "\(completionSource):\(entityId)"
+    }
+
+    init?(route: String, cta: AmenSpaceBannerCTA) {
+        guard
+            let components = URLComponents(string: route),
+            components.scheme == "selah",
+            components.query == nil,
+            components.fragment == nil,
+            let host = components.host
+        else { return nil }
+
+        let parts = components.path.split(separator: "/").map(String.init)
+        guard let id = parts.first, Self.isValidIdentifier(id) else { return nil }
+
+        switch (cta, host, parts) {
+        case (.join, "group", [id]):
+            self = .joinGroup(id: id)
+        case (.rsvp, "event", [id, "rsvp"]):
+            self = .rsvpEvent(id: id)
+        case (.apply, "job", [id, "apply"]):
+            self = .applyJob(id: id)
+        case (.open, "space", [id]):
+            self = .openSpace(id: id)
+        case (.pray, "prayer", [id]):
+            self = .pray(id: id)
+        case (.watch, "sermon", [id]):
+            self = .watchSermon(id: id)
+        default:
+            return nil
+        }
+    }
+
+    private static func isValidIdentifier(_ value: String) -> Bool {
+        !value.isEmpty && value.allSatisfy { character in
+            character.isLetter || character.isNumber || character == "-" || character == "_"
+        }
+    }
+}
+
+@MainActor
+final class AmenSpaceBannerCTACompletionCenter {
+    static let shared = AmenSpaceBannerCTACompletionCenter()
+
+    private struct PendingCompletion {
+        let item: AmenSpaceBannerItem
+        let surface: AmenSpaceBannerSurface
+        let service: AmenSpaceBannerServicing
+    }
+
+    private var pending: [String: PendingCompletion] = [:]
+
+    private init() {}
+
+    func begin(item: AmenSpaceBannerItem, surface: AmenSpaceBannerSurface, service: AmenSpaceBannerServicing, route: AmenSpaceBannerRoute) {
+        pending[route.completionKey] = PendingCompletion(item: item, surface: surface, service: service)
+    }
+
+    func complete(route: AmenSpaceBannerRoute) {
+        complete(completionSource: route.completionSource, entityId: route.entityId)
+    }
+
+    func complete(completionSource: String, entityId: String) {
+        let key = "\(completionSource):\(entityId)"
+        guard let completion = pending.removeValue(forKey: key) else { return }
+        Task {
+            await completion.service.recordEvent(.ctaComplete, banner: completion.item, surface: completion.surface, detail: completionSource)
+        }
+    }
+
+    static func completeEventRSVP(eventId: String) {
+        shared.complete(completionSource: "event_rsvp", entityId: eventId)
+    }
+
+    static func completeJobApply(jobId: String) {
+        shared.complete(completionSource: "job_apply", entityId: jobId)
+    }
+}
+
+@MainActor
+enum AmenSpaceBannerRouteOpener {
+    static func open(_ route: AmenSpaceBannerRoute) {
+        switch route {
+        case .joinGroup(let id), .openSpace(let id):
+            NotificationDeepLinkRouter.shared.navigate(to: .groupDetail(groupId: id))
+        case .rsvpEvent(let id):
+            NotificationDeepLinkRouter.shared.navigate(to: .event(eventId: id))
+        case .applyJob(let id):
+            NotificationDeepLinkRouter.shared.navigate(to: .job(jobId: id))
+        case .pray(let id):
+            NotificationDeepLinkRouter.shared.navigate(to: .prayer(prayerId: id))
+        case .watchSermon(let id):
+            NotificationDeepLinkRouter.shared.navigate(to: .churchNote(noteId: id))
+        }
+    }
+}
+
 // MARK: - Service
 
 enum AmenSpaceBannerCallable: String, CaseIterable, Identifiable {
+    case resolveBannerRail
     case getAmenSpaceBanners
     case setAmenSpaceBannerDisplayPreference
     case setAmenSpaceDefaultBannerSize
@@ -154,8 +316,10 @@ enum AmenSpaceBannerCallable: String, CaseIterable, Identifiable {
 protocol AmenSpaceBannerServicing: AnyObject {
     func loadBanners(surface: AmenSpaceBannerSurface, spaceId: String?) async throws -> [AmenSpaceBannerItem]
     func setUserPreferredSize(_ size: AmenSpaceBannerSize, surface: AmenSpaceBannerSurface) async throws
+    func setSpaceDefaultSize(_ size: AmenSpaceBannerSize, spaceId: String) async throws
     func dismissBanner(_ banner: AmenSpaceBannerItem, surface: AmenSpaceBannerSurface) async throws
     func recordImpression(_ banner: AmenSpaceBannerItem, surface: AmenSpaceBannerSurface) async
+    func recordEvent(_ event: AmenSpaceBannerAnalyticsEvent, banner: AmenSpaceBannerItem, surface: AmenSpaceBannerSurface, detail: String?) async
     func validateCTA(_ banner: AmenSpaceBannerItem, surface: AmenSpaceBannerSurface) async throws -> URL?
 }
 
@@ -171,34 +335,60 @@ final class AmenSpaceBannerService: AmenSpaceBannerServicing {
             "surfaceDefaultSize": surface.defaultSize.rawValue
         ]
         if let spaceId { payload["spaceId"] = spaceId }
-        let result = try await functions.httpsCallable(AmenSpaceBannerCallable.getAmenSpaceBanners.rawValue).call(payload)
-        guard let dict = result.data as? [String: Any], let rawItems = dict["items"] as? [[String: Any]] else { return [] }
+        let result = try await functions.httpsCallable(AmenSpaceBannerCallable.resolveBannerRail.rawValue).call(payload)
+        guard let dict = result.data as? [String: Any] else { return [] }
+        let rawItems = (dict["banners"] as? [[String: Any]]) ?? (dict["items"] as? [[String: Any]]) ?? []
         return rawItems.compactMap(Self.item(from:))
     }
 
     func setUserPreferredSize(_ size: AmenSpaceBannerSize, surface: AmenSpaceBannerSurface) async throws {
         guard Auth.auth().currentUser != nil else { throw URLError(.userAuthenticationRequired) }
-        try await functions.httpsCallable(AmenSpaceBannerCallable.setAmenSpaceBannerDisplayPreference.rawValue).call([
+        _ = try await functions.httpsCallable(AmenSpaceBannerCallable.setAmenSpaceBannerDisplayPreference.rawValue).call([
             "surface": surface.rawValue,
             "bannerSize": size.rawValue
         ])
     }
 
-    func dismissBanner(_ banner: AmenSpaceBannerItem, surface: AmenSpaceBannerSurface) async throws {
-        try await functions.httpsCallable(AmenSpaceBannerCallable.logAmenSpaceBannerEvent.rawValue).call([
-            "bannerId": banner.id,
-            "surface": surface.rawValue,
-            "eventName": "banner_dismiss"
+    func setSpaceDefaultSize(_ size: AmenSpaceBannerSize, spaceId: String) async throws {
+        guard Auth.auth().currentUser != nil else { throw URLError(.userAuthenticationRequired) }
+        _ = try await functions.httpsCallable(AmenSpaceBannerCallable.setAmenSpaceDefaultBannerSize.rawValue).call([
+            "spaceId": spaceId,
+            "defaultBannerSize": size.rawValue
         ])
+    }
+
+    func dismissBanner(_ banner: AmenSpaceBannerItem, surface: AmenSpaceBannerSurface) async throws {
+        await recordEvent(.dismiss, banner: banner, surface: surface, detail: nil)
     }
 
     func recordImpression(_ banner: AmenSpaceBannerItem, surface: AmenSpaceBannerSurface) async {
         guard Auth.auth().currentUser != nil else { return }
-        try? await functions.httpsCallable(AmenSpaceBannerCallable.logAmenSpaceBannerEvent.rawValue).call([
+        await recordEvent(.impression, banner: banner, surface: surface, detail: nil)
+    }
+
+    func recordEvent(_ event: AmenSpaceBannerAnalyticsEvent, banner: AmenSpaceBannerItem, surface: AmenSpaceBannerSurface, detail: String? = nil) async {
+        guard Auth.auth().currentUser != nil else { return }
+        var payload: [String: Any] = [
             "bannerId": banner.id,
+            "sourceId": banner.sourceId.isEmpty ? banner.id : banner.sourceId,
             "surface": surface.rawValue,
-            "eventName": "banner_impression"
-        ])
+            "spaceId": banner.spaceId ?? "",
+            "route": banner.targetRoute,
+            "targetRoute": banner.targetRoute,
+            "resolvedSize": banner.resolvedSize.rawValue,
+            "ctaAction": banner.ctaLabel.actionValue,
+            "ctaLabel": banner.ctaLabel.rawValue,
+            "eventName": event.rawValue,
+            "rank": banner.rank
+        ]
+        if let detail, !detail.isEmpty {
+            payload["detail"] = detail
+            if event == .hiddenReason {
+                payload["reason"] = detail
+                payload["stage"] = "client_route_validation"
+            }
+        }
+        _ = try? await functions.httpsCallable(AmenSpaceBannerCallable.logAmenSpaceBannerEvent.rawValue).call(payload)
     }
 
     func validateCTA(_ banner: AmenSpaceBannerItem, surface: AmenSpaceBannerSurface) async throws -> URL? {
@@ -206,20 +396,29 @@ final class AmenSpaceBannerService: AmenSpaceBannerServicing {
         let result = try await functions.httpsCallable(AmenSpaceBannerCallable.validateAmenSpaceBannerCTA.rawValue).call([
             "bannerId": banner.id,
             "surface": surface.rawValue,
+            "route": banner.targetRoute,
             "targetRoute": banner.targetRoute,
+            "ctaAction": banner.ctaLabel.actionValue,
             "ctaLabel": banner.ctaLabel.rawValue
         ])
-        guard let dict = result.data as? [String: Any], let route = dict["targetRoute"] as? String else { return URL(string: banner.targetRoute) }
+        guard let dict = result.data as? [String: Any] else { return URL(string: banner.targetRoute) }
+        let route = (dict["route"] as? String) ?? (dict["targetRoute"] as? String) ?? banner.targetRoute
         return URL(string: route)
     }
 
     private static func item(from data: [String: Any]) -> AmenSpaceBannerItem? {
         let id = string(data, "id")
         let title = string(data, "title")
-        let targetRoute = string(data, "targetRoute")
+        let cta = data["cta"] as? [String: Any]
+        let ctaAction = string(cta ?? [:], "action")
+        let targetRoute = string(cta ?? [:], "route", string(data, "targetRoute"))
         guard !id.isEmpty, !title.isEmpty, !targetRoute.isEmpty else { return nil }
+        let ctaLabel = AmenSpaceBannerCTA(actionValue: ctaAction)
+            ?? AmenSpaceBannerCTA(rawValue: string(cta ?? [:], "label", string(data, "ctaLabel", "Open")))
+            ?? .open
         return AmenSpaceBannerItem(
             id: id,
+            sourceId: string(data, "sourceId", id),
             type: AmenSpaceBannerType(rawValue: string(data, "type", "announcement")) ?? .announcement,
             title: title,
             subtitle: string(data, "subtitle"),
@@ -227,7 +426,7 @@ final class AmenSpaceBannerService: AmenSpaceBannerServicing {
             iconURL: data["iconURL"] as? String,
             spaceId: data["spaceId"] as? String,
             targetRoute: targetRoute,
-            ctaLabel: AmenSpaceBannerCTA(rawValue: string(data, "ctaLabel", "Open")) ?? .open,
+            ctaLabel: ctaLabel,
             priority: double(data, "priority"),
             startsAt: date(data, "startsAt"),
             endsAt: date(data, "endsAt"),
@@ -237,7 +436,9 @@ final class AmenSpaceBannerService: AmenSpaceBannerServicing {
             createdBy: data["createdBy"] as? String,
             trustedContext: data["trustedContext"] as? String,
             rankingReason: string(data, "rankingReason"),
-            resolvedSize: AmenSpaceBannerSize(rawValue: string(data, "resolvedSize", "standard")) ?? .standard
+            resolvedSize: AmenSpaceBannerSize(rawValue: string(data, "resolvedSize", "standard")) ?? .standard,
+            rank: int(data, "rank"),
+            score: double(data, "score")
         )
     }
 
@@ -248,6 +449,12 @@ final class AmenSpaceBannerService: AmenSpaceBannerServicing {
     private static func double(_ data: [String: Any], _ key: String) -> Double {
         if let value = data[key] as? Double { return value }
         if let value = data[key] as? NSNumber { return value.doubleValue }
+        return 0
+    }
+
+    private static func int(_ data: [String: Any], _ key: String) -> Int {
+        if let value = data[key] as? Int { return value }
+        if let value = data[key] as? NSNumber { return value.intValue }
         return 0
     }
 
@@ -271,29 +478,49 @@ final class AmenSpaceBannerRailViewModel: ObservableObject {
     private let spaceId: String?
     private let service: AmenSpaceBannerServicing
     private var dismissedIds: Set<String> = []
+    private var recordedImpressionIds: Set<String> = []
 
-    init(surface: AmenSpaceBannerSurface, spaceId: String? = nil, service: AmenSpaceBannerServicing = AmenSpaceBannerService()) {
+    var shouldRender: Bool {
+        AMENFeatureFlags.shared.bannerRailEnabled && (isLoading || errorMessage != nil || !items.isEmpty)
+    }
+
+    init(surface: AmenSpaceBannerSurface, spaceId: String? = nil, service: AmenSpaceBannerServicing? = nil) {
         self.surface = surface
         self.spaceId = spaceId
-        self.service = service
-        self.selectedSize = surface.defaultSize
+        self.service = service ?? AmenSpaceBannerService()
+        self.selectedSize = Self.storedUserPreferredSize(surface: surface) ?? surface.defaultSize
     }
 
     func load() async {
+        guard AMENFeatureFlags.shared.bannerRailEnabled else {
+            items = []
+            isLoading = false
+            return
+        }
         isLoading = true
         errorMessage = nil
         do {
             let loaded = try await service.loadBanners(surface: surface, spaceId: spaceId)
-            items = Self.deduplicated(loaded).filter { !dismissedIds.contains($0.id) }
-            selectedSize = items.first?.resolvedSize ?? selectedSize
+            let renderable = await filterRenderableRoutes(Self.deduplicated(loaded))
+            items = renderable.filter { !dismissedIds.contains($0.id) }
+            selectedSize = Self.resolvedSize(
+                userPreference: Self.storedUserPreferredSize(surface: surface),
+                serverResolvedSize: items.first?.resolvedSize,
+                surfaceDefault: surface.defaultSize
+            )
+            if items.isEmpty {
+                await recordHiddenReason("empty_ranked_payload")
+            }
         } catch {
             errorMessage = "Featured banners are unavailable."
+            await recordHiddenReason("load_failed")
         }
         isLoading = false
     }
 
     func setSize(_ size: AmenSpaceBannerSize) {
         selectedSize = size
+        Self.storeUserPreferredSize(size, surface: surface)
         Task {
             try? await service.setUserPreferredSize(size, surface: surface)
             await load()
@@ -307,25 +534,103 @@ final class AmenSpaceBannerRailViewModel: ObservableObject {
     }
 
     func recordImpression(_ item: AmenSpaceBannerItem) {
+        guard !recordedImpressionIds.contains(item.id) else { return }
+        recordedImpressionIds.insert(item.id)
         Task { await service.recordImpression(item, surface: surface) }
     }
 
     func route(for item: AmenSpaceBannerItem) async -> URL? {
+        guard let parsedRoute = AmenSpaceBannerRoute(route: item.targetRoute, cta: item.ctaLabel) else {
+            await service.recordEvent(.hiddenReason, banner: item, surface: surface, detail: "unresolvable_route")
+            return nil
+        }
+        await service.recordEvent(.tap, banner: item, surface: surface, detail: nil)
         do {
-            return try await service.validateCTA(item, surface: surface)
+            let url = try await service.validateCTA(item, surface: surface)
+            await MainActor.run {
+                AmenSpaceBannerCTACompletionCenter.shared.begin(item: item, surface: surface, service: service, route: parsedRoute)
+            }
+            return url
         } catch {
             await MainActor.run { errorMessage = "That banner is no longer available." }
+            await service.recordEvent(.hiddenReason, banner: item, surface: surface, detail: "cta_validation_failed")
             return nil
         }
     }
 
-    static func deduplicated(_ items: [AmenSpaceBannerItem]) -> [AmenSpaceBannerItem] {
+    func recordCTAComplete(_ item: AmenSpaceBannerItem, route: AmenSpaceBannerRoute) {
+        Task {
+            await service.recordEvent(.ctaComplete, banner: item, surface: surface, detail: route.completionSource)
+        }
+    }
+
+    nonisolated static func deduplicated(_ items: [AmenSpaceBannerItem]) -> [AmenSpaceBannerItem] {
         var seenRoutes = Set<String>()
         return items.filter { item in
             guard !seenRoutes.contains(item.targetRoute) else { return false }
             seenRoutes.insert(item.targetRoute)
             return true
         }
+    }
+
+    nonisolated static func resolvedSize(
+        userPreference: AmenSpaceBannerSize?,
+        serverResolvedSize: AmenSpaceBannerSize?,
+        surfaceDefault: AmenSpaceBannerSize
+    ) -> AmenSpaceBannerSize {
+        userPreference ?? serverResolvedSize ?? surfaceDefault
+    }
+
+    private static func storedUserPreferredSize(surface: AmenSpaceBannerSurface) -> AmenSpaceBannerSize? {
+        let key = storageKey(surface: surface)
+        guard let rawValue = UserDefaults.standard.string(forKey: key) else { return nil }
+        return AmenSpaceBannerSize(rawValue: rawValue)
+    }
+
+    private static func storeUserPreferredSize(_ size: AmenSpaceBannerSize, surface: AmenSpaceBannerSurface) {
+        UserDefaults.standard.set(size.rawValue, forKey: storageKey(surface: surface))
+    }
+
+    private static func storageKey(surface: AmenSpaceBannerSurface) -> String {
+        "amen.spaceBanner.userPreferredSize.\(surface.rawValue)"
+    }
+
+    private func recordHiddenReason(_ reason: String) async {
+        let placeholder = AmenSpaceBannerItem(
+            id: "hidden-\(surface.rawValue)",
+            sourceId: "unknown",
+            type: .announcement,
+            title: "Hidden banner rail",
+            subtitle: "",
+            imageURL: nil,
+            iconURL: nil,
+            spaceId: spaceId,
+            targetRoute: "amen://spaces",
+            ctaLabel: .open,
+            priority: 0,
+            startsAt: nil,
+            endsAt: nil,
+            location: nil,
+            moderationStatus: "approved",
+            visibility: "authenticated",
+            createdBy: nil,
+            trustedContext: nil,
+            rankingReason: reason,
+            resolvedSize: selectedSize
+        )
+        await service.recordEvent(.hiddenReason, banner: placeholder, surface: surface, detail: reason)
+    }
+
+    private func filterRenderableRoutes(_ loaded: [AmenSpaceBannerItem]) async -> [AmenSpaceBannerItem] {
+        var renderable: [AmenSpaceBannerItem] = []
+        for item in loaded {
+            if AmenSpaceBannerRoute(route: item.targetRoute, cta: item.ctaLabel) != nil {
+                renderable.append(item)
+            } else {
+                await service.recordEvent(.hiddenReason, banner: item, surface: surface, detail: "unresolvable_route")
+            }
+        }
+        return renderable
     }
 }
 
@@ -345,11 +650,15 @@ struct AmenSpaceBannerRail: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            header
-                .padding(.horizontal, 20)
+        Group {
+            if viewModel.shouldRender {
+                VStack(alignment: .leading, spacing: 12) {
+                    header
+                        .padding(.horizontal, 20)
 
-            content
+                    content
+                }
+            }
         }
         .task { await viewModel.load() }
     }
@@ -401,7 +710,11 @@ struct AmenSpaceBannerRail: View {
                             onDismiss: { viewModel.dismiss(item) },
                             onTap: { Task { await open(item) } }
                         )
-                        .onAppear { viewModel.recordImpression(item) }
+                        .background {
+                            AmenSpaceBannerVisibilityReporter {
+                                viewModel.recordImpression(item)
+                            }
+                        }
                     }
                 }
                 .padding(.horizontal, 20)
@@ -411,8 +724,113 @@ struct AmenSpaceBannerRail: View {
     }
 
     private func open(_ item: AmenSpaceBannerItem) async {
-        guard let url = await viewModel.route(for: item) else { return }
-        await MainActor.run { openURL(url) }
+        // validateCTA via server + record tap event — returns nil on failure
+        guard await viewModel.route(for: item) != nil,
+              let route = AmenSpaceBannerRoute(route: item.targetRoute, cta: item.ctaLabel)
+        else { return }
+
+        // Route to existing in-app flows via BannerRouter.
+        // completion fires banner_cta_complete only on confirmed success.
+        let vm = viewModel
+        await MainActor.run {
+            BannerRouter.shared.navigate(to: route, item: item) { success in
+                guard success else { return }
+                Task { @MainActor in vm.recordCTAComplete(item, route: route) }
+            }
+        }
+    }
+}
+
+private struct AmenSpaceBannerVisibilityReporter: View {
+    let onVisible: () -> Void
+    @State private var didReport = false
+    @State private var pendingTask: Task<Void, Never>?
+
+    var body: some View {
+        GeometryReader { proxy in
+            Color.clear
+                .onAppear { evaluate(proxy) }
+                .onChange(of: proxy.frame(in: .global)) { _, _ in evaluate(proxy) }
+                .onDisappear {
+                    pendingTask?.cancel()
+                    pendingTask = nil
+                }
+        }
+        .allowsHitTesting(false)
+    }
+
+    private func evaluate(_ proxy: GeometryProxy) {
+        guard !didReport else { return }
+        let frame = proxy.frame(in: .global)
+        guard frame.width > 0 else { return }
+        let screenWidth = UIApplication.shared.connectedScenes
+            .compactMap { ($0 as? UIWindowScene)?.screen.bounds.width }
+            .first ?? 390
+        let visibleWidth = max(0, min(frame.maxX, screenWidth) - max(frame.minX, 0))
+        let visibleRatio = visibleWidth / frame.width
+        if visibleRatio >= 0.5 {
+            guard pendingTask == nil else { return }
+            pendingTask = Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                guard !Task.isCancelled else { return }
+                didReport = true
+                onVisible()
+            }
+        } else {
+            pendingTask?.cancel()
+            pendingTask = nil
+        }
+    }
+}
+
+struct AmenSpaceBannerAdminSizePicker: View {
+    let spaceId: String
+    @State private var selectedSize: AmenSpaceBannerSize
+    @State private var isSaving = false
+    @State private var saveFailed = false
+    private let service: AmenSpaceBannerServicing
+
+    init(spaceId: String, defaultSize: AmenSpaceBannerSize = .standard, service: AmenSpaceBannerServicing? = nil) {
+        self.spaceId = spaceId
+        self.service = service ?? AmenSpaceBannerService()
+        _selectedSize = State(initialValue: defaultSize)
+    }
+
+    var body: some View {
+        Picker("Default banner size", selection: $selectedSize) {
+            ForEach(AmenSpaceBannerSize.allCases) { size in
+                Text(size.displayName).tag(size)
+            }
+        }
+        .pickerStyle(.segmented)
+        .disabled(isSaving)
+        .onChange(of: selectedSize) { _, newValue in
+            Task { await save(newValue) }
+        }
+        .accessibilityHint("Sets the default editorial banner size for this Space. User display preferences still override this default.")
+        .overlay(alignment: .trailing) {
+            if isSaving {
+                ProgressView()
+                    .controlSize(.small)
+                    .padding(.trailing, 8)
+            }
+        }
+        .alert("Could not save banner size", isPresented: $saveFailed) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Check your admin access and try again.")
+        }
+    }
+
+    @MainActor
+    private func save(_ size: AmenSpaceBannerSize) async {
+        isSaving = true
+        defer { isSaving = false }
+        do {
+            try await service.setSpaceDefaultSize(size, spaceId: spaceId)
+        } catch {
+            saveFailed = true
+        }
     }
 }
 
@@ -475,7 +893,7 @@ private struct AmenSpaceBannerCard: View {
                 .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Color.white.opacity(contrast == .increased ? 0.5 : 0.28), lineWidth: 0.7))
                 .padding(10)
             }
-            .frame(width: min(size.cardWidth, UIScreen.main.bounds.width - 40), height: size.cardHeight)
+            .frame(width: size.cardWidth, height: size.cardHeight)
             .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
             .shadow(color: .black.opacity(0.12), radius: 18, x: 0, y: 8)
             .overlay(alignment: .topTrailing) {
@@ -572,12 +990,12 @@ private struct AmenSpaceBannerUnavailableCard: View {
                 .foregroundStyle(Color.blue)
             Text(message)
                 .font(.subheadline)
-                .foregroundStyle(.black.opacity(0.64))
+                .foregroundStyle(AmenTheme.Colors.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer()
         }
         .padding(14)
-        .background(Color.white, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.black.opacity(0.08), lineWidth: 0.7))
+        .background(AmenTheme.Colors.surfaceCard, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(AmenTheme.Colors.borderSoft, lineWidth: 0.7))
     }
 }
