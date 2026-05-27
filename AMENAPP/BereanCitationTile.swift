@@ -20,7 +20,7 @@ import SwiftUI
 
 /// An individual citation source attached to a Berean AI response.
 /// Declared here until it is promoted into BereanGrokModels.swift.
-struct BereanProvenanceSource: Identifiable, Equatable {
+struct BereanProvenanceSource: Identifiable, Equatable, Sendable {
     let id: UUID
     /// Human-readable reference, e.g. "John 3:16" or "Westminster Confession, Ch. 8"
     let reference: String

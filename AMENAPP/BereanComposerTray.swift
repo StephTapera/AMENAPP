@@ -600,8 +600,15 @@ struct BereanComposerTray: View {
 
     private func startGoldPulse() {
         guard !reduceMotion else { return }
-        withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
-            scriptureGoldPulse = true
+        // Drive the border opacity between two values using a repeating task so
+        // the only animation curve applied to SwiftUI state is a spring.
+        Task { @MainActor in
+            while !Task.isCancelled {
+                withAnimation(.spring(response: 1.1, dampingFraction: 0.55)) {
+                    scriptureGoldPulse.toggle()
+                }
+                try? await Task.sleep(for: .milliseconds(1200))
+            }
         }
     }
 }

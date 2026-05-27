@@ -12,12 +12,12 @@ import FirebaseAnalytics
 private struct BereanChatCleanBackground: View {
     var body: some View {
         ZStack {
-            Color(red: 0.956, green: 0.956, blue: 0.936)
+            BereanColor.background
             LinearGradient(
                 colors: [
                     Color.white.opacity(0.78),
-                    Color(red: 0.94, green: 0.95, blue: 0.93).opacity(0.72),
-                    Color(red: 0.98, green: 0.965, blue: 0.94).opacity(0.58)
+                    BereanColor.background.opacity(0.72),
+                    BereanColor.background.opacity(0.58)
                 ],
                 startPoint: .top,
                 endPoint: .bottom
@@ -41,7 +41,7 @@ private struct ReportingTarget: Identifiable, Equatable {
     var id: String { messageId }
 }
 
-struct BereanChatMsg: Identifiable, Equatable {
+struct BereanChatMsg: Identifiable, Equatable, Sendable {
     var id: UUID = UUID()
     var role: BereanChatMsgRole
     var content: String
@@ -70,14 +70,14 @@ struct BereanChatMsg: Identifiable, Equatable {
 // MARK: - Response Structure
 
 /// Structured response with progressive sections
-struct BereanResponseStructure: Equatable {
+struct BereanResponseStructure: Equatable, Sendable {
     var directAnswer: String? = nil
     var meaning: String? = nil
     var context: String? = nil
     var application: String? = nil
     var followUpActions: [FollowUpAction] = []
 
-    struct FollowUpAction: Identifiable, Equatable {
+    struct FollowUpAction: Identifiable, Equatable, Sendable {
         let id = UUID()
         let title: String
         let icon: String
@@ -136,7 +136,9 @@ final class BereanChatViewModel: ObservableObject {
 
     private let freeMsgLimit = 10
     private let studyModeStorageKey = "berean_study_mode_enabled"
+    private let messageWindowSize = 50
     @Published var messageCount: Int = 0
+    @Published var hasOlderMessages: Bool = false
     @Published var isProUser: Bool = false
     @Published var simpleModeEnabled: Bool = UserDefaults.standard.bool(forKey: "berean_simple_mode")
     var isAtLimit: Bool { !isProUser && messageCount >= freeMsgLimit }
@@ -458,9 +460,24 @@ final class BereanChatViewModel: ObservableObject {
                         }
                     }
                 )
+                // Debounce buffer: accumulate chunks and flush every 80ms (~12 diffs/s)
+                // rather than publishing on every token character (~50 diffs/s).
+                var streamBuffer = ""
+                var lastFlush = Date()
                 for try await chunk in stream {
                     try Task.checkCancellation()
-                    messages[assistantIndex].content += chunk
+                    streamBuffer += chunk
+                    let elapsed = Date().timeIntervalSince(lastFlush)
+                    if elapsed >= 0.08 {
+                        messages[assistantIndex].content += streamBuffer
+                        streamBuffer = ""
+                        lastFlush = Date()
+                    }
+                }
+                // Flush any remaining buffered content after stream ends
+                if !streamBuffer.isEmpty {
+                    messages[assistantIndex].content += streamBuffer
+                    streamBuffer = ""
                 }
                 // Crisis short-circuit responses are pre-approved human text (988 Lifeline,
                 // Crisis Text Line). Skip sanitization and alignment overrides entirely —
@@ -474,23 +491,31 @@ final class BereanChatViewModel: ObservableObject {
                     if safe != assembled {
                         messages[assistantIndex].content = safe
                     }
-                    if let alignmentResult = try? await BiblicalAlignmentService.shared.checkBiblicalAlignment(
-                        text: messages[assistantIndex].content,
-                        targetType: "berean_response",
-                        sourceSurface: "berean_chat",
-                        requestedLens: simpleModeEnabled ? .simple : nil
-                    ) {
+                    let capturedIdx = assistantIndex
+                    let capturedContent = messages[assistantIndex].content
+                    let capturedSimpleMode = simpleModeEnabled
+                    Task {
+                        guard let alignmentResult = try? await BiblicalAlignmentService.shared.checkBiblicalAlignment(
+                            text: capturedContent,
+                            targetType: "berean_response",
+                            sourceSurface: "berean_chat",
+                            requestedLens: capturedSimpleMode ? .simple : nil
+                        ) else { return }
                         switch alignmentResult.status {
                         case .aligned:
                             break
                         case .contextNeeded:
-                            messages[assistantIndex].content = "Context note: this answer may benefit from prayerful reflection.\n\n" + messages[assistantIndex].content
+                            if capturedIdx < self.messages.count {
+                                self.messages[capturedIdx].content = "Context note: this answer may benefit from prayerful reflection.\n\n" + capturedContent
+                            }
                         case .needsDiscernment:
-                            if let rewritten = alignmentResult.rewriteSuggestion, !rewritten.isEmpty {
-                                messages[assistantIndex].content = rewritten
+                            if let rewritten = alignmentResult.rewriteSuggestion, !rewritten.isEmpty, capturedIdx < self.messages.count {
+                                self.messages[capturedIdx].content = rewritten
                             }
                         case .blocked, .humanReview:
-                            messages[assistantIndex].content = "I can’t help with that request in its current form. If you want, I can help you pause, pray, or take a safer next step."
+                            if capturedIdx < self.messages.count {
+                                self.messages[capturedIdx].content = "I can’t help with that request in its current form. If you want, I can help you pause, pray, or take a safer next step."
+                            }
                         }
                     }
                 }
@@ -509,6 +534,7 @@ final class BereanChatViewModel: ObservableObject {
                     autoSaveInsight: true
                 )
                 await persistExchange(userText: text, assistantText: completedAssistantText, composerContext: composerContext)
+                trimToWindow()
             } catch is CancellationError {
                 messages[assistantIndex].streamingState = .cancelled
                 if isStudyModeEnabled {
@@ -713,6 +739,41 @@ final class BereanChatViewModel: ObservableObject {
             }
     }
 
+    private func trimToWindow() {
+        guard messages.count > messageWindowSize else { return }
+        messages = Array(messages.suffix(messageWindowSize))
+        hasOlderMessages = true
+    }
+
+    func loadOlderMessages() async {
+        guard hasOlderMessages, !userId.isEmpty else { return }
+        let convRef = db.collection("users").document(userId)
+            .collection("bereanConversations").document(sessionId)
+        guard let oldest = messages.first?.timestamp else { return }
+        do {
+            let snap = try await convRef.collection("messages")
+                .order(by: "createdAt", descending: true)
+                .whereField("createdAt", isLessThan: Timestamp(date: oldest))
+                .limit(to: messageWindowSize)
+                .getDocuments()
+            let older: [BereanChatMsg] = snap.documents.compactMap { doc in
+                guard let role = doc.data()["role"] as? String,
+                      let content = doc.data()["content"] as? String,
+                      let ts = doc.data()["createdAt"] as? Timestamp else { return nil }
+                return BereanChatMsg(
+                    role: role == "user" ? .user : .assistant,
+                    content: content,
+                    timestamp: ts.dateValue(),
+                    streamingState: .completed
+                )
+            }.reversed()
+            messages = older + messages
+            hasOlderMessages = snap.documents.count == messageWindowSize
+        } catch {
+            dlog("⚠️ BereanChatViewModel.loadOlderMessages: \(error)")
+        }
+    }
+
     private func deleteConversation(at convRef: DocumentReference) async {
         do {
             let messageSnapshot = try await convRef.collection("messages").getDocuments()
@@ -811,6 +872,18 @@ struct BereanChatView: View {
     @State private var viewportHeight: CGFloat = 0
     @State private var lastStreamingAutoScrollAt: Date = .distantPast
     @State private var streamingAutoScrollTimer: Timer?
+
+    // --- Liquid Glass v1 rebuild state ---
+    /// Scroll offset forwarded to BereanThreadCapsule for its 3-state collapse logic.
+    @State private var threadScrollOffset: CGFloat = 0
+    /// Current Berean action state driving BereanThinkingStrip.
+    @State private var currentThinkingAction: BereanThinkingAction = .idle
+    /// Currently visible message ID forwarded to BereanConversationSpine.
+    @State private var visibleMessageId: UUID? = nil
+    /// The message ID whose BereanMessageTray is currently shown.
+    @State private var trayVisibleForId: UUID? = nil
+    /// Whether any message tray is currently presented.
+    @State private var messageTrayVisible: Bool = false
     @State private var showHero: Bool = true
     @State private var selectedReasoningNode: BereanReasoningNode?
     // Staggered entrance animation state
@@ -911,6 +984,22 @@ struct BereanChatView: View {
 
                 VStack(spacing: 0) {
                     smartBlurHeader(metrics: metrics)
+                    // Liquid Glass v1: morphing thread capsule below nav header
+                    BereanThreadCapsule(
+                        threadTitle: conversationTitle ?? "Berean",
+                        mode: vm.currentMode,
+                        verseCount: vm.messages.filter { $0.provenance != nil }.count,
+                        docCount: 0,
+                        memoryOn: true,
+                        theologicalLens: nil,
+                        scrollOffset: $threadScrollOffset,
+                        onBackTapped: { dismiss() }
+                    )
+                    .padding(.horizontal, 16)
+                    .padding(.top, 4)
+                    .padding(.bottom, 4)
+                    // Liquid Glass v1: live action verb strip below capsule
+                    BereanThinkingStrip(action: currentThinkingAction)
                     contentScrollView(metrics: metrics)
                 }
 
@@ -975,9 +1064,17 @@ struct BereanChatView: View {
                         .onTapGesture { showContextLens = false }
                     }
 
-                    selectedComposerModeChip
-                        .padding(.horizontal, metrics.contentHorizontalPadding)
-                        .padding(.bottom, 6)
+                    HStack(spacing: 8) {
+                        selectedComposerModeChip
+                        // Liquid Glass v1: memory chip — active when thinking, entries bound when service is wired
+                        BereanMemoryChip(
+                            isActive: vm.isThinking,
+                            entries: [],
+                            onOpenSettings: { showSpiritualMemorySheet = true }
+                        )
+                    }
+                    .padding(.horizontal, metrics.contentHorizontalPadding)
+                    .padding(.bottom, 6)
 
                     adaptiveComposer(metrics: metrics, containerWidth: proxy.size.width)
                 }
@@ -1218,6 +1315,10 @@ struct BereanChatView: View {
                 Task { await handlePostContextNotification(notification) }
             }
             .onChange(of: vm.isThinking) { _, thinking in
+                // Liquid Glass v1: drive BereanThinkingStrip from isThinking transitions
+                withAnimation(.spring(response: 0.42, dampingFraction: 0.82)) {
+                    currentThinkingAction = thinking ? .drafting : .idle
+                }
                 if thinking {
                     composerVM.setState(.streaming)
                     vm.grokCoordinator.startThinkingCycle()
@@ -1310,6 +1411,8 @@ struct BereanChatView: View {
                         )
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Back")
+                .accessibilityHint("Double tap to return to the previous screen")
 
                 Spacer()
 
@@ -1467,6 +1570,7 @@ struct BereanChatView: View {
 
     private func contentScrollView(metrics: BereanLayoutMetrics) -> some View {
         ScrollViewReader { proxy in
+            ZStack(alignment: .trailing) {
             ScrollView {
                 LazyVStack(spacing: 0) {
                     if let postAvailabilityMessage {
@@ -1534,30 +1638,42 @@ struct BereanChatView: View {
                         .transition(.opacity.combined(with: .move(edge: .top)))
                     }
 
-                    // Messages
-                    LazyVStack(spacing: 16) {
-                        ForEach(vm.messages) { msg in
-                            if msg.role == .user || !msg.content.isEmpty {
-                                structuredMessageView(msg)
-                                    .id(msg.id)
-                                    .contextMenu {
-                                        messageContextMenu(msg)
-                                    }
-                                    // MEDIUM FIX: Announce sender name and timestamp so VoiceOver
-                                    // users know who sent each message and when.
-                                    .accessibilityLabel(messageAccessibilityLabel(msg))
-                            }
+                    // Messages — flattened into parent LazyVStack to eliminate nested lazy loading
+                    if vm.hasOlderMessages {
+                        Button {
+                            Task { await vm.loadOlderMessages() }
+                        } label: {
+                            Label("Load earlier messages", systemImage: "arrow.up.circle")
+                                .font(.caption)
+                                .foregroundStyle(AmenTheme.Colors.amenGold)
+                                .padding(.vertical, 6)
                         }
-
-                        // Thinking indicator with processing state
-                        if vm.isThinking && (vm.messages.last?.content.isEmpty ?? false) {
-                            processingIndicator
-                                .id("thinking")
-                                .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .leading)))
+                        .accessibilityLabel("Load earlier messages in this conversation")
+                        .padding(.horizontal, metrics.contentHorizontalPadding)
+                    }
+                    ForEach(vm.messages) { msg in
+                        if msg.role == .user || !msg.content.isEmpty {
+                            structuredMessageView(msg)
+                                .id(msg.id)
+                                .contextMenu {
+                                    messageContextMenu(msg)
+                                }
+                                // MEDIUM FIX: Announce sender name and timestamp so VoiceOver
+                                // users know who sent each message and when.
+                                .accessibilityLabel(messageAccessibilityLabel(msg))
+                                .padding(.horizontal, metrics.contentHorizontalPadding)
+                                .padding(.top, msg.id == vm.messages.first?.id ? (showHero ? 0 : 16) : 16)
                         }
                     }
-                    .padding(.horizontal, metrics.contentHorizontalPadding)
-                    .padding(.top, showHero ? 0 : 16)
+
+                    // Thinking indicator with processing state
+                    if vm.isThinking && (vm.messages.last?.content.isEmpty ?? false) {
+                        processingIndicator
+                            .id("thinking")
+                            .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .leading)))
+                            .padding(.horizontal, metrics.contentHorizontalPadding)
+                            .padding(.top, 16)
+                    }
 
                     // Auto-scroll anchor
                     Color.clear.frame(height: metrics.bottomContentInset).id("bottom")
@@ -1595,8 +1711,14 @@ struct BereanChatView: View {
                 let rawOffset = value
                 let newOffset = -value
                 scrollOffset = newOffset
+                threadScrollOffset = max(0, newOffset)   // Liquid Glass v1: capsule collapse
                 scrollCoordinator.update(offset: newOffset, contentHeight: contentHeight, viewportHeight: viewportHeight)
                 composerVM.updateScroll(rawOffset)
+                // Liquid Glass v1: dismiss message tray on scroll
+                if messageTrayVisible {
+                    messageTrayVisible = false
+                    trayVisibleForId = nil
+                }
                 if scrollOffset > 50 && showHero {
                     withAnimation(.easeOut(duration: 0.3)) {
                         showHero = false
@@ -1607,7 +1729,12 @@ struct BereanChatView: View {
                 contentHeight = height
                 scrollCoordinator.update(offset: scrollOffset, contentHeight: contentHeight, viewportHeight: viewportHeight)
             }
-            .onChange(of: vm.messages.count) {
+            .onChange(of: vm.messages.count) { _, _ in
+                // Liquid Glass v1: keep spine visible message in sync on new messages
+                visibleMessageId = vm.messages.last?.id
+                // Dismiss message tray on new messages
+                messageTrayVisible = false
+                trayVisibleForId = nil
                 let shouldScroll = scrollCoordinator.shouldAutoScroll(isUserInitiated: pendingUserSend)
                 if shouldScroll {
                     withAnimation(.easeOut(duration: 0.30)) {
@@ -1621,6 +1748,16 @@ struct BereanChatView: View {
                     debouncedScrollToBottom(using: proxy, isStreaming: vm.isThinking)
                 }
             }
+            // Liquid Glass v1: trailing-edge dot scrubber
+            BereanConversationSpine(
+                messages: vm.messages,
+                visibleMessageId: $visibleMessageId,
+                scrollProxy: proxy
+            )
+            .padding(.trailing, 4)
+            .opacity(vm.messages.count >= 6 ? 1 : 0)
+            .animation(.spring(response: 0.36, dampingFraction: 0.76), value: vm.messages.count)
+            } // end ZStack(alignment: .trailing)
         }
     }
 
@@ -2580,6 +2717,8 @@ struct BereanChatView: View {
                         .background(Circle().fill(.ultraThinMaterial))
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Dismiss suggestions")
+                .accessibilityHint("Double tap to hide follow-up suggestions")
             }
             .padding(.horizontal, 18)
             .padding(.vertical, 2)
@@ -2604,6 +2743,8 @@ struct BereanChatView: View {
                     .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(.secondary)
             }
+            .accessibilityLabel("Dismiss safety notice")
+            .accessibilityHint("Double tap to close this warning")
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
@@ -2800,6 +2941,13 @@ struct BereanChatView: View {
 
                     VStack(alignment: .leading, spacing: 8) {
                         BereanStructuredResponseView(message: message)
+                            .onLongPressGesture {
+                                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                                trayVisibleForId = message.id
+                                withAnimation(.spring(response: 0.32, dampingFraction: 0.80)) {
+                                    messageTrayVisible = true
+                                }
+                            }
                         // Addition 2: Scripture chip below assistant response
                         bereanScriptureChip(for: message)
                         // System 27: Provenance chips — show how this answer was prepared
@@ -2810,6 +2958,40 @@ struct BereanChatView: View {
                             }
                             .padding(.top, 2)
                             .transition(.opacity.combined(with: .scale(scale: 0.9, anchor: .leading)))
+                        }
+                        // Liquid Glass v1: Inline citation chips from provenance sources
+                        if !message.isStreaming,
+                           let provenance = message.provenance,
+                           !provenance.sources.isEmpty {
+                            BereanCitationRow(sources: provenance.sources)
+                                .padding(.top, 8)
+                                .transition(.opacity.combined(with: .scale(scale: 0.9, anchor: .leading)))
+                        }
+                        // Liquid Glass v1: Floating action tray (long-press to reveal)
+                        if trayVisibleForId == message.id {
+                            BereanMessageTray(
+                                message: message,
+                                isVisible: Binding(
+                                    get: { messageTrayVisible && trayVisibleForId == message.id },
+                                    set: { visible in
+                                        messageTrayVisible = visible
+                                        if !visible { trayVisibleForId = nil }
+                                    }
+                                ),
+                                onRegenerate: { vm.send() },
+                                onShare: {
+                                    let text = message.content
+                                    let av = UIActivityViewController(activityItems: [text], applicationActivities: nil)
+                                    if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                                       let window = scene.windows.first {
+                                        window.rootViewController?.present(av, animated: true)
+                                    }
+                                },
+                                onAudio: {},
+                                onMore: {}
+                            )
+                            .padding(.horizontal, 0)
+                            .padding(.top, 8)
                         }
                         HStack {
                             Button("Correct the AI") {

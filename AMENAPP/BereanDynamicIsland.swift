@@ -193,6 +193,9 @@ struct BereanDynamicIsland: View {
     @State private var snakeHead: CGFloat    = 0
     @State private var snakeHead2: CGFloat   = 0
 
+    // WCAG 2.3.3 — reduce-motion guard for aura blob animations
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         if vm.state != .idle {
             ZStack(alignment: .top) {
@@ -276,6 +279,14 @@ struct BereanDynamicIsland: View {
     }
 
     private func startAuraAnimation() {
+        // WCAG 2.3.3: Skip all aura motion when Reduce Motion is enabled.
+        // The aura blob still renders at full opacity so users see a static indicator.
+        guard !reduceMotion else {
+            auraOpacity = 1.0
+            auraScale   = 1.0
+            auraOffset  = 30
+            return
+        }
         // Breathe in
         withAnimation(.easeOut(duration: 0.55)) {
             auraOpacity = 1.0

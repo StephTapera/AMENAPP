@@ -70,22 +70,55 @@ struct OnboardingContainerView: View {
     }
     
     private func saveUserDataToFirebase() async {
-        // TODO: Implement saving to Firebase
-        // This would update the user's profile with all the onboarding data
-        print("💾 Saving user data to Firebase...")
-        print("📝 Display Name: \(coordinator.userData.displayName)")
-        print("📝 Bio: \(coordinator.userData.bio)")
-        print("📝 Interests: \(coordinator.userData.selectedInterests)")
-        print("📝 Denomination: \(coordinator.userData.denomination ?? "Not specified")")
-        print("📝 Notifications: \(coordinator.userData.notificationsEnabled)")
-        
-        // For now, just dismiss after a short delay
-        try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
-        
-        // Mark onboarding as complete in auth view model
+        let userData = coordinator.userData
+
+        var profileImageURL: String? = nil
+        if let imageData = userData.profileImage, let uiImage = UIImage(data: imageData) {
+            do {
+                profileImageURL = try await UserService.shared.uploadProfileImage(uiImage)
+            } catch {
+                dlog("⚠️ OnboardingContainerView: profile image upload failed: \(error)")
+            }
+        }
+
+        do {
+            try await UserService.shared.updateProfile(
+                displayName: userData.displayName,
+                bio: userData.bio
+            )
+        } catch {
+            dlog("⚠️ OnboardingContainerView: updateProfile failed: \(error)")
+        }
+
+        do {
+            try await UserService.shared.saveOnboardingPreferences(
+                interests: userData.selectedInterests,
+                goals: [],
+                prayerTime: "",
+                profileImageURL: profileImageURL,
+                denomination: userData.denomination
+            )
+        } catch {
+            dlog("⚠️ OnboardingContainerView: saveOnboardingPreferences failed: \(error)")
+        }
+
+        do {
+            let notifEnabled = userData.notificationsEnabled
+            try await UserService.shared.updateNotificationSettings(
+                pushEnabled: notifEnabled,
+                emailEnabled: notifEnabled,
+                notifyOnLikes: notifEnabled,
+                notifyOnComments: notifEnabled,
+                notifyOnFollows: notifEnabled,
+                notifyOnMentions: notifEnabled,
+                notifyOnPrayerRequests: notifEnabled
+            )
+        } catch {
+            dlog("⚠️ OnboardingContainerView: updateNotificationSettings failed: \(error)")
+        }
+
         authViewModel.completeOnboarding()
-        
-        // Trigger haptic feedback
+
         let haptic = UINotificationFeedbackGenerator()
         haptic.notificationOccurred(.success)
     }

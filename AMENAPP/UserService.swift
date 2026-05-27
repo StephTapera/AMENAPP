@@ -424,8 +424,8 @@ class LegacyUserService: ObservableObject {
             throw UserServiceError.imageCompressionFailed
         }
         
-        // Upload to Storage
-        let path = "profile_images/\(userId)/profile.jpg"
+        // Upload to Storage — owner-scoped path (rules: allow write if uid == userId)
+        let path = "users/\(userId)/profile/avatar/profileImage.jpg"
         let storageRef = storage.reference().child(path)
         
         let metadata = StorageMetadata()
@@ -514,11 +514,15 @@ class LegacyUserService: ObservableObject {
         await updateProfilePhotoInConversations(userId: userId, photoURL: "")
         
         // Try to delete from Storage (non-critical if fails)
-        let path = "profile_images/\(userId)/profile.jpg"
+        let path = "users/\(userId)/profile/avatar/profileImage.jpg"
         let storageRef = storage.reference().child(path)
         
-        try? await storageRef.delete()
-        
+        do {
+            try await storageRef.delete()
+        } catch {
+            dlog("⚠️ UserService: failed to delete profile image from storage — \(error)")
+        }
+
         dlog("✅ UserService: Profile image removed")
         
         // Update local cache
@@ -534,7 +538,7 @@ class LegacyUserService: ObservableObject {
     // MARK: - Update Interests & Preferences
     
     /// Save onboarding preferences (interests, goals, prayer time, profile image)
-    func saveOnboardingPreferences(interests: [String], goals: [String], prayerTime: String, profileImageURL: String? = nil) async throws {
+    func saveOnboardingPreferences(interests: [String], goals: [String], prayerTime: String, profileImageURL: String? = nil, denomination: String? = nil) async throws {
         guard let userId = firebaseManager.currentUser?.uid else {
             throw UserServiceError.unauthorized
         }
@@ -556,6 +560,10 @@ class LegacyUserService: ObservableObject {
         // P0 FIX: Add profile image URL if provided
         if let imageURL = profileImageURL {
             updateData["profileImageURL"] = imageURL
+        }
+
+        if let denomination = denomination {
+            updateData["denomination"] = denomination
         }
         
         // Use setData with merge to create document if it doesn't exist
