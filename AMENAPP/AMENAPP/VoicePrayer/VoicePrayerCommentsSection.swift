@@ -265,7 +265,9 @@ final class VoicePrayerCommentsSectionViewModel: ObservableObject {
             try await VoicePrayerUploadService.delete(voiceCommentId: comment.id, postId: postId)
             voiceComments.removeAll { $0.id == comment.id }
             AMENAnalyticsService.shared.track(.voiceCommentDeleted(postId: postId))
-        } catch { }
+        } catch {
+            dlog("⚠️ VoiceComment delete failed: \(error)")
+        }
     }
 }
 

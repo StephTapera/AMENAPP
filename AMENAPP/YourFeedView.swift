@@ -25,6 +25,7 @@ struct YourFeedView: View {
     @ObservedObject private var prefsSvc    = HeyFeedPreferencesService.shared
     @ObservedObject private var nlSvc       = HeyFeedNLPreferencesService.shared
     @ObservedObject private var sessionSvc  = HeyFeedSessionModeService.shared
+    @ObservedObject private var contextPrefs = ContextLabelPreferenceStore.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     // Section expansion state
@@ -33,6 +34,7 @@ struct YourFeedView: View {
     @State private var tuningExpanded       = true
     @State private var sessionExpanded      = false
     @State private var advancedExpanded     = false
+    @State private var contextLabelsExpanded = false
 
     // NL inline input
     @State private var nlInputText          = ""
@@ -119,6 +121,17 @@ struct YourFeedView: View {
                             advancedSection
                         }
 
+                        sectionDivider
+
+                        collapsibleSection(
+                            title: "Context Labels",
+                            icon: "text.bubble",
+                            badge: contextPrefs.contextualLabelsDisabled ? "off" : nil,
+                            isExpanded: $contextLabelsExpanded
+                        ) {
+                            contextLabelsSection
+                        }
+
                         Spacer(minLength: 48)
                     }
                 }
@@ -138,6 +151,7 @@ struct YourFeedView: View {
         .onAppear {
             nlSvc.startListening()
             sessionExpanded = sessionSvc.isActive
+            AmenWellbeingService.shared.onSessionStart()
         }
     }
 
@@ -220,7 +234,7 @@ struct YourFeedView: View {
 
             Button {
                 withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.8))) {
-                    prefsSvc.preferences.pinnedTopics.insert(seasonalContext.suggestedTopic)
+                    _ = prefsSvc.preferences.pinnedTopics.insert(seasonalContext.suggestedTopic)
                 }
                 Task { await prefsSvc.savePreferences() }
             } label: {
@@ -236,6 +250,8 @@ struct YourFeedView: View {
                     )
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Boost \(seasonalContext.title)")
+            .accessibilityHint("Pins \(seasonalContext.title) to your feed preferences")
         }
         .padding(14)
         .background(
@@ -255,9 +271,88 @@ struct YourFeedView: View {
             ForEach(FeedMode.allCases, id: \.self) { mode in
                 feedModeRow(mode)
             }
+
+            Divider().padding(.vertical, 4)
+
+            SacredFeedModeBar()
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 16)
+    }
+
+    private var contextLabelsSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Toggle(isOn: Binding(
+                get: { !contextPrefs.contextualLabelsDisabled },
+                set: { newValue in
+                    Task { await contextPrefs.setDisabled(!newValue) }
+                }
+            )) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Show Context Labels")
+                        .font(AMENFont.semiBold(14))
+                    Text("Quiet explanations for why select posts appear in your feed.")
+                        .font(AMENFont.regular(12))
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            if !contextPrefs.mutedContextTopicIds.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Muted topics")
+                        .font(AMENFont.semiBold(13))
+                    ForEach(contextPrefs.mutedContextTopicIds.sorted(), id: \.self) { topicId in
+                        contextPreferenceRow(title: TopicNormalizationService.shared.displayName(for: topicId)) {
+                            Task { await contextPrefs.unmute(topicId: topicId) }
+                        }
+                    }
+                }
+            }
+
+            if !contextPrefs.mutedContextTypes.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Muted label types")
+                        .font(AMENFont.semiBold(13))
+                    ForEach(contextPrefs.mutedContextTypes.sorted(), id: \.self) { typeRawValue in
+                        let title = AmenFeedContextType(rawValue: typeRawValue)?.displayPrefix ?? typeRawValue
+                        contextPreferenceRow(title: title) {
+                            Task { await contextPrefs.unmute(typeRawValue: typeRawValue) }
+                        }
+                    }
+                }
+            }
+
+            Button("Reset hidden labels") {
+                Task { await contextPrefs.resetHiddenLabels() }
+            }
+            .font(AMENFont.semiBold(13))
+            .foregroundStyle(.primary)
+        }
+        .padding(.horizontal, 16)
+        .padding(.bottom, 16)
+    }
+
+    private func contextPreferenceRow(title: String, onRemove: @escaping () -> Void) -> some View {
+        HStack(spacing: 12) {
+            Text(title)
+                .font(AMENFont.regular(12))
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+            Spacer()
+            Button("Remove", action: onRemove)
+                .font(AMENFont.semiBold(12))
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(.thinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.5)
+                )
+        )
     }
 
     private func feedModeRow(_ mode: FeedMode) -> some View {
@@ -811,7 +906,10 @@ struct YourFeedView: View {
         let trimmed = nlInputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !nlIsSubmitting else { return }
         let intent = nlParsedIntent ?? HeyFeedNLParser.shared.parse(trimmed)
-        guard !intent.targets.isEmpty else { return }
+        guard !intent.targets.isEmpty else {
+            ToastManager.shared.info("We didn't understand that — try \"show more prayer\" or \"less news\"")
+            return
+        }
         let finalIntent = HeyFeedParsedIntent(
             action: intent.action,
             targets: intent.targets,

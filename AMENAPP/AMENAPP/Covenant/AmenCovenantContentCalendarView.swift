@@ -268,7 +268,9 @@ private struct ScheduleContentSheet: View {
             try await Firestore.firestore()
                 .collection("covenants").document(covenantId)
                 .collection("scheduledContent").addDocument(data: data)
-        } catch {}
+        } catch {
+            dlog("⚠️ Covenant content schedule failed for \(covenantId): \(error)")
+        }
         submitting = false
         onScheduled()
         dismiss()

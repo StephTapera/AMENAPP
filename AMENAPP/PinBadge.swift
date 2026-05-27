@@ -1,26 +1,2 @@
-//
-//  PinBadge.swift
-//  AMENAPP
-//
-//  Whisper-opacity "Pinned" indicator used on PinnedPostCard.
-//
-
-import SwiftUI
-
-struct PinBadge: View {
-    var body: some View {
-        HStack(spacing: 4) {
-            Image(systemName: "paperclip")
-                .font(.systemScaled(10, weight: .medium))
-            Text("Pinned")
-                .font(.systemScaled(11))
-        }
-        .foregroundStyle(Color.white.opacity(0.35))
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(
-            Capsule()
-                .fill(Color.white.opacity(0.06))
-        )
-    }
-}
+// PinBadge.swift — superseded by AMENAPP/Features/Profile/PinnedPosts/Display/PinBadge.swift
+// This file is intentionally empty to avoid duplicate-type build errors.

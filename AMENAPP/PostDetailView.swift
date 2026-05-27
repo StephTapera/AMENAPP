@@ -14,6 +14,11 @@ import FirebaseFirestore
 
 struct PostDetailView: View {
     let post: Post
+    /// When non-nil, the view scrolls to and highlights this comment ID after load.
+    /// Set by the Replies tab "View thread" action so the reply is anchored on arrival.
+    var highlightedCommentId: String? = nil
+    var initialBereanPostContext: BereanPostContext? = nil
+    var autoOpenBereanOnAppear = false
 
     @Environment(\.dismiss) var dismiss
     @ObservedObject private var commentService = CommentService.shared
@@ -34,6 +39,7 @@ struct PostDetailView: View {
     // CommentService uses the full firestoreId as the Realtime Database key.
     // Truncating to prefix(8) produces a path that doesn't exist, resulting in empty comments.
     private var postId: String { post.firestoreId }
+    private var currentBereanContext: BereanPostContext { initialBereanPostContext ?? BereanPostContext(post: post) }
 
     // Derived from @Published CommentService state — no local copy, no concurrent mutation.
     // SwiftUI re-renders automatically whenever commentService.comments or commentReplies changes.
@@ -59,15 +65,18 @@ struct PostDetailView: View {
     @State private var isSubmittingComment = false  // debounce: prevent double-submit
     @State private var isPostExpanded = true         // Default expanded in detail view
     @State private var replyingToUsername: String? = nil  // Set when Reply is tapped
+    @State private var replyingToCommentId: String? = nil  // Set when Reply is tapped; routes through addReply
     @State private var rateLimitMessage: String? = nil   // Auto-dismissing rate limit notice
     @State private var rateLimitDismissTask: Task<Void, Never>? = nil
     @State private var showCommentsLoadError = false      // P2 FIX: surface loadComments failure
     @State private var scrollOffset: CGFloat = 0
     @State private var carouselPage: Int = 0               // Active slide in media carousel
+    @State private var showMediaDetail = false
     /// Reactive scroll target — set by consumePendingCommentFocus() to trigger ScrollViewReader scrollTo.
     @State private var commentScrollTarget: String?
     @State private var textSelection: PostTextSelection?
     @State private var isTextSelecting = false
+    @State private var didAutoOpenBerean = false
 
     // Testimony features — only active when post.category == .testimonies
     @StateObject private var witnessService = TestimonyWitnessService()
@@ -84,7 +93,7 @@ struct PostDetailView: View {
 
     // Single sheet enum — avoids "only presenting a single sheet" SwiftUI warning
     private enum DetailSheet: Identifiable {
-        case berean(String), share, profile, report, editPost
+        case berean(query: String?, context: BereanPostContext?), share, profile, report, editPost
         case quoteComposer(QuoteComposerContext)
         case commentsWithQuote(String)
         case shareExcerpt(String)
@@ -105,6 +114,7 @@ struct PostDetailView: View {
         }
     }
     @State private var activeDetailSheet: DetailSheet?
+    @State private var showPostContextActions = false
     @ObservedObject private var savedPostsService = RealtimeSavedPostsService.shared
     private var isSaved: Bool {
         guard let firebaseId = post.firebaseId else { return false }
@@ -120,6 +130,14 @@ struct PostDetailView: View {
     // Check if following the post author
     private var isFollowing: Bool {
         followService.following.contains(post.authorId)
+    }
+
+    private var canonicalMediaContainer: PostMediaContainer? {
+        post.mediaContainer
+    }
+
+    private var usesDedicatedMediaDetail: Bool {
+        !(canonicalMediaContainer?.sortedItems.isEmpty ?? true)
     }
 
     // Whether the post has a media image to show as hero
@@ -140,15 +158,29 @@ struct PostDetailView: View {
             .compactMap { URL(string: $0) }
     }
 
+    @ViewBuilder
     var body: some View {
+        if usesDedicatedMediaDetail {
+            AmenMediaDetailView(
+                post: post,
+                initialMediaIndex: carouselPage,
+                sourceContext: .postDetail,
+                initialBereanPostContext: currentBereanContext,
+                autoOpenBereanOnAppear: autoOpenBereanOnAppear
+            )
+        } else {
+            legacyDetailView
+        }
+    }
+
+    private var legacyDetailView: some View {
         VStack(spacing: 0) {
             // ── Top nav bar ─────────────────────────────────────────
             topNavBar
 
             ScrollViewReader { scrollProxy in
-            ScrollView(.vertical, showsIndicators: false) {
-
-                VStack(spacing: 0) {
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(spacing: 0) {
                     // ── Media carousel or compact category banner ────────
                     if !allImageURLs.isEmpty {
                         mediaCarousel
@@ -166,6 +198,7 @@ struct PostDetailView: View {
                             SelectablePostTextView(
                                 text: post.content,
                                 mentions: post.mentions,
+                                inlineContentTokens: post.inlineContentTokens,
                                 font: UIFont.systemFont(ofSize: 16),
                                 lineSpacing: 4,
                                 lineLimit: isPostExpanded ? nil : 5,
@@ -176,6 +209,9 @@ struct PostDetailView: View {
                                             object: mention.userId
                                         )
                                     }
+                                },
+                                onInlineActionTap: { token in
+                                    handleInlinePostAction(token)
                                 },
                                 onTextTap: {
                                     if textSelection != nil {
@@ -216,6 +252,7 @@ struct PostDetailView: View {
                                     .foregroundStyle(.blue)
                             }
                             .buttonStyle(.plain)
+                            .accessibilityHint("Double tap to expand and read the full post")
                         }
 
                         if !isTextSelecting && post.content.count > 80 {
@@ -316,12 +353,18 @@ struct PostDetailView: View {
                             savedBookIds: [],
                             expandedClusters: $expandedCommentClusters,
                             highlightedCommentIDs: highlightedCommentIDs,
+                            hasMoreComments: commentService.hasMoreComments[postId] ?? false,
+                            onLoadMore: {
+                                Task { await commentService.loadMoreComments(postId: postId) }
+                            },
                             onReply: { parentComment in
                                 if let parent = parentComment {
                                     commentText = "@\(parent.authorUsername) "
                                     replyingToUsername = parent.authorUsername
+                                    replyingToCommentId = parent.id
                                 } else {
                                     replyingToUsername = nil
+                                    replyingToCommentId = nil
                                 }
                                 isCommentFocused = true
                             },
@@ -334,16 +377,28 @@ struct PostDetailView: View {
                             onAmen: { comment in
                                 let uid = Auth.auth().currentUser?.uid ?? ""
                                 let alreadyAmened = !uid.isEmpty && comment.amenUserIds.contains(uid)
-                                Task { try? await CommentService.shared.toggleAmen(commentId: comment.id ?? "", postId: postId, currentlyAmened: alreadyAmened) }
+                                Task {
+                                    do {
+                                        try await CommentService.shared.toggleAmen(commentId: comment.id ?? "", postId: postId, currentlyAmened: alreadyAmened)
+                                    } catch {
+                                        dlog("PostDetailView: toggleAmen on comment failed — \(error.localizedDescription)")
+                                    }
+                                }
                             },
                             onDelete: { comment in
-                                Task { try? await CommentService.shared.deleteComment(commentId: comment.id ?? "", postId: postId) }
+                                Task {
+                                    do {
+                                        try await CommentService.shared.deleteComment(commentId: comment.id ?? "", postId: postId)
+                                    } catch {
+                                        dlog("PostDetailView: deleteComment failed — \(error.localizedDescription)")
+                                    }
+                                }
                             },
                             onProfileTap: { userId in
                                 activeDetailSheet = .profile
                             },
                             onBerean: { query in
-                                activeDetailSheet = .berean(query)
+                                activeDetailSheet = .berean(query: query, context: currentBereanContext)
                             }
                         )
                     }
@@ -363,35 +418,65 @@ struct PostDetailView: View {
                     }
 
                     Color.clear.frame(height: 20)
+                    }
                 }
-            }
-            .scrollDismissesKeyboard(.interactively)
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                commentInputBar
-            }
-            .onChange(of: commentScrollTarget) { _, target in
-                guard let target else { return }
-                withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.9))) {
-                    scrollProxy.scrollTo(target, anchor: .center)
+                .scrollDismissesKeyboard(.interactively)
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    commentInputBar
                 }
-                commentScrollTarget = nil
-            }
+                .onChange(of: commentScrollTarget) { _, target in
+                    guard let target else { return }
+                    withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.9))) {
+                        scrollProxy.scrollTo(target, anchor: .center)
+                    }
+                    commentScrollTarget = nil
+                }
             } // end ScrollViewReader
         }
         .background(Color(.systemBackground).ignoresSafeArea())
         .sheet(isPresented: $showAnsweredComposer) {
             AnsweredPrayerComposerView(originalPrayerPost: post)
         }
+        .sheet(isPresented: $showPostContextActions) {
+            PostActionSheet(
+                postContent: post.content,
+                isOwner: isUserPost,
+                onLike: {
+                    Task { try? await interactionsService.toggleAmen(postId: postId) }
+                },
+                onComment: {},
+                onShare: { activeDetailSheet = .share },
+                onSave: {
+                    if let fid = post.firebaseId {
+                        Task { try? await RealtimeSavedPostsService.shared.toggleSavePost(postId: fid) }
+                    }
+                },
+                onEdit: { activeDetailSheet = .editPost },
+                onReport: { activeDetailSheet = .report }
+            )
+        }
         .sheet(item: $linkedTestimonyPost) { tp in
             PostDetailView(post: tp)
+        }
+        .fullScreenCover(isPresented: $showMediaDetail) {
+            AmenMediaDetailView(
+                post: post,
+                initialMediaIndex: carouselPage,
+                sourceContext: .postDetail
+            )
         }
         .navigationBarHidden(true)
         .sheet(item: $activeDetailSheet) { sheet in
             switch sheet {
-            case .berean(let query):
-                BereanAIAssistantView(initialQuery: query.isEmpty ? nil : query)
+            case .berean(let query, let context):
+                BereanChatRouteView(
+                    entryPoint: .postReflection,
+                    initialQuery: query?.isEmpty == true ? nil : query,
+                    conversationTitle: "Post Reflection",
+                    postContext: context
+                )
             case .share:
-                PostShareOptionsSheet(post: post)
+                BereanShareSheet(post: post, authorAvatar: nil)
             case .profile:
                 UserProfileView(userId: post.authorId, showsDismissButton: true)
             case .report:
@@ -411,8 +496,40 @@ struct PostDetailView: View {
             }
         }
         .task {
+            if autoOpenBereanOnAppear && !didAutoOpenBerean {
+                didAutoOpenBerean = true
+                dlog("🧭 [BereanLiveActivity] PostDetailView auto-opening Berean for post \(postId)")
+                CrashlyticsIntegration.logAction("berean_live_activity_post_detail_autoroute")
+                activeDetailSheet = .berean(query: currentBereanContext.initialPrompt, context: currentBereanContext)
+            }
             await loadComments()
             consumePendingCommentFocus()
+            // Anchor scroll from Replies tab — fires only when launched with a specific commentId.
+            // Polls until the target comment appears in the loaded list (max ~2s in 100ms steps)
+            // instead of using a fixed settle delay that fails on slow loads.
+            if let cid = highlightedCommentId, commentScrollTarget == nil {
+                Task { @MainActor in
+                    var attempts = 0
+                    while attempts < 20 {
+                        // Check top-level comments AND nested replies — both carry scroll .id()
+                        // anchors in ConversationThreadView / ThreadBranchCluster.
+                        let inComments = commentService.comments[postId]?.contains(where: { $0.id == cid }) == true
+                        let inReplies  = commentService.commentReplies.values.contains(where: { $0.contains(where: { $0.id == cid }) })
+                        if inComments || inReplies { break }
+                        try? await Task.sleep(nanoseconds: 100_000_000) // 100ms per retry
+                        attempts += 1
+                    }
+                    highlightedCommentIDs.insert(cid)
+                    commentScrollTarget = cid
+                    // Auto-clear the highlight after 3 s so it doesn't stick forever.
+                    highlightResetTask?.cancel()
+                    highlightResetTask = Task { @MainActor in
+                        try? await Task.sleep(for: .seconds(3))
+                        guard !Task.isCancelled else { return }
+                        highlightedCommentIDs.remove(cid)
+                    }
+                }
+            }
             if !isListening {
                 commentService.startListening(to: postId)
                 isListening = true
@@ -443,6 +560,36 @@ struct PostDetailView: View {
         // commentsWithReplies is now a computed property derived from @Published
         // CommentService state, so no notification handlers are needed here.
         // SwiftUI automatically re-renders when commentService.comments changes.
+    }
+
+    private func handleInlinePostAction(_ token: PostInlineContentToken) {
+        guard token.actionType == .openDMWithPostAuthor else { return }
+
+        HapticManager.impact(style: .light)
+
+        Task { @MainActor in
+            do {
+                let conversationId = try await FirebaseMessagingService.shared.resolveOrCreateInlineDirectConversation(
+                    withUserId: post.authorId,
+                    userName: post.authorName,
+                    sourcePostId: post.firestoreId.isEmpty ? post.firebaseId : post.firestoreId
+                )
+                MessagingCoordinator.shared.openConversation(conversationId)
+            } catch let error as FirebaseMessagingError {
+                switch error {
+                case .selfConversation:
+                    ToastManager.shared.showInfo("You can't message yourself.")
+                case .messagesNotAllowed, .followRequired:
+                    ToastManager.shared.showInfo("This user isn't accepting messages.")
+                case .permissionDenied, .userBlocked:
+                    ToastManager.shared.showInfo("Messaging unavailable.")
+                default:
+                    ToastManager.shared.showError("Unable to open message. Try again.")
+                }
+            } catch {
+                ToastManager.shared.showError("Unable to open message. Try again.")
+            }
+        }
     }
 
     // MARK: - Category gradient (used by textOnlyBanner)
@@ -487,18 +634,24 @@ struct PostDetailView: View {
 
     private var topNavBar: some View {
         HStack(alignment: .center, spacing: 12) {
-            // X / back button — left, alone
+            // Floating glass dismiss pill (spec: "floating liquid-glass X to dismiss")
             Button { dismiss() } label: {
-                ZStack {
-                    Circle()
-                        .fill(Color(.secondarySystemBackground))
-                        .frame(width: 32, height: 32)
-                    Image(systemName: "xmark")
-                        .font(.systemScaled(12, weight: .semibold))
-                        .foregroundStyle(.primary)
-                }
+                Image(systemName: "xmark")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .padding(10)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .background {
+                        Circle()
+                            .fill(.regularMaterial)
+                            .overlay {
+                                Circle().strokeBorder(Color.white.opacity(0.38), lineWidth: 0.6)
+                            }
+                            .shadow(color: .black.opacity(0.12), radius: 8, y: 3)
+                    }
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Close")
 
             Spacer()
 
@@ -526,6 +679,8 @@ struct PostDetailView: View {
                 }
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("View \(post.authorUsername ?? post.authorName)'s profile")
+            .accessibilityHint("Double tap to open this author's profile")
         }
         .padding(.horizontal, 16)
         .frame(height: 52)
@@ -570,10 +725,17 @@ struct PostDetailView: View {
                             }
                         }
                         .tag(index)
+                        .accessibilityLabel(allImageURLs.count > 1 ? "Image \(index + 1) of \(allImageURLs.count)" : "Post photo")
+                        .accessibilityAddTraits(.isButton)
+                        .accessibilityHint("Double tap to view full screen")
+                        .accessibilityAction { showMediaDetail = true }
                     }
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
                 .frame(height: imageHeight)
+                .onTapGesture {
+                    showMediaDetail = true
+                }
 
                 // Liquid glass pill indicators (multi-image only)
                 if allImageURLs.count > 1 {
@@ -636,7 +798,13 @@ struct PostDetailView: View {
         HStack(spacing: 20) {
             // Amen button
             Button {
-                Task { try? await interactionsService.toggleAmen(postId: post.firestoreId) }
+                Task {
+                    do {
+                        try await interactionsService.toggleAmen(postId: post.firestoreId)
+                    } catch {
+                        dlog("PostDetailView: toggleAmen failed — \(error.localizedDescription)")
+                    }
+                }
             } label: {
                 HStack(spacing: 5) {
                     Image(systemName: interactionsService.userAmenedPosts.contains(post.firestoreId) ? "hands.clap.fill" : "hands.clap")
@@ -648,8 +816,14 @@ struct PostDetailView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .accessibilityLabel(interactionsService.userAmenedPosts.contains(post.firestoreId) ? "Remove Amen" : "Amen")
+            .accessibilityHint(interactionsService.userAmenedPosts.contains(post.firestoreId) ? "Double tap to remove your Amen from this post" : "Double tap to Amen this post")
+            .accessibilityValue(post.amenCount > 0 ? "\(post.amenCount) Amens" : "No Amens")
+            .accessibilityAddTraits(.isButton)
 
             // Comment button
             Button {
@@ -665,8 +839,14 @@ struct PostDetailView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Comment")
+            .accessibilityHint("Double tap to write a comment")
+            .accessibilityValue(commentsWithReplies.isEmpty ? "No comments" : "\(commentsWithReplies.count) comments")
+            .accessibilityAddTraits(.isButton)
             
             // Join Fast button - only for prayer request posts
             if post.category == .prayer, post.topicTag == "Prayer Request" {
@@ -683,8 +863,13 @@ struct PostDetailView: View {
                                 .foregroundStyle(Color.orange)
                         }
                     }
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(isFasting ? "Leave Fast" : "Join Fast")
+                .accessibilityHint(isFasting ? "Double tap to stop fasting for this prayer" : "Double tap to join fasting for this prayer request")
+                .accessibilityAddTraits(.isButton)
             }
 
             Spacer()
@@ -693,54 +878,41 @@ struct PostDetailView: View {
             Button {
                 HapticManager.impact(style: .light)
                 if let firebaseId = post.firebaseId {
-                    Task { try? await savedPostsService.toggleSavePost(postId: firebaseId) }
+                    Task {
+                        do {
+                            _ = try await savedPostsService.toggleSavePost(postId: firebaseId)
+                        } catch {
+                            dlog("PostDetailView: toggleSavePost failed — \(error.localizedDescription)")
+                        }
+                    }
                 }
             } label: {
                 Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
                     .font(.systemScaled(17))
                     .foregroundStyle(isSaved ? Color.accentColor : .secondary)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .accessibilityLabel(isSaved ? "Remove Bookmark" : "Bookmark")
+            .accessibilityHint(isSaved ? "Double tap to remove this post from saved" : "Double tap to save this post")
+            .accessibilityAddTraits(.isButton)
 
-            // Ellipsis menu — report, edit (own posts), block/mute
-            Menu {
-                if isUserPost {
-                    Button {
-                        activeDetailSheet = .editPost
-                    } label: {
-                        Label("Edit Post", systemImage: "pencil")
-                    }
-                    Button(role: .destructive) {
-                        postsManager.deletePost(postId: post.id)
-                        dismiss()
-                    } label: {
-                        Label("Delete Post", systemImage: "trash")
-                    }
-                } else {
-                    Button {
-                        activeDetailSheet = .report
-                    } label: {
-                        Label("Report", systemImage: "flag")
-                    }
-                    Button {
-                        Task {
-                            try? await BlockService.shared.blockUser(userId: post.authorId)
-                            dismiss()
-                        }
-                    } label: {
-                        Label("Block \(post.authorName)", systemImage: "hand.raised")
-                    }
-                }
-            } label: {
+            // Ellipsis — opens Liquid Glass context action sheet
+            Button { showPostContextActions = true } label: {
                 Image(systemName: "ellipsis")
                     .font(.systemScaled(17))
                     .foregroundStyle(.secondary)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
             }
+            .accessibilityLabel("More options")
+            .accessibilityHint("Double tap to open post actions")
+            .accessibilityAddTraits(.isButton)
 
             // Berean AI — AMEN logo button (same style as OpenTable top-right)
             Button {
-                let q = "Help me reflect on this post: \(post.content.prefix(150))"
-                activeDetailSheet = .berean(q)
+                activeDetailSheet = .berean(query: currentBereanContext.initialPrompt, context: currentBereanContext)
             } label: {
                 ZStack {
                     Circle()
@@ -765,8 +937,13 @@ struct PostDetailView: View {
                         .frame(width: 26, height: 26)
                         .blendMode(.multiply)
                 }
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Ask Berean AI")
+            .accessibilityHint("Double tap to open Berean AI for scripture insight")
+            .accessibilityAddTraits(.isButton)
 
             // Share button
             Button {
@@ -775,8 +952,13 @@ struct PostDetailView: View {
                 Image(systemName: "square.and.arrow.up")
                     .font(.systemScaled(17))
                     .foregroundStyle(.secondary)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Share")
+            .accessibilityHint("Double tap to share this post")
+            .accessibilityAddTraits(.isButton)
         }
     }
 
@@ -799,7 +981,7 @@ struct PostDetailView: View {
                 .padding(8)
                 .background(
                     RoundedRectangle(cornerRadius: 8)
-                        .fill(Color(red: 1.0, green: 0.95, blue: 0.75))
+                        .fill(Color(.systemYellow).opacity(0.18))
                 )
         }
         .padding(10)
@@ -880,7 +1062,7 @@ struct PostDetailView: View {
 
     private func handleBereanSelection(_ selection: PostTextSelection) {
         let query = "Explain and reflect on: \"\(selection.text)\""
-        activeDetailSheet = .berean(query)
+        activeDetailSheet = .berean(query: query, context: currentBereanContext)
         clearTextSelection()
     }
 
@@ -918,8 +1100,12 @@ struct PostDetailView: View {
                         replies: commentWithReplies.replies,
                         postId: postId,
                         onReply: { username in
+                            // NOTE: This path does not carry a commentId — it's a legacy
+                            // callback signature. replyingToCommentId remains nil here,
+                            // which means the submission uses addComment (top-level reply).
                             commentText = "@\(username) "
                             replyingToUsername = username
+                            replyingToCommentId = nil
                             isCommentFocused = true
                         }
                     )
@@ -963,6 +1149,7 @@ struct PostDetailView: View {
                         .foregroundStyle(.blue)
                 }
                 .buttonStyle(.plain)
+                .accessibilityHint("Double tap to focus the comment input field")
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 36)
@@ -1004,13 +1191,29 @@ struct PostDetailView: View {
     // MARK: - Comment Input Bar (ThreadComposerView)
 
     private var commentInputBar: some View {
-        ThreadComposerView(
-            text: $commentText,
-            replyingToUsername: $replyingToUsername,
-            isFocused: $isCommentFocused,
-            onSubmit: { submitComment() },
-            onBerean: { query in activeDetailSheet = .berean(query) }
-        )
+        Group {
+            if post.allowComments {
+                ThreadComposerView(
+                    text: $commentText,
+                    replyingToUsername: $replyingToUsername,
+                    isFocused: $isCommentFocused,
+                    postId: postId,
+                    onSubmit: { submitComment() },
+                    onBerean: { query in activeDetailSheet = .berean(query: query, context: currentBereanContext) }
+                )
+            } else {
+                HStack {
+                    Spacer()
+                    Label("Comments are turned off", systemImage: "bubble.left.and.bubble.right")
+                        .font(AMENFont.regular(14))
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+                .padding(.vertical, 14)
+                .padding(.horizontal, 16)
+                .background(.ultraThinMaterial)
+            }
+        }
     }
 
     // MARK: - Helpers
@@ -1037,14 +1240,22 @@ struct PostDetailView: View {
     private func submitComment() {
         guard !commentText.isEmpty, !isGuardrailBlocked, !isSubmittingComment else { return }
         let text = commentText
+        let capturedParentCommentId = replyingToCommentId
         commentText = ""
         replyingToUsername = nil
+        replyingToCommentId = nil
         isCommentFocused = false
         isSubmittingComment = true
         Task { @MainActor in
             defer { isSubmittingComment = false }
             do {
-                _ = try await commentService.addComment(postId: postId, content: text, post: post)
+                // Route through addReply when the user is replying to a specific comment
+                // so that parentCommentId is correctly persisted and thread lineage is preserved.
+                if let parentId = capturedParentCommentId {
+                    _ = try await commentService.addReply(postId: postId, parentCommentId: parentId, content: text, post: post)
+                } else {
+                    _ = try await commentService.addComment(postId: postId, content: text, post: post)
+                }
                 // UI updates automatically via @Published commentService.comments
                 if post.category == .testimonies {
                     withAnimation(.easeOut(duration: 0.8)) { showRipple = true }
@@ -1057,7 +1268,8 @@ struct PostDetailView: View {
                 dlog("❌ Failed to post comment: \(error)")
                 let nsError = error as NSError
                 if nsError.domain == "CommentService" && nsError.code == -11 {
-                    // Rate limit hit — show subtle auto-dismissing notice, don't restore text
+                    // Rate limit hit — restore text so the user doesn't lose their draft
+                    commentText = text
                     showRateLimitMessage(nsError.localizedDescription)
                 } else {
                     commentText = text  // restore on failure for other errors
@@ -1085,10 +1297,17 @@ struct PostDetailView: View {
             }
         }
 
-        // Scroll to the comment after a brief settle delay so the view is fully rendered.
+        // Scroll to the comment — poll until available rather than using a fixed delay.
         if let scrollId = pendingFocus.scroll, !scrollId.isEmpty {
             Task { @MainActor in
-                try? await Task.sleep(nanoseconds: 250_000_000) // 250ms
+                var attempts = 0
+                while attempts < 20 {
+                    let inComments = commentService.comments[postId]?.contains(where: { $0.id == scrollId }) == true
+                    let inReplies  = commentService.commentReplies.values.contains(where: { $0.contains(where: { $0.id == scrollId }) })
+                    if inComments || inReplies { break }
+                    try? await Task.sleep(nanoseconds: 100_000_000) // 100ms per retry
+                    attempts += 1
+                }
                 commentScrollTarget = scrollId
             }
         }
@@ -1225,25 +1444,24 @@ struct PostDetailView: View {
 
         let totalCount = dict.count
 
-        // 2. Batch-fetch Firestore user docs
+        // 2. Fetch Firestore user docs individually (users collection requires get, not list).
         guard !Task.isCancelled else { return }
-        let userSnap: QuerySnapshot
-        do {
-            userSnap = try await db
-                .collection("users")
-                .whereField(FieldPath.documentID(), in: Array(sortedUids.prefix(10)))
-                .getDocuments()
-        } catch {
-            return
+        let targetUids = Array(sortedUids.prefix(10))
+        var userDocs: [DocumentSnapshot] = []
+        for uid in targetUids {
+            guard !Task.isCancelled else { return }
+            if let doc = try? await db.collection("users").document(uid).getDocument(), doc.exists {
+                userDocs.append(doc)
+            }
         }
 
         guard !Task.isCancelled else { return }
 
         // 3. For each reactor, check if current user follows them
         var reactors: [ReactorUser] = []
-        for doc in userSnap.documents {
+        for doc in userDocs {
             guard !Task.isCancelled else { return }
-            let data = doc.data()
+            guard let data = doc.data() else { continue }
             let imageURL = (data["profileImageURL"] as? String) ?? (data["profilePhotoURL"] as? String)
             guard let imageURL, !imageURL.isEmpty else { continue }
 
@@ -1298,7 +1516,7 @@ private struct PostEngagementAvatarStrip: View {
 
     private var photoReactors: [ReactorUser] {
         reactors
-            .filter { $0.profileImageURL != nil && !($0.profileImageURL!.isEmpty) }
+            .filter { $0.profileImageURL?.isEmpty == false }
             .prefix(maxVisible)
             .map { $0 }
     }
@@ -1402,6 +1620,12 @@ private struct LiquidGlassPressStyle: ButtonStyle {
 // MARK: - Comment Row View
 
 struct CommentRowView: View {
+    private struct SafetyTriggerSheetPayload: Identifiable {
+        let trigger: AmenTriggerResult
+        let originalText: String
+        var id: String { "\(trigger.id)-\(originalText.hashValue)" }
+    }
+
     let comment: Comment
     let replies: [Comment]
     let postId: String
@@ -1409,6 +1633,8 @@ struct CommentRowView: View {
 
     @State private var showReplies = false
     @State private var isDeleting = false
+    @State private var activeSafetyOSTrigger: SafetyTriggerSheetPayload?
+    @State private var deleteErrorMessage: String? = nil
 
     private var currentUserId: String? { Auth.auth().currentUser?.uid }
     private var isOwnComment: Bool { comment.authorId == currentUserId }
@@ -1470,6 +1696,24 @@ struct CommentRowView: View {
         }
         .opacity(isDeleting ? 0.4 : 1.0)
         .animation(.easeOut(duration: 0.2), value: isDeleting)
+        .alert("Cannot Delete", isPresented: Binding(
+            get: { deleteErrorMessage != nil },
+            set: { if !$0 { deleteErrorMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) { deleteErrorMessage = nil }
+        } message: {
+            Text(deleteErrorMessage ?? "")
+        }
+        .sheet(item: $activeSafetyOSTrigger) { payload in
+            AmenDiscernmentSheet(
+                trigger: payload.trigger,
+                originalText: payload.originalText,
+                suggestedRewrite: AmenLocalTriggerEngine.shared.suggestedRewrite(for: payload.trigger, originalText: payload.originalText),
+                onAction: { _ in activeSafetyOSTrigger = nil }
+            )
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+        }
     }
 
     // MARK: - Main Comment Row
@@ -1496,6 +1740,18 @@ struct CommentRowView: View {
                     .lineSpacing(3)
                     .fixedSize(horizontal: false, vertical: true)
 
+                AmenSafetyReactionLayer(
+                    triggers: AmenLocalTriggerEngine.shared.analyze(text: comment.content, surface: .comment),
+                    maxVisible: 1
+                ) { trigger in
+                    activeSafetyOSTrigger = SafetyTriggerSheetPayload(trigger: trigger, originalText: comment.content)
+                }
+
+                AmenContextualReactionLayer(
+                    results: AmenContextualReactionEngine.shared.analyzeText(comment.content),
+                    maxVisible: 1
+                )
+
                 // Action row: Reply + expand replies
                 HStack(spacing: 20) {
                     Button {
@@ -1506,6 +1762,7 @@ struct CommentRowView: View {
                             .foregroundStyle(.secondary)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityHint("Double tap to reply to \(comment.authorUsername)")
 
                     if replyCount > 0 {
                         Button {
@@ -1522,6 +1779,7 @@ struct CommentRowView: View {
                             .foregroundStyle(.secondary)
                         }
                         .buttonStyle(.plain)
+                        .accessibilityHint(showReplies ? "Double tap to collapse replies" : "Double tap to expand replies")
                     }
 
                     Spacer()
@@ -1564,6 +1822,18 @@ struct CommentRowView: View {
                         .lineSpacing(3)
                         .fixedSize(horizontal: false, vertical: true)
 
+                    AmenSafetyReactionLayer(
+                        triggers: AmenLocalTriggerEngine.shared.analyze(text: reply.content, surface: .reply),
+                        maxVisible: 1
+                    ) { trigger in
+                        activeSafetyOSTrigger = SafetyTriggerSheetPayload(trigger: trigger, originalText: reply.content)
+                    }
+
+                    AmenContextualReactionLayer(
+                        results: AmenContextualReactionEngine.shared.analyzeText(reply.content),
+                        maxVisible: 1
+                    )
+
                     // Reply-to-reply button
                     Button {
                         onReply?(reply.authorUsername)
@@ -1573,6 +1843,7 @@ struct CommentRowView: View {
                             .foregroundStyle(.secondary)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityHint("Double tap to reply to \(reply.authorUsername)")
                     .padding(.top, 2)
                 }
             }
@@ -1637,6 +1908,12 @@ struct CommentRowView: View {
         Task {
             do {
                 try await CommentService.shared.deleteComment(commentId: commentId, postId: postId)
+            } catch let e as CommentServiceError {
+                await MainActor.run {
+                    isDeleting = false
+                    deleteErrorMessage = e.errorDescription
+                }
+                UINotificationFeedbackGenerator().notificationOccurred(.error)
             } catch {
                 await MainActor.run { isDeleting = false }
                 UINotificationFeedbackGenerator().notificationOccurred(.error)

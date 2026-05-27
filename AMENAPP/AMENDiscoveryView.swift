@@ -230,13 +230,13 @@ struct AMENDiscoveryView: View {
                             Text(mode.rawValue)
                                 .font(AMENFont.semiBold(13))
                         }
-                        .foregroundStyle(selectedMode == mode ? .white : .primary)
+                        .foregroundStyle(selectedMode == mode ? Color(.systemBackground) : .primary)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 8)
                         .background {
                             if selectedMode == mode {
                                 Capsule()
-                                    .fill(Color.black)
+                                    .fill(Color(.label))
                                     .matchedGeometryEffect(id: "activeDiscoverMode", in: tabNamespace)
                             } else {
                                 Capsule()
@@ -971,12 +971,12 @@ struct AMENDiscoveryView: View {
             } label: {
                 Text("Explore")
                     .font(.systemScaled(15, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(Color(.systemBackground))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
                     .background(
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .fill(Color.black)
+                            .fill(Color(.label))
                     )
             }
             .buttonStyle(.plain)
@@ -1244,12 +1244,12 @@ private struct DiscoverNearYouView: View {
             Button(action: buttonAction) {
                 Text(buttonLabel)
                     .font(AMENFont.semiBold(14))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color(.systemBackground))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
                     .background(
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(Color.black)
+                            .fill(Color(.label))
                     )
             }
             .buttonStyle(.plain)
@@ -1259,8 +1259,8 @@ private struct DiscoverNearYouView: View {
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(.ultraThinMaterial)
-                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.white.opacity(0.55)))
-                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5))
+                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color(.secondarySystemBackground).opacity(0.55)))
+                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color(.separator).opacity(0.5), lineWidth: 0.5))
         )
         .shadow(color: .black.opacity(0.06), radius: 12, x: 0, y: 4)
     }
@@ -1309,11 +1309,11 @@ private struct DiscoverMediaViewer: View {
                                 } label: {
                                     Text(topic)
                                         .font(AMENFont.semiBold(12))
-                                        .foregroundStyle(selectedTopic == topic ? Color.white : Color.primary)
+                                        .foregroundStyle(selectedTopic == topic ? Color(.systemBackground) : Color.primary)
                                         .padding(.horizontal, 12)
                                         .padding(.vertical, 7)
                                         .background(
-                                            Capsule().fill(selectedTopic == topic ? Color.black : Color(.secondarySystemBackground))
+                                            Capsule().fill(selectedTopic == topic ? Color(.label) : Color(.secondarySystemBackground))
                                         )
                                 }
                                 .buttonStyle(.plain)
@@ -1999,11 +1999,11 @@ struct VerseHeroCard: View {
                 }
             }
             .padding(16)
-            .background(Color.white.opacity(0.88).background(.ultraThinMaterial))
+            .background(Color(.secondarySystemBackground).opacity(0.6).background(.ultraThinMaterial))
         }
         .frame(maxWidth: .infinity)
         .clipShape(RoundedRectangle(cornerRadius: 22))
-        .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.black.opacity(0.08), lineWidth: 0.5))
+        .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color(.separator).opacity(0.5), lineWidth: 0.5))
         .shadow(color: .black.opacity(0.07), radius: 16, x: 0, y: 6)
         .scaleEffect(isPressed ? 0.97 : 1.0)
         .animation(.spring(response: 0.38, dampingFraction: 0.72), value: isPressed)
@@ -2095,9 +2095,9 @@ struct DiscoveryLandingVideoCard: View {
             .padding(.horizontal, 4)
         }
         .padding(12)
-        .background(Color.white.opacity(0.88).background(.ultraThinMaterial))
+        .background(Color(.secondarySystemBackground).opacity(0.6).background(.ultraThinMaterial))
         .clipShape(RoundedRectangle(cornerRadius: 22))
-        .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.black.opacity(0.08), lineWidth: 0.5))
+        .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color(.separator).opacity(0.5), lineWidth: 0.5))
         .shadow(color: .black.opacity(0.07), radius: 16, x: 0, y: 6)
         .scaleEffect(isPressed ? 0.97 : 1.0)
         .animation(.spring(response: 0.38, dampingFraction: 0.72), value: isPressed)
@@ -2147,9 +2147,9 @@ struct DiscoveryLandingNewsCard: View {
             }
         }
         .padding(14)
-        .background(Color.white.opacity(0.88).background(.ultraThinMaterial))
+        .background(Color(.secondarySystemBackground).opacity(0.6).background(.ultraThinMaterial))
         .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.black.opacity(0.08), lineWidth: 0.5))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color(.separator).opacity(0.5), lineWidth: 0.5))
         .shadow(color: .black.opacity(0.07), radius: 12, x: 0, y: 4)
         .frame(width: 280, height: 100)
         .scaleEffect(isPressed ? 0.97 : 1.0)
@@ -2221,9 +2221,9 @@ struct DiscoverBibleStudyCard: View {
                 .foregroundStyle(.tertiary)
         }
         .padding(14)
-        .background(Color.white.opacity(0.88).background(.ultraThinMaterial))
+        .background(Color(.secondarySystemBackground).opacity(0.6).background(.ultraThinMaterial))
         .clipShape(RoundedRectangle(cornerRadius: 22))
-        .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.black.opacity(0.08), lineWidth: 0.5))
+        .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color(.separator).opacity(0.5), lineWidth: 0.5))
         .shadow(color: .black.opacity(0.07), radius: 16, x: 0, y: 6)
         .scaleEffect(isPressed ? 0.97 : 1.0)
         .animation(.spring(response: 0.38, dampingFraction: 0.72), value: isPressed)
@@ -2273,14 +2273,14 @@ struct DiscoverDiscussionCard: View {
 
                 if idx < discussions.count - 1 {
                     Divider()
-                        .background(Color.black.opacity(0.05))
+                        .background(Color(.separator).opacity(0.3))
                         .padding(.leading, 64)
                 }
             }
         }
-        .background(Color.white.opacity(0.88).background(.ultraThinMaterial))
+        .background(Color(.secondarySystemBackground).opacity(0.6).background(.ultraThinMaterial))
         .clipShape(RoundedRectangle(cornerRadius: 22))
-        .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.black.opacity(0.08), lineWidth: 0.5))
+        .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color(.separator).opacity(0.5), lineWidth: 0.5))
         .shadow(color: .black.opacity(0.07), radius: 16, x: 0, y: 6)
     }
 }

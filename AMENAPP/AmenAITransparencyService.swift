@@ -77,7 +77,9 @@ final class AmenAITransparencyService: ObservableObject {
 
         do {
             try await db.document("posts/\(contentId)/safety/main").setData(record, merge: true)
-        } catch {}
+        } catch {
+            dlog("⚠️ AI transparency record write failed for \(contentId): \(error)")
+        }
     }
 
     // MARK: - Label determination

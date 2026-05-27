@@ -7,10 +7,12 @@
 
 import SwiftUI
 
+#if DEBUG
+
 struct DebugCheckIn_Panel: View {
     @ObservedObject var manager = DailyCheckIn_Manager.shared
     @Environment(\.dismiss) var dismiss
-    
+
     var body: some View {
         NavigationStack {
             List {
@@ -19,7 +21,7 @@ struct DebugCheckIn_Panel: View {
                     LabeledContent("Has Answered Today", value: manager.hasAnsweredToday ? "Yes" : "No")
                     LabeledContent("User Answered Yes", value: manager.userAnsweredYes ? "Yes" : "No")
                 }
-                
+
                 Section("Last Check-In") {
                     if let timestamp = UserDefaults.standard.object(forKey: "lastCheckInDate") as? Double {
                         let date = Date(timeIntervalSince1970: timestamp)
@@ -30,41 +32,41 @@ struct DebugCheckIn_Panel: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                
+
                 Section("Actions") {
                     Button("Reset Check-In") {
                         manager.reset()
                         let haptic = UINotificationFeedbackGenerator()
                         haptic.notificationOccurred(.success)
                     }
-                    
+
                     Button("Simulate New Day") {
                         // Clear just the date
                         UserDefaults.standard.removeObject(forKey: "lastCheckInDate")
                         UserDefaults.standard.removeObject(forKey: "hasAnsweredToday")
                         manager.checkIfShouldShowCheckIn()
-                        
+
                         let haptic = UINotificationFeedbackGenerator()
                         haptic.notificationOccurred(.success)
                     }
-                    
+
                     Button("Force Show Check-In") {
                         manager.shouldShowCheckIn = true
                         dismiss()
-                        
+
                         let haptic = UINotificationFeedbackGenerator()
                         haptic.notificationOccurred(.warning)
                     }
                 }
-                
+
                 Section("Info") {
                     Text("Shake device to open this panel")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    
-                    Text("Remember to remove this debug panel before production!")
+
+                    Text("This panel is excluded from release builds (#if DEBUG).")
                         .font(.caption)
-                        .foregroundStyle(.red)
+                        .foregroundStyle(.secondary)
                 }
             }
             .navigationTitle("Check-In Debug")
@@ -98,7 +100,7 @@ extension Notification.Name {
 
 struct ShakeDetector: ViewModifier {
     let action: () -> Void
-    
+
     func body(content: Content) -> some View {
         content
             .onReceive(NotificationCenter.default.publisher(for: .deviceDidShake)) { _ in
@@ -118,3 +120,5 @@ extension View {
 #Preview {
     DebugCheckIn_Panel()
 }
+
+#endif

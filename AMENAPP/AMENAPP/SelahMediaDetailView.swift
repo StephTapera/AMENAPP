@@ -1,4 +1,13 @@
 import SwiftUI
+import FirebaseAuth
+import FirebaseFirestore
+
+private struct SelahDetailScrollOffsetKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
 
 struct SelahMediaDetailView: View {
     let item: SelahMediaItem
@@ -6,6 +15,7 @@ struct SelahMediaDetailView: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var showCommentRoom = false
     @State private var showMemoryComposer = false
@@ -17,17 +27,33 @@ struct SelahMediaDetailView: View {
     @State private var saved = false
     @State private var selectedRelated: SelahMediaItem?
     @State private var imageLoadError = false
+    @State private var showImmersiveChrome = true
+    @State private var chromeReexpandTask: Task<Void, Never>?
+    @State private var lastScrollOffset: CGFloat = 0
+    @State private var showReportConcernDialog = false
+    @State private var isSubmittingReport = false
 
-    @StateObject private var service = SelahMediaService.shared
+    @ObservedObject private var service = SelahMediaService.shared
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 0) {
+                    GeometryReader { proxy in
+                        Color.clear
+                            .preference(
+                                key: SelahDetailScrollOffsetKey.self,
+                                value: proxy.frame(in: .named("selahDetailScroll")).minY
+                            )
+                    }
+                    .frame(height: 0)
+
                     mediaHero
                     contentBlock
                     meaningTagsRow
-                    actionBar
+                    if !immersiveChromeEnabled {
+                        actionBar
+                    }
                     if item.commentRoomEnabled && item.commentRoomMode != SelahCommentRoomMode.closed.rawValue {
                         commentRoomTeaser
                     }
@@ -37,7 +63,28 @@ struct SelahMediaDetailView: View {
                     Spacer(minLength: 40)
                 }
             }
+            .coordinateSpace(name: "selahDetailScroll")
+            .onPreferenceChange(SelahDetailScrollOffsetKey.self) { offset in
+                let scrollingDown = offset < lastScrollOffset
+                lastScrollOffset = offset
+
+                if scrollingDown, showImmersiveChrome {
+                    withAnimation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.86))) {
+                        showImmersiveChrome = false
+                    }
+                } else if !scrollingDown, !showImmersiveChrome {
+                    withAnimation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.86))) {
+                        showImmersiveChrome = true
+                    }
+                }
+                scheduleChromeReexpandAfterScrollPause()
+            }
             .background(backgroundGradient.ignoresSafeArea())
+            .overlay(alignment: .top) {
+                if immersiveChromeEnabled {
+                    immersiveChrome
+                }
+            }
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -73,6 +120,168 @@ struct SelahMediaDetailView: View {
                     relatedMedia: []
                 )
             }
+            .confirmationDialog("Report Concern", isPresented: $showReportConcernDialog, titleVisibility: .visible) {
+                Button("Harmful Content", role: .destructive) { Task { await submitReport(reason: "harmful_content") } }
+                Button("Harassment", role: .destructive) { Task { await submitReport(reason: "harassment") } }
+                Button("Spam or Scam", role: .destructive) { Task { await submitReport(reason: "spam_or_scam") } }
+                Button("Safety Risk", role: .destructive) { Task { await submitReport(reason: "safety_risk") } }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Your report helps keep Selah safe.")
+            }
+            .onAppear {
+                if immersiveChromeEnabled {
+                    AmenImmersiveMediaAnalytics.track(.immersiveOpened, params: ["surface": "selah_media_detail"])
+                    if !immersiveEligibility.canShare {
+                        AmenImmersiveMediaAnalytics.track(.actionHiddenUnavailable, params: ["action": "share", "surface": "selah_media_detail"])
+                    }
+                }
+            }
+            .onDisappear {
+                if immersiveChromeEnabled {
+                    AmenImmersiveMediaAnalytics.track(.immersiveClosed, params: ["surface": "selah_media_detail"])
+                }
+                chromeReexpandTask?.cancel()
+            }
+        }
+    }
+
+    private func scheduleChromeReexpandAfterScrollPause() {
+        chromeReexpandTask?.cancel()
+        chromeReexpandTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 900_000_000)
+            guard !Task.isCancelled else { return }
+            guard immersiveChromeEnabled, !showImmersiveChrome else { return }
+            withAnimation(Motion.adaptive(.spring(response: 0.34, dampingFraction: 0.86))) {
+                showImmersiveChrome = true
+            }
+        }
+    }
+
+    private var immersiveChromeEnabled: Bool {
+        AMENFeatureFlags.shared.immersiveMediaChromeEnabled
+    }
+
+    private var immersiveChrome: some View {
+        AmenImmersiveMediaChrome(
+            title: "Selah Memory",
+            onBack: { dismiss() },
+            onPrevious: nil,
+            onNext: nil,
+            topTrailingActions: [],
+            smartPills: AmenImmersiveMediaEligibility.smartPills(from: immersiveEligibility),
+            bottomActions: immersiveActions,
+            isCollapsed: !showImmersiveChrome,
+            onBackgroundTap: {
+                if reduceMotion {
+                    showImmersiveChrome.toggle()
+                } else {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        showImmersiveChrome.toggle()
+                    }
+                }
+            }
+        )
+    }
+
+    private var immersiveEligibility: AmenImmersiveEligibilityInput {
+        AmenImmersiveEligibilityInput(
+            canTranslate: false,
+            canSummarize: !item.caption.isEmpty,
+            canAskBerean: true,
+            canSaveToChurchNotes: true,
+            canReflectInSelah: true,
+            canReportSafety: true,
+            canReplyOrComment: item.commentRoomEnabled,
+            canShare: false,
+            canComposeOrEdit: false
+        )
+    }
+
+    private var immersiveActions: [AmenImmersiveMediaChromeAction] {
+        [
+            AmenImmersiveMediaChromeAction(
+                id: "comment",
+                title: "Comment",
+                systemImage: "text.bubble",
+                role: nil,
+                action: { showCommentRoom = true }
+            ),
+            AmenImmersiveMediaChromeAction(
+                id: "save",
+                title: saved ? "Saved" : "Save",
+                systemImage: saved ? "bookmark.fill" : "bookmark",
+                role: nil,
+                action: {
+                    guard let mediaId = item.id, !mediaId.isEmpty else { return }
+                    saved = true
+                    Task { try? await service.saveMedia(itemId: mediaId) }
+                }
+            ),
+            AmenImmersiveMediaChromeAction(
+                id: "reflect",
+                title: "Reflect",
+                systemImage: "brain.head.profile",
+                role: nil,
+                action: { showMemoryComposer = true }
+            ),
+            AmenImmersiveMediaChromeAction(
+                id: "ask_berean",
+                title: "Ask Berean",
+                systemImage: "sparkles",
+                role: nil,
+                action: { showBereanAsk = true }
+            ),
+            AmenImmersiveMediaChromeAction(
+                id: "add_to_church_notes",
+                title: "Add to Church Notes",
+                systemImage: "note.text",
+                role: nil,
+                action: {
+                    let payload = ChurchNoteExtractionPayload(
+                        postId: item.id ?? "selah_media",
+                        mediaId: item.id ?? "selah_media",
+                        timestamp: nil,
+                        frameIndex: nil,
+                        sourceText: item.caption.isEmpty ? nil : item.caption,
+                        verseReference: item.scriptureRef,
+                        sourceLabel: "Selah Memory"
+                    )
+                    Task {
+                        _ = try? await ChurchNoteBlockRepository.shared.createNoteFromMediaMoment(payload)
+                        await MainActor.run { ToastManager.shared.success("Added to Church Notes") }
+                    }
+                }
+            ),
+            AmenImmersiveMediaChromeAction(
+                id: "report",
+                title: isSubmittingReport ? "Reporting…" : "Report",
+                systemImage: "flag",
+                role: .destructive,
+                action: {
+                    guard !isSubmittingReport else { return }
+                    showReportConcernDialog = true
+                }
+            )
+        ]
+    }
+
+    private func submitReport(reason: String) async {
+        guard !isSubmittingReport else { return }
+        guard let mediaId = item.id, !mediaId.isEmpty else { return }
+        guard Auth.auth().currentUser?.uid != nil else { return }
+
+        isSubmittingReport = true
+        defer { isSubmittingReport = false }
+
+        do {
+            _ = try await CloudFunctionsService.shared.submitTrustSafetyReport(
+                contentType: "selah_media",
+                contentId: mediaId,
+                reason: reason
+            )
+        } catch {
+            dlog("[SelahMediaDetailView] Failed to submit report: \(error.localizedDescription)")
         }
     }
 
@@ -169,11 +378,12 @@ struct SelahMediaDetailView: View {
         HStack(spacing: 0) {
             actionButton(
                 icon: liked ? "heart.fill" : "heart",
-                label: "\(item.likeCount + (liked ? 1 : 0))",
+                label: "",
                 tint: liked ? .red : .secondary
             ) {
+                guard let mediaId = item.id, !mediaId.isEmpty else { return }
                 liked.toggle()
-                Task { try? await service.toggleLike(itemId: item.id ?? "") }
+                Task { try? await service.toggleLike(itemId: mediaId) }
             }
 
             Spacer()
@@ -193,8 +403,9 @@ struct SelahMediaDetailView: View {
                 label: "Save",
                 tint: saved ? .orange : .secondary
             ) {
+                guard let mediaId = item.id, !mediaId.isEmpty else { return }
                 saved = true
-                Task { try? await service.saveMedia(itemId: item.id ?? "") }
+                Task { try? await service.saveMedia(itemId: mediaId) }
             }
 
             Spacer()
@@ -370,18 +581,24 @@ struct SelahCommentRoomView: View {
     }
 
     private func loadMessages() async {
+        guard let mediaId = item.id, !mediaId.isEmpty else {
+            isLoading = false
+            messages = []
+            return
+        }
         isLoading = true
-        messages = (try? await SelahMediaService.shared.fetchCommentRoom(for: item.id ?? "")) ?? []
+        messages = (try? await SelahMediaService.shared.fetchCommentRoom(for: mediaId)) ?? []
         isLoading = false
     }
 
     private func sendMessage() {
+        guard let mediaId = item.id, !mediaId.isEmpty else { return }
         let text = draftText.trimmingCharacters(in: .whitespaces)
         guard !text.isEmpty else { return }
         draftText = ""
         isSending = true
         Task {
-            try? await SelahMediaService.shared.addCommentRoomMessage(to: item.id ?? "", text: text)
+            try? await SelahMediaService.shared.addCommentRoomMessage(to: mediaId, text: text)
             await loadMessages()
             isSending = false
         }
@@ -464,6 +681,7 @@ struct SelahSaveToMemorySheet: View {
     }
 
     private func saveMemory() {
+        guard let mediaId = item.id, !mediaId.isEmpty else { return }
         isSaving = true
         let tags = selectedTags.map { cat in
             SelahMeaningTag(category: SelahMeaningCategory(rawValue: cat) ?? .faith, label: cat)
@@ -471,12 +689,12 @@ struct SelahSaveToMemorySheet: View {
         let memory = SelahMediaMemory(
             title: title,
             bodyText: note,
-            linkedMediaIds: [item.id ?? ""].filter { !$0.isEmpty },
+            linkedMediaIds: [mediaId],
             linkedScriptureRefs: [item.scriptureRef].compactMap { $0 },
             meaningTags: tags
         )
         Task {
-            try? await SelahMediaService.shared.saveMemory(memory)
+            _ = try? await SelahMediaService.shared.saveMemory(memory)
             isSaving = false
             dismiss()
         }
@@ -574,7 +792,9 @@ struct SelahBereanAskSheet: View {
                 for try await chunk in stream {
                     response += chunk
                 }
-            } catch {}
+            } catch {
+                dlog("⚠️ Berean media stream error: \(error)")
+            }
             streaming = false
         }
     }

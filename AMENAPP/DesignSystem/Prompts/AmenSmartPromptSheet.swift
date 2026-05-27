@@ -37,7 +37,7 @@ struct AmenSmartPromptSheet: View {
 
     private var dragIndicator: some View {
         RoundedRectangle(cornerRadius: 3)
-            .fill(Color.black.opacity(0.18))
+            .fill(Color(.label).opacity(0.18))
             .frame(width: 36, height: 5)
             .padding(.top, 10)
             .padding(.bottom, 8)
@@ -58,9 +58,9 @@ struct AmenSmartPromptSheet: View {
     private var iconSection: some View {
         Image(systemName: prompt.systemImage)
             .font(.system(size: 42, weight: .medium))
-            .foregroundStyle(.black.opacity(0.75))
+            .foregroundStyle(Color.primary.opacity(0.75))
             .frame(width: 72, height: 72)
-            .background(Circle().fill(Color.black.opacity(0.06)))
+            .background(Circle().fill(Color(.label).opacity(0.06)))
             .accessibilityHidden(true)
     }
 
@@ -74,7 +74,7 @@ struct AmenSmartPromptSheet: View {
 
             Text(prompt.body)
                 .font(.subheadline)
-                .foregroundStyle(.black.opacity(0.58))
+                .foregroundStyle(Color.secondary)
                 .multilineTextAlignment(.center)
                 .lineSpacing(3)
         }
@@ -100,7 +100,7 @@ struct AmenSmartPromptSheet: View {
             } label: {
                 Text(prompt.secondaryAction.title)
                     .font(.body.weight(.medium))
-                    .foregroundStyle(.black.opacity(0.50))
+                    .foregroundStyle(Color.secondary)
                     .frame(maxWidth: .infinity)
                     .frame(height: 44)
             }
@@ -116,7 +116,7 @@ struct AmenSmartPromptSheet: View {
         if reduceTransparency {
             Color(.systemBackground)
         } else {
-            Color.white.opacity(0.98)
+            Color(.systemBackground).opacity(0.98)
         }
     }
 }

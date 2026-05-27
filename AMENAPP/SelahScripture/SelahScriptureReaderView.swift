@@ -506,6 +506,8 @@ struct SelahScriptureReaderView: View {
                     Circle().fill(.ultraThinMaterial).frame(width: 32, height: 32)
                     Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
                 }
+                .contentShape(Circle().size(CGSize(width: 44, height: 44)))
+                .frame(width: 44, height: 44)
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Close reader")
@@ -529,6 +531,8 @@ struct SelahScriptureReaderView: View {
                     Circle().fill(.ultraThinMaterial).frame(width: 32, height: 32)
                     Image(systemName: "magnifyingglass").font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary)
                 }
+                .contentShape(Circle().size(CGSize(width: 44, height: 44)))
+                .frame(width: 44, height: 44)
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Search scripture")

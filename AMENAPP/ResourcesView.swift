@@ -362,10 +362,11 @@ struct ResourcesView: View {
                 .focused($isSearchFocused)
                 .submitLabel(.search)
                 .onSubmit {
-                    // Dismiss keyboard when user taps search
                     isSearchFocused = false
+                    guard !searchText.isEmpty else { return }
                     let haptic = UIImpactFeedbackGenerator(style: .light)
                     haptic.impactOccurred()
+                    performAISearch()
                 }
             
             // Clear button with glass effect

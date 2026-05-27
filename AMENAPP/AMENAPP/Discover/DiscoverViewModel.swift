@@ -28,11 +28,10 @@ final class DiscoverViewModel {
 
     private var featuredTask: Task<Void, Never>?
     private var continueTask: Task<Void, Never>?
-    private let service: DiscoverServing
+    private let service: any DiscoverServing
 
-    init(service: DiscoverServing = DiscoverService.shared) {
-        self.service = service
-    }
+    init() { self.service = DiscoverService.shared }
+    init(service: any DiscoverServing) { self.service = service }
 
     // MARK: - Lifecycle
 
@@ -68,7 +67,9 @@ final class DiscoverViewModel {
                         phase = .loaded(featured: existing, continueItems: items)
                     }
                 }
-            } catch { }
+            } catch {
+                dlog("⚠️ DiscoverViewModel continue stream error: \(error)")
+            }
         }
     }
 
@@ -82,7 +83,11 @@ final class DiscoverViewModel {
     // MARK: - Actions
 
     func play(_ item: FeaturedItem) {
-        // TODO: route to content player via app coordinator
+        guard let ref = item.contentRef,
+              let uid = Auth.auth().currentUser?.uid else { return }
+        Task {
+            try? await service.markEngaged(uid: uid, ref: ref)
+        }
     }
 
     func add(_ item: FeaturedItem) {
