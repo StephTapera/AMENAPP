@@ -60,11 +60,24 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var churchPostCardDraftsEnabled: Bool = true
     @Published private(set) var churchExplainableRecommendationsEnabled: Bool = true
 
+    // MARK: - System N: Smart Community Search (Ask Amen)
+    /// Kill switch: set false via Remote Config to immediately disable Smart Finder for all users.
+    @Published private(set) var smartCommunitySearchEnabled: Bool = false
+    /// Controls whether Google Maps / Places data is included in Smart Finder results.
+    @Published private(set) var smartCommunitySearchUsesExternalPlaces: Bool = true
+    /// Controls whether the AI intent parser is used; falls back to deterministic heuristics if false.
+    @Published private(set) var smartCommunitySearchUsesAIParser: Bool = true
+
     // MARK: - System 6: Studio / Creator Marketplace
     @Published private(set) var studioEnabled: Bool = true
     @Published private(set) var studioMonetizationEnabled: Bool = true
     @Published private(set) var studioJobBoardEnabled: Bool = true
     @Published private(set) var studioAITaggingEnabled: Bool = true
+
+    // MARK: - System 7: Creator Spaces + Presence Posts
+    @Published private(set) var creatorSpacesEnabled: Bool = false
+    @Published private(set) var presencePostsEnabled: Bool = false
+    @Published private(set) var mediaAuthenticityEnabled: Bool = false
 
     // MARK: - System 7: Knowledge Graph
     @Published private(set) var knowledgeGraphEnabled: Bool = true
@@ -72,19 +85,19 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var knowledgeGraphSemanticSearchEnabled: Bool = true
 
     // MARK: - System 8: Action Threads (Care Workflows)
-    @Published private(set) var actionThreadsEnabled: Bool = false
-    @Published private(set) var actionSuggestionsEnabled: Bool = false
-    @Published private(set) var careFollowupsEnabled: Bool = false
+    @Published private(set) var actionThreadsEnabled: Bool = true
+    @Published private(set) var actionSuggestionsEnabled: Bool = true
+    @Published private(set) var careFollowupsEnabled: Bool = true
     @Published private(set) var mentorshipEnabled: Bool = true
 
     // MARK: - System 9: Compound Identity Graph
-    @Published private(set) var compoundIdentityGraphEnabled: Bool = false
-    @Published private(set) var agentRecommendationsEnabled: Bool = false
+    @Published private(set) var compoundIdentityGraphEnabled: Bool = true
+    @Published private(set) var agentRecommendationsEnabled: Bool = true
 
     // MARK: - System 10: Proof of Human + Proof of Care
-    @Published private(set) var proofOfHumanEnabled: Bool = false
-    @Published private(set) var proofOfCareEnabled: Bool = false
-    @Published private(set) var trustSignalsEnabled: Bool = false
+    @Published private(set) var proofOfHumanEnabled: Bool = true
+    @Published private(set) var proofOfCareEnabled: Bool = true
+    @Published private(set) var trustSignalsEnabled: Bool = true
 
     // MARK: - System 11: Topic Drill-Down
     @Published private(set) var topicDrillDownEnabled: Bool = true
@@ -113,6 +126,7 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var feedViewModeSwitcherEnabled: Bool = true
     @Published private(set) var mediaFilterPillsEnabled: Bool = true
     @Published private(set) var mediaDetailViewEnabled: Bool = true
+    @Published private(set) var mediaViewerFloatingEngagementPillEnabled: Bool = true
     @Published private(set) var enhancedNotificationsEnabled: Bool = true
     @Published private(set) var serverNotificationsV2Enabled: Bool = true
     @Published private(set) var bereanChatRedesignEnabled: Bool = true
@@ -155,24 +169,24 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var supportDraftDetectionEnabled: Bool = true
     @Published private(set) var churchNoteCareSummaryEnabled: Bool = true
     @Published private(set) var churchNotesServerSummaryEnabled: Bool = true
-    // Church Notes Media Intelligence — all default OFF until backend callables are deployed.
-    @Published private(set) var churchNotesAudioCaptureEnabled: Bool = false
-    @Published private(set) var churchNotesPhotoOCREnabled: Bool = false
-    @Published private(set) var churchNotesVideoCaptureEnabled: Bool = false
-    @Published private(set) var churchNotesAIDraftReviewEnabled: Bool = false
-    @Published private(set) var churchNotesStudyGuideEnabled: Bool = false
-    @Published private(set) var churchNotesPrayerPromptsEnabled: Bool = false
-    @Published private(set) var churchNotesIntelligenceEnabled: Bool = false
-    @Published private(set) var sermonAudioCaptureEnabled: Bool = false
-    @Published private(set) var sermonVideoCaptureEnabled: Bool = false
-    @Published private(set) var churchPhotoOCRCaptureEnabled: Bool = false
-    @Published private(set) var churchNotesTranslationEnabled: Bool = false
-    @Published private(set) var churchNotesCollaborationEnabled: Bool = false
-    @Published private(set) var sermonSummaryGenerationEnabled: Bool = false
-    @Published private(set) var scriptureDetectionEnabled: Bool = false
-    @Published private(set) var sermonActionExtractionEnabled: Bool = false
-    @Published private(set) var sermonClipSuggestionEnabled: Bool = false
-    @Published private(set) var churchNotesStudyGuideGenerationEnabled: Bool = false
+    // Church Notes Media Intelligence
+    @Published private(set) var churchNotesAudioCaptureEnabled: Bool = true
+    @Published private(set) var churchNotesPhotoOCREnabled: Bool = true
+    @Published private(set) var churchNotesVideoCaptureEnabled: Bool = true
+    @Published private(set) var churchNotesAIDraftReviewEnabled: Bool = true
+    @Published private(set) var churchNotesStudyGuideEnabled: Bool = true
+    @Published private(set) var churchNotesPrayerPromptsEnabled: Bool = true
+    @Published private(set) var churchNotesIntelligenceEnabled: Bool = true
+    @Published private(set) var sermonAudioCaptureEnabled: Bool = true
+    @Published private(set) var sermonVideoCaptureEnabled: Bool = true
+    @Published private(set) var churchPhotoOCRCaptureEnabled: Bool = true
+    @Published private(set) var churchNotesTranslationEnabled: Bool = true
+    @Published private(set) var churchNotesCollaborationEnabled: Bool = true
+    @Published private(set) var sermonSummaryGenerationEnabled: Bool = true
+    @Published private(set) var scriptureDetectionEnabled: Bool = true
+    @Published private(set) var sermonActionExtractionEnabled: Bool = true
+    @Published private(set) var sermonClipSuggestionEnabled: Bool = true
+    @Published private(set) var churchNotesStudyGuideGenerationEnabled: Bool = true
     // Kill switch: set true in Remote Config to block all new processing jobs instantly.
     @Published private(set) var churchNotesProcessingKillSwitch: Bool = false
     @Published private(set) var trustedContactsEnabled: Bool = true
@@ -188,20 +202,30 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var selahAddToChurchNotesEnabled: Bool = true
     @Published private(set) var findChurchStudyActionsEnabled: Bool = true
     @Published private(set) var afterServiceReflectionEnabled: Bool = true
-    @Published private(set) var churchStudyGroupBridgeEnabled: Bool = false
+    @Published private(set) var churchStudyGroupBridgeEnabled: Bool = true
 
     // MARK: - System 18: Selah Media OS
     @Published private(set) var selahMediaOSEnabled: Bool = true
     @Published private(set) var selahMediaOSMinAppVersion: String = "1.0.0"
     @Published private(set) var selahMediaOSRolloutPercent: Int = 100
     @Published private(set) var selahMediaOSKillReason: String = ""
+    @Published private(set) var bannerRailEnabled: Bool = false
 
     // MARK: - System 19: Berean Pulse
     @Published private(set) var bereanPulseEnabled: Bool = true
 
+    // MARK: - System 20: Ambient Glow Intelligence Layer
+    @Published private(set) var ambientGlowEnabled: Bool = true
+    @Published private(set) var ambientGlowAuthenticationEnabled: Bool = true
+    @Published private(set) var ambientGlowBereanEnabled: Bool = true
+    @Published private(set) var ambientGlowSelahEnabled: Bool = true
+    @Published private(set) var ambientGlowPrayerEnabled: Bool = true
+    @Published private(set) var ambientGlowMediaEnabled: Bool = true
+    @Published private(set) var ambientGlowFeedEnabled: Bool = false
+
     // MARK: - Amen Daily Digest
     @Published private(set) var amenDailyDigestEnabled: Bool = true
-    @Published private(set) var amenDailyDigestWeatherEnabled: Bool = false
+    @Published private(set) var amenDailyDigestWeatherEnabled: Bool = true
     @Published private(set) var amenDailyDigestHolidayEnabled: Bool = true
     @Published private(set) var amenDailyDigestChristianCalendarEnabled: Bool = true
     @Published private(set) var amenDailyDigestExpandedSheetEnabled: Bool = true
@@ -209,7 +233,7 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var amenDailyDigestChurchNotesActionEnabled: Bool = true
     @Published private(set) var amenDailyDigestFindChurchActionEnabled: Bool = true
     @Published private(set) var amenDailyDigestSelahActionEnabled: Bool = true
-    @Published private(set) var amenDailyDigestAIReflectionEnabled: Bool = false
+    @Published private(set) var amenDailyDigestAIReflectionEnabled: Bool = true
 
     // MARK: - System 22: Community Hubs & Object Intelligence
     // DEBUG: default ON for local manual testing. Release: default OFF until Remote Config activates.
@@ -221,18 +245,18 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var objectHubInlinePillEnabled: Bool = true
     @Published private(set) var objectHubInlineClusterEnabled: Bool = true
     #else
-    @Published private(set) var communityHubsEnabled: Bool = true
-    @Published private(set) var communityObjectMatchingEnabled: Bool = true
-    @Published private(set) var lyricDetectionEnabled: Bool = true
-    @Published private(set) var objectHubViewEnabled: Bool = true
-    @Published private(set) var objectHubInlinePillEnabled: Bool = true
-    @Published private(set) var objectHubInlineClusterEnabled: Bool = true
+    @Published private(set) var communityHubsEnabled: Bool = false
+    @Published private(set) var communityObjectMatchingEnabled: Bool = false
+    @Published private(set) var lyricDetectionEnabled: Bool = false
+    @Published private(set) var objectHubViewEnabled: Bool = false
+    @Published private(set) var objectHubInlinePillEnabled: Bool = false
+    @Published private(set) var objectHubInlineClusterEnabled: Bool = false
     #endif
 
     // MARK: - Communities / Threads-Style Feeds Gating
     // Ark legacy /communities path is unsafe at the rules layer until callable-protected.
     // Default OFF in production until the legacy code is fully retired or hardened.
-    @Published private(set) var arkCommunitiesEnabled: Bool = false
+    @Published private(set) var arkCommunitiesEnabled: Bool = true
     // Covenant is canonical for tiered creator communities.
     @Published private(set) var covenantCommunitiesEnabled: Bool = true
     // Unified Threads-style Feeds switcher (For You / Following / Quiet / Your / Saved / Popular).
@@ -242,7 +266,7 @@ final class AMENFeatureFlags: ObservableObject {
     // "View in Feed" — scopes the home timeline to a covenant/hub/topic.
     // Default OFF until the FirebasePostService scoped-query path is
     // fully gated by server-side membership + moderation filtering.
-    @Published private(set) var viewInFeedEnabled: Bool = false
+    @Published private(set) var viewInFeedEnabled: Bool = true
 
     // MARK: - System 22 continued: Smart Share Sheet
     @Published private(set) var smartShareSheetEnabled: Bool = true
@@ -265,8 +289,11 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var voiceoverEnabled: Bool = true
     @Published private(set) var autoCaptionsEnabled: Bool = true
     @Published private(set) var immersiveMediaChromeEnabled: Bool = true
-    @Published private(set) var immersiveFeedEnabled: Bool = true
-    @Published private(set) var continuationFeedEnabled: Bool = true
+    /// ARISE/OUTPOUR short-form video pipeline — set to false until AVPlayer upload
+    /// and Firestore feed backend are fully implemented.
+    @Published private(set) var ariseEnabled: Bool = false
+    @Published private(set) var immersiveFeedEnabled: Bool = false
+    @Published private(set) var continuationFeedEnabled: Bool = false
     @Published private(set) var explainVideoEnabled: Bool = true
     @Published private(set) var explainVideoRolloutPercent: Int = 100
     @Published private(set) var explainVideoMinAppVersion: String = "1.0.0"
@@ -274,15 +301,17 @@ final class AMENFeatureFlags: ObservableObject {
 
     // MARK: - System 24 (extension): Per-Media Captions
     /// Master switch: enables per-media caption composer and swipe-caption rendering.
-    @Published private(set) var perMediaCaptionsEnabled: Bool = true
+    @Published private(set) var perMediaCaptionsEnabled: Bool = false
     /// Gates the one-time "A new caption with every swipe" education modal.
-    @Published private(set) var perMediaCaptionEducationEnabled: Bool = true
+    @Published private(set) var perMediaCaptionEducationEnabled: Bool = false
     /// When true, each media caption is moderated before publish.
     @Published private(set) var perMediaCaptionModerationEnabled: Bool = true
     /// Gates the alt text field in the caption composer.
     @Published private(set) var perMediaCaptionAltTextEnabled: Bool = true
     /// Gates the scripture reference chips in the caption composer.
     @Published private(set) var perMediaCaptionScriptureRefsEnabled: Bool = true
+    /// When true, caption fields moderate on blur/save before publish.
+    @Published private(set) var perMediaCaptionIncrementalModerationEnabled: Bool = true
 
     // MARK: - System 21: Berean Intelligence Layer v2
     /// Kill switch: false disables all three theological lens modes (Wisdom/Prayer/Discernment) instantly.
@@ -308,7 +337,6 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var messagingLiquidGlassAnimationsEnabled: Bool = true
     @Published private(set) var messagingTypingIndicatorEnabled: Bool = true
     /// Floating header prototype: replaces system nav bar with detached capsule.
-    /// Default OFF until nav replacement is fully validated on all device sizes.
     @Published private(set) var messagingFloatingHeaderPrototypeEnabled: Bool = false
     @Published private(set) var messagingLiquidGlassContextMenuEnabled: Bool = true
     @Published private(set) var messagingLiquidGlassAttachmentMenuEnabled: Bool = true
@@ -316,21 +344,33 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var messagingAttachmentMenuSmartActionsEnabled: Bool = false
 
     // MARK: - System 20 continued: Messaging Intelligence (Phases 4-12)
-    @Published private(set) var messagingSmartPillsEnabled: Bool = false
-    @Published private(set) var messagingTranslationEnabled: Bool = false
-    @Published private(set) var messagingCrossSurfaceActionsEnabled: Bool = false
+    @Published private(set) var messagingSmartPillsEnabled: Bool = true
+    @Published private(set) var messagingTranslationEnabled: Bool = true
+    @Published private(set) var messagingCrossSurfaceActionsEnabled: Bool = true
     @Published private(set) var messagingSafetyNudgesEnabled: Bool = false
-    @Published private(set) var messagingApprovalCardsEnabled: Bool = false
-    @Published private(set) var messagingCatchUpEnabled: Bool = false
-    @Published private(set) var messagingVoiceIntelligenceEnabled: Bool = false
-    @Published private(set) var messagingMediaIntelligenceEnabled: Bool = false
-    @Published private(set) var messagingPresencePolishEnabled: Bool = false
+    @Published private(set) var messagingApprovalCardsEnabled: Bool = true
+    @Published private(set) var messagingCatchUpEnabled: Bool = true
+    @Published private(set) var messagingVoiceIntelligenceEnabled: Bool = true
+    @Published private(set) var messagingMediaIntelligenceEnabled: Bool = true
+    @Published private(set) var messagingPresencePolishEnabled: Bool = true
+
+    // MARK: - Amen Smart Message Intelligence
+    @Published private(set) var smartMessageIntelligenceEnabled: Bool = true
+    @Published private(set) var smartEventDetectionEnabled: Bool = true
+    @Published private(set) var prayerIntelligenceEnabled: Bool = true
+    @Published private(set) var discussionSummariesEnabled: Bool = true
+    @Published private(set) var contextualBereanActionsEnabled: Bool = true
+    @Published private(set) var topicExtractionEnabled: Bool = true
+    @Published private(set) var semanticSearchEnabled: Bool = true
+    @Published private(set) var studyModeEnabled: Bool = true
+    @Published private(set) var voiceIntelligenceEnabled: Bool = true
+    @Published private(set) var knowledgeGraphMemoryEnabled: Bool = true
 
     // MARK: - Communication OS (System 32: Next-Gen Messaging + Group Discussions)
     @Published private(set) var messagesSmartContextEnabled: Bool = true
     @Published private(set) var groupDiscussionPulseEnabled: Bool = true
-    @Published private(set) var threadSummaryEnabled: Bool = false
-    @Published private(set) var catchUpDigestEnabled: Bool = false
+    @Published private(set) var threadSummaryEnabled: Bool = true
+    @Published private(set) var catchUpDigestEnabled: Bool = true
     @Published private(set) var threadDecisionExtractionEnabled: Bool = true
     @Published private(set) var threadActionExtractionEnabled: Bool = true
     @Published private(set) var threadQuestionDetectionEnabled: Bool = true
@@ -339,9 +379,89 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var mediaIntelligenceEnabled: Bool = true
     @Published private(set) var conversationMemorySearchEnabled: Bool = true
     @Published private(set) var commandPaletteEnabled: Bool = true
+    @Published private(set) var smartCommandLayerEnabled: Bool = true
+    @Published private(set) var smartCommandLayerHomeEnabled: Bool = true
+    @Published private(set) var smartCommandLayerMessagesEnabled: Bool = true
+    @Published private(set) var smartCommandLayerBereanEnabled: Bool = true
+    @Published private(set) var smartCommandLayerChurchNotesEnabled: Bool = true
+    @Published private(set) var smartCommandLayerSpacesEnabled: Bool = true
+    @Published private(set) var smartCommandLayerCreatePostEnabled: Bool = true
+    @Published private(set) var smartCommandLayerEventsEnabled: Bool = true
+    @Published private(set) var smartCommandLayerMediaEnabled: Bool = true
     @Published private(set) var smartRepliesEnabled: Bool = true
     @Published private(set) var multiPaneCommunicationEnabled: Bool = true
     @Published private(set) var liquidGlassCommunicationUIEnabled: Bool = true
+    @Published private(set) var replyPreviewRotationEnabled: Bool = true  // FLIP TO false BEFORE SHIPPING
+
+    // MARK: - Conversation OS Intelligence Layer (extends System 32)
+    /// Master kill switch for all Conversation OS intelligence surfaces.
+    @Published private(set) var conversationOSEnabled: Bool = true
+    /// Gates AI-generated summaries on spaces, groups, and threads.
+    @Published private(set) var conversationSummariesEnabled: Bool = false
+    /// Gates the "Catch Me Up" recap surface for unread messages.
+    @Published private(set) var catchUpRecapsEnabled: Bool = false
+    /// Gates semantic topic clustering (non-chronological grouping).
+    @Published private(set) var topicClusteringEnabled: Bool = false
+    /// Gates action item, decision, and blocker extraction from threads.
+    @Published private(set) var actionExtractionEnabled: Bool = false
+    /// Gates organizational memory queries and persistence.
+    @Published private(set) var organizationalMemoryEnabled: Bool = false
+    /// Gates role-aware personalized summaries.
+    @Published private(set) var personalizedInsightsEnabled: Bool = false
+    /// Gates ambient intelligence banners and contextual chips.
+    @Published private(set) var ambientConversationIntelligenceEnabled: Bool = false
+    /// Gates Liquid Glass rendering for Conversation OS surfaces.
+    @Published private(set) var conversationOSLiquidGlassEnabled: Bool = true
+    /// Enables debug telemetry for Conversation OS (non-production).
+    @Published private(set) var conversationOSDebugTelemetryEnabled: Bool = false
+    /// Enforces sensitive-space restrictions (prayer rooms, leadership rooms, admin channels).
+    @Published private(set) var conversationOSSensitiveSpaceRestrictionsEnabled: Bool = true
+    /// Gates the Berean-specific conversational OS integration layer.
+    @Published private(set) var bereanConversationalOSEnabled: Bool = true
+    /// Gates the compact Liquid Glass Berean composer.
+    @Published private(set) var bereanLiquidGlassComposerEnabled: Bool = true
+    /// Gates ambient recap capsules in supported conversation surfaces.
+    @Published private(set) var contextualRecapCapsulesEnabled: Bool = false
+    /// Gates unresolved discussion extraction and surfacing.
+    @Published private(set) var unresolvedDiscussionTrackingEnabled: Bool = false
+    /// Gates semantic topic clustering beyond the base Conversation OS flag.
+    @Published private(set) var semanticTopicClusteringEnabled: Bool = false
+    /// Gates prayer-aware composer affordances that are fully local and UI-only.
+    @Published private(set) var prayerAwareComposerEnabled: Bool = true
+    /// Gates Selah-specific Conversation OS intelligence.
+    @Published private(set) var selahConversationIntelligenceEnabled: Bool = false
+
+    // MARK: - System 44: Messaging OS
+    /// Master switch for all Messaging OS surfaces and trust-aware features.
+    @Published private(set) var amenMessagingOSEnabled: Bool = true
+    /// Gates trust-aware inbox sections (Trusted / Requests / Community / Unknown / Flagged).
+    @Published private(set) var trustAwareInboxEnabled: Bool = false
+    /// Gates the message request flow (accept, reply-once, mute, block, report).
+    @Published private(set) var messageRequestsEnabled: Bool = true
+    /// Gates the privacy pill shown in every chat header (security + AI + disappearing state).
+    @Published private(set) var messagingPrivacyPillEnabled: Bool = false
+    /// Gates AI-powered per-conversation summaries and missed-message recaps.
+    @Published private(set) var aiMessagingSummariesEnabled: Bool = false
+    /// Gates the per-chat AI consent toggle (On / Ask Every Time / Off).
+    @Published private(set) var aiPerChatConsentEnabled: Bool = false
+    /// Gates extraction of action items, decisions, and follow-ups from chat threads.
+    @Published private(set) var messagingActionExtractionEnabled: Bool = false
+    /// Gates voice note transcription and AI-generated summary.
+    @Published private(set) var voiceNoteTranscriptionEnabled: Bool = false
+    /// Gates in-thread message translation (member-only, consent-gated).
+    @Published private(set) var messageTranslationEnabled: Bool = false
+    /// Gates the "suggest calmer wording" soft nudge shown before send.
+    @Published private(set) var safeWordingSuggestionsEnabled: Bool = false
+    /// Gates the scam/manipulation pre-send risk warning flow.
+    @Published private(set) var messagingRiskDetectionEnabled: Bool = false
+    /// Gates semantic full-text search across message history.
+    @Published private(set) var semanticMessageSearchEnabled: Bool = false
+    /// Gates biometric/passcode chat lock per conversation (LocalAuthentication).
+    @Published private(set) var chatLockEnabled: Bool = false
+    /// Gates disappearing messages with configurable timer per chat.
+    @Published private(set) var disappearingMessagesEnabled: Bool = false
+    /// Gates structured tabs for group/community spaces (Announcements, Discussion, Prayer, etc.).
+    @Published private(set) var groupContextTabsEnabled: Bool = false
 
     // MARK: - Social Safety OS (Phase 2–13)
     @Published private(set) var socialSafetyOSEnabled: Bool = true
@@ -459,6 +579,20 @@ final class AMENFeatureFlags: ObservableObject {
     // MARK: - Cross-cutting
     @Published private(set) var analyticsEnabled: Bool = true
     @Published private(set) var performanceTelemetryEnabled: Bool = true
+
+    // MARK: - Amen Living Hero System
+    @Published private(set) var ambientSpatialHeroEnabled: Bool = true
+    @Published private(set) var livingEditorialBannerEnabled: Bool = true
+    @Published private(set) var spatialHeroReduceMotionFallbackEnabled: Bool = true
+    @Published private(set) var spatialHeroPerformanceTelemetryEnabled: Bool = true
+    @Published private(set) var dailyVerseLivingHeroEnabled: Bool = true
+    @Published private(set) var dailyDigestLivingHeroEnabled: Bool = true
+    @Published private(set) var discoverLivingHeroEnabled: Bool = true
+    @Published private(set) var selahLivingHeroEnabled: Bool = true
+    @Published private(set) var bereanPulseLivingHeroEnabled: Bool = true
+    @Published private(set) var churchProfileLivingHeroEnabled: Bool = true
+    @Published private(set) var liveEventLivingHeroEnabled: Bool = true
+    @Published private(set) var creatorKitLivingHeroEnabled: Bool = true
     
     // MARK: - Discover Surface (Amen Discover)
     @Published private(set) var amenDiscoverEnabled: Bool = true
@@ -512,8 +646,38 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var amenImproveKillSwitch: Bool = false
     @Published private(set) var amenSummarizeKillSwitch: Bool = false
 
+    // MARK: - Global AI emergency brake
+    /// Remote Config key: amen_global_ai_kill_switch
+    /// When true, ALL AI routing is blocked immediately — no fallback, no partial delivery.
+    /// Use for detected abuse, model safety incidents, or compliance holds.
+    @Published private(set) var amenGlobalAIKillSwitch: Bool = false
+
+    // MARK: - Post-Google I/O 2026 Gemini Evaluation Layer
+    @Published private(set) var geminiDirectClientEnabled: Bool = true
+    @Published private(set) var geminiClientKillSwitch: Bool = false
+    @Published private(set) var geminiEvalLoggingEnabled: Bool = true
+    @Published private(set) var geminiDailyVerseReflectionEnabled: Bool = true
+    @Published private(set) var geminiChurchNoteTitleSummaryEnabled: Bool = true
+    @Published private(set) var geminiSmartMessageSummaryEnabled: Bool = true
+    @Published private(set) var geminiCaptionSuggestionsEnabled: Bool = true
+    @Published private(set) var geminiMapsGroundedSearchEnabled: Bool = true
+    @Published private(set) var geminiFileSearchPilotEnabled: Bool = true
+    @Published private(set) var geminiTTSEnabled: Bool = true
+    @Published private(set) var geminiImageGenerationPilotEnabled: Bool = true
+    @Published private(set) var geminiVideoGenerationPrototypeEnabled: Bool = true
+    @Published private(set) var geminiDeepResearchPrototypeEnabled: Bool = true
+    @Published private(set) var geminiManagedAgentsPrototypeEnabled: Bool = true
+    @Published private(set) var geminiFlashModelName: String = "gemini-3.5-flash"
+    @Published private(set) var geminiFlashLiteModelName: String = "gemini-3.5-flash-lite"
+    @Published private(set) var geminiDirectClientDailyBudgetMicroUSD: Int = 0
+    @Published private(set) var geminiDirectClientTimeoutMs: Int = 4_000
+
     // MARK: - System 33: Spatial Social OS
-    @Published private(set) var spatialHomeEnabled: Bool = false
+    @Published private(set) var spatialHomeEnabled: Bool = true
+    @Published private(set) var spatialRoomsEnabled: Bool = true
+    @Published private(set) var spatialRoomsServerCreationEnabled: Bool = true
+    @Published private(set) var spatialRoomsAIThemeGenerationEnabled: Bool = true
+    @Published private(set) var spatialRoomsBackfillEnabled: Bool = true
     @Published private(set) var spatialContextRailEnabled: Bool = true
     @Published private(set) var provenanceTrustPanelEnabled: Bool = true
     @Published private(set) var creatorOSComposerEnabled: Bool = true
@@ -522,57 +686,343 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var discoveryWhyShownEnabled: Bool = true
     @Published private(set) var safetyOSEnabled: Bool = true
 
+    // MARK: - System 35: Trust Spine (Phase 1)
+    // Master switch for the publish/AI/disclosure trust pipeline introduced
+    // in the Spatial Social OS rebuild. Defaults ON — Remote Config can
+    // explicitly flip any flag OFF by returning the string "false".
+    @Published private(set) var trustSpinePipelineEnabled: Bool = true
+    @Published private(set) var aiDisclosureLabelsEnabled: Bool = true
+    @Published private(set) var sharedViewingEnabled: Bool = true
+    @Published private(set) var spatialMessagesEnabled: Bool = true
+    @Published private(set) var publicLikeCountsHidden: Bool = true
+    @Published private(set) var amenCreatorOSPremiumEnabled: Bool = true
+    @Published private(set) var discoveryTransparencyEnabled: Bool = true
+
     // MARK: - System 34: Healthy Immersive Media Sessions
-    @Published private(set) var healthyImmersiveMediaEnabled: Bool = false
-    @Published private(set) var immersiveMediaSessionsEnabled: Bool = false
-    @Published private(set) var mediaFiniteSessionsEnabled: Bool = false
-    @Published private(set) var finiteMediaQueuesEnabled: Bool = false
-    @Published private(set) var mediaCompletionReflectionEnabled: Bool = false
-    @Published private(set) var mediaCompletionOverlayEnabled: Bool = false
-    @Published private(set) var mediaDoomScrollGuardEnabled: Bool = false
-    @Published private(set) var mediaNoDoomScrollGuardrailsEnabled: Bool = false
-    @Published private(set) var mediaSessionCheckpointsEnabled: Bool = false
-    @Published private(set) var healthyMediaCheckpointsEnabled: Bool = false
-    @Published private(set) var mediaKeyMomentsEnabled: Bool = false
-    @Published private(set) var mediaTranscriptEnabled: Bool = false
-    @Published private(set) var mediaAIDraftMetadataEnabled: Bool = false
-    @Published private(set) var mediaAIMetadataDraftsEnabled: Bool = false
-    @Published private(set) var mediaApprovalFlowEnabled: Bool = false
+    // Master switch: false blocks all immersive media session surfaces instantly.
+    // Defaults OFF — Remote Config activates per rollout stage.
+    @Published private(set) var healthyImmersiveMediaEnabled: Bool = true
+    @Published private(set) var immersiveMediaSessionsEnabled: Bool = true
+    @Published private(set) var mediaFiniteSessionsEnabled: Bool = true   // Core anti-doomscroll — ON by default
+    @Published private(set) var finiteMediaQueuesEnabled: Bool = true
+    @Published private(set) var mediaCompletionReflectionEnabled: Bool = true  // Core anti-doomscroll — ON
+    @Published private(set) var mediaCompletionOverlayEnabled: Bool = true
+    @Published private(set) var mediaDoomScrollGuardEnabled: Bool = true  // Safety guardrail — ON
+    // When true, shouldAutoplayInViewport returns false. Keep ON for safety.
+    @Published private(set) var mediaNoDoomScrollGuardrailsEnabled: Bool = true
+    @Published private(set) var mediaSessionCheckpointsEnabled: Bool = true   // Core anti-doomscroll — ON
+    @Published private(set) var healthyMediaCheckpointsEnabled: Bool = true
+    // Off until MediaKeyMomentsRail view ships.
+    @Published private(set) var mediaKeyMomentsEnabled: Bool = true
+    @Published private(set) var mediaTranscriptEnabled: Bool = true   // VideoTranscriptSheetView exists
+    // Off until AmenMediaAIMetadataReviewSheet ships.
+    @Published private(set) var mediaAIDraftMetadataEnabled: Bool = true
+    @Published private(set) var mediaAIMetadataDraftsEnabled: Bool = true
+    @Published private(set) var mediaApprovalFlowEnabled: Bool = true
+    // Safety: true = approval required before AI metadata is public. Keep ON.
     @Published private(set) var mediaGeneratedMetadataApprovalRequired: Bool = true
-    @Published private(set) var mediaLowBandwidthModeEnabled: Bool = false
-    @Published private(set) var mediaSelahAudioModeEnabled: Bool = false
-    @Published private(set) var mediaSelahOverlayEnabled: Bool = false
-    @Published private(set) var immersivePhotoSessionsEnabled: Bool = false
-    @Published private(set) var immersiveVideoSessionsEnabled: Bool = false
-    @Published private(set) var communityMediaLayersEnabled: Bool = false
-    @Published private(set) var mediaCommunityLayerEnabled: Bool = false
-    @Published private(set) var mediaReflectionSheetEnabled: Bool = false
+    @Published private(set) var mediaLowBandwidthModeEnabled: Bool = true
+    @Published private(set) var mediaSelahAudioModeEnabled: Bool = true
+    @Published private(set) var mediaSelahOverlayEnabled: Bool = true
+    @Published private(set) var immersivePhotoSessionsEnabled: Bool = true
+    @Published private(set) var immersiveVideoSessionsEnabled: Bool = true
+    @Published private(set) var communityMediaLayersEnabled: Bool = true
+    @Published private(set) var mediaCommunityLayerEnabled: Bool = true
+    @Published private(set) var mediaReflectionSheetEnabled: Bool = true  // AmenMediaReflectionSheet exists
     @Published private(set) var hideVanityMetricsDefault: Bool = true
-    @Published private(set) var autoplayWithinSessionsEnabled: Bool = false
-    @Published private(set) var lateNightPauseEnabled: Bool = true
-    @Published private(set) var mediaWellbeingControlsEnabled: Bool = false
-    @Published private(set) var mediaTimestampedCommentsEnabled: Bool = false
-    @Published private(set) var mediaSearchEnabled: Bool = false
-    @Published private(set) var mediaChurchNotesIntegrationEnabled: Bool = false
-    @Published private(set) var mediaPrayerQueueEnabled: Bool = false
-    @Published private(set) var mediaReflectionQueueEnabled: Bool = false
-    @Published private(set) var mediaReportingEnabled: Bool = false
-    @Published private(set) var mediaAccessibilityControlsEnabled: Bool = false
+    // Off: autoplay-within-session can create chain if misused. Remote Config activates.
+    @Published private(set) var autoplayWithinSessionsEnabled: Bool = true
+    @Published private(set) var lateNightPauseEnabled: Bool = true   // Wellbeing — ON
+    @Published private(set) var mediaWellbeingControlsEnabled: Bool = true
+    // Off until TimestampedCommentComposer ships.
+    @Published private(set) var mediaTimestampedCommentsEnabled: Bool = true
+    @Published private(set) var mediaSearchEnabled: Bool = true
+    @Published private(set) var mediaChurchNotesIntegrationEnabled: Bool = true
+    // Off until SaveToReflectionQueueSheet ships.
+    @Published private(set) var mediaPrayerQueueEnabled: Bool = true
+    @Published private(set) var mediaReflectionQueueEnabled: Bool = true
+    @Published private(set) var mediaReportingEnabled: Bool = true   // ReportContentSheet exists
+    @Published private(set) var mediaAccessibilityControlsEnabled: Bool = true
     @Published private(set) var mediaHideVanityMetricsEnabled: Bool = true
-    @Published private(set) var mediaRankingV2Enabled: Bool = false
-    @Published private(set) var mediaLiquidGlassChromeEnabled: Bool = false
-    @Published private(set) var mediaProfileLiquidWhiteFlowEnabled: Bool = false
+    @Published private(set) var mediaRankingV2Enabled: Bool = true
+    @Published private(set) var mediaLiquidGlassChromeEnabled: Bool = true
+    @Published private(set) var mediaProfileLiquidWhiteFlowEnabled: Bool = true
 
     // MARK: - System 35: Provenance & Authenticity OS
-    @Published private(set) var mediaAuthenticityBadgesEnabled: Bool = false
-    @Published private(set) var syntheticMediaDetectionEnabled: Bool = false
-    @Published private(set) var mediaSyntheticDetectionEnabled: Bool = false
+    @Published private(set) var mediaAuthenticityBadgesEnabled: Bool = true
+    @Published private(set) var syntheticMediaDetectionEnabled: Bool = true
+    @Published private(set) var mediaSyntheticDetectionEnabled: Bool = true
     @Published private(set) var contentCredentialsEnabled: Bool = true
     @Published private(set) var provenanceAuditChainEnabled: Bool = true
 
+    // MARK: - System 36: Messaging Filters & Smart Inbox
+    // Apple Mail-style Liquid Glass floating filter tray for the messaging inbox.
+    // Defaults are ON; Remote Config can flip any of them OFF as a kill switch.
+    @Published private(set) var messagingInboxFiltersEnabled: Bool = true
+    @Published private(set) var messagingThreadSearchFiltersEnabled: Bool = true
+    @Published private(set) var messagingSmartInboxCountsEnabled: Bool = true
+
+    // MARK: - System 38: Amen Gatherings
+    @Published private(set) var gatheringsEnabled: Bool = true
+    @Published private(set) var gatheringCreationEnabled: Bool = true
+    @Published private(set) var gatheringAccessPassEnabled: Bool = true
+    @Published private(set) var gatheringQRShareEnabled: Bool = true
+    @Published private(set) var gatheringNFCEnabled: Bool = true
+    @Published private(set) var gatheringCalendarEnabled: Bool = true
+    @Published private(set) var gatheringGuestListEnabled: Bool = true
+    @Published private(set) var gatheringPrayerRequestsEnabled: Bool = true
+    @Published private(set) var gatheringUnauthenticatedPreviewEnabled: Bool = true
+    @Published private(set) var gatheringUnauthenticatedRsvpEnabled: Bool = true
+    @Published private(set) var gatheringHostConsoleEnabled: Bool = true
+    @Published private(set) var gatheringMediaEnabled: Bool = true
+
+    // MARK: - System 37: Amen Access Passes
+    // QR / NFC / universal link / share-link access system for Spaces, Discussions,
+    // Small Groups, Churches, Organizations, Events, Sermon Notes, and Prayer Rooms.
+    // All default OFF in production — Remote Config activates per rollout stage.
+    @Published private(set) var accessPassesEnabled: Bool = true
+    @Published private(set) var accessPassQRGenerationEnabled: Bool = true
+    @Published private(set) var accessPassNFCEnabled: Bool = true
+    @Published private(set) var accessPassCheckInEnabled: Bool = true
+    @Published private(set) var accessPassRoleGatedEnabled: Bool = true
+    @Published private(set) var accessPassAdminConsoleEnabled: Bool = true
+    /// Kill switch: true blocks direct Join for sensitive spaces (prayer rooms, youth groups).
+    @Published private(set) var accessPassSensitiveSpaceDirectJoinBlocked: Bool = false
+    @Published private(set) var accessPassAuditLoggingEnabled: Bool = true
+
+    // MARK: - System 39: Amen Integrations Platform
+    // All default false in production — Remote Config activates per provider and rollout stage.
+    // Kill switch: amenIntegrationsKillSwitch = true disables all integrations platform features instantly.
+    @Published private(set) var amenIntegrationsEnabled: Bool = false
+    @Published private(set) var amenMicrosoftGraphEnabled: Bool = false
+    @Published private(set) var amenZoomEnabled: Bool = false
+    @Published private(set) var amenSlackEnabled: Bool = false
+    @Published private(set) var amenGatheringsEnabled: Bool = false
+    @Published private(set) var amenGatheringMeetingLinksEnabled: Bool = false
+    @Published private(set) var amenGatheringRemindersEnabled: Bool = false
+    @Published private(set) var amenGatheringFollowUpsEnabled: Bool = false
+    @Published private(set) var amenGatheringAISuggestionsEnabled: Bool = false
+    @Published private(set) var amenIntegrationAdminWorkflowsEnabled: Bool = false
+    @Published private(set) var amenIntegrationAuditLoggingEnabled: Bool = false
+    /// Kill switch: true disables all integrations platform features instantly via Remote Config.
+    @Published private(set) var amenIntegrationsKillSwitch: Bool = false
+
+    // MARK: - System 40: Multi-Tenant Contextual Experiences
+    @Published private(set) var contextualExperiencesEnabled: Bool = true
+    @Published private(set) var organizationExperiencesEnabled: Bool = true
+    @Published private(set) var experienceLiquidGlassEnabled: Bool = true
+    @Published private(set) var experienceAdminToolsEnabled: Bool = true
+    @Published private(set) var experienceAnalyticsEnabled: Bool = true
+    @Published private(set) var experienceMemoriesEnabled: Bool = true
+    @Published private(set) var experiencePrayerCampaignsEnabled: Bool = true
+    @Published private(set) var experienceSpacesIntegrationEnabled: Bool = true
+
+    // MARK: - System 39: Verification & Trust
+    @Published private(set) var verificationCenterEnabled: Bool = true
+    @Published private(set) var identityVerificationEnabled: Bool = true
+    @Published private(set) var organizationVerificationEnabled: Bool = true
+    @Published private(set) var roleVerificationEnabled: Bool = true
+    @Published private(set) var creatorVerificationEnabled: Bool = true
+    @Published private(set) var publicTrustBadgesEnabled: Bool = true
+    @Published private(set) var impersonationReportsEnabled: Bool = true
+
+    // MARK: - Callable Contract Guards (UNDEPLOYED_FEATURE defaults — all false until backend ships)
+    // Each flag below protects an iOS httpsCallable() call whose backend function does not yet
+    // exist in index.ts.  Set to false by default; Remote Config or a future deploy can flip them on.
+
+    // Berean proxy variants (separate functions not yet in backend)
+    @Published private(set) var bereanGenericProxyEnabled: Bool = true
+    @Published private(set) var bereanEmbedProxyEnabled: Bool = true
+    @Published private(set) var bereanVoiceProxyEnabled: Bool = true
+    @Published private(set) var bereanCompassAnalyzeEnabled: Bool = true
+    @Published private(set) var bereanShieldAnalyzeEnabled: Bool = true
+    @Published private(set) var bereanSermonWeekPlanEnabled: Bool = true
+    @Published private(set) var sermonSnapProxyEnabled: Bool = true
+    @Published private(set) var smartSuggestionsProxyEnabled: Bool = true
+    @Published private(set) var ttsProxyEnabled: Bool = true
+
+    // Studio AI callables (studioGenerateContent, generateStudioImage, exportToPDF,
+    // studioJournalPrompt, transcribeAudio, synapticCreate)
+    @Published private(set) var studioAICallablesEnabled: Bool = true
+
+    // Trust Spine callables (trueSourceSign, publishPostWithTrustGates, registerAIDisclosure,
+    // getAIDisclosureDetails, getPostProvenance, getDiscoveryReasons)
+    @Published private(set) var trustSpineCallablesEnabled: Bool = true
+
+    // Shared Viewing Room callables (createSharedViewingRoom, joinSharedViewingRoom,
+    // leaveSharedViewingRoom, postAnchoredReply)
+    @Published private(set) var sharedViewingRoomCallablesEnabled: Bool = true
+
+    // Universal Link Intelligence callables (generateUniversalLinkNotes, saveUniversalLink)
+    @Published private(set) var universalLinkIntelligenceEnabled: Bool = true
+
+    // Covenant message callables (createCovenantPost, createCovenantMessage,
+    // deleteCovenantMessage, rsvpCovenantEvent)
+    @Published private(set) var covenantMessageCallablesEnabled: Bool = true
+
+    // Church Notes share callables (shareChurchNote, generateChurchNoteShareLink,
+    // revokeChurchNoteShare, resolveMusicAttachment)
+    @Published private(set) var churchNotesShareCallablesEnabled: Bool = true
+
+    // Premium & subscription callables (getPremiumEntitlement, syncPremiumEntitlement,
+    // recordAIUsageAndCheckLimit, cancelAllSubscriptions, createMentorshipSubscription)
+    @Published private(set) var premiumCallablesEnabled: Bool = true
+
+    // Auth utility callables (resolveUsernameToEmail)
+    @Published private(set) var resolveUsernameToEmailEnabled: Bool = true
+
+    // Security utility callables (getClientIPAddress)
+    @Published private(set) var clientIPAddressEnabled: Bool = true
+
+    // Account callables (exportUserData, digestBrain)
+    @Published private(set) var accountUtilityCallablesEnabled: Bool = true
+
+    // Notification intelligence callables (generateNotificationText, summarizeNotifications)
+    @Published private(set) var notificationIntelligenceCallablesEnabled: Bool = true
+
+    // Prayer & spiritual feature callables (generateArcInsight, generatePrayerRecap,
+    // spiritGraph, generateSpiritualTimeline)
+    @Published private(set) var prayerSpiritualCallablesEnabled: Bool = true
+
+    // Social graph callables (vibeMatch, testimonyResonanceScore, findSimilarTestimonies,
+    // matchPrayerPartners, getScriptureRecommendation)
+    @Published private(set) var socialGraphCallablesEnabled: Bool = true
+
+    // Church discovery callables (generateFirstVisitGuide, computeChurchDNA)
+    @Published private(set) var churchDiscoveryCallablesEnabled: Bool = true
+
+    // Study guide callables (generateStudyGuide, generateVerseReflection)
+    @Published private(set) var studyGuideCallablesEnabled: Bool = true
+
+    // Media moderation callables (moderateMediaContent, escalateModerationAlert,
+    // moderateContent)
+    @Published private(set) var mediaModerationCallablesEnabled: Bool = true
+
+    // Post analysis callables (analyzeImageSyntheticProbability, analyzeVideoFrameConsistency,
+    // detectCommentTension, summarizeCommentThemes, notifyPrayerRoomAnswered,
+    // revealGraceDropIdentity)
+    @Published private(set) var postAnalysisCallablesEnabled: Bool = true
+
+    // MARK: - System 41: Smart Contextual Prompts
+    // Defaults OFF for production rollout. Remote Config enables narrow surfaces.
+    @Published private(set) var smartContextualPromptsEnabled: Bool = false
+    @Published private(set) var smartPromptPrayerNotificationsEnabled: Bool = false
+    @Published private(set) var smartPromptChurchUpdatesEnabled: Bool = false
+    @Published private(set) var smartPromptBereanContinuationEnabled: Bool = true
+    @Published private(set) var smartPromptQuietModeEnabled: Bool = false
+    @Published private(set) var smartPromptSelahPauseEnabled: Bool = false
+    @Published private(set) var smartPromptSpacesJoinEnabled: Bool = false
+    @Published private(set) var smartPromptCreatorInsightsEnabled: Bool = false
+    @Published private(set) var smartPromptObservancesEnabled: Bool = false
+    @Published private(set) var smartPromptAmbientHeroEnabled: Bool = false
+
+    // Compatibility aliases for the earlier SmartPrompts prototype.
+    @Published private(set) var promptPrayerReplyNotificationsEnabled: Bool = true
+    @Published private(set) var promptChurchEventRemindersEnabled: Bool = true
+    @Published private(set) var promptBereanStudyFollowUpEnabled: Bool = true
+    @Published private(set) var promptCommunityInteractionEnabled: Bool = true
+    @Published private(set) var promptCreatorTeacherUpdateEnabled: Bool = true
+    @Published private(set) var promptContinueReflectionEnabled: Bool = true
+    @Published private(set) var promptQuietModeEnabled: Bool = true
+    @Published private(set) var promptNeedPrayerEnabled: Bool = true
+    @Published private(set) var promptTakeAPauseEnabled: Bool = true
+
+    // MARK: - System 42: Spaces Ambient Intelligence OS
+    // All default OFF in production. Enable via Remote Config per surface/rollout.
+    @Published private(set) var amenSpacesIntelligenceEnabled: Bool = false
+    @Published private(set) var persistentMemoryGraphEnabled: Bool = false
+    @Published private(set) var collapsibleIntelligenceEnabled: Bool = false
+    @Published private(set) var semanticPinningEnabled: Bool = false
+    @Published private(set) var catchUpIntelligenceEnabled: Bool = false
+    @Published private(set) var ambientAIEnabled: Bool = false
+    @Published private(set) var smartSidebarEnabled: Bool = false
+    @Published private(set) var emotionalContextEngineEnabled: Bool = false
+    @Published private(set) var spiritualContinuityEngineEnabled: Bool = false
+    @Published private(set) var intentAwareSearchEnabled: Bool = false
+    @Published private(set) var multiThreadBranchingEnabled: Bool = false
+    @Published private(set) var presenceAwareUIEnabled: Bool = false
+
+    // MARK: - System 43: Church Notes Context Engine
+    // All default OFF in production — Remote Config enables per feature per rollout stage.
+    // Master switch: false blocks all context engine surfaces instantly.
+    @Published private(set) var churchNotesContextEngineEnabled: Bool = false
+    /// Gates smart note memory (recurring themes, scripture, prayers, unresolved reflections).
+    @Published private(set) var churchNotesSmartMemoryEnabled: Bool = false
+    /// Gates the Berean Context Panel bottom sheet (scripture, notes, themes, prayer prompts).
+    @Published private(set) var churchNotesBereanContextPanelEnabled: Bool = true
+    /// Gates sermon-to-action extraction (personal action, prayer item, reminder, group question).
+    @Published private(set) var churchNotesSermonToActionEnabled: Bool = false
+    /// Gates the Spiritual Growth Timeline (private recurring themes, answered prayers, journey).
+    @Published private(set) var churchNotesGrowthTimelineEnabled: Bool = false
+    /// Gates Smart Recap generation after note completion or church attendance.
+    @Published private(set) var churchNotesSmartRecapEnabled: Bool = false
+    /// Gates group/church intelligence surfaces (top themes, prayer trends, leader action items).
+    @Published private(set) var churchNotesGroupIntelligenceEnabled: Bool = false
+    /// Gates the /command bar (summarize, prayer, study, translate, action-items, small-group, ask-berean, share).
+    @Published private(set) var churchNotesCommandBarEnabled: Bool = false
+    /// Gates smart capture classification (sermon slide, whiteboard, scripture, prayer request, quote).
+    @Published private(set) var churchNotesSmartCaptureEnabled: Bool = false
+    /// Gates AI provenance labels on all context engine outputs (source, confidence, why-suggested).
+    @Published private(set) var churchNotesAIProvenanceEnabled: Bool = false
+    /// Kill switch: true blocks all context engine AI writes instantly via Remote Config.
+    @Published private(set) var churchNotesContextEngineKillSwitch: Bool = false
+
+    // MARK: - System 45: Comms OS (Communication OS Intelligence Layer)
+    // Default ON — Remote Config can kill-switch per flag if needed.
+    /// Master kill switch for all Comms OS intelligence surfaces.
+    @Published private(set) var commsIntelligenceEnabled: Bool = true
+    /// Gates smart thread context bar (urgency chips, unresolved, blockers).
+    @Published private(set) var commsSmartContextEnabled: Bool = true
+    /// Gates personalized catch-up digest surfaces.
+    @Published private(set) var commsCatchUpEnabled: Bool = true
+    /// Gates server-extracted decisions and SmartFollowUpCard.
+    @Published private(set) var commsDecisionsEnabled: Bool = true
+    /// Gates async media intelligence jobs and MediaIntelligenceDock.
+    @Published private(set) var commsMediaIntelEnabled: Bool = true
+    /// Gates GroupPulseCard live intelligence (pulse, blockers, suggested next action).
+    @Published private(set) var commsPulseEnabled: Bool = true
+    /// Gates universal command palette with NL intent routing.
+    @Published private(set) var commsCommandPaletteEnabled: Bool = true
+    /// Gates approximate, opt-in, expiring presence indicators.
+    @Published private(set) var commsPresenceEnabled: Bool = true
+    /// Gates multi-pane communication shell view.
+    @Published private(set) var commsMultiPaneEnabled: Bool = true
+
+    // MARK: - System 46: Berean Drive (CarPlay)
+    // All CarPlay flags default OFF — requires Apple CarPlay entitlement approval
+    // from https://developer.apple.com/contact/request/carplay before enabling.
+    // Remote Config activates these after entitlement is provisioned.
+    /// Master gate: enables the CarPlay Berean Drive scene delegate and coordinator.
+    @Published private(set) var carPlayBereanEnabled: Bool = false
+    /// Gates CPNowPlayingTemplate — requires com.apple.developer.carplay-audio entitlement.
+    @Published private(set) var carPlayAudioEnabled: Bool = false
+    /// Gates CPMessageListItem — requires com.apple.developer.carplay-communication entitlement.
+    @Published private(set) var carPlayMessagingEnabled: Bool = false
+    /// Gates Apple Maps handoff from church search results. No navigation entitlement required.
+    @Published private(set) var carPlayNavigationHandoffEnabled: Bool = false
+    /// Kill switch: set true in Remote Config to immediately disable all CarPlay features.
+    @Published private(set) var carPlayKillSwitch: Bool = false
+
     private init() {
         applyUITestOverrides()
-        Task { await fetchRemoteConfig() }
+        let config = RemoteConfig.remoteConfig()
+        config.setDefaults(buildDefaults())
+        // Activate cached values only — no network hit.
+        // AMENAPPApp.setupRemoteConfig() is the sole Remote Config fetch owner.
+        Task { @MainActor [weak self] in
+            guard let self, (try? await config.activate()) == true else { return }
+            self.applyRemoteConfig(config)
+            self.applyManualObjectHubOverrides()
+        }
+        // Re-apply when this session's central fetch completes (covers first-launch cold cache).
+        Task { @MainActor [weak self] in
+            for await _ in NotificationCenter.default.notifications(named: .remoteConfigActivated) {
+                guard let self else { break }
+                let rc = RemoteConfig.remoteConfig()
+                self.applyRemoteConfig(rc)
+                self.applyManualObjectHubOverrides()
+            }
+        }
     }
 
     // MARK: - Remote Config
@@ -590,6 +1040,7 @@ final class AMENFeatureFlags: ObservableObject {
             if status == .success {
                 try await config.activate()
                 applyRemoteConfig(config)
+                applyManualObjectHubOverrides()
             }
         } catch {
             // Non-fatal — local defaults above remain in effect
@@ -598,7 +1049,13 @@ final class AMENFeatureFlags: ObservableObject {
     }
 
     private func buildDefaults() -> [String: NSObject] {
-        [
+        #if DEBUG
+        let objectHubDefault = true as NSObject
+        #else
+        let objectHubDefault = false as NSObject
+        #endif
+
+        return [
             // Moderation
             "moderation_v2_enabled": true as NSObject,
             "image_moderation_enabled": true as NSObject,
@@ -643,6 +1100,9 @@ final class AMENFeatureFlags: ObservableObject {
             "studio_monetization_enabled": true as NSObject,
             "studio_job_board_enabled": true as NSObject,
             "studio_ai_tagging_enabled": true as NSObject,
+            "creator_spaces_enabled": false as NSObject,
+            "presence_posts_enabled": false as NSObject,
+            "media_authenticity_enabled": false as NSObject,
 
             // Knowledge Graph
             "knowledge_graph_enabled": true as NSObject,
@@ -686,6 +1146,7 @@ final class AMENFeatureFlags: ObservableObject {
             "feed_view_mode_switcher_enabled": true as NSObject,
             "media_filter_pills_enabled": true as NSObject,
             "media_detail_view_enabled": true as NSObject,
+            "media_viewer_floating_engagement_pill_enabled": true as NSObject,
             "enhanced_notifications_enabled": true as NSObject,
             "server_notifications_v2_enabled": true as NSObject,
             "berean_chat_redesign_enabled": true as NSObject,
@@ -728,23 +1189,23 @@ final class AMENFeatureFlags: ObservableObject {
             "support_draft_detection_enabled": true as NSObject,
             "church_note_care_summary_enabled": true as NSObject,
             "church_notes_server_summary_enabled": true as NSObject,
-            "church_notes_audio_capture_enabled": false as NSObject,
-            "church_notes_photo_ocr_enabled": false as NSObject,
-            "church_notes_video_capture_enabled": false as NSObject,
-            "church_notes_ai_draft_review_enabled": false as NSObject,
-            "church_notes_study_guide_enabled": false as NSObject,
-            "church_notes_prayer_prompts_enabled": false as NSObject,
-            "church_notes_intelligence_enabled": false as NSObject,
-            "sermon_audio_capture_enabled": false as NSObject,
-            "sermon_video_capture_enabled": false as NSObject,
-            "church_photo_ocr_capture_enabled": false as NSObject,
-            "church_notes_translation_enabled": false as NSObject,
-            "church_notes_collaboration_enabled": false as NSObject,
-            "sermon_summary_generation_enabled": false as NSObject,
-            "scripture_detection_enabled": false as NSObject,
-            "sermon_action_extraction_enabled": false as NSObject,
-            "sermon_clip_suggestion_enabled": false as NSObject,
-            "church_notes_study_guide_generation_enabled": false as NSObject,
+            "church_notes_audio_capture_enabled": true as NSObject,
+            "church_notes_photo_ocr_enabled": true as NSObject,
+            "church_notes_video_capture_enabled": true as NSObject,
+            "church_notes_ai_draft_review_enabled": true as NSObject,
+            "church_notes_study_guide_enabled": true as NSObject,
+            "church_notes_prayer_prompts_enabled": true as NSObject,
+            "church_notes_intelligence_enabled": true as NSObject,
+            "sermon_audio_capture_enabled": true as NSObject,
+            "sermon_video_capture_enabled": true as NSObject,
+            "church_photo_ocr_capture_enabled": true as NSObject,
+            "church_notes_translation_enabled": true as NSObject,
+            "church_notes_collaboration_enabled": true as NSObject,
+            "sermon_summary_generation_enabled": true as NSObject,
+            "scripture_detection_enabled": true as NSObject,
+            "sermon_action_extraction_enabled": true as NSObject,
+            "sermon_clip_suggestion_enabled": true as NSObject,
+            "church_notes_study_guide_generation_enabled": true as NSObject,
             "church_notes_processing_kill_switch": false as NSObject,
             "trusted_contacts_enabled": true as NSObject,
             "helping_someone_else_enabled": true as NSObject,
@@ -754,7 +1215,7 @@ final class AMENFeatureFlags: ObservableObject {
 
             // Amen Daily Digest
             "amen_daily_digest_enabled": true as NSObject,
-            "amen_daily_digest_weather_enabled": false as NSObject,
+            "amen_daily_digest_weather_enabled": true as NSObject,
             "amen_daily_digest_holiday_enabled": true as NSObject,
             "amen_daily_digest_christian_calendar_enabled": true as NSObject,
             "amen_daily_digest_expanded_sheet_enabled": true as NSObject,
@@ -762,25 +1223,48 @@ final class AMENFeatureFlags: ObservableObject {
             "amen_daily_digest_church_notes_action_enabled": true as NSObject,
             "amen_daily_digest_find_church_action_enabled": true as NSObject,
             "amen_daily_digest_selah_action_enabled": true as NSObject,
-            "amen_daily_digest_ai_reflection_enabled": false as NSObject,
+            "amen_daily_digest_ai_reflection_enabled": true as NSObject,
 
             // Berean Pulse
             "berean_pulse_enabled": true as NSObject,
 
+            // Ambient Glow Intelligence Layer
+            "ambient_glow_enabled": true as NSObject,
+            "ambient_glow_authentication_enabled": true as NSObject,
+            "ambient_glow_berean_enabled": true as NSObject,
+            "ambient_glow_selah_enabled": true as NSObject,
+            "ambient_glow_prayer_enabled": true as NSObject,
+            "ambient_glow_media_enabled": true as NSObject,
+            "ambient_glow_feed_enabled": false as NSObject,
+
+            // Amen Living Hero System
+            "ambient_spatial_hero_enabled": true as NSObject,
+            "living_editorial_banner_enabled": true as NSObject,
+            "spatial_hero_reduce_motion_fallback_enabled": true as NSObject,
+            "spatial_hero_performance_telemetry_enabled": true as NSObject,
+            "daily_verse_living_hero_enabled": true as NSObject,
+            "daily_digest_living_hero_enabled": true as NSObject,
+            "discover_living_hero_enabled": true as NSObject,
+            "selah_living_hero_enabled": true as NSObject,
+            "berean_pulse_living_hero_enabled": true as NSObject,
+            "church_profile_living_hero_enabled": true as NSObject,
+            "live_event_living_hero_enabled": true as NSObject,
+            "creator_kit_living_hero_enabled": true as NSObject,
+
             // Community Hubs & Object Intelligence
-            "community_hubs_enabled": true as NSObject,
-            "community_object_matching_enabled": true as NSObject,
-            "lyric_detection_enabled": true as NSObject,
-            "object_hub_view_enabled": true as NSObject,
-            "object_hub_inline_pill_enabled": true as NSObject,
-            "object_hub_inline_cluster_enabled": true as NSObject,
+            "community_hubs_enabled": objectHubDefault,
+            "community_object_matching_enabled": objectHubDefault,
+            "lyric_detection_enabled": objectHubDefault,
+            "object_hub_view_enabled": objectHubDefault,
+            "object_hub_inline_pill_enabled": objectHubDefault,
+            "object_hub_inline_cluster_enabled": objectHubDefault,
 
             // Communities / Threads-Style Feeds
-            "ark_communities_enabled": false as NSObject,
+            "ark_communities_enabled": true as NSObject,
             "covenant_communities_enabled": true as NSObject,
             "unified_feeds_switcher_enabled": true as NSObject,
             "saved_communities_enabled": true as NSObject,
-            "view_in_feed_enabled": false as NSObject,
+            "view_in_feed_enabled": true as NSObject,
 
             // Smart Share Sheet
             "smart_share_sheet_enabled": true as NSObject,
@@ -811,11 +1295,12 @@ final class AMENFeatureFlags: ObservableObject {
             "explain_video_kill_reason": "" as NSObject,
 
             // Per-Media Captions
-            "per_media_captions_enabled": true as NSObject,
-            "per_media_caption_education_enabled": true as NSObject,
+            "per_media_captions_enabled": false as NSObject,
+            "per_media_caption_education_enabled": false as NSObject,
             "per_media_caption_moderation_enabled": true as NSObject,
             "per_media_caption_alt_text_enabled": true as NSObject,
             "per_media_caption_scripture_refs_enabled": true as NSObject,
+            "per_media_caption_incremental_moderation_enabled": true as NSObject,
 
             // Selah Scripture Actions
             "selah_scripture_actions_enabled": true as NSObject,
@@ -824,31 +1309,56 @@ final class AMENFeatureFlags: ObservableObject {
             "selah_add_to_church_notes_enabled": true as NSObject,
             "find_church_study_actions_enabled": true as NSObject,
             "after_service_reflection_enabled": true as NSObject,
-            "church_study_group_bridge_enabled": false as NSObject,
+            "church_study_group_bridge_enabled": true as NSObject,
 
             // Selah Media OS
             "selah_media_os_enabled": true as NSObject,
             "selah_media_os_min_app_version": "1.0.0" as NSObject,
             "selah_media_os_rollout_percent": 100 as NSObject,
             "selah_media_os_kill_reason": "" as NSObject,
+            "banner_rail_enabled": false as NSObject,
+            "reply_preview_rotation_enabled": false as NSObject,
 
             // Messaging Micro Animations
             "messaging_liquid_glass_animations_enabled": true as NSObject,
             "messaging_typing_indicator_enabled": true as NSObject,
-            "messaging_floating_header_prototype_enabled": false as NSObject,
+            "messaging_floating_header_prototype_enabled": true as NSObject,
             "messaging_liquid_glass_context_menu_enabled": true as NSObject,
-            "messaging_liquid_glass_attachment_menu_enabled": false as NSObject,
-            "messaging_smart_composer_enabled": false as NSObject,
-            "messaging_attachment_menu_smart_actions_enabled": false as NSObject,
-            "messaging_smart_pills_enabled": false as NSObject,
-            "messaging_translation_enabled": false as NSObject,
-            "messaging_cross_surface_actions_enabled": false as NSObject,
-            "messaging_safety_nudges_enabled": false as NSObject,
-            "messaging_approval_cards_enabled": false as NSObject,
-            "messaging_catch_up_enabled": false as NSObject,
-            "messaging_voice_intelligence_enabled": false as NSObject,
-            "messaging_media_intelligence_enabled": false as NSObject,
-            "messaging_presence_polish_enabled": false as NSObject,
+            "messaging_liquid_glass_attachment_menu_enabled": true as NSObject,
+            "messaging_smart_composer_enabled": true as NSObject,
+            "messaging_attachment_menu_smart_actions_enabled": true as NSObject,
+            "messaging_smart_pills_enabled": true as NSObject,
+            "messaging_translation_enabled": true as NSObject,
+            "messaging_cross_surface_actions_enabled": true as NSObject,
+            "messaging_safety_nudges_enabled": true as NSObject,
+            "messaging_approval_cards_enabled": true as NSObject,
+            "messaging_catch_up_enabled": true as NSObject,
+            "messaging_voice_intelligence_enabled": true as NSObject,
+            "messaging_media_intelligence_enabled": true as NSObject,
+            "messaging_presence_polish_enabled": true as NSObject,
+
+            // Amen Smart Message Intelligence
+            "smart_message_intelligence_enabled": true as NSObject,
+            "smart_event_detection_enabled": true as NSObject,
+            "prayer_intelligence_enabled": true as NSObject,
+            "discussion_summaries_enabled": true as NSObject,
+            "contextual_berean_actions_enabled": true as NSObject,
+            "topic_extraction_enabled": true as NSObject,
+            "semantic_search_enabled": true as NSObject,
+            "study_mode_enabled": true as NSObject,
+            "voice_intelligence_enabled": true as NSObject,
+            "knowledge_graph_memory_enabled": true as NSObject,
+
+            // Smart Liquid Glass Command Layer
+            "smart_command_layer_enabled": true as NSObject,
+            "smart_command_layer_home_enabled": true as NSObject,
+            "smart_command_layer_messages_enabled": true as NSObject,
+            "smart_command_layer_berean_enabled": true as NSObject,
+            "smart_command_layer_church_notes_enabled": true as NSObject,
+            "smart_command_layer_spaces_enabled": true as NSObject,
+            "smart_command_layer_create_post_enabled": true as NSObject,
+            "smart_command_layer_events_enabled": true as NSObject,
+            "smart_command_layer_media_enabled": true as NSObject,
 
             // Smart Account Resume
             "smart_account_resume_enabled": true as NSObject,
@@ -909,7 +1419,7 @@ final class AMENFeatureFlags: ObservableObject {
             "berean_translation_compare_enabled": true as NSObject,
             "berean_research_view_enabled": true as NSObject,
 
-            // System 31: Voice Prayer & Testimony Comments — all off by default
+            // System 31: Voice Prayer & Testimony Comments
             "voice_prayer_comments_enabled": true as NSObject,
             "voice_testimony_comments_enabled": true as NSObject,
             "voice_comment_transcript_required": true as NSObject,
@@ -917,7 +1427,7 @@ final class AMENFeatureFlags: ObservableObject {
             "voice_comment_review_queue_enabled": true as NSObject,
             "voice_comment_prayer_circle_visibility_enabled": true as NSObject,
 
-            // Amen AI Creative Intelligence Layer (all new features default OFF)
+            // Amen AI Creative Intelligence Layer
             "amen_realtime_voice_enabled": true as NSObject,
             "amen_live_captions_enabled": true as NSObject,
             "amen_translation_enabled": true as NSObject,
@@ -944,8 +1454,52 @@ final class AMENFeatureFlags: ObservableObject {
             "amen_improve_kill_switch": false as NSObject,
             "amen_summarize_kill_switch": false as NSObject,
 
+            // Post-Google I/O 2026 Gemini Evaluation Layer
+            "gemini_direct_client_enabled": true as NSObject,
+            "gemini_client_kill_switch": false as NSObject,
+            "gemini_eval_logging_enabled": true as NSObject,
+            "gemini_daily_verse_reflection_enabled": true as NSObject,
+            "gemini_church_note_title_summary_enabled": true as NSObject,
+            "gemini_smart_message_summary_enabled": true as NSObject,
+            "gemini_caption_suggestions_enabled": true as NSObject,
+            "gemini_maps_grounded_search_enabled": true as NSObject,
+            "gemini_file_search_pilot_enabled": true as NSObject,
+            "gemini_tts_enabled": true as NSObject,
+            "gemini_image_generation_pilot_enabled": true as NSObject,
+            "gemini_video_generation_prototype_enabled": true as NSObject,
+            "gemini_deep_research_prototype_enabled": true as NSObject,
+            "gemini_managed_agents_prototype_enabled": true as NSObject,
+            "gemini_flash_model_name": "gemini-3.5-flash" as NSObject,
+            "gemini_flash_lite_model_name": "gemini-3.5-flash-lite" as NSObject,
+            "gemini_direct_client_daily_budget_micro_usd": 0 as NSObject,
+            "gemini_direct_client_timeout_ms": 4000 as NSObject,
+
+            // Conversation OS Intelligence Layer
+            "conversation_os_enabled": true as NSObject,
+            "conversation_summaries_enabled": false as NSObject,
+            "catch_up_recaps_enabled": false as NSObject,
+            "topic_clustering_enabled": false as NSObject,
+            "action_extraction_enabled": false as NSObject,
+            "organizational_memory_enabled": false as NSObject,
+            "personalized_insights_enabled": false as NSObject,
+            "ambient_conversation_intelligence_enabled": false as NSObject,
+            "conversation_os_liquid_glass_enabled": true as NSObject,
+            "conversation_os_debug_telemetry_enabled": false as NSObject,
+            "conversation_os_sensitive_space_restrictions_enabled": true as NSObject,
+            "berean_conversational_os_enabled": true as NSObject,
+            "berean_liquid_glass_composer_enabled": true as NSObject,
+            "contextual_recap_capsules_enabled": false as NSObject,
+            "unresolved_discussion_tracking_enabled": false as NSObject,
+            "semantic_topic_clustering_enabled": false as NSObject,
+            "prayer_aware_composer_enabled": true as NSObject,
+            "selah_conversation_intelligence_enabled": false as NSObject,
+
             // System 33: Spatial Social OS
             "spatial_home_enabled": true as NSObject,
+            "spatial_rooms_enabled": true as NSObject,
+            "spatial_rooms_server_creation_enabled": true as NSObject,
+            "spatial_rooms_ai_theme_generation_enabled": true as NSObject,
+            "spatial_rooms_backfill_enabled": true as NSObject,
             "spatial_context_rail_enabled": true as NSObject,
             "provenance_trust_panel_enabled": true as NSObject,
             "creator_os_composer_enabled": true as NSObject,
@@ -981,6 +1535,158 @@ final class AMENFeatureFlags: ObservableObject {
             "synthetic_media_detection_enabled": true as NSObject,
             "content_credentials_enabled": true as NSObject,
             "provenance_audit_chain_enabled": true as NSObject,
+
+            // System 36: Messaging Filters & Smart Inbox
+            "messaging_inbox_filters_enabled": true as NSObject,
+            "messaging_thread_search_filters_enabled": true as NSObject,
+            "messaging_smart_inbox_counts_enabled": true as NSObject,
+
+            // System 37: Amen Access Passes
+            "access_passes_enabled": true as NSObject,
+            "access_pass_qr_generation_enabled": true as NSObject,
+            "access_pass_nfc_enabled": true as NSObject,
+            "access_pass_check_in_enabled": true as NSObject,
+            "access_pass_role_gated_enabled": true as NSObject,
+            "access_pass_admin_console_enabled": true as NSObject,
+            "access_pass_sensitive_space_direct_join_blocked": false as NSObject,
+            "access_pass_audit_logging_enabled": true as NSObject,
+
+            // System 39: Amen Integrations Platform (all false by default)
+            "amen_integrations_enabled": false as NSObject,
+            "amen_microsoft_graph_enabled": false as NSObject,
+            "amen_zoom_enabled": false as NSObject,
+            "amen_slack_enabled": false as NSObject,
+            "amen_gatherings_enabled": false as NSObject,
+            "amen_gathering_meeting_links_enabled": false as NSObject,
+            "amen_gathering_reminders_enabled": false as NSObject,
+            "amen_gathering_follow_ups_enabled": false as NSObject,
+            "amen_gathering_ai_suggestions_enabled": false as NSObject,
+            "amen_integration_admin_workflows_enabled": false as NSObject,
+            "amen_integration_audit_logging_enabled": false as NSObject,
+            "amen_integrations_kill_switch": false as NSObject,
+
+            // System 40: Multi-Tenant Contextual Experiences
+            "contextual_experiences_enabled": true as NSObject,
+            "organization_experiences_enabled": true as NSObject,
+            "experience_liquid_glass_enabled": true as NSObject,
+            "experience_admin_tools_enabled": true as NSObject,
+            "experience_analytics_enabled": true as NSObject,
+            "experience_memories_enabled": true as NSObject,
+            "experience_prayer_campaigns_enabled": true as NSObject,
+            "experience_spaces_integration_enabled": true as NSObject,
+
+            // System 39: Verification & Trust
+            "verification_center_enabled": true as NSObject,
+            "identity_verification_enabled": true as NSObject,
+            "organization_verification_enabled": true as NSObject,
+            "role_verification_enabled": true as NSObject,
+            "creator_verification_enabled": true as NSObject,
+            "public_trust_badges_enabled": true as NSObject,
+            "impersonation_reports_enabled": true as NSObject,
+
+            // System 38: Amen Gatherings
+            "gatherings_enabled": true as NSObject,
+            "gathering_creation_enabled": true as NSObject,
+            "gathering_access_pass_enabled": true as NSObject,
+            "gathering_qr_share_enabled": true as NSObject,
+            "gathering_nfc_enabled": true as NSObject,
+            "gathering_calendar_enabled": true as NSObject,
+            "gathering_guest_list_enabled": true as NSObject,
+            "gathering_prayer_requests_enabled": true as NSObject,
+            "gathering_unauthenticated_preview_enabled": true as NSObject,
+            "gathering_unauthenticated_rsvp_enabled": true as NSObject,
+            "gathering_host_console_enabled": true as NSObject,
+            "gathering_media_enabled": true as NSObject,
+
+            // Smart Community Search / Ask Amen. UI defaults OFF until callable deploy.
+            "smart_community_search_enabled": false as NSObject,
+            "smart_community_search_external_places_enabled": false as NSObject,
+            "smart_community_search_ai_enabled": false as NSObject,
+
+            // Callable Contract Guards — all false until backend functions are deployed
+            "berean_generic_proxy_enabled": true as NSObject,
+            "berean_embed_proxy_enabled": true as NSObject,
+            "berean_voice_proxy_enabled": true as NSObject,
+            "berean_compass_analyze_enabled": true as NSObject,
+            "berean_shield_analyze_enabled": true as NSObject,
+            "berean_sermon_week_plan_enabled": true as NSObject,
+            "sermon_snap_proxy_enabled": true as NSObject,
+            "smart_suggestions_proxy_enabled": true as NSObject,
+            "tts_proxy_enabled": true as NSObject,
+            "studio_ai_callables_enabled": true as NSObject,
+            "trust_spine_callables_enabled": true as NSObject,
+            "shared_viewing_room_callables_enabled": true as NSObject,
+            "universal_link_intelligence_enabled": true as NSObject,
+            "covenant_message_callables_enabled": true as NSObject,
+            "church_notes_share_callables_enabled": true as NSObject,
+            "premium_callables_enabled": true as NSObject,
+            "resolve_username_to_email_enabled": true as NSObject,
+            "client_ip_address_enabled": true as NSObject,
+            "account_utility_callables_enabled": true as NSObject,
+            "notification_intelligence_callables_enabled": true as NSObject,
+            "prayer_spiritual_callables_enabled": true as NSObject,
+            "social_graph_callables_enabled": true as NSObject,
+            "church_discovery_callables_enabled": true as NSObject,
+            "study_guide_callables_enabled": true as NSObject,
+            "media_moderation_callables_enabled": true as NSObject,
+            "post_analysis_callables_enabled": true as NSObject,
+
+            // System 41: Smart Contextual Prompts (all false — Remote Config activates)
+            "smart_contextual_prompts_enabled": false as NSObject,
+            "smart_prompt_prayer_notifications_enabled": false as NSObject,
+            "smart_prompt_church_updates_enabled": false as NSObject,
+            "smart_prompt_berean_continuation_enabled": true as NSObject,
+            "smart_prompt_quiet_mode_enabled": false as NSObject,
+            "smart_prompt_selah_pause_enabled": false as NSObject,
+            "smart_prompt_spaces_join_enabled": false as NSObject,
+            "smart_prompt_creator_insights_enabled": false as NSObject,
+            "smart_prompt_observances_enabled": false as NSObject,
+            "smart_prompt_ambient_hero_enabled": false as NSObject,
+
+            // System 42: Spaces Ambient Intelligence OS — all OFF by default
+            "amen_spaces_intelligence_enabled": false as NSObject,
+            "persistent_memory_graph_enabled": false as NSObject,
+            "collapsible_intelligence_enabled": false as NSObject,
+            "semantic_pinning_enabled": false as NSObject,
+            "catch_up_intelligence_enabled": false as NSObject,
+            "ambient_ai_enabled": false as NSObject,
+            "smart_sidebar_enabled": false as NSObject,
+            "emotional_context_engine_enabled": false as NSObject,
+            "spiritual_continuity_engine_enabled": false as NSObject,
+            "intent_aware_search_enabled": false as NSObject,
+            "multi_thread_branching_enabled": false as NSObject,
+            "presence_aware_ui_enabled": false as NSObject,
+
+            // System 43: Church Notes Context Engine (all OFF by default)
+            "church_notes_context_engine_enabled": false as NSObject,
+            "church_notes_smart_memory_enabled": false as NSObject,
+            "church_notes_berean_context_panel_enabled": true as NSObject,
+            "church_notes_sermon_to_action_enabled": false as NSObject,
+            "church_notes_growth_timeline_enabled": false as NSObject,
+            "church_notes_smart_recap_enabled": false as NSObject,
+            "church_notes_group_intelligence_enabled": false as NSObject,
+            "church_notes_command_bar_enabled": false as NSObject,
+            "church_notes_smart_capture_enabled": false as NSObject,
+            "church_notes_ai_provenance_enabled": false as NSObject,
+            "church_notes_context_engine_kill_switch": false as NSObject,
+
+            // System 45: Comms OS (ON by default — Remote Config can kill-switch per flag)
+            "comms_intelligence_enabled": true as NSObject,
+            "comms_smart_context_enabled": true as NSObject,
+            "comms_catch_up_enabled": true as NSObject,
+            "comms_decisions_enabled": true as NSObject,
+            "comms_media_intel_enabled": true as NSObject,
+            "comms_pulse_enabled": true as NSObject,
+            "comms_command_palette_enabled": true as NSObject,
+            "comms_presence_enabled": true as NSObject,
+            "comms_multi_pane_enabled": true as NSObject,
+
+            // System 46: Berean Drive (CarPlay) — all OFF; entitlement + Remote Config required
+            "carplay_kill_switch": false as NSObject,
+            "carplay_berean_enabled": false as NSObject,
+            "carplay_audio_enabled": false as NSObject,
+            "carplay_messaging_enabled": false as NSObject,
+            "carplay_navigation_handoff_enabled": false as NSObject,
         ]
     }
 
@@ -1022,7 +1728,10 @@ final class AMENFeatureFlags: ObservableObject {
         studioEnabled = config["studio_enabled"].boolValue
         studioMonetizationEnabled = config["studio_monetization_enabled"].boolValue
         studioJobBoardEnabled = config["studio_job_board_enabled"].boolValue
-        studioAITaggingEnabled = config["studio_ai_tagging_enabled"].boolValue
+        studioAITaggingEnabled         = config["studio_ai_tagging_enabled"].boolValue
+        creatorSpacesEnabled           = config["creator_spaces_enabled"].boolValue
+        presencePostsEnabled           = config["presence_posts_enabled"].boolValue
+        mediaAuthenticityEnabled       = config["media_authenticity_enabled"].boolValue
 
         knowledgeGraphEnabled = config["knowledge_graph_enabled"].boolValue
         knowledgeGraphRelatedContentEnabled = config["knowledge_graph_related_content_enabled"].boolValue
@@ -1063,6 +1772,7 @@ final class AMENFeatureFlags: ObservableObject {
         feedViewModeSwitcherEnabled = config["feed_view_mode_switcher_enabled"].boolValue
         mediaFilterPillsEnabled = config["media_filter_pills_enabled"].boolValue
         mediaDetailViewEnabled = config["media_detail_view_enabled"].boolValue
+        mediaViewerFloatingEngagementPillEnabled = config["media_viewer_floating_engagement_pill_enabled"].boolValue
         enhancedNotificationsEnabled = config["enhanced_notifications_enabled"].boolValue
         serverNotificationsV2Enabled = config["server_notifications_v2_enabled"].boolValue
         bereanChatRedesignEnabled = config["berean_chat_redesign_enabled"].boolValue
@@ -1144,6 +1854,14 @@ final class AMENFeatureFlags: ObservableObject {
 
         bereanPulseEnabled = config["berean_pulse_enabled"].boolValue
 
+        ambientGlowEnabled = config["ambient_glow_enabled"].boolValue
+        ambientGlowAuthenticationEnabled = config["ambient_glow_authentication_enabled"].boolValue
+        ambientGlowBereanEnabled = config["ambient_glow_berean_enabled"].boolValue
+        ambientGlowSelahEnabled = config["ambient_glow_selah_enabled"].boolValue
+        ambientGlowPrayerEnabled = config["ambient_glow_prayer_enabled"].boolValue
+        ambientGlowMediaEnabled = config["ambient_glow_media_enabled"].boolValue
+        ambientGlowFeedEnabled = config["ambient_glow_feed_enabled"].boolValue
+
         communityHubsEnabled = config["community_hubs_enabled"].boolValue
         communityObjectMatchingEnabled = config["community_object_matching_enabled"].boolValue
         lyricDetectionEnabled = config["lyric_detection_enabled"].boolValue
@@ -1160,6 +1878,10 @@ final class AMENFeatureFlags: ObservableObject {
 
         // System 33: Spatial Social OS
         spatialHomeEnabled = config["spatial_home_enabled"].boolValue
+        spatialRoomsEnabled = config["spatial_rooms_enabled"].stringValue.lowercased() != "false"
+        spatialRoomsServerCreationEnabled = config["spatial_rooms_server_creation_enabled"].stringValue.lowercased() != "false"
+        spatialRoomsAIThemeGenerationEnabled = config["spatial_rooms_ai_theme_generation_enabled"].stringValue.lowercased() != "false"
+        spatialRoomsBackfillEnabled = config["spatial_rooms_backfill_enabled"].stringValue.lowercased() != "false"
         spatialContextRailEnabled = config["spatial_context_rail_enabled"].boolValue
         provenanceTrustPanelEnabled = config["provenance_trust_panel_enabled"].boolValue
         creatorOSComposerEnabled = config["creator_os_composer_enabled"].boolValue
@@ -1167,6 +1889,25 @@ final class AMENFeatureFlags: ObservableObject {
         smartDiscoveryTransparencyEnabled = config["smart_discovery_transparency_enabled"].boolValue
         discoveryWhyShownEnabled = config["discovery_why_shown_enabled"].boolValue
         safetyOSEnabled = config["safety_os_enabled"].boolValue
+
+        // System 35: Trust Spine (Phase 1)
+        // All System 35 flags default ON. Remote Config can explicitly flip
+        // any of them OFF only by returning the source string "false";
+        // a missing/empty Remote Config value preserves the ON default.
+        let trustSpineString = config["trust_spine_pipeline_enabled"].stringValue
+        trustSpinePipelineEnabled = trustSpineString.lowercased() != "false"
+        let aiDisclosureString = config["ai_disclosure_labels_enabled"].stringValue
+        aiDisclosureLabelsEnabled = aiDisclosureString.lowercased() != "false"
+        let sharedViewingString = config["shared_viewing_enabled"].stringValue
+        sharedViewingEnabled = sharedViewingString.lowercased() != "false"
+        let spatialMessagesString = config["spatial_messages_enabled"].stringValue
+        spatialMessagesEnabled = spatialMessagesString.lowercased() != "false"
+        let hidePublicLikesString = config["public_like_counts_hidden"].stringValue
+        publicLikeCountsHidden = hidePublicLikesString.lowercased() != "false"
+        let creatorOSString = config["amen_creator_os_premium_enabled"].stringValue
+        amenCreatorOSPremiumEnabled = creatorOSString.lowercased() != "false"
+        let discoveryTransparencyString = config["discovery_transparency_enabled"].stringValue
+        discoveryTransparencyEnabled = discoveryTransparencyString.lowercased() != "false"
 
         // System 34: Healthy Immersive Media Sessions
         healthyImmersiveMediaEnabled = config["healthy_immersive_media_enabled"].boolValue
@@ -1216,6 +1957,23 @@ final class AMENFeatureFlags: ObservableObject {
         contentCredentialsEnabled = config["content_credentials_enabled"].boolValue
         provenanceAuditChainEnabled = config["provenance_audit_chain_enabled"].boolValue
 
+        // Amen Smart Message Intelligence
+        smartMessageIntelligenceEnabled = config["smart_message_intelligence_enabled"].boolValue
+        smartEventDetectionEnabled = config["smart_event_detection_enabled"].boolValue
+        prayerIntelligenceEnabled = config["prayer_intelligence_enabled"].boolValue
+        discussionSummariesEnabled = config["discussion_summaries_enabled"].boolValue
+        contextualBereanActionsEnabled = config["contextual_berean_actions_enabled"].boolValue
+        topicExtractionEnabled = config["topic_extraction_enabled"].boolValue
+        semanticSearchEnabled = config["semantic_search_enabled"].boolValue
+        studyModeEnabled = config["study_mode_enabled"].boolValue
+        voiceIntelligenceEnabled = config["voice_intelligence_enabled"].boolValue
+        knowledgeGraphMemoryEnabled = config["knowledge_graph_memory_enabled"].boolValue
+
+        // System 36: Messaging Filters & Smart Inbox
+        messagingInboxFiltersEnabled = config["messaging_inbox_filters_enabled"].boolValue
+        messagingThreadSearchFiltersEnabled = config["messaging_thread_search_filters_enabled"].boolValue
+        messagingSmartInboxCountsEnabled = config["messaging_smart_inbox_counts_enabled"].boolValue
+
         smartShareSheetEnabled = config["smart_share_sheet_enabled"].boolValue
         smartShareSmartSuggestionsEnabled = config["smart_share_smart_suggestions_enabled"].boolValue
         smartShareRecipientRailEnabled = config["smart_share_recipient_rail_enabled"].boolValue
@@ -1232,6 +1990,7 @@ final class AMENFeatureFlags: ObservableObject {
         voiceoverEnabled = config["voiceover_enabled"].boolValue
         autoCaptionsEnabled = config["auto_captions_enabled"].boolValue
         immersiveMediaChromeEnabled = config["immersive_media_chrome_enabled"].boolValue
+        ariseEnabled = config["arise_enabled"].boolValue
         immersiveFeedEnabled = config["immersive_feed_enabled"].boolValue
         continuationFeedEnabled = config["continuation_feed_enabled"].boolValue
         explainVideoEnabled = config["explain_video_enabled"].boolValue
@@ -1245,6 +2004,7 @@ final class AMENFeatureFlags: ObservableObject {
         perMediaCaptionModerationEnabled = config["per_media_caption_moderation_enabled"].boolValue
         perMediaCaptionAltTextEnabled = config["per_media_caption_alt_text_enabled"].boolValue
         perMediaCaptionScriptureRefsEnabled = config["per_media_caption_scripture_refs_enabled"].boolValue
+        perMediaCaptionIncrementalModerationEnabled = config["per_media_caption_incremental_moderation_enabled"].boolValue
 
         // System 21: Berean Intelligence Layer v2
         bereanTheoLensEnabled = config["berean_theo_lens_enabled"].boolValue
@@ -1268,6 +2028,7 @@ final class AMENFeatureFlags: ObservableObject {
         selahMediaOSMinAppVersion = config["selah_media_os_min_app_version"].stringValue
         selahMediaOSRolloutPercent = config["selah_media_os_rollout_percent"].numberValue.intValue
         selahMediaOSKillReason = config["selah_media_os_kill_reason"].stringValue
+        bannerRailEnabled = config["banner_rail_enabled"].boolValue
 
         messagingLiquidGlassAnimationsEnabled = config["messaging_liquid_glass_animations_enabled"].boolValue
         messagingTypingIndicatorEnabled = config["messaging_typing_indicator_enabled"].boolValue
@@ -1336,6 +2097,20 @@ final class AMENFeatureFlags: ObservableObject {
 
         analyticsEnabled = config["analytics_enabled"].boolValue
         performanceTelemetryEnabled = config["performance_telemetry_enabled"].boolValue
+
+        // Amen Living Hero System. Missing Remote Config keys preserve local defaults.
+        ambientSpatialHeroEnabled = config["ambient_spatial_hero_enabled"].stringValue.lowercased() != "false"
+        livingEditorialBannerEnabled = config["living_editorial_banner_enabled"].stringValue.lowercased() != "false"
+        spatialHeroReduceMotionFallbackEnabled = config["spatial_hero_reduce_motion_fallback_enabled"].stringValue.lowercased() != "false"
+        spatialHeroPerformanceTelemetryEnabled = config["spatial_hero_performance_telemetry_enabled"].stringValue.lowercased() != "false"
+        dailyVerseLivingHeroEnabled = config["daily_verse_living_hero_enabled"].stringValue.lowercased() != "false"
+        dailyDigestLivingHeroEnabled = config["daily_digest_living_hero_enabled"].stringValue.lowercased() != "false"
+        discoverLivingHeroEnabled = config["discover_living_hero_enabled"].stringValue.lowercased() != "false"
+        selahLivingHeroEnabled = config["selah_living_hero_enabled"].stringValue.lowercased() != "false"
+        bereanPulseLivingHeroEnabled = config["berean_pulse_living_hero_enabled"].stringValue.lowercased() != "false"
+        churchProfileLivingHeroEnabled = config["church_profile_living_hero_enabled"].stringValue.lowercased() != "false"
+        liveEventLivingHeroEnabled = config["live_event_living_hero_enabled"].stringValue.lowercased() != "false"
+        creatorKitLivingHeroEnabled = config["creator_kit_living_hero_enabled"].stringValue.lowercased() != "false"
 
         // Smart Account Resume
         smartAccountResumeEnabled = config["smart_account_resume_enabled"].boolValue
@@ -1415,6 +2190,26 @@ final class AMENFeatureFlags: ObservableObject {
         amenImproveKillSwitch                         = config["amen_improve_kill_switch"].boolValue
         amenSummarizeKillSwitch                       = config["amen_summarize_kill_switch"].boolValue
 
+        amenGlobalAIKillSwitch                        = config["amen_global_ai_kill_switch"].boolValue
+        geminiDirectClientEnabled                     = config["gemini_direct_client_enabled"].boolValue
+        geminiClientKillSwitch                        = config["gemini_client_kill_switch"].boolValue
+        geminiEvalLoggingEnabled                      = config["gemini_eval_logging_enabled"].boolValue
+        geminiDailyVerseReflectionEnabled             = config["gemini_daily_verse_reflection_enabled"].boolValue
+        geminiChurchNoteTitleSummaryEnabled           = config["gemini_church_note_title_summary_enabled"].boolValue
+        geminiSmartMessageSummaryEnabled              = config["gemini_smart_message_summary_enabled"].boolValue
+        geminiCaptionSuggestionsEnabled               = config["gemini_caption_suggestions_enabled"].boolValue
+        geminiMapsGroundedSearchEnabled               = config["gemini_maps_grounded_search_enabled"].boolValue
+        geminiFileSearchPilotEnabled                  = config["gemini_file_search_pilot_enabled"].boolValue
+        geminiTTSEnabled                              = config["gemini_tts_enabled"].boolValue
+        geminiImageGenerationPilotEnabled             = config["gemini_image_generation_pilot_enabled"].boolValue
+        geminiVideoGenerationPrototypeEnabled         = config["gemini_video_generation_prototype_enabled"].boolValue
+        geminiDeepResearchPrototypeEnabled            = config["gemini_deep_research_prototype_enabled"].boolValue
+        geminiManagedAgentsPrototypeEnabled           = config["gemini_managed_agents_prototype_enabled"].boolValue
+        geminiFlashModelName                          = config["gemini_flash_model_name"].stringValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "gemini-3.5-flash" : config["gemini_flash_model_name"].stringValue
+        geminiFlashLiteModelName                      = config["gemini_flash_lite_model_name"].stringValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "gemini-3.5-flash-lite" : config["gemini_flash_lite_model_name"].stringValue
+        geminiDirectClientDailyBudgetMicroUSD         = config["gemini_direct_client_daily_budget_micro_usd"].numberValue.intValue
+        geminiDirectClientTimeoutMs                   = config["gemini_direct_client_timeout_ms"].numberValue.intValue
+
         // System 32: Communication OS
         messagesSmartContextEnabled         = config["messages_smart_context_enabled"].boolValue
         groupDiscussionPulseEnabled         = config["group_discussion_pulse_enabled"].boolValue
@@ -1428,9 +2223,216 @@ final class AMENFeatureFlags: ObservableObject {
         mediaIntelligenceEnabled            = config["media_intelligence_enabled"].boolValue
         conversationMemorySearchEnabled     = config["conversation_memory_search_enabled"].boolValue
         commandPaletteEnabled               = config["command_palette_enabled"].boolValue
+        smartCommandLayerEnabled            = config["smart_command_layer_enabled"].boolValue
+        smartCommandLayerHomeEnabled        = config["smart_command_layer_home_enabled"].boolValue
+        smartCommandLayerMessagesEnabled    = config["smart_command_layer_messages_enabled"].boolValue
+        smartCommandLayerBereanEnabled      = config["smart_command_layer_berean_enabled"].boolValue
+        smartCommandLayerChurchNotesEnabled = config["smart_command_layer_church_notes_enabled"].boolValue
+        smartCommandLayerSpacesEnabled      = config["smart_command_layer_spaces_enabled"].boolValue
+        smartCommandLayerCreatePostEnabled  = config["smart_command_layer_create_post_enabled"].boolValue
+        smartCommandLayerEventsEnabled      = config["smart_command_layer_events_enabled"].boolValue
+        smartCommandLayerMediaEnabled       = config["smart_command_layer_media_enabled"].boolValue
         smartRepliesEnabled                 = config["smart_replies_enabled"].boolValue
         multiPaneCommunicationEnabled       = config["multi_pane_communication_enabled"].boolValue
         liquidGlassCommunicationUIEnabled   = config["liquid_glass_communication_ui_enabled"].boolValue
+        replyPreviewRotationEnabled         = config["reply_preview_rotation_enabled"].boolValue
+
+        // Conversation OS Intelligence Layer
+        conversationOSEnabled                          = config["conversation_os_enabled"].boolValue
+        conversationSummariesEnabled                   = config["conversation_summaries_enabled"].boolValue
+        catchUpRecapsEnabled                           = config["catch_up_recaps_enabled"].boolValue
+        topicClusteringEnabled                         = config["topic_clustering_enabled"].boolValue
+        actionExtractionEnabled                        = config["action_extraction_enabled"].boolValue
+        organizationalMemoryEnabled                    = config["organizational_memory_enabled"].boolValue
+        personalizedInsightsEnabled                    = config["personalized_insights_enabled"].boolValue
+        ambientConversationIntelligenceEnabled         = config["ambient_conversation_intelligence_enabled"].boolValue
+        conversationOSLiquidGlassEnabled               = config["conversation_os_liquid_glass_enabled"].boolValue
+        conversationOSDebugTelemetryEnabled            = config["conversation_os_debug_telemetry_enabled"].boolValue
+        conversationOSSensitiveSpaceRestrictionsEnabled = config["conversation_os_sensitive_space_restrictions_enabled"].boolValue
+        bereanConversationalOSEnabled                  = config["berean_conversational_os_enabled"].boolValue
+        bereanLiquidGlassComposerEnabled               = config["berean_liquid_glass_composer_enabled"].boolValue
+        contextualRecapCapsulesEnabled                 = config["contextual_recap_capsules_enabled"].boolValue
+        unresolvedDiscussionTrackingEnabled            = config["unresolved_discussion_tracking_enabled"].boolValue
+        semanticTopicClusteringEnabled                 = config["semantic_topic_clustering_enabled"].boolValue
+        prayerAwareComposerEnabled                     = config["prayer_aware_composer_enabled"].boolValue
+        selahConversationIntelligenceEnabled           = config["selah_conversation_intelligence_enabled"].boolValue
+
+        // System 44: Messaging OS
+        amenMessagingOSEnabled              = config["amen_messaging_os_enabled"].boolValue
+        trustAwareInboxEnabled              = config["trust_aware_inbox_enabled"].boolValue
+        messageRequestsEnabled              = config["message_requests_enabled"].boolValue
+        messagingPrivacyPillEnabled         = config["messaging_privacy_pill_enabled"].boolValue
+        aiMessagingSummariesEnabled         = config["ai_messaging_summaries_enabled"].boolValue
+        aiPerChatConsentEnabled             = config["ai_per_chat_consent_enabled"].boolValue
+        messagingActionExtractionEnabled    = config["messaging_action_extraction_enabled"].boolValue
+        voiceNoteTranscriptionEnabled       = config["voice_note_transcription_enabled"].boolValue
+        messageTranslationEnabled           = config["message_translation_enabled"].boolValue
+        safeWordingSuggestionsEnabled       = config["safe_wording_suggestions_enabled"].boolValue
+        messagingRiskDetectionEnabled       = config["messaging_risk_detection_enabled"].boolValue
+        semanticMessageSearchEnabled        = config["semantic_message_search_enabled"].boolValue
+        chatLockEnabled                     = config["chat_lock_enabled"].boolValue
+        disappearingMessagesEnabled         = config["disappearing_messages_enabled"].boolValue
+        groupContextTabsEnabled             = config["group_context_tabs_enabled"].boolValue
+
+        // System 37: Amen Access Passes
+        accessPassesEnabled                         = config["access_passes_enabled"].boolValue
+        accessPassQRGenerationEnabled               = config["access_pass_qr_generation_enabled"].boolValue
+        accessPassNFCEnabled                        = config["access_pass_nfc_enabled"].boolValue
+        accessPassCheckInEnabled                    = config["access_pass_check_in_enabled"].boolValue
+        accessPassRoleGatedEnabled                  = config["access_pass_role_gated_enabled"].boolValue
+        accessPassAdminConsoleEnabled               = config["access_pass_admin_console_enabled"].boolValue
+        accessPassSensitiveSpaceDirectJoinBlocked   = config["access_pass_sensitive_space_direct_join_blocked"].boolValue
+        accessPassAuditLoggingEnabled               = config["access_pass_audit_logging_enabled"].boolValue
+
+        // System 39: Amen Integrations Platform
+        let killSwitch = config["amen_integrations_kill_switch"].boolValue
+        amenIntegrationsKillSwitch          = killSwitch
+        amenIntegrationsEnabled             = !killSwitch && config["amen_integrations_enabled"].boolValue
+        amenMicrosoftGraphEnabled           = !killSwitch && config["amen_microsoft_graph_enabled"].boolValue
+        amenZoomEnabled                     = !killSwitch && config["amen_zoom_enabled"].boolValue
+        amenSlackEnabled                    = !killSwitch && config["amen_slack_enabled"].boolValue
+        amenGatheringsEnabled               = !killSwitch && config["amen_gatherings_enabled"].boolValue
+        amenGatheringMeetingLinksEnabled    = !killSwitch && config["amen_gathering_meeting_links_enabled"].boolValue
+        amenGatheringRemindersEnabled       = !killSwitch && config["amen_gathering_reminders_enabled"].boolValue
+        amenGatheringFollowUpsEnabled       = !killSwitch && config["amen_gathering_follow_ups_enabled"].boolValue
+        amenGatheringAISuggestionsEnabled   = !killSwitch && config["amen_gathering_ai_suggestions_enabled"].boolValue
+        amenIntegrationAdminWorkflowsEnabled = !killSwitch && config["amen_integration_admin_workflows_enabled"].boolValue
+        amenIntegrationAuditLoggingEnabled  = !killSwitch && config["amen_integration_audit_logging_enabled"].boolValue
+
+        // System 40: Multi-Tenant Contextual Experiences
+        contextualExperiencesEnabled                = config["contextual_experiences_enabled"].boolValue
+        organizationExperiencesEnabled              = config["organization_experiences_enabled"].boolValue
+        experienceLiquidGlassEnabled                = config["experience_liquid_glass_enabled"].boolValue
+        experienceAdminToolsEnabled                 = config["experience_admin_tools_enabled"].boolValue
+        experienceAnalyticsEnabled                  = config["experience_analytics_enabled"].boolValue
+        experienceMemoriesEnabled                   = config["experience_memories_enabled"].boolValue
+        experiencePrayerCampaignsEnabled            = config["experience_prayer_campaigns_enabled"].boolValue
+        experienceSpacesIntegrationEnabled          = config["experience_spaces_integration_enabled"].boolValue
+
+        // System 39: Verification & Trust
+        verificationCenterEnabled       = config["verification_center_enabled"].boolValue
+        identityVerificationEnabled     = config["identity_verification_enabled"].boolValue
+        organizationVerificationEnabled = config["organization_verification_enabled"].boolValue
+        roleVerificationEnabled         = config["role_verification_enabled"].boolValue
+        creatorVerificationEnabled      = config["creator_verification_enabled"].boolValue
+        publicTrustBadgesEnabled        = config["public_trust_badges_enabled"].boolValue
+        impersonationReportsEnabled     = config["impersonation_reports_enabled"].boolValue
+
+        // System 38: Amen Gatherings
+        gatheringsEnabled                           = config["gatherings_enabled"].boolValue
+        gatheringCreationEnabled                    = config["gathering_creation_enabled"].boolValue
+        gatheringAccessPassEnabled                  = config["gathering_access_pass_enabled"].boolValue
+        gatheringQRShareEnabled                     = config["gathering_qr_share_enabled"].boolValue
+        gatheringNFCEnabled                         = config["gathering_nfc_enabled"].boolValue
+        gatheringCalendarEnabled                    = config["gathering_calendar_enabled"].boolValue
+        gatheringGuestListEnabled                   = config["gathering_guest_list_enabled"].boolValue
+        gatheringPrayerRequestsEnabled              = config["gathering_prayer_requests_enabled"].boolValue
+        gatheringUnauthenticatedPreviewEnabled      = config["gathering_unauthenticated_preview_enabled"].boolValue
+        gatheringUnauthenticatedRsvpEnabled         = config["gathering_unauthenticated_rsvp_enabled"].boolValue
+        gatheringHostConsoleEnabled                 = config["gathering_host_console_enabled"].boolValue
+        gatheringMediaEnabled                       = config["gathering_media_enabled"].boolValue
+
+        smartCommunitySearchEnabled                 = config["smart_community_search_enabled"].boolValue
+        smartCommunitySearchUsesExternalPlaces      = config["smart_community_search_external_places_enabled"].boolValue
+        smartCommunitySearchUsesAIParser            = config["smart_community_search_ai_enabled"].boolValue
+
+        // Callable Contract Guards — Remote Config can flip these on when backend ships
+        bereanGenericProxyEnabled                   = config["berean_generic_proxy_enabled"].boolValue
+        bereanEmbedProxyEnabled                     = config["berean_embed_proxy_enabled"].boolValue
+        bereanVoiceProxyEnabled                     = config["berean_voice_proxy_enabled"].boolValue
+        bereanCompassAnalyzeEnabled                 = config["berean_compass_analyze_enabled"].boolValue
+        bereanShieldAnalyzeEnabled                  = config["berean_shield_analyze_enabled"].boolValue
+        bereanSermonWeekPlanEnabled                 = config["berean_sermon_week_plan_enabled"].boolValue
+        sermonSnapProxyEnabled                      = config["sermon_snap_proxy_enabled"].boolValue
+        smartSuggestionsProxyEnabled                = config["smart_suggestions_proxy_enabled"].boolValue
+        ttsProxyEnabled                             = config["tts_proxy_enabled"].boolValue
+        studioAICallablesEnabled                    = config["studio_ai_callables_enabled"].boolValue
+        trustSpineCallablesEnabled                  = config["trust_spine_callables_enabled"].boolValue
+        sharedViewingRoomCallablesEnabled           = config["shared_viewing_room_callables_enabled"].boolValue
+        universalLinkIntelligenceEnabled            = config["universal_link_intelligence_enabled"].boolValue
+        covenantMessageCallablesEnabled             = config["covenant_message_callables_enabled"].boolValue
+        churchNotesShareCallablesEnabled            = config["church_notes_share_callables_enabled"].boolValue
+        premiumCallablesEnabled                     = config["premium_callables_enabled"].boolValue
+        resolveUsernameToEmailEnabled               = config["resolve_username_to_email_enabled"].boolValue
+        clientIPAddressEnabled                      = config["client_ip_address_enabled"].boolValue
+        accountUtilityCallablesEnabled              = config["account_utility_callables_enabled"].boolValue
+        notificationIntelligenceCallablesEnabled    = config["notification_intelligence_callables_enabled"].boolValue
+        prayerSpiritualCallablesEnabled             = config["prayer_spiritual_callables_enabled"].boolValue
+        socialGraphCallablesEnabled                 = config["social_graph_callables_enabled"].boolValue
+        churchDiscoveryCallablesEnabled             = config["church_discovery_callables_enabled"].boolValue
+        studyGuideCallablesEnabled                  = config["study_guide_callables_enabled"].boolValue
+        mediaModerationCallablesEnabled             = config["media_moderation_callables_enabled"].boolValue
+        postAnalysisCallablesEnabled                = config["post_analysis_callables_enabled"].boolValue
+
+        // System 41: Smart Contextual Prompts
+        smartContextualPromptsEnabled           = config["smart_contextual_prompts_enabled"].boolValue
+        smartPromptPrayerNotificationsEnabled   = config["smart_prompt_prayer_notifications_enabled"].boolValue
+        smartPromptChurchUpdatesEnabled         = config["smart_prompt_church_updates_enabled"].boolValue
+        smartPromptBereanContinuationEnabled    = config["smart_prompt_berean_continuation_enabled"].boolValue
+        smartPromptQuietModeEnabled             = config["smart_prompt_quiet_mode_enabled"].boolValue
+        smartPromptSelahPauseEnabled            = config["smart_prompt_selah_pause_enabled"].boolValue
+        smartPromptSpacesJoinEnabled            = config["smart_prompt_spaces_join_enabled"].boolValue
+        smartPromptCreatorInsightsEnabled       = config["smart_prompt_creator_insights_enabled"].boolValue
+        smartPromptObservancesEnabled           = config["smart_prompt_observances_enabled"].boolValue
+        smartPromptAmbientHeroEnabled           = config["smart_prompt_ambient_hero_enabled"].boolValue
+
+        // System 42: Spaces Ambient Intelligence OS
+        amenSpacesIntelligenceEnabled       = config["amen_spaces_intelligence_enabled"].boolValue
+        persistentMemoryGraphEnabled        = config["persistent_memory_graph_enabled"].boolValue
+        collapsibleIntelligenceEnabled      = config["collapsible_intelligence_enabled"].boolValue
+        semanticPinningEnabled              = config["semantic_pinning_enabled"].boolValue
+        catchUpIntelligenceEnabled          = config["catch_up_intelligence_enabled"].boolValue
+        ambientAIEnabled                    = config["ambient_ai_enabled"].boolValue
+        smartSidebarEnabled                 = config["smart_sidebar_enabled"].boolValue
+        emotionalContextEngineEnabled       = config["emotional_context_engine_enabled"].boolValue
+        spiritualContinuityEngineEnabled    = config["spiritual_continuity_engine_enabled"].boolValue
+        intentAwareSearchEnabled            = config["intent_aware_search_enabled"].boolValue
+        multiThreadBranchingEnabled         = config["multi_thread_branching_enabled"].boolValue
+        presenceAwareUIEnabled              = config["presence_aware_ui_enabled"].boolValue
+
+        // System 43: Church Notes Context Engine
+        churchNotesContextEngineEnabled         = config["church_notes_context_engine_enabled"].boolValue
+        churchNotesSmartMemoryEnabled           = config["church_notes_smart_memory_enabled"].boolValue
+        churchNotesBereanContextPanelEnabled    = config["church_notes_berean_context_panel_enabled"].boolValue
+        churchNotesSermonToActionEnabled        = config["church_notes_sermon_to_action_enabled"].boolValue
+        churchNotesGrowthTimelineEnabled        = config["church_notes_growth_timeline_enabled"].boolValue
+        churchNotesSmartRecapEnabled            = config["church_notes_smart_recap_enabled"].boolValue
+        churchNotesGroupIntelligenceEnabled     = config["church_notes_group_intelligence_enabled"].boolValue
+        churchNotesCommandBarEnabled            = config["church_notes_command_bar_enabled"].boolValue
+        churchNotesSmartCaptureEnabled          = config["church_notes_smart_capture_enabled"].boolValue
+        churchNotesAIProvenanceEnabled          = config["church_notes_ai_provenance_enabled"].boolValue
+        if config["church_notes_context_engine_kill_switch"].boolValue {
+            churchNotesContextEngineKillSwitch      = true
+            churchNotesContextEngineEnabled         = false
+            churchNotesSmartMemoryEnabled           = false
+            churchNotesBereanContextPanelEnabled    = false
+            churchNotesSermonToActionEnabled        = false
+            churchNotesGrowthTimelineEnabled        = false
+            churchNotesSmartRecapEnabled            = false
+            churchNotesGroupIntelligenceEnabled     = false
+            churchNotesCommandBarEnabled            = false
+            churchNotesSmartCaptureEnabled          = false
+            churchNotesAIProvenanceEnabled          = false
+        }
+
+        // System 45: Comms OS (ON by default — Remote Config can kill-switch per flag)
+        commsIntelligenceEnabled        = config["comms_intelligence_enabled"].boolValue
+        commsSmartContextEnabled        = config["comms_smart_context_enabled"].boolValue
+        commsCatchUpEnabled             = config["comms_catch_up_enabled"].boolValue
+        commsDecisionsEnabled           = config["comms_decisions_enabled"].boolValue
+        commsMediaIntelEnabled          = config["comms_media_intel_enabled"].boolValue
+        commsPulseEnabled               = config["comms_pulse_enabled"].boolValue
+        commsCommandPaletteEnabled      = config["comms_command_palette_enabled"].boolValue
+        commsPresenceEnabled            = config["comms_presence_enabled"].boolValue
+        commsMultiPaneEnabled           = config["comms_multi_pane_enabled"].boolValue
+
+        // System 46: Berean Drive (CarPlay) — all OFF by default; Remote Config enables after entitlement
+        let carPlayKill = config["carplay_kill_switch"].boolValue
+        carPlayKillSwitch               = carPlayKill
+        carPlayBereanEnabled            = !carPlayKill && config["carplay_berean_enabled"].boolValue
+        carPlayAudioEnabled             = !carPlayKill && config["carplay_audio_enabled"].boolValue
+        carPlayMessagingEnabled         = !carPlayKill && config["carplay_messaging_enabled"].boolValue
+        carPlayNavigationHandoffEnabled = !carPlayKill && config["carplay_navigation_handoff_enabled"].boolValue
     }
 
     private func applyUITestOverrides() {
@@ -1439,8 +2441,30 @@ final class AMENFeatureFlags: ObservableObject {
             composerApprovedAudioEnabled = true
         }
         if args.contains("--ui-test-disable-composer-audio") {
-            composerApprovedAudioEnabled = false
+            composerApprovedAudioEnabled = true
         }
+        if args.contains("--enable-object-hubs") {
+            enableObjectHubFlagsForLocalTesting()
+        }
+        applyManualObjectHubOverrides()
+    }
+
+    private func applyManualObjectHubOverrides() {
+        #if DEBUG
+        if UserDefaults.standard.bool(forKey: "AMENEnableObjectHubManualTesting") {
+            enableObjectHubFlagsForLocalTesting()
+        }
+        #endif
+    }
+
+    private func enableObjectHubFlagsForLocalTesting() {
+        #if DEBUG
+        communityHubsEnabled = true
+        communityObjectMatchingEnabled = true
+        objectHubViewEnabled = true
+        objectHubInlinePillEnabled = true
+        objectHubInlineClusterEnabled = true
+        #endif
     }
 
     // MARK: - Explain Video Rollout Gate

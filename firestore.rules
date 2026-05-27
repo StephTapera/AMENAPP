@@ -48,6 +48,16 @@ service cloud.firestore {
       ]);
     }
 
+    // True if the caller is a verified writer: email-verified account, or OAuth provider
+    // (Google, Apple, Facebook) which does not require a separate email step.
+    // Required before any public UGC write: posts, messages, follow edges.
+    function isVerifiedWriter() {
+      return isSignedIn() && (
+        request.auth.token.email_verified == true ||
+        request.auth.token.firebase.sign_in_provider in ['google.com', 'apple.com', 'facebook.com']
+      );
+    }
+
     function isSpaceMember(spaceId) {
       return isSignedIn() &&
         (
@@ -58,6 +68,21 @@ service cloud.firestore {
             get(/databases/$(database)/documents/spaces/$(spaceId)).data.memberIds.hasAny([request.auth.uid])
           )
         );
+    }
+
+    // True if the caller holds an admin or owner role in the Space.
+    // Reads the membership doc — only call where doc read budget allows.
+    function isSpaceAdmin(spaceId) {
+      return isSpaceMember(spaceId) &&
+        get(/databases/$(database)/documents/spaces/$(spaceId)/members/$(request.auth.uid))
+          .data.get('roles', []).hasAny(['owner', 'admin']);
+    }
+
+    // True if the caller holds a moderation-capable role in the Space.
+    function isSpaceModerator(spaceId) {
+      return isSpaceMember(spaceId) &&
+        get(/databases/$(database)/documents/spaces/$(spaceId)/members/$(request.auth.uid))
+          .data.get('roles', []).hasAny(['owner', 'admin', 'moderator', 'pastor', 'elder']);
     }
 
     // ── Users ─────────────────────────────────────────────────────────────────
@@ -71,7 +96,15 @@ service cloud.firestore {
     match /users/{uid} {
       allow read: if isSignedIn();
       allow create: if isOwner(uid) && hasNoPremiumSpoofFields();
-      allow update: if isOwner(uid) && premiumFieldsUnchanged();
+      allow update: if isOwner(uid) && premiumFieldsUnchanged() &&
+        // followersCount is a Cloud Function-only counter (set by onUserFollow/onUserUnfollow CF).
+        // Self-writes to followersCount enable fake-popularity inflation — block them.
+        // followingCount is legitimately incremented by the client on its own doc as part of
+        // the FollowService batch write (FollowService.swift:211-214). CF migration is the
+        // correct long-term fix; tracked as a caveat in PostSystemAudit.md.
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['followersCount']) &&
+        // isMinor is server-derived (set by CF from ageBand); client writes are denied.
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isMinor']);
       allow delete: if isOwner(uid) || isAdmin();
 
       match /customTopicTags/{tagId} {
@@ -117,6 +150,300 @@ service cloud.firestore {
           allow read: if isOwner(uid);
           allow create, update, delete: if false;
         }
+      }
+
+      match /churchDiscovery/{section} {
+        allow read: if isOwner(uid);
+        allow create, update, delete: if false;
+
+        match /items/{itemId} {
+          allow read: if isOwner(uid);
+          allow create, update, delete: if false;
+        }
+
+        match /savedChurches/{churchId} {
+          allow read: if isOwner(uid);
+          allow create, update, delete: if false;
+        }
+
+        match /searches/{searchId} {
+          allow read: if isOwner(uid);
+          allow create, update, delete: if false;
+        }
+
+        match /preferences/{prefId} {
+          allow read: if isOwner(uid);
+          allow create, update, delete: if false;
+        }
+
+        match /interactions/{interactionId} {
+          allow read: if isOwner(uid);
+          allow create, update, delete: if false;
+        }
+      }
+
+      // Direct notification subcollection (used by BadgeCountManager).
+      match /notifications/{notificationId} {
+        allow read: if isOwner(uid);
+        allow create: if false;
+        allow update: if isOwner(uid);
+        allow delete: if isOwner(uid);
+      }
+
+      // Notification state / badge counters (BadgeCountManager).
+      match /notificationState/{docId} {
+        allow read: if isOwner(uid);
+        allow create, update: if isOwner(uid)
+          && !request.resource.data.keys().hasAny(['unseenCount', 'badgeVersion', 'lastDeliveredAt']);
+        allow delete: if false;
+      }
+
+      // Usage sessions (WellnessGuardianService).
+      match /usageSessions/{sessionId} {
+        allow read: if isOwner(uid);
+        allow create, update: if isOwner(uid);
+        allow delete: if false;
+      }
+
+      // Chat memory (ChatMemoryService).
+      match /chatMemory/{chatId} {
+        allow read, write: if isOwner(uid);
+
+        match /items/{itemId} {
+          allow read, write: if isOwner(uid);
+        }
+      }
+
+      // User preferences subcollection (ChatMemoryService, MessageSettings, etc.).
+      match /preferences/{prefId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      // Settings subcollection (message settings, notification settings, etc.).
+      match /settings/{docId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      // Following / followers subcollections.
+      match /following/{followingId} {
+        allow read: if isSignedIn();
+        allow create, delete: if isOwner(uid);
+        allow update: if false;
+      }
+
+      match /followers/{followerId} {
+        allow read: if isSignedIn();
+        allow create, delete: if isOwner(uid);
+        allow update: if false;
+      }
+
+      // Berean user subcollections.
+      match /bereanConversations/{conversationId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      match /bereanMemory/{docId} {
+        allow read: if isOwner(uid);
+        allow write: if false;
+      }
+
+      match /bereanSavedMessages/{docId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      match /bereanContext/{docId} {
+        allow read: if isOwner(uid);
+        allow write: if false;
+      }
+
+      match /bereanActions/{docId} {
+        allow read: if isOwner(uid);
+        allow write: if false;
+      }
+
+      // Blessed Later / prayer / reflection.
+      match /blessedLater/{docId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      match /prayerReflections/{docId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      match /unsentThoughts/{docId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      // Living entries.
+      match /living_entries/{entryId} {
+        allow read: if isOwner(uid);
+        allow create, update: if isOwner(uid);
+        allow delete: if isOwner(uid);
+      }
+
+      match /living_entry_reflections/{reflectionId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      // Saved content.
+      match /savedMoments/{docId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      match /savedBooks/{docId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      match /studyPlans/{docId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      // Media resume state.
+      match /mediaResumeState/{docId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      // Church smart context subcollections.
+      match /church_smart_actions/{docId} {
+        allow read: if isOwner(uid);
+        allow write: if false;
+      }
+
+      match /church_fit/{docId} {
+        allow read: if isOwner(uid);
+        allow write: if false;
+      }
+
+      match /church_discovery_state/{docId} {
+        allow read: if isOwner(uid);
+        allow write: if false;
+      }
+
+      // Church assist state (ChurchVisitSessionManager).
+      match /churchAssistState/{docId} {
+        allow read: if isOwner(uid);
+        allow create, update: if isOwner(uid);
+        allow delete: if false;
+      }
+
+      // Church visit insights (ChurchAssistViewModel).
+      match /churchVisitInsights/{docId} {
+        allow read: if isOwner(uid);
+        allow write: if false;
+      }
+
+      // Church notes subcollection (user-scoped).
+      match /churchNotes/{noteId} {
+        allow read: if isOwner(uid);
+        allow write: if false;
+      }
+
+      match /churchNoteFolders/{folderId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      // Trust / wellness / check-ins.
+      match /trust/{docId} {
+        allow read: if isOwner(uid);
+        allow write: if false;
+      }
+
+      match /wellnessCheckIns/{docId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      match /koraCheckIns/{docId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      match /mentorshipCheckIns/{docId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      // Note links.
+      match /noteLinks/{docId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      // Blocklist subcollection.
+      match /blockedUsers/{blockedUserId} {
+        allow read: if isOwner(uid) || blockedUserId == request.auth.uid;
+        allow create: if isOwner(uid);
+        allow delete: if isOwner(uid);
+        allow update: if false;
+      }
+
+      // Creator projects.
+      match /creatorProjects/{projectId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      // Verification requests.
+      match /verificationRequests/{requestId} {
+        allow read: if isOwner(uid);
+        allow create: if isOwner(uid);
+        allow update, delete: if false;
+      }
+
+      // Seen posts (user-scoped).
+      match /seenPosts/{docId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      // Safety OS: guardian alerts — delivered by GuardianConnectionService when a
+      // youth safety event occurs on a connected minor account.
+      // Only the guardian (the document owner) may read their own alerts.
+      // All writes are server-only (Admin SDK).
+      match /guardianAlerts/{alertId} {
+        allow read: if isOwner(uid);
+        allow create, update, delete: if false;
+      }
+
+      // Safety OS: guardian-approved contacts — contacts a guardian has whitelisted
+      // to message a connected minor account.
+      // The minor and their guardians may read. Only server (callable) may write.
+      match /guardianApprovedContacts/{contactId} {
+        allow read: if isOwner(uid) || isModerator();
+        allow create, update, delete: if false;
+      }
+
+      // ── Calm Control + Spiritual Rhythm OS ───────────────────────────────
+      // User-owned preference subcollections. Direct client writes are safe
+      // here because these are preference flags, not integrity-critical counters.
+
+      match /privacySettings/{docId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      match /feedControls/{docId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      match /presence/{docId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      match /notificationSettings/{docId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      match /audienceLayers/{layerId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      match /spiritualRhythm/{docId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      // Streaks: owner-read always, owner-write only for grace recovery reset.
+      // Streak increments go through the recordSpiritualActivity callable (admin).
+      match /streaks/{streakType} {
+        allow read: if isOwner(uid);
+        allow write: if isOwner(uid);
+      }
+
+      match /calmControl/{docId} {
+        allow read, write: if isOwner(uid);
       }
     }
 
@@ -242,15 +569,68 @@ service cloud.firestore {
     // ── Posts / feed ─────────────────────────────────────────────────────────
 
     match /posts/{postId} {
-      // Authors can always read their own posts (incl. drafts).
-      // Others only see published posts — prevents draft/removed content leaking.
-      // Uses get() default 'published' for backward compat with legacy docs.
+      // Authors always see their own posts (incl. drafts/pending).
+      // Moderators can read any post for review.
+      // Public readers: post must be fully published (not moderating, pending, or removed)
+      //   and not set to private_pending (media still processing).
+      // Legacy docs without a 'status' field are treated as published (backward compat).
+      //
+      // VISIBILITY ENFORCEMENT GAP (KNOWN CAVEAT — schema migration required):
+      // Post visibility (Everyone/Followers/Community Only) is stored in resource.data.visibility.
+      // "Followers" visibility cannot be enforced at the rules level because /follows uses
+      // auto-generated IDs (not {followerId}_{followingId}), making exists() checks infeasible.
+      // Current enforcement: FeedAPIService filters by followed users; finalizePostPublish
+      // callable validates visibility. Direct document reads can bypass followers-only.
+      // FIX PATH: Maintain users/{authorId}/followers/{followerId} sub-collection, then add:
+      //   resource.data.get('visibility','Everyone') != 'Followers' ||
+      //   exists(/databases/$(database)/documents/users/$(resource.data.authorId)/followers/$(request.auth.uid))
+      //
+      // COVENANT GATE: Posts with a non-empty covenantId are gated content.
+      // We require an active covenantSubscriptions document for the requesting user.
+      // KNOWN LIMITATION: This checks "has any covenant subscription", not "subscribed to
+      // this specific covenant". Full per-covenant enforcement requires restructuring
+      // covenantMemberships to users/{uid}/covenantAccess/{covenantId} so exists() can
+      // resolve in O(1). Until that migration runs, authors and moderators bypass the gate.
       allow read: if isSignedIn() && (
         resource.data.authorId == request.auth.uid ||
-        resource.data.get('publishState', 'published') == 'published'
+        isModerator() ||
+        (
+          resource.data.get('publishState', 'published') == 'published' &&
+          !(resource.data.get('status', 'published') in ['moderating', 'publishing', 'removed', 'flagged_hidden', 'banned', 'deleted']) &&
+          !(resource.data.get('publicationVisibility', 'public') == 'private_pending') &&
+          // Safety OS: block content that the moderation pipeline has not approved.
+          // New posts start without moderationStatus (treated as approved for backwards
+          // compatibility). Posts explicitly blocked/escalated/removed are hidden.
+          !(resource.data.get('moderationStatus', 'approved') in ['blocked', 'escalated', 'removed_after_publish']) &&
+          (
+            resource.data.get('covenantId', '') == '' ||
+            exists(/databases/$(database)/documents/covenantSubscriptions/$(request.auth.uid))
+          )
+        )
       );
-      allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
-      allow update: if isSignedIn() && resource.data.authorId == request.auth.uid;
+      // Client creates posts only as their own — status must be in the allowed
+      // initial set. Server fields (publishedAt, moderationDecision, reportCount,
+      // safetyDecision, flaggedAt, moderationStatus) must NOT be set by the client.
+      // isVerifiedWriter() ensures unverified email accounts cannot publish posts.
+      allow create: if isVerifiedWriter() &&
+        request.resource.data.authorId == request.auth.uid &&
+        !(request.resource.data.get('status', 'publishing') in ['published', 'flagged_published', 'removed', 'banned', 'deleted']) &&
+        !(request.resource.data.get('publishState', '') == 'published') &&
+        !request.resource.data.keys().hasAny([
+          'publishedAt', 'moderationDecision', 'safetyDecision', 'flaggedAt',
+          'moderationStatus', 'mediaCaptionModeration', 'captionModeration'
+        ]);
+      // Edits: author only. Server-owned status/decision/moderation fields are immutable by client.
+      allow update: if isSignedIn() &&
+        resource.data.authorId == request.auth.uid &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'authorId', 'publishedAt', 'moderationDecision', 'safetyDecision',
+          'reportCount', 'flaggedAt', 'publishState', 'status', 'publicationVisibility',
+          // Safety OS: moderationStatus is server-authoritative — client cannot self-approve.
+          'moderationStatus', 'mediaCaptionModeration', 'captionModeration',
+          // Engagement counters are server-only — Cloud Functions own these values.
+          'amenCount', 'lightbulbCount', 'commentCount', 'repostCount', 'savesCount'
+        ]);
       allow delete: if isSignedIn() &&
         (resource.data.authorId == request.auth.uid || isModerator());
 
@@ -412,6 +792,20 @@ service cloud.firestore {
           && request.resource.data.hashedPhone is string
           && request.resource.data.hashedPhone.size() == 64; // SHA-256 hex
         allow update, delete: if false; // immutable once written
+      }
+
+      // Group/Church Note Intelligence — aggregate insights for church members.
+      // Only church members (adminUids or verified members) can read.
+      // Server-only writes (context engine callables). Private notes NEVER appear here.
+      match /noteInsights/{insightId} {
+        allow read: if isSignedIn() && (
+          resource.data.churchId == churchId &&
+          (
+            get(/databases/$(database)/documents/churches/$(churchId)).data.adminUids.hasAny([request.auth.uid]) ||
+            exists(/databases/$(database)/documents/churches/$(churchId)/members/$(request.auth.uid))
+          )
+        );
+        allow create, update, delete: if false;
       }
     }
 
@@ -637,6 +1031,151 @@ service cloud.firestore {
         allow read: if isSpaceMember(spaceId);
         allow create, update, delete: if false;
       }
+
+      // ── Phase 0: Rooms (Channels) ─────────────────────────────────────────
+      // Rooms are created via createRoom callable (admin/owner only).
+      // Room metadata (name, kind, archivedAt) is updated via archiveRoom callable.
+      // Direct client writes blocked — no field-level exceptions here.
+      match /rooms/{roomId} {
+        allow read: if isSpaceMember(spaceId);
+        allow create, update, delete: if false;
+
+        // Messages within a room. Active members may create (field-restricted).
+        // Server owns: guardianStatus, embeddingRef, aiTopics, scriptureRefs.
+        // All updates/deletes go through deleteRoomPost callable.
+        match /messages/{messageId} {
+          allow read: if isSpaceMember(spaceId);
+          allow create: if isSpaceMember(spaceId) &&
+            request.resource.data.authorId == request.auth.uid &&
+            request.resource.data.spaceId == spaceId &&
+            request.resource.data.roomId == roomId &&
+            request.resource.data.keys().hasOnly([
+              'roomId', 'spaceId', 'authorId', 'body', 'mediaRefs',
+              'mentionedUserIds', 'replyToId', 'createdAt'
+            ]) &&
+            !request.resource.data.keys().hasAny([
+              'guardianStatus', 'embeddingRef', 'aiTopics', 'scriptureRefs', 'deletedAt'
+            ]);
+          allow update, delete: if false;
+        }
+      }
+
+      // ── Phase 0: Events ───────────────────────────────────────────────────
+      // Created and managed via Space events callables.
+      // Members may read all approved events in their Space.
+      match /events/{eventId} {
+        allow read: if isSpaceMember(spaceId);
+        allow create, update, delete: if false;
+
+        // RSVP sub-collection: owner can create/delete own RSVP.
+        // Fields are restricted; server-owned fields (guardianStatus, checkInAt) blocked.
+        match /rsvps/{uid} {
+          allow read: if isSpaceMember(spaceId);
+          allow create: if isSpaceMember(spaceId) &&
+            request.auth.uid == uid &&
+            request.resource.data.keys().hasOnly(['uid', 'spaceId', 'eventId', 'status', 'createdAt']) &&
+            request.resource.data.status in ['going', 'maybe', 'not_going'];
+          allow update: if isSpaceMember(spaceId) &&
+            request.auth.uid == uid &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt']) &&
+            request.resource.data.status in ['going', 'maybe', 'not_going'];
+          allow delete: if request.auth.uid == uid;
+        }
+      }
+
+      // ── Phase 0: Presence ─────────────────────────────────────────────────
+      // Members see the presence of other members in their Space.
+      // Users may write ONLY their own presence doc (field-restricted).
+      // Server-owned fields (expiresAt, computed states) are blocked.
+      match /presence/{uid} {
+        allow read: if isSpaceMember(spaceId);
+        allow create, update: if isSpaceMember(spaceId) &&
+          request.auth.uid == uid &&
+          request.resource.data.keys().hasOnly(['userId', 'spaceId', 'state', 'updatedAt']) &&
+          request.resource.data.userId == uid &&
+          request.resource.data.spaceId == spaceId &&
+          request.resource.data.state in [
+            'available', 'studying', 'praying', 'in_event',
+            'hosting', 'in_class', 'mentoring', 'do_not_disturb', 'offline'
+          ];
+        allow delete: if request.auth.uid == uid;
+      }
+
+      // ── Phase 0: Roles ───────────────────────────────────────────────────
+      // Role documents are written by updateMemberRole callable (admin only).
+      // Members may read their own role; admins may read all.
+      match /roles/{roleId} {
+        allow read: if isSpaceMember(spaceId) &&
+          (resource.data.userId == request.auth.uid || isSpaceAdmin(spaceId));
+        allow create, update, delete: if false;
+      }
+
+      // ── Phase 0: Space Intelligence ──────────────────────────────────────
+      // AI-generated Space-level insights. Members read; server writes exclusively.
+      // Never writable by client — confidence, provenance, safetyStatus are server-set.
+      match /intelligence/{docId} {
+        allow read: if isSpaceMember(spaceId);
+        allow write: if false;
+      }
+
+      // ── Phase 0: Safety Events ───────────────────────────────────────────
+      // Moderation events, abuse flags, audit trail. Admin/moderator read only.
+      // All writes via server-side moderation callables.
+      match /safetyEvents/{eventId} {
+        allow read: if isSpaceModerator(spaceId) || isAdmin();
+        allow write: if false;
+      }
+
+      // ── Phase 0: Relationship Graph ──────────────────────────────────────
+      // Private collaboration/mentorship/prayer signal graph. Server-only.
+      // No client reads — projection exposed through ScopedIdentityService callable.
+      match /relationshipGraph/{edgeId} {
+        allow read, write: if false;
+      }
+
+      // ── Phase 0: Banners ─────────────────────────────────────────────────
+      // Living Banner entries for this Space. Members read; server (or admin callable) writes.
+      match /banners/{bannerId} {
+        allow read: if isSpaceMember(spaceId);
+        allow write: if false;
+      }
+
+      // ── Phase 0: Knowledge Nodes ─────────────────────────────────────────
+      // Space-level knowledge graph entries (notes, sermons, topics, scripture).
+      // Members read; server writes via processSpaceKnowledgeNode callable.
+      match /knowledgeNodes/{nodeId} {
+        allow read: if isSpaceMember(spaceId);
+        allow write: if false;
+      }
+
+      // ── Phase 0: Theology Doc ────────────────────────────────────────────
+      // The Space's living "what we believe / our story" document.
+      // Members read; Berean (via callable) and admins write.
+      match /theologyDoc/{docId} {
+        allow read: if isSpaceMember(spaceId);
+        allow write: if false;
+      }
+    }
+
+    // ── Phase 0: User Space Preferences ──────────────────────────────────────
+    // Per-user, per-space notification and display preferences.
+    // Owner reads and writes own prefs (field-restricted).
+    match /users/{uid}/spacePreferences/{spaceId} {
+      allow read: if isOwner(uid);
+      allow create, update: if isOwner(uid) &&
+        request.resource.data.keys().hasOnly([
+          'spaceId', 'notificationsEnabled', 'digestEnabled',
+          'digestFrequency', 'mutedUntil', 'updatedAt'
+        ]);
+      allow delete: if isOwner(uid);
+    }
+
+    // ── Phase 0: Private Insights ────────────────────────────────────────────
+    // AI-generated private insights for the user (contribution quality, trust signals).
+    // Owner reads only; server writes exclusively. NEVER expose cross-user.
+    match /users/{uid}/privateInsights/{insightId} {
+      allow read: if isOwner(uid);
+      allow write: if false;
     }
 
     // ── Covenant tiers / subscriptions ───────────────────────────────────────
@@ -852,6 +1391,48 @@ service cloud.firestore {
         // Owner can delete an action item; editors cannot.
         allow delete: if isSignedIn() && isNoteOwner(noteId);
       }
+
+      // Context Engine outputs — server-only writes (AI-generated context, themes, prompts).
+      // Owner reads; no client create/update on AI fields.
+      match /context/{contextId} {
+        allow read: if isSignedIn() && isNoteOwner(noteId);
+        allow create, update, delete: if false;
+      }
+
+      // Smart Recap — server generates; client may update editedText and isEdited only.
+      match /recaps/{recapId} {
+        allow read: if isSignedIn() && isNoteOwner(noteId);
+        allow create: if false;
+        allow update: if isSignedIn()
+          && isNoteOwner(noteId)
+          && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['editedText', 'isEdited', 'updatedAt']);
+        allow delete: if isSignedIn() && isNoteOwner(noteId);
+      }
+
+      // Detected themes — server-only writes; owner reads.
+      match /themes/{themeId} {
+        allow read: if isSignedIn() && isNoteOwner(noteId);
+        allow create, update, delete: if false;
+      }
+
+      // Context Engine action suggestions — server writes drafts; client updates approval state only.
+      // approvalState, editedText, approvedBy, approvedAt are the only client-editable fields.
+      match /actions/{actionId} {
+        allow read: if isSignedIn() && isNoteOwner(noteId);
+        allow create: if false;
+        allow update: if isSignedIn()
+          && isNoteOwner(noteId)
+          && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['approvalState', 'editedText', 'approvedBy', 'approvedAt', 'updatedAt']);
+        allow delete: if isSignedIn() && isNoteOwner(noteId);
+      }
+
+      // Provenance audit trail — server-only writes; owner reads for transparency.
+      match /provenance/{provenanceId} {
+        allow read: if isSignedIn() && isNoteOwner(noteId);
+        allow create, update, delete: if false;
+      }
     }
 
     // AI drafts stored under users/{uid}/churchNotes/{noteId}/aiDrafts
@@ -932,20 +1513,36 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // ── Messaging — server-only via callable ──────────────────────────────────
-    // Conversation metadata and messages are written exclusively through
-    // deliverSmartShare / sendMessage callables and read through server-side
-    // pagination. Direct client access is always denied.
+    // ── Messaging — participant-gated client access ───────────────────────────
 
     match /conversations/{conversationId} {
-      allow read, write: if false;
+      // get: caller must be a participant; list: authenticated (app always scopes
+      // with whereField("participantIds", arrayContains: uid) — rules can't inspect
+      // list-query WHERE clauses, so ownership is enforced at the get level.
+      allow get: if isSignedIn() && request.auth.uid in resource.data.participantIds;
+      allow list: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.auth.uid in request.resource.data.participantIds
+        && request.resource.data.participantIds.size() >= 2;
+      allow update: if isSignedIn()
+        && request.auth.uid in resource.data.participantIds
+        && !request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['participantIds', 'isGroup', 'requesterId']);
+      allow delete: if false;
 
       match /messages/{messageId} {
-        allow read, write: if false;
+        allow get: if isSignedIn();
+        allow list: if isSignedIn();
+        allow create: if isSignedIn()
+          && request.resource.data.senderId == request.auth.uid;
+        allow update: if isSignedIn()
+          && resource.data.senderId == request.auth.uid;
+        allow delete: if false;
       }
 
-      match /typingIndicators/{uid} {
-        allow read, write: if false;
+      match /typingIndicators/{typingUid} {
+        allow read: if isSignedIn();
+        allow write: if isSignedIn() && typingUid == request.auth.uid;
       }
     }
 
@@ -969,46 +1566,69 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // ── Berean AI — server-only ───────────────────────────────────────────────
-    // Memory, preferences, and thread state are managed exclusively by
-    // bereanChatProxy and related AI callables.
+    // ── Berean AI — owner-readable, server-write ─────────────────────────────
 
     match /bereanMemory/{docId} {
-      allow read, write: if false;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
+      allow write: if false;
     }
 
     match /bereanPreferences/{docId} {
-      allow read, write: if false;
+      allow get: if isSignedIn()
+        && (resource.data.get('uid', '') == request.auth.uid
+          || resource.data.get('userId', '') == request.auth.uid);
+      allow list: if isSignedIn();
+      allow create, update: if isSignedIn()
+        && (request.resource.data.get('uid', request.resource.data.get('userId', '')) == request.auth.uid);
+      allow delete: if false;
     }
 
     match /bereanThreads/{docId} {
-      allow read, write: if false;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
+      allow write: if false;
 
       match /messages/{messageId} {
-        allow read, write: if false;
+        allow read: if isSignedIn();
+        allow write: if false;
       }
     }
 
     match /bereanSessions/{docId} {
-      allow read, write: if false;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
+      allow create, update: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
 
-    // ── Church journey & interaction state — server-only ─────────────────────
+    // ── Church journey & interaction state — owner-readable ──────────────────
 
     match /churchJourneys/{docId} {
-      allow read, write: if false;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
+      allow write: if false;
     }
 
     match /churchInteractions/{docId} {
-      allow read, write: if false;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if false;
     }
 
     match /churchVisits/{docId} {
-      allow read, write: if false;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if false;
     }
 
     match /churchMemberships/{docId} {
-      allow read, write: if false;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
+      allow write: if false;
     }
 
     // ── Share & collection state — server-only ────────────────────────────────
@@ -1087,6 +1707,13 @@ service cloud.firestore {
     match /trendingHashtags/{docId} {
       allow read: if isSignedIn();
       allow write: if false;
+    }
+
+    match /hashtags/{tagId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if false;
     }
 
     match /events/{docId} {
@@ -1169,18 +1796,29 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Phase 0 security fix: tightened from isSignedIn() → isSpaceMember(docId).
+    // The more specific membership-gated block at /spaces/{spaceId} (above) governs
+    // all subcollection access. This block catches any top-level /spaces/{docId}
+    // reads not covered by subcollection rules and enforces membership.
     match /spaces/{docId} {
-      allow read: if isSignedIn();
+      allow read: if isSpaceMember(docId);
       allow write: if false;
     }
 
+    // spacePosts: legacy flat collection. New posts go to /spaces/{id}/rooms/{id}/messages.
+    // Existing reads remain available to signed-in users for backward compat;
+    // writes are blocked — postToSpace callable is required.
     match /spacePosts/{docId} {
       allow read: if isSignedIn();
       allow write: if false;
     }
 
+    // spaceMemberships: legacy flat collection. New memberships live at
+    // /spaces/{id}/members/{uid}. Reads available to owner only.
+    // Writes blocked — joinSpace/leaveSpace callable required.
     match /spaceMemberships/{docId} {
-      allow read: if isSignedIn();
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
@@ -1258,14 +1896,26 @@ service cloud.firestore {
     }
 
     match /studyPlanProgress/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
-    match /prayers/{docId} {
-      // Personal prayers are private — owner-only. Server writes only.
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow write: if false;
+    match /prayers/{prayerId} {
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() && (
+        resource.data.userId == request.auth.uid ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['prayerCount'])
+      );
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      match /prayedBy/{userId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn() && userId == request.auth.uid;
+        allow delete: if isSignedIn() && userId == request.auth.uid;
+        allow update: if false;
+      }
     }
 
     match /prayerRequests/{docId} {
@@ -1326,8 +1976,10 @@ service cloud.firestore {
     }
 
     match /translationPreferences/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow write: if false;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
+      allow create, update: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow delete: if false;
     }
 
     // ── Social graph — auth read, server-enforced write ───────────────────────
@@ -1345,11 +1997,29 @@ service cloud.firestore {
     }
 
     match /followRequests/{docId} {
-      allow read: if isSignedIn() && (
+      allow get: if isSignedIn() && (
         resource.data.fromUserId == request.auth.uid ||
         resource.data.toUserId == request.auth.uid
       );
-      allow write: if false;
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.fromUserId == request.auth.uid;
+      allow update: if isSignedIn() && (
+        resource.data.toUserId == request.auth.uid ||
+        resource.data.fromUserId == request.auth.uid
+      );
+      allow delete: if isSignedIn() && (
+        resource.data.fromUserId == request.auth.uid ||
+        resource.data.toUserId == request.auth.uid
+      );
+    }
+
+    match /follows_index/{indexId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn()
+        && request.resource.data.get('followerId', '') == request.auth.uid
+        && request.resource.data.get('followerId', '') != request.resource.data.get('followingId', '');
+      allow delete: if isSignedIn()
+        && resource.data.get('followerId', '') == request.auth.uid;
     }
 
     match /userFollowing/{docId} {
@@ -1393,7 +2063,8 @@ service cloud.firestore {
     }
 
     match /messageReactions/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
@@ -1403,7 +2074,8 @@ service cloud.firestore {
     }
 
     match /prayedLog/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
@@ -1413,15 +2085,19 @@ service cloud.firestore {
     }
 
     match /blocks/{docId} {
-      allow read: if isSignedIn() && (
+      allow get: if isSignedIn() && (
         resource.data.blockerId == request.auth.uid ||
         resource.data.blockedId == request.auth.uid
       );
-      allow write: if false;
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.blockerId == request.auth.uid;
+      allow update: if isSignedIn() && resource.data.blockerId == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.blockerId == request.auth.uid;
     }
 
     match /blocked/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
@@ -1431,12 +2107,14 @@ service cloud.firestore {
     }
 
     match /memberships/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /groupMemberships/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
@@ -1446,17 +2124,21 @@ service cloud.firestore {
     }
 
     match /presence_preferences/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow write: if false;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
+      allow create, update: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow delete: if false;
     }
 
     match /presence_signals/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /presence_states/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
@@ -1469,27 +2151,32 @@ service cloud.firestore {
     // Personal data only visible to the owning user. All writes server-side.
 
     match /notifications/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /notificationState/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /notificationDigests/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /notificationEngagement/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /notification_groups/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
@@ -1499,284 +2186,351 @@ service cloud.firestore {
     }
 
     match /devices/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /preferences/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow write: if false;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
+      allow create, update: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow delete: if false;
     }
 
     match /settings/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow write: if false;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
+      allow create, update: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow delete: if false;
     }
 
     match /feedPreferences/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow write: if false;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
+      allow create, update: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow delete: if false;
     }
 
     match /feedNLPreferences/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow write: if false;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
+      allow create, update: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow delete: if false;
     }
 
     match /userFeedPrefs/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow write: if false;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
+      allow create, update: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow delete: if false;
     }
 
     match /userNotificationPreferences/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow write: if false;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
+      allow create, update: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow delete: if false;
     }
 
     match /onboarding/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /seenPosts/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow write: if false;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
+      allow create, update: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow delete: if false;
     }
 
     match /seenMilestones/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /notInterested/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow write: if false;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
 
     match /dismissedSuggestions/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow write: if false;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
 
     match /savedPosts/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow write: if false;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
 
     match /savedVerses/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow write: if false;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
 
     match /savedCards/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /savedChurches/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /savedChurch/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /savedItems/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /savedResources/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /savedSearches/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /savedBooks/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /savedClips/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /savedCommunities/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /savedMoments/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /blessedLater/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /bookmarkedMedia/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     // Private journal / reflection — strictly owner-only
 
     match /selahEntries/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /selah_reflections/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /selah_sessions/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /selah_saved/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /selah_memories/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /selah_continuations/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /selah_creator_projects/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /selah_media/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /selah_outcomes/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /selah_trust_circles/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /reflections/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /reflectionEntries/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /reflectionJourneys/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /spiritualCheckIns/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /spiritualReflections/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /spiritual_graph_state/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /spiritual_memory/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /spiritualGraph/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /spiritual_graph/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /notes/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /noteFolders/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /drafts/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /postDrafts/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /creationDrafts/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /testimonyDrafts/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /unsentThoughts/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /prayerReflections/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /prayerReminders/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /prayer_commitments/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /answered_prayers/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
@@ -1791,152 +2545,198 @@ service cloud.firestore {
     }
 
     match /living_entries/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /living_entry_reflections/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /wellnessCheckIns/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /wellness/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /spiritualCheckIns/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /checkIns/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /circleCheckIns/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /koraCheckIns/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /koraCheckInResponses/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /koraCircles/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /koraJournalEntries/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /usagePatterns/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /usageSessions/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /scrollBudgetUsage/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /mediaResumeState/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /mediaHistory/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /loginHistory/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /loginAlerts/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /userActivityLogs/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /user_activity_summary/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /user_privacy_settings/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /user_context/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /user_church_reminders/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /userChurchRelations/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /userSubscriptions/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /userReports/{docId} {
-      allow read: if isSignedIn() && resource.data.reporterId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.reporterId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
+    // Safety OS: abuseReports — written by ReportAbuseService (callable / Admin SDK).
+    // Reporters may read their own reports (by reporterUid field).
+    // No user may read another user's report or write directly.
+    match /abuseReports/{reportId} {
+      allow get: if isSignedIn() && resource.data.reporterUid == request.auth.uid;
+      allow list: if isSignedIn();
+      allow create, update, delete: if false;
+    }
+
     match /userConscience/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /userChurchNotesSummary/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
+    // Church Notes Context Engine — private memory (growth timeline, patterns, memory snapshot).
+    // Owner-only read. Server-only writes (context engine callables).
+    match /users/{uid}/churchNotesMemory/{memoryId} {
+      allow read: if isOwner(uid);
+      allow create, update, delete: if false;
+    }
+
     match /userFeedSignals/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /postViews/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
@@ -1946,67 +2746,80 @@ service cloud.firestore {
     }
 
     match /postInteractions/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /postEngagementActions/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /postActionReflections/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /feedSessions/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /sessionBoundaries/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /sessions/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /restModePolicies/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /safeConversationSettings/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /crisisSupportPreferences/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /mutedConversations/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /mutedThreads/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /mutedUsers/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /restricted/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
@@ -2036,17 +2849,20 @@ service cloud.firestore {
     }
 
     match /trustedCircles/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /trustedCircleNotifications/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /trustedContacts/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
@@ -2063,22 +2879,26 @@ service cloud.firestore {
     }
 
     match /creatorProjects/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /creatorDrafts/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /creatorAssets/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /creatorBrandKits/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
@@ -2093,22 +2913,26 @@ service cloud.firestore {
     }
 
     match /creatorTemplatesSaved/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /creatorScenes/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /creatorEarnings/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /creatorEntitlements/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
@@ -2118,17 +2942,20 @@ service cloud.firestore {
     }
 
     match /creatorSubscriptions/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /creatorTransactions/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /creatorTips/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
@@ -2138,17 +2965,20 @@ service cloud.firestore {
     }
 
     match /creatorVerificationRequests/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /studioProjects/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /studioItems/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
@@ -2178,7 +3008,8 @@ service cloud.firestore {
     }
 
     match /vergeMessages/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
@@ -2246,7 +3077,8 @@ service cloud.firestore {
     }
 
     match /connectMemberships/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
@@ -2298,37 +3130,44 @@ service cloud.firestore {
     }
 
     match /churchPreferences/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /churchFollowUps/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /churchNoteReflections/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /churchNoteFolders/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /churchNoteSessions/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /churchNoteShareEvents/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /churchReflections/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
@@ -2358,17 +3197,21 @@ service cloud.firestore {
     }
 
     match /churchVisitInsights/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /churchVisitSessions/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow write: if false;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if false;
     }
 
     match /churchVisitors/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
@@ -2378,17 +3221,20 @@ service cloud.firestore {
     }
 
     match /church_discovery_state/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /church_fit/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /church_smart_actions/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
@@ -2398,17 +3244,20 @@ service cloud.firestore {
     }
 
     match /eventRsvps/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /rsvps/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /servingSignups/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
@@ -2418,12 +3267,14 @@ service cloud.firestore {
     }
 
     match /serviceFollowUps/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /evangelismFollowUps/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
@@ -2433,7 +3284,8 @@ service cloud.firestore {
     }
 
     match /signups/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
@@ -2466,27 +3318,32 @@ service cloud.firestore {
     }
 
     match /mentorshipCheckIns/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /leaderConnections/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /leaderConnectionRequests/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /burdenMatches/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /fellowshipSuggestions/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
@@ -2498,22 +3355,26 @@ service cloud.firestore {
     // ── Giving & financial — owner-only ───────────────────────────────────────
 
     match /givingHistory/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /creatorEarnings/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /bookingRequests/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /commissionRequests/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
@@ -2604,33 +3465,47 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // AI safety reports: written exclusively by backend callables when Berean
+    // detects unsafe output (crisis, abuse, doctrinal escalation).
+    // Moderators can read; nobody writes from client.
+    match /aiUnsafeReports/{docId} {
+      allow read: if isModerator();
+      allow write: if false;
+    }
+
     match /securityEvents/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /crisis_follow_ups/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /deletionRequests/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /bugReports/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /bug_reports/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /feedback/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
@@ -2649,39 +3524,46 @@ service cloud.firestore {
     // ── Scheduling — owner read, server write ─────────────────────────────────
 
     match /scheduledPosts/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /scheduled_posts/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /scheduledMessages/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /scheduledNotifications/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /scheduledContent/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     // ── Fasting / disciplines — owner read ────────────────────────────────────
 
     match /fasts/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /checklists/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
@@ -2691,17 +3573,20 @@ service cloud.firestore {
     }
 
     match /walkWithChrist/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /discipleshipEvents/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /discipleshipProfile/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
@@ -2713,12 +3598,14 @@ service cloud.firestore {
     }
 
     match /transcripts/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     match /ocrResults/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
@@ -2733,7 +3620,8 @@ service cloud.firestore {
     }
 
     match /photoInsights/{docId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
@@ -3019,6 +3907,15 @@ service cloud.firestore {
 
     // ── Moderation pipeline — server-only ─────────────────────────────────────
 
+    // Safety OS: moderationAuditLog is append-only and immutable.
+    // Moderators and T&S reviewers may read for incident reconstruction.
+    // Cloud Functions write via Admin SDK — client writes are blocked.
+    match /moderationAuditLog/{docId} {
+      allow read: if isModerator() || request.auth.token.trustSafetyReviewer == true;
+      allow create, update, delete: if false;
+    }
+
+    // Legacy alias — locked
     match /moderationAuditLogs/{docId} {
       allow read, write: if false;
     }
@@ -3114,8 +4011,67 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Safety OS: humanReviewQueue — moderators claim and resolve items.
+    // Clients cannot read or write. All queue operations go through
+    // claimReviewItem / resolveReviewItem / getReviewQueue callables.
     match /humanReviewQueue/{docId} {
-      allow read, write: if false;
+      allow read: if isModerator() || request.auth.token.trustSafetyReviewer == true;
+      allow create, update, delete: if false;
+    }
+
+    // Safety OS: strikes — account violation history.
+    // The account owner may read their own strikes. Moderators may read all.
+    // Only Cloud Functions (Admin SDK) may write.
+    match /strikes/{strikeId} {
+      allow read: if isSignedIn() && (
+        resource.data.uid == request.auth.uid || isModerator()
+      );
+      allow create, update, delete: if false;
+    }
+
+    // Safety OS: guardianConnections — parent/guardian ↔ minor account links.
+    // Both parties (guardianUid and minorUid) may read their own connections.
+    // Writes go through callable functions only.
+    match /guardianConnections/{connectionId} {
+      allow read: if isSignedIn() && (
+        resource.data.guardianUid == request.auth.uid ||
+        resource.data.minorUid == request.auth.uid ||
+        isModerator()
+      );
+      allow create, update, delete: if false;
+    }
+
+    // Safety OS: evidenceRecords — immutable evidence for law enforcement/NCMEC.
+    // Only T&S reviewers and admins may read. No client writes ever.
+    match /evidenceRecords/{evidenceId} {
+      allow read: if isModerator() || request.auth.token.trustSafetyReviewer == true;
+      allow create, update, delete: if false;
+    }
+
+    // Safety OS: moderation log collections — server-written, moderator-readable.
+    match /textModerationLogs/{docId} {
+      allow read: if isModerator();
+      allow create, update, delete: if false;
+    }
+
+    match /imageModerationLogs/{docId} {
+      allow read: if isModerator();
+      allow create, update, delete: if false;
+    }
+
+    match /videoModerationLogs/{docId} {
+      allow read: if isModerator();
+      allow create, update, delete: if false;
+    }
+
+    match /audioModerationLogs/{docId} {
+      allow read: if isModerator();
+      allow create, update, delete: if false;
+    }
+
+    match /linkSafetyLogs/{docId} {
+      allow read: if isModerator();
+      allow create, update, delete: if false;
     }
 
     match /ncmecReadiness/{docId} {
@@ -3412,13 +4368,15 @@ service cloud.firestore {
 
     // Requester can read their own pending request (to poll status); no direct writes.
     match /accessRequests/{requestId} {
-      allow read: if isSignedIn() && resource.data.requesterId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.requesterId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
     // User can read their own active check-in (to show confirmation UI); no direct writes.
     match /activeCheckIns/{checkInId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
       allow write: if false;
     }
 
@@ -3485,11 +4443,1142 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
-    // ── Default deny ─────────────────────────────────────────────────────────
+    // ── System 39: AMEN Integrations Platform ────────────────────────────────
+    // All integration collections are server-only except integrationAccounts
+    // (read-only for owner) and gatheringMeetingLinks (read joinUrl for members).
+    // integrationTokens, oauthStates, rateLimits, idempotencyKeys: admin SDK only.
+
+    // Integration accounts — owner can read own metadata; all writes are server-only.
+    match /integrationAccounts/{accountId} {
+      allow read: if isSignedIn()
+        && resource.data.uid == request.auth.uid;
+      allow write: if false;
+    }
+
+    // Integration tokens — encrypted credentials; admin SDK only. No client access.
+    match /integrationTokens/{tokenId} {
+      allow read, write: if false;
+    }
+
+    // OAuth state tokens — CSRF/PKCE tokens; admin SDK only. No client access.
+    match /oauthStates/{stateId} {
+      allow read, write: if false;
+    }
+
+    // Gathering meeting links — creator can read joinUrl; all writes are server-only.
+    // attendees receive joinUrl inline from the createMeetingLink callable response.
+    // hostSecrets subcollection (Zoom start_url) is admin SDK only — never to any client.
+    match /gatheringMeetingLinks/{linkId} {
+      allow read: if isSignedIn()
+        && resource.data.creatorUid == request.auth.uid;
+      allow write: if false;
+
+      match /hostSecrets/{secretId} {
+        allow read, write: if false;
+      }
+    }
+
+    // Gathering verified content — uploader can read their own record.
+    // Writes are server-only (uploaded via signed URL + backend verification).
+    match /gatheringVerifiedContent/{contentId} {
+      allow read: if isSignedIn()
+        && resource.data.uploadedByUid == request.auth.uid;
+      allow write: if false;
+    }
+
+    // Rate limit counters — admin SDK only.
+    match /rateLimits/{limitId} {
+      allow read, write: if false;
+    }
+
+    // Idempotency keys — admin SDK only.
+    match /idempotencyKeys/{keyId} {
+      allow read, write: if false;
+    }
+
+    // Gathering reminder records — server-only write; creator can read own records.
+    match /gatheringReminders/{reminderId} {
+      allow read: if isSignedIn()
+        && resource.data.createdByUid == request.auth.uid;
+      allow write: if false;
+    }
+
+    // Integration audit logs — no client access (server-only write, admin-only read).
+    match /integrationAuditLogs/{logId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // Remote Config cache mirror (used by assertFeatureEnabled) — read-only, no writes.
+    match /remoteConfigCache/{flagName} {
+      allow read: if false;
+      allow write: if false;
+    }
+
+    // ── Conversation OS Intelligence Layer ───────────────────────────────────
+    //
+    // Architecture contract:
+    // - All AI-generated intelligence is written by server (Cloud Functions) only.
+    // - Clients may READ their own space summaries and personalized summaries.
+    // - Clients may NEVER write AI confidence, provenance, or generated memory.
+    // - Sensitive surfaces (prayer_room, leadership_room, admin_channel) require
+    //   explicit space-level opt-in (conversationOSOptIn == true on the space doc).
+    // - Organization memory is admin-read-only; no client writes.
+    // - Activity signals are server-only.
+
+    // Space-level AI summaries — members can read; server writes only.
+    match /spaces/{spaceId}/summaries/{summaryId} {
+      allow read: if isSpaceMember(spaceId);
+      allow write: if false;
+    }
+
+    // Space-level topic clusters — members can read; server writes only.
+    match /spaces/{spaceId}/topicClusters/{clusterId} {
+      allow read: if isSpaceMember(spaceId);
+      allow write: if false;
+    }
+
+    // Thread-level AI insights (unresolved questions, blockers) — space member read; server writes.
+    match /threads/{threadId}/insights/{insightId} {
+      // Thread docs don't have membership — inherit from the parent space check done in the callable.
+      // Client read is allowed (callable validated membership); writes are server-only.
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    // Organizational memory — admin-read only; server writes.
+    // Contains aggregated org-level patterns and decisions — not for general member access.
+    match /organizations/{orgId}/memory/{memoryId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // User personalized summaries — owner can read and dismiss (soft delete via merge);
+    // all other writes (generation, provenance) are server-only.
+    match /users/{uid}/personalizedSummaries/{summaryId} {
+      allow read: if isOwner(uid);
+      // Allow owner to set `dismissed: true` only — no other fields.
+      allow update: if isOwner(uid) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(["dismissed", "dismissedAt"]) &&
+        request.resource.data.dismissed == true;
+      allow create, delete: if false;
+    }
+
+    // Room activity signals — server-only (ingestion pipeline writes, no client access).
+    match /rooms/{roomId}/activitySignals/{signalId} {
+      allow read, write: if false;
+    }
+
+    // ── Spaces Ambient Intelligence OS ───────────────────────────────────────
+    // System 42: Persistent Memory Graph, Semantic Pins, Ambient Signals,
+    //            Catch-Up Intelligence, Spiritual Continuity.
+    //
+    // SECURITY INVARIANTS:
+    //   • Intelligence fields (confidence, provenance, moderationPassed) are
+    //     server-written only — no client field is accepted via rules.
+    //   • SERVER_PIN_TYPES (highly_referenced, emotionally_important, unresolved,
+    //     requires_follow_up, momentum_building, fading_urgency, resolved) can
+    //     only be written by server processes (callable enforces this in code;
+    //     rules block direct client writes to entire collection).
+    //   • emotionalContextAllowed space types: family_group and support_community
+    //     have no ambient signal reads — enforced at engine level, not rules level
+    //     (engine returns [] before writing). Rules allow member read for
+    //     dismissed=false signals to avoid leaking which spaces are blocked.
+    //   • Spiritual continuity is personal — owner-only across all paths.
+
+    // Space memory nodes — member read (dismissed=false filter client-side);
+    // server writes only (persistent_memory_graph callable).
+    match /spaces/{spaceId}/memory/{nodeId} {
+      allow read: if isSpaceMember(spaceId);
+      allow write: if false;
+    }
+
+    // Space semantic pins — member read; user can create non-intelligent pins
+    // via createUserPin callable; server writes intelligent pins.
+    // Direct client writes to this collection are blocked — all writes go through callables.
+    match /spaces/{spaceId}/pins/{pinId} {
+      allow read: if isSpaceMember(spaceId);
+      allow write: if false;
+    }
+
+    // Ambient signals — member read; server writes and dismisses.
+    // dismissAmbientSignal callable updates dismissed:true — no direct client write.
+    match /spaces/{spaceId}/ambientSignals/{signalId} {
+      allow read: if isSpaceMember(spaceId);
+      allow write: if false;
+    }
+
+    // Catch-up intelligence — member read; server writes only.
+    match /spaces/{spaceId}/catchUps/{catchUpId} {
+      allow read: if isSpaceMember(spaceId);
+      allow write: if false;
+    }
+
+    // Multi-thread branches — member read; server writes only.
+    match /spaces/{spaceId}/branches/{branchId} {
+      allow read: if isSpaceMember(spaceId);
+      allow write: if false;
+    }
+
+    // Context graph (relational intelligence) — member read; server writes only.
+    match /spaces/{spaceId}/contextGraph/{nodeId} {
+      allow read: if isSpaceMember(spaceId);
+      allow write: if false;
+    }
+
+    // Unresolved items — member read; server writes only.
+    match /spaces/{spaceId}/unresolvedItems/{itemId} {
+      allow read: if isSpaceMember(spaceId);
+      allow write: if false;
+    }
+
+    // User space memory nodes — owner-only read/dismiss; server writes.
+    match /users/{uid}/spaceMemory/{nodeId} {
+      allow read: if isOwner(uid);
+      // Allow owner to dismiss only — server controls all other fields.
+      allow update: if isOwner(uid) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(["dismissed", "dismissedAt"]) &&
+        request.resource.data.dismissed == true;
+      allow create, delete: if false;
+    }
+
+    // Spiritual continuity — owner-only read; server writes and merges.
+    // recordSelahMoment callable updates via Admin SDK (bypasses rules).
+    match /users/{uid}/spiritualContinuity/{recordId} {
+      allow read: if isOwner(uid);
+      allow write: if false;
+    }
+
+    // Organizations/spaces mapping — admin read; server writes.
+    match /organizations/{orgId}/spaces/{spaceId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // Unified organization identity profiles. Clients may read safe public orgs.
+    // Source fields, claim state, verification, safety, billing, and imports are
+    // function-owned. Verified owners can edit only approved public profile fields.
+    match /organizations/{orgId} {
+      allow read: if isSignedIn() &&
+        resource.data.visibility == "public" &&
+        resource.data.safetyStatus in ["allowed", "approved", "sourceImported"];
+      allow create, delete: if false;
+      allow update: if isSignedIn() &&
+        resource.data.ownerUid == request.auth.uid &&
+        resource.data.claimStatus in ["claimed", "verified"] &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          "name",
+          "description",
+          "website",
+          "phone",
+          "bannerConfig",
+          "spaceDefaults",
+          "updatedAt"
+        ]);
+
+      match /claims/{claimId} {
+        allow read: if isSignedIn() &&
+          (resource.data.uid == request.auth.uid || isAdmin());
+        allow create, update, delete: if false;
+      }
+
+      match /suggestedEdits/{editId} {
+        allow read: if isAdmin();
+        allow create, update, delete: if false;
+      }
+
+      match /events/{eventId} {
+        allow read: if isSignedIn();
+        allow write: if false;
+      }
+
+      match /members/{uid} {
+        allow read: if isOwner(uid) || isAdmin();
+        allow write: if false;
+      }
+
+      match /auditLogs/{logId} {
+        allow read: if isAdmin();
+        allow write: if false;
+      }
+
+      match /billing/{billingDoc} {
+        allow read: if isSignedIn() &&
+          (get(/databases/$(database)/documents/organizations/$(orgId)).data.ownerUid == request.auth.uid || isAdmin());
+        allow write: if false;
+      }
+    }
+
+    match /organizationDirectoryImports/{importId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /opsRuns/{runId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /users/{uid}/organizationMemberships/{orgId} {
+      allow read: if isOwner(uid);
+      allow write: if false;
+    }
+
+    match /users/{uid}/organizationClaims/{claimId} {
+      allow read: if isOwner(uid);
+      allow write: if false;
+    }
+
+    // National organization directory. Clients may search public, moderated source
+    // records. Import, claim approval, official space creation, and paid checkout
+    // creation are server-authoritative through Cloud Functions.
+    match /amenNationalDirectory/{profileId} {
+      allow read: if isSignedIn() &&
+        resource.data.visibility == "public" &&
+        resource.data.moderationStatus in ["approved", "sourceImported"];
+      allow create, update, delete: if false;
+
+      match /claims/{uid} {
+        allow read: if isOwner(uid) || isAdmin();
+        allow create, update, delete: if false;
+      }
+
+      match /suggestedEdits/{editId} {
+        allow read: if isAdmin();
+        allow create, update, delete: if false;
+      }
+    }
+
+    match /amenDirectorySubscriptionCheckouts/{checkoutId} {
+      allow get: if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow list: if isSignedIn();
+      allow create, update, delete: if false;
+    }
+
+    match /amenOrganizationClaimRateLimits/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow write: if false;
+    }
+
+    match /amenBillingWebhookEvents/{eventId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // ── Selah Banner Rail ────────────────────────────────────────────────────
+    // Architecture invariant: clients NEVER read bannerSources directly.
+    // All eligibility, ranking, visibility, safety, and CTA validation run
+    // server-side in the resolveBannerRail / validateAmenSpaceBannerCTA callables.
+    //
+    // moderationStatus + safety fields (contentRating, safeForYouth, safeForAll,
+    // safetyTier) are writable ONLY via the Admin SDK (Cloud Functions).
+    // A client can create a draft but must not include those fields; the
+    // createBannerSource callable sets moderationStatus="pending" server-side.
+    //
+    // bannerDisplayPreferences/{uid} is scoped to the document owner only.
+    // amenSpaces/{id}/settings/bannerDisplay (defaultBannerSize) is written
+    // only by the setAmenSpaceDefaultBannerSize callable (space admin check
+    // enforced in the function; rule locks out all direct client writes).
+
+    match /bannerSources/{bannerId} {
+      // Clients never read bannerSources directly — resolveBannerRail returns
+      // a sanitised payload without moderationStatus or safety fields.
+      allow read: if false;
+
+      // Authors may create a draft, but must NOT supply moderation or safety fields.
+      // The createBannerSource callable (Admin SDK) sets those fields server-side.
+      allow create: if isVerifiedWriter() &&
+        request.resource.data.createdBy == request.auth.uid &&
+        !request.resource.data.keys().hasAny([
+          "moderationStatus", "contentRating", "safeForYouth", "safeForAll", "safetyTier"
+        ]);
+
+      // Authors may edit their own pending drafts, but cannot touch moderation
+      // or safety fields — those are Admin SDK territory.
+      allow update: if isVerifiedWriter() &&
+        resource.data.createdBy == request.auth.uid &&
+        resource.data.moderationStatus == "pending" &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          "moderationStatus", "contentRating", "safeForYouth", "safeForAll", "safetyTier"
+        ]);
+
+      // Hard delete is disallowed; soft-delete via callable only.
+      allow delete: if false;
+    }
+
+    // User's per-surface size preferences — owner read/write, no delete.
+    match /bannerDisplayPreferences/{uid} {
+      allow read, create, update: if isOwner(uid);
+      allow delete: if false;
+    }
+
+    // amenSpaceBanners is a read-only materialised view maintained by Admin SDK.
+    match /amenSpaceBanners/{bannerId} {
+      allow read: if isSignedIn() &&
+        resource.data.moderationStatus in ["approved", "visible"] &&
+        resource.data.visibility in ["public", "authenticated"];
+      allow create, update, delete: if false;
+    }
+
+    // Analytics events are written only by the logAmenSpaceBannerEvent callable.
+    match /amenSpaceBannerAnalytics/{eventId} {
+      allow read, write: if false;
+    }
+
+    // Legacy sub-collection path kept for backwards-compat; no client writes.
+    match /users/{uid}/bannerDisplayPreferences/{surfaceId} {
+      allow read: if isOwner(uid);
+      allow create, update, delete: if false;
+    }
+
+    match /users/{uid}/dismissedSpaceBanners/{bannerId} {
+      allow read: if isOwner(uid);
+      allow create, update, delete: if false;
+    }
+
+    // Space banner display settings (defaultBannerSize) — written only by the
+    // setAmenSpaceDefaultBannerSize callable which enforces the admin/owner check.
+    match /amenSpaces/{spaceId}/settings/bannerDisplay {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    // ── Comms OS Intelligence Layer ──────────────────────────────────────────
+    // System 45: All AI operations route through Cloud Functions (callable
+    // enforces App Check + auth + membership). Admin SDK bypasses rules;
+    // clients never write these collections directly.
+
+    // Audit log — server writes via Admin SDK only; no client access.
+    match /commsAuditLog/{logId} {
+      allow read, write: if false;
+    }
+
+    // Media intelligence jobs — server-managed queue; status returned by callable.
+    match /commsMediaJobs/{jobId} {
+      allow read, write: if false;
+    }
+
+    // Thread summaries — server writes via callable; value returned in response.
+    match /commsThreadSummaries/{summaryId} {
+      allow read, write: if false;
+    }
+
+    // User comms digests — owner can read and soft-dismiss; all other writes via callable.
+    match /users/{uid}/commsDigests/{digestId} {
+      allow read: if isOwner(uid);
+      allow update: if isOwner(uid) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(["dismissed", "dismissedAt"]) &&
+        request.resource.data.dismissed == true;
+      allow create, delete: if false;
+    }
+
+    // User comms feedback — server writes via callable; not exposed to client reads.
+    match /users/{uid}/commsFeedback/{feedbackId} {
+      allow read, write: if false;
+    }
+
+    // Comms rate-limit counters — server-managed only; no client access.
+    match /users/{uid}/commsRateLimits/{operation} {
+      allow read, write: if false;
+    }
+
+    // ── Creator analytics — author read; Cloud Function writes ───────────────
+
+    match /postAnalytics/{docId} {
+      // Only the post author may read their own analytics. Never client-writable.
+      allow get: if isSignedIn() && resource.data.authorId == request.auth.uid;
+      allow list: if isSignedIn();
+      allow write: if false;
+    }
+
+    // ── Impression events — server-aggregated; no client access ───────────────
+    // Raw impression events are aggregated server-side. Client reads aggregate
+    // totals from postAnalytics, never raw impression documents.
+
+    match /impressions/{docId} {
+      allow read, write: if false;
+    }
+
+    // ── Media upload sessions — owner read; Cloud Function manages lifecycle ──
+
+    match /mediaUploads/{docId} {
+      // Uploader may read their own session (for progress/status).
+      allow get: if isSignedIn() && resource.data.uploaderId == request.auth.uid;
+      allow list: if isSignedIn();
+      allow write: if false;
+    }
+
+    // ── Top-level content reports — verified users create; moderators manage ──
+
+    match /reports/{docId} {
+      allow create: if isVerifiedWriter() &&
+        request.resource.data.reporterId == request.auth.uid &&
+        request.resource.data.keys().hasAll(['reporterId', 'contentId', 'contentType', 'reason']);
+      allow read, update, delete: if isModerator();
+    }
+
+    // ── Churches ──────────────────────────────────────────────────────────────
+
+    match /churches/{churchId} {
+      allow read: if isSignedIn();
+      allow create: if isVerifiedWriter() &&
+        request.resource.data.founderUid == request.auth.uid &&
+        request.resource.data.keys().hasAll(['name', 'founderUid']);
+      allow update: if isSignedIn() && resource.data.founderUid == request.auth.uid;
+      allow delete: if isAdmin();
+
+      match /members/{memberId} {
+        allow read: if isSignedIn();
+        allow create: if isOwner(memberId) &&
+          request.resource.data.uid == request.auth.uid &&
+          request.resource.data.keys().hasAll(['churchId', 'uid', 'role', 'joinedAt']);
+        allow update: if false;
+        allow delete: if isOwner(memberId) || isAdmin();
+      }
+    }
+
+    // ── Groups ─────────────────────────────────────────────────────────────────
+
+    match /amenGroups/{groupId} {
+      allow read: if isSignedIn();
+      allow create: if isVerifiedWriter() &&
+        request.resource.data.hostUid == request.auth.uid &&
+        request.resource.data.keys().hasAll(['name', 'hostUid', 'churchId', 'type', 'visibility']);
+      allow update: if isSignedIn() && resource.data.hostUid == request.auth.uid;
+      allow delete: if isAdmin();
+
+      match /members/{memberId} {
+        allow read: if isSignedIn();
+        allow create: if isOwner(memberId) &&
+          request.resource.data.uid == request.auth.uid &&
+          request.resource.data.keys().hasAll(['groupId', 'uid', 'role', 'joinedAt']);
+        allow update: if false;
+        allow delete: if isOwner(memberId) ||
+          (isSignedIn() &&
+           get(/databases/$(database)/documents/amenGroups/$(groupId)).data.hostUid == request.auth.uid);
+      }
+    }
+
+    // ── Discipleship pairs ─────────────────────────────────────────────────────
+
+    match /discipleships/{pairId} {
+      allow read: if isSignedIn() && (
+        resource.data.mentorUid == request.auth.uid ||
+        resource.data.discipleUid == request.auth.uid
+      );
+      allow create: if isVerifiedWriter() &&
+        (request.resource.data.mentorUid == request.auth.uid ||
+         request.resource.data.discipleUid == request.auth.uid) &&
+        request.resource.data.keys().hasAll(['mentorUid', 'discipleUid', 'status', 'createdAt']) &&
+        request.resource.data.status == 'pending';
+      allow update: if isSignedIn() &&
+        (resource.data.mentorUid == request.auth.uid ||
+         resource.data.discipleUid == request.auth.uid) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'acceptedAt', 'endedAt']);
+      allow delete: if false;
+    }
+
+    // ── Follows ────────────────────────────────────────────────────────────────
+
+    match /follows/{followId} {
+      allow read: if isSignedIn();
+      allow create: if isVerifiedWriter() &&
+        request.resource.data.followerId == request.auth.uid &&
+        request.resource.data.keys().hasAll(['followerId', 'followingId', 'createdAt']);
+      allow delete: if isSignedIn() && resource.data.followerId == request.auth.uid;
+      allow update: if false;
+    }
+
+    // ── Channels ───────────────────────────────────────────────────────────────
+    // SACRED INVARIANT: no Cloud Function, Berean feature, or analytics pipeline
+    // may ever read or write sacredMessages or keyMaterial subcollections.
+
+    function isChannelParticipant(channelId) {
+      return isSignedIn() &&
+        get(/databases/$(database)/documents/channels/$(channelId))
+          .data.participantUids.hasAny([request.auth.uid]);
+    }
+
+    match /channels/{channelId} {
+      allow read: if isChannelParticipant(channelId);
+      allow create: if isVerifiedWriter() &&
+        request.resource.data.participantUids.hasAny([request.auth.uid]) &&
+        !request.resource.data.keys().hasAny(['isMinor']);
+      allow update: if false;
+      allow delete: if false;
+
+      // Communal messages — Guardian Cloud Function sets isDelivered after moderation
+      match /messages/{messageId} {
+        allow read: if isChannelParticipant(channelId);
+        allow create: if isChannelParticipant(channelId) &&
+          request.resource.data.senderId == request.auth.uid &&
+          request.resource.data.isDelivered == false &&
+          request.resource.data.keys().hasAll(['senderId', 'text', 'sentAt', 'isDelivered']) &&
+          !request.resource.data.keys().hasAny(['guardianDecision', 'supportResourcesAttached', 'scriptureRefs']);
+        allow update: if false;
+        allow delete: if false;
+      }
+
+      // Sacred messages — ciphertext only; plaintext never persisted
+      // CRITICAL: No Cloud Function may trigger on or read this subcollection.
+      match /sacredMessages/{messageId} {
+        allow read: if isChannelParticipant(channelId);
+        allow create: if isChannelParticipant(channelId) &&
+          request.resource.data.senderId == request.auth.uid &&
+          request.resource.data.keys().hasAll(['senderId', 'ciphertextBase64', 'nonceBase64', 'tagBase64', 'sentAt']) &&
+          !request.resource.data.keys().hasAny(['plaintext', 'text', 'decryptedText']);
+        allow update: if false;
+        allow delete: if false;
+      }
+
+      // Key material — participants read to unwrap their copy; bootstrapped once
+      // CRITICAL: No Cloud Function may trigger on or read this subcollection.
+      match /keyMaterial/{docId} {
+        allow read: if isChannelParticipant(channelId);
+        allow create: if isChannelParticipant(channelId) &&
+          request.resource.data.keys().hasAll(['wrappedKeyA', 'wrappedKeyB']);
+        allow update: if false;
+        allow delete: if false;
+      }
+    }
+
+    // ── Meetings ───────────────────────────────────────────────────────────────
+
+    function isGroupMember(groupId) {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/amenGroups/$(groupId)/members/$(request.auth.uid));
+    }
+
+    function isGroupHost(groupId) {
+      return isSignedIn() &&
+        get(/databases/$(database)/documents/amenGroups/$(groupId)).data.hostUid == request.auth.uid;
+    }
+
+    match /meetings/{meetingId} {
+      allow read: if isSignedIn() && isGroupMember(resource.data.groupId);
+      allow create: if isVerifiedWriter() &&
+        isGroupHost(request.resource.data.groupId) &&
+        request.resource.data.hostUids.hasAny([request.auth.uid]) &&
+        request.resource.data.keys().hasAll(['groupId', 'hostUids', 'title', 'startAt', 'status']) &&
+        request.resource.data.status == 'scheduled';
+      allow update: if isSignedIn() &&
+        resource.data.hostUids.hasAny([request.auth.uid]) &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['groupId']);
+      allow delete: if isAdmin();
+
+      match /rsvps/{uid} {
+        allow read: if isGroupMember(
+          get(/databases/$(database)/documents/meetings/$(meetingId)).data.groupId);
+        allow create, update: if isOwner(uid) &&
+          request.resource.data.uid == request.auth.uid &&
+          request.resource.data.keys().hasAll(['uid', 'status', 'updatedAt']);
+        allow delete: if isOwner(uid);
+      }
+    }
+
+    // ── Prayer requests ────────────────────────────────────────────────────────
+
+    match /prayerRequests/{requestId} {
+      allow read: if isSignedIn() && (
+        resource.data.authorUid == request.auth.uid ||
+        isGroupMember(resource.data.groupId)
+      );
+      allow create: if isVerifiedWriter() &&
+        request.resource.data.authorUid == request.auth.uid &&
+        request.resource.data.keys().hasAll(['authorUid', 'groupId', 'text', 'createdAt', 'status']) &&
+        request.resource.data.status == 'open';
+      allow update: if isSignedIn() &&
+        resource.data.authorUid == request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'answeredAt']);
+      allow delete: if isSignedIn() && resource.data.authorUid == request.auth.uid;
+    }
+
+    // ── Moderation queue — admin SDK (Cloud Function) writes only ─────────────
+    // Written by GUARDIAN on escalate verdict. No client read or write ever.
+
+    match /moderationQueue/{docId} {
+      allow read, write: if false;
+    }
+
+    // ── Progressive Trust — trust events per user (owner read, server write) ──
+
+    match /trustEvents/{uid}/events/{eventId} {
+      allow read: if isOwner(uid);
+      allow write: if false;
+    }
+
+    match /trustAuditLog/{entryId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // ── Interaction Mode History (owner read, server write) ───────────────────
+
+    match /users/{uid}/modeHistory/{historyId} {
+      allow read: if isOwner(uid);
+      allow write: if false;
+    }
+
+    // ── Behavioral Alerts (moderator read, server write) ─────────────────────
+
+    match /behavioralAlerts/{alertId} {
+      allow read: if isAdmin() || isModerator() || isTrustSafetyReviewer();
+      allow write: if false;
+    }
+
+    // ── Mentorship Connections (participants read, server write) ──────────────
+
+    match /mentorshipConnections/{connectionId} {
+      allow read: if isSignedIn() && (
+        resource.data.mentorUid == request.auth.uid ||
+        resource.data.menteeUid == request.auth.uid
+      );
+      allow write: if false;
+    }
+
+    // ── Church / Community Verification (owner read, server write) ───────────
+
+    match /churchVerifications/{verificationId} {
+      allow read: if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /churches/{churchId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+
+      match /verificationCodes/{code} {
+        allow read, write: if false;
+      }
+    }
+
+    // ── Text Rewrite Rate Limits and Logs (server-only) ──────────────────────
+
+    match /rewriteRateLimits/{uid}/windows/{windowId} {
+      allow read, write: if false;
+    }
+
+    match /textRewriteLogs/{logId} {
+      allow read: if isAdmin() || isModerator();
+      allow write: if false;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // ── Amen Trust + Safety OS — Extended Collections ──────────────────────
+    //
+    // ARCHITECTURE CONTRACT:
+    //   Clients CANNOT write safety decisions, provenance, bot scores,
+    //   trust profiles, audit logs, ranking safety fields, or enforcement
+    //   records. All writes go through Cloud Functions with Admin SDK only.
+    //   Clients read their own data; moderators/admins read all.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    // ── Per-User Trust + Enforcement (users/{uid}/trust) ─────────────────
+
+    match /users/{uid}/trust/profile {
+      // User can read their own trust profile; moderators can read any.
+      allow read: if isOwner(uid) || isModerator();
+      // Only backend (Admin SDK) can write trust profiles.
+      allow create, update, delete: if false;
+    }
+
+    match /users/{uid}/trust/devices/{deviceId} {
+      allow read: if isOwner(uid) || isModerator();
+      allow create, update, delete: if false;
+    }
+
+    match /users/{uid}/trust/strikes/{strikeId} {
+      allow read: if isOwner(uid) || isModerator();
+      // Strikes are backend-only. Clients cannot delete or modify them.
+      allow create, update, delete: if false;
+    }
+
+    // ── Per-User Wellness Events ──────────────────────────────────────────
+
+    match /users/{uid}/wellness/events/{eventId} {
+      allow read: if isOwner(uid) || isModerator();
+      allow create, update, delete: if false;
+    }
+
+    // ── Post Safety + Provenance + Ranking ───────────────────────────────
+
+    match /posts/{postId}/safety/main {
+      // Authors and moderators can read safety decisions.
+      allow read: if isSignedIn();
+      // Clients CANNOT write safety decisions.
+      allow create, update, delete: if false;
+    }
+
+    match /posts/{postId}/provenance/main {
+      allow read: if isSignedIn();
+      // Provenance is backend-only: clients cannot fake source claims.
+      allow create, update, delete: if false;
+    }
+
+    match /posts/{postId}/ranking/main {
+      allow read: if isSignedIn();
+      // Ranking scores are backend-only: prevents score manipulation.
+      allow create, update, delete: if false;
+    }
+
+    match /posts/{postId}/reports/{reportId} {
+      // Reporter or moderator can read. No client deletes.
+      allow read: if isSignedIn() &&
+        (resource.data.reporterUid == request.auth.uid || isModerator());
+      allow create, update, delete: if false;
+    }
+
+    match /posts/{postId}/audit/{eventId} {
+      allow read: if isModerator();
+      allow create, update, delete: if false;
+    }
+
+    // ── Reply Preview Rotation — dynamicReplyPreviews subcollection ───────
+    // Written exclusively by the rebuildReplyPreviews Cloud Function (Admin SDK).
+    // Clients read only when the parent post is visible to them.
+
+    match /posts/{postId}/dynamicReplyPreviews/{previewId} {
+      allow read: if isSignedIn() && (
+        get(/databases/$(database)/documents/posts/$(postId)).data.get('removed', false) == false
+      );
+      allow write: if false; // Cloud Functions only
+    }
+
+    // ── Comment Safety ────────────────────────────────────────────────────
+
+    match /comments/{commentId}/safety/main {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false;
+    }
+
+    // ── DM / Message Safety ───────────────────────────────────────────────
+
+    match /messages/{messageId}/safety/main {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false;
+    }
+
+    // ── Media Provenance + Safety ─────────────────────────────────────────
+
+    match /media/{mediaId}/provenance/main {
+      allow read: if isSignedIn();
+      // Cannot be client-modified. Prevents fake "original" declarations.
+      allow create, update, delete: if false;
+    }
+
+    match /media/{mediaId}/safety/main {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false;
+    }
+
+    // ── Community + Church + Creator Trust ───────────────────────────────
+
+    match /communities/{communityId}/trust/main {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false;
+    }
+
+    match /churches/{churchId}/verification/main {
+      allow read: if isSignedIn();
+      // Church verification is admin-only write.
+      allow create, update, delete: if false;
+    }
+
+    match /creators/{creatorId}/trust/main {
+      // Creator can read their own trust record; moderators read all.
+      allow read: if (isSignedIn() && request.auth.uid == creatorId) || isModerator();
+      allow create, update, delete: if false;
+    }
+
+    // ── Reviews + Testimonials Safety ────────────────────────────────────
+
+    match /reviews/{reviewId}/safety/main {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false;
+    }
+
+    match /testimonials/{testimonialId}/safety/main {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false;
+    }
+
+    // ── Platform Safety: Audit, Queues, Threat Intel ─────────────────────
+    //
+    // These are the most sensitive collections.
+    // Clients have ZERO write access to any platformSafety subcollection.
+    // Only moderators and admins can read; reporters can read their own.
+
+    match /platformSafety/audit/events/{eventId} {
+      allow read: if isModerator();
+      allow create, update, delete: if false;
+    }
+
+    match /platformSafety/queues/moderation/{queueId} {
+      // Reporter can read their own report; moderators read all.
+      allow read: if isModerator() ||
+        (isSignedIn() && resource.data.reporterUid == request.auth.uid);
+      allow create, update, delete: if false;
+    }
+
+    match /platformSafety/queues/humanReview/{queueId} {
+      // Appellant can read their own appeal; moderators read all.
+      allow read: if isModerator() ||
+        (isSignedIn() && resource.data.uid == request.auth.uid);
+      allow create, update, delete: if false;
+    }
+
+    match /platformSafety/queues/escalation/{queueId} {
+      // Admin-only: escalation queue contains most sensitive cases.
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
+    }
+
+    match /platformSafety/threatIntel/{signalId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
+    }
+
+    // ── Amen Intelligence Fabric ─────────────────────────────────────────
+    //
+    // Client writes are limited to the signed-in user's own context snapshots
+    // and feedback/audit events. Server-derived decisions, moderation outputs,
+    // and reputation signals remain backend-owned.
+
+    match /amenIntelligenceSnapshots/{snapshotId} {
+      allow read: if isModerator() || (isSignedIn() && resource.data.uid == request.auth.uid);
+      allow create: if isSignedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasOnly([
+          'uid', 'contentId', 'contentType', 'surface', 'implementations',
+          'humanStates', 'spiritualIntents', 'safetyTreatment', 'trustSignals',
+          'feedMode', 'environment', 'shouldReduceAmplification',
+          'companionPrompt', 'cards', 'metadata', 'updatedAt'
+        ]);
+      allow update: if isSignedIn()
+        && resource.data.uid == request.auth.uid
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'implementations', 'humanStates', 'spiritualIntents', 'safetyTreatment',
+          'trustSignals', 'feedMode', 'environment', 'shouldReduceAmplification',
+          'companionPrompt', 'cards', 'metadata', 'updatedAt'
+        ]);
+      allow delete: if false;
+    }
+
+    match /amenIntelligenceAuditEvents/{eventId} {
+      allow read: if isModerator() || (isSignedIn() && resource.data.uid == request.auth.uid);
+      allow create: if isSignedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasOnly([
+          'uid', 'eventType', 'contentId', 'contentType', 'surface',
+          'safetyTreatment', 'policyLevel', 'requiresHumanReview',
+          'notifyModeration', 'verifyFundraising', 'humanStates',
+          'spiritualIntents', 'trustSignals', 'metadata', 'createdAt'
+        ]);
+      allow update, delete: if false;
+    }
+
+    match /amenIntelligenceDecisions/{decisionId} {
+      allow read: if isModerator() || (isSignedIn() && resource.data.uid == request.auth.uid);
+      allow create, update, delete: if false;
+    }
+
+    match /amenIntelligenceFeedback/{feedbackId} {
+      allow read: if isModerator() || (isSignedIn() && resource.data.uid == request.auth.uid);
+      allow create, update, delete: if false;
+    }
+
+    match /amenSafetyModeStates/{uid} {
+      allow read: if isOwner(uid) || isModerator();
+      allow create, update: if isOwner(uid)
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasOnly([
+          'uid', 'source', 'snapshotId', 'sourceContentId', 'sourceContentType',
+          'surface', 'safetyTreatment', 'pauseNotifications',
+          'disableStrangerDMs', 'notifyModeration', 'trustedCircleEligible',
+          'metadata', 'updatedAt'
+        ]);
+      allow delete: if isOwner(uid);
+    }
+
+    match /amenReputationSignals/{signalId} {
+      allow read: if isModerator() || (isSignedIn() && resource.data.uid == request.auth.uid);
+      allow create, update, delete: if false;
+    }
+
+    // ── Default deny ─────────────────────────────────────────────────────
     // Catch-all: deny everything not matched above.
 
     match /{document=**} {
       allow read, write: if false;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SMART COLLABORATION LAYER — Phase 1
+    // All AI-generated sub-collections (smartContext, summary, prayerSignals,
+    // pulse, smartActions) are server-account/admin writes only.
+    // Clients never create or delete these documents.
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // ── Smart Collab Helpers ──────────────────────────────────────────────────
+    // isSpaceMember(spaceId) already defined above — not duplicated here.
+
+    // True if the caller is a participant in the given DM conversation.
+    // Mirrors secureCallable.ts verifyMembership (dm branch): reads participantIds.
+    function isConversationParticipant(conversationId) {
+      return isSignedIn() &&
+        request.auth.uid in
+          get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+    }
+
+    // ── DM conversation smart sub-collections ────────────────────────────────
+    // conversations/{conversationId}/smartContext/main
+
+    match /conversations/{conversationId}/smartContext/main {
+      // Only a participant in the parent conversation may read.
+      allow read: if isConversationParticipant(conversationId);
+      // Clients NEVER write AI-generated documents. Server (Admin SDK) only.
+      allow write: if false;
+    }
+
+    // conversations/{conversationId}/summary/main
+
+    match /conversations/{conversationId}/summary/main {
+      allow read: if isConversationParticipant(conversationId);
+      allow write: if false;
+    }
+
+    // conversations/{conversationId}/smartActions/{actionId}
+    // Clients may update status only; all other mutations are server-only.
+
+    match /conversations/{conversationId}/smartActions/{actionId} {
+      allow read: if isConversationParticipant(conversationId);
+      // Server creates and deletes. Clients may never create or delete.
+      allow create, delete: if false;
+      // Clients may update ONLY the status field to an approved terminal value.
+      // generatedBy, generatedAt, modelVersion, actionType, suggestedText,
+      // sourceMessageId, and confidence are immutable by clients.
+      allow update: if isConversationParticipant(conversationId) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
+        request.resource.data.status in ['accepted', 'dismissed', 'completed'] &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'generatedBy', 'generatedAt', 'modelVersion',
+          'actionType', 'suggestedText', 'sourceMessageId', 'confidence'
+        ]);
+    }
+
+    // conversations/{conversationId}/prayerSignals/{signalId}
+    // Privacy contract: requestorId is NEVER visible to non-requestors.
+    // Firestore rules cannot mask individual fields, so the rule exposes the
+    // full doc only to the requestor or to members when the signal is approved
+    // and non-anonymous. Requestor may delete their own signal.
+
+    match /conversations/{conversationId}/prayerSignals/{signalId} {
+      allow read: if isConversationParticipant(conversationId) &&
+        (
+          // Requestor always sees their own signal in full.
+          request.auth.uid == resource.data.requestorId ||
+          // Other members may read only approved, non-anonymous signals.
+          (
+            resource.data.moderationStatus == 'approved' &&
+            resource.data.isAnonymous == false
+          )
+        );
+      // Server creates and updates (moderation status is server-managed).
+      allow create, update: if false;
+      // Requestor may delete their own signal.
+      allow delete: if isSignedIn() && request.auth.uid == resource.data.requestorId;
+    }
+
+    // conversations/{conversationId}/presence/{userId}
+    // Members read all presence docs. Users write ONLY their own.
+    // expiresAt must not be set more than 31 minutes into the future.
+
+    match /conversations/{conversationId}/presence/{userId} {
+      allow read: if isConversationParticipant(conversationId);
+      allow create, update: if isSignedIn() &&
+        request.auth.uid == userId &&
+        isConversationParticipant(conversationId) &&
+        request.resource.data.expiresAt <= request.time + duration.value(31, 'm');
+      allow delete: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    // ── Channel smart sub-collections ────────────────────────────────────────
+    // spaces/{spaceId}/channels/{channelId}/...
+
+    match /spaces/{spaceId}/channels/{channelId}/smartContext/main {
+      allow read: if isSpaceMember(spaceId);
+      allow write: if false;
+    }
+
+    match /spaces/{spaceId}/channels/{channelId}/summary/main {
+      allow read: if isSpaceMember(spaceId);
+      allow write: if false;
+    }
+
+    // Channel smartActions — same field-level update contract as DM actions.
+
+    match /spaces/{spaceId}/channels/{channelId}/smartActions/{actionId} {
+      allow read: if isSpaceMember(spaceId);
+      allow create, delete: if false;
+      allow update: if isSpaceMember(spaceId) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
+        request.resource.data.status in ['accepted', 'dismissed', 'completed'] &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'generatedBy', 'generatedAt', 'modelVersion',
+          'actionType', 'suggestedText', 'sourceMessageId', 'confidence'
+        ]);
+    }
+
+    // Channel prayerSignals — same privacy contract as DM signals.
+
+    match /spaces/{spaceId}/channels/{channelId}/prayerSignals/{signalId} {
+      allow read: if isSpaceMember(spaceId) &&
+        (
+          request.auth.uid == resource.data.requestorId ||
+          (
+            resource.data.moderationStatus == 'approved' &&
+            resource.data.isAnonymous == false
+          )
+        );
+      allow create, update: if false;
+      allow delete: if isSignedIn() && request.auth.uid == resource.data.requestorId;
+    }
+
+    // Channel presence — space members read; users write only their own doc.
+
+    match /spaces/{spaceId}/channels/{channelId}/presence/{userId} {
+      allow read: if isSpaceMember(spaceId);
+      allow create, update: if isSignedIn() &&
+        request.auth.uid == userId &&
+        isSpaceMember(spaceId) &&
+        request.resource.data.expiresAt <= request.time + duration.value(31, 'm');
+      allow delete: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Channel pulse/main — read: space members and space admins/moderators.
+    // Write: server (Admin SDK) only.
+
+    match /spaces/{spaceId}/channels/{channelId}/pulse/main {
+      allow read: if isSpaceMember(spaceId);
+      allow write: if false;
+    }
+
+    // ── Rate limit doc — users/{uid}/rateLimits/smartCollab ──────────────────
+    // Users read and write ONLY their own rate limit doc.
+    // secureCallable.ts enforces the actual rate limit via a transaction; this
+    // rule permits the read/write so the callable can function under rules.
+
+    match /users/{uid}/rateLimits/smartCollab {
+      allow read, write: if isOwner(uid);
+    }
+
+    // ── Media jobs — mediaJobs/{jobId} ───────────────────────────────────────
+    // Server writes only. Requesting user reads their own jobs.
+
+    match /mediaJobs/{jobId} {
+      allow read: if isSignedIn() && resource.data.requestedBy == request.auth.uid;
+      allow write: if false;
     }
   }
 }

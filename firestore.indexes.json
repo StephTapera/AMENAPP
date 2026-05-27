@@ -2306,6 +2306,50 @@
           "order": "DESCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "posts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "previewDirty",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "previewExpiresAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "dynamicReplyPreviews",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        {
+          "fieldPath": "safetyState",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "expiresAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "featured",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "active",            "order": "ASCENDING" },
+        { "fieldPath": "moderationCleared", "order": "ASCENDING" },
+        { "fieldPath": "order",             "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "continue",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "lastEngagedAt", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": [

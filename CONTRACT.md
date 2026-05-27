@@ -1,5 +1,5 @@
 # Dynamic Reply Preview — Contract
-<!-- VERSION: 1.0.0 — 2026-05-25 -->
+<!-- VERSION: 1.0.2 — 2026-05-27 -->
 
 > **Amendment process**: Any change to this file requires updating the version line at the top.
 > Downstream agents read the version before using any symbol.
@@ -10,7 +10,8 @@
 
 | Role | Status | Exact Path |
 |------|--------|-----------|
-| Post model (Feed) | EXISTS | `AMENAPP/FirebasePostService.swift` — `struct Post` |
+| Post model (Feed) | EXISTS | `AMENAPP/PostsManager.swift` — `struct Post` |
+| FirestorePost DTO / post service | EXISTS | `AMENAPP/FirebasePostService.swift` — `struct FirestorePost`, `class FirebasePostService` |
 | PostCard view | EXISTS | `AMENAPP/PostCard.swift` — `struct PostCard: View` |
 | PostCardRenderModel | EXISTS | `AMENAPP/AMENAPP/PostCardRenderModel.swift` — `struct PostCardRenderModel: Equatable` |
 | Post detail / reply thread | EXISTS | `AMENAPP/PostDetailView.swift` — `struct PostDetailView: View` |
@@ -27,9 +28,15 @@
 | Reply (profile tab only) | EXISTS | `AMENAPP/UserProfileView.swift:98` — `struct Reply: Identifiable` |
 | ReplyThread (profile tab) | EXISTS | `AMENAPP/RepliesModels.swift:98` — `struct ReplyThread: Identifiable` |
 | Navigation router | EXISTS | `AMENAPP/AmenContentRouter.swift` — `final class AmenUniversalContentRouter` |
+| Replies / comments service | EXISTS | `AMENAPP/CommentService.swift` — `class CommentService: ObservableObject` |
+| Follow-graph accessor | EXISTS | `AMENAPP/FollowService.swift` — `class FollowService`, `@Published var following: Set<String>`, `fetchFollowing(userId:)`, `fetchFollowingIds(userId:)` |
+| Post reaction service | EXISTS | `AMENAPP/PostInteractionsService.swift` — `toggleAmen(postId:)`, `toggleLightbulb(postId:)`, `addComment(...)` |
+| Report service | EXISTS | `AMENAPP/ModerationService.swift` — `reportPost(postId:postAuthorId:reason:additionalDetails:)`, `reportComment(...)` |
+| Composer / publish surface | EXISTS | `AMENAPP/CreatePostView.swift` — `publishPost()`, `proceedWithPublish()`, `publishImmediately(...)` |
+| Cloud Functions root | EXISTS | `Backend/functions` — selected by root `firebase.json` (`source: "Backend/functions"`, `runtime: "nodejs22"`, `codebase: "creator"`) |
 | `openReplies` / `showReplyActions` | NOT FOUND — must be built | New methods on router or dedicated PostFeedRouter |
-| New stub model file | MUST BUILD | `AMENAPP/AMENAPP/DynamicReplyPreview.swift` — extend existing file |
-| New ReplyCandidate + ResolvedReplyPreview | MUST BUILD | Same file as above |
+| Reply preview model file | EXISTS | `AMENAPP/AMENAPP/DynamicReplyPreview.swift` |
+| Four reply preview model symbols | MATERIALIZED | `ReplyPreviewType`, `DynamicReplyPreview`, `ReplyCandidate`, `ResolvedReplyPreview` in `AMENAPP/AMENAPP/DynamicReplyPreview.swift` |
 
 ---
 
@@ -82,6 +89,44 @@ struct PostDetailView: View {
 
 Navigation: PostCard presents it via `PostCardSheet.commentsHighlighted(post:replyId:highlightedCommentIds:)` as a sheet. There is no standalone `openReplies(postId:)` method — that must be built.
 
+### Replies Service / Comments Accessor
+
+**Type**: `class CommentService: ObservableObject`
+**File**: `AMENAPP/CommentService.swift`
+**Singleton**: `CommentService.shared`
+
+Key existing APIs:
+```swift
+func addComment(
+    postId: String,
+    content: String,
+    mentionedUserIds: [String]?,
+    post: Post?,
+    threadCategory threadCategoryOverride: String?,
+    momentAnchor: MediaMomentAnchor?
+) async throws -> Comment
+
+func fetchReplies(for commentId: String) async throws -> [Comment]
+func fetchCommentsWithReplies(for postId: String) async throws -> [CommentWithReplies]
+```
+
+### Follow-Graph Accessor
+
+**Type**: `class FollowService: ObservableObject`
+**File**: `AMENAPP/FollowService.swift`
+**Singleton**: `FollowService.shared`
+
+Key existing APIs / state:
+```swift
+@Published var following: Set<String>
+@Published var followers: Set<String>
+
+func fetchFollowing(userId: String) async throws -> [FollowUserProfile]
+func fetchFollowingIds(userId: String) async throws -> [String]
+```
+
+The Dynamic Reply Preview resolver's `viewerFollows` input should use `FollowService.shared.following` for already-loaded current-user state, or `fetchFollowingIds(userId:)` when it needs to load explicitly.
+
 ---
 
 ## 4. Router / Coordinator
@@ -114,6 +159,48 @@ func openReplies(postId: String, highlightedReplyId: String?)
 func showReplyActions(postId: String, replyId: String)
 ```
 
+### Like / Report / Composer Methods
+
+Existing post reaction APIs:
+```swift
+// AMENAPP/PostInteractionsService.swift
+PostInteractionsService.shared.toggleAmen(postId: String) async throws
+PostInteractionsService.shared.toggleLightbulb(postId: String) async throws
+```
+
+Existing report APIs:
+```swift
+// AMENAPP/ModerationService.swift
+ModerationService.shared.reportPost(
+    postId: String,
+    postAuthorId: String,
+    reason: ModerationReportReason,
+    additionalDetails: String?
+) async throws
+
+ModerationService.shared.reportComment(
+    commentId: String,
+    commentAuthorId: String,
+    postId: String,
+    reason: ModerationReportReason,
+    additionalDetails: String?
+) async throws
+```
+
+Existing composer/publish surface:
+```swift
+// AMENAPP/CreatePostView.swift
+private func publishPost()
+private func proceedWithPublish()
+private func publishImmediately(
+    content: String,
+    category: Post.PostCategory,
+    topicTag: String?,
+    allowComments: Bool,
+    linkURL: String?
+)
+```
+
 ---
 
 ## 5. Feature Flags Service
@@ -144,6 +231,7 @@ replyPreviewRotationEnabled = config["reply_preview_rotation_enabled"].boolValue
 
 **Feature flag key** (exact RemoteConfig string): `reply_preview_rotation_enabled`
 **Default**: `false`
+**RemoteConfig wrapper/root**: `AMENAPP/AMENFeatureFlags.swift` (`AMENFeatureFlags.shared`, `fetchRemoteConfig()`, `applyRemoteConfig(_:)`)
 
 Guard pattern:
 ```swift
@@ -256,6 +344,8 @@ AMENAnalyticsService.shared.track(_ event: AMENAnalyticsEvent)
 
 **Backing**: Calls `Analytics.logEvent(event.name, parameters: params)` immediately to Firebase Analytics, then buffers a secondary write to Firestore.
 
+**Logger wrapper/root**: `AMENAPP/AMENAnalyticsService.swift` (`AMENAnalyticsEvent.name`, `AMENAnalyticsEvent.properties`, `AMENAnalyticsService.track(_:)`)
+
 **Event definition pattern**:
 ```swift
 enum AMENAnalyticsEvent {
@@ -268,6 +358,20 @@ enum AMENAnalyticsEvent {
 ---
 
 ## 9. Existing Reply Models (do NOT redefine)
+
+### ReplyPreviewType — ALREADY EXISTS, use as-is
+**File**: `AMENAPP/AMENAPP/DynamicReplyPreview.swift`
+
+```swift
+enum ReplyPreviewType: String, Codable, Equatable, Hashable {
+    case topReply              = "topReply"
+    case followedReply         = "followedReply"
+    case communityPulse        = "communityPulse"
+    case bereanInsight         = "bereanInsight"
+    case prayerMomentum        = "prayerMomentum"
+    case trustedCommunitySignal = "trustedCommunitySignal"
+}
+```
 
 ### DynamicReplyPreview — ALREADY EXISTS, use as-is
 **File**: `AMENAPP/AMENAPP/DynamicReplyPreview.swift`
@@ -350,7 +454,7 @@ struct ReplyThread: Identifiable {
 
 ## 10. New Swift Models
 
-> These are **new** types added to `AMENAPP/AMENAPP/DynamicReplyPreview.swift` (appended, not replacing existing code).
+> These types are materialized in `AMENAPP/AMENAPP/DynamicReplyPreview.swift`. `ReplyPreviewType` and `DynamicReplyPreview` already existed; `ReplyCandidate` and `ResolvedReplyPreview` have been appended without replacing existing code.
 
 ### ReplyCandidate
 Input to the resolver. Represents a raw comment scored upstream by the Cloud Function before selection.
@@ -426,6 +530,21 @@ Path confirmed from `DynamicReplyPreview.swift` doc comment.
 ---
 
 ## 12. Cloud Function Signatures
+
+**Cloud Functions root**: `Backend/functions`
+
+Confirmed by repo-root `firebase.json`:
+```json
+{
+  "functions": [
+    {
+      "source": "Backend/functions",
+      "runtime": "nodejs22",
+      "codebase": "creator"
+    }
+  ]
+}
+```
 
 ```
 onReplyCreate
@@ -597,3 +716,49 @@ Any change to this file requires:
 3. Notifying all parallel agents of the new version before they merge branches.
 
 Downstream agents must read the version line before using any symbol. If their local copy's version does not match, they must re-read this file before proceeding.
+
+## 21. Gap Register (STEP 1 output — 2026-05-27)
+
+Full dependency scan performed against the live repo. Each item marked **PRESENT** or **CLOSED** (was missing, now fixed).
+
+| # | Dependency | Status | Location |
+|---|-----------|--------|---------|
+| G-01 | `replyPreviewRotationEnabled` flag declaration | PRESENT | `AMENFeatureFlags.swift:394` |
+| G-02 | RemoteConfig wiring for flag | PRESENT | `AMENFeatureFlags.swift:2238` |
+| G-03 | `replyPreviewShown` analytics event | PRESENT | `AMENAnalyticsService.swift:114` |
+| G-04 | `replyPreviewTapped` analytics event | PRESENT | `AMENAnalyticsService.swift:115` |
+| G-05 | `replyPreviewType` analytics event | PRESENT | `AMENAnalyticsService.swift:116` |
+| G-06 | `onReplyCreate` Cloud Function | PRESENT | `Backend/functions/src/replyPreview.ts` |
+| G-07 | `rebuildReplyPreviews` Cloud Function | PRESENT | `Backend/functions/src/replyPreview.ts` |
+| G-08 | `openReplies(postId:highlightedReplyId:)` on router | PRESENT | `AmenContentRouter.swift:144` |
+| G-09 | `showReplyActions(postId:replyId:)` on router | PRESENT | `AmenContentRouter.swift:199` |
+| G-10 | `ReplyActionsTarget: Identifiable` | PRESENT | `AmenContentRouter.swift:54` |
+| G-11 | `Post.dynamicReplyPreviewCandidates` field | PRESENT | `PostsManager.swift:358` |
+| G-12 | `LiquidReplyPreviewChip` component | PRESENT | `AMENAPP/AMENAPP/LiquidReplyPreviewChip.swift` |
+| G-13 | `LiquidReplyPreviewRotator` component | PRESENT | `AMENAPP/AMENAPP/LiquidReplyPreviewRotator.swift` |
+| G-14 | `DynamicReplyPreview` model | PRESENT | `AMENAPP/AMENAPP/DynamicReplyPreview.swift` |
+| G-15 | `ReplyCandidate` + `ResolvedReplyPreview` models | PRESENT | `AMENAPP/AMENAPP/DynamicReplyPreview.swift` |
+| G-16 | `dynamicReplyPreviewSection` wired in PostCard body | PRESENT | `PostCard.swift:3897` |
+| G-17 | `ReplyActionsMenuView` with real actions (5 total) | PRESENT | `AMENAPP/AMENAPP/ReplyActionsMenuView.swift` |
+| G-18 | Backend unit tests for resolver/scoring | PRESENT | `Backend/functions/src/generateDynamicReplyPreviews.test.ts` |
+| G-19 | Firestore security rules for `dynamicReplyPreviews` | **CLOSED** | `firestore.rules` — added after `/posts/{postId}/audit` block (2026-05-27) |
+| G-20 | Composite index `posts`: `previewDirty + previewExpiresAt` | **CLOSED** | `firestore.indexes.json` — appended (2026-05-27) |
+| G-21 | `replyPreviewRotationEnabled` default `true` for exercisability | **CLOSED** | `AMENFeatureFlags.swift:394` — flip back to `false` before shipping |
+
+**Note on G-08 / G-09**: Section 1 of this file previously marked these "NOT FOUND — must be built". Recon found real implementations already present. Section 1 and Section 19 carry stale "must be built" language — treated as resolved.
+
+---
+
+## 22. Amendment Log
+
+### 1.0.2 — 2026-05-27
+
+- Added Section 21: Gap Register — full dependency audit, 18 items PRESENT, 3 items CLOSED.
+- Corrected stale "NOT FOUND" status for `openReplies`/`showReplyActions` (G-08/G-09): both exist in `AmenContentRouter.swift`.
+- Bumped version to 1.0.2.
+
+### 1.0.1 — 2026-05-26
+
+- Corrected the Feed `Post` model path to `AMENAPP/PostsManager.swift`; `AMENAPP/FirebasePostService.swift` is the Firestore DTO/service root (`FirestorePost`, `FirebasePostService`).
+- Recorded the real replies service, follow-graph accessor, post reaction APIs, report APIs, composer publish methods, Cloud Functions root, RemoteConfig wrapper, and analytics logger wrapper.
+- Marked all four reply preview model symbols as materialized in `AMENAPP/AMENAPP/DynamicReplyPreview.swift`: `ReplyPreviewType`, `DynamicReplyPreview`, `ReplyCandidate`, and `ResolvedReplyPreview`.
