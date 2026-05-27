@@ -170,11 +170,11 @@ struct AmenCreatorVerificationView: View {
     // MARK: - Submit
 
     private func submit() async {
-        guard selectedType != nil else { return }
+        guard let selectedType else { return }
         submitting = true
         error = nil
         do {
-            try await CovenantService.shared.submitVerificationRequest(type: selectedType!)
+            try await CovenantService.shared.submitVerificationRequest(type: selectedType)
             submitted = true
         } catch {
             self.error = error.localizedDescription

@@ -22,7 +22,7 @@ struct SpiritualMemoryView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if filtered.isEmpty {
                 ContentUnavailableView(
-                    selectedType == nil ? "No Spiritual Memories" : "No \(selectedType!.displayName) Entries",
+                    selectedType.map { "No \($0.displayName) Entries" } ?? "No Spiritual Memories",
                     systemImage: "brain.head.profile",
                     description: Text("As you engage with content, church visits, and study, Selah builds a private spiritual memory.")
                 )

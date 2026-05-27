@@ -119,8 +119,11 @@ final class LivingSermonViewModel: ObservableObject {
 
     private func startTimer() {
         timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            guard let self = self, self.isCapturing else { return }
-            self.elapsedSeconds += 1
+            guard let self else { return }
+            Task { @MainActor [self] in
+                guard self.isCapturing else { return }
+                self.elapsedSeconds += 1
+            }
         }
     }
 
@@ -216,7 +219,7 @@ struct LivingSermonView: View {
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottom) {
-                Color.white.ignoresSafeArea()
+                AmenTheme.Colors.backgroundPrimary.ignoresSafeArea()
 
                 VStack(spacing: 0) {
                     // Top status bar
@@ -280,7 +283,7 @@ struct LivingSermonView: View {
                     } label: {
                         Image(systemName: "xmark")
                             .font(.systemScaled(14, weight: .semibold))
-                            .foregroundColor(.black)
+                            .foregroundColor(AmenTheme.Colors.textPrimary)
                             .padding(8)
                             .background(
                                 Circle()
@@ -296,7 +299,7 @@ struct LivingSermonView: View {
                     } label: {
                         Text(vm.isCapturing ? "Pause" : "Resume")
                             .font(AMENFont.semiBold(13))
-                            .foregroundColor(.black)
+                            .foregroundColor(AmenTheme.Colors.textPrimary)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 6)
                             .background(
@@ -328,7 +331,7 @@ private struct SermonStatusBar: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Grace Community Church")
                         .font(AMENFont.semiBold(12))
-                        .foregroundColor(.black)
+                        .foregroundColor(AmenTheme.Colors.textPrimary)
                         .lineLimit(1)
                     Text("Pastor David Williams")
                         .font(AMENFont.regular(10))
@@ -351,7 +354,7 @@ private struct SermonStatusBar: View {
             // Elapsed time
             Text(vm.formatTime(vm.elapsedSeconds))
                 .font(AMENFont.semiBold(13))
-                .foregroundColor(.black)
+                .foregroundColor(AmenTheme.Colors.textPrimary)
                 .monospacedDigit()
 
             // REC indicator
@@ -453,7 +456,7 @@ struct SermonLiveCaptureBar: View {
             // Text field
             TextField("Type your notes...", text: $inputText, axis: .vertical)
                 .font(AMENFont.regular(14))
-                .foregroundColor(.black)
+                .foregroundColor(AmenTheme.Colors.textPrimary)
                 .lineLimit(1...4)
                 .focused($isFocused)
 
@@ -535,7 +538,7 @@ private struct SermonWaveformStrip: View {
             }
         }
         .onAppear { animateWaveform() }
-        .onChange(of: isActive) { active in
+        .onChange(of: isActive) { _, active in
             if active { animateWaveform() }
         }
     }
@@ -598,7 +601,7 @@ private struct SermonCaptureTab: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
                 }
-                .onChange(of: vm.notes.count) { _ in
+                .onChange(of: vm.notes.count) { _, _ in
                     if let last = vm.notes.last {
                         withAnimation(.easeOut(duration: 0.3)) {
                             proxy.scrollTo(last.id, anchor: .bottom)
@@ -612,7 +615,7 @@ private struct SermonCaptureTab: View {
                 .padding(.horizontal, 16)
                 .padding(.bottom, 4)
         }
-        .onChange(of: inputText) { text in
+        .onChange(of: inputText) { _, text in
             let hasVersePattern = text.range(of: #"(\d?\s?[A-Za-z]+)\s(\d+):(\d+)"#, options: .regularExpression) != nil
             withAnimation(.easeInOut(duration: 0.25)) {
                 showScriptureBadge = hasVersePattern && !text.isEmpty
@@ -669,7 +672,7 @@ private struct NoteCardRow: View {
 
             Text(note.text)
                 .font(AMENFont.regular(14))
-                .foregroundColor(.black)
+                .foregroundColor(AmenTheme.Colors.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
 
             // Detected verse badge
@@ -710,7 +713,7 @@ private struct NoteCardRow: View {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(.ultraThinMaterial)
                 .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(
-                    note.highlightType != nil ? note.highlightType!.color : Color.white.opacity(0.55)
+                    note.highlightType?.color ?? Color.white.opacity(0.55)
                 ))
                 .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.06), radius: 12, x: 0, y: 3)
@@ -742,7 +745,7 @@ private struct HighlightPickerChip: View {
                     .font(.systemScaled(12))
                 Text(type.label)
                     .font(AMENFont.semiBold(11))
-                    .foregroundColor(.black)
+                    .foregroundColor(AmenTheme.Colors.textPrimary)
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
@@ -834,7 +837,7 @@ private struct SermonTranscriptTab: View {
             HStack(spacing: 8) {
                 Text("Live Transcript")
                     .font(AMENFont.bold(16))
-                    .foregroundColor(.black)
+                    .foregroundColor(AmenTheme.Colors.textPrimary)
 
                 Spacer()
 
@@ -886,7 +889,7 @@ private struct SermonTranscriptTab: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 4)
                 }
-                .onChange(of: vm.transcript.count) { _ in
+                .onChange(of: vm.transcript.count) { _, _ in
                     withAnimation(.easeOut(duration: 0.3)) {
                         proxy.scrollTo("listening", anchor: .bottom)
                     }
@@ -915,7 +918,7 @@ private struct LivingTranscriptSegmentRow: View {
 
                     Text(segment.text)
                         .font(AMENFont.regular(14))
-                        .foregroundColor(.black)
+                        .foregroundColor(AmenTheme.Colors.textPrimary)
                         .fixedSize(horizontal: false, vertical: true)
                         .multilineTextAlignment(.leading)
                 }
@@ -1067,7 +1070,7 @@ private struct SermonArcCard: View {
             HStack {
                 Text("Sermon Arc")
                     .font(AMENFont.bold(15))
-                    .foregroundColor(.black)
+                    .foregroundColor(AmenTheme.Colors.textPrimary)
                 Spacer()
                 Text("Engagement Over Time")
                     .font(AMENFont.regular(11))
@@ -1137,7 +1140,7 @@ private struct SermonThemeCloud: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Detected Themes")
                 .font(AMENFont.bold(15))
-                .foregroundColor(.black)
+                .foregroundColor(AmenTheme.Colors.textPrimary)
 
             SermonFlowLayout(spacing: 8) {
                 ForEach(themes) { tag in
@@ -1195,7 +1198,6 @@ private struct SermonFlowLayout: Layout {
     }
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let maxWidth = bounds.width
         var x: CGFloat = bounds.minX, y: CGFloat = bounds.minY, rowH: CGFloat = 0
         var rowViews: [(Subviews.Element, CGSize, CGFloat)] = []
 
@@ -1231,11 +1233,11 @@ private struct ScriptureDensityBar: View {
             HStack {
                 Text("Scripture Density")
                     .font(AMENFont.bold(15))
-                    .foregroundColor(.black)
+                    .foregroundColor(AmenTheme.Colors.textPrimary)
                 Spacer()
                 Text("\(Int(density * 100))%")
                     .font(AMENFont.semiBold(14))
-                    .foregroundColor(.black)
+                    .foregroundColor(AmenTheme.Colors.textPrimary)
             }
 
             GeometryReader { geo in
@@ -1280,7 +1282,7 @@ private struct KeyMomentsCard: View {
             HStack {
                 Text("Key Moments")
                     .font(AMENFont.bold(15))
-                    .foregroundColor(.black)
+                    .foregroundColor(AmenTheme.Colors.textPrimary)
                 Spacer()
                 Text("\(notes.count) starred")
                     .font(AMENFont.regular(12))
@@ -1303,7 +1305,7 @@ private struct KeyMomentsCard: View {
 
                         Text(note.text)
                             .font(AMENFont.regular(13))
-                            .foregroundColor(.black)
+                            .foregroundColor(AmenTheme.Colors.textPrimary)
                             .lineLimit(2)
                             .fixedSize(horizontal: false, vertical: true)
 
@@ -1359,7 +1361,7 @@ private struct SermonCommunityTab: View {
                     HStack {
                         Text("Others in This Service")
                             .font(AMENFont.bold(15))
-                            .foregroundColor(.black)
+                            .foregroundColor(AmenTheme.Colors.textPrimary)
                         Spacer()
                         Text("\(communityMembers.count + 7)")
                             .font(AMENFont.semiBold(12))
@@ -1384,12 +1386,12 @@ private struct SermonCommunityTab: View {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Share a Thought")
                         .font(AMENFont.bold(15))
-                        .foregroundColor(.black)
+                        .foregroundColor(AmenTheme.Colors.textPrimary)
 
                     HStack(spacing: 10) {
                         TextField("Post to service...", text: $thoughtText)
                             .font(AMENFont.regular(14))
-                            .foregroundColor(.black)
+                            .foregroundColor(AmenTheme.Colors.textPrimary)
 
                         Button {
                             thoughtText = ""
@@ -1456,7 +1458,7 @@ private struct LiveReactionsStrip: View {
                 .font(.systemScaled(15))
             Text("\(count)")
                 .font(AMENFont.semiBold(13))
-                .foregroundColor(.black)
+                .foregroundColor(AmenTheme.Colors.textPrimary)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
@@ -1489,13 +1491,13 @@ private struct CommunityMemberRow: View {
                     .shadow(color: .black.opacity(0.06), radius: 8, x: 0, y: 2)
                 Text(initials)
                     .font(AMENFont.bold(13))
-                    .foregroundColor(.black)
+                    .foregroundColor(AmenTheme.Colors.textPrimary)
             }
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(name)
                     .font(AMENFont.semiBold(13))
-                    .foregroundColor(.black)
+                    .foregroundColor(AmenTheme.Colors.textPrimary)
                 Text(note)
                     .font(AMENFont.regular(12))
                     .foregroundColor(Color(white: 0.45))
@@ -1524,7 +1526,7 @@ private struct SmartInviteCard: View {
                     .foregroundColor(Color(white: 0.45))
                 Text("Invite to This Sermon")
                     .font(AMENFont.bold(15))
-                    .foregroundColor(.black)
+                    .foregroundColor(AmenTheme.Colors.textPrimary)
             }
 
             Text("Share this live sermon with someone who needs to hear it today.")
@@ -1543,7 +1545,7 @@ private struct SmartInviteCard: View {
                         Text("Copy Link")
                             .font(AMENFont.semiBold(13))
                     }
-                    .foregroundColor(.black)
+                    .foregroundColor(AmenTheme.Colors.textPrimary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 9)
                     .background(
@@ -1557,7 +1559,7 @@ private struct SmartInviteCard: View {
                 .buttonStyle(GlassPressStyle())
 
                 // Share button
-                ShareLink(item: URL(string: "https://amenapp.com/live/grace-community")!) {
+                ShareLink(item: URL(string: "https://amenapp.com/live/grace-community") ?? URL(fileURLWithPath: "/")) {
                     HStack(spacing: 6) {
                         Image(systemName: "square.and.arrow.up")
                             .font(.systemScaled(12))
