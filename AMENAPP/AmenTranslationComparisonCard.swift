@@ -11,7 +11,7 @@ struct AmenTranslationComparisonCard: View {
     var translationOrder: [String] = ["ESV", "NIV", "KJV", "NLT"]
     var onDismiss: (() -> Void)? = nil
 
-    @StateObject private var service = BereanTranslationComparisonService.shared
+    @ObservedObject private var service = BereanTranslationComparisonService.shared
     @State private var comparison: TranslationComparison? = nil
     @State private var loadError: String? = nil
     @State private var selectedTranslation: String? = nil

@@ -9,7 +9,7 @@ struct StudioProfileView: View {
     let userId: String
     var isOwnProfile: Bool = false
 
-    @StateObject private var service = StudioDataService.shared
+    @ObservedObject private var service = StudioDataService.shared
     @State private var profile: StudioProfile?
     @State private var workItems: [StudioWorkItem] = []
     @State private var services: [StudioService_] = []

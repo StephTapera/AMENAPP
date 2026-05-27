@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct PrayerChainView: View {
-    @StateObject private var service = PrayerChainService.shared
+    @ObservedObject private var service = PrayerChainService.shared
     @State private var showCreateSheet = false
     @State private var selectedChain: PrayerChain?
 

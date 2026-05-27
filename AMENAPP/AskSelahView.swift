@@ -13,7 +13,7 @@ struct AskSelahView: View {
     let initialQuery: String
     let initialVerses: [String]
 
-    @StateObject private var selahService = SelahService.shared
+    @ObservedObject private var selahService = SelahService.shared
     @State private var query = ""
     @State private var isStreaming = false
     @State private var streamedContent = ""

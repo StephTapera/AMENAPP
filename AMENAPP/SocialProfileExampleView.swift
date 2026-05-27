@@ -12,7 +12,7 @@ import SwiftUI
 /// Example view demonstrating how to use the new social features
 struct SocialProfileExampleView: View {
     @StateObject private var userService = UserService()
-    @StateObject private var socialService = SocialService.shared
+    @ObservedObject private var socialService = SocialService.shared
     
     @State private var showProfilePicker = false
     @State private var showFollowersList = false

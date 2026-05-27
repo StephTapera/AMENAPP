@@ -12,8 +12,8 @@ import FirebaseAuth
 
 /// Debug view for monitoring all post interactions
 struct PostInteractionsDebugView: View {
-    @StateObject private var interactionsService = PostInteractionsService.shared
-    @StateObject private var savedPostsService = RealtimeSavedPostsService.shared
+    @ObservedObject private var interactionsService = PostInteractionsService.shared
+    @ObservedObject private var savedPostsService = RealtimeSavedPostsService.shared
     @State private var selectedTab: DebugTab = .lightbulbs
     @State private var isRefreshing = false
     

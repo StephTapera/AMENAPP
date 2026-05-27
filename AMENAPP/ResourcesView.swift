@@ -14,6 +14,9 @@ struct ResourcesView: View {
     @ObservedObject private var supportCoordinator = SupportIntelligenceCoordinator.shared
     @State private var searchText = ""
     @State private var selectedCategory: ResourceCategory = .all
+    @State private var showMediaHub = false
+    @State private var showCreatorSpaces = false
+    @State private var showSelah = false
     @FocusState private var isSearchFocused: Bool
     @State private var keyboardHeight: CGFloat = 0
     @State private var scrollToResults = false
@@ -31,6 +34,7 @@ struct ResourcesView: View {
     // Scroll-collapse — same pattern as MessagesView
     @State private var scrollOffset: CGFloat = 0
     @State private var showHeader: Bool = true
+    @State private var navigateToWalkWithChrist = false
     @Environment(\.tabBarVisible) private var tabBarVisible
     
     /// Drives category pills compression — 0 = fully visible, 1 = fully hidden
@@ -78,6 +82,7 @@ struct ResourcesView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(spacing: 0) {
+                        Color.clear.frame(height: 0).id("amenLibraryTop")
                         // Zero-height scroll offset reader — must be first child
                         GeometryReader { geo in
                             Color.clear.preference(
@@ -108,7 +113,8 @@ struct ResourcesView: View {
                                     withAnimation(.easeOut(duration: 0.2)) {
                                         proxy.scrollTo("searchResults", anchor: .top)
                                     }
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                                    Task {
+                                        try? await Task.sleep(nanoseconds: 250_000_000)
                                         scrollToResults = false
                                     }
                                 }
@@ -128,6 +134,16 @@ struct ResourcesView: View {
                         if isSearchFocused { isSearchFocused = false }
                     }
                 )
+                .onReceive(NotificationCenter.default.publisher(for: .libraryTabTapped)) { _ in
+                    withAnimation(.easeOut(duration: 0.18)) {
+                        proxy.scrollTo("amenLibraryTop", anchor: .top)
+                    }
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .libraryTabRecentlySaved)) { _ in
+                    withAnimation(.easeOut(duration: 0.18)) {
+                        proxy.scrollTo("searchResults", anchor: .top)
+                    }
+                }
             }
             .scrollEdgeTopBlur(scrollOffset: scrollOffset)
             .navigationBarHidden(true)
@@ -148,6 +164,32 @@ struct ResourcesView: View {
             .onChange(of: searchText) { _, query in
                 handleSupportSearchChange(query)
             }
+            .navigationDestination(isPresented: $navigateToWalkWithChrist) {
+                WalkWithChristView()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .openWalkWithChristFromNotification)) { _ in
+            navigateToWalkWithChrist = true
+        }
+        .fullScreenCover(isPresented: $showMediaHub) {
+            AmenMediaTabView()
+        }
+        .fullScreenCover(isPresented: $showCreatorSpaces) {
+            CreatorSpacesHub()
+        }
+        .sheet(isPresented: $showSelah) {
+            let verse = DailyVerseGenkitService.shared.todayVerse
+            let content = verse.map { "\($0.reference)\n\n\($0.text)\n\n\($0.reflection)" }
+                ?? "The Lord is my shepherd; I shall not want.\n— Psalm 23:1\n\nPause here. Let this truth settle. What does it mean to lack nothing when you trust the Shepherd?"
+            SelahView(
+                message: BereanMessage(
+                    content: content,
+                    role: .assistant,
+                    timestamp: Date(),
+                    verseReferences: verse.map { [$0.reference] } ?? ["Psalm 23:1"]
+                ),
+                originalQuery: verse?.reference ?? "Psalm 23:1"
+            )
         }
     }
 
@@ -407,6 +449,19 @@ struct ResourcesView: View {
     private var contentView: some View {
         VStack(alignment: .leading, spacing: 28) {
 
+            // ── Creator Spaces — shown for All and Tools categories ──
+            if featureFlags.creatorSpacesEnabled &&
+               (selectedCategory == .all || selectedCategory == .tools) {
+                creatorSpacesCard
+                    .padding(.horizontal)
+            }
+
+            // ── Media Hub — shown for All and Learning categories ──
+            if selectedCategory == .all || selectedCategory == .learning {
+                mediaHubCard
+                    .padding(.horizontal)
+            }
+
             // ── Disaster Alerts — shown for All and Crisis categories ──
             if selectedCategory == .all || selectedCategory == .crisis {
                 DisasterResourcesSection()
@@ -555,6 +610,60 @@ struct ResourcesView: View {
                         .buttonStyle(ResourceCardPressStyle())
                     }
                     .padding(.horizontal, 20)
+
+                    // Selah — standalone devotional reading entry
+                    if AMENFeatureFlags.shared.selahScriptureActionsEnabled {
+                        Button { showSelah = true } label: {
+                            HStack(spacing: 14) {
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .fill(LinearGradient(
+                                            colors: [Color(hex: "6366F1").opacity(0.85), Color(hex: "818CF8").opacity(0.60)],
+                                            startPoint: .topLeading, endPoint: .bottomTrailing
+                                        ))
+                                        .frame(width: 38, height: 38)
+                                    Image(systemName: "pause.rectangle.fill")
+                                        .font(.systemScaled(16, weight: .medium))
+                                        .foregroundColor(.white)
+                                }
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text("Selah")
+                                        .font(.systemScaled(14, weight: .semibold))
+                                        .foregroundColor(.primary)
+                                    Text("Pause, reflect & go deeper in Scripture")
+                                        .font(.systemScaled(11))
+                                        .foregroundColor(.secondary)
+                                        .lineLimit(2)
+                                }
+                                Spacer()
+                                HStack(spacing: 3) {
+                                    Text("Open")
+                                        .font(.systemScaled(11, weight: .medium))
+                                        .foregroundColor(Color(hex: "6366F1"))
+                                    Image(systemName: "arrow.right")
+                                        .font(.systemScaled(9, weight: .semibold))
+                                        .foregroundColor(Color(hex: "6366F1"))
+                                }
+                            }
+                            .padding(14)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 18)
+                                    .strokeBorder(
+                                        LinearGradient(
+                                            colors: [Color(hex: "6366F1").opacity(0.35), Color.white.opacity(0.10)],
+                                            startPoint: .topLeading, endPoint: .bottomTrailing
+                                        ),
+                                        lineWidth: 0.75
+                                    )
+                            )
+                            .shadow(color: Color(hex: "6366F1").opacity(0.08), radius: 12, x: 0, y: 4)
+                            .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
+                        }
+                        .buttonStyle(ResourceCardPressStyle())
+                        .padding(.horizontal, 20)
+                    }
                 }
             }
 
@@ -565,6 +674,44 @@ struct ResourcesView: View {
                         AMENConnectBanner()
                     }
                     .buttonStyle(ResourceCardPressStyle())
+                    .padding(.horizontal, 20)
+                }
+            }
+
+            // ── Amen OS ──
+            if selectedCategory == .all || selectedCategory == .community || selectedCategory == .tools {
+                resourceSection(title: "Amen OS", subtitle: "Context-aware social intelligence") {
+                    VStack(spacing: 10) {
+                        NavigationLink(destination: AmenCompanionView()) {
+                            CompactResourceRow(
+                                icon: "location.circle.fill",
+                                iconColors: [Color(hex: "3B82F6"), Color(hex: "60A5FA")],
+                                title: "Amen Companion",
+                                subtitle: "Church discovery, visit plans & safe connections"
+                            )
+                        }
+                        .buttonStyle(ResourceCardPressStyle())
+
+                        NavigationLink(destination: SpatialSocialView()) {
+                            CompactResourceRow(
+                                icon: "person.3.sequence.fill",
+                                iconColors: [Color(hex: "8B5CF6"), Color(hex: "A78BFA")],
+                                title: "Social OS",
+                                subtitle: "Context-aware gatherings & introductions"
+                            )
+                        }
+                        .buttonStyle(ResourceCardPressStyle())
+
+                        NavigationLink(destination: LivingComposerView()) {
+                            CompactResourceRow(
+                                icon: "pencil.and.sparkles",
+                                iconColors: [Color(hex: "EC4899"), Color(hex: "F472B6")],
+                                title: "Smart Composer",
+                                subtitle: "Intelligent, context-aware posting"
+                            )
+                        }
+                        .buttonStyle(ResourceCardPressStyle())
+                    }
                     .padding(.horizontal, 20)
                 }
             }
@@ -610,6 +757,48 @@ struct ResourcesView: View {
                 }
             }
             
+            // ── Wellness & Community ── compact rows ─────────────────────
+            if selectedCategory == .all || selectedCategory == .mentalHealth || selectedCategory == .giving || selectedCategory == .community {
+                resourceSection(title: "Wellness & Community") {
+                    VStack(spacing: 10) {
+                        if selectedCategory == .all || selectedCategory == .mentalHealth {
+                            NavigationLink(destination: WellnessLibraryView()) {
+                                CompactResourceRow(
+                                    icon: "heart.text.square.fill",
+                                    iconColors: [Color(red: 0.10, green: 0.60, blue: 0.56), Color(red: 0.14, green: 0.68, blue: 0.62)],
+                                    title: "Wellness Library",
+                                    subtitle: "Tools, practices & spiritual care"
+                                )
+                            }
+                            .buttonStyle(ResourceCardPressStyle())
+                        }
+                        if selectedCategory == .all || selectedCategory == .giving {
+                            NavigationLink(destination: GivingNonprofitsDetailView()) {
+                                CompactResourceRow(
+                                    icon: "dollarsign.circle.fill",
+                                    iconColors: [Color(red: 0.83, green: 0.69, blue: 0.22), Color(red: 0.90, green: 0.76, blue: 0.35)],
+                                    title: "Giving Goals",
+                                    subtitle: "Track & automate your generosity"
+                                )
+                            }
+                            .buttonStyle(ResourceCardPressStyle())
+                        }
+                        if selectedCategory == .all || selectedCategory == .community {
+                            NavigationLink(destination: MentalHealthDetailView()) {
+                                CompactResourceRow(
+                                    icon: "person.3.fill",
+                                    iconColors: [Color(red: 0.60, green: 0.50, blue: 0.90), Color(red: 0.70, green: 0.60, blue: 0.95)],
+                                    title: "Support Groups",
+                                    subtitle: "Find faith-based support communities"
+                                )
+                            }
+                            .buttonStyle(ResourceCardPressStyle())
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                }
+            }
+
             // ── Grow + Journey + Wisdom + Media ── compact rows ──────────
             if selectedCategory == .all || selectedCategory == .learning || selectedCategory == .community {
                 resourceSection(title: "Faith & Learning") {
@@ -702,7 +891,120 @@ struct ResourcesView: View {
         .padding(.top, 4)
         .padding(.bottom, 32)
     }
-    
+
+    // MARK: - Creator Spaces Card
+
+    private var creatorSpacesCard: some View {
+        Button { showCreatorSpaces = true } label: {
+            HStack(spacing: 16) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 14)
+                        .fill(
+                            LinearGradient(
+                                colors: [Color(red: 0.10, green: 0.12, blue: 0.22), Color(red: 0.20, green: 0.15, blue: 0.35)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 56, height: 56)
+                    Image(systemName: "camera.on.rectangle.fill")
+                        .font(.system(size: 22, weight: .medium))
+                        .foregroundStyle(Color(red: 0.83, green: 0.69, blue: 0.22))
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        Text("Creator Spaces")
+                            .font(.subheadline)
+                            .fontWeight(.bold)
+                            .foregroundStyle(.primary)
+                        Text("NEW")
+                            .font(.caption2)
+                            .fontWeight(.heavy)
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color(red: 0.83, green: 0.69, blue: 0.22), in: Capsule())
+                    }
+                    Text("Capture, create, and publish with provenance.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(16)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .strokeBorder(Color(red: 0.83, green: 0.69, blue: 0.22).opacity(0.25), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Media Hub Card
+
+    private var mediaHubCard: some View {
+        Button { showMediaHub = true } label: {
+            ZStack(alignment: .bottomLeading) {
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.042, green: 0.228, blue: 0.235),
+                        Color(red: 0.132, green: 0.432, blue: 0.376)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 22))
+
+                // Subtle specular highlight
+                RoundedRectangle(cornerRadius: 22)
+                    .fill(
+                        LinearGradient(
+                            colors: [.white.opacity(0.14), .white.opacity(0.0)],
+                            startPoint: .topLeading, endPoint: .center
+                        )
+                    )
+
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "play.circle.fill")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(Color(red: 0.4, green: 0.9, blue: 0.7))
+                        Text("MEDIA")
+                            .font(.custom("OpenSans-SemiBold", size: 11))
+                            .foregroundStyle(Color(red: 0.4, green: 0.9, blue: 0.7))
+                            .tracking(1.4)
+                    }
+
+                    Text("Watch & Listen")
+                        .font(.custom("OpenSans-Bold", size: 24))
+                        .foregroundStyle(.white)
+
+                    Text("Sermons, testimonies, and curated media — every session is finite.")
+                        .font(.custom("OpenSans-Regular", size: 13))
+                        .foregroundStyle(.white.opacity(0.72))
+                        .lineLimit(2)
+                }
+                .padding(20)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 140)
+            .overlay(
+                RoundedRectangle(cornerRadius: 22)
+                    .stroke(.white.opacity(0.18), lineWidth: 0.8)
+            )
+            .shadow(color: Color(red: 0.042, green: 0.228, blue: 0.235).opacity(0.4), radius: 14, x: 0, y: 6)
+        }
+        .buttonStyle(.plain)
+    }
+
     // MARK: - Section builder helper
     @ViewBuilder
     private func resourceSection<Content: View>(title: String, subtitle: String? = nil, @ViewBuilder content: () -> Content) -> some View {
@@ -1245,10 +1547,11 @@ struct FeaturedBanner: View {
     let subtitle: String
     let description: String
     let gradientColors: [Color]
-    
+
     @State private var shimmerPhase: CGFloat = 0
     @State private var isHovered = false
     @State private var isVisible = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -1376,7 +1679,7 @@ struct FeaturedBanner: View {
             isVisible = true
             // P1 FIX: Only run shimmer while visible. The previous unconditional
             // repeatForever kept the animation alive even off-screen, wasting CPU.
-            guard isVisible else { return }
+            guard isVisible && !reduceMotion else { return }
             withAnimation(.linear(duration: 3).repeatForever(autoreverses: false)) {
                 shimmerPhase = 400
             }
@@ -1513,14 +1816,7 @@ struct LiquidGlassConnectCard: View {
                     }
             )
             .sheet(isPresented: $showOnboarding) {
-                if title == "Christian Dating" {
-                    ResourceComingSoonPlaceholder(
-                        title: "Christian Dating",
-                        icon: "heart.text.square.fill",
-                        iconColor: .pink,
-                        description: "Meet fellow believers looking for meaningful relationships built on shared faith and values. Our Christian dating feature will help you find your match in Christ."
-                    )
-                } else if title == "Find Friends" {
+                if title == "Find Friends" {
                     ResourceComingSoonPlaceholder(
                         title: "Find Friends",
                         icon: "person.2.fill",
@@ -1854,11 +2150,11 @@ struct PlaceholderResourceView: View {
                 }
                 
                 VStack(alignment: .leading, spacing: 16) {
-                    Text("Coming Soon")
+                    Text("Resource Guide")
                         .font(AMENFont.bold(20))
                         .foregroundStyle(.primary)
                     
-                    Text("This feature is currently under development. Check back soon for updates!")
+                    Text("Use the cards and search tools on this page to find practical next steps, local support, and faith-centered resources.")
                         .font(AMENFont.regular(15))
                         .foregroundStyle(.secondary)
                         .lineSpacing(4)
@@ -1929,8 +2225,8 @@ let allResources: [ResourceItem] = [
     ResourceItem(
         icon: "person.2.fill",
         iconColor: .green,
-        title: "AMEN Connect",
-        description: "Connect with believers, ministries, and local opportunities",
+        title: "Amen Connect",
+        description: "Community spaces, announcements, discussions, meetings, events, jobs, help, and safe group communication.",
         category: "Community"
     ),
     
@@ -1973,6 +2269,13 @@ let allResources: [ResourceItem] = [
         title: "Church Tools",
         description: "Church notes and discovery tools for Sunday and beyond",
         category: "Tools"
+    ),
+    ResourceItem(
+        icon: "pause.rectangle.fill",
+        iconColor: Color(hex: "6366F1"),
+        title: "Selah",
+        description: "Pause, reflect, and go deeper in Scripture with AI-guided reading",
+        category: "Tools"
     )
 ]
 
@@ -1985,8 +2288,9 @@ struct CompactConnectBanner: View {
     let subtitle: String
     let badge: String?
     let gradientColors: [Color]
-    
+
     @State private var shimmerPhase: CGFloat = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     
     var body: some View {
         HStack(spacing: 14) {
@@ -2087,8 +2391,10 @@ struct CompactConnectBanner: View {
         .shadow(color: .black.opacity(0.08), radius: 4, x: 0, y: 2)
         .padding(.horizontal)
         .onAppear {
-            withAnimation(.linear(duration: 3).repeatForever(autoreverses: false)) {
-                shimmerPhase = 400
+            if !reduceMotion {
+                withAnimation(.linear(duration: 3).repeatForever(autoreverses: false)) {
+                    shimmerPhase = 400
+                }
             }
         }
     }
@@ -2176,68 +2482,26 @@ struct ResourcesSegmentButtonStyle: ButtonStyle {
     }
 }
 
-// MARK: - Christian Dating Banner Button (Coming Soon)
-
-struct ChristianDatingBannerButton: View {
-    @State private var showComingSoon = false
-    
-    var body: some View {
-        Button {
-            showComingSoon = true
-        } label: {
-            CompactConnectBanner(
-                icon: "heart.text.square.fill",
-                iconColor: .pink,
-                title: "Christian Dating",
-                subtitle: "Find your match in faith",
-                badge: "Coming Soon",
-                gradientColors: [Color.pink, Color.red]
-            )
-        }
-        .buttonStyle(PlainButtonStyle())
-        .sheet(isPresented: $showComingSoon) {
-            ResourceComingSoonPlaceholder(
-                title: "Christian Dating",
-                icon: "heart.text.square.fill",
-                iconColor: .pink,
-                description: "Meet fellow believers looking for meaningful relationships built on shared faith and values. Our Christian dating feature will help you find your match in Christ."
-            )
-        }
-    }
-}
-
-// MARK: - Find Friends Banner Button (Coming Soon)
+// MARK: - Find Friends Banner
 
 struct FindFriendsBannerButton: View {
-    @State private var showComingSoon = false
-    
     var body: some View {
-        Button {
-            showComingSoon = true
-        } label: {
-            CompactConnectBanner(
-                icon: "person.2.fill",
-                iconColor: .blue,
-                title: "Find Friends",
-                subtitle: "Build meaningful connections",
-                badge: "Coming Soon",
-                gradientColors: [Color.blue, Color.cyan]
-            )
-        }
-        .buttonStyle(PlainButtonStyle())
-        .sheet(isPresented: $showComingSoon) {
-            ResourceComingSoonPlaceholder(
-                title: "Find Friends",
-                icon: "person.2.fill",
-                iconColor: .blue,
-                description: "Connect with fellow believers in your area. Build authentic friendships rooted in faith through shared interests, Bible studies, and community activities."
-            )
-        }
+        CompactConnectBanner(
+            icon: "person.2.fill",
+            iconColor: .blue,
+            title: "Find Friends",
+            subtitle: "Build meaningful connections",
+            badge: "Live",
+            gradientColors: [Color.blue, Color.cyan]
+        )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Find Friends")
     }
 }
 
 // MARK: - Featured Community Banner
 struct FeaturedCommunityBanner: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isAnimating = false
     @State private var shimmerPhase: CGFloat = 0
     
@@ -2265,7 +2529,7 @@ struct FeaturedCommunityBanner: View {
                 )
                 .hueRotation(.degrees(isAnimating ? 15 : 0))
                 .animation(
-                    Animation.easeInOut(duration: 3)
+                    reduceMotion ? nil : Animation.easeInOut(duration: 3)
                         .repeatForever(autoreverses: true),
                     value: isAnimating
                 )
@@ -2399,7 +2663,7 @@ struct CommunityStatBadge: View {
     }
 }
 
-// MARK: - Resource Coming Soon Placeholder
+// MARK: - Resource Feature Detail
 
 struct ResourceComingSoonPlaceholder: View {
     @Environment(\.dismiss) var dismiss
@@ -2461,25 +2725,24 @@ struct ResourceComingSoonPlaceholder: View {
                         }
                         
                         VStack(spacing: 16) {
-                            // Coming Soon Badge
                             HStack(spacing: 8) {
-                                Image(systemName: "sparkles")
+                                Image(systemName: "person.2.fill")
                                     .font(.systemScaled(14, weight: .bold))
-                                    .foregroundStyle(.orange)
+                                    .foregroundStyle(iconColor)
                                 
-                                Text("COMING SOON")
+                                Text("ACTIVE")
                                     .font(AMENFont.bold(14))
-                                    .foregroundStyle(.orange)
+                                    .foregroundStyle(iconColor)
                                     .tracking(2)
                             }
                             .padding(.horizontal, 16)
                             .padding(.vertical, 8)
                             .background(
                                 Capsule()
-                                    .fill(Color.orange.opacity(0.15))
+                                    .fill(iconColor.opacity(0.15))
                                     .overlay(
                                         Capsule()
-                                            .stroke(Color.orange.opacity(0.3), lineWidth: 1.5)
+                                            .stroke(iconColor.opacity(0.3), lineWidth: 1.5)
                                     )
                             )
                             
@@ -2514,7 +2777,7 @@ struct ResourceComingSoonPlaceholder: View {
                             VStack(spacing: 12) {
                                 ResourceFeatureHighlightRow(
                                     icon: "checkmark.circle.fill",
-                                    text: "Full functionality coming soon",
+                                    text: "Available in an upcoming update",
                                     color: iconColor
                                 )
                                 ResourceFeatureHighlightRow(
@@ -2819,7 +3082,8 @@ struct IntelligentSupportActionCard: View {
 struct ShiningBorderView: View {
     let isActive: Bool
     var color: Color = .white
-    
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var rotation: Double = 0
     
     var body: some View {
@@ -2861,7 +3125,7 @@ struct ShiningBorderView: View {
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
             .onAppear {
-                if isActive {
+                if isActive && !reduceMotion {
                     withAnimation(
                         .linear(duration: 4)
                         .repeatForever(autoreverses: false)
@@ -3236,7 +3500,7 @@ struct MediaBannerPressStyle: ButtonStyle {
 // Lives in the "Grow" section of ResourcesView.
 
 struct WalkWithChristEntryCard: View {
-    @StateObject private var store = WalkWithChristStore.shared
+    @ObservedObject private var store = WalkWithChristStore.shared
 
     private let ink   = Color(red: 0.10, green: 0.09, blue: 0.09)
     private let warm  = Color(red: 0.62, green: 0.48, blue: 0.30)

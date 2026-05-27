@@ -10,8 +10,8 @@
 import SwiftUI
 
 struct HeyFeedTuningPill: View {
-    @StateObject private var sessionSvc = HeyFeedSessionModeService.shared
-    @StateObject private var nlService  = HeyFeedNLPreferencesService.shared
+    @ObservedObject private var sessionSvc = HeyFeedSessionModeService.shared
+    @ObservedObject private var nlService  = HeyFeedNLPreferencesService.shared
     @Binding var isVisible: Bool
     @State private var showSheet = false
     @State private var label: String = "Tune feed"

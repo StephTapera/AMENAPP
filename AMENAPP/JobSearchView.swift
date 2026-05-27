@@ -10,7 +10,7 @@ import SwiftUI
 // MARK: - Main Job Search View
 
 struct JobSearchView: View {
-    @StateObject private var service = JobService.shared
+    @ObservedObject private var service = JobService.shared
     @State private var searchText = ""
     @State private var filters = JobSearchFilters()
     @State private var showFilters = false
@@ -229,6 +229,9 @@ struct JobSearchView: View {
             if service.mySeekerProfile == nil {
                 openToWorkEntryCard
             }
+
+            AmenSpaceBannerRail(surface: .jobs, title: "Featured Opportunities")
+                .padding(.bottom, 20)
 
             // Match recommendations
             if !service.matchRecommendations.isEmpty {
@@ -669,7 +672,7 @@ struct JobMatchRecommendationCard: View {
 
 struct JobMinistryQuickSection: View {
     let onJobTap: (String) -> Void
-    @StateObject private var service = JobService.shared
+    @ObservedObject private var service = JobService.shared
     @State private var ministryJobs: [JobListing] = []
 
     var body: some View {
@@ -700,7 +703,7 @@ struct JobMinistryQuickSection: View {
 
 struct JobVolunteerQuickSection: View {
     let onJobTap: (String) -> Void
-    @StateObject private var service = JobService.shared
+    @ObservedObject private var service = JobService.shared
     @State private var volunteerJobs: [JobListing] = []
 
     var body: some View {
