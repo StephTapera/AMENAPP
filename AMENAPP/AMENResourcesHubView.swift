@@ -283,7 +283,7 @@ struct AMENResourcesHubView: View {
 
     private func loadSavedIDs() async {
         guard let col = savedCollection() else { return }
-        guard let snapshot = try? await col.whereField("isSaved", isEqualTo: true).getDocuments() else { return }
+        guard let snapshot = try? await col.whereField("isSaved", isEqualTo: true).limit(to: 100).getDocuments() else { return }
         let ids = Set(snapshot.documents.map { $0.documentID })
         await MainActor.run { savedIDs = ids }
     }
@@ -291,17 +291,29 @@ struct AMENResourcesHubView: View {
     private func toggleSaved(_ item: MediaCardItem) {
         if savedIDs.contains(item.id) {
             savedIDs.remove(item.id)
-            Task { try? await savedCollection()?.document(item.id).delete() }
+            Task {
+                do {
+                    try await savedCollection()?.document(item.id).delete()
+                } catch {
+                    savedIDs.insert(item.id)
+                    dlog("⚠️ AMENResourcesHubView toggleSaved delete: \(error)")
+                }
+            }
         } else {
             savedIDs.insert(item.id)
             Task {
-                try? await savedCollection()?.document(item.id).setData([
-                    "isSaved":    true,
-                    "title":      item.title,
-                    "subtitle":   item.subtitle,
-                    "category":   item.category.rawValue,
-                    "savedAt":    FieldValue.serverTimestamp(),
-                ])
+                do {
+                    try await savedCollection()?.document(item.id).setData([
+                        "isSaved":    true,
+                        "title":      item.title,
+                        "subtitle":   item.subtitle,
+                        "category":   item.category.rawValue,
+                        "savedAt":    FieldValue.serverTimestamp(),
+                    ])
+                } catch {
+                    savedIDs.remove(item.id)
+                    dlog("⚠️ AMENResourcesHubView toggleSaved save: \(error)")
+                }
             }
         }
     }

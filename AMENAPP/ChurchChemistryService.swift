@@ -42,9 +42,9 @@ final class ChurchChemistryService: ObservableObject {
 
     // MARK: - Permission prompt state
     func requestContactPermission(completion: @escaping (Bool) -> Void) {
-        CNContactStore().requestAccess(for: .contacts) { granted, _ in
-            DispatchQueue.main.async {
-                self.contactsAuthorized = granted
+        CNContactStore().requestAccess(for: .contacts) { [weak self] granted, _ in
+            DispatchQueue.main.async { [weak self] in
+                self?.contactsAuthorized = granted
                 completion(granted)
             }
         }
@@ -66,7 +66,8 @@ final class ChurchChemistryService: ObservableObject {
         if let uid = Auth.auth().currentUser?.uid,
            let phone = Auth.auth().currentUser?.phoneNumber {
             let hashed = sha256(normalize(phone))
-            try? await db.document("users/\(uid)").setData(["hashedPhone": hashed], merge: true)
+            do { try await db.document("users/\(uid)").setData(["hashedPhone": hashed], merge: true) }
+            catch { dlog("⚠️ ChurchChemistryService.loadHashedContacts store phone: \(error)") }
         }
     }
 
@@ -79,7 +80,7 @@ final class ChurchChemistryService: ObservableObject {
 
         do {
             // Fetch church member hashed phones
-            let snap = try await db.collection("churches/\(churchId)/memberHashedPhones").getDocuments()
+            let snap = try await db.collection("churches/\(churchId)/memberHashedPhones").limit(to: 1000).getDocuments()
             let churchHashes = Set(snap.documents.compactMap { $0.data()["hash"] as? String })
             let mutual = hashedContactNumbers.intersection(churchHashes).count
 
@@ -89,7 +90,7 @@ final class ChurchChemistryService: ObservableObject {
 
             score = ChemistryScore(mutualCount: mutual, lifeStageMatch: lifeStage, scheduleOverlap: scheduleOverlap)
         } catch {
-            print("ChurchChemistryService error: \(error)")
+            dlog("ChurchChemistryService error: \(error)")
         }
     }
 
@@ -98,10 +99,12 @@ final class ChurchChemistryService: ObservableObject {
         guard let uid = Auth.auth().currentUser?.uid else { return }
         if let phone = Auth.auth().currentUser?.phoneNumber {
             let hashed = sha256(normalize(phone))
-            try? await db.collection("churches/\(churchId)/memberHashedPhones")
-                .document(uid).setData(["hash": hashed], merge: true)
+            do { try await db.collection("churches/\(churchId)/memberHashedPhones")
+                .document(uid).setData(["hash": hashed], merge: true) }
+            catch { dlog("⚠️ ChurchChemistryService.recordAttendance memberHash: \(error)") }
         }
-        try? await db.document("users/\(uid)").setData(["savedChurchId": churchId], merge: true)
+        do { try await db.document("users/\(uid)").setData(["savedChurchId": churchId], merge: true) }
+        catch { dlog("⚠️ ChurchChemistryService.recordAttendance savedChurch: \(error)") }
     }
 
     // MARK: - Private helpers

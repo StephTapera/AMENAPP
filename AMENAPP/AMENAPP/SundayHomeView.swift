@@ -161,8 +161,9 @@ struct SundayHomeView: View {
             HStack(spacing: 10) {
                 SundayActionChip(icon: "arrow.triangle.turn.up.right.circle", title: "Directions") {
                     if let lat = church.latitude, let lon = church.longitude {
-                        let url = URL(string: "maps://?daddr=\(lat),\(lon)")!
-                        UIApplication.shared.open(url)
+                        if let url = URL(string: "maps://?daddr=\(lat),\(lon)") {
+                            UIApplication.shared.open(url)
+                        }
                     }
                 }
                 SundayActionChip(icon: "note.text", title: "Open Notes") {
@@ -378,10 +379,20 @@ struct SundayHomeView: View {
             .kerning(0.5)
     }
 
-    private var todayDateString: String {
+    private static let dayDateFormatter: DateFormatter = {
         let fmt = DateFormatter()
         fmt.dateFormat = "EEEE, MMMM d"
-        return fmt.string(from: Date())
+        return fmt
+    }()
+
+    private static let todayKeyFormatter: DateFormatter = {
+        let fmt = DateFormatter()
+        fmt.dateFormat = "yyyy-MM-dd"
+        return fmt
+    }()
+
+    private var todayDateString: String {
+        Self.dayDateFormatter.string(from: Date())
     }
 
     private var timeOfDayGreeting: String {
@@ -413,7 +424,9 @@ struct SundayHomeView: View {
                         longitude: data["longitude"] as? Double
                     )
                 }
-            } catch {}
+            } catch {
+                dlog("⚠️ SundayHomeView.loadSavedChurch: \(error)")
+            }
         }
     }
 
@@ -429,7 +442,9 @@ struct SundayHomeView: View {
                     todayVerse = data["text"] as? String ?? ""
                     todayVerseRef = data["reference"] as? String ?? ""
                 }
-            } catch {}
+            } catch {
+                dlog("⚠️ SundayHomeView.loadTodayVerse: \(error)")
+            }
             isLoadingVerse = false
         }
     }
@@ -445,14 +460,14 @@ struct SundayHomeView: View {
                     .getDocuments()
                 reflectionDraftsCount = snap.documents.count
                 showDraftCount = reflectionDraftsCount > 0
-            } catch {}
+            } catch {
+                dlog("⚠️ SundayHomeView.loadReflectionDrafts: \(error)")
+            }
         }
     }
 
     private var todayKey: String {
-        let fmt = DateFormatter()
-        fmt.dateFormat = "yyyy-MM-dd"
-        return fmt.string(from: Date())
+        Self.todayKeyFormatter.string(from: Date())
     }
 }
 

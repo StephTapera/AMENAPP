@@ -1,5 +1,19 @@
 import SwiftUI
 
+// MARK: - Shared currency formatter (reused to avoid per-render allocation)
+private extension NumberFormatter {
+    static let amenCurrency: NumberFormatter = {
+        let f = NumberFormatter()
+        f.numberStyle = .currency
+        return f
+    }()
+
+    static func formatCurrency(_ value: Double, currencyCode: String) -> String {
+        amenCurrency.currencyCode = currencyCode
+        return amenCurrency.string(from: NSNumber(value: value)) ?? "\(value)"
+    }
+}
+
 // MARK: - Covenant Paywall View
 // Context-aware paywall — shown when a user taps locked content.
 // Never uses dark-pattern language. Shows what unlocks, why it matters,
@@ -9,7 +23,10 @@ struct AmenCovenantPaywallView: View {
     let covenant: Covenant
     let context: PaywallContext
     @Environment(\.dismiss) private var dismiss
+    @ObservedObject private var checkoutService = AmenCovenantCheckoutService.shared
     @State private var selectedTier: CovenantTier?
+    @State private var showSuccessAlert = false
+    @State private var errorMessage: String?
 
     enum PaywallContext {
         case lockedRoom(roomName: String)
@@ -52,11 +69,44 @@ struct AmenCovenantPaywallView: View {
             }
             .background(Color(uiColor: .systemGroupedBackground))
             .navigationBarTitleDisplayMode(.inline)
+            .onAppear {
+                AMENAnalyticsService.shared.track(.paywallShown(surface: "covenant", feature: "tier_membership"))
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Not Now") { dismiss() }
                         .foregroundStyle(.secondary)
                 }
+            }
+            .onChange(of: checkoutService.checkoutState) { _, newState in
+                switch newState {
+                case .success:
+                    AMENAnalyticsService.shared.track(.purchaseSucceeded(
+                        surface: "covenant",
+                        productId: selectedTier?.id ?? "unknown_tier"
+                    ))
+                    showSuccessAlert = true
+                case .failed(let error):
+                    AMENAnalyticsService.shared.track(.purchaseFailed(surface: "covenant", reason: "checkout_failed"))
+                    errorMessage = error.localizedDescription
+                case .canceled:
+                    AMENAnalyticsService.shared.track(.purchaseCanceled(surface: "covenant"))
+                case .idle, .loading:
+                    break
+                }
+            }
+            .alert("Welcome to the Community!", isPresented: $showSuccessAlert) {
+                Button("Let's Go!") { dismiss() }
+            } message: {
+                Text("You're now a member of \(covenant.name). Enjoy your access.")
+            }
+            .alert("Checkout Failed", isPresented: Binding(
+                get: { errorMessage != nil },
+                set: { if !$0 { errorMessage = nil } }
+            )) {
+                Button("OK", role: .cancel) { errorMessage = nil }
+            } message: {
+                Text(errorMessage ?? "Something went wrong. Please try again.")
             }
         }
     }
@@ -250,13 +300,28 @@ struct AmenCovenantPaywallView: View {
         VStack(spacing: 12) {
             if let tier = selectedTier ?? covenant.tiers.first {
                 Button {
-                    // IAP / Stripe checkout entrypoint — wired to platform billing
+                    AMENAnalyticsService.shared.track(.purchaseStarted(
+                        surface: "covenant",
+                        productId: selectedTier?.id ?? covenant.tiers.first?.id ?? "unknown_tier"
+                    ))
+                    Task {
+                        await checkoutService.startCheckout(
+                            covenantId: covenant.id ?? "",
+                            tierId: selectedTier?.id ?? covenant.tiers.first?.id ?? ""
+                        )
+                    }
                 } label: {
                     HStack {
-                        Text("Join for \(formattedPrice(tier))")
-                            .font(.headline)
-                        Spacer()
-                        Image(systemName: "arrow.right.circle.fill")
+                        if checkoutService.isLoading {
+                            ProgressView()
+                                .progressViewStyle(.circular)
+                                .tint(.white)
+                        } else {
+                            Text("Join for \(formattedPrice(tier))")
+                                .font(.headline)
+                            Spacer()
+                            Image(systemName: "arrow.right.circle.fill")
+                        }
                     }
                     .foregroundStyle(.white)
                     .padding(18)
@@ -266,6 +331,7 @@ struct AmenCovenantPaywallView: View {
                     )
                 }
                 .buttonStyle(.plain)
+                .disabled(selectedTier == nil || checkoutService.isLoading)
                 .padding(.horizontal, 20)
 
                 Text("Cancel anytime. No dark-pattern pressure here — just a real community that matters to you.")
@@ -278,10 +344,7 @@ struct AmenCovenantPaywallView: View {
     }
 
     private func formattedPrice(_ tier: CovenantTier) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencyCode = tier.currency
-        let priceStr = formatter.string(from: NSNumber(value: tier.price)) ?? "\(tier.price)"
+        let priceStr = NumberFormatter.formatCurrency(tier.price, currencyCode: tier.currency)
         return "\(priceStr)\(tier.billingPeriod.displayLabel)"
     }
 }
@@ -346,10 +409,7 @@ private struct TierCard: View {
     }
 
     private func formatPrice(_ tier: CovenantTier) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencyCode = tier.currency
-        let s = formatter.string(from: NSNumber(value: tier.price)) ?? "\(tier.price)"
+        let s = NumberFormatter.formatCurrency(tier.price, currencyCode: tier.currency)
         return "\(s)\(tier.billingPeriod.displayLabel)"
     }
 }

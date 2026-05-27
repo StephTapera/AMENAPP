@@ -10,6 +10,7 @@ struct AmenCovenantRevenueView: View {
     @State private var analytics: CovenantAnalytics?
     @State private var churnSignals: [CovenantMemberSignal] = []
     @State private var loading = false
+    @State private var loadError: String?
     @State private var selectedPeriod = Period.thisMonth
 
     enum Period: String, CaseIterable {
@@ -43,6 +44,15 @@ struct AmenCovenantRevenueView: View {
                 }
             }
             .task { await loadData() }
+            .alert("Couldn't Load Revenue Data", isPresented: Binding(
+                get: { loadError != nil },
+                set: { if !$0 { loadError = nil } }
+            )) {
+                Button("Retry") { Task { await loadData() } }
+                Button("Dismiss", role: .cancel) { loadError = nil }
+            } message: {
+                Text(loadError ?? "An error occurred. Please try again.")
+            }
         }
     }
 
@@ -264,19 +274,28 @@ struct AmenCovenantRevenueView: View {
         .frame(maxWidth: .infinity)
     }
 
-    private func formatCurrency(_ value: Double) -> String {
+    private static let usdFormatter: NumberFormatter = {
         let f = NumberFormatter()
         f.numberStyle = .currency
         f.currencyCode = "USD"
         f.maximumFractionDigits = 0
-        return f.string(from: NSNumber(value: value)) ?? "$\(Int(value))"
+        return f
+    }()
+
+    private func formatCurrency(_ value: Double) -> String {
+        Self.usdFormatter.string(from: NSNumber(value: value)) ?? "$\(Int(value))"
     }
 
     private func loadData() async {
         loading = true
+        loadError = nil
         let key = DateFormatter.yearMonthKey.string(from: Date())
-        analytics    = try? await CovenantService.shared.loadAnalytics(covenantId: covenantId, dateKey: key)
-        churnSignals = (try? await CovenantService.shared.loadChurnSignals(covenantId: covenantId)) ?? []
+        do {
+            analytics    = try await CovenantService.shared.loadAnalytics(covenantId: covenantId, dateKey: key)
+            churnSignals = (try? await CovenantService.shared.loadChurnSignals(covenantId: covenantId)) ?? []
+        } catch {
+            loadError = error.localizedDescription
+        }
         loading = false
     }
 }
