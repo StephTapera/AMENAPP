@@ -36,6 +36,10 @@ const {
   generateChurchNoteShareLink,
 } = require("./churchNotesShare");
 
+const {
+  resolveMusicAttachment,
+} = require("./musicAttachmentResolver");
+
 // AI Personalization: Import ML-powered feed and notification functions
 const {
   generatePersonalizedFeed,
@@ -54,16 +58,14 @@ const {
 } = require("./imageModeration");
 
 // P0: Phone Authentication Rate Limiting
+// checkPhoneVerificationRateLimit + reportPhoneVerificationFailure now owned by creator codebase (accountLifecycle.ts)
 const {
-  checkPhoneVerificationRateLimit,
-  reportPhoneVerificationFailure,
   unblockPhoneNumber,
 } = require("./phoneAuthRateLimit");
 
 // P0: Two-Factor Authentication
+// request2FAOTP + verify2FAOTP now owned by creator codebase (twoFactorAuth.ts)
 const {
-  request2FAOTP,
-  verify2FAOTP,
   send2FAEmail,
   send2FASMS,
   cleanupExpiredOTPs,
@@ -73,9 +75,6 @@ const {
 // Shabbat Mode: server-side enforcement middleware
 const {isSundayForUser} = require("./shabbatMiddleware");
 
-// Server-side rate limiter (Firestore-backed, rolling window)
-const {applyDefaultLimit} = require("./rateLimiter");
-
 // Post + Comment pipeline (publish finalization, atomic counters, reactions, media)
 const {
   finalizePostPublish,
@@ -84,6 +83,14 @@ const {
   onMediaFinalize,
   onPostCreateValidate,
 } = require("./postAndCommentFunctions");
+
+const {
+  onPostMediaMetadataCreate,
+  onPostMediaMetadataUpdate,
+  onPostMediaMetadataDelete,
+} = require("./mediaMetadataPipeline");
+
+const healthyImmersiveMedia = require("./healthyImmersiveMedia");
 
 // Jobs Platform: notifications, alerts, moderation
 const {
@@ -128,6 +135,19 @@ const {
   rebuildFeedControlState,
 } = require("./heyfeedFunctions");
 
+// feedContextFunctions — now owned by creator codebase (Backend/functions)
+// computeFeedContextLabels, attachFeedContextToRankedPosts, etc. removed from default
+
+const {
+  generateWeeklyAlignmentSummary,
+} = require("./biblicalAlignmentFunctions");
+// checkBiblicalAlignment and related callables now owned by creator codebase
+
+const premiumEntitlements = require("./premiumEntitlements");
+
+// Calm Control + Spiritual Rhythm OS
+const calmControlFunctions = require("./calmControlFunctions");
+
 
 // Export all functions
 exports.sendPushNotification = sendPushNotification;
@@ -147,6 +167,7 @@ exports.onMessageReaction = onMessageReaction;
 exports.shareChurchNote = shareChurchNote;
 exports.revokeChurchNoteShare = revokeChurchNoteShare;
 exports.generateChurchNoteShareLink = generateChurchNoteShareLink;
+exports.resolveMusicAttachment = resolveMusicAttachment;
 
 // AI Personalization: Export ML-powered functions
 exports.generatePersonalizedFeed = generatePersonalizedFeed;
@@ -155,6 +176,15 @@ exports.exportEngagementData = exportEngagementData;
 
 // Content Moderation: Export organic content integrity system
 exports.moderateContent = moderateContent;
+exports.generateWeeklyAlignmentSummary = generateWeeklyAlignmentSummary;
+
+exports.getPremiumEntitlement = premiumEntitlements.getPremiumEntitlement;
+exports.syncPremiumEntitlement = premiumEntitlements.syncPremiumEntitlement;
+exports.appStoreServerNotificationV2 = premiumEntitlements.appStoreServerNotificationV2;
+exports.listCustomTopicTags = premiumEntitlements.listCustomTopicTags;
+exports.createCustomTopicTag = premiumEntitlements.createCustomTopicTag;
+exports.recordAIUsageAndCheckLimit = premiumEntitlements.recordAIUsageAndCheckLimit;
+exports.requirePremiumFeature = premiumEntitlements.requirePremiumFeature;
 
 // Server-side post moderation (Firestore onWrite trigger)
 const {serverSidePostModeration} = require("./contentModeration");
@@ -164,28 +194,61 @@ exports.serverSidePostModeration = serverSidePostModeration;
 exports.moderateUploadedImage = moderateUploadedImage;
 
 // P0: Phone Authentication Rate Limiting
-exports.checkPhoneVerificationRateLimit = checkPhoneVerificationRateLimit;
-exports.reportPhoneVerificationFailure = reportPhoneVerificationFailure;
+// checkPhoneVerificationRateLimit + reportPhoneVerificationFailure moved to creator codebase
 exports.unblockPhoneNumber = unblockPhoneNumber;
 
 // P0: Two-Factor Authentication
-exports.request2FAOTP = request2FAOTP;
-exports.verify2FAOTP = verify2FAOTP;
+// request2FAOTP + verify2FAOTP moved to creator codebase
 exports.send2FAEmail = send2FAEmail;
 exports.send2FASMS = send2FASMS;
 exports.cleanupExpiredOTPs = cleanupExpiredOTPs;
 exports.expire2FASessions = expire2FASessions;
 
 // P0: Scheduled cleanup for expired 2FA sessions (hourly, guaranteed TTL enforcement)
-const { cleanupExpired2FASessions } = require("./cleanupExpired2FASessions");
+const {cleanupExpired2FASessions} = require("./cleanupExpired2FASessions");
 exports.cleanupExpired2FASessions = cleanupExpired2FASessions;
 
 // Post + Comment pipeline
-exports.finalizePostPublish  = finalizePostPublish;
-exports.addComment           = addComment;
-exports.toggleReaction       = toggleReaction;
-exports.onMediaFinalize      = onMediaFinalize;
+exports.finalizePostPublish = finalizePostPublish;
+exports.addComment = addComment;
+exports.toggleReaction = toggleReaction;
+exports.onMediaFinalize = onMediaFinalize;
 exports.onPostCreateValidate = onPostCreateValidate;
+exports.onPostMediaMetadataCreate = onPostMediaMetadataCreate;
+exports.onPostMediaMetadataUpdate = onPostMediaMetadataUpdate;
+exports.onPostMediaMetadataDelete = onPostMediaMetadataDelete;
+
+// createMediaUploadSession + finalizeMediaUpload moved to creator codebase (platformFunctions.ts)
+exports.generateMediaDraftMetadata = healthyImmersiveMedia.generateMediaDraftMetadata;
+exports.approveMediaMetadata = healthyImmersiveMedia.approveMediaMetadata;
+exports.rejectMediaMetadata = healthyImmersiveMedia.rejectMediaMetadata;
+exports.publishMediaPost = healthyImmersiveMedia.publishMediaPost;
+exports.moderateMediaPost = healthyImmersiveMedia.moderateMediaPost;
+exports.updateMediaProgress = healthyImmersiveMedia.updateMediaProgress;
+exports.createMediaSession = healthyImmersiveMedia.createMediaSession;
+exports.completeMediaSession = healthyImmersiveMedia.completeMediaSession;
+exports.saveToMediaQueue = healthyImmersiveMedia.saveToMediaQueue;
+exports.searchMedia = healthyImmersiveMedia.searchMedia;
+exports.reportMedia = healthyImmersiveMedia.reportMedia;
+exports.recordMediaEvent = healthyImmersiveMedia.recordMediaEvent;
+exports.rankMedia = healthyImmersiveMedia.rankMedia;
+exports.generateCaptionDraft = healthyImmersiveMedia.generateCaptionDraft;
+exports.generateKeyMomentsDraft = healthyImmersiveMedia.generateKeyMomentsDraft;
+exports.translateCaptions = healthyImmersiveMedia.translateCaptions;
+exports.explainMediaMoment = healthyImmersiveMedia.explainMediaMoment;
+exports.saveMediaAccessibilityPreferences = healthyImmersiveMedia.saveMediaAccessibilityPreferences;
+exports.notInterestedMedia = healthyImmersiveMedia.notInterestedMedia;
+exports.createMediaCompletionEvent = healthyImmersiveMedia.createMediaCompletionEvent;
+exports.createTimestampedComment = healthyImmersiveMedia.createTimestampedComment;
+exports.requestMediaUpload = healthyImmersiveMedia.requestMediaUpload;
+exports.getNextSessionItems = healthyImmersiveMedia.getNextSessionItems;
+exports.logMediaSessionEvent = healthyImmersiveMedia.logMediaSessionEvent;
+exports.runMediaModeration = healthyImmersiveMedia.runMediaModeration;
+exports.createMediaReflection = healthyImmersiveMedia.createMediaReflection;
+exports.createMediaDiscussionReply = healthyImmersiveMedia.createMediaDiscussionReply;
+exports.getCommunityMediaLayer = healthyImmersiveMedia.getCommunityMediaLayer;
+exports.updateMediaPreferences = healthyImmersiveMedia.updateMediaPreferences;
+exports.getMediaTrustContext = healthyImmersiveMedia.getMediaTrustContext;
 
 // ============================================================================
 // TRUST SCORE — E2EE messaging safety layer
@@ -195,8 +258,8 @@ const {
   onMessageSafetyEvent,
   scheduledTrustScoreRefresh,
 } = require("./trustScore");
-exports.onTrustScoreRequested      = onTrustScoreRequested;
-exports.onMessageSafetyEvent       = onMessageSafetyEvent;
+exports.onTrustScoreRequested = onTrustScoreRequested;
+exports.onMessageSafetyEvent = onMessageSafetyEvent;
 exports.scheduledTrustScoreRefresh = scheduledTrustScoreRefresh;
 
 // ============================================================================
@@ -204,7 +267,7 @@ exports.scheduledTrustScoreRefresh = scheduledTrustScoreRefresh;
 // ============================================================================
 
 // Safe Messaging Gateway: Pre-send content moderation
-const { safeMessageGateway } = require("./safeMessagingGateway");
+const {safeMessageGateway} = require("./safeMessagingGateway");
 exports.safeMessageGateway = safeMessageGateway;
 
 // Trust Score System: User reputation tracking
@@ -234,6 +297,12 @@ exports.onMessageCreated = onMessageCreated;
 exports.updateBadgeCount = updateBadgeCount;
 exports.getGroupedNotifications = getGroupedNotifications;
 exports.markNotificationsRead = markNotificationsRead;
+
+// Church Notes comment moderation (Firestore trigger)
+const {
+  onChurchNoteCommentCreate,
+} = require("./churchNotesCommentModeration");
+exports.onChurchNoteCommentCreate = onChurchNoteCommentCreate;
 
 // ============================================================================
 // REALTIME DATABASE: COMMENT NOTIFICATIONS
@@ -328,7 +397,7 @@ exports.onRealtimeCommentCreate = onValueCreated(
           actorId: commentAuthorId,
           actorName: commenterName,
           actorUsername: commenterData?.username || "",
-          actorProfileImageURL: actorProfileImageURL,  // ✅ NEW
+          actorProfileImageURL: actorProfileImageURL, // ✅ NEW
           postId: postId,
           commentText: commentData.content || commentData.text || "",
           userId: postAuthorId,
@@ -446,7 +515,7 @@ exports.onRealtimeReplyCreate = onValueCreated(
           actorId: replyAuthorId,
           actorName: replierName,
           actorUsername: replierData?.username || "",
-          actorProfileImageURL: actorProfileImageURL,  // ✅ NEW
+          actorProfileImageURL: actorProfileImageURL, // ✅ NEW
           postId: postId,
           commentText: commentData.content || commentData.text || "",
           userId: parentCommentAuthorId,
@@ -596,7 +665,10 @@ exports.onMessageSent = onDocumentCreated(
               .collection("notifications")
               .add(notification);
 
-          console.log(`✅ Message notification created for user ${recipientId}${shouldHidePreview ? " (preview hidden)" : ""}`);
+          console.log(
+              `✅ Message notification created for user ${recipientId}` +
+              `${shouldHidePreview ? " (preview hidden)" : ""}`,
+          );
 
           // Send push notification
           const fcmToken = recipientData?.fcmToken;
@@ -637,20 +709,6 @@ exports.onMessageSent = onDocumentCreated(
 );
 
 // ============================================================================
-// AI MODERATION, CRISIS DETECTION & SMART NOTIFICATIONS
-// ============================================================================
-const aiModeration = require("./aiModeration");
-
-// Content Moderation
-exports.moderateContent = aiModeration.moderateContent;
-
-// Crisis Detection
-exports.detectCrisis = aiModeration.detectCrisis;
-
-// Smart Notifications
-exports.deliverBatchedNotifications = aiModeration.deliverBatchedNotifications;
-
-// ============================================================================
 // AI CHURCH NOTES - SCRIPTURE REFERENCES & SUMMARIZATION
 // ============================================================================
 const aiChurchNotes = require("./aiChurchNotes");
@@ -687,7 +745,7 @@ exports.onUserDocCreated = authenticationHelpers.onUserDocCreated;
 
 // P0: Account deletion pipeline (processes deletionRequests/{userId} — cascades
 // Storage, RTDB, Firestore, and Auth deletion. Created when user taps Delete Account.)
-const { processAccountDeletion } = require("./accountDeletion");
+const {processAccountDeletion} = require("./accountDeletion");
 exports.processAccountDeletion = processAccountDeletion;
 
 // ============================================================================
@@ -699,10 +757,10 @@ exports.processAccountDeletion = processAccountDeletion;
 // onTestimonyActivity— trigger: stamp lastActiveAt + prayer arc hook on testimony link
 // ============================================================================
 const userActivity = require("./userActivityFunctions");
-exports.onUserActivity      = userActivity.onUserActivity;
-exports.onFcmTokenRefresh   = userActivity.onFcmTokenRefresh;
-exports.onPostActivity      = userActivity.onPostActivity;
-exports.onPrayerActivity    = userActivity.onPrayerActivity;
+exports.onUserActivity = userActivity.onUserActivity;
+exports.onFcmTokenRefresh = userActivity.onFcmTokenRefresh;
+exports.onPostActivity = userActivity.onPostActivity;
+exports.onPrayerActivity = userActivity.onPrayerActivity;
 exports.onTestimonyActivity = userActivity.onTestimonyActivity;
 
 // ============================================================================
@@ -711,7 +769,7 @@ exports.onTestimonyActivity = userActivity.onTestimonyActivity;
 // generateArcInsight: Claude haiku phrase cached in posts/{id}.bereanArcInsight
 // ============================================================================
 const prayerArc = require("./prayerArcFunctions");
-exports.onTestimonyLinked  = prayerArc.onTestimonyLinked;
+exports.onTestimonyLinked = prayerArc.onTestimonyLinked;
 exports.generateArcInsight = prayerArc.generateArcInsight;
 
 // ============================================================================
@@ -748,7 +806,7 @@ exports.deleteAccount = berean.deleteAccount;
 // ============================================================================
 const genkit = require("./genkitFunctions");
 
-// generateDailyVerse is now owned by the Backend/functions (creator codebase) — removed to prevent duplicate function conflict
+// generateDailyVerse is owned by Backend/functions; keep this off to avoid duplicate function names.
 exports.generateVerseReflection = genkit.generateVerseReflection;
 exports.generateNotificationText = genkit.generateNotificationText;
 exports.summarizeNotifications = genkit.summarizeNotifications;
@@ -900,26 +958,26 @@ exports.sendDailyNotificationDigest = onSchedule(
 // ============================================================================
 exports.onJobApplicationCreated = onJobApplicationCreated;
 exports.onJobApplicationUpdated = onJobApplicationUpdated;
-exports.onJobListingCreated     = onJobListingCreated;
-exports.reportJobListing        = reportJobListing;
+exports.onJobListingCreated = onJobListingCreated;
+exports.reportJobListing = reportJobListing;
 
 // ============================================================================
 // CREATOR STUDIO
 // ============================================================================
 exports.onCommissionRequestCreated = onCommissionRequestCreated;
-exports.onCommissionStatusUpdated  = onCommissionStatusUpdated;
-exports.onBookingRequestCreated    = onBookingRequestCreated;
-exports.onBookingStatusUpdated     = onBookingStatusUpdated;
-exports.onInquiryCreated           = onInquiryCreated;
-exports.reportStudioContent        = reportStudioContent;
-exports.monthlyEarningsRollup      = monthlyEarningsRollup;
+exports.onCommissionStatusUpdated = onCommissionStatusUpdated;
+exports.onBookingRequestCreated = onBookingRequestCreated;
+exports.onBookingStatusUpdated = onBookingStatusUpdated;
+exports.onInquiryCreated = onInquiryCreated;
+exports.reportStudioContent = reportStudioContent;
+exports.monthlyEarningsRollup = monthlyEarningsRollup;
 
 // ============================================================================
 // CALENDAR & EVENTS
 // ============================================================================
-exports.onEventRSVPCreated  = onEventRSVPCreated;
-exports.onEventRSVPUpdated  = onEventRSVPUpdated;
-exports.sendEventReminders  = sendEventReminders;
+exports.onEventRSVPCreated = onEventRSVPCreated;
+exports.onEventRSVPUpdated = onEventRSVPUpdated;
+exports.sendEventReminders = sendEventReminders;
 exports.sendPostEventFollowUp = sendPostEventFollowUp;
 
 // ============================================================================
@@ -945,58 +1003,58 @@ exports.exportUserData = exportUserData;
 // ============================================================================
 const stripe = require("./stripeFunctions");
 exports.stripeCreateConnectedAccount = stripe.stripeCreateConnectedAccount;
-exports.stripeGetAccountStatus       = stripe.stripeGetAccountStatus;
-exports.stripeCreatePaymentIntent    = stripe.stripeCreatePaymentIntent;
-exports.stripeRequestPayout          = stripe.stripeRequestPayout;
+exports.stripeGetAccountStatus = stripe.stripeGetAccountStatus;
+exports.stripeCreatePaymentIntent = stripe.stripeCreatePaymentIntent;
+exports.stripeRequestPayout = stripe.stripeRequestPayout;
 
 // ============================================================================
 // ML CONTENT PIPELINE — Post ML analysis, virality, deletion cleanup
 // ============================================================================
 const mlContent = require("./mlContentPipeline");
-exports.onPostCreatedML          = mlContent.onPostCreatedML;
-exports.onPostDeletedML          = mlContent.onPostDeletedML;
-exports.computeViralityScore     = mlContent.computeViralityScore;
+exports.onPostCreatedML = mlContent.onPostCreatedML;
+exports.onPostDeletedML = mlContent.onPostDeletedML;
+exports.computeViralityScore = mlContent.computeViralityScore;
 
 // ============================================================================
 // ML USER INTELLIGENCE — Interest graph, fatigue, creation nudge, session intent
 // ============================================================================
 const mlUser = require("./mlUserIntelligence");
-exports.buildPassiveInterestGraph   = mlUser.buildPassiveInterestGraph;
-exports.detectSocialFatigue         = mlUser.detectSocialFatigue;
-exports.predictCreationPropensity   = mlUser.predictCreationPropensity;
-exports.computeSessionIntent        = mlUser.computeSessionIntent;
-exports.updateSpiritualHealthScore  = mlUser.updateSpiritualHealthScore;
+exports.buildPassiveInterestGraph = mlUser.buildPassiveInterestGraph;
+exports.detectSocialFatigue = mlUser.detectSocialFatigue;
+exports.predictCreationPropensity = mlUser.predictCreationPropensity;
+exports.computeSessionIntent = mlUser.computeSessionIntent;
+exports.updateSpiritualHealthScore = mlUser.updateSpiritualHealthScore;
 
 // ============================================================================
 // ML PRAYER INTELLIGENCE — Intercessor matching, testimony linking, gifts, verse
 // ============================================================================
 const mlPrayer = require("./mlPrayerIntelligence");
-exports.matchIntercessors               = mlPrayer.matchIntercessors;
-exports.detectTestimonyOutcome           = mlPrayer.detectTestimonyOutcome;
-exports.detectSpiritualGift              = mlPrayer.detectSpiritualGift;
-exports.computeScriptureSentimentMatch   = mlPrayer.computeScriptureSentimentMatch;
-exports.generatePersonalVerseEngine      = mlPrayer.generatePersonalVerseEngine;
+exports.matchIntercessors = mlPrayer.matchIntercessors;
+exports.detectTestimonyOutcome = mlPrayer.detectTestimonyOutcome;
+exports.detectSpiritualGift = mlPrayer.detectSpiritualGift;
+exports.computeScriptureSentimentMatch = mlPrayer.computeScriptureSentimentMatch;
+exports.generatePersonalVerseEngine = mlPrayer.generatePersonalVerseEngine;
 
 // ============================================================================
 // ML COMMUNITY INTELLIGENCE — Health reports, coordinated behavior, safety
 // ============================================================================
 const mlCommunity = require("./mlCommunityIntelligence");
 exports.generateCongregationHealthReport = mlCommunity.generateCongregationHealthReport;
-exports.detectCoordinatedBehavior        = mlCommunity.detectCoordinatedBehavior;
-exports.runLinguisticFingerprint         = mlCommunity.runLinguisticFingerprint;
-exports.detectGriefCrisisPreIncident     = mlCommunity.detectGriefCrisisPreIncident;
-exports.runZeroHarassmentDetection       = mlCommunity.runZeroHarassmentDetection;
-exports.scoreTheologicalDrift            = mlCommunity.scoreTheologicalDrift;
+exports.detectCoordinatedBehavior = mlCommunity.detectCoordinatedBehavior;
+exports.runLinguisticFingerprint = mlCommunity.runLinguisticFingerprint;
+exports.detectGriefCrisisPreIncident = mlCommunity.detectGriefCrisisPreIncident;
+exports.runZeroHarassmentDetection = mlCommunity.runZeroHarassmentDetection;
+exports.scoreTheologicalDrift = mlCommunity.scoreTheologicalDrift;
 
 // ============================================================================
 // ML NOTIFICATION & INFRASTRUCTURE — Feed re-rank, SLO, cost audit, churn
 // ============================================================================
 const mlNotif = require("./mlNotificationIntelligence");
-exports.predictNotificationChurn  = mlNotif.predictNotificationChurn;
-exports.reRankFeedRealTime        = mlNotif.reRankFeedRealTime;
-exports.runSLOAnomalyDetection    = mlNotif.runSLOAnomalyDetection;
-exports.costOptimizationAudit     = mlNotif.costOptimizationAudit;
-exports.runAgeSignalDetection     = mlNotif.runAgeSignalDetection;
+exports.predictNotificationChurn = mlNotif.predictNotificationChurn;
+exports.reRankFeedRealTime = mlNotif.reRankFeedRealTime;
+exports.runSLOAnomalyDetection = mlNotif.runSLOAnomalyDetection;
+exports.costOptimizationAudit = mlNotif.costOptimizationAudit;
+exports.runAgeSignalDetection = mlNotif.runAgeSignalDetection;
 
 // ============================================================================
 // NOTIFICATIONS — Prayer amens/comments, mentions, scheduled campaigns
@@ -1009,32 +1067,44 @@ const {
   communityDigest,
   bereanDailyInsight,
 } = require("./notifications");
-exports.onPrayerAmen       = onPrayerAmen;
-exports.onPrayerComment    = onPrayerComment;
-exports.onPostMention      = onPostMention;
-exports.weeklyCheckin      = weeklyCheckin;
-exports.communityDigest    = communityDigest;
+exports.onPrayerAmen = onPrayerAmen;
+exports.onPrayerComment = onPrayerComment;
+exports.onPostMention = onPostMention;
+exports.weeklyCheckin = weeklyCheckin;
+exports.communityDigest = communityDigest;
 exports.bereanDailyInsight = bereanDailyInsight;
 
 // ============================================================================
 // MESSAGES FEATURES — Prayer Chain, Time Capsule, Accountability, Grace Drop,
 //                     Cold Thread Revival, Prayer Room
 // ============================================================================
-const msgFeatures = require('./messages_features');
-exports.onPrayerChainUpdated              = msgFeatures.onPrayerChainUpdated;
-exports.processTimeCapsules               = msgFeatures.processTimeCapsules;
-exports.sendWeeklyAccountabilityCheckIn   = msgFeatures.sendWeeklyAccountabilityCheckIn;
-exports.revealGraceDropIdentity           = msgFeatures.revealGraceDropIdentity;
-exports.analyzeThreadsForRevival          = msgFeatures.analyzeThreadsForRevival;
-exports.notifyPrayerRoomAnswered          = msgFeatures.notifyPrayerRoomAnswered;
+const msgFeatures = require("./messages_features");
+exports.onPrayerChainUpdated = msgFeatures.onPrayerChainUpdated;
+exports.processTimeCapsules = msgFeatures.processTimeCapsules;
+exports.sendWeeklyAccountabilityCheckIn = msgFeatures.sendWeeklyAccountabilityCheckIn;
+exports.revealGraceDropIdentity = msgFeatures.revealGraceDropIdentity;
+exports.analyzeThreadsForRevival = msgFeatures.analyzeThreadsForRevival;
+exports.notifyPrayerRoomAnswered = msgFeatures.notifyPrayerRoomAnswered;
 
-// Algolia sync handled by installed Firestore extension (ext-firestore-algolia-search)
+// System 36: Smart Inbox Denormalization (forward-only, RC-gated)
+const smartInbox = require("./smartInboxDenormalization");
+exports.onMessageCreatedForSmartInbox = smartInbox.onMessageCreatedForSmartInbox;
+exports.onMessageCreatedClearsNeedsReply = smartInbox.onMessageCreatedClearsNeedsReply;
+
+// Algolia sync — Firestore triggers (post create/update) + server-side callable write wrappers
+const algoliaSync = require("./algoliaSync");
+exports.onPostCreatedSyncAlgolia = algoliaSync.onPostCreatedSyncAlgolia;
+exports.onPostUpdatedSyncAlgolia = algoliaSync.onPostUpdatedSyncAlgolia;
+exports.algolia_syncUser = algoliaSync.algolia_syncUser;
+exports.algolia_deleteUser = algoliaSync.algolia_deleteUser;
+exports.algolia_syncPost = algoliaSync.algolia_syncPost;
+exports.algolia_deletePost = algoliaSync.algolia_deletePost;
 
 // ============================================================================
 // FELLOWSHIP MATCHER — Claude-powered spiritual theme matching
 // ============================================================================
-exports.fellowshipMatcher           = fellowshipMatcher;
-exports.onNewPrayerFellowshipCheck  = onNewPrayerFellowshipCheck;
+exports.fellowshipMatcher = fellowshipMatcher;
+exports.onNewPrayerFellowshipCheck = onNewPrayerFellowshipCheck;
 
 // ============================================================================
 // OPENAI PROXIES — All OpenAI API calls go through these Cloud Functions.
@@ -1044,9 +1114,9 @@ exports.onNewPrayerFellowshipCheck  = onNewPrayerFellowshipCheck;
 // NOTE: openAIProxy and whisperProxy now use TypeScript versions from Backend/functions
 // ============================================================================
 const openAIFunctions = require("./openAIFunctions");
-// exports.openAIProxy           = openAIFunctions.openAIProxy; // DISABLED: Using TypeScript version from Backend/functions
-// exports.whisperProxy          = openAIFunctions.whisperProxy; // DISABLED: Using TypeScript version from Backend/functions
-exports.transcribeAudio       = openAIFunctions.transcribeAudio;
+// exports.openAIProxy = openAIFunctions.openAIProxy;
+// exports.whisperProxy = openAIFunctions.whisperProxy;
+exports.transcribeAudio = openAIFunctions.transcribeAudio;
 exports.smartSuggestionsProxy = openAIFunctions.smartSuggestionsProxy;
 
 
@@ -1054,20 +1124,20 @@ exports.smartSuggestionsProxy = openAIFunctions.smartSuggestionsProxy;
 // CHURCH ENHANCEMENTS — Sunday vibe, DNA scores, prayer momentum, visit guide
 // ============================================================================
 const churchEnhancements = require("./churchEnhancementFunctions");
-exports.generateChurchVibe        = churchEnhancements.generateChurchVibe;
-exports.computeChurchDNA          = churchEnhancements.computeChurchDNA;
-exports.computePrayerMomentum     = churchEnhancements.computePrayerMomentum;
-exports.generateFirstVisitGuide   = churchEnhancements.generateFirstVisitGuide;
-exports.inferUserLearningStyle    = churchEnhancements.inferUserLearningStyle;
-exports.inferPastorStyle          = churchEnhancements.inferPastorStyle;
+exports.generateChurchVibe = churchEnhancements.generateChurchVibe;
+exports.computeChurchDNA = churchEnhancements.computeChurchDNA;
+exports.computePrayerMomentum = churchEnhancements.computePrayerMomentum;
+exports.generateFirstVisitGuide = churchEnhancements.generateFirstVisitGuide;
+exports.inferUserLearningStyle = churchEnhancements.inferUserLearningStyle;
+exports.inferPastorStyle = churchEnhancements.inferPastorStyle;
 
 // ============================================================================
 // BEREAN FEATURE FUNCTIONS — semantic search, spiritual timeline, study guide
 // ============================================================================
 const bereanFeatures = require("./bereanFeatureFunctions");
-exports.bereanEmbedProxy          = bereanFeatures.bereanEmbedProxy;
+exports.bereanEmbedProxy = bereanFeatures.bereanEmbedProxy;
 exports.generateSpiritualTimeline = bereanFeatures.generateSpiritualTimeline;
-exports.generateStudyGuide        = bereanFeatures.generateStudyGuide;
+exports.generateStudyGuide = bereanFeatures.generateStudyGuide;
 
 // ============================================================================
 // ENGAGEMENT NOTIFICATIONS
@@ -1079,10 +1149,10 @@ exports.generateStudyGuide        = bereanFeatures.generateStudyGuide;
 // ============================================================================
 const engagementNotifs = require("./engagementNotifications");
 exports.testimonyAnniversary = engagementNotifs.testimonyAnniversary;
-exports.friendReturned       = engagementNotifs.friendReturned;
-exports.gentleReengagement   = engagementNotifs.gentleReengagement;
-exports.onNewChurchMember    = engagementNotifs.onNewChurchMember;
-exports.prayerCheckin        = engagementNotifs.prayerCheckin;
+exports.friendReturned = engagementNotifs.friendReturned;
+exports.gentleReengagement = engagementNotifs.gentleReengagement;
+exports.onNewChurchMember = engagementNotifs.onNewChurchMember;
+exports.prayerCheckin = engagementNotifs.prayerCheckin;
 
 // ============================================================================
 // PROFILE PROPAGATION — syncs denormalized author fields on posts/comments
@@ -1108,12 +1178,59 @@ exports.cleanupStaleNotifications = cleanupStaleNotifications;
 //   expireHeyFeedNLPreferences — scheduled every 4h: expire stale prefs
 //   rebuildFeedControlState    — scheduled every 1h: housekeeping
 // ============================================================================
-exports.submitHeyFeedNLRequest    = submitHeyFeedNLRequest;
+exports.submitHeyFeedNLRequest = submitHeyFeedNLRequest;
 exports.removeHeyFeedNLPreference = removeHeyFeedNLPreference;
 exports.resetHeyFeedNLPreferences = resetHeyFeedNLPreferences;
-exports.parseHeyFeedIntent        = parseHeyFeedIntent;
+exports.parseHeyFeedIntent = parseHeyFeedIntent;
 exports.expireHeyFeedNLPreferences = expireHeyFeedNLPreferences;
-exports.rebuildFeedControlState   = rebuildFeedControlState;
+exports.rebuildFeedControlState = rebuildFeedControlState;
+
+// ============================================================================
+// CONVERSATION OS — Intelligent Conversation Intelligence Layer
+//   generateCatchUpRecap          — callable: AI catch-up recap for unread messages
+//   generateTopicClusters         — callable: semantic (non-chronological) topic clustering
+//   extractConversationActions    — callable: extract actions, decisions, questions
+//   getPersonalizedSummary        — callable: role-aware personalized summary
+//   queryOrganizationalMemory     — callable: org-level memory query
+//   updateConversationActionStatus — callable: mark action done/dismissed
+//   updateConversationDecision    — callable: confirm/challenge a decision
+//   dismissConversationSummary    — callable: user dismisses a summary
+// All callables: App Check enforced, permissions validated, output moderated.
+// ============================================================================
+const conversationOSFns = require("./conversationOSFunctions");
+exports.generateCatchUpRecap = conversationOSFns.generateCatchUpRecap;
+exports.generateTopicClusters = conversationOSFns.generateTopicClusters;
+exports.extractConversationActions = conversationOSFns.extractConversationActions;
+exports.getPersonalizedSummary = conversationOSFns.getPersonalizedSummary;
+exports.queryOrganizationalMemory = conversationOSFns.queryOrganizationalMemory;
+exports.updateConversationActionStatus = conversationOSFns.updateConversationActionStatus;
+exports.updateConversationDecision = conversationOSFns.updateConversationDecision;
+exports.dismissConversationSummary = conversationOSFns.dismissConversationSummary;
+
+// ============================================================================
+// COMMS OS — Communication OS Intelligence Layer (all flags OFF by default)
+//   comms_rankRelevance        — callable: score thread relevance to user
+//   comms_routeIntent          — callable: route NL query to structured intent
+//   comms_generateSmartContext — callable: decisions + actions + blockers for thread
+//   comms_generateCatchUp      — callable: catch-up summary for unread messages
+//   comms_submitFeedback       — callable: record user feedback (accept/dismiss/correct)
+//   comms_processMediaJob      — callable: start media intelligence job
+//   comms_getMediaJobStatus    — callable: poll media job status
+//   comms_suggestAsyncReply    — callable: AI-suggested async reply
+// All: App Check enforced, membership validated, output moderated, audit logged.
+// ============================================================================
+const commsOSFns = require("./commsOS");
+exports.comms_rankRelevance = commsOSFns.comms_rankRelevance;
+exports.comms_routeIntent = commsOSFns.comms_routeIntent;
+exports.comms_generateSmartContext = commsOSFns.comms_generateSmartContext;
+exports.comms_generateCatchUp = commsOSFns.comms_generateCatchUp;
+exports.comms_submitFeedback = commsOSFns.comms_submitFeedback;
+exports.comms_processMediaJob = commsOSFns.comms_processMediaJob;
+exports.comms_getMediaJobStatus = commsOSFns.comms_getMediaJobStatus;
+exports.comms_suggestAsyncReply = commsOSFns.comms_suggestAsyncReply;
+
+// Smart Context Labels — now owned by creator codebase (Backend/functions)
+// computeFeedContextLabels, attachFeedContextToRankedPosts, etc. removed from default
 
 // ============================================================================
 // AMEN CREATOR — AI Scene Builder + Living Templates
@@ -1135,16 +1252,16 @@ const {
   trackTemplateUsage,
 } = require("./creationFunctions");
 
-exports.generateScenePlan          = generateScenePlan;
-exports.refineScenePlan            = refineScenePlan;
-exports.runCreationSafetyCheck     = runCreationSafetyCheck;
-exports.applyTemplateToAssets      = applyTemplateToAssets;
+exports.generateScenePlan = generateScenePlan;
+exports.refineScenePlan = refineScenePlan;
+exports.runCreationSafetyCheck = runCreationSafetyCheck;
+exports.applyTemplateToAssets = applyTemplateToAssets;
 exports.generateCaptionSuggestions = generateCaptionSuggestions;
-exports.saveCreationDraft          = saveCreationDraft;
-exports.trackTemplateUsage         = trackTemplateUsage;
+exports.saveCreationDraft = saveCreationDraft;
+exports.trackTemplateUsage = trackTemplateUsage;
 
 // Scheduled post publisher
-const { publishScheduledPosts } = require('./scheduledPostPublisher');
+const {publishScheduledPosts} = require("./scheduledPostPublisher");
 exports.publishScheduledPosts = publishScheduledPosts;
 
 // ============================================================================
@@ -1155,10 +1272,10 @@ exports.publishScheduledPosts = publishScheduledPosts;
 //   cleanupExpiredActionThreads    — scheduled daily 4 AM: expire stale threads
 // ============================================================================
 const actionThreads = require("./actionThreadFunctions");
-exports.onActionThreadCreated        = actionThreads.onActionThreadCreated;
-exports.onActionStepCompleted        = actionThreads.onActionStepCompleted;
+exports.onActionThreadCreated = actionThreads.onActionThreadCreated;
+exports.onActionStepCompleted = actionThreads.onActionStepCompleted;
 exports.processActionThreadReminders = actionThreads.processActionThreadReminders;
-exports.cleanupExpiredActionThreads  = actionThreads.cleanupExpiredActionThreads;
+exports.cleanupExpiredActionThreads = actionThreads.cleanupExpiredActionThreads;
 
 // Topic Enrichment (System 11) — server-side fallback for post topic tagging
 const topicEnrichment = require("./topicEnrichment");
@@ -1167,3 +1284,169 @@ exports.enrichPostTopics = topicEnrichment.enrichPostTopics;
 // Media State Cleanup (System 12) — daily cleanup of expired resume positions
 const mediaCleanup = require("./mediaStateCleanup");
 exports.cleanupMediaResumeState = mediaCleanup.cleanupMediaResumeState;
+
+// Canonical notifications pipeline (compiled from TypeScript source under
+// AMENAPP/AMENAPP/CloudFunction_NotificationRoutingPipeline.ts).
+Object.assign(
+    exports,
+    require("./dist-notifications/functions/notificationRoutingPipeline.entry.js"),
+);
+
+// ============================================================================
+// SYSTEM 35 — Trust Spine (Phase 1, Spatial Social OS)
+//   registerMediaProvenance — record media origin + edit/AI chain
+//   getPostProvenance       — fetch user-visible provenance for a media item
+//   registerAIDisclosure    — record an AI action with trusted user-visible label
+//   getAIDisclosureDetails  — fetch AI disclosure records for a media item
+//   reportContent           — submit a content report (writes /reports + queue)
+// ============================================================================
+const provenanceFns = require("./provenanceFunctions");
+// registerMediaProvenance moved to creator codebase (media/registerMediaProvenance.ts)
+exports.getPostProvenance = provenanceFns.getPostProvenance;
+
+const aiDisclosureFns = require("./aiDisclosureFunctions");
+exports.registerAIDisclosure = aiDisclosureFns.registerAIDisclosure;
+exports.getAIDisclosureDetails = aiDisclosureFns.getAIDisclosureDetails;
+
+const reportFns = require("./reportFunctions");
+exports.reportContent = reportFns.reportContent;
+
+// Publish pipeline trust gate (Phase 2). Validates provenance + AI disclosures
+// before allowing finalizePostPublish to run.
+const publishPipelineFns = require("./publishPipelineFunctions");
+exports.publishPostWithTrustGates = publishPipelineFns.publishPostWithTrustGates;
+
+// Discovery transparency (Phase 4). "Why am I seeing this?" — returns the
+// server-derived reasons a given post surfaced in the user's feed.
+const discoveryTransparencyFns = require("./discoveryTransparencyFunctions");
+exports.getDiscoveryReasons = discoveryTransparencyFns.getDiscoveryReasons;
+
+// Spatial messages (Phase 5). Shared viewing rooms + anchored replies. The
+// client never writes /sharedViewingRooms or /presenceSessions directly —
+// all membership transitions flow through these callables.
+const spatialMessagesFns = require("./spatialMessagesFunctions");
+exports.createSharedViewingRoom = spatialMessagesFns.createSharedViewingRoom;
+exports.joinSharedViewingRoom = spatialMessagesFns.joinSharedViewingRoom;
+exports.leaveSharedViewingRoom = spatialMessagesFns.leaveSharedViewingRoom;
+exports.postAnchoredReply = spatialMessagesFns.postAnchoredReply;
+
+// Access Pass callables are owned by the creator codebase
+// (Backend/functions/src/accessPasses). Keeping them out of the default
+// codebase prevents duplicate Firebase function ownership during deploy.
+
+// ============================================================================
+// CONTEXTUAL EXPERIENCES — multi-tenant seasonal / organization / event layer
+// All mutations are server-owned and guarded by membership role checks.
+// ============================================================================
+const contextualExperienceFns = require("./contextualExperiences");
+exports.createContextualExperience = contextualExperienceFns.createContextualExperience;
+exports.updateContextualExperience = contextualExperienceFns.updateContextualExperience;
+exports.publishContextualExperience = contextualExperienceFns.publishContextualExperience;
+exports.unpublishContextualExperience = contextualExperienceFns.unpublishContextualExperience;
+exports.archiveContextualExperience = contextualExperienceFns.archiveContextualExperience;
+exports.deleteContextualExperience = contextualExperienceFns.deleteContextualExperience;
+exports.joinContextualExperience = contextualExperienceFns.joinContextualExperience;
+exports.leaveContextualExperience = contextualExperienceFns.leaveContextualExperience;
+exports.resolveContextualExperienceStack = contextualExperienceFns.resolveContextualExperienceStack;
+exports.listOrganizationExperiences = contextualExperienceFns.listOrganizationExperiences;
+exports.getContextualExperience = contextualExperienceFns.getContextualExperience;
+exports.createExperienceEvent = contextualExperienceFns.createExperienceEvent;
+exports.createExperiencePrayerPrompt = contextualExperienceFns.createExperiencePrayerPrompt;
+exports.createExperienceDiscussion = contextualExperienceFns.createExperienceDiscussion;
+exports.createExperienceMemory = contextualExperienceFns.createExperienceMemory;
+exports.createExperienceTradition = contextualExperienceFns.createExperienceTradition;
+exports.moderateExperienceContent = contextualExperienceFns.moderateExperienceContent;
+exports.reportExperienceContent = contextualExperienceFns.reportExperienceContent;
+exports.updateExperienceNotificationSettings = contextualExperienceFns.updateExperienceNotificationSettings;
+exports.updateExperienceTheme = contextualExperienceFns.updateExperienceTheme;
+exports.getExperienceAnalytics = contextualExperienceFns.getExperienceAnalytics;
+exports.manageExperienceRoles = contextualExperienceFns.manageExperienceRoles;
+
+// (conversationOSFns exported at line ~1185 above — no duplicate needed here)
+
+// ============================================================================
+// SELAH BANNER RAIL — editorial banners for Spaces surfaces
+// Server resolves eligibility, ranking, safety, and CTA validity.
+// Client is dumb: renders a pre-sorted, pre-validated list only.
+// ============================================================================
+const bannerFns = require("./banners");
+exports.resolveBannerRail                   = bannerFns.resolveBannerRail;
+exports.logAmenSpaceBannerEvent             = bannerFns.logAmenSpaceBannerEvent;
+exports.validateAmenSpaceBannerCTA          = bannerFns.validateAmenSpaceBannerCTA;
+exports.setAmenSpaceBannerDisplayPreference = bannerFns.setAmenSpaceBannerDisplayPreference;
+exports.setAmenSpaceDefaultBannerSize       = bannerFns.setAmenSpaceDefaultBannerSize;
+
+// Anonymous Berean — single question, no userId, no session history
+const anonymousBereanFns = require("./anonymousBerean");
+exports.anonymousBereanQuery = anonymousBereanFns.anonymousBereanQuery;
+
+// ============================================================================
+// CALM CONTROL + SPIRITUAL RHYTHM OS
+// ============================================================================
+exports.evaluateNotificationEligibility  = calmControlFunctions.evaluateNotificationEligibility;
+exports.updateCalmControlSettings        = calmControlFunctions.updateCalmControlSettings;
+exports.updateRhythmSettings             = calmControlFunctions.updateRhythmSettings;
+exports.recordSpiritualActivity          = calmControlFunctions.recordSpiritualActivity;
+exports.calculateStreakState             = calmControlFunctions.calculateStreakState;
+exports.pauseInactiveUserNotifications   = calmControlFunctions.pauseInactiveUserNotifications;
+exports.restoreUserAfterInactivity       = calmControlFunctions.restoreUserAfterInactivity;
+exports.checkSpiritualRhythmInactivity   = calmControlFunctions.checkSpiritualRhythmInactivity;
+exports.updatePrivacySettings            = calmControlFunctions.updatePrivacySettings;
+exports.updateFeedControls               = calmControlFunctions.updateFeedControls;
+exports.updateNotificationSettings       = calmControlFunctions.updateNotificationSettings;
+exports.createAudienceLayer              = calmControlFunctions.createAudienceLayer;
+exports.deleteAudienceLayer              = calmControlFunctions.deleteAudienceLayer;
+exports.expirePresenceStates             = calmControlFunctions.expirePresenceStates;
+
+// ============================================================================
+// SMART COLLABORATION LAYER — Phase 1 (all flags OFF by default)
+//   generateThreadSummary         — callable: AI summary of last 50 messages, writes ThreadSummary + ThreadSmartContext
+//   detectPrayerContextForThread  — callable: prayer request detection for a single message, stores theme category only
+//   extractThreadActions          — callable: action items / decisions / commitments from last 30 messages
+//   generateGroupPulse            — callable: urgency + topic momentum for channel threads
+//   generateSmartReplies          — callable: 3 ephemeral faith-affirming reply suggestions
+//   requestMediaTranscription     — callable: queue async audio/video transcription job
+// All: App Check enforced, membership server-verified, feature-flagged, moderated.
+// LLM: Anthropic claude-3-haiku via CLAUDE_API_KEY secret. No raw message text in logs.
+// ============================================================================
+const smartCollabFns = require("./src/smartCollaboration/dist");
+exports.generateThreadSummary        = smartCollabFns.generateThreadSummary;
+exports.detectPrayerContextForThread = smartCollabFns.detectPrayerContextForThread;
+exports.extractThreadActions         = smartCollabFns.extractThreadActions;
+exports.generateGroupPulse           = smartCollabFns.generateGroupPulse;
+exports.generateSmartReplies         = smartCollabFns.generateSmartReplies;
+exports.requestMediaTranscription    = smartCollabFns.requestMediaTranscription;
+
+// ============================================================================
+// DISCOVER / FEATURED CAROUSEL
+//   setFeatured             — admin-only callable: create/update a featured card (moderationCleared=false)
+//   clearFeaturedModeration — admin-only callable: approve a card post-GUARDIAN review
+//   markEngaged             — user callable: upsert users/{uid}/continue entry on content open/play
+//   deleteContinueRow       — user callable: remove one Continue-in-AMEN entry
+// ============================================================================
+const discoverFns = require('./discoverFunctions');
+exports.setFeatured             = discoverFns.setFeatured;
+exports.clearFeaturedModeration = discoverFns.clearFeaturedModeration;
+exports.markEngaged             = discoverFns.markEngaged;
+exports.deleteContinueRow       = discoverFns.deleteContinueRow;
+
+
+// ============================================================================
+// MEDIA INTERACTIONS — Agent 0 Stubs (Agents 1–7 implement the bodies)
+//   addReaction       — callable: idempotent upsert of a MediaReaction
+//   removeReaction    — callable: delete a reaction the caller owns
+//   pinReply          — callable: creator pins one comment to top of media
+//   saveToCollection  — callable: bookmark a media item into a named collection
+//   translateText     — callable: Claude proxy translation for captions/comments
+//   attachVerse       — callable: validate scripture ref and pin to reaction/comment/post
+// All: Auth required, App Check enforced.
+// ============================================================================
+const mediaInteractionFns = require('./src/mediaInteractions');
+exports.addReaction      = mediaInteractionFns.addReaction;
+exports.removeReaction   = mediaInteractionFns.removeReaction;
+exports.pinReply         = mediaInteractionFns.pinReply;
+exports.saveToCollection = mediaInteractionFns.saveToCollection;
+exports.translateText    = mediaInteractionFns.translateText;
+exports.attachVerse      = mediaInteractionFns.attachVerse;
+exports.expireViewOnceMedia = mediaInteractionFns.expireViewOnceMedia;
+exports.cleanupExpiredMutes = mediaInteractionFns.cleanupExpiredMutes;

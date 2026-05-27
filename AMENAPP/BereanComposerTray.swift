@@ -498,8 +498,8 @@ struct BereanComposerTray: View {
             .background(
                 Capsule()
                     .fill(showCapabilities
-                          ? Color.amenBlue.opacity(0.12)
-                          : (reduceTransparency ? Color(uiColor: .secondarySystemBackground) : .ultraThinMaterial))
+                          ? AnyShapeStyle(Color.amenBlue.opacity(0.12))
+                          : (reduceTransparency ? AnyShapeStyle(Color(uiColor: .secondarySystemBackground)) : AnyShapeStyle(Material.ultraThinMaterial)))
                     .overlay(
                         Capsule()
                             .fill(showCapabilities ? Color.clear : BereanColor.glassFill)
@@ -532,8 +532,8 @@ struct BereanComposerTray: View {
                 .background(
                     Circle()
                         .fill(showModePicker
-                              ? (reduceTransparency ? Color(uiColor: .secondarySystemBackground) : .ultraThinMaterial)
-                              : Color.amenGold.opacity(0.12))
+                              ? (reduceTransparency ? AnyShapeStyle(Color(uiColor: .secondarySystemBackground)) : AnyShapeStyle(Material.ultraThinMaterial))
+                              : AnyShapeStyle(Color.amenGold.opacity(0.12)))
                         .overlay(
                             Circle().fill(showModePicker ? BereanColor.glassFill : Color.clear)
                         )

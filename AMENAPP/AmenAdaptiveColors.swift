@@ -128,15 +128,16 @@ extension Color {
     static let adaptiveIconButtonForeground = AmenTheme.Colors.iconSecondary
     
     // MARK: - Accent Colors (Remain Constant Across Modes)
-    
+    // Forward to AmenTheme canonical tokens — avoids redeclaration conflicts.
+
     /// Gold accent - Premium, elegant (stays the same in both modes)
-    static let amenGold = Color(red: 0.83, green: 0.69, blue: 0.22)
-    
+    static var amenGold: Color { AmenTheme.Colors.amenGold }
+
     /// Bronze accent - Warm, sophisticated (stays the same)
-    static let amenBronze = Color(red: 0.80, green: 0.50, blue: 0.20)
-    
+    static var amenBronze: Color { AmenTheme.Colors.amenBronze }
+
     /// Silver accent - Cool, modern (stays the same)
-    static let amenSilver = Color(red: 0.75, green: 0.75, blue: 0.75)
+    static var amenSilver: Color { AmenTheme.Colors.amenSilver }
     
     // MARK: - Status Colors (Adaptive for Better Contrast)
     
@@ -287,7 +288,7 @@ private struct AdaptiveShadowModifier: ViewModifier {
  
  // BEFORE (Hardcoded):
  .background(Color.white)
- .foregroundColor(.black)
+ .foregroundColor(AmenTheme.Colors.textPrimary)
  .shadow(color: .black.opacity(0.1), radius: 8)
  
  // AFTER (Adaptive):
