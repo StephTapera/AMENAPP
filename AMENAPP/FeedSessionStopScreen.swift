@@ -86,7 +86,7 @@ struct FeedSessionStopScreen: View {
                         subtitle: "One question to sit with",
                         color: Color.primary
                     ) {
-                        currentPrompt = reflectionPrompts.randomElement() ?? reflectionPrompts[0]
+                        currentPrompt = reflectionPrompts.randomElement() ?? reflectionPrompts.first ?? ""
                         showReflectionPrompt = true
                     }
                     
@@ -250,7 +250,7 @@ struct ReflectionPromptSheet: View {
     @FocusState private var isTextFocused: Bool
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(alignment: .leading, spacing: 24) {
                 VStack(alignment: .leading, spacing: 12) {
                     Label("Reflect", systemImage: "lightbulb")

@@ -33,7 +33,7 @@ struct FollowBadgeView: View {
 
             // Badge circle
             Circle()
-                .fill(isFollowed ? Color.black : Color(uiColor: .label))
+                .fill(Color(uiColor: .label))
                 .frame(width: 20, height: 20)
                 .overlay(
                     Circle()
@@ -66,10 +66,10 @@ struct FollowBadgeView: View {
             if !openMenuMode && showToast {
                 Text("Following")
                     .font(.systemScaled(10, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color(.systemBackground))
                     .padding(.horizontal, 8)
                     .padding(.vertical, 3)
-                    .background(Color.black, in: Capsule())
+                    .background(Color(.label), in: Capsule())
                     .fixedSize()
                     .offset(y: -28)
                     .transition(

@@ -102,7 +102,7 @@ struct AmenSyncStudioView: View {
                     Image(systemName: "arrow.triangle.2.circlepath")
                         .font(.system(size: 12))
                     Text("\(vm.selectedPlatformCount) platforms")
-                        .font(.custom("OpenSans-SemiBold", size: 12))
+                        .font(.custom("OpenSans-SemiBold", size: 14))
                 }
                 .foregroundStyle(.teal)
                 .padding(.horizontal, 12)
@@ -140,7 +140,7 @@ struct AmenSyncStudioView: View {
                     .overlay(alignment: .bottom) {
                         if activeTab == tab {
                             Rectangle()
-                                .fill(Color.black)
+                                .fill(Color.primary)
                                 .frame(height: 2)
                         }
                     }
@@ -279,14 +279,7 @@ struct AmenSyncStudioView: View {
                 .font(.custom("OpenSans-Regular", size: 14))
                 .frame(minHeight: 100)
                 .padding(12)
-                .background(
-                    RoundedRectangle(cornerRadius: 14)
-                        .fill(Color.gray.opacity(0.07))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 14)
-                                .strokeBorder(Color.black.opacity(0.1), lineWidth: 1)
-                        )
-                )
+                .amenGlassInputBar(cornerRadius: 14)
 
             // Caption length indicators per platform
             if !vm.caption.isEmpty {
@@ -352,14 +345,7 @@ struct AmenSyncStudioView: View {
             TextField("e.g. Philippians 4:13", text: $vm.scriptureRef)
                 .font(.custom("OpenSans-Regular", size: 14))
                 .padding(14)
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(Color.gray.opacity(0.07))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .strokeBorder(Color.black.opacity(0.1), lineWidth: 1)
-                        )
-                )
+                .amenGlassInputBar(cornerRadius: 12)
         }
     }
 
@@ -396,10 +382,7 @@ struct AmenSyncStudioView: View {
                 TextField("Add tag", text: $tagInput)
                     .font(.custom("OpenSans-Regular", size: 14))
                     .padding(12)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.gray.opacity(0.07))
-                    )
+                    .amenGlassInputBar(cornerRadius: 12)
                     .submitLabel(.done)
                     .onSubmit {
                         let clean = tagInput
@@ -513,12 +496,12 @@ struct AmenSyncStudioView: View {
                             Text("Review & Publish")
                                 .font(.custom("OpenSans-Bold", size: 16))
                         }
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Color(.systemBackground))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
                         .background(
                             RoundedRectangle(cornerRadius: 16)
-                                .fill(Color.black)
+                                .fill(Color(.label))
                         )
                     }
                     .padding(.horizontal, 20)
@@ -581,7 +564,7 @@ struct CaptionLengthChip: View {
             Image(systemName: platform.icon)
                 .font(.system(size: 10))
             Text("\(captionLength)/\(platform.maxCaptionLength)")
-                .font(.custom("OpenSans-SemiBold", size: 10))
+                .font(.custom("OpenSans-SemiBold", size: 14))
         }
         .foregroundStyle(isTooLong ? .red : .secondary)
         .padding(.horizontal, 9)
@@ -628,15 +611,12 @@ struct SyncPlatformToggleRow: View {
                     .foregroundStyle(isSelected ? .teal : Color.secondary.opacity(0.4))
             }
             .padding(14)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(isSelected ? Color.teal.opacity(0.04) : Color.gray.opacity(0.04))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .strokeBorder(
-                                isSelected ? Color.teal.opacity(0.2) : Color.black.opacity(0.06),
-                                lineWidth: 1
-                            )
+            .amenGlassCard(cornerRadius: 16)
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(
+                        isSelected ? Color.teal.opacity(0.30) : Color.clear,
+                        lineWidth: 1
                     )
             )
         }
@@ -693,20 +673,13 @@ struct VariantCaptionRow: View {
                     Image(systemName: "sparkle")
                         .font(.system(size: 10))
                     Text("AI-generated · Tap Edit to modify")
-                        .font(.custom("OpenSans-Regular", size: 11))
+                        .font(.custom("OpenSans-Regular", size: 14))
                 }
                 .foregroundStyle(.secondary)
             }
         }
         .padding(14)
-        .background(
-            RoundedRectangle(cornerRadius: 14)
-                .fill(Color.gray.opacity(0.04))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14)
-                        .strokeBorder(Color.black.opacity(0.07), lineWidth: 1)
-                )
-        )
+        .amenGlassCard(cornerRadius: 14)
         .sheet(isPresented: $editing) {
             CaptionEditSheet(
                 initialText: draft,

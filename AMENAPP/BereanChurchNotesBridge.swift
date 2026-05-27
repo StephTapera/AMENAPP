@@ -167,7 +167,7 @@ struct BereanSaveToChurchNotesSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.white.ignoresSafeArea()
+                AmenTheme.Colors.backgroundPrimary.ignoresSafeArea()
 
                 if didSave {
                     savedConfirmation
@@ -242,9 +242,9 @@ struct BereanSaveToChurchNotesSheet: View {
                                 .padding(.vertical, 8)
                                 .background(
                                     RoundedRectangle(cornerRadius: 9, style: .continuous)
-                                        .fill(selectedCategory == cat ? Color.black : Color(.secondarySystemBackground))
+                                        .fill(selectedCategory == cat ? Color(.label) : Color(.secondarySystemBackground))
                                 )
-                                .foregroundColor(selectedCategory == cat ? .white : .primary)
+                                .foregroundColor(selectedCategory == cat ? Color(.systemBackground) : .primary)
                             }
                             .buttonStyle(.plain)
                         }
@@ -303,7 +303,7 @@ struct BereanSaveToChurchNotesSheet: View {
             Spacer()
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 44))
-                .foregroundColor(.black)
+                .foregroundColor(AmenTheme.Colors.textPrimary)
             Text("Added to Church Notes")
                 .font(AMENFont.semiBold(20))
             Text("You can find this in your Church Notes.")
@@ -312,7 +312,7 @@ struct BereanSaveToChurchNotesSheet: View {
             Spacer()
             Button("Done") { isPresented = false }
                 .font(AMENFont.semiBold(16))
-                .foregroundColor(.black)
+                .foregroundColor(AmenTheme.Colors.textPrimary)
         }
         .padding(24)
     }

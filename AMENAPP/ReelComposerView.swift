@@ -11,10 +11,11 @@
 //    2. Style selector — paged TabView of CNReelStyle cards
 //    3. Font mood pills (Serif · Script · Clean)
 //    4. Music mood pills (Worship · Acoustic · Orchestral)
-//    5. Export / Share action row (coming soon)
+//    5. Export / Share action row
 //
 
 import SwiftUI
+import UIKit
 
 // MARK: - ReelComposerView
 
@@ -25,12 +26,13 @@ struct ReelComposerView: View {
     let quote: String
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     // MARK: - Local state
 
     @State private var selectedFont: ReelFontMood = .serif
     @State private var selectedMusic: ReelMusicMood = .worship
-    @State private var showComingSoon = false
+    @State private var exportNotice: String?
     @State private var previewScale: CGFloat = 0.92
     @State private var glowOpacity: Double = 0.15
 
@@ -51,8 +53,10 @@ struct ReelComposerView: View {
                                 withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
                                     previewScale = 1.0
                                 }
-                                withAnimation(.easeInOut(duration: 2.0).repeatForever(autoreverses: true)) {
-                                    glowOpacity = 0.45
+                                if !reduceMotion {
+                                    withAnimation(.easeInOut(duration: 2.0).repeatForever(autoreverses: true)) {
+                                        glowOpacity = 0.45
+                                    }
                                 }
                             }
 
@@ -92,9 +96,7 @@ struct ReelComposerView: View {
                         .foregroundColor(.white.opacity(0.6))
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showComingSoon = true
-                    } label: {
+                    ShareLink(item: shareText) {
                         HStack(spacing: 4) {
                             Image(systemName: "square.and.arrow.up")
                             Text("Share")
@@ -104,11 +106,6 @@ struct ReelComposerView: View {
                     }
                 }
             }
-            .alert("Coming Soon", isPresented: $showComingSoon) {
-                Button("OK", role: .cancel) {}
-            } message: {
-                Text("Reel export and sharing will be available in a future update.")
-            }
         }
         .presentationBackground(.ultraThinMaterial)
         .presentationCornerRadius(28)
@@ -116,73 +113,74 @@ struct ReelComposerView: View {
 
     // MARK: - Canvas Preview
 
+    @ViewBuilder
     private var canvasPreview: some View {
-        let style = viewModel.reelStyles[safe: viewModel.selectedStyleIndex]
-            ?? viewModel.reelStyles[0]
+        if let style = viewModel.reelStyles[safe: viewModel.selectedStyleIndex]
+            ?? viewModel.reelStyles.first {
+            ZStack(alignment: .topTrailing) {
+                // Background gradient
+                LinearGradient(
+                    colors: style.gradientColors,
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea(edges: [])
 
-        return ZStack(alignment: .topTrailing) {
-            // Background gradient
-            LinearGradient(
-                colors: style.gradientColors,
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea(edges: [])
+                // Decorative glow
+                Circle()
+                    .fill(style.gradientColors.first ?? .amenPurple)
+                    .opacity(glowOpacity * 0.35)
+                    .frame(width: 220, height: 220)
+                    .blur(radius: 60)
+                    .offset(x: 60, y: -40)
 
-            // Decorative glow
-            Circle()
-                .fill(style.gradientColors.first ?? .amenPurple)
-                .opacity(glowOpacity * 0.35)
-                .frame(width: 220, height: 220)
-                .blur(radius: 60)
-                .offset(x: 60, y: -40)
+                // Emoji accent
+                Text(style.emoji)
+                    .font(.system(size: 44))
+                    .padding(18)
+                    .shadow(color: .black.opacity(0.25), radius: 8)
 
-            // Emoji accent
-            Text(style.emoji)
-                .font(.system(size: 44))
-                .padding(18)
-                .shadow(color: .black.opacity(0.25), radius: 8)
-
-            // Quote text
-            VStack(alignment: .leading, spacing: 0) {
-                Spacer()
-                Text(displayQuote)
-                    .font(selectedFont.font(size: 18))
-                    .italic(selectedFont == .serif)
-                    .foregroundColor(.white)
-                    .lineSpacing(5)
-                    .lineLimit(6)
-                    .multilineTextAlignment(.leading)
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 20)
-                    .shadow(color: .black.opacity(0.4), radius: 6)
-            }
-
-            // AMEN watermark
-            VStack {
-                Spacer()
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("AMEN")
-                            .font(.caption2.weight(.bold))
-                            .foregroundColor(.white.opacity(0.45))
-                        Text(selectedMusic.label)
-                            .font(.caption2)
-                            .foregroundColor(.white.opacity(0.3))
-                    }
-                    .padding(.horizontal, 18)
-                    .padding(.bottom, 16)
+                // Quote text
+                VStack(alignment: .leading, spacing: 0) {
                     Spacer()
+                    Text(displayQuote)
+                        .font(selectedFont.font(size: 18))
+                        .italic(selectedFont == .serif)
+                        .foregroundColor(.white)
+                        .lineSpacing(5)
+                        .lineLimit(6)
+                        .multilineTextAlignment(.leading)
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 20)
+                        .shadow(color: .black.opacity(0.4), radius: 6)
+                }
+
+                // AMEN watermark
+                VStack {
+                    Spacer()
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("AMEN")
+                                .font(.caption2.weight(.bold))
+                                .foregroundColor(.white.opacity(0.45))
+                            Text(selectedMusic.label)
+                                .font(.caption2)
+                                .foregroundColor(.white.opacity(0.3))
+                        }
+                        .padding(.horizontal, 18)
+                        .padding(.bottom, 16)
+                        Spacer()
+                    }
                 }
             }
+            .aspectRatio(9.0 / 16.0, contentMode: .fit)
+            .clipShape(RoundedRectangle(cornerRadius: 20))
+            .shadow(color: (style.gradientColors.first ?? .amenPurple).opacity(glowOpacity), radius: 28)
+            .overlay(
+                RoundedRectangle(cornerRadius: 20)
+                    .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
+            )
         }
-        .aspectRatio(9.0 / 16.0, contentMode: .fit)
-        .clipShape(RoundedRectangle(cornerRadius: 20))
-        .shadow(color: (style.gradientColors.first ?? .amenPurple).opacity(glowOpacity), radius: 28)
-        .overlay(
-            RoundedRectangle(cornerRadius: 20)
-                .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
-        )
     }
 
     // MARK: - Style Selector
@@ -281,7 +279,7 @@ struct ReelComposerView: View {
     private var actionRow: some View {
         HStack(spacing: 12) {
             Button {
-                showComingSoon = true
+                saveReelImageToPhotos()
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "square.and.arrow.down")
@@ -301,9 +299,7 @@ struct ReelComposerView: View {
             }
             .buttonStyle(.plain)
 
-            Button {
-                showComingSoon = true
-            } label: {
+            ShareLink(item: shareText) {
                 HStack(spacing: 6) {
                     Image(systemName: "square.and.arrow.up")
                     Text("Share")
@@ -319,7 +315,15 @@ struct ReelComposerView: View {
                         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.cnGold.opacity(0.4), lineWidth: 1))
                 )
             }
-            .buttonStyle(.plain)
+        }
+        .overlay(alignment: .bottom) {
+            if let exportNotice {
+                Label(exportNotice, systemImage: "checkmark.circle.fill")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color.cnGold)
+                    .offset(y: 34)
+                    .transition(.opacity)
+            }
         }
     }
 
@@ -337,6 +341,41 @@ struct ReelComposerView: View {
         return q.isEmpty
             ? "Your most powerful line will appear here."
             : String(q.prefix(180))
+    }
+
+    private var shareText: String {
+        "\(displayQuote)\n\nCreated with AMEN"
+    }
+
+    @MainActor
+    private func saveReelImageToPhotos() {
+        let renderer = ImageRenderer(content:
+            canvasPreview
+                .frame(width: 540, height: 960)
+                .background(Color.black) // Intentional: dark canvas for reel/video composition export
+        )
+        renderer.scale = UITraitCollection.current.displayScale
+        if let image = renderer.uiImage {
+            UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
+            showExportNotice("Saved to Photos")
+        } else {
+            UIPasteboard.general.string = shareText
+            showExportNotice("Copied reel text")
+        }
+    }
+
+    private func showExportNotice(_ text: String) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
+            exportNotice = text
+        }
+        Task {
+            try? await Task.sleep(nanoseconds: 1_600_000_000)
+            await MainActor.run {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
+                    exportNotice = nil
+                }
+            }
+        }
     }
 }
 

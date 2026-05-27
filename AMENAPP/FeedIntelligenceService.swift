@@ -305,7 +305,7 @@ struct FeedReflectionPrompt: Identifiable {
     ]
 
     static func random() -> FeedReflectionPrompt {
-        catalog.randomElement() ?? catalog[0]
+        catalog.randomElement() ?? catalog.first ?? FeedReflectionPrompt(text: "", scripture: nil, scriptureRef: nil)
     }
 }
 

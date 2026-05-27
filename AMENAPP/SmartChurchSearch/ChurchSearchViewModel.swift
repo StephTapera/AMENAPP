@@ -26,11 +26,11 @@ final class ChurchSearchViewModel: ObservableObject {
     private var searchTask: Task<Void, Never>?
 
     init(
-        service: SmartChurchSearchService = .shared,
-        locationProvider: ChurchSearchLocationProviding = ChurchSearchLocationProvider.shared
+        service: SmartChurchSearchService? = nil,
+        locationProvider: ChurchSearchLocationProviding? = nil
     ) {
-        self.service = service
-        self.locationProvider = locationProvider
+        self.service = service ?? SmartChurchSearchService.shared
+        self.locationProvider = locationProvider ?? ChurchSearchLocationProvider.shared
     }
 
     func search() {
@@ -85,10 +85,10 @@ final class ChurchSearchViewModel: ObservableObject {
             return
         }
         let coordinates = results.map(\.church.coordinate)
-        let minLat = coordinates.map(\.latitude).min() ?? coordinates[0].latitude
-        let maxLat = coordinates.map(\.latitude).max() ?? coordinates[0].latitude
-        let minLng = coordinates.map(\.longitude).min() ?? coordinates[0].longitude
-        let maxLng = coordinates.map(\.longitude).max() ?? coordinates[0].longitude
+        let minLat = coordinates.map(\.latitude).min() ?? coordinates.first?.latitude ?? 0
+        let maxLat = coordinates.map(\.latitude).max() ?? coordinates.first?.latitude ?? 0
+        let minLng = coordinates.map(\.longitude).min() ?? coordinates.first?.longitude ?? 0
+        let maxLng = coordinates.map(\.longitude).max() ?? coordinates.first?.longitude ?? 0
         mapCamera = .region(MKCoordinateRegion(
             center: CLLocationCoordinate2D(latitude: (minLat + maxLat) / 2, longitude: (minLng + maxLng) / 2),
             span: MKCoordinateSpan(latitudeDelta: max(0.04, (maxLat - minLat) * 1.6), longitudeDelta: max(0.04, (maxLng - minLng) * 1.6))

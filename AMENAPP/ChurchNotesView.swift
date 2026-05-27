@@ -26,13 +26,17 @@ struct ChurchNotesView: View {
     @State private var errorMessage = ""
     @State private var scrollOffset: CGFloat = 0
     @State private var isSearchFocused = false
+    @State private var showLivingEntries = false
     @AppStorage("hasSeenChurchNotesOnboarding") private var hasSeenOnboarding = false
     @State private var showOnboarding = false
+    @State private var showMediaCapture = false   // Wires ChurchNotesMediaCaptureView
+    @State private var capturedNoteText: String?  // Receives OCR text from capture view
     @Namespace private var animation
 
     // For You personalization: loaded on appear
     @State private var userChurchName: String? = nil
     @State private var userChurchTags: Set<String> = []
+    @State private var promptTrigger = false
 
     enum FilterOption: String, CaseIterable {
         case forYou = "For You"
@@ -137,6 +141,15 @@ struct ChurchNotesView: View {
                     },
                     notes: notesService.notes
                 )
+
+                AmenFlowIntentBanner(
+                    title: "Church Notes",
+                    message: "Help me continue what God is teaching me.",
+                    icon: "note.text.badge.plus"
+                )
+                .padding(.horizontal, 16)
+                .padding(.top, 10)
+                .padding(.bottom, 8)
                 
                 // Smart Header Orchestrator (feature-flagged, off by default)
                 SmartHeaderOrchestrator(
@@ -192,6 +205,29 @@ struct ChurchNotesView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
+        .overlay(alignment: .bottomTrailing) {
+            Button {
+                withAnimation(Motion.adaptive(.spring(response: 0.32, dampingFraction: 0.82))) {
+                    showLivingEntries = true
+                }
+            } label: {
+                Label("Living Entries", systemImage: "square.stack.3d.up.fill")
+                    .font(.systemScaled(13, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(.ultraThinMaterial, in: Capsule())
+                    .overlay {
+                        Capsule()
+                            .stroke(Color.white.opacity(0.36), lineWidth: 1)
+                    }
+                    .shadow(color: .black.opacity(0.12), radius: 12, y: 6)
+            }
+            .buttonStyle(.plain)
+            .padding(.trailing, 20)
+            .padding(.bottom, 28)
+            .accessibilityLabel("Open church Living Entries")
+        }
         .fullScreenCover(isPresented: $showingNewNote) {
             ChurchNotesPremiumEditor(notesService: notesService, existingNote: nil)
         }
@@ -202,6 +238,20 @@ struct ChurchNotesView: View {
         }
         .sheet(isPresented: $showOnboarding) {
             ChurchNotesOnboardingView()
+        }
+        .sheet(isPresented: $showLivingEntries) {
+            LivingEntriesHomeView(initialFilter: .churchNotes)
+        }
+        // Media capture — wires ChurchNotesMediaCaptureView
+        .sheet(isPresented: $showMediaCapture) {
+            ChurchNotesMediaCaptureView(onInsert: { extracted in
+                capturedNoteText = extracted
+                showMediaCapture = false
+                // Auto-open new note with captured text pre-filled
+                showingNewNote = true
+            })
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
         }
         .alert("Error", isPresented: $showErrorAlert) {
             Button("OK", role: .cancel) { }
@@ -226,12 +276,14 @@ struct ChurchNotesView: View {
             Task {
                 await loadUserChurchForPersonalization()
             }
+            promptTrigger = true
         }
         .onDisappear {
             // Stop listener when view disappears
             notesService.stopListening()
             // Note: We keep followService listening as it's used app-wide
         }
+        .amenSmartPrompt(surface: .churchNotes, trigger: $promptTrigger)
     }
 
     // MARK: - For You Personalization
@@ -286,6 +338,7 @@ struct ChurchNotesView: View {
 // MARK: - Animated Gradient Background (Private to ChurchNotesView)
 
 private struct ChurchNotesAnimatedGradientBackground: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var animateGradient = false
     @State private var animationPhase: CGFloat = 0
     
@@ -345,20 +398,22 @@ private struct ChurchNotesAnimatedGradientBackground: View {
             .blendMode(.overlay)
         }
         .onAppear {
-            // Smooth gradient animation
-            withAnimation(
-                .easeInOut(duration: 10.0)
-                    .repeatForever(autoreverses: true)
-            ) {
-                animateGradient = true
-            }
-            
-            // Radial movement animation
-            withAnimation(
-                .linear(duration: 20.0)
-                    .repeatForever(autoreverses: false)
-            ) {
-                animationPhase = .pi * 2
+            if !reduceMotion {
+                // Smooth gradient animation
+                withAnimation(
+                    .easeInOut(duration: 10.0)
+                        .repeatForever(autoreverses: true)
+                ) {
+                    animateGradient = true
+                }
+
+                // Radial movement animation
+                withAnimation(
+                    .linear(duration: 20.0)
+                        .repeatForever(autoreverses: false)
+                ) {
+                    animationPhase = .pi * 2
+                }
             }
         }
     }
@@ -503,6 +558,7 @@ struct LiquidGlassHeader: View {
                         .font(AMENFont.regular(16))
                         .foregroundStyle(.white)
                         .tint(Color(hex: "A67C52"))
+                        .accessibilityLabel("Search notes, sermons, and scriptures")
                         .onTapGesture {
                             withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                 isSearchFocused = true
@@ -701,6 +757,7 @@ struct FilterPill: View {
 // MARK: - Loading Glass View
 
 struct LoadingGlassView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isAnimating = false
     @State private var rotationAngle: Double = 0
     
@@ -725,7 +782,7 @@ struct LoadingGlassView: View {
                         .scaleEffect(isAnimating ? 1.5 : 0.5)
                         .opacity(isAnimating ? 0.0 : 0.8)
                         .animation(
-                            .easeInOut(duration: 1.8)
+                            reduceMotion ? nil : .easeInOut(duration: 1.8)
                                 .repeatForever(autoreverses: false)
                                 .delay(Double(index) * 0.3),
                             value: isAnimating
@@ -796,6 +853,7 @@ struct EmptyStateGlassView: View {
     let hasSearch: Bool
     let filterType: ChurchNotesView.FilterOption
     let onCreateNote: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isAnimating = false
     
     var body: some View {
@@ -811,7 +869,7 @@ struct EmptyStateGlassView: View {
                         .frame(width: 160, height: 160)
                         .scaleEffect(isAnimating ? 1.1 : 1.0)
                         .animation(
-                            .easeInOut(duration: 2.0)
+                            reduceMotion ? nil : .easeInOut(duration: 2.0)
                                 .repeatForever(autoreverses: true),
                             value: isAnimating
                         )
@@ -1010,7 +1068,8 @@ struct LiquidGlassNoteCard: View {
     @State private var showShareSheet = false
     @State private var isSharing = false
     @State private var showCopiedToast = false
-    
+    @State private var showNoteContextActions = false
+
     var body: some View {
         Button {
             // Smart haptic feedback
@@ -1386,6 +1445,18 @@ struct LiquidGlassNoteCard: View {
             .animation(.spring(response: 0.3, dampingFraction: 0.7), value: cardScale)
         }
         .buttonStyle(PlainButtonStyle())
+        .overlay(alignment: .topTrailing) {
+            Button { showNoteContextActions = true } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.6))
+                    .frame(width: 36, height: 36)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 8)
+            .padding(.trailing, 8)
+        }
         .contextMenu {
             Button {
                 Task {
@@ -1441,6 +1512,17 @@ struct LiquidGlassNoteCard: View {
         .sheet(isPresented: $showShareSheet) {
             ChurchNoteShareOptionsSheet(note: note)
         }
+        .sheet(isPresented: $showNoteContextActions) {
+            ChurchNoteActionSheet(
+                noteTitle: note.title,
+                onEdit: {},
+                onStar: { Task { try? await notesService.toggleFavorite(note) } },
+                onShare: { showShareSheet = true },
+                onExport: {},
+                onMove: {},
+                onDelete: { showDeleteConfirmation = true }
+            )
+        }
         .overlay(alignment: .bottom) {
             // Toast notification for copy confirmation
             if showCopiedToast {
@@ -1465,23 +1547,16 @@ struct LiquidGlassNoteCard: View {
     private func shareNoteToOpenTable() async {
         isSharing = true
 
-        // Format the note content for sharing
-        let shareContent = """
-        📝 Church Note: \(note.title)
-
-        \(note.content)
-
-        \(note.scripture.map { "📖 " + $0 } ?? "")
-
-        \(note.sermonTitle.map { "🎤 Sermon: " + $0 } ?? "")
-        \(note.churchName.map { "⛪️ " + $0 } ?? "")
-        """
+        // Caption only — note title as brief user statement.
+        // Full note body/metadata is accessible via churchNoteId; embedding it in post.content
+        // caused raw text to bleed into the feed card body before the attachment pill rendered.
+        let shareContent = note.title.isEmpty ? "Sharing a church note" : note.title
 
         do {
             // Create post via FirebasePostService — pass churchNoteId so AI detection
             // is skipped (church note content is the user's own sermon notes, not AI-generated).
             try await FirebasePostService.shared.createPost(
-                content: shareContent.trimmingCharacters(in: .whitespacesAndNewlines),
+                content: shareContent,
                 category: .openTable,
                 topicTag: "Church Notes",
                 visibility: .everyone,
@@ -1700,6 +1775,7 @@ struct NewChurchNoteView: View {
                                             .labelsHidden()
                                             .tint(.white)
                                             .colorScheme(.dark)
+                                            .accessibilityLabel("Select note date")
                                     }
                                     .padding(.horizontal, 14)
                                     .padding(.vertical, 11)
@@ -2021,7 +2097,7 @@ struct NewChurchNoteView: View {
         
         Task {
             do {
-                try await notesService.createNote(note)
+                _ = try await notesService.createNote(note)
                 
                 await MainActor.run {
                     isSaving = false
@@ -2075,6 +2151,7 @@ struct GlassTextField: View {
                 .font(.custom(isLarge ? "OpenSans-Bold" : "OpenSans-Regular", size: isLarge ? 20 : 16))
                 .foregroundStyle(.white)
                 .tint(tintColor)
+                .accessibilityLabel(placeholder)
                 .onSubmit {
                     onSubmit?()
                 }
@@ -2646,6 +2723,7 @@ struct ThreadsStyleHeader: View {
                         .font(.systemScaled(16, weight: .regular, design: .rounded))
                         .foregroundStyle(.primary)
                         .tint(.blue)
+                        .accessibilityLabel("Search notes")
                         .onTapGesture {
                             withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                 isSearchFocused = true
@@ -3002,6 +3080,7 @@ struct ThreadsStyleNoteCard: View {
 
 // MARK: - Monochrome Loading View
 struct MonochromeLoadingView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isAnimating = false
     @State private var rotation: Double = 0
     
@@ -3015,7 +3094,7 @@ struct MonochromeLoadingView: View {
                         .scaleEffect(isAnimating ? 1.3 : 0.7)
                         .opacity(isAnimating ? 0 : 0.8)
                         .animation(
-                            .easeInOut(duration: 1.5)
+                            reduceMotion ? nil : .easeInOut(duration: 1.5)
                                 .repeatForever(autoreverses: false)
                                 .delay(Double(index) * 0.2),
                             value: isAnimating
@@ -3036,8 +3115,10 @@ struct MonochromeLoadingView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear {
             isAnimating = true
-            withAnimation(.linear(duration: 2.0).repeatForever(autoreverses: false)) {
-                rotation = 360
+            if !reduceMotion {
+                withAnimation(.linear(duration: 2.0).repeatForever(autoreverses: false)) {
+                    rotation = 360
+                }
             }
         }
     }
@@ -3048,6 +3129,7 @@ struct MonochromeEmptyState: View {
     let hasSearch: Bool
     let filterType: ChurchNotesView.FilterOption
     let onCreateNote: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var bounce = false
     
     var body: some View {
@@ -3064,7 +3146,7 @@ struct MonochromeEmptyState: View {
                     .font(.systemScaled(48, weight: .light))
                     .foregroundStyle(.blue.opacity(0.6))
             }
-            .animation(.easeInOut(duration: 2.0).repeatForever(autoreverses: true), value: bounce)
+            .animation(reduceMotion ? nil : .easeInOut(duration: 2.0).repeatForever(autoreverses: true), value: bounce)
             
             VStack(spacing: 12) {
                 Text(emptyTitle)
@@ -3316,6 +3398,7 @@ struct MonochromeNewNoteView: View {
                                 .foregroundStyle(.primary)
                                 .tint(.blue)
                                 .focused($focusedField, equals: .title)
+                                .accessibilityLabel("Note title")
                                 .padding(20)
                                 .background(
                                     RoundedRectangle(cornerRadius: 20)
@@ -3413,6 +3496,7 @@ struct MonochromeNewNoteView: View {
                                         .labelsHidden()
                                         .tint(.blue)
                                         .colorScheme(.dark)
+                                        .accessibilityLabel("Select note date")
                                 }
                                 .padding(16)
                                 .background(
@@ -3543,6 +3627,7 @@ struct MonochromeNewNoteView: View {
                                     .frame(minHeight: 280)
                                     .padding(16)
                                     .focused($focusedField, equals: .content)
+                                    .accessibilityLabel("Sermon notes")
                                     .onChange(of: content) { oldValue, newValue in
                                         wordCount = newValue.split(separator: " ").count
                                     }
@@ -3647,7 +3732,7 @@ struct MonochromeNewNoteView: View {
         
         Task {
             do {
-                try await notesService.createNote(note)
+                _ = try await notesService.createNote(note)
                 await MainActor.run {
                     dismiss()
                 }
@@ -3679,6 +3764,7 @@ struct MonochromeTextField: View {
                 .font(.systemScaled(16, weight: .regular, design: .rounded))
                 .foregroundStyle(.white)
                 .tint(.white)
+                .accessibilityLabel(placeholder)
         }
         .padding(16)
         .background(
@@ -3790,13 +3876,10 @@ struct MonochromeNoteDetailView: View {
                             .shadow(color: .black.opacity(0.2), radius: 8, y: 4)
                     }
                     
+                    // The dedicated share button in the footer already exposes Share —
+                    // avoid duplicate dead menu entry and keep the overflow menu strictly
+                    // for destructive/admin actions.
                     Menu {
-                        Button {
-                            // Share functionality - handled by share button in footer
-                        } label: {
-                            Label("Share", systemImage: "square.and.arrow.up")
-                        }
-                        
                         Button(role: .destructive) {
                             showDeleteConfirmation = true
                         } label: {
@@ -3961,6 +4044,7 @@ struct EnhancedTextField: View {
                 .foregroundStyle(.primary)
                 .tint(tintColor)
                 .focused(focusedField, equals: field)
+                .accessibilityLabel(placeholder)
         }
         .padding(16)
         .background(
@@ -3992,7 +4076,7 @@ struct ShareNoteToOpenTableSheet: View {
     @ObservedObject private var postsManager = PostsManager.shared
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 0) {
                 // Header
                 HStack {
@@ -4048,6 +4132,7 @@ struct ShareNoteToOpenTableSheet: View {
                                 .frame(minHeight: 120)
                                 .padding(12)
                                 .scrollContentBackground(.hidden)
+                                .accessibilityLabel("Your thoughts")
                                 .background(
                                     RoundedRectangle(cornerRadius: 10)
                                         .fill(.thinMaterial)
@@ -4133,18 +4218,10 @@ struct ShareNoteToOpenTableSheet: View {
         
         Task {
             do {
-                // Generate post content
-                var fullContent = postContent + "\n\n"
-                
-                if let sermon = note.sermonTitle {
-                    fullContent += "🎤 Sermon: \(sermon)\n"
-                }
-                
-                if let scripture = note.scripture {
-                    fullContent += "📖 Scripture: \(scripture)\n"
-                }
-                
-                fullContent += "\n" + note.content
+                // Caption only — user's composed text.
+                // Full note body/metadata is accessible via churchNoteId; embedding it in post.content
+                // caused raw text to bleed into the feed card body before the attachment pill rendered.
+                let fullContent = postContent.trimmingCharacters(in: .whitespacesAndNewlines)
                 
                 // Post to Firebase — pass churchNoteId to bypass AI detection
                 // (church note content is the user's own sermon notes, not AI-generated).
@@ -4158,13 +4235,17 @@ struct ShareNoteToOpenTableSheet: View {
                 // Write a share event for Cloud Function fanout to followers/church members
                 if let sharerId = Auth.auth().currentUser?.uid {
                     lazy var db = Firestore.firestore()
-                    _ = try? await db.collection("churchNoteShareEvents").addDocument(data: [
-                        "noteId": note.id ?? "",
-                        "noteTitle": note.title,
-                        "sharerId": sharerId,
-                        "churchName": note.churchName ?? "",
-                        "sharedAt": FieldValue.serverTimestamp()
-                    ])
+                    do {
+                        _ = try await db.collection("churchNoteShareEvents").addDocument(data: [
+                            "noteId": note.id ?? "",
+                            "noteTitle": note.title,
+                            "sharerId": sharerId,
+                            "churchName": note.churchName ?? "",
+                            "sharedAt": FieldValue.serverTimestamp()
+                        ])
+                    } catch {
+                        dlog("⚠️ ChurchNotesView: failed to record share event — \(error)")
+                    }
                 }
                 
                 await MainActor.run {
@@ -4451,6 +4532,7 @@ struct ElegantChurchNoteReadView: View {
     @Environment(\.dismiss) var dismiss
     @State private var showShareSheet = false
     @State private var showCommentsSheet = false
+    @State private var isCheckingCommentPermission = false
     @State private var hasAmenned = false
     @State private var amenCount = 0
     @State private var commentCount = 0
@@ -4637,7 +4719,7 @@ struct ElegantChurchNoteReadView: View {
                         
                         // Comment Button
                         Button {
-                            showCommentsSheet = true
+                            presentCommentsIfAllowed()
                         } label: {
                             HStack(spacing: 6) {
                                 Image(systemName: commentCount > 0 ? "bubble.left.fill" : "bubble.left")
@@ -4655,6 +4737,7 @@ struct ElegantChurchNoteReadView: View {
                                     .fill(commentCount > 0 ? Color.blue.opacity(0.12) : Color.black.opacity(0.04))
                             )
                         }
+                        .disabled(isCheckingCommentPermission)
                         
                         Spacer()
                     }
@@ -4673,7 +4756,7 @@ struct ElegantChurchNoteReadView: View {
             }
         }
         .sheet(isPresented: $showCommentsSheet) {
-            CommentsView(post: post)
+            CommentsView(post: post, threadCategoryOverride: "church_note")
         }
     }
     
@@ -4702,6 +4785,39 @@ struct ElegantChurchNoteReadView: View {
         text += "\n\nShared by \(post.authorName) on AMEN"
         
         return text
+    }
+
+    private func presentCommentsIfAllowed() {
+        guard !isCheckingCommentPermission else { return }
+        isCheckingCommentPermission = true
+
+        let resolvedPostId: String
+        if !post.firestoreId.isEmpty {
+            resolvedPostId = post.firestoreId
+        } else if let firebaseId = post.firebaseId, !firebaseId.isEmpty {
+            resolvedPostId = firebaseId
+        } else {
+            resolvedPostId = post.id.uuidString
+        }
+
+        Task {
+            let canComment = await CommentService.shared.canComment(
+                postId: resolvedPostId,
+                post: post
+            )
+
+            await MainActor.run {
+                isCheckingCommentPermission = false
+
+                guard canComment else {
+                    HapticManager.notification(type: .warning)
+                    ToastManager.shared.showError("You can't comment on this post.")
+                    return
+                }
+
+                showCommentsSheet = true
+            }
+        }
     }
     
     // MARK: - Load Interactions
@@ -4951,7 +5067,7 @@ struct ShareWithFriendsSheet: View {
     }
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack {
                 // Dark gradient background
                 LinearGradient(
@@ -5011,6 +5127,7 @@ struct ShareWithFriendsSheet: View {
                             .foregroundStyle(.white)
                             .autocorrectionDisabled()
                             .textInputAutocapitalization(.never)
+                            .accessibilityLabel("Search friends")
                         
                         if !searchText.isEmpty {
                             Button {
@@ -5348,7 +5465,7 @@ struct MinimalTypographyHeader: View {
                 }
                 .buttonStyle(.plain)
                 .sheet(isPresented: $showSemanticSearch) {
-                    NavigationView {
+                    NavigationStack {
                         BereanSemanticSearchView(notes: notes)
                             .navigationTitle("Smart Search")
                             .navigationBarTitleDisplayMode(.inline)
@@ -5402,6 +5519,7 @@ struct MinimalTypographyHeader: View {
                     TextField("Search notes, scriptures…", text: $searchText)
                         .font(.systemScaled(16))
                         .foregroundStyle(.primary)
+                        .accessibilityLabel("Search notes and scriptures")
                         .tint(.primary)
 
                     if !searchText.isEmpty {
@@ -5871,6 +5989,7 @@ struct MinimalNewNoteSheet: View {
                             .font(.systemScaled(32, weight: .medium))
                             .foregroundStyle(.primary)
                             .tint(.black)
+                            .accessibilityLabel("Note title")
                             .padding(.horizontal, 20)
                             .padding(.top, 20)
                         
@@ -5899,6 +6018,7 @@ struct MinimalNewNoteSheet: View {
                                         .datePickerStyle(.compact)
                                         .labelsHidden()
                                         .tint(.black)
+                                        .accessibilityLabel("Select note date")
                                 }
                                 .padding(.horizontal, 16)
                                 .padding(.vertical, 13)
@@ -6172,7 +6292,7 @@ struct MinimalNewNoteSheet: View {
         
         Task {
             do {
-                try await notesService.createNote(note)
+                _ = try await notesService.createNote(note)
                 await MainActor.run {
                     let haptic = UINotificationFeedbackGenerator()
                     haptic.notificationOccurred(.success)
@@ -6463,6 +6583,7 @@ struct MinimalTextField: View {
                 .font(.systemScaled(16))
                 .foregroundStyle(.primary)
                 .tint(.primary)
+                .accessibilityLabel(placeholder)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 13)

@@ -21,6 +21,7 @@ import FirebaseAuth
 
 struct AIBibleStudyView: View {
     @Environment(\.dismiss) var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var premiumManager = PremiumManager.shared
     @State var selectedTab: AIStudyTab = .chat
     @State private var userInput = ""
@@ -113,7 +114,7 @@ struct AIBibleStudyView: View {
                         .offset(x: -160, y: 120)
                         .blur(radius: 70)
                         .scaleEffect(orbAnimation ? 1.08 : 1.0)
-                        .animation(.easeInOut(duration: 8).repeatForever(autoreverses: true), value: orbAnimation)
+                        .animation(reduceMotion ? nil : .easeInOut(duration: 8).repeatForever(autoreverses: true), value: orbAnimation)
 
                     // Right blob — violet/purple
                     Circle()
@@ -133,7 +134,7 @@ struct AIBibleStudyView: View {
                         .offset(x: 160, y: 100)
                         .blur(radius: 60)
                         .scaleEffect(orb2Animation ? 1.12 : 1.0)
-                        .animation(.easeInOut(duration: 6.5).repeatForever(autoreverses: true), value: orb2Animation)
+                        .animation(reduceMotion ? nil : .easeInOut(duration: 6.5).repeatForever(autoreverses: true), value: orb2Animation)
 
                     // Subtle center warmth
                     Circle()
@@ -152,7 +153,7 @@ struct AIBibleStudyView: View {
                         .offset(x: 0, y: 60)
                         .blur(radius: 50)
                         .scaleEffect(pulseAnimation ? 1.18 : 1.0)
-                        .animation(.easeInOut(duration: 5).repeatForever(autoreverses: true), value: pulseAnimation)
+                        .animation(reduceMotion ? nil : .easeInOut(duration: 5).repeatForever(autoreverses: true), value: pulseAnimation)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                 .allowsHitTesting(false)
@@ -166,7 +167,7 @@ struct AIBibleStudyView: View {
                     if !hasProAccess && selectedTab == .chat {
                         LightUsageLimitBanner(
                             messagesRemaining: premiumManager.freeMessagesRemaining,
-                            totalMessages: premiumManager.FREE_MESSAGES_PER_DAY,
+                            totalMessages: premiumManager.dailyMessageLimit ?? premiumManager.FREE_MESSAGES_PER_DAY,
                             onUpgrade: { showProUpgrade = true }
                         )
                         .transition(.move(edge: .top).combined(with: .opacity))
@@ -319,6 +320,7 @@ struct AIBibleStudyView: View {
                                 .font(.systemScaled(17))
                                 .foregroundStyle(Color(white: 0.35))
                         }
+                        .accessibilityLabel("History")
 
                         Button {
                             HapticManager.impact(style: .light)
@@ -328,6 +330,7 @@ struct AIBibleStudyView: View {
                                 .font(.systemScaled(17))
                                 .foregroundStyle(Color(white: 0.35))
                         }
+                        .accessibilityLabel("Settings")
                     }
                 }
             }
@@ -337,7 +340,7 @@ struct AIBibleStudyView: View {
         }
         .preferredColorScheme(nil)
         .sheet(isPresented: $showProUpgrade) {
-            PremiumUpgradeView()
+            PremiumUpgradeView(context: .aiLimit)
         }
         .sheet(isPresented: $showHistory) {
             AIBibleStudyConversationHistoryView(
@@ -348,7 +351,9 @@ struct AIBibleStudyView: View {
         .sheet(isPresented: $showSettings) {
             AISettingsView()
         }
-        .sheet(isPresented: $showVoiceInput) {
+        .sheet(isPresented: $showVoiceInput, onDismiss: {
+            if speechService.isRecording { speechService.stopRecording() }
+        }) {
             VoiceInputView(
                 speechRecognizer: speechService,
                 isPresented: $showVoiceInput
@@ -525,13 +530,20 @@ struct AIBibleStudyView: View {
     // MARK: - Send Message
 
     private func sendMessage() {
+        Task { await sendMessageAfterServerLimitCheck() }
+    }
+
+    @MainActor
+    private func sendMessageAfterServerLimitCheck() async {
         guard !userInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
 
         let premiumManager = PremiumManager.shared
-        guard premiumManager.canSendMessage() else {
+        guard premiumManager.canSendMessage(),
+              await premiumManager.reserveAIMessageAllowance() else {
             showProUpgrade = true
+            let limit = premiumManager.dailyMessageLimit ?? premiumManager.FREE_MESSAGES_PER_DAY
             messages.append(AIStudyMessage(
-                text: "You've reached your daily limit of \(premiumManager.FREE_MESSAGES_PER_DAY) free messages. Upgrade to Pro for unlimited AI conversations.\n\nYour limit resets at midnight.",
+                text: "You've reached your daily limit of \(limit) AI study messages. Upgrade to Plus for more room or Pro for unlimited Berean depth.\n\nYour limit resets at midnight.",
                 isUser: false
             ))
             return
@@ -549,7 +561,6 @@ struct AIBibleStudyView: View {
         userInput = ""
 
         isProcessing = true
-        premiumManager.incrementMessageCount()
 
         Task {
             do {
@@ -989,6 +1000,7 @@ struct LightGlassmorphicChatInput: View {
                             .lineLimit(1...4)
                             .focused($isInputFocused)
                             .submitLabel(.send)
+                            .accessibilityLabel("Bible study question or request")
                             .onSubmit {
                                 if !userInput.isEmpty && !isProcessing {
                                     HapticManager.impact(style: .light)
@@ -1692,6 +1704,7 @@ struct AnalysisContent: View {
                     .foregroundStyle(Color(white: 0.15))
                     .focused($isSearchFocused)
                     .submitLabel(.search)
+                    .accessibilityLabel("Search biblical word")
                     .onSubmit {
                         let q = searchWord.trimmingCharacters(in: .whitespaces).lowercased()
                         selectedEntry = WordAnalysisData.entries.first { $0.word.lowercased() == q }

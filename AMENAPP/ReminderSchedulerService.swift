@@ -175,7 +175,7 @@ final class ReminderSchedulerService: ObservableObject {
 
             let content = UNMutableNotificationContent()
             content.title = "Spiritual Check-In"
-            content.body = spiritualMessages.randomElement() ?? spiritualMessages[0]
+            content.body = spiritualMessages.randomElement() ?? spiritualMessages.first ?? ""
             content.sound = .default
             content.userInfo = ["type": "spiritual_checkin"]
 
@@ -303,7 +303,11 @@ final class ReminderSchedulerService: ObservableObject {
             "createdAt": FieldValue.serverTimestamp()
         ]
         let docId = "reminder_\(userId)_\(eventId)"
-        try? await db.collection(CalendarCollections.reminderSchedules).document(docId).setData(data, merge: true)
+        do {
+            try await db.collection(CalendarCollections.reminderSchedules).document(docId).setData(data, merge: true)
+        } catch {
+            dlog("⚠️ ReminderSchedulerService: failed to schedule reminder — \(error)")
+        }
     }
 
     // MARK: - Smart Reminder Suggestions

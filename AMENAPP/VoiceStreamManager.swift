@@ -66,7 +66,7 @@ actor VoiceStreamManager {
         do {
             try session.setCategory(.playAndRecord,
                                     mode: .voiceChat,
-                                    options: [.defaultToSpeaker, .allowBluetooth])
+                                    options: [.defaultToSpeaker, .allowBluetoothHFP])
             try session.setPreferredSampleRate(sampleRate)
             try session.setActive(true)
         } catch {
@@ -160,8 +160,10 @@ actor VoiceStreamManager {
         buffer.frameLength = frameCount
 
         data.withUnsafeBytes { rawPtr in
-            guard let src = rawPtr.baseAddress else { return }
-            let dst = UnsafeMutableRawPointer(buffer.int16ChannelData![0])
+            guard let src = rawPtr.baseAddress,
+                  let channelData = buffer.int16ChannelData,
+                  buffer.format.channelCount > 0 else { return }
+            let dst = UnsafeMutableRawPointer(channelData[0])
             memcpy(dst, src, data.count)
         }
 

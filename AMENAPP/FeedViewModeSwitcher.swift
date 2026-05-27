@@ -9,7 +9,7 @@
 import SwiftUI
 
 enum FeedViewMode: String, CaseIterable {
-    case posts = "Posts"
+    case posts = "All Posts"
     case media = "Photos & Videos"
 
     var icon: String {
@@ -22,6 +22,7 @@ enum FeedViewMode: String, CaseIterable {
 
 struct FeedViewModeSwitcher: View {
     @Binding var selectedMode: FeedViewMode
+    @Namespace private var pillNamespace
 
     var body: some View {
         HStack(spacing: 2) {
@@ -46,6 +47,7 @@ struct FeedViewModeSwitcher: View {
                             if selectedMode == mode {
                                 Capsule()
                                     .fill(Color.white)
+                                    .matchedGeometryEffect(id: "feed_mode_pill", in: pillNamespace)
                                     .shadow(color: .black.opacity(0.06), radius: 4, y: 2)
                             }
                         }

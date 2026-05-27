@@ -21,7 +21,8 @@ enum MessageSheetType: Identifiable, Equatable {
     case joinGroupViaLink(token: String)
     case generatedGroupLink(link: GroupLink, groupName: String)
     case settings
-    
+    case bereanConversation(String)
+
     var id: String {
         switch self {
         case .chat(let conversation):
@@ -40,6 +41,8 @@ enum MessageSheetType: Identifiable, Equatable {
             return "generatedGroupLink_\(link.token)"
         case .settings:
             return "settings"
+        case .bereanConversation(let cid):
+            return "bereanConversation_\(cid)"
         }
     }
     
@@ -68,7 +71,12 @@ struct MessagesView: View {
     @State private var searchText = ""
     @FocusState private var isMessageSearchFocused: Bool
     @State private var activeSheet: MessageSheetType?
+    @State private var selectedConversationForActions: ChatConversation? = nil
     @State private var selectedTab: MessageTab = .messages
+    @State private var commandLayerText = ""
+    @State private var showCommandLayerCreateSheet = false
+    @State private var showCommandLayerModePicker = false
+    @State private var selectedCommandLayerChipID: String?
     @State private var rowsVisible = false
     @Namespace private var pillNS
     @State private var messageRequests: [MessageRequest] = []
@@ -93,6 +101,14 @@ struct MessagesView: View {
     // not on every body pass.
     @State private var cachedFilteredConversations: [ChatConversation] = []
     @State private var cachedPinnedConversations: [ChatConversation] = []
+
+    // System 36: Messaging Filters & Smart Inbox
+    @State private var activeInboxFilter: MessagingInboxFilter = .all
+    @ObservedObject private var amenFeatureFlags = AMENFeatureFlags.shared
+    @StateObject private var smartInboxObserver = SmartInboxMetadataObserver()
+    @StateObject private var ministrySpacesViewModel = SpacesViewModel()
+    @State private var selectedMinistrySpace: AMENSpace?
+    @State private var showMinistrySpaceBridge = false
     
     // ✅ Tab bar visibility control (passed from ContentView)
     @Environment(\.tabBarVisible) private var tabBarVisible
@@ -102,6 +118,7 @@ struct MessagesView: View {
         case messages
         case requests
         case archived
+        case communion
     }
     
     // Real conversations from Firebase — deduplicated by participant so pin/unpin
@@ -197,6 +214,8 @@ struct MessagesView: View {
         case .archived:
             // Archived conversations are handled separately by messagingService.archivedConversations
             conversations = messagingService.archivedConversations
+        case .communion:
+            return []
         }
 
         // Apply search filter if search text is not empty
@@ -205,6 +224,16 @@ struct MessagesView: View {
                 conversation.name.localizedCaseInsensitiveContains(searchText) ||
                 conversation.lastMessage.localizedCaseInsensitiveContains(searchText)
             }
+        }
+
+        // System 36: apply Liquid Glass inbox filter (.all = no-op).
+        // Only active when feature flag is on; metadata adapter is local-only
+        // for Phase 1 (drafts/mentions/media/etc. stay false until backend lands).
+        if #available(iOS 17.0, *), amenFeatureFlags.messagingInboxFiltersEnabled,
+           activeInboxFilter != .all,
+           selectedTab == .messages {
+            let metadata = MessagingInboxFilterAvailability.metadataAdapter()
+            conversations = activeInboxFilter.apply(to: conversations, metadata: metadata)
         }
 
         // Deduplicate by document ID first (guard against Firestore listener duplicates)
@@ -271,6 +300,9 @@ struct MessagesView: View {
     var body: some View {
         NavigationStack {
             amenInboxBody
+                .safeAreaInset(edge: .bottom) {
+                    messagesCommandLayerInset
+                }
                 .navigationBarHidden(true)
                 .onAppear {
                     tabBarVisible.wrappedValue = false
@@ -287,11 +319,53 @@ struct MessagesView: View {
                     sheetContent(for: sheetType)
                         .presentationDragIndicator(.visible)
                 }
-                .onAppear { recomputeConversationCache() }
-                .onChange(of: messagingService.conversations) { _, _ in recomputeConversationCache() }
+                .sheet(item: $selectedConversationForActions) { conv in
+                    MessageActionSheet(
+                        conversationName: conv.name,
+                        onReply: { openChat(conv) },
+                        onForward: {},
+                        onStar: {},
+                        onCopy: {
+                            UIPasteboard.general.string = conv.lastMessage
+                        },
+                        onDelete: {
+                            conversationToDelete = conv
+                            showDeleteConfirmation = true
+                        }
+                    )
+                }
+                .sheet(isPresented: $showCommandLayerCreateSheet, onDismiss: {
+                    AMENAnalyticsService.shared.track(.commandLayerDismissed(surface: AmenCommandLayerSurface.messages.rawValue))
+                }) {
+                    AmenCreateActionSheet(
+                        surface: .messages,
+                        actions: AmenCommandLayerCatalog.actions(for: .messages),
+                        onAction: handleMessagesCommandLayerAction
+                    )
+                    .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
+                }
+                .sheet(isPresented: $showCommandLayerModePicker) {
+                    AmenComposerModePicker(surface: .messages, onSelectAction: handleMessagesCommandLayerAction)
+                        .presentationDetents([.medium])
+                        .presentationDragIndicator(.visible)
+                }
+                .onAppear {
+                    recomputeConversationCache()
+                    refreshSmartInboxObserver()
+                    ministrySpacesViewModel.load()
+                }
+                .onChange(of: messagingService.conversations) { _, _ in
+                    recomputeConversationCache()
+                    refreshSmartInboxObserver()
+                }
                 .onChange(of: messagingService.archivedConversations) { _, _ in recomputeConversationCache() }
                 .onChange(of: selectedTab) { _, _ in recomputeConversationCache() }
                 .onChange(of: searchText) { _, _ in recomputeConversationCache() }
+                .onChange(of: activeInboxFilter) { _, _ in recomputeConversationCache() }
+                .onChange(of: amenFeatureFlags.messagingSmartInboxCountsEnabled) { _, _ in
+                    refreshSmartInboxObserver()
+                }
                 .modifier(LifecycleModifier(
                     messagingService: messagingService,
                     loadMessageRequests: loadMessageRequests,
@@ -308,6 +382,16 @@ struct MessagesView: View {
                 } message: {
                     Text(swipeErrorMessage)
                 }
+                .sheet(isPresented: $showMinistrySpaceBridge) {
+                    if let selectedMinistrySpace {
+                        AmenMinistrySpaceBridgeSheet(
+                            space: selectedMinistrySpace,
+                            spacesViewModel: ministrySpacesViewModel,
+                            onOpenMessages: { selectedTab = .messages }
+                        )
+                        .presentationDragIndicator(.visible)
+                    }
+                }
                 .modifier(CoordinatorModifier(
                     messagingCoordinator: messagingCoordinator,
                     messagingService: messagingService,
@@ -316,6 +400,117 @@ struct MessagesView: View {
                     selectedTab: $selectedTab
                 ))
         }
+    }
+
+    private var isMessagesCommandLayerEnabled: Bool {
+        AMENFeatureFlags.shared.smartCommandLayerEnabled && AMENFeatureFlags.shared.smartCommandLayerMessagesEnabled
+    }
+
+    @ViewBuilder
+    private var messagesCommandLayerInset: some View {
+        if isMessagesCommandLayerEnabled {
+            VStack(spacing: 10) {
+                AmenContextualNavigationChips(
+                    chips: AmenCommandLayerSurface.messages.navigationChips,
+                    selectedID: selectedCommandLayerChipID
+                ) { chip in
+                    selectedCommandLayerChipID = chip.id
+                    routeMessagesCommandLayerChip(chip)
+                }
+
+                AmenSmartComposerBar(
+                    text: $commandLayerText,
+                    surface: .messages,
+                    isSendEnabled: !commandLayerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                    onCreateTapped: openMessagesCommandLayer,
+                    onModeTapped: { showCommandLayerModePicker = true },
+                    onMicTapped: {
+                        routeUnavailableFromMessagesCommandLayer(actionId: .aiMeetingNotes, reason: "Voice messaging needs the approved microphone flow before it can start from Messages.")
+                    },
+                    onSubmit: submitMessagesCommandLayerText
+                )
+                .padding(.horizontal, 16)
+            }
+            .padding(.top, 8)
+            .padding(.bottom, 6)
+            .background(Color.clear)
+        }
+    }
+
+    private func openMessagesCommandLayer() {
+        showCommandLayerCreateSheet = true
+        AMENAnalyticsService.shared.track(.commandLayerOpened(surface: AmenCommandLayerSurface.messages.rawValue))
+    }
+
+    private func submitMessagesCommandLayerText(_ text: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        commandLayerText = ""
+        searchText = trimmed
+        activeSheet = .newMessage
+        AMENAnalyticsService.shared.track(.commandLayerActionTapped(surface: AmenCommandLayerSurface.messages.rawValue, actionId: "submit_text"))
+        AMENAnalyticsService.shared.track(.commandLayerRouteSucceeded(surface: AmenCommandLayerSurface.messages.rawValue, actionId: "submit_text", routeId: "new_message_search"))
+    }
+
+    private func handleMessagesCommandLayerAction(_ action: AmenCommandLayerAction) {
+        AMENAnalyticsService.shared.track(.commandLayerActionTapped(surface: AmenCommandLayerSurface.messages.rawValue, actionId: action.id.rawValue))
+
+        guard action.isAvailable else {
+            routeUnavailableFromMessagesCommandLayer(actionId: action.id, reason: action.unavailableReason ?? "This command is not available in Messages yet.")
+            return
+        }
+
+        switch action.id {
+        case .askBerean, .deepStudy:
+            activeSheet = .bereanConversation(UUID().uuidString)
+            trackMessagesCommandLayerRoute(action.id, routeId: "berean_conversation")
+        case .prayerRequest:
+            activeSheet = .createGroupLinkWithPurpose(.prayer)
+            trackMessagesCommandLayerRoute(action.id, routeId: "create_prayer_group_link")
+        case .startSpace:
+            activeSheet = .createGroup
+            trackMessagesCommandLayerRoute(action.id, routeId: "create_group")
+        case .openCommandPalette:
+            activeSheet = .settings
+            trackMessagesCommandLayerRoute(action.id, routeId: "message_settings")
+        case .addFiles, .camera, .photos:
+            routeUnavailableFromMessagesCommandLayer(actionId: action.id, reason: "Attachments must be added inside a selected conversation so they stay scoped to the right recipient.")
+        case .aiMeetingNotes:
+            routeUnavailableFromMessagesCommandLayer(actionId: action.id, reason: "AI meeting notes need the Messages microphone and consent flow before rollout.")
+        case .testimony, .churchNote, .reflection, .createImage, .webSearch, .rsvpEvent:
+            routeUnavailableFromMessagesCommandLayer(actionId: action.id, reason: action.unavailableReason ?? "This action needs a Messages-specific destination before rollout.")
+        }
+    }
+
+    private func routeMessagesCommandLayerChip(_ chip: AmenContextualNavigationChip) {
+        switch chip.id {
+        case "home":
+            mainTabSelection.wrappedValue = 0
+            trackMessagesCommandLayerRoute(.openCommandPalette, routeId: "home_tab")
+        case "messages":
+            selectedTab = .messages
+            trackMessagesCommandLayerRoute(.openCommandPalette, routeId: "messages_current")
+        case "calendar":
+            routeUnavailableFromMessagesCommandLayer(actionId: .rsvpEvent, reason: "Calendar navigation is owned by the Events surface integration.")
+        case "notes":
+            routeUnavailableFromMessagesCommandLayer(actionId: .churchNote, reason: "Notes routing is owned by Church Notes and is not rerouted from Messages yet.")
+        case "spaces":
+            activeSheet = .createGroup
+            trackMessagesCommandLayerRoute(.startSpace, routeId: "create_group")
+        default:
+            routeUnavailableFromMessagesCommandLayer(actionId: .openCommandPalette, reason: "This navigation chip is not available from Messages yet.")
+        }
+    }
+
+    private func trackMessagesCommandLayerRoute(_ actionId: AmenCommandLayerActionID, routeId: String) {
+        AMENAnalyticsService.shared.track(.commandLayerRouteSucceeded(surface: AmenCommandLayerSurface.messages.rawValue, actionId: actionId.rawValue, routeId: routeId))
+    }
+
+    private func routeUnavailableFromMessagesCommandLayer(actionId: AmenCommandLayerActionID, reason: String) {
+        swipeErrorMessage = reason
+        showSwipeErrorAlert = true
+        AMENAnalyticsService.shared.track(.commandLayerUnavailableActionTapped(surface: AmenCommandLayerSurface.messages.rawValue, actionId: actionId.rawValue, reason: reason))
+        AMENAnalyticsService.shared.track(.commandLayerRouteFailed(surface: AmenCommandLayerSurface.messages.rawValue, actionId: actionId.rawValue, reason: reason))
     }
 
     // MARK: — Sheet Content
@@ -353,6 +548,8 @@ struct MessagesView: View {
             GeneratedGroupLinkSheet(link: link, groupName: groupName)
         case .settings:
             MessageSettingsView()
+        case .bereanConversation(let cid):
+            BereanConversationView(conversationId: cid)
         }
     }
 
@@ -362,9 +559,11 @@ struct MessagesView: View {
         ZStack(alignment: .top) {
             AMENInboxTokens.background.ignoresSafeArea()
 
+            ScrollViewReader { inboxScrollProxy in
             ScrollView(showsIndicators: false) {
                 LazyVStack(spacing: 0, pinnedViews: []) {
-
+                    Color.clear.frame(height: 0).id("amenInboxTop")
+                        .amenTabBarScrollTracking(in: "amenInboxScroll")
                     // Zero-height scroll offset reader for top blur
                     GeometryReader { geo in
                         Color.clear.preference(
@@ -389,6 +588,21 @@ struct MessagesView: View {
                     amenTabSelector
                         .padding(.horizontal, AMENInboxTokens.hPad)
                         .padding(.bottom, 8)
+
+                    // ── MINISTRY OS BRIDGE (Spaces + group messages) ─────────
+                    if selectedTab == .messages && searchText.isEmpty {
+                        AmenMinistryOSCapsuleStrip(
+                            spaces: ministryInboxSpaces,
+                            groupConversations: ministryGroupConversations,
+                            onOpenSpace: { space in
+                                selectedMinistrySpace = space
+                                showMinistrySpaceBridge = true
+                            },
+                            onOpenConversation: { conversation in
+                                openChat(conversation)
+                            }
+                        )
+                    }
 
                     // ── QUICK ACCESS STRIP (Messages tab only) ───────────────
                     if selectedTab == .messages && searchText.isEmpty {
@@ -425,8 +639,23 @@ struct MessagesView: View {
                         InboxSectionLabel(text: "All Messages")
                     }
 
-                    // ── MAIN LIST ────────────────────────────────────────────
-                    if filteredConversations.isEmpty {
+                    // ── COMMUNION HUB / MAIN LIST ────────────────────────────
+                    if selectedTab == .communion {
+                        BereanCommunicationHubView(
+                            onOpenThread: { cid in
+                                activeSheet = .bereanConversation(cid)
+                            },
+                            onResumeLastConversation: {
+                                activeSheet = .bereanConversation(UUID().uuidString)
+                            },
+                            onCatchUp: {
+                                activeSheet = .bereanConversation(UUID().uuidString)
+                            },
+                            onSummarizePrayerRooms: {
+                                activeSheet = .bereanConversation(UUID().uuidString)
+                            }
+                        )
+                    } else if filteredConversations.isEmpty {
                         if searchText.isEmpty {
                             InboxEmptyState(mode: .noMessages)
                                 .padding(.top, 60)
@@ -469,11 +698,110 @@ struct MessagesView: View {
                 }
             }
             .refreshable { await refreshConversations() }
+            .onReceive(NotificationCenter.default.publisher(for: .messagesTabTapped)) { _ in
+                withAnimation(.easeOut(duration: 0.18)) {
+                    inboxScrollProxy.scrollTo("amenInboxTop", anchor: .top)
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .messagesTabMarkRead)) { _ in
+                markAllConversationsRead()
+            }
+            } // ScrollViewReader
 
             // ── Top-edge frosted blur ─────────────────────────────────
             ScrollEdgeTopBlurOverlay(scrollOffset: scrollOffset)
                 .ignoresSafeArea(edges: .top)
+
+            // ── System 36: Liquid Glass inbox filter tray (floating, bottom) ──
+            // Only the Messages tab uses the tray; Requests/Archived/Communion
+            // have their own UX. Flag-gated so it ships dark until backed.
+            if #available(iOS 17.0, *),
+               amenFeatureFlags.messagingInboxFiltersEnabled,
+               selectedTab == .messages {
+                inboxFilterTray
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                    .padding(.bottom, 12)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .animation(.easeInOut(duration: 0.18), value: activeInboxFilter)
+            }
         }
+    }
+
+    private var ministryInboxSpaces: [AMENSpace] {
+        ministrySpacesViewModel.allSpaces.filter { space in
+            guard let id = space.id else { return false }
+            return ministrySpacesViewModel.joinedSpaceIds.contains(id)
+        }
+    }
+
+    private var ministryGroupConversations: [ChatConversation] {
+        conversations
+            .filter { $0.status == "accepted" && $0.isGroup }
+            .sorted { lhs, rhs in
+                if lhs.unreadCount != rhs.unreadCount { return lhs.unreadCount > rhs.unreadCount }
+                return lhs.name < rhs.name
+            }
+    }
+
+    // MARK: — System 36: Inbox Filter Tray Wiring
+
+    private func refreshSmartInboxObserver() {
+        guard #available(iOS 17.0, *) else { return }
+        let entries = messagingService.conversations.map { c in
+            (id: c.id, otherParticipantId: c.otherParticipantId)
+        }
+        smartInboxObserver.update(
+            conversations: entries,
+            currentUserId: Auth.auth().currentUser?.uid,
+            enabled: amenFeatureFlags.messagingSmartInboxCountsEnabled
+        )
+    }
+
+    @available(iOS 17.0, *)
+    private var inboxFilterCapabilities: MessagingInboxFilterCapabilities {
+        let smartOn = amenFeatureFlags.messagingSmartInboxCountsEnabled
+        return MessagingInboxFilterAvailability.capabilities(
+            conversations: messagingService.conversations,
+            archivedConversations: messagingService.archivedConversations,
+            canViewBlocked: smartOn,
+            prayerRequestConversationIds: smartInboxObserver.prayerRequestConversationIds,
+            safetyReviewConversationIds: smartInboxObserver.safetyReviewConversationIds,
+            blockedConversationIds: smartInboxObserver.blockedConversationIds
+        )
+    }
+
+    @available(iOS 17.0, *)
+    @ViewBuilder
+    private var inboxFilterTray: some View {
+        let caps = inboxFilterCapabilities
+        let available = MessagingInboxFilter.available(for: caps)
+        let chips = MessagingInboxFilter.chips(for: caps)
+
+        MessagingInboxFilterTray(
+            activeFilter: activeInboxFilter,
+            availableFilters: available,
+            chips: chips,
+            onFilterChange: { filter in
+                guard filter != activeInboxFilter else { return }
+                activeInboxFilter = filter
+                AMENAnalyticsService.shared.track(
+                    .messageFilterSelected(filter: filter.analyticsKey)
+                )
+            },
+            onClearFilter: {
+                guard activeInboxFilter != .all else { return }
+                activeInboxFilter = .all
+                AMENAnalyticsService.shared.track(.messageFilterCleared)
+            },
+            onSearch: {
+                AMENAnalyticsService.shared.track(.messageSearchOpened(surface: "inbox"))
+                isMessageSearchFocused = true
+            },
+            onCompose: {
+                AMENAnalyticsService.shared.track(.messageComposeOpened)
+                activeSheet = .newMessage
+            }
+        )
     }
 
     // Single thread row using the new AMENThreadRow component
@@ -484,6 +812,17 @@ struct MessagesView: View {
             aiSummary: aiSummaryService.summary(for: conv),
             onTap: { openChat(conv) }
         )
+        .overlay(alignment: .topTrailing) {
+            Button { selectedConversationForActions = conv } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.secondary.opacity(0.5))
+                    .frame(width: 36, height: 36)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .padding(.trailing, 4)
+        }
     }
 
     // ── Swipe action builders ────────────────────────────────────────────────
@@ -548,6 +887,7 @@ struct MessagesView: View {
                 amenTabPill(.messages,  label: "All",      badge: nil)
                 amenTabPill(.requests,  label: "Requests", badge: pendingRequestsCount > 0 ? pendingRequestsCount : nil)
                 amenTabPill(.archived,  label: "Archived", badge: nil)
+                amenTabPill(.communion, label: "Berean",   badge: nil)
             }
             .padding(.horizontal, AMENInboxTokens.hPad)
             .padding(.vertical, 2)
@@ -810,6 +1150,7 @@ struct MessagesView: View {
                     .foregroundStyle(.primary)
                     .autocorrectionDisabled()
                     .textInputAutocapitalization(.never)
+                    .accessibilityLabel("Search conversations")
 
                 if !searchText.isEmpty {
                     Button {
@@ -986,20 +1327,21 @@ struct MessagesView: View {
                 } label: {
                     Image(systemName: "square.and.pencil")
                         .font(.systemScaled(18, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(AmenTheme.Colors.buttonPrimaryText)
                         .frame(width: 52, height: 52)
                         .background(
                             Circle()
-                                .fill(Color.black)
+                                .fill(AmenTheme.Colors.buttonPrimary)
                                 .shadow(color: .black.opacity(0.25), radius: 10, y: 4)
                         )
                 }
+                .accessibilityLabel("New Message")
                 .padding(.trailing, 20)
                 .padding(.bottom, 20)
             }
         }
     }
-    
+
     // ✅ Modern conversation row (matches reference)
     private func modernConversationRow(_ conversation: ChatConversation) -> some View {
         Button {
@@ -1371,6 +1713,7 @@ struct MessagesView: View {
                         }
                     )
                 }
+                .accessibilityHint("Double tap to switch to \(tabTitle(for: tab))")
             }
         }
         .padding(4)
@@ -1384,9 +1727,10 @@ struct MessagesView: View {
     
     private func tabTitle(for tab: MessageTab) -> String {
         switch tab {
-        case .messages: return "Messages"
-        case .requests: return "Requests"
-        case .archived: return "Archived"
+        case .messages:  return "Messages"
+        case .requests:  return "Requests"
+        case .archived:  return "Archived"
+        case .communion: return "Berean"
         }
     }
     
@@ -2014,7 +2358,7 @@ struct MessagesView: View {
                 // haptic
                 HapticManager.notification(type: .success)
                 
-                dlog("📦 Archived conversation: \(conversation.name)")
+                dlog("📦 Archived conversation (ID: \(conversation.id))")
             } catch {
                 dlog("❌ Error archiving conversation: \(error)")
                 swipeErrorMessage = "Failed to archive conversation. Please try again."
@@ -2065,6 +2409,17 @@ struct MessagesView: View {
                 try await FirebaseMessagingService.shared.clearUnreadCount(conversationId: conversation.id)
             } catch {
                 dlog("❌ Error marking conversation read: \(error)")
+            }
+        }
+    }
+
+    private func markAllConversationsRead() {
+        let unread = messagingService.conversations.filter { $0.unreadCount > 0 }
+        guard !unread.isEmpty else { return }
+        BadgeCountManager.shared.clearMessages()
+        Task {
+            for conversation in unread {
+                try? await FirebaseMessagingService.shared.clearUnreadCount(conversationId: conversation.id)
             }
         }
     }
@@ -2603,6 +2958,7 @@ struct NeumorphicMessagesSearchBar: View {
                 .font(.custom("OpenSans-SemiBold", size: 15))
                 .foregroundStyle(.primary)
                 .submitLabel(.search)
+                .accessibilityLabel("Search conversations")
                 .onChange(of: text) { _, newValue in
                     withAnimation(.easeOut(duration: 0.2)) {
                         isSearching = !newValue.isEmpty
@@ -3177,6 +3533,7 @@ struct MessageRequestRow: View {
                         .foregroundColor(.white)
                         .cornerRadius(6)
                 }
+                .accessibilityHint("Double tap to accept this message request and open a conversation")
                 Button(action: { onAction(.decline) }) {
                     Text("Decline")
                         .padding(.horizontal, 12)
@@ -3185,6 +3542,7 @@ struct MessageRequestRow: View {
                         .foregroundColor(.primary)
                         .cornerRadius(6)
                 }
+                .accessibilityHint("Double tap to decline this message request")
             }
         }
         .padding()
@@ -3288,6 +3646,7 @@ struct CreateGroupView: View {
                 .padding()
                 .background(Color(.systemGray6))
                 .cornerRadius(12)
+                .accessibilityLabel("Group name")
                 .onChange(of: groupName) { _, newValue in
                     if newValue.count > nameCharLimit {
                         groupName = String(newValue.prefix(nameCharLimit))
@@ -3383,6 +3742,7 @@ struct CreateGroupView: View {
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .submitLabel(.search)
+                .accessibilityLabel("Search people")
                 .onSubmit {
                     Task {
                         await performSearch()
@@ -3905,6 +4265,7 @@ struct ProductionMessagingUserSearchView: View {
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .submitLabel(.search)
+                .accessibilityLabel("Search by name or username")
                 .onSubmit {
                     performSearch()
                 }
@@ -4247,6 +4608,7 @@ struct GlobalMessageSearchView: View {
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .submitLabel(.search)
+                .accessibilityLabel("Search all conversations")
             
             if !searchText.isEmpty {
                 Button {
@@ -4982,7 +5344,9 @@ struct ModernConversationDetailView: View {
     @State private var scrollProxy: ScrollViewProxy?
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
-    
+    @State private var showBotChallenge = false
+    @State private var botChallengeCleared = false
+
     @State private var typingTask: Task<Void, Never>?
     @State private var supportDraftTask: Task<Void, Never>?
     @State private var supportDraftPayload: SupportInterventionPayload?
@@ -5101,6 +5465,23 @@ struct ModernConversationDetailView: View {
                     onContinue: continueSendAfterSupportPrompt
                 )
             }
+        }
+        .sheet(isPresented: $showBotChallenge) {
+            BotSuspicionFrictionView(
+                onChallengePassed: {
+                    AmenBotDefenseService.shared.markChallengeCompleted()
+                    botChallengeCleared = true
+                    showBotChallenge = false
+                    Task { @MainActor in
+                        try? await Task.sleep(nanoseconds: 300_000_000)
+                        sendMessage()
+                    }
+                },
+                onCancel: {
+                    showBotChallenge = false
+                }
+            )
+            .presentationDetents([.medium])
         }
         .alert("Message Failed", isPresented: $showErrorAlert) {
             Button("OK", role: .cancel) {}
@@ -5319,7 +5700,7 @@ struct ModernConversationDetailView: View {
     
     private func sendMessage() {
         guard !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !selectedImages.isEmpty else { return }
-        
+
         let textToSend = messageText.trimmingCharacters(in: .whitespacesAndNewlines)
 
         if shouldPresentSupportGate(for: textToSend) {
@@ -5329,18 +5710,47 @@ struct ModernConversationDetailView: View {
 
         let imagesToSend = selectedImages
         let replyToId = replyingTo?.id
-        
-        // Clear input immediately for better UX
-        messageText = ""
-        selectedImages = []
-        replyingTo = nil
-        isInputFocused = false
-        
-        // haptic
-        HapticManager.impact(style: .light)
-        
-        // Send to Firebase
+
         Task { @MainActor in
+            // ── Trust + Safety backend preflight (authoritative) ──────────────
+            if !textToSend.isEmpty,
+               AmenSafetyFeatureFlags.shared.contentPreflightEnabled,
+               !AmenSafetyFeatureFlags.shared.trustSafetyKillSwitch {
+                if !botChallengeCleared {
+                    let botOutcome = await AmenBotDefenseService.shared.evaluateBeforeAction(type: .dm)
+                    if botOutcome != .proceed {
+                        if botOutcome == .challengeRequired {
+                            showBotChallenge = true
+                        } else {
+                            errorMessage = "Please slow down before sending again."
+                            showErrorAlert = true
+                        }
+                        return
+                    }
+                }
+                botChallengeCleared = false
+                let tsCanSend = await AmenContentPreflightService.shared.runFinalPreflight(
+                    text: textToSend,
+                    surface: .dm,
+                    contentId: UUID().uuidString
+                )
+                guard tsCanSend else {
+                    errorMessage = AmenTrustSafetyService.shared.lastDecision?.userFacingReason
+                        ?? "This message cannot be sent."
+                    showErrorAlert = true
+                    return
+                }
+            }
+            // ─────────────────────────────────────────────────────────────────
+
+            // Clear input only after preflight passes
+            messageText = ""
+            selectedImages = []
+            replyingTo = nil
+            isInputFocused = false
+
+            HapticManager.impact(style: .light)
+
             do {
                 if imagesToSend.isEmpty {
                     try await FirebaseMessagingService.shared.sendMessage(
@@ -5357,15 +5767,10 @@ struct ModernConversationDetailView: View {
                 }
             } catch {
                 dlog("❌ Error sending message: \(error)")
-                // Show error to user
                 errorMessage = "Failed to send message. Please check your connection and try again."
                 showErrorAlert = true
-                
-                // Restore message text if send failed
                 messageText = textToSend
                 selectedImages = imagesToSend
-                
-                // haptic
                 HapticManager.notification(type: .error)
             }
         }

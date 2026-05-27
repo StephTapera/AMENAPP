@@ -131,6 +131,7 @@ struct ModernPrayerWallView: View {
                             .font(.systemScaled(16, weight: .semibold))
                             .foregroundStyle(.primary)
                     }
+                    .accessibilityLabel("Close")
                 }
                 
                 ToolbarItem(placement: .topBarTrailing) {
@@ -141,6 +142,7 @@ struct ModernPrayerWallView: View {
                             .font(.systemScaled(22))
                             .foregroundStyle(.blue)
                     }
+                    .accessibilityLabel("New prayer")
                 }
             }
             .sheet(isPresented: $showNewPrayer) {
@@ -360,6 +362,7 @@ private struct NewPrayerSheet: View {
                     TextEditor(text: $content)
                         .frame(minHeight: 150)
                         .font(.custom("OpenSans-Regular", size: 15))
+                        .accessibilityLabel("Prayer request")
                         .onChange(of: content) { _, newValue in
                             scheduleSupportDraftAnalysis(for: newValue)
                         }
@@ -583,7 +586,7 @@ class PrayerWallViewModel: ObservableObject {
         errorMessage = nil
         defer { isLoading = false }
         do {
-            let snapshot = try await db.collection("prayerWall")
+            let snapshot = try await db.collection(FirestoreCollections.prayerWall)
                 .order(by: "timestamp", descending: true)
                 .limit(to: 50)
                 .getDocuments()
@@ -624,7 +627,7 @@ class PrayerWallViewModel: ObservableObject {
         guard let currentUserId = Auth.auth().currentUser?.uid else { return }
         
         do {
-            let userDoc = try await db.collection("users").document(currentUserId).getDocument()
+            let userDoc = try await db.collection(FirestoreCollections.users).document(currentUserId).getDocument()
             let userData = userDoc.data()
             
             let prayerData: [String: Any] = [
@@ -639,7 +642,7 @@ class PrayerWallViewModel: ObservableObject {
                 "isAnswered": false
             ]
             
-            try await db.collection("prayerWall").addDocument(data: prayerData)
+            try await db.collection(FirestoreCollections.prayerWall).addDocument(data: prayerData)
             await loadPrayers()
             
         } catch {
@@ -652,22 +655,22 @@ class PrayerWallViewModel: ObservableObject {
         
         do {
             // Check if already prayed
-            let prayedDoc = try await db.collection("prayerWall")
+            let prayedDoc = try await db.collection(FirestoreCollections.prayerWall)
                 .document(prayer.id)
-                .collection("prayers")
+                .collection(FirestoreCollections.prayers)
                 .document(currentUserId)
                 .getDocument()
-            
+
             if !prayedDoc.exists {
                 // Add prayer
-                try await db.collection("prayerWall")
+                try await db.collection(FirestoreCollections.prayerWall)
                     .document(prayer.id)
-                    .collection("prayers")
+                    .collection(FirestoreCollections.prayers)
                     .document(currentUserId)
                     .setData(["timestamp": Timestamp(date: Date())])
-                
+
                 // Increment count
-                try await db.collection("prayerWall")
+                try await db.collection(FirestoreCollections.prayerWall)
                     .document(prayer.id)
                     .updateData(["prayerCount": FieldValue.increment(Int64(1))])
                 

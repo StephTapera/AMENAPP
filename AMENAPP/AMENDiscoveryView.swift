@@ -12,6 +12,7 @@
 
 import SwiftUI
 import Combine
+import CoreLocation
 import FirebaseAuth
 import FirebaseFirestore
 
@@ -44,6 +45,7 @@ struct AMENDiscoveryView: View {
     // tab navigations instead of being recreated and re-fetching on every switch.
     @ObservedObject private var disasterVM = DisasterResourcesViewModel.shared
     @StateObject private var feedService = DiscoveryLandingFeedService()
+    @ObservedObject private var featureFlags = AMENFeatureFlags.shared
 
     // Universal search view-model — owns 8-collection Firestore search + ranking
     @StateObject private var searchVM = UniversalSearchViewModel()
@@ -51,7 +53,6 @@ struct AMENDiscoveryView: View {
     @State private var searchText = ""
     @FocusState private var isSearchFocused: Bool
     @State private var scrollOffset: CGFloat = 0
-    @State private var showClearAllConfirm = false
     @State private var showBereanAI = false
     @AppStorage("hasSeenAISearchHint") private var hasSeenAISearchHint = false
     @State private var showAISearchHint = false
@@ -60,6 +61,7 @@ struct AMENDiscoveryView: View {
     // Search bar visibility — separate from focus so the TextField enters the
     // hierarchy before @FocusState is applied (avoids focus-on-transition failure)
     @State private var searchBarVisible = false
+    @State private var showUniversalSearch = false
 
     // Discover mode selector
     @Namespace private var tabNamespace
@@ -70,12 +72,15 @@ struct AMENDiscoveryView: View {
     // Navigation
     @State private var selectedTopic: DiscoveryTopic? = nil
     @State private var navigateToTopicPage = false
+    private var isUITestPhase34: Bool {
+        ProcessInfo.processInfo.arguments.contains("--ui-test-phase34")
+    }
 
     var body: some View {
         NavigationStack {
             ZStack(alignment: .top) {
-                // Background
-                Color(.systemBackground).ignoresSafeArea()
+                // Background — let system background show through glass layers
+                Color.clear.ignoresSafeArea()
 
                 // Dim overlay when search focused
                 if isSearchDimmed {
@@ -94,11 +99,20 @@ struct AMENDiscoveryView: View {
                         // Premium header: eyebrow + search pill + Ask Berean + topic pills
                         VStack(spacing: 0) {
                             HStack {
-                                Text("AMEN DISCOVER")
+                                Text("AMEN FLOW")
                                     .font(.systemScaled(12, weight: .semibold))
                                     .foregroundColor(Color(white: 0.45))
                                     .tracking(1.4)
                                 Spacer()
+                                Button {
+                                    HapticManager.impact(style: .light)
+                                    showUniversalSearch = true
+                                } label: {
+                                    Image(systemName: "magnifyingglass")
+                                        .font(.systemScaled(15, weight: .medium))
+                                        .foregroundStyle(.secondary)
+                                }
+                                .accessibilityLabel("Universal Search")
                             }
                             .padding(.horizontal, 16)
                             .padding(.top, 10)
@@ -167,8 +181,9 @@ struct AMENDiscoveryView: View {
                 }
             }
             .fullScreenCover(isPresented: $showBereanAI) {
-                BereanChatView()
+                BereanChatRouteView(entryPoint: .discovery)
             }
+            .amenUniversalSearch(isPresented: $showUniversalSearch)
             .fullScreenCover(isPresented: $showMediaViewer, onDismiss: {
                 withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.72))) {
                     selectedMode = .forYou
@@ -183,6 +198,12 @@ struct AMENDiscoveryView: View {
             .onChange(of: isSearchFocused) { _, focused in
                 withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.72))) {
                     isSearchDimmed = focused
+                }
+            }
+            .onAppear {
+                if isUITestPhase34 {
+                    selectedMode = .media
+                    showMediaViewer = true
                 }
             }
         }
@@ -362,7 +383,7 @@ struct AMENDiscoveryView: View {
     }
 
     private var searchPlaceholder: String {
-        "Verses, people, news, videos, studies..."
+        "Search Scripture, Prayers, Notes, Spaces, and More"
     }
 
     // MARK: - Content Area
@@ -377,7 +398,11 @@ struct AMENDiscoveryView: View {
             } else {
                 switch selectedMode {
                 case .forYou:
-                    landingView
+                    if featureFlags.amenDiscoverEnabled {
+                        AmenDiscoverView()
+                    } else {
+                        landingView
+                    }
                 case .topics:
                     DiscoverTopicsGrid { tile in
                         // Map tile slug to a DiscoveryTopic for navigation
@@ -437,8 +462,11 @@ struct AMENDiscoveryView: View {
     // MARK: - Landing View
 
     private var landingView: some View {
+        ScrollViewReader { discoverProxy in
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 28) {
+                Color.clear.frame(height: 0).id("amenDiscoverTop")
+                    .amenTabBarScrollTracking(in: "amenDiscoverScroll")
                 // ── Active disaster alert (pinned at top when present) ──
                 if let topDisaster = disasterVM.disasters.first {
                     DisasterAlertCard(disaster: topDisaster)
@@ -480,6 +508,22 @@ struct AMENDiscoveryView: View {
                         VerseHeroCard(verse: verse)
                             .padding(.horizontal, 16)
                             .discoveryCardEntry(index: 0)
+                    } else {
+                        HStack(spacing: 8) {
+                            Image(systemName: "book.closed")
+                                .font(.systemScaled(14))
+                                .foregroundStyle(.secondary)
+                            Text("Today's verse isn't available yet.")
+                                .font(AMENFont.regular(13))
+                                .foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(16)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(Color(.secondarySystemBackground))
+                        )
+                        .padding(.horizontal, 16)
                     }
                 }
 
@@ -524,7 +568,8 @@ struct AMENDiscoveryView: View {
                 // 7. Trending in AMEN
                 topIdeasSection
 
-                // 8. Videos — YouTube cards
+                // 8. Videos — YouTube cards (only render section when loading or has content)
+                if feedService.isLoadingVideos || !feedService.youtubeVideos.isEmpty {
                 VStack(alignment: .leading, spacing: 12) {
                     DiscoverSectionHeader(title: "Videos", icon: "play.circle.fill")
                         .padding(.horizontal, 16)
@@ -551,6 +596,7 @@ struct AMENDiscoveryView: View {
                         }
                     }
                 }
+                } // end Videos guard
 
                 // 9. News — compact horizontal scroll
                 if !feedService.newsItems.isEmpty {
@@ -583,6 +629,7 @@ struct AMENDiscoveryView: View {
             }
             .padding(.top, 8)
         }
+        .coordinateSpace(name: "amenDiscoverScroll")
         .scrollDismissesKeyboard(.interactively)
         .refreshable {
             disasterVM.loadDisasters()
@@ -595,6 +642,12 @@ struct AMENDiscoveryView: View {
             disasterVM.loadDisasters()
             Task { await feedService.loadAll() }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .searchTabTapped)) { _ in
+            withAnimation(.easeOut(duration: 0.18)) {
+                discoverProxy.scrollTo("amenDiscoverTop", anchor: .top)
+            }
+        }
+        } // ScrollViewReader
     }
 
     // MARK: - Topic Chips
@@ -612,46 +665,6 @@ struct AMENDiscoveryView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 4)
-            }
-        }
-    }
-
-    // MARK: - Recent Searches
-
-    private var recentSearchesSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Recent")
-                    .font(AMENFont.semiBold(15))
-                    .foregroundStyle(.primary)
-                Spacer()
-                Button("Clear all") {
-                    showClearAllConfirm = true
-                }
-                .font(AMENFont.regular(13))
-                .foregroundStyle(.secondary)
-            }
-            .padding(.horizontal, 16)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(service.recentSearches) { item in
-                        RecentSearchChip(item: item) {
-                            searchText = item.query
-                            Task { await service.submitSearch(item.query) }
-                        } onRemove: {
-                            withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
-                                service.removeRecentSearch(id: item.id)
-                            }
-                        }
-                    }
-                }
-                .padding(.horizontal, 16)
-            }
-        }
-        .confirmationDialog("Clear recent searches?", isPresented: $showClearAllConfirm, titleVisibility: .visible) {
-            Button("Clear All", role: .destructive) {
-                withAnimation { service.clearAllRecentSearches() }
             }
         }
     }
@@ -860,55 +873,13 @@ struct AMENDiscoveryView: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: - Premium Hero Cards Row (NEW)
-
-    private var amenHeroCardsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 7) {
-                Image(systemName: "sparkles")
-                    .font(.systemScaled(14, weight: .semibold))
-                    .foregroundColor(Color(white: 0.45))
-                Text("Featured")
-                    .font(.systemScaled(16, weight: .semibold))
-                    .foregroundColor(.black)
-                Spacer()
-            }
-            .padding(.horizontal, 16)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 14) {
-                    AmenHeroDiscoveryCard(
-                        title: "Palm Sunday reflections",
-                        tagLabel: "Seasonal",
-                        tagIcon: "leaf.fill",
-                        accentColor: Color(red: 0.36, green: 0.55, blue: 0.36)
-                    )
-                    AmenHeroDiscoveryCard(
-                        title: "Worship moments near you",
-                        tagLabel: "Local",
-                        tagIcon: "location.fill",
-                        accentColor: Color(red: 0.25, green: 0.45, blue: 0.65)
-                    )
-                    AmenHeroDiscoveryCard(
-                        title: "Verses for anxiety",
-                        tagLabel: "Care",
-                        tagIcon: "heart.fill",
-                        accentColor: Color(red: 0.55, green: 0.35, blue: 0.65)
-                    )
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 4)
-            }
-        }
-    }
-
     // MARK: - Explore by Type Pills (NEW)
 
     private var exploreByTypeSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Explore by type")
                 .font(.systemScaled(15, weight: .semibold))
-                .foregroundColor(.black)
+                .foregroundColor(AmenTheme.Colors.textPrimary)
                 .padding(.horizontal, 16)
 
             ScrollView(.horizontal, showsIndicators: false) {
@@ -925,7 +896,7 @@ struct AMENDiscoveryView: View {
                                     .foregroundColor(Color(white: 0.45))
                                 Text(item.label)
                                     .font(.systemScaled(14, weight: .semibold))
-                                    .foregroundColor(.black)
+                                    .foregroundColor(AmenTheme.Colors.textPrimary)
                             }
                             .padding(.horizontal, 14)
                             .padding(.vertical, 9)
@@ -977,13 +948,13 @@ struct AMENDiscoveryView: View {
                         .frame(width: 48, height: 48)
                     Image(systemName: "sparkles")
                         .font(.systemScaled(20, weight: .semibold))
-                        .foregroundColor(.black)
+                        .foregroundColor(AmenTheme.Colors.textPrimary)
                 }
 
                 VStack(alignment: .leading, spacing: 5) {
                     Text("Ranked for meaning, not noise")
                         .font(.systemScaled(17, weight: .bold))
-                        .foregroundColor(.black)
+                        .foregroundColor(AmenTheme.Colors.textPrimary)
 
                     Text("Scripture trails, prayer circles, and faith-forward discovery")
                         .font(.systemScaled(13, weight: .regular))
@@ -1196,46 +1167,102 @@ private struct DiscoverTopicsGrid: View {
 }
 
 private struct DiscoverNearYouView: View {
+    @ObservedObject private var locationMgr = ChurchLocationManager.shared
+
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 20) {
                 DiscoverSectionHeader(title: "Near You", icon: "location.fill")
-                Text("Enable location to see churches, events, and communities nearby.")
-                    .font(AMENFont.regular(14))
-                    .foregroundStyle(.secondary)
 
-                HStack(spacing: 10) {
-                    Image(systemName: "location.circle")
-                        .font(.systemScaled(20, weight: .semibold))
-                        .foregroundStyle(.primary)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Location Access")
-                            .font(AMENFont.semiBold(15))
-                        Text("Get local results tailored to your area.")
-                            .font(AMENFont.regular(12))
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
+                switch locationMgr.authorizationStatus {
+                case .notDetermined:
+                    nearYouPermissionCard(
+                        icon: "location.circle.fill",
+                        title: "Find what's near you",
+                        description: "See churches, events, and communities in your area.",
+                        buttonLabel: "Enable Location",
+                        buttonAction: { locationMgr.requestWhenInUsePermission() }
+                    )
+
+                case .denied, .restricted:
+                    nearYouPermissionCard(
+                        icon: "location.slash.fill",
+                        title: "Location access is off",
+                        description: "Turn on Location for AMEN in Settings to see nearby churches and events.",
+                        buttonLabel: "Open Settings",
+                        buttonAction: {
+                            if let url = URL(string: UIApplication.openSettingsURLString) {
+                                UIApplication.shared.open(url)
+                            }
+                        }
+                    )
+
+                case .authorizedWhenInUse, .authorizedAlways:
+                    nearYouPermissionCard(
+                        icon: "location.fill",
+                        title: "Location enabled",
+                        description: "Find churches, events, and communities near you.",
+                        buttonLabel: "Find a Church Near You",
+                        buttonAction: {
+                            NotificationCenter.default.post(name: .navigateToFindChurch, object: nil)
+                        }
+                    )
+
+                @unknown default:
+                    EmptyView()
                 }
-                .padding(14)
-                .background(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(.ultraThinMaterial)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .fill(Color.white.opacity(0.55))
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5)
-                        )
-                )
-                .shadow(color: .black.opacity(0.06), radius: 12, x: 0, y: 4)
             }
             .padding(.horizontal, 16)
             .padding(.top, 12)
             .padding(.bottom, 60)
         }
+    }
+
+    @ViewBuilder
+    private func nearYouPermissionCard(
+        icon: String,
+        title: String,
+        description: String,
+        buttonLabel: String,
+        buttonAction: @escaping () -> Void
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .font(.systemScaled(22, weight: .semibold))
+                    .foregroundStyle(.primary)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(AMENFont.semiBold(15))
+                        .foregroundStyle(.primary)
+                    Text(description)
+                        .font(AMENFont.regular(13))
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Button(action: buttonAction) {
+                Text(buttonLabel)
+                    .font(AMENFont.semiBold(14))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(Color.black)
+                    )
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(buttonLabel)
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.white.opacity(0.55)))
+                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5))
+        )
+        .shadow(color: .black.opacity(0.06), radius: 12, x: 0, y: 4)
     }
 }
 
@@ -1265,12 +1292,35 @@ private struct DiscoverMediaViewer: View {
     let videos: [YoutubeVideoItem]
     let onDismiss: () -> Void
     let onAskBerean: () -> Void
+    @State private var selectedTopic: String = "For You"
+    private let topics: [String] = ["For You", "Worship", "Prayer", "Testimony", "Scripture", "Churches"]
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    DiscoverSectionHeader(title: "Media", icon: "play.circle.fill")
+                    DiscoverSectionHeader(title: "Photos & Videos", icon: "photo.on.rectangle.angled")
+                        .accessibilityIdentifier("discovery_photos_videos_header")
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(topics, id: \.self) { topic in
+                                Button {
+                                    selectedTopic = topic
+                                } label: {
+                                    Text(topic)
+                                        .font(AMENFont.semiBold(12))
+                                        .foregroundStyle(selectedTopic == topic ? Color.white : Color.primary)
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 7)
+                                        .background(
+                                            Capsule().fill(selectedTopic == topic ? Color.black : Color(.secondarySystemBackground))
+                                        )
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityIdentifier("discovery_topic_chip_\(topic.lowercased().replacingOccurrences(of: " ", with: "_"))")
+                            }
+                        }
+                    }
                     if videos.isEmpty {
                         Text("No videos available right now.")
                             .font(AMENFont.regular(14))
@@ -1278,6 +1328,7 @@ private struct DiscoverMediaViewer: View {
                     } else {
                         ForEach(Array(videos.enumerated()), id: \.element.id) { _, video in
                             DiscoveryLandingVideoCard(video: video)
+                                .accessibilityIdentifier("discovery_video_card_\(video.id)")
                         }
                     }
                 }
@@ -1285,8 +1336,9 @@ private struct DiscoverMediaViewer: View {
                 .padding(.top, 12)
                 .padding(.bottom, 60)
             }
-            .navigationTitle("Discover Media")
+            .navigationTitle("Photos & Videos")
             .navigationBarTitleDisplayMode(.inline)
+            .accessibilityIdentifier("discovery_photos_videos_view")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Close") { onDismiss() }
@@ -1757,7 +1809,8 @@ struct DiscoveryTopicGridCard: View {
                     Text(topic.title)
                         .font(AMENFont.semiBold(13))
                         .foregroundStyle(.primary)
-                        .lineLimit(1)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                     if topic.postCount > 0 {
                         Text("\(topic.postCount) posts")
                             .font(AMENFont.regular(11))
@@ -1948,6 +2001,7 @@ struct VerseHeroCard: View {
             .padding(16)
             .background(Color.white.opacity(0.88).background(.ultraThinMaterial))
         }
+        .frame(maxWidth: .infinity)
         .clipShape(RoundedRectangle(cornerRadius: 22))
         .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.black.opacity(0.08), lineWidth: 0.5))
         .shadow(color: .black.opacity(0.07), radius: 16, x: 0, y: 6)
@@ -2036,11 +2090,6 @@ struct DiscoveryLandingVideoCard: View {
                     Text(video.channelName)
                         .font(AMENFont.regular(12))
                         .foregroundStyle(.secondary)
-                    if !video.viewCount.isEmpty {
-                        Text("· \(video.viewCount)")
-                            .font(AMENFont.regular(12))
-                            .foregroundStyle(.secondary)
-                    }
                 }
             }
             .padding(.horizontal, 4)
@@ -2264,6 +2313,7 @@ struct NewsItem: Identifiable {
     let publishedAt: Date
     let imageURL: String?
     let category: String
+    let articleURL: String?
 }
 
 struct UnsplashPhoto: Identifiable {
@@ -2306,7 +2356,9 @@ class DiscoveryLandingFeedService: ObservableObject {
     @Published var bibleStudies: [BibleStudyItem] = []
     @Published var discussions: [DiscussionItem] = []
 
-    @Published var isLoadingVerse = false
+    // Start true so the skeleton shows immediately on first render, before the
+    // async Task in init() has a chance to set it — prevents an empty-state flash.
+    @Published var isLoadingVerse = true
     @Published var isLoadingVideos = false
     @Published var isLoadingNews = false
 
@@ -2330,7 +2382,7 @@ class DiscoveryLandingFeedService: ObservableObject {
         defer { isLoadingVerse = false }
 
         // Try Scripture API first
-        let apiKey = "YOUR_API_BIBLE_KEY" // Replace with actual key from Firebase Remote Config or Info.plist
+        let apiKey = (Bundle.main.infoDictionary?["API_BIBLE_KEY"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         let bibleId = "de4e12af7f28f599-02" // KJV
         let verseIds = ["PSA.23.1", "JHN.3.16", "ROM.8.28", "PHP.4.13", "ISA.40.31",
                         "JER.29.11", "PSA.46.1", "PRO.3.5", "MAT.28.20", "ROM.5.8"]
@@ -2338,7 +2390,9 @@ class DiscoveryLandingFeedService: ObservableObject {
         let todayIndex = (dayOfYear - 1) % verseIds.count
         let verseId = verseIds[todayIndex]
 
-        if let url = URL(string: "https://api.scripture.api.bible/v1/bibles/\(bibleId)/verses/\(verseId)?content-type=text&include-notes=false&include-titles=false&include-chapter-numbers=false&include-verse-numbers=false") {
+        if !apiKey.isEmpty,
+           !apiKey.hasPrefix("$("),
+           let url = URL(string: "https://api.scripture.api.bible/v1/bibles/\(bibleId)/verses/\(verseId)?content-type=text&include-notes=false&include-titles=false&include-chapter-numbers=false&include-verse-numbers=false") {
             var req = URLRequest(url: url)
             req.setValue(apiKey, forHTTPHeaderField: "api-key")
             if let (data, _) = try? await URLSession.shared.data(for: req),
@@ -2386,7 +2440,12 @@ class DiscoveryLandingFeedService: ObservableObject {
         isLoadingVideos = true
         defer { isLoadingVideos = false }
 
-        let apiKey = "YOUR_YOUTUBE_API_KEY" // Replace with actual key from Firebase Remote Config or Info.plist
+        let apiKey = (Bundle.main.infoDictionary?["YOUTUBE_API_KEY"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !apiKey.isEmpty, !apiKey.hasPrefix("$(") else {
+            youtubeVideos = mockYouTubeVideos
+            return
+        }
+
         let queries = ["faith sermon", "worship music", "bible study devotional", "christian prayer"]
         let query = queries[Int.random(in: 0..<queries.count)].addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "faith"
         let urlStr = "https://www.googleapis.com/youtube/v3/search?part=snippet&q=\(query)&type=video&relevanceLanguage=en&maxResults=6&key=\(apiKey)"
@@ -2415,9 +2474,9 @@ class DiscoveryLandingFeedService: ObservableObject {
 
     private var mockYouTubeVideos: [YoutubeVideoItem] {
         [
-            YoutubeVideoItem(id: "mock1", title: "Sunday Sermon: Walking by Faith", channelName: "Grace Church", thumbnailURL: nil, viewCount: "12K views", duration: "38:22"),
-            YoutubeVideoItem(id: "mock2", title: "Praise & Worship Live", channelName: "Elevation Worship", thumbnailURL: nil, viewCount: "45K views", duration: "1:12:04"),
-            YoutubeVideoItem(id: "mock3", title: "Morning Devotional — Psalm 23", channelName: "Daily Bread", thumbnailURL: nil, viewCount: "8.2K views", duration: "12:15"),
+            YoutubeVideoItem(id: "mock1", title: "Sunday Sermon: Walking by Faith", channelName: "Grace Church", thumbnailURL: nil, viewCount: "", duration: "38:22"),
+            YoutubeVideoItem(id: "mock2", title: "Praise & Worship Live", channelName: "Elevation Worship", thumbnailURL: nil, viewCount: "", duration: "1:12:04"),
+            YoutubeVideoItem(id: "mock3", title: "Morning Devotional — Psalm 23", channelName: "Daily Bread", thumbnailURL: nil, viewCount: "", duration: "12:15"),
         ]
     }
 
@@ -2425,7 +2484,12 @@ class DiscoveryLandingFeedService: ObservableObject {
         isLoadingNews = true
         defer { isLoadingNews = false }
 
-        let apiKey = "YOUR_NEWSAPI_KEY" // Replace with actual key from Firebase Remote Config or Info.plist
+        let apiKey = (Bundle.main.infoDictionary?["NEWSAPI_KEY"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !apiKey.isEmpty, !apiKey.hasPrefix("$(") else {
+            newsItems = mockNewsItems
+            return
+        }
+
         let urlStr = "https://newsapi.org/v2/everything?q=faith+OR+church+OR+spiritual&language=en&pageSize=5&sortBy=publishedAt&apiKey=\(apiKey)"
 
         guard let url = URL(string: urlStr) else {
@@ -2446,16 +2510,17 @@ class DiscoveryLandingFeedService: ObservableObject {
             let dateStr = a["publishedAt"] as? String ?? ""
             let date = formatter.date(from: dateStr) ?? Date()
             let img = a["urlToImage"] as? String
-            return NewsItem(headline: title, sourceName: src, publishedAt: date, imageURL: img, category: "Faith")
+            let articleURL = a["url"] as? String
+            return NewsItem(headline: title, sourceName: src, publishedAt: date, imageURL: img, category: "Faith", articleURL: articleURL)
         }
         newsItems = parsed.isEmpty ? mockNewsItems : parsed
     }
 
     private var mockNewsItems: [NewsItem] {
         [
-            NewsItem(headline: "New Study Shows Prayer's Impact on Mental Health", sourceName: "Christianity Today", publishedAt: Date().addingTimeInterval(-3600), imageURL: nil, category: "Faith"),
-            NewsItem(headline: "Community Churches Partner for City-Wide Outreach", sourceName: "Church Times", publishedAt: Date().addingTimeInterval(-7200), imageURL: nil, category: "Community"),
-            NewsItem(headline: "Biblical Archaeology: New Discoveries in Jerusalem", sourceName: "The Gospel Coalition", publishedAt: Date().addingTimeInterval(-10800), imageURL: nil, category: "Culture"),
+            NewsItem(headline: "New Study Shows Prayer's Impact on Mental Health", sourceName: "Christianity Today", publishedAt: Date().addingTimeInterval(-3600), imageURL: nil, category: "Faith", articleURL: nil),
+            NewsItem(headline: "Community Churches Partner for City-Wide Outreach", sourceName: "Church Times", publishedAt: Date().addingTimeInterval(-7200), imageURL: nil, category: "Community", articleURL: nil),
+            NewsItem(headline: "Biblical Archaeology: New Discoveries in Jerusalem", sourceName: "The Gospel Coalition", publishedAt: Date().addingTimeInterval(-10800), imageURL: nil, category: "Culture", articleURL: nil),
         ]
     }
 
@@ -2523,7 +2588,9 @@ class DiscoveryLandingFeedService: ObservableObject {
     }
 
     private func loadUnsplashPhotos() async {
-        let apiKey = "YOUR_UNSPLASH_KEY" // Replace with actual key from Firebase Remote Config or Info.plist
+        let apiKey = (Bundle.main.infoDictionary?["UNSPLASH_KEY"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !apiKey.isEmpty, !apiKey.hasPrefix("$(") else { return }
+
         let queries = ["faith", "worship", "nature", "prayer", "church", "cross"]
         let q = queries[Int.random(in: 0..<queries.count)]
         let urlStr = "https://api.unsplash.com/search/photos?query=\(q)&per_page=9&client_id=\(apiKey)"
@@ -2696,8 +2763,10 @@ struct AmenPremiumTopicGridCard: View {
                     VStack(alignment: .leading, spacing: 3) {
                         Text(topic.title)
                             .font(.systemScaled(13, weight: .semibold))
-                            .foregroundColor(.black)
-                            .lineLimit(1)
+                            .foregroundColor(AmenTheme.Colors.textPrimary)
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.8)
+                            .fixedSize(horizontal: false, vertical: true)
                         if topic.postCount > 0 {
                             Text("\(topic.postCount) posts")
                                 .font(.systemScaled(11, weight: .regular))
@@ -2745,7 +2814,7 @@ struct AmenPremiumTopicGridCard: View {
                     } label: {
                         Image(systemName: isBookmarked ? "bookmark.fill" : "bookmark")
                             .font(.systemScaled(12, weight: .medium))
-                            .foregroundColor(.black)
+                            .foregroundColor(AmenTheme.Colors.textPrimary)
                             .frame(width: 30, height: 30)
                             .background(
                                 Circle()

@@ -134,7 +134,7 @@ final class LinkPreviewService: ObservableObject {
                                 .replacingOccurrences(of: "/", with: "_")
                                 .replacingOccurrences(of: ":", with: "_")
                                 .prefix(80)
-                            let dir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+                            let dir = (FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first ?? FileManager.default.temporaryDirectory)
                                 .appendingPathComponent("link_thumbs", isDirectory: true)
                             try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
                             let file = dir.appendingPathComponent(String(filename) + ".jpg")
@@ -193,7 +193,7 @@ final class LinkPreviewService: ObservableObject {
     // MARK: - Disk cache (Codable JSON, thumbnails on disk already)
 
     private var cacheFileURL: URL {
-        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first ?? FileManager.default.temporaryDirectory
             .appendingPathComponent("link_preview_meta_cache.json")
     }
 

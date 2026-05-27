@@ -92,6 +92,7 @@ struct AMENConnectSignUpView: View {
                     .frame(width: 32, height: 32)
                     .background(Circle().fill(Color(.secondarySystemBackground)))
             }
+            .accessibilityLabel("Close")
         }
         .padding(.horizontal, 24)
         .padding(.top, 20)
@@ -283,6 +284,7 @@ struct AMENConnectSignUpView: View {
                                 .fill(Color(.secondarySystemBackground))
                         )
                 }
+                .accessibilityLabel("Go back")
             }
 
             Button {
@@ -308,6 +310,7 @@ struct AMENConnectSignUpView: View {
                     RoundedRectangle(cornerRadius: 14)
                         .fill(isStepValid ? (selectedTier == .pro && step == 2 ? Color(red: 0.85, green: 0.58, blue: 0.10) : ink) : Color(.systemGray4))
                 )
+                .ambientGlow(.edgeLitCapsule, surface: .authentication, intensity: .subtle, isActive: isStepValid, cornerRadius: 14)
             }
             .disabled(!isStepValid || isSubmitting)
         }
@@ -328,10 +331,9 @@ struct AMENConnectSignUpView: View {
         p.skills = Array(selectedSkills)
         p.interests = selectedInterests.map { $0.rawValue }
         p.focusCategories = Array(selectedInterests)
-        p.tier = selectedTier
         p.memberSince = Date()
         // Save free-tier profile first so the profile exists regardless of purchase outcome
-        p.tier = selectedTier == .pro ? .free : .free  // will be .pro only after confirmed purchase
+        p.tier = .free  // will be upgraded to .pro only after confirmed purchase
         store.profile = p
         await store.saveProfile()
 
@@ -379,6 +381,7 @@ struct AMENConnectSignUpView: View {
                           ? Color(red: 0.85, green: 0.58, blue: 0.10).opacity(0.12)
                           : Color(red: 0.18, green: 0.30, blue: 0.60).opacity(0.12))
                     .frame(width: 100, height: 100)
+                    .ambientGlow(.aurora, surface: .authentication, intensity: .focused, cornerRadius: 50)
                 Image(systemName: selectedTier == .pro ? "star.fill" : "checkmark.circle.fill")
                     .font(.systemScaled(44))
                     .foregroundStyle(selectedTier == .pro
@@ -488,6 +491,7 @@ struct AMENConnectSignUpView: View {
                         }
                     }
                 )
+                .ambientGlow(.edgeLitCapsule, surface: .authentication, intensity: .whisper, isActive: isSelected, cornerRadius: 10)
         }
         .animation(.easeOut(duration: 0.18), value: isSelected)
     }
@@ -576,6 +580,7 @@ private struct TierCard: View {
                         lineWidth: isSelected ? 2 : 1
                     )
             )
+            .ambientGlow(.edgeLitCapsule, surface: .authentication, intensity: tier == .pro ? .subtle : .whisper, isActive: isSelected, cornerRadius: 18)
             .scaleEffect(isSelected ? 1.01 : 1.0)
             .animation(.spring(response: 0.28, dampingFraction: 0.8), value: isSelected)
         }

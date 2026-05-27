@@ -26,6 +26,8 @@ struct PostCard: View {
     let category: PostCardCategory
     let topicTag: String?
     let isUserPost: Bool // Track if this is the current user's post
+    let feedContextLabel: AmenFeedContextLabel?
+    let aiUsage: PostAIUsage?
     
     // ⚡️ PERFORMANCE FIX: Minimize @ObservedObject to prevent render storms
     // Only observe services where we MUST react to external changes in the view body.
@@ -50,6 +52,7 @@ struct PostCard: View {
     @State private var showingRepostConfirmation = false
     @State private var showRepostActionSheet = false
     @State private var showQuoteComposer = false
+    @State private var showFeedContextActions = false
     @State private var hasLitLightbulb = false
 
     // Staggered entrance animation
@@ -72,15 +75,24 @@ struct PostCard: View {
     @State private var lightbulbShakeError = false    // H) Shake on lightbulb backend failure
     @State private var saveShakeError = false         // H) Shake on save backend failure
     @State private var repostShakeError = false       // H) Shake on repost backend failure
+    @State private var reactionErrorToast: String?    // P1-6: Brief toast shown when reaction write fails
+    @State private var showProvenancePanel = false    // Provenance Trust Panel trigger
     @State private var lastSaveActionTimestamp: Date?  // ✅ NEW: Track last save action for debouncing
     @State private var saveActionCounter = 0  // ✅ NEW: Count save actions for debugging
     @State private var isFollowInFlight = false  // P0 FIX: Prevent duplicate follow operations
     @State private var actionMenuButtonFrame: CGRect = .zero
+    @Environment(\.tabBarVisible) private var tabBarVisible
     
     // Testimony resonance micro-copy
     @State private var testimonyResonanceCopy: String = ""
     @State private var showTestimonyResonance: Bool = false
     @State private var testimonyResonanceDismissTask: Task<Void, Never>? = nil
+    @State private var activeSafetyOSTrigger: AmenTriggerResult?
+    @State private var activeSafetyOSEffectPolicy: AmenReactionEffectPolicy?
+    @State private var canonicalSafetyOSTriggers: [AmenTriggerResult] = []
+    @State private var safetyOSEffectSeed = UUID()
+    @State private var safetyOSMicrocopy: String?
+    @State private var activeContextualReactionPresentation: AmenContextualReactionPresentation?
 
     // Prayer activity
     @State private var isPraying = false
@@ -109,10 +121,18 @@ struct PostCard: View {
     // Error handling
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
-    // Local mirror of BereanLiveActivityService.showFallbackSheet — avoids Binding(get:set:)
-    // polling the singleton on every body render which can destabilize the view update cycle.
-    @State private var showBereanFallbackSheet = false
-    
+    @State private var showContextualMemoryLayer = false
+    @State private var contextualMemoryLayer: AmenContextualMemoryLayer?
+    @State private var silentReactionSummaryOverride: AmenSilentReactionSummary?
+    @State private var showLifecycleExplanation = false
+    @State private var lifecycleDescriptorForExplanation: AmenThreadLifecycleDescriptor?
+    @State private var selectedSmartAttachment: AmenSmartAttachment?
+    @State private var isInlineHubClusterExpanded = false
+    /// Local state that mirrors AmenUniversalContentRouter.shared.replyActionsTarget
+    /// for this card's post only.  Updated via onReceive to avoid @ObservedObject on the router.
+    @State private var localReplyActionsTarget: ReplyActionsTarget? = nil
+    @State private var showPostActionMenu = false
+
     // ✅ Consolidated alert state to prevent SwiftUI presentation conflicts
     enum PostCardAlert: Identifiable {
         case notInterested
@@ -138,32 +158,56 @@ struct PostCard: View {
         }
     }
     @State private var activeAlert: PostCardAlert?
+    @State private var isBereanActivationInFlight = false
     
     // ✅ Single source of truth for sheet presentation
     fileprivate enum PostCardSheet: Identifiable {
         case options
         case whyThisPost(post: Post)
+        case whyThisAppeared(post: Post, context: AmenFeedContextLabel)
+        case topicFeed(topicKey: String, displayName: String)
+        case churchPulse(churchId: String)
+        case prayerMoment(targetId: String, fallbackPost: Post)
+        case contextUnavailable(title: String, reason: String)
         case userProfile(userId: String)
         case mentionedProfile(userId: String)
         case edit(post: Post)
         case share(post: Post, churchNote: ChurchNote?)
         case postDetail(post: Post)
         case comments(post: Post)
+        case commentsHighlighted(post: Post, replyId: String?, highlightedCommentIds: [String])
         case report(post: Post)
         case churchNoteDetail(note: ChurchNote)
         case reasoningThread(postId: String, postText: String, authorName: String)
         case tip(creatorId: String, creatorName: String)
-        case berean(initialQuery: String)
+        case berean(initialQuery: String, postContext: BereanPostContext?)
         case quoteComposer(context: QuoteComposerContext)
         case commentsWithQuote(post: Post, prefill: String)
         case shareExcerpt(text: String, attribution: String)
-        
+        case verseAttachment(payload: PostAttachmentPayload)
+        case goingSundayAttachment(payload: PostAttachmentPayload)
+        case churchNoteAttachment(note: ChurchNote, postId: String?)
+        case selah(message: BereanMessage, query: String)
+        case blessLater(post: Post)
+        case whyThis(post: Post)
+        case objectHub(canonicalObjectId: String?, url: String?, source: AmenObjectHubOpenSource)
+
         var id: String {
             switch self {
             case .options:
                 return "options"
             case .whyThisPost(let post):
                 return "why-this-post-\(Self.stablePostId(post))"
+            case .whyThisAppeared(let post, let context):
+                return "why-this-appeared-\(Self.stablePostId(post))-\(context.id)"
+            case .topicFeed(let topicKey, _):
+                return "topic-feed-\(topicKey)"
+            case .churchPulse(let churchId):
+                return "church-pulse-\(churchId)"
+            case .prayerMoment(let targetId, let fallbackPost):
+                return "prayer-moment-\(targetId)-\(Self.stablePostId(fallbackPost))"
+            case .contextUnavailable(let title, let reason):
+                return "context-unavailable-\(title.hashValue)-\(reason.hashValue)"
             case .userProfile(let userId):
                 return "profile-\(userId)"
             case .mentionedProfile(let userId):
@@ -176,6 +220,9 @@ struct PostCard: View {
                 return "detail-\(Self.stablePostId(post))"
             case .comments(let post):
                 return "comments-\(Self.stablePostId(post))"
+            case .commentsHighlighted(let post, let replyId, let highlightedCommentIds):
+                let focusId = replyId ?? highlightedCommentIds.first ?? "none"
+                return "comments-highlighted-\(Self.stablePostId(post))-\(focusId)"
             case .report(let post):
                 return "report-\(Self.stablePostId(post))"
             case .churchNoteDetail(let note):
@@ -184,14 +231,28 @@ struct PostCard: View {
                 return "reasoning-\(postId)"
             case .tip(let creatorId, _):
                 return "tip-\(creatorId)"
-            case .berean(let initialQuery):
-                return "berean-\(initialQuery.hashValue)"
+            case .berean(let initialQuery, let postContext):
+                return "berean-\(initialQuery.hashValue)-\(postContext?.postId ?? "none")"
             case .quoteComposer(let context):
                 return "quote-\(context.id.uuidString)"
             case .commentsWithQuote(let post, _):
                 return "comments-quote-\(Self.stablePostId(post))"
             case .shareExcerpt(let text, let attribution):
                 return "share-excerpt-\(text.hashValue)-\(attribution.hashValue)"
+            case .verseAttachment(let payload):
+                return "verse-attachment-\(payload.id)"
+            case .goingSundayAttachment(let payload):
+                return "going-sunday-\(payload.id)"
+            case .churchNoteAttachment(let note, _):
+                return "note-attachment-\(note.id ?? "unknown")"
+            case .selah(let message, _):
+                return "selah-\(message.id.uuidString)"
+            case .blessLater(let post):
+                return "bless-later-\(Self.stablePostId(post))"
+            case .whyThis(let post):
+                return "why-this-\(Self.stablePostId(post))"
+            case .objectHub(let canonicalObjectId, let url, let source):
+                return "object-hub-\((canonicalObjectId ?? url ?? "unknown").hashValue)-\(source.rawValue)"
             }
         }
         
@@ -210,6 +271,7 @@ struct PostCard: View {
 
     // Church Note
     @State private var churchNote: ChurchNote?
+    @State private var churchNoteLoadFailed = false
     
     // ✅ Real-time profile image
     @State private var currentProfileImageURL: String?
@@ -225,9 +287,12 @@ struct PostCard: View {
     @State private var showTranslationInfoSheet = false
     @State private var isTranslating = false
     @State private var currentTranslationMode: TranslationMode = .literal
+    @State private var didTrackInlineActionImpression = false
     @State private var isRefinementLoading = false
     // Apple Translation framework: session-based config for language download prompts
-    @State private var appleTranslationConfig: Translation.TranslationSession.Configuration?
+    // Typed as Any? so the @State declaration compiles below iOS 18; cast to
+    // Translation.TranslationSession.Configuration at the iOS-18-guarded call sites.
+    @State private var appleTranslationConfig: Any?
     @State private var difficultyScore: ContentDifficultyScore?
     @State private var detectedContextTerms: [DetectedTerm] = []
     @State private var selectedContextTerm: DetectedTerm?
@@ -254,7 +319,12 @@ struct PostCard: View {
     // Always use firebaseId if available, fallback to UUID
     // This prevents reactions from being tied to wrong IDs when firestoreId changes
     private var stablePostId: String {
-        post?.firebaseId ?? post?.id.uuidString ?? ""
+        if let post {
+            if !post.firestoreId.isEmpty { return post.firestoreId }
+            if let firebaseId = post.firebaseId, !firebaseId.isEmpty { return firebaseId }
+            return post.id.uuidString
+        }
+        return "preview-\(authorName)-\(timeAgo)-\(content.prefix(24))"
     }
 
     private var actionMenuCardID: String {
@@ -309,7 +379,9 @@ struct PostCard: View {
         content: String,
         category: PostCardCategory,
         topicTag: String? = nil,
-        isUserPost: Bool = false
+        isUserPost: Bool = false,
+        feedContextLabel: AmenFeedContextLabel? = nil,
+        aiUsage: PostAIUsage? = nil
     ) {
         // Generate author initials from name
         let initials = authorName
@@ -339,17 +411,21 @@ struct PostCard: View {
         self.category = category
         self.topicTag = topicTag
         self.isUserPost = isUserPost
+        self.feedContextLabel = feedContextLabel
+        self.aiUsage = aiUsage
     }
-    
+
     // Full initializer with post object
-    init(post: Post, isUserPost: Bool? = nil) {
+    init(post: Post, isUserPost: Bool? = nil, feedContextLabel: AmenFeedContextLabel? = nil) {
         self.post = post
         self.authorName = post.authorName
         self.timeAgo = post.timeAgo
         self.content = post.content
         self.category = post.category.cardCategory
         self.topicTag = post.topicTag
-        
+        self.feedContextLabel = feedContextLabel
+        self.aiUsage = post.aiUsage
+
         // Auto-detect if this is the user's post if not explicitly provided
         if let isUserPost = isUserPost {
             self.isUserPost = isUserPost
@@ -409,7 +485,9 @@ struct PostCard: View {
                 avatarContent
             }
             .buttonStyle(.liquidGlass)  // P0 FIX: Instant visual press feedback
-            
+            .accessibilityLabel("\(authorName)'s profile photo")
+            .accessibilityHint("Double tap to view their profile")
+
             // Follow button - positioned outside the avatar button to avoid nesting
             if !isUserPost && post != nil {
                 followButton
@@ -488,7 +566,7 @@ struct PostCard: View {
                 .clipShape(Circle())
                 .overlay(
                     Circle()
-                        .stroke(Color.black.opacity(0.1), lineWidth: 1)
+                        .stroke(Color(.separator).opacity(0.3), lineWidth: 0.5)
                 )
         } placeholder: {
             // Show placeholder while loading
@@ -580,10 +658,11 @@ struct PostCard: View {
         FollowBadgeView(
             isFollowed: Binding(
                 get: { isFollowing },
-                set: { _ in }
+                set: { newValue in
+                    localIsFollowing = newValue
+                }
             ),
-            onToggle: { toggleActionMenu() },
-            openMenuMode: true
+            onToggle: { handleFollowButtonTap() }
         )
         .background(
             GeometryReader { proxy in
@@ -637,9 +716,7 @@ struct PostCard: View {
             await MainActor.run {
                 isFollowInFlight = true
             }
-            
-            // P0 FIX: No local state to update - FollowService.shared.following Set updates automatically
-            // The computed property 'isFollowing' will reflect the change immediately across ALL PostCards
+            let optimisticState = await MainActor.run { localIsFollowing }
             
             do {
                 try await followService.toggleFollow(userId: authorId)
@@ -649,6 +726,9 @@ struct PostCard: View {
                 dlog("❌ Follow error: \(error.localizedDescription)")
                 #endif
                 // FollowService already handles rollback in its optimistic update logic
+                await MainActor.run {
+                    localIsFollowing = !optimisticState
+                }
                 HapticManager.notification(type: .error)
             }
             
@@ -765,8 +845,37 @@ struct PostCard: View {
             return
         }
         let excerpt = "“\(selection.text)” — \(authorName)"
-        presentSheet(.commentsWithQuote(post: post, prefill: excerpt))
+        presentCommentsIfAllowed(for: post, prefill: excerpt)
         clearTextSelection()
+    }
+
+    private func presentCommentsIfAllowed(for post: Post, prefill: String? = nil) {
+        let resolvedPostId: String
+        if !post.firestoreId.isEmpty {
+            resolvedPostId = post.firestoreId
+        } else if let firebaseId = post.firebaseId, !firebaseId.isEmpty {
+            resolvedPostId = firebaseId
+        } else {
+            resolvedPostId = post.id.uuidString
+        }
+
+        Task {
+            let canComment = await CommentService.shared.canComment(postId: resolvedPostId, post: post)
+
+            await MainActor.run {
+                guard canComment else {
+                    HapticManager.notification(type: .warning)
+                    ToastManager.shared.showError("You can't comment on this post.")
+                    return
+                }
+
+                if let prefill {
+                    presentSheet(.commentsWithQuote(post: post, prefill: prefill))
+                } else {
+                    presentSheet(.comments(post: post))
+                }
+            }
+        }
     }
 
     private func handleSaveSelection(_ selection: PostTextSelection) {
@@ -786,7 +895,7 @@ struct PostCard: View {
 
     private func handleBereanSelection(_ selection: PostTextSelection) {
         let query = bereanQuery(for: selection)
-        presentSheet(.berean(initialQuery: query))
+        presentSheet(.berean(initialQuery: query, postContext: post.map { BereanPostContext(post: $0) }))
         clearTextSelection()
     }
 
@@ -796,6 +905,26 @@ struct PostCard: View {
             return "Reflect on this verse: \"\(excerpt)\"\n\nPlease ground your response in Scripture and provide cross-references."
         }
         return "Reflect on this highlighted excerpt: \"\(excerpt)\"\n\nWhat does Scripture say about this, and how should I respond?"
+    }
+
+    @MainActor
+    private func handleBereanActivation(_ post: Post) {
+        guard !isBereanActivationInFlight else {
+            dlog("⏭️ [BereanLiveActivity] Duplicate PostCard tap ignored for post \(post.firestoreId)")
+            return
+        }
+
+        let postContext = BereanPostContext(post: post)
+
+        isBereanActivationInFlight = true
+        // Service fires its own .medium haptic on startActivity — no second haptic here.
+        BereanLiveActivityService.shared.startActivity(for: post)
+        presentSheet(.berean(initialQuery: postContext.initialPrompt, postContext: postContext))
+
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(800))
+            isBereanActivationInFlight = false
+        }
     }
 
     private func canQuote(_ post: Post) -> Bool {
@@ -832,7 +961,7 @@ struct PostCard: View {
         closeActionMenu()
         HapticManager.impact(style: .light)
         presentSheet(.userProfile(userId: post.authorId))
-        dlog("👤 Opening action menu profile for: \(authorName) (ID: \(post.authorId))")
+        dlog("👤 Opening action menu profile for: \(authorName)")
     }
 
     @MainActor
@@ -885,7 +1014,29 @@ struct PostCard: View {
             }
         }
 
-        return [saveAction, repostAction, sequenceAction]
+        let blessLaterAction = AmenQuickAction(
+            title: "Bless Later",
+            systemImage: "bookmark.circle",
+            isEnabled: !isUserPost
+        ) {
+            performOption {
+                guard let post = post else { return }
+                presentSheet(.blessLater(post: post))
+            }
+        }
+
+        let whyThisAction = AmenQuickAction(
+            title: "Why this?",
+            systemImage: "questionmark.circle",
+            isEnabled: !isUserPost
+        ) {
+            performOption {
+                guard let post = post else { return }
+                presentSheet(.whyThis(post: post))
+            }
+        }
+
+        return [saveAction, blessLaterAction, repostAction, sequenceAction, whyThisAction]
     }
 
     private var optionsSections: [AmenOptionsSectionModel] {
@@ -1092,6 +1243,18 @@ struct PostCard: View {
                 }
             )
 
+            if AMENFeatureFlags.shared.provenanceTrustPanelEnabled {
+                safetyActions.append(
+                    AmenOptionAction(
+                        title: "View Origin",
+                        subtitle: "See where this media came from",
+                        systemImage: "checkmark.shield"
+                    ) {
+                        performOption { showProvenancePanel = true }
+                    }
+                )
+            }
+
             safetyActions.append(
                 AmenOptionAction(
                     title: "Mute \(authorName)",
@@ -1154,6 +1317,7 @@ struct PostCard: View {
                     case .tip:         return "bible_teaching"
                     case .funFact:     return "bible_teaching"
                     case .openTable:   return "community"
+                    default:           return "community"
                     }
                 }()
 
@@ -1541,7 +1705,7 @@ struct PostCard: View {
     )
     
     private static let lightbulbGradientInactive = LinearGradient(
-        colors: [Color.black.opacity(0.5), Color.black.opacity(0.5)],
+        colors: [Color.secondary.opacity(0.6), Color.secondary.opacity(0.6)],
         startPoint: .top,
         endPoint: .bottom
     )
@@ -1560,8 +1724,8 @@ struct PostCard: View {
         }
         .buttonStyle(.instantFeedback)  // P0 FIX: INSTANT touch-down feedback
         .symbolEffect(.bounce, value: hasLitLightbulb)
-        .disabled(isUserPost)
-        .opacity(isUserPost ? 0.5 : 1.0)
+        .disabled(isUserPost || isLightbulbToggleInFlight)
+        .opacity((isUserPost || isLightbulbToggleInFlight) ? 0.5 : 1.0)
         .shakeOnError(lightbulbShakeError)
         // P2-B FIX: VoiceOver label so the button is not announced as "lightbulb" image
         .accessibilityLabel(hasLitLightbulb ? "Remove lightbulb reaction" : "Add lightbulb reaction")
@@ -1616,8 +1780,8 @@ struct PostCard: View {
         }
         .buttonStyle(.instantFeedback)  // P0 FIX: INSTANT touch-down feedback
         .symbolEffect(.bounce, value: hasSaidAmen)
-        .disabled(isUserPost)
-        .opacity(isUserPost ? 0.5 : 1.0)
+        .disabled(isUserPost || isAmenToggleInFlight)
+        .opacity((isUserPost || isAmenToggleInFlight) ? 0.5 : 1.0)
         .shakeOnError(amenShakeError)
         // P2-B FIX: VoiceOver label
         .accessibilityLabel(hasSaidAmen ? "Remove Amen" : "Say Amen")
@@ -1641,7 +1805,7 @@ struct PostCard: View {
     private var amenBackground: some View {
         Capsule()
             .fill(hasSaidAmen ? Color(.secondarySystemFill) : Color(.tertiarySystemFill))
-            .shadow(color: hasSaidAmen ? Color.black.opacity(0.10) : Color.clear, radius: 8, y: 2)
+            .shadow(color: hasSaidAmen ? Color.primary.opacity(0.08) : Color.clear, radius: 8, y: 2)
     }
     
     private var amenOverlay: some View {
@@ -1682,8 +1846,10 @@ struct PostCard: View {
             authorInfoContent
         }
         .buttonStyle(.liquidGlass)  // P0 FIX: Instant visual press feedback
+        .accessibilityLabel("View \(authorName)'s profile")
+        .accessibilityHint("Double tap to open their profile page")
     }
-    
+
     private var authorInfoContent: some View {
         VStack(alignment: .leading, spacing: 4) {
             authorNameRow
@@ -1704,51 +1870,42 @@ struct PostCard: View {
                         .foregroundStyle(.primary)
                         .lineLimit(1)
 
-                    // ✅ Verified badge
-                    if let post = post, VerifiedBadgeHelper.shared.isVerified(userId: post.authorId) {
-                        VerifiedBadge(
-                            type: VerifiedBadgeHelper.shared.getVerificationType(userId: post.authorId),
-                            size: 14
-                        )
+                    // Verified badge — snapshotted in renderModel, no per-render service call
+                    if let model = renderModel, model.authorIsVerified {
+                        VerifiedBadge(type: model.authorVerificationType, size: 14)
                     }
                 }
             }
             .buttonStyle(PlainButtonStyle())
             .layoutPriority(-1)
-            
-            // 📌 Pinned post indicator (like Threads)
-            if let post = post, pinnedPostService.isPostPinned(post.firestoreId) {
+
+            // Pinned indicator — snapshotted in renderModel
+            if renderModel?.isPinned == true {
                 HStack(spacing: 3) {
                     Image(systemName: "pin.fill")
                         .font(.systemScaled(10, weight: .semibold))
+                        .accessibilityHidden(true)
                     Text("Pinned")
                         .font(AMENFont.bold(11))
                 }
                 .foregroundStyle(.gray)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
-                .background(
-                    Capsule()
-                        .fill(Color.gray.opacity(0.15))
-                )
+                .background(Capsule().fill(Color.gray.opacity(0.15)))
                 .fixedSize()
             }
 
-            // Category badge - only show if category allows it (not for Tip, Fun Fact)
-            if let post = post, post.category.showCategoryBadge {
-                categoryBadge
-                    .fixedSize()
-            } else if post == nil && category != .openTable {
-                // Fallback for preview posts without full Post object
-                categoryBadge
-                    .fixedSize()
+            // Category badge
+            if renderModel?.category.showCategoryBadge == true || (renderModel == nil && category != .openTable) {
+                categoryBadge.fixedSize()
             }
 
-            // AI-generated content label (shown when user chose to add a source label)
-            if let post = post, let source = post.contentSource, !source.isEmpty {
+            // AI-generated content label
+            if let source = renderModel?.contentSource, !source.isEmpty {
                 HStack(spacing: 3) {
                     Image(systemName: "sparkles")
                         .font(.systemScaled(9, weight: .semibold))
+                        .accessibilityHidden(true)
                     Text("via \(source)")
                         .font(.systemScaled(10, weight: .medium))
                         .lineLimit(1)
@@ -1760,6 +1917,11 @@ struct PostCard: View {
                 .overlay(Capsule().strokeBorder(Color.purple.opacity(0.15), lineWidth: 0.8))
                 .fixedSize()
             }
+
+            if let postId = renderModel?.postId, !postId.isEmpty {
+                KnowledgeIntegrityBadgeLoaderView(targetType: "post", targetId: postId)
+                    .fixedSize()
+            }
         }
         .lineLimit(1)
     }
@@ -1770,6 +1932,7 @@ struct PostCard: View {
                 HStack(spacing: 4) {
                     Image(systemName: category.icon)
                         .font(.systemScaled(10, weight: .semibold))
+                        .accessibilityHidden(true)
                     Text(category.displayName)
                         .font(AMENFont.bold(11))
                 }
@@ -1869,10 +2032,13 @@ struct PostCard: View {
                 .buttonStyle(.plain)
 
             case .error(let err):
-                HStack(spacing: 6) {
+                HStack(spacing: 4) {
                     Text(err.userFacingMessage)
                         .font(AMENFont.regular(11))
                         .foregroundStyle(.secondary)
+                    Text("·")
+                        .font(AMENFont.regular(11))
+                        .foregroundStyle(.tertiary)
                     Button("Retry") {
                         Task { await triggerTranslation() }
                     }
@@ -1888,38 +2054,33 @@ struct PostCard: View {
     
     private var timeAndTagRow: some View {
         HStack(spacing: 6) {
-            Text(timeAgo)
+            Text(renderModel?.timeAgoDisplay ?? timeAgo)
                 .font(AMENFont.regular(13))
                 .foregroundStyle(.secondary)
                 .fixedSize()
 
-            // "Edited" badge — shown when updatedAt is set and at least 60s after createdAt
-            if let post = post, let updatedAt = post.updatedAt,
-               updatedAt.timeIntervalSince(post.createdAt) > 60 {
+            // "Edited" badge — driven by wasEdited from renderModel
+            if renderModel?.wasEdited == true {
                 Text("· Edited")
                     .font(AMENFont.regular(12))
                     .foregroundStyle(.tertiary)
                     .fixedSize()
             }
 
-            if let tag = topicTag, !tag.isEmpty {
+            if let tag = renderModel?.topicTag ?? topicTag, !tag.isEmpty {
                 Text("•")
                     .foregroundStyle(.secondary)
-                // Topic tag as neutral pill
                 Text(tag)
                     .font(AMENFont.semiBold(11))
                     .foregroundStyle(.primary)
                     .lineLimit(1)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 3)
-                    .background(
-                        Capsule()
-                            .fill(Color.primary.opacity(0.08))
-                    )
+                    .background(Capsule().fill(Color.primary.opacity(0.08)))
             }
-            
-            // Source label badge — shown when content was labeled as AI/external
-            if let source = post?.contentSource, !source.isEmpty {
+
+            // Source label badge
+            if let source = renderModel?.contentSource, !source.isEmpty {
                 Text("•")
                     .foregroundStyle(.secondary)
                 HStack(spacing: 4) {
@@ -1932,10 +2093,13 @@ struct PostCard: View {
                 .foregroundStyle(Color(red: 0.20, green: 0.40, blue: 0.80))
                 .padding(.horizontal, 7)
                 .padding(.vertical, 3)
-                .background(
-                    Capsule()
-                        .fill(Color(red: 0.72, green: 0.88, blue: 1.0).opacity(0.50))
-                )
+                .background(Capsule().fill(Color(red: 0.72, green: 0.88, blue: 1.0).opacity(0.50)))
+            }
+
+            // AI usage disclosure pill — only shown when AI tools were actually used
+            if AMENFeatureFlags.shared.aiUsageLabelPillEnabled,
+               let usage = renderModel?.aiUsage ?? aiUsage, usage.usedAI {
+                PostAILabelPill(aiUsage: usage)
             }
         }
         .lineLimit(1)
@@ -1993,6 +2157,7 @@ struct PostCard: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Post options")
+        .accessibilityHint("Double tap to report, save, or manage this post")
     }
 
     @ViewBuilder
@@ -2058,11 +2223,11 @@ struct PostCard: View {
     private var cardWithSheets: AnyView {
         AnyView(
             cardContent
-                .onLongPressGesture(minimumDuration: 0.35) {
+                .onLongPressGesture(minimumDuration: 0.4) {
                     guard !isTextSelecting else { return }
                     closeActionMenu(animated: false)
                     HapticManager.impact(style: .light)
-                    presentSheet(.options)
+                    withAnimation(.amenSpring) { showPostActionMenu = true }
                 }
                 .modifier(PostCardSheetsModifier(
                     activeSheet: $activeSheet,
@@ -2070,9 +2235,16 @@ struct PostCard: View {
                     optionsQuickActionsBuilder: { optionsQuickActions },
                     optionsSectionsBuilder: { optionsSections },
                     feedReasonsBuilder: { post in feedReasons(for: post) },
+                    contextFeedbackHandler: { action in trackFeedContextFeedback(action) },
                     authorName: authorName,
                     category: category
                 ))
+                // Provenance Trust Panel — opens from "View Origin" in more menu
+                .provenanceTrustSheet(
+                    isPresented: $showProvenancePanel,
+                    provenance: nil,        // provenance data fetched lazily by panel
+                    aiDisclosures: []
+                )
                 .modifier(PostCardInteractionsModifier(
                     post: post,
                     interactionsService: interactionsService,
@@ -2173,6 +2345,28 @@ struct PostCard: View {
         AnyView(cardWithSheets)
     }
 
+    private var postCardAccessibilityLabel: String {
+        let author = authorName.isEmpty ? "Unknown" : authorName
+        let snippet = content.prefix(120)
+        let ellipsis = content.count > 120 ? "…" : ""
+        return "Post by \(author). \(snippet)\(ellipsis). \(timeAgo)."
+    }
+
+    // MARK: - Render Model
+
+    /// Equatable snapshot of server-confirmed display state for this card.
+    /// Used by the feed for diffing; does not carry per-user interaction state.
+    private var renderModel: PostCardRenderModel? {
+        post.map {
+            PostCardRenderModel(
+                post: $0,
+                isUserPost: isUserPost,
+                feedContextLabel: feedContextLabel,
+                aiUsage: aiUsage
+            )
+        }
+    }
+
     var body: some View {
         cardWithAlerts
             .opacity(isDeletingPost ? 0 : 1)
@@ -2189,6 +2383,51 @@ struct PostCard: View {
                 actionMenuButtonFrame = isValid ? newFrame : .zero
             }
             .overlay { actionMenuOverlay }
+            .overlay {
+                if let policy = activeSafetyOSEffectPolicy {
+                    AmenReactionEffectHost(policy: policy)
+                        .id(safetyOSEffectSeed)
+                        .padding(.horizontal, 24)
+                }
+            }
+            .overlay {
+                AmenContextualReactionEffectHost(presentation: activeContextualReactionPresentation)
+                    .padding(.horizontal, 24)
+            }
+            .overlay(alignment: .top) {
+                if let safetyOSMicrocopy {
+                    AmenMicrocopyToast(text: safetyOSMicrocopy)
+                        .padding(.top, 10)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
+            }
+            .overlay(alignment: .bottom) {
+                if let toast = reactionErrorToast {
+                    Text(toast)
+                        .font(.systemScaled(12, weight: .medium))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(Color.black.opacity(0.75), in: Capsule())
+                        .padding(.bottom, 10)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: toast)
+                }
+            }
+            .overlay {
+                ContextualActionMenu(
+                    isPresented: $showPostActionMenu,
+                    items: [
+                        .init(symbol: "bookmark", title: isSaved ? "Saved" : "Save") { toggleSave() },
+                        .init(symbol: "square.and.arrow.up", title: "Share") { sharePost() },
+                        .init(symbol: "flag", title: "Report", role: .destructive) {
+                            if let p = post { presentSheet(.report(post: p)) }
+                        }
+                    ]
+                ) {
+                    postActionMenuPreview
+                }
+            }
             .onAppear {
                 // Set cardAppeared instantly (no animation) to avoid double-animation conflict
                 // with the external .feedItemAppear() modifier already animating the whole card
@@ -2241,27 +2480,117 @@ struct PostCard: View {
             .onChange(of: activeSheet?.id) { _, newValue in
                 if newValue != nil {
                     closeActionMenu(animated: false)
+                } else if !tabBarVisible.wrappedValue {
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        tabBarVisible.wrappedValue = true
+                    }
                 }
             }
-            // Sync local state from BereanLiveActivityService via onReceive instead of wrapping
-            // the singleton property in a Binding — the Binding(get:set:) pattern polls the
-            // singleton on every body render which can destabilize the view update cycle.
-            .onReceive(
-                BereanLiveActivityService.shared.$showFallbackSheet.removeDuplicates()
-            ) { show in
-                if show { showBereanFallbackSheet = true }
+            // Reset church note state when the attachment identity changes.
+            // Prevents stale note data persisting across Firestore live updates
+            // or structural reuse where a different post occupies the same position.
+            .onChange(of: post?.churchNoteId) { _, newId in
+                if newId != churchNote?.id {
+                    churchNote = nil
+                    churchNoteLoadFailed = false
+                }
             }
-            .sheet(isPresented: $showBereanFallbackSheet, onDismiss: {
-                BereanLiveActivityService.shared.showFallbackSheet = false
-            }) {
-                BereanFallbackSheet()
+            .sheet(isPresented: $showContextualMemoryLayer) {
+                if let contextualMemoryLayer {
+                    ContextualMemoryLayerSheet(
+                        layer: contextualMemoryLayer,
+                        sourceTitle: authorName
+                    )
+                    .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
+                }
+            }
+            .sheet(isPresented: $showLifecycleExplanation) {
+                if let descriptor = lifecycleDescriptorForExplanation, let post {
+                    ThreadResurfacingExplanationSheet(
+                        descriptor: descriptor,
+                        post: post,
+                        onViewContext: {
+                            showLifecycleExplanation = false
+                            Task {
+                                contextualMemoryLayer = await AmenSpiritualSystemsService.shared.contextualMemoryLayer(for: post)
+                                showContextualMemoryLayer = true
+                            }
+                        }
+                    )
+                    .presentationDetents([.medium])
+                    .presentationDragIndicator(.visible)
+                    .presentationCornerRadius(22)
+                }
+            }
+            .sheet(isPresented: $showFeedContextActions) {
+                if let feedContextLabel {
+                    AmenFeedContextActionSheet(
+                        label: feedContextLabel,
+                        onWhy: {
+                            if let post {
+                                presentSheet(.whyThisAppeared(post: post, context: feedContextLabel))
+                            }
+                        },
+                        onShowLess: {
+                            trackFeedContextFeedback(.showLess)
+                        },
+                        onMuteTopic: {
+                            trackFeedContextFeedback(.muteTopic)
+                        },
+                        onHideAll: {
+                            trackFeedContextFeedback(.hideAll)
+                        },
+                        onReportIssue: {
+                            trackFeedContextFeedback(.reportIssue)
+                        }
+                    )
+                }
+            }
+            .sheet(item: $activeSafetyOSTrigger) { trigger in
+                AmenDiscernmentSheet(
+                    trigger: trigger,
+                    originalText: displayContent.isEmpty ? content : displayContent,
+                    suggestedRewrite: AmenLocalTriggerEngine.shared.suggestedRewrite(
+                        for: trigger,
+                        originalText: displayContent.isEmpty ? content : displayContent
+                    )
+                ) { action in
+                    handleSafetyOSCardAction(action, trigger: trigger)
+                }
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+            }
+            .sheet(item: $selectedSmartAttachment) { attachment in
+                AmenUniversalLinkDetailView(
+                    attachment: attachment,
+                    postText: displayContent.isEmpty ? content : displayContent,
+                    onOpenOriginal: {
+                        guard let url = URL(string: attachment.canonicalUrl) else { return }
+                        UIApplication.shared.open(url)
+                    }
+                )
             }
             .task(id: content) {
                 await detectAndTranslatePost()
             }
-            .translationTask(appleTranslationConfig) { session in
-                await handleAppleTranslationSession(session)
+            .task(id: safetyOSDisplayText) {
+                canonicalSafetyOSTriggers = await AmenLocalTriggerEngine.shared.analyzeWithCanonicalServer(
+                    text: safetyOSDisplayText,
+                    surface: .post
+                )
             }
+            .background {
+                if #available(iOS 18.0, *) {
+                    Color.clear.translationTask(
+                        appleTranslationConfig as? Translation.TranslationSession.Configuration
+                    ) { session in
+                        await handleAppleTranslationSession(session)
+                    }
+                }
+            }
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel(postCardAccessibilityLabel)
     }
 
     // ⚡️ PERFORMANCE FIX: Removed startAuthorProfileListener()
@@ -2346,15 +2675,18 @@ struct PostCard: View {
         // If language models need downloading, fall back to .translationTask() modifier
         // which prompts the user to download and handles progress UI automatically.
         if case .error(.languageDownloadNeeded) = result {
-            let sourceLang = detectedLanguage ?? "und"
-            let targetLang = TranslationSettingsManager.shared.userLanguageCode
-            if appleTranslationConfig == nil {
-                appleTranslationConfig = .init(
-                    source: Locale.Language(identifier: sourceLang),
-                    target: Locale.Language(identifier: targetLang)
-                )
-            } else {
-                appleTranslationConfig?.invalidate()
+            if #available(iOS 18.0, *) {
+                let sourceLang = detectedLanguage ?? "und"
+                let targetLang = TranslationSettingsManager.shared.userLanguageCode
+                if appleTranslationConfig == nil {
+                    appleTranslationConfig = Translation.TranslationSession.Configuration(
+                        source: Locale.Language(identifier: sourceLang),
+                        target: Locale.Language(identifier: targetLang)
+                    )
+                } else if var config = appleTranslationConfig as? Translation.TranslationSession.Configuration {
+                    config.invalidate()
+                    appleTranslationConfig = config
+                }
             }
             return
         }
@@ -2380,6 +2712,7 @@ struct PostCard: View {
     /// Handle a TranslationSession provided by the .translationTask() modifier.
     /// This session can download language models automatically (prompting the user),
     /// unlike TranslationSession(installedSource:) which only works with pre-installed models.
+    @available(iOS 18.0, *)
     private func handleAppleTranslationSession(_ session: Translation.TranslationSession) async {
         do {
             let response = try await session.translate(content)
@@ -2445,6 +2778,7 @@ struct PostCard: View {
             .clipShape(Capsule())
         }
         .accessibilityLabel("Listen to this post")
+        .accessibilityHint("Double tap to play as audio using text-to-speech")
     }
 
     /// Re-translate current content with a different translation mode (original/literal/natural/contextual)
@@ -2579,6 +2913,9 @@ struct PostCard: View {
     @State private var swipeOffset: CGFloat = 0
     @State private var showSwipeAction = false
     @State private var swipeDirection: SwipeDirection = .none
+    /// Frame of the media carousel (in card-local coordinates). Used to block the
+    /// swipe-to-comment/like gesture when the user's drag starts inside the carousel.
+    @State private var mediaCarouselFrame: CGRect = .zero
     
     enum SwipeDirection {
         case none, left, right
@@ -2589,6 +2926,7 @@ struct PostCard: View {
         headerView
             .padding(.horizontal, 12)
             .padding(.top, 4)
+            .padding(.bottom, 10) // Threads-like gap — separates author row from body text
             .contentShape(Rectangle())
             .onTapGesture {
                 guard NavigationGuard.shared.shouldNavigate() else { return }
@@ -2596,7 +2934,113 @@ struct PostCard: View {
                 presentSheet(.postDetail(post: post))
             }
     }
+
+    @ViewBuilder
+    private var preHeaderContextSection: some View {
+        if let post = post, post.isRepost {
+            if let originalAuthor = post.originalAuthorName {
+                repostIndicator(originalAuthor: originalAuthor)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 6)
+            } else {
+                // originalAuthorName is nil — the original post has been removed or was never set
+                repostOriginalRemovedIndicator
+                    .padding(.horizontal, 16)
+                    .padding(.top, 6)
+            }
+        }
+
+        if let quote = post?.quote {
+            quoteSnippetView(quote)
+                .padding(.horizontal, 16)
+                .padding(.top, 6)
+                .padding(.bottom, feedContextLabel == nil ? 4 : 0)
+        }
+    }
+
+    @ViewBuilder
+    private var feedContextCapsuleSection: some View {
+        if let feedContextLabel {
+            AmenFeedContextLabelView(
+                label: feedContextLabel,
+                postId: post?.contextStableId ?? stablePostId,
+                onTap: { openFeedContextDestination() },
+                onLongPress: { showFeedContextActions = true }
+            )
+            .padding(.horizontal, 12)
+            .padding(.top, 6)
+            .padding(.bottom, 6)
+        }
+    }
     
+    // MARK: - Church Note Body Guard
+    //
+    // Legacy posts (before the attachment system) embedded the full church note body
+    // into post.content as formatted text ("📝 Church Note: …\n\nSermon: …\n…").
+    // When churchNoteId is set, that raw body is now redundant — the note is rendered
+    // as a structured glass pill. Suppress the body text to prevent double-rendering.
+    //
+    // Detection heuristic: content contains old-style note metadata markers AND
+    // a churchNoteId is set. New posts from the fixed sharing path will have only a
+    // short caption, which we always show.
+    private var shouldSuppressBodyForChurchNote: Bool {
+        guard let post, post.churchNoteId != nil else { return false }
+        let c = content
+        // Old embedded-body markers written by the legacy shareToOpenTable / shareNoteToOpenTable paths
+        let legacyMarkers = ["Sermon:", "Pastor:", "Church:", "📝 Church Note", "🎤 Sermon:", "⛪️", "📖 Scripture:"]
+        return legacyMarkers.contains(where: { c.contains($0) })
+    }
+
+    // Whether the raw content string contains legacy church-note metadata lines.
+    // True even when churchNoteId is nil (old posts that embedded metadata but lost the reference).
+    private var hasLegacyChurchNoteContent: Bool {
+        let legacyMarkers = ["Sermon:", "Pastor:", "Church:", "📝 Church Note", "🎤 Sermon:", "⛪️", "📖 Scripture:"]
+        return legacyMarkers.contains(where: { content.contains($0) })
+    }
+
+    // Extracts the note title from the legacy "📖 [title]" or "📚 [title]" line.
+    private var legacyChurchNoteTitle: String {
+        for line in content.components(separatedBy: "\n") {
+            let t = line.trimmingCharacters(in: .whitespaces)
+            if t.hasPrefix("📖") || t.hasPrefix("📚") {
+                let after = t.dropFirst().trimmingCharacters(in: .whitespaces)
+                if !after.isEmpty { return after }
+            }
+        }
+        return "Church Note"
+    }
+
+    // Extracts church or sermon subtitle from legacy metadata lines, preferring church name.
+    private var legacyChurchNoteSubtitle: String? {
+        var church: String? = nil
+        var sermon: String? = nil
+        for line in content.components(separatedBy: "\n") {
+            let t = line.trimmingCharacters(in: .whitespaces)
+            if t.hasPrefix("Church:") {
+                let v = t.dropFirst("Church:".count).trimmingCharacters(in: .whitespaces)
+                if !v.isEmpty { church = v }
+            } else if t.hasPrefix("Sermon:") {
+                let v = t.dropFirst("Sermon:".count).trimmingCharacters(in: .whitespaces)
+                if !v.isEmpty { sermon = v }
+            }
+        }
+        return church ?? sermon
+    }
+
+    // Display-safe version of content: strips legacy church-note metadata lines so only the
+    // user's actual caption is shown. Falls through to raw content for normal posts.
+    private var displayContent: String {
+        guard hasLegacyChurchNoteContent else { return content }
+        let legacyPrefixes = ["Sermon:", "Pastor:", "Church:", "📝 Church Note",
+                              "🎤 Sermon:", "⛪️", "📖 Scripture:", "📚", "📖"]
+        let lines = content.components(separatedBy: "\n")
+        let cleaned = lines.filter { line in
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            return !trimmed.isEmpty && !legacyPrefixes.contains(where: { trimmed.hasPrefix($0) })
+        }
+        return cleaned.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     // MARK: - Post Content with Selection
     private var postContentWithSelection: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -2605,7 +3049,7 @@ struct PostCard: View {
                let translated = translatedContent,
                let sourceLang = detectedLanguage {
                 SideBySideTranslationView(
-                    originalText: content,
+                    originalText: displayContent,
                     translatedText: translated,
                     sourceLanguage: sourceLang,
                     targetLanguage: TranslationSettingsManager.shared.preferences.appLanguage
@@ -2615,15 +3059,19 @@ struct PostCard: View {
 
             ZStack(alignment: .topLeading) {
                 SelectablePostTextView(
-                    text: showSideBySideTranslation ? content : (showTranslatedContent ? (translatedContent ?? content) : content),
+                    text: showSideBySideTranslation ? displayContent : (showTranslatedContent ? (translatedContent ?? displayContent) : displayContent),
                     mentions: post?.mentions,
+                    inlineContentTokens: (!showSideBySideTranslation && !showTranslatedContent) ? post?.inlineContentTokens : nil,
                     font: UIFont(name: "OpenSans-Regular", size: 16) ?? .systemFont(ofSize: 16),
-                    lineSpacing: 4,
+                    lineSpacing: 6,
                     lineLimit: isPostExpanded ? nil : 10,
                     onMentionTap: { mention in
                         guard NavigationGuard.shared.shouldNavigate() else { return }
                         presentSheet(.mentionedProfile(userId: mention.userId))
                         HapticManager.impact(style: .light)
+                    },
+                    onInlineActionTap: { token in
+                        handleInlinePostActionTap(token)
                     },
                     onTextTap: {
                         guard NavigationGuard.shared.shouldNavigate() else { return }
@@ -2639,6 +3087,9 @@ struct PostCard: View {
                 .opacity(showSideBySideTranslation ? 0 : 1)
                 .frame(height: showSideBySideTranslation ? 0 : nil)
                 .clipped()
+                .onAppear {
+                    trackInlineActionImpressionIfNeeded()
+                }
 
                 if let selection = textSelection {
                     GeometryReader { proxy in
@@ -2655,14 +3106,14 @@ struct PostCard: View {
                 }
             }
 
-            if !isTextSelecting && content.count > 80 {
+            if !isTextSelecting && displayContent.count > 80 {
                 Text("Select a thought to quote")
                     .font(AMENFont.regular(12))
                     .foregroundStyle(.secondary)
-                    .padding(.top, 2)
+                    .padding(.top, 6)
             }
 
-            if !isPostExpanded && content.count > 300 {
+            if !isPostExpanded && displayContent.count > 300 {
                 Button {
                     HapticManager.impact(style: .light)
                     withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
@@ -2678,14 +3129,417 @@ struct PostCard: View {
         .padding(.horizontal, 12)
         .padding(.top, 0)
     }
+
+    private func trackInlineActionImpressionIfNeeded() {
+        guard !didTrackInlineActionImpression else { return }
+        guard let post, let viewerId = Auth.auth().currentUser?.uid else { return }
+        guard post.inlineContentTokens?.contains(where: { $0.type == .action }) == true else { return }
+
+        didTrackInlineActionImpression = true
+        AMENAnalyticsService.shared.track(
+            .postInlineActionImpression(
+                postId: stablePostId,
+                viewerId: viewerId,
+                authorId: post.authorId,
+                source: "post_card",
+                actionType: PostInlineActionType.openDMWithPostAuthor.rawValue
+            )
+        )
+    }
+
+    private func handleInlinePostActionTap(_ token: PostInlineContentToken) {
+        guard let post else { return }
+        guard token.actionType == .openDMWithPostAuthor else { return }
+
+        HapticManager.impact(style: .light)
+
+        let viewerId = Auth.auth().currentUser?.uid ?? "anonymous"
+        AMENAnalyticsService.shared.track(
+            .postInlineActionTap(
+                postId: stablePostId,
+                viewerId: viewerId,
+                authorId: post.authorId,
+                source: "post_card",
+                actionType: token.actionType?.rawValue ?? "unknown"
+            )
+        )
+
+        Task { @MainActor in
+            do {
+                let conversationId = try await FirebaseMessagingService.shared.resolveOrCreateInlineDirectConversation(
+                    withUserId: post.authorId,
+                    userName: post.authorName,
+                    sourcePostId: post.firestoreId.isEmpty ? post.firebaseId : post.firestoreId
+                )
+                AMENAnalyticsService.shared.track(
+                    .dmConversationOpenedFromPost(
+                        postId: stablePostId,
+                        viewerId: viewerId,
+                        authorId: post.authorId,
+                        source: "post_card",
+                        actionType: token.actionType?.rawValue ?? "unknown"
+                    )
+                )
+                MessagingCoordinator.shared.openConversation(conversationId)
+            } catch let error as FirebaseMessagingError {
+                let message = inlineDMErrorMessage(for: error)
+                AMENAnalyticsService.shared.track(
+                    .dmOpenFailed(
+                        postId: stablePostId,
+                        viewerId: viewerId,
+                        authorId: post.authorId,
+                        source: "post_card",
+                        actionType: token.actionType?.rawValue ?? "unknown",
+                        reason: message
+                    )
+                )
+                ToastManager.shared.showError(message)
+            } catch {
+                AMENAnalyticsService.shared.track(
+                    .dmOpenFailed(
+                        postId: stablePostId,
+                        viewerId: viewerId,
+                        authorId: post.authorId,
+                        source: "post_card",
+                        actionType: token.actionType?.rawValue ?? "unknown",
+                        reason: "Unable to open message. Try again."
+                    )
+                )
+                ToastManager.shared.showError("Unable to open message. Try again.")
+            }
+        }
+    }
+
+    private func inlineDMErrorMessage(for error: FirebaseMessagingError) -> String {
+        switch error {
+        case .selfConversation:
+            return "You can't message yourself."
+        case .messagesNotAllowed, .followRequired:
+            return "This user isn't accepting messages."
+        case .permissionDenied, .userBlocked:
+            return "Messaging unavailable."
+        case .notAuthenticated:
+            return "Please sign in again."
+        default:
+            return "Unable to open message. Try again."
+        }
+    }
     
+    // MARK: - Dynamic Reply Preview
+
+    /// Synchronously resolves the best safe, non-expired DynamicReplyPreview for
+    /// this card at render time — no async work, no timer, no state mutation.
+    /// Returns nil when the flag is off or no qualifying candidates exist.
+    private var resolvedPreview: DynamicReplyPreview? {
+        guard AMENFeatureFlags.shared.replyPreviewRotationEnabled,
+              let candidates = post?.dynamicReplyPreviewCandidates,
+              !candidates.isEmpty else { return nil }
+        // Mirror the selection logic used inside LiquidReplyPreviewRotator so the
+        // layout slot height is decided from the same set of candidates the rotator
+        // will actually display.
+        return candidates
+            .filter { $0.isSafe && !$0.isExpired }
+            .sorted { $0.score > $1.score }
+            .first
+    }
+
+    @ViewBuilder
+    private var dynamicReplyPreviewSection: some View {
+        if AMENFeatureFlags.shared.replyPreviewRotationEnabled,
+           let post {
+            let candidates = post.dynamicReplyPreviewCandidates ?? []
+            if !candidates.isEmpty {
+                LiquidReplyPreviewRotator(
+                    candidates: candidates,
+                    onOpenReplies: { preview in
+                        // Route through the universal router so any active NavigationStack
+                        // (HomeFeedView, ProfileView, etc.) can push PostDetailView with
+                        // the highlighted reply correctly staged.
+                        AmenUniversalContentRouter.shared.openReplies(
+                            postId: post.firestoreId,
+                            highlightedReplyId: preview.replyId
+                        )
+                    },
+                    onLongPress: { preview in
+                        AmenUniversalContentRouter.shared.showReplyActions(
+                            postId: post.firestoreId,
+                            replyId: preview.replyId ?? ""
+                        )
+                    }
+                )
+                // .id drives a SwiftUI crossfade each time the server rotates to a new
+                // preview (generatedAt changes). The rotator's internal contentHash also
+                // guards against spurious re-renders within the same generation.
+                .id(resolvedPreview?.generatedAt)
+                // Reserve a stable 44-pt slot so the chip appearing/disappearing
+                // does not cause a feed scroll jump.
+                .frame(height: 44)
+                .padding(.horizontal, 16)
+                .padding(.top, 6)
+                .padding(.bottom, 2)
+                // Present ReplyActionsMenuView when this card receives a long-press target
+                // for its own post. localReplyActionsTarget is updated by onReceive below.
+                .sheet(item: $localReplyActionsTarget) { target in
+                    ReplyActionsMenuView(target: target)
+                        .onDisappear {
+                            // Clear the router's target when the sheet dismisses so other
+                            // cards don't accidentally pick it up.
+                            AmenUniversalContentRouter.shared.replyActionsTarget = nil
+                        }
+                }
+                // Mirror the router's published target into this card's local state, but
+                // only when the target belongs to this card's post ID.
+                .onReceive(AmenUniversalContentRouter.shared.$replyActionsTarget) { target in
+                    if let target, target.postId == post.firestoreId {
+                        localReplyActionsTarget = target
+                    } else if target == nil {
+                        localReplyActionsTarget = nil
+                    }
+                }
+            } else {
+                // Feature flag is ON but candidates haven't loaded yet (or resolved to zero
+                // safe previews). Reserve the 44-pt slot to prevent a layout jump when
+                // the server-populated candidates arrive.
+                Color.clear
+                    .frame(height: 44)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 6)
+                    .padding(.bottom, 2)
+            }
+        }
+    }
+
+    private func openReplyPreview(_ preview: DynamicReplyPreview, for post: Post) {
+        AMENAnalyticsService.shared.track(
+            .replyPreviewTapped(postId: preview.postId, type: preview.type.rawValue, replyId: preview.replyId)
+        )
+
+        switch preview.type {
+        case .topReply, .followedReply:
+            // Open comments and scroll to the specific reply if we have its ID.
+            if let replyId = preview.replyId, !replyId.isEmpty {
+                presentSheet(.commentsHighlighted(post: post, replyId: replyId, highlightedCommentIds: [replyId]))
+            } else {
+                presentSheet(.comments(post: post))
+            }
+
+        case .prayerMomentum:
+            // Route to the prayer moment context if the post is linked to a prayer request;
+            // otherwise fall back to the standard comments sheet.
+            if let targetId = post.linkedPrayerRequestId, !targetId.isEmpty {
+                presentSheet(.prayerMoment(targetId: targetId, fallbackPost: post))
+            } else {
+                presentSheet(.comments(post: post))
+            }
+
+        case .bereanInsight:
+            // Open Berean with the insight text as the initial query so the user
+            // lands in the Berean context for the relevant passage/theme.
+            let query = preview.previewText.isEmpty ? post.content : preview.previewText
+            presentSheet(.berean(
+                initialQuery: query,
+                postContext: BereanPostContext(post: post)
+            ))
+
+        case .communityPulse, .trustedCommunitySignal:
+            if !preview.sourceCommentIds.isEmpty {
+                presentSheet(.commentsHighlighted(
+                    post: post,
+                    replyId: preview.sourceCommentIds.first,
+                    highlightedCommentIds: preview.sourceCommentIds
+                ))
+            } else {
+                presentSheet(.comments(post: post))
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var inlineObjectHubSection: some View {
+        if AMENFeatureFlags.shared.communityHubsEnabled,
+           AMENFeatureFlags.shared.objectHubViewEnabled,
+           AMENFeatureFlags.shared.objectHubInlinePillEnabled,
+           let model = inlineHubPillModel {
+            VStack(alignment: .leading, spacing: 8) {
+                if isInlineHubClusterExpanded, AMENFeatureFlags.shared.objectHubInlineClusterEnabled {
+                    AmenInlineObjectHubActionCluster(
+                        model: model,
+                        actions: availableInlineHubActions(for: model)
+                    ) { action in
+                        handleInlineHubAction(action, model: model)
+                    }
+                    .onTapGesture {
+                        isInlineHubClusterExpanded = false
+                    }
+                } else {
+                    AmenInlineObjectHubPill(model: model) {
+                        if AMENFeatureFlags.shared.objectHubInlineClusterEnabled {
+                            withAnimation(.spring(response: 0.36, dampingFraction: 0.86)) {
+                                isInlineHubClusterExpanded = true
+                            }
+                        } else {
+                            openObjectHub(from: model, source: .postCardInlineHubPill)
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 10)
+            .padding(.bottom, 8)
+        }
+    }
+
+    private var inlineHubPillModel: AmenObjectHubPreviewPillModel? {
+        if let preview = post?.communityHubPreview, preview.isVisiblePreview {
+            let aggregateText = preview.aggregateText.trimmingCharacters(in: .whitespacesAndNewlines)
+            let actionText = preview.actionText.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !aggregateText.isEmpty, !actionText.isEmpty else { return nil }
+            let iconName = preview.iconKind.flatMap { $0.isEmpty ? nil : $0 } ?? AmenObjectHubInlineActionRanker.icon(for: preview.objectType)
+            let a11yLabel = "\(actionText). \(aggregateText)."
+            return AmenObjectHubPreviewPillModel(
+                target: .canonicalObjectId(preview.canonicalObjectId),
+                providerURL: preview.canonicalUrl,
+                objectType: preview.objectType,
+                aggregateText: aggregateText,
+                actionText: actionText,
+                iconName: iconName,
+                safetyState: preview.safetyState,
+                explicitContentState: preview.explicitContentState,
+                accessibilityLabel: a11yLabel
+            )
+        }
+
+        guard let post,
+              let attachment = post.smartAttachment,
+              attachment.safetyStatus != .blocked,
+              !attachment.canonicalUrl.isEmpty else {
+            return nil
+        }
+
+        let explicitState: AmenExplicitContentState
+        switch attachment.safetyStatus {
+        case .approved: explicitState = .clean
+        case .limited: explicitState = .limited
+        case .blocked: explicitState = .blocked
+        case .needsReview: explicitState = .unknown
+        }
+        if explicitState == .blocked {
+            return nil
+        }
+
+        let aggregateText: String
+        if attachment.safetyStatus == .limited {
+            aggregateText = "Preview limited"
+        } else if explicitState == .explicit {
+            aggregateText = "Explicit content"
+        } else if post.commentCount > 0 {
+            aggregateText = "\(post.commentCount) public posts"
+        } else if post.savesCount > 0 {
+            aggregateText = "\(post.savesCount) people saved this"
+        } else {
+            aggregateText = "Public activity only"
+        }
+
+        let actionText = AmenObjectHubInlineActionRanker.actionText(for: attachment.type)
+        let iconName = AmenObjectHubInlineActionRanker.icon(for: attachment.type)
+        let a11yLabel = "\(actionText). \(aggregateText)."
+
+        return AmenObjectHubPreviewPillModel(
+            target: .url(attachment.canonicalUrl),
+            providerURL: attachment.canonicalUrl,
+            objectType: attachment.type,
+            aggregateText: aggregateText,
+            actionText: actionText,
+            iconName: iconName,
+            safetyState: attachment.safetyStatus,
+            explicitContentState: explicitState,
+            accessibilityLabel: a11yLabel
+        )
+    }
+
+    private func handleInlineHubAction(_ action: AmenInlineObjectHubAction, model: AmenObjectHubPreviewPillModel) {
+        switch action {
+        case .openHub:
+            openObjectHub(from: model, source: .postCardInlineHubCluster)
+        case .openProvider:
+            let urlString: String? = {
+                if let providerURL = model.providerURL, !providerURL.isEmpty {
+                    return providerURL
+                }
+                if case .url(let urlString) = model.target {
+                    return urlString
+                }
+                return nil
+            }()
+            guard let urlString,
+                  let url = URL(string: urlString) else {
+                ToastManager.shared.showError("Couldn’t open this hub.")
+                return
+            }
+            UIApplication.shared.open(url)
+        case .save:
+            toggleSave()
+        case .discuss:
+            if let post {
+                presentCommentsIfAllowed(for: post)
+            }
+        }
+
+        isInlineHubClusterExpanded = false
+    }
+
+    private func openObjectHub(from model: AmenObjectHubPreviewPillModel, source: AmenObjectHubOpenSource) {
+        switch model.target {
+        case .canonicalObjectId(let canonicalObjectId):
+            guard !canonicalObjectId.isEmpty else {
+                ToastManager.shared.showError("Couldn’t open this hub.")
+                return
+            }
+            presentSheet(.objectHub(canonicalObjectId: canonicalObjectId, url: nil, source: source))
+        case .url(let url):
+            guard !url.isEmpty else {
+                ToastManager.shared.showError("Couldn’t open this hub.")
+                return
+            }
+            presentSheet(.objectHub(canonicalObjectId: nil, url: url, source: source))
+        }
+    }
+
+    private func availableInlineHubActions(for model: AmenObjectHubPreviewPillModel) -> [AmenInlineObjectHubAction] {
+        let ranked = AmenObjectHubInlineActionRanker.actions(for: model.objectType, safetyState: model.safetyState)
+        return ranked.filter { action in
+            switch action {
+            case .openProvider:
+                if let providerURL = model.providerURL, !providerURL.isEmpty {
+                    return true
+                }
+                if case .url(let url) = model.target {
+                    return !url.isEmpty
+                }
+                return false
+            default:
+                return true
+            }
+        }
+    }
+
     // MARK: - Post Interaction Section
+
     @ViewBuilder
     private var postInteractionSection: some View {
+        if let post, let descriptor = AmenSpiritualSystemsService.shared.lifecycleDescriptor(for: post) {
+            ThreadLifecycleStrip(descriptor: descriptor) {
+                lifecycleDescriptorForExplanation = descriptor
+                showLifecycleExplanation = true
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
+        }
+
         interactionButtons
             .padding(.horizontal, 16)
-            .padding(.top, 4)
-            .padding(.bottom, showTestimonyResonance ? 4 : 6)
+            .padding(.top, postHasChurchNoteAttachment ? 18 : 14)
+            .padding(.bottom, interactionSectionBottomPadding)
 
         if showTestimonyResonance && !testimonyResonanceCopy.isEmpty {
             HStack(spacing: 5) {
@@ -2703,17 +3557,10 @@ struct PostCard: View {
             .transition(.opacity.combined(with: .move(edge: .bottom)))
         }
     }
-    
+
     // MARK: - Post Metadata
     @ViewBuilder
     private var postMetadata: some View {
-        if let post = post, post.isRepost {
-            let originalAuthor = post.originalAuthorName ?? post.authorName
-            repostIndicator(originalAuthor: originalAuthor)
-                .padding(.horizontal, 16)
-                .padding(.top, 6)
-        }
-        
         if let post = post, post.category == .testimonies, post.linkedPrayerRequestId != nil {
             TestimonyArcView(testimony: post)
                 .padding(.horizontal, 16)
@@ -2739,6 +3586,7 @@ struct PostCard: View {
 
         if let post = post, post.hasContext {
             Button {
+                guard NavigationGuard.shared.shouldNavigate() else { return }
                 presentSheet(.postDetail(post: post))
             } label: {
                 HStack(spacing: 5) {
@@ -2757,46 +3605,65 @@ struct PostCard: View {
             .padding(.top, 4)
         }
 
-        if let post = post, post.authorId == (Auth.auth().currentUser?.uid ?? "") {
-            let hasCounts = post.savesCount > 0 || post.prayTapsCount > 0 || post.encouragedCount > 0
-            if hasCounts {
-                HStack(spacing: 12) {
-                    if post.savesCount > 0 {
-                        insightItem(icon: "bookmark.fill", count: post.savesCount, label: "saved")
-                    }
-                    if post.prayTapsCount > 0 {
-                        insightItem(icon: "hands.sparkles.fill", count: post.prayTapsCount, label: "prayed")
-                    }
-                    if post.encouragedCount > 0 {
-                        insightItem(icon: "heart.fill", count: post.encouragedCount, label: "encouraged")
-                    }
-                }
+
+
+        if let post, let summary = silentReactionSummaryOverride ?? AmenSpiritualSystemsService.shared.silentReactionSummary(for: post, isAuthor: post.authorId == (Auth.auth().currentUser?.uid ?? "")) {
+            SilentReactionSummaryView(summary: summary)
                 .padding(.horizontal, 16)
-                .padding(.top, 4)
-            }
+                .padding(.top, 6)
         }
+
     }
     
     // MARK: - Post Media Content
     @ViewBuilder
     private var postMediaContent: some View {
-        if let quote = post?.quote {
-            quoteSnippetView(quote)
-                .padding(.horizontal, 16)
-                .padding(.top, 4)
-        }
-
-        // Scripture attachment pill (published post)
+        // Verse attachment — upgraded to unified Liquid Glass system
         if let post = post, let verseRef = post.verseReference, !verseRef.isEmpty {
-            PostCardScripturePill(
-                reference: verseRef,
-                translation: "NIV",
-                onTap: {
-                    // Open scripture detail
-                    if let attachment = ScriptureAttachment.from(legacyReference: verseRef, legacyText: post.verseText) {
-                        postCardScriptureAttachment = attachment
-                        showPostCardScriptureDetail = true
-                    }
+            let verseText = post.verseText ?? ""
+            let payload = PostAttachmentPayload(
+                id: "verse-\(post.firestoreId.isEmpty ? post.id.uuidString : post.firestoreId)-\(verseRef)",
+                kind: .verse,
+                title: verseRef,
+                subtitle: verseText.isEmpty
+                ? "Tap to explore this scripture"
+                : String(verseText.prefix(55)).appending(verseText.count > 55 ? "…" : ""),
+                iconSystemName: "text.book.closed.fill",
+                trailingMetadata: "NIV",
+                previewMetadata: ["Read full", "Reflect"],
+                bodyPreview: verseText.isEmpty ? nil : verseText,
+                postId: post.firestoreId.isEmpty ? nil : post.firestoreId,
+                verseReference: verseRef,
+                verseText: post.verseText,
+                translation: "NIV"
+            )
+            PostAttachmentContainer(
+                payload: payload,
+                // Open → verse detail sheet (text + actions)
+                onOpen: {
+                    presentSheet(.verseAttachment(payload: payload))
+                },
+                // Read Full → Selah reading mode directly
+                onReadFull: {
+                    // Use verseText if present; fall back to the reference so Selah always
+                    // has meaningful content to show rather than a trailing blank.
+                    let body = verseText.isEmpty ? verseRef : verseText
+                    let content = "\(verseRef) (NIV)\n\n\(body)"
+                    let msg = BereanMessage(
+                        id: UUID(), content: content, role: .assistant,
+                        timestamp: Date(), verseReferences: [verseRef], isBookmarked: false
+                    )
+                    presentSheet(.selah(message: msg, query: "Read \(verseRef)"))
+                },
+                // Reflect → Selah reflective mode directly
+                onReflect: {
+                    let body = verseText.isEmpty ? verseRef : verseText
+                    let reflectContent = "Pause and reflect on \(verseRef).\n\n\(body)\n\nWhat is God saying to you through this passage today?"
+                    let msg = BereanMessage(
+                        id: UUID(), content: reflectContent, role: .assistant,
+                        timestamp: Date(), verseReferences: [verseRef], isBookmarked: false
+                    )
+                    presentSheet(.selah(message: msg, query: "Reflect on \(verseRef)"))
                 }
             )
             .padding(.horizontal, 16)
@@ -2834,32 +3701,109 @@ struct PostCard: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         
-        if let post = post, let imageURLs = post.imageURLs, !imageURLs.isEmpty {
-            PostImagesView(imageURLs: imageURLs)
-                .padding(.horizontal, 16)
-                .padding(.top, 6)
-        }
-
-        if let post = post, let churchNoteId = post.churchNoteId {
-            churchNotePreview(churchNoteId: churchNoteId)
-                .padding(.horizontal, 16)
-                .padding(.top, 6)
-        }
-
-        if let post = post, post.isChurchShare, let churchName = post.sharedChurchName {
-            ChurchNameCapsulePill(churchName: churchName) {
-                NotificationCenter.default.post(name: .navigateToFindChurch, object: nil)
-            }
-            .padding(.horizontal, 16)
+        if let post = post, let media = post.mediaContainer {
+            PostMediaContainerView(
+                media: media,
+                post: post,
+                sourceContext: .feed
+            )
             .padding(.top, 6)
-
-            if let eventName = post.sharedChurchEventName, !eventName.isEmpty {
-                ChurchEventCapsulePill(eventName: eventName, eventTime: post.sharedChurchEventTime) {
-                    NotificationCenter.default.post(name: .navigateToFindChurch, object: nil)
+            .background(
+                // Capture the carousel's frame so the swipe gesture can ignore touches that
+                // start inside it — prevents the swipe-to-comment from stealing carousel drags.
+                GeometryReader { geo in
+                    Color.clear.onAppear {
+                        if media.hasMultipleItems {
+                            mediaCarouselFrame = geo.frame(in: .named("postCard"))
+                        } else {
+                            mediaCarouselFrame = .zero
+                        }
+                    }
                 }
+            )
+        }
+
+        // Church Note attachment — preserve existing pill direction, add inline expand + full detail
+        if let post = post, let churchNoteId = post.churchNoteId {
+            churchNoteAttachmentView(churchNoteId: churchNoteId, post: post)
                 .padding(.horizontal, 16)
-                .padding(.top, 6)
-            }
+                .padding(.top, 14)
+        }
+
+        // Legacy church note posts shared without a stored churchNoteId.
+        // Build a static pill from the title/church/sermon lines embedded in post.content.
+        if let post = post, post.churchNoteId == nil, hasLegacyChurchNoteContent {
+            PostAttachmentContainer(
+                kind: .churchNote,
+                title: legacyChurchNoteTitle,
+                subtitle: legacyChurchNoteSubtitle,
+                iconSystemName: "book.closed.fill"
+            )
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
+        }
+
+        // Going Sunday / Church Found — upgraded to unified Liquid Glass pill with real entity routing
+        if let post = post, post.isChurchShare, let churchName = post.sharedChurchName {
+            let payload = PostAttachmentPayload(
+                id: "going-\(post.firestoreId.isEmpty ? post.id.uuidString : post.firestoreId)-\(post.sharedChurchId ?? churchName)",
+                kind: .goingSunday,
+                title: churchName,
+                subtitle: post.sharedChurchDenomination ?? post.sharedChurchServiceTime,
+                iconSystemName: "building.columns.fill",
+                trailingMetadata: post.sharedChurchServiceTime,
+                previewMetadata: ["Directions", "Prep reminder", "Invite"],
+                bodyPreview: post.sharedChurchAddress,
+                postId: post.firestoreId.isEmpty ? nil : post.firestoreId,
+                churchId: post.sharedChurchId,
+                eventId: post.sharedChurchEventId,
+                churchAddress: post.sharedChurchAddress,
+                churchDenomination: post.sharedChurchDenomination,
+                churchLatitude: post.sharedChurchLatitude,
+                churchLongitude: post.sharedChurchLongitude,
+                churchServiceTime: post.sharedChurchServiceTime,
+                churchEventName: post.sharedChurchEventName,
+                churchEventTime: post.sharedChurchEventTime
+            )
+            PostAttachmentContainer(
+                payload: payload,
+                onOpen: {
+                    presentSheet(.goingSundayAttachment(payload: payload))
+                },
+                onGetDirections: {
+                    let url: URL?
+                    if let latitude = payload.churchLatitude, let longitude = payload.churchLongitude {
+                        url = URL(string: "maps://?daddr=\(latitude),\(longitude)")
+                    } else {
+                        let query = [churchName.isEmpty ? nil : churchName, payload.churchAddress]
+                            .compactMap { $0 }
+                            .joined(separator: " ")
+                        guard !query.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+                        let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+                        url = URL(string: "maps://?q=\(encoded)")
+                    }
+                    if let url {
+                        UIApplication.shared.open(url)
+                    }
+                },
+                onPrepReminder: {
+                    presentSheet(.goingSundayAttachment(payload: payload))
+                },
+                onInviteFriend: {
+                    var shareText = "Join me at \(churchName)"
+                    if let time = post.sharedChurchServiceTime { shareText += " — \(time)" }
+                    if let address = post.sharedChurchAddress { shareText += "\n\(address)" }
+                    let av = UIActivityViewController(activityItems: [shareText], applicationActivities: nil)
+                    if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                       let root = scene.windows.first?.rootViewController {
+                        root.present(av, animated: true)
+                    }
+                }
+            )
+            // Stable identity: resets isExpanded and sheet state if the church entity changes.
+            .id(payload.id)
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
         }
 
         if let post = post, let poll = post.poll {
@@ -2872,7 +3816,34 @@ struct PostCard: View {
             .padding(.top, 12)
         }
 
-        if let post = post,
+        if let post = post, let smartAttachment = post.smartAttachment, AMENFeatureFlags.shared.smartAttachmentsEnabled {
+            // Never render blocked attachments.
+            if smartAttachment.safetyStatus != .blocked {
+                Group {
+                    if smartAttachment.safetyStatus == .limited {
+                        AmenAttachmentLimitedPreviewCard {
+                            if let url = URL(string: smartAttachment.canonicalUrl) {
+                                UIApplication.shared.open(url)
+                            }
+                        }
+                    } else {
+                        AmenUniversalLinkCard(
+                            attachment: smartAttachment,
+                            mode: .feedCompact,
+                            onTap: {
+                                if AMENFeatureFlags.shared.smartAttachmentExpandedSheetEnabled {
+                                    selectedSmartAttachment = smartAttachment
+                                } else if let url = URL(string: smartAttachment.canonicalUrl) {
+                                    UIApplication.shared.open(url)
+                                }
+                            }
+                        )
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+            }
+        } else if let post = post,
            let linkURLString = post.linkURL,
            !linkURLString.isEmpty,
            let linkURL = URL(string: linkURLString) {
@@ -2902,34 +3873,11 @@ struct PostCard: View {
     // MARK: - Moderation Banner
     @ViewBuilder
     private var moderationBanner: some View {
-        if isUserPost, let post = post {
-            if post.flaggedForReview {
-                HStack(spacing: 8) {
-                    Image(systemName: "clock.badge.exclamationmark")
-                        .font(.systemScaled(12, weight: .semibold))
-                        .foregroundStyle(.orange)
-                    Text("Under review")
-                        .font(AMENFont.semiBold(12))
-                        .foregroundStyle(.orange)
-                    Spacer()
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 6)
-                .background(Color.orange.opacity(0.08))
-            } else if post.removed {
-                HStack(spacing: 8) {
-                    Image(systemName: "exclamationmark.circle")
-                        .font(.systemScaled(12, weight: .semibold))
-                        .foregroundStyle(.red)
-                    Text("Removed — violated community guidelines")
-                        .font(AMENFont.semiBold(12))
-                        .foregroundStyle(.red)
-                    Spacer()
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 6)
-                .background(Color.red.opacity(0.08))
-            }
+        if let model = renderModel, model.moderationDisplayNeeded {
+            PostCardModerationBanner(
+                flaggedForReview: model.flaggedForReview,
+                isRemoved: model.isRemoved
+            )
         }
     }
     
@@ -2937,17 +3885,27 @@ struct PostCard: View {
         VStack(alignment: .leading, spacing: 0) {
             moderationBanner
 
+            preHeaderContextSection
+            feedContextCapsuleSection
             postHeaderView
-            postContentWithSelection
+            if !shouldSuppressBodyForChurchNote && !displayContent.isEmpty {
+                postContentWithSelection
+                    .padding(.bottom, 8)
+            }
 
             postMediaContent
             
             postMetadata
+            inlineObjectHubSection
+            safetyOSReactionSection
+
+            dynamicReplyPreviewSection
 
             postInteractionSection
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .clipped()
+        .coordinateSpace(name: "postCard")
         .onChange(of: hasSaidAmen) { _, newValue in
             if newValue && category == .testimonies {
                 fetchTestimonyResonance(actionType: "amen")
@@ -3003,92 +3961,219 @@ struct PostCard: View {
                 .frame(height: 0.5)
         }
         .offset(x: swipeOffset)
-        // P0 FIX: Use simultaneous gesture so ScrollView keeps priority for vertical scrolling
-        // This gesture only activates when user clearly swipes horizontally (4x ratio + 50pt minimum distance)
+        // Simultaneous gesture so ScrollView keeps priority for vertical scrolling.
+        // minimumDistance:10 lets the card start tracking the finger immediately so there's
+        // no abrupt jump. The 2.5:1 horizontal-to-vertical ratio check inside onChanged
+        // prevents this from activating during normal vertical scrolling.
         .simultaneousGesture(
-            DragGesture(minimumDistance: 50) // High threshold to avoid false triggers during vertical scroll
+            DragGesture(minimumDistance: 10)
                 .onChanged { value in
-                    let horizontalAmount = abs(value.translation.width)
-                    let verticalAmount = abs(value.translation.height)
+                    let h = abs(value.translation.width)
+                    let v = abs(value.translation.height)
 
-                    // Require very strong horizontal bias (4x ratio) to activate swipe
-                    // This ensures vertical scrolling always takes priority
-                    guard horizontalAmount > verticalAmount * 4.0 else { 
-                        // Reset any partial swipe state if gesture becomes too vertical
+                    // Abort if the gesture is more vertical than horizontal
+                    guard h > v * 2.5 else {
                         if swipeOffset != 0 {
-                            withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.9))) {
-                                swipeOffset = 0
-                                swipeDirection = .none
-                            }
-                        }
-                        return 
-                    }
-
-                    // Strict vertical limit - abort if ANY vertical movement detected
-                    // This ensures scrolling always works smoothly
-                    guard verticalAmount < 10 else {
-                        if swipeOffset != 0 {
-                            withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.9))) {
-                                swipeOffset = 0
-                                swipeDirection = .none
-                            }
+                            swipeOffset = 0
+                            swipeDirection = .none
                         }
                         return
                     }
 
-                    // Only update swipe state if horizontal movement is significant
-                    if value.translation.width > 30 {
+                    // Don't steal the drag when it started inside the photo carousel
+                    if !mediaCarouselFrame.isEmpty && mediaCarouselFrame.contains(value.startLocation) {
+                        if swipeOffset != 0 { swipeOffset = 0; swipeDirection = .none }
+                        return
+                    }
+
+                    // Track finger directly — no inner dead zone
+                    if value.translation.width > 0 {
                         swipeDirection = .right
                         swipeOffset = min(value.translation.width, 100)
-                    } else if value.translation.width < -30 {
+                    } else {
                         swipeDirection = .left
                         swipeOffset = max(value.translation.width, -100)
                     }
                 }
                 .onEnded { value in
-                    let threshold: CGFloat = 70 // Increased threshold for more deliberate swipes
-                    let horizontalAmount = abs(value.translation.width)
-                    let verticalAmount = abs(value.translation.height)
+                    let threshold: CGFloat = 60
+                    let h = abs(value.translation.width)
+                    let v = abs(value.translation.height)
 
-                    // Very strict check: only trigger if it's an unmistakably horizontal swipe
-                    // 4x ratio + minimal vertical movement ensures this never interferes with scrolling
-                    guard horizontalAmount > verticalAmount * 4.0, verticalAmount < 15 else {
-                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
+                    guard h > v * 2.5 else {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                             swipeOffset = 0
                             swipeDirection = .none
                         }
                         return
                     }
-                    
+
+                    // Touch started in the carousel — don't trigger swipe actions
+                    if !mediaCarouselFrame.isEmpty && mediaCarouselFrame.contains(value.startLocation) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
+                            swipeOffset = 0
+                            swipeDirection = .none
+                        }
+                        return
+                    }
+
                     if swipeDirection == .right && swipeOffset > threshold {
-                        // Trigger like/amen action
                         triggerSwipeLikeAction()
-                        
-                        // Reset with animation
-                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                             swipeOffset = 0
                             swipeDirection = .none
                         }
                     } else if swipeDirection == .left && abs(swipeOffset) > threshold {
-                        // Trigger comment action - delay reset to allow sheet to present
                         triggerSwipeCommentAction()
-                        
-                        // Small delay before reset to ensure sheet presents properly
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                                 swipeOffset = 0
                                 swipeDirection = .none
                             }
                         }
                     } else {
-                        // Reset with animation if threshold not met
-                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                             swipeOffset = 0
                             swipeDirection = .none
                         }
                     }
                 }
         )
+    }
+
+    private func openFeedContextDestination() {
+        guard let post, let feedContextLabel else { return }
+        AmenFeedContextAnalyticsTracker.shared.track(
+            event: "context_label_tap",
+            label: feedContextLabel,
+            postId: post.contextStableId
+        )
+
+        switch feedContextLabel.effectiveDestination.type {
+        case .topicFeed:
+            let topicKey = feedContextLabel.topicId ?? post.primaryTopicKey ?? post.topicTag ?? feedContextLabel.title
+            AmenFeedContextAnalyticsTracker.shared.track(
+                event: "context_label_destination_opened",
+                label: feedContextLabel,
+                postId: post.contextStableId
+            )
+            presentSheet(.topicFeed(topicKey: topicKey, displayName: feedContextLabel.title))
+        case .scriptureCluster:
+            if let verseRef = feedContextLabel.verseRef, !verseRef.isEmpty {
+                let content = "\(verseRef)\n\n\(feedContextLabel.reason)"
+                let msg = BereanMessage(
+                    id: UUID(),
+                    content: content,
+                    role: .assistant,
+                    timestamp: Date(),
+                    verseReferences: [verseRef],
+                    isBookmarked: false
+                )
+                AmenFeedContextAnalyticsTracker.shared.track(
+                    event: "context_label_destination_opened",
+                    label: feedContextLabel,
+                    postId: post.contextStableId
+                )
+                presentSheet(.selah(message: msg, query: "Reflect on \(verseRef)"))
+            } else {
+                presentSheet(.whyThisAppeared(post: post, context: feedContextLabel))
+            }
+        case .churchPulse:
+            if let churchId = feedContextLabel.churchId ?? post.sharedChurchId, !churchId.isEmpty {
+                AmenFeedContextAnalyticsTracker.shared.track(
+                    event: "context_label_destination_opened",
+                    label: feedContextLabel,
+                    postId: post.contextStableId
+                )
+                presentSheet(.churchPulse(churchId: churchId))
+            } else {
+                presentSheet(.whyThisAppeared(post: post, context: feedContextLabel))
+            }
+        case .prayerMoment:
+            if post.category == .prayer || post.linkedPrayerRequestId != nil {
+                AmenFeedContextAnalyticsTracker.shared.track(
+                    event: "context_label_destination_opened",
+                    label: feedContextLabel,
+                    postId: post.contextStableId
+                )
+                presentSheet(.comments(post: post))
+            } else if let targetId = feedContextLabel.effectiveDestination.id ?? post.linkedPrayerRequestId, !targetId.isEmpty {
+                AmenFeedContextAnalyticsTracker.shared.track(
+                    event: "context_label_destination_opened",
+                    label: feedContextLabel,
+                    postId: post.contextStableId
+                )
+                presentSheet(.prayerMoment(targetId: targetId, fallbackPost: post))
+            } else {
+                presentSheet(.whyThisAppeared(post: post, context: feedContextLabel))
+            }
+        case .bereanInsight:
+            let query = feedContextLabel.reason.isEmpty ? feedContextLabel.title : feedContextLabel.reason
+            AmenFeedContextAnalyticsTracker.shared.track(
+                event: "context_label_destination_opened",
+                label: feedContextLabel,
+                postId: post.contextStableId
+            )
+            presentSheet(.berean(initialQuery: query, postContext: nil))
+        case .postThread:
+            AmenFeedContextAnalyticsTracker.shared.track(
+                event: "context_label_destination_opened",
+                label: feedContextLabel,
+                postId: post.contextStableId
+            )
+            presentSheet(.comments(post: post))
+        case .whyThisAppeared, .none:
+            presentSheet(.whyThisAppeared(post: post, context: feedContextLabel))
+        }
+    }
+
+    private func trackFeedContextFeedback(_ action: AmenFeedContextFeedbackAction) {
+        guard let post, let feedContextLabel else { return }
+        let label = feedContextLabel
+        AmenFeedContextAnalyticsTracker.shared.track(
+            event: analyticsEventName(for: action),
+            label: label,
+            postId: post.contextStableId
+        )
+        Task {
+            await suppressContextLabelForUser(label: label, action: action)
+        }
+    }
+
+    private func suppressContextLabelForUser(label: AmenFeedContextLabel, action: AmenFeedContextFeedbackAction) async {
+        let store = ContextLabelPreferenceStore.shared
+        switch action {
+        case .dismiss, .showLess:
+            await store.hide(contextId: label.id)
+        case .muteTopic:
+            if let topicId = label.topicId {
+                await store.mute(topicId: topicId)
+            } else {
+                await store.hide(contextId: label.id)
+            }
+        case .muteType:
+            await store.mute(type: label.type)
+        case .hideAll:
+            await store.setDisabled(true)
+        case .reportIssue, .impression, .tap:
+            break
+        }
+        if [.dismiss, .showLess, .muteTopic, .muteType, .hideAll, .reportIssue].contains(action) {
+            await ContextLabelFeedbackSyncService.shared.syncPreferenceMutation(action: action, label: label)
+        }
+    }
+
+    func analyticsEventName(for action: AmenFeedContextFeedbackAction) -> String {
+        switch action {
+        case .impression: return "context_label_impression"
+        case .tap: return "context_label_tap"
+        case .dismiss: return "context_label_dismiss"
+        case .showLess: return "context_label_show_less"
+        case .muteTopic: return "context_label_mute_topic"
+        case .muteType: return "context_label_mute_type"
+        case .hideAll: return "context_label_hide_all"
+        case .reportIssue: return "context_label_report_issue"
+        }
     }
     
     private func swipeIndicator(icon: String, color: Color, text: String) -> some View {
@@ -3129,7 +4214,7 @@ struct PostCard: View {
     private func triggerSwipeCommentAction() {
         HapticManager.impact(style: .light)
         guard let post = post else { return }
-        presentSheet(.comments(post: post))
+        presentCommentsIfAllowed(for: post)
     }
     
     private func repostIndicator(originalAuthor: String) -> some View {
@@ -3148,7 +4233,90 @@ struct PostCard: View {
         )
     }
 
-    // MARK: - Church Note Preview
+    /// Shown in place of repostIndicator when the original post has been removed or deleted.
+    private var repostOriginalRemovedIndicator: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "arrow.triangle.2.circlepath")
+                .font(.systemScaled(12, weight: .semibold))
+            Text("Original post removed")
+                .font(AMENFont.semiBold(13))
+        }
+        .foregroundStyle(.tertiary)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(
+            Capsule()
+                .fill(Color(.systemGray6))
+        )
+    }
+
+    // MARK: - Church Note Attachment (unified Liquid Glass system)
+
+    @ViewBuilder
+    private func churchNoteAttachmentView(churchNoteId: String, post: Post) -> some View {
+        if let note = churchNote {
+            PostAttachmentContainer(
+                kind: .churchNote,
+                title: note.title,
+                subtitle: note.churchName ?? note.sermonTitle ?? note.date.formatted(date: .abbreviated, time: .omitted),
+                iconSystemName: "book.closed.fill",
+                bodyPreview: note.content.isEmpty ? nil : String(note.content.prefix(120)),
+                noteId: note.id,
+                worshipSongs: note.worshipSongs,
+                onOpen: {
+                    presentSheet(.churchNoteAttachment(note: note, postId: post.firestoreId.isEmpty ? nil : post.firestoreId))
+                },
+                onPreview: {
+                    HapticManager.impact(style: .light)
+                    presentSheet(.churchNoteDetail(note: note))
+                }
+            )
+            // Stable identity: forces SwiftUI to recreate the container (and reset its
+            // isExpanded / sheet state) if the underlying note's Firestore ID changes.
+            .id(note.id ?? churchNoteId)
+        } else if churchNoteLoadFailed {
+            // Stable unavailable pill — note was deleted or failed to load
+            HStack(spacing: 10) {
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .fill(Color(.systemGray4))
+                    .frame(width: 32, height: 32)
+                    .overlay(
+                        Image(systemName: "book.closed")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(.white)
+                    )
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Church Note")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                    Text("No longer available")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.tertiary)
+                }
+                Spacer()
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(attachmentGlassBackground())
+        } else {
+            // Loading state — minimal skeleton pill
+            HStack(spacing: 10) {
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .fill(Color.black.opacity(0.70))
+                    .frame(width: 32, height: 32)
+                ProgressView()
+                Spacer()
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(attachmentGlassBackground())
+            .task {
+                await loadChurchNote(id: churchNoteId)
+            }
+        }
+    }
+
+    // MARK: - Church Note Preview (legacy — kept for backward compat with .churchNoteDetail sheet)
 
     @ViewBuilder
     private func churchNotePreview(churchNoteId: String) -> some View {
@@ -3160,7 +4328,6 @@ struct PostCard: View {
                 }
             }
         } else {
-            // Loading state
             ProgressView()
                 .task {
                     await loadChurchNote(id: churchNoteId)
@@ -3169,68 +4336,141 @@ struct PostCard: View {
     }
 
     private func loadChurchNote(id: String) async {
+        guard !id.isEmpty else {
+            churchNoteLoadFailed = true
+            return
+        }
         do {
             lazy var db = Firestore.firestore()
             let doc = try await db.collection("churchNotes").document(id).getDocument()
 
             guard doc.exists, let note = try? doc.data(as: ChurchNote.self) else {
-                // Church note reference exists but document is missing (deleted or invalid)
-                // This is a non-critical error - silently skip showing the preview
+                // Document missing or unparseable — show stable unavailable state
                 #if DEBUG
-                dlog("⚠️ Church note reference exists but document not found: \(id.prefix(8))")
+                dlog("⚠️ Church note not found or failed to parse: \(id.prefix(8))")
                 #endif
+                await MainActor.run { churchNoteLoadFailed = true }
                 return
             }
 
-            await MainActor.run {
-                churchNote = note
-            }
+            await MainActor.run { churchNote = note }
         } catch {
-            // Network or parsing error - only log in debug mode
             #if DEBUG
             dlog("⚠️ Error loading church note \(id.prefix(8)): \(error.localizedDescription)")
             #endif
+            await MainActor.run { churchNoteLoadFailed = true }
+        }
+    }
+
+    private var postHasChurchNoteAttachment: Bool {
+        post?.churchNoteId != nil
+    }
+
+    private var safetyOSDisplayText: String {
+        let candidate = displayContent.isEmpty ? content : displayContent
+        return candidate
+    }
+
+    private var safetyOSTriggers: [AmenTriggerResult] {
+        canonicalSafetyOSTriggers.isEmpty
+            ? AmenLocalTriggerEngine.shared.analyze(text: safetyOSDisplayText, surface: .post)
+            : canonicalSafetyOSTriggers
+    }
+
+    private var contextualReactionResults: [AmenContextualReactionResult] {
+        AmenContextualReactionEngine.shared.analyzeText(safetyOSDisplayText)
+    }
+
+    private var contextualContentType: AmenContentType {
+        switch category {
+        case .prayer:
+            return .prayerPost
+        case .testimonies:
+            return .testimonyPost
+        case .openTable:
+            return contextualReactionResults.contains(where: { $0.triggerType == .scriptureReference }) ? .scripturePost : .post
+        }
+    }
+
+    @ViewBuilder
+    private var safetyOSReactionSection: some View {
+        if !safetyOSTriggers.isEmpty {
+            AmenSafetyReactionLayer(triggers: safetyOSTriggers) { trigger in
+                activeSafetyOSTrigger = trigger
+            }
+            .padding(.bottom, 10)
+
+            AmenReactionBar(reactions: AmenLocalTriggerEngine.shared.recommendedReactions(for: safetyOSTriggers)) { reaction in
+                handleSpiritualReaction(reaction)
+            }
+            .padding(.bottom, 10)
+        }
+
+        if !contextualReactionResults.isEmpty {
+            AmenContextualReactionLayer(results: contextualReactionResults, maxVisible: 2) { result in
+                triggerContextualReaction(result)
+            }
+            .padding(.bottom, 10)
         }
     }
 
     private var interactionButtons: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: 12) {
             // 1. Lightbulb (OpenTable) / Amen (Prayer + other categories)
             if category == .openTable {
-                circularInteractionButton(
+                AmenContextualReactionButton(
                     icon: hasLitLightbulb ? "lightbulb.fill" : "lightbulb",
-                    count: nil,
+                    activeIcon: "lightbulb.fill",
                     isActive: hasLitLightbulb,
-                    activeColor: .black,
-                    disabled: isUserPost,
-                    // HIGH FIX: Provide descriptive label so VoiceOver reads action, not SF Symbol name
                     accessibilityLabel: isUserPost
                         ? (hasLitLightbulb ? "Remove inspiration" : "Add inspiration — disabled for your own post")
-                        : (hasLitLightbulb ? "Remove inspiration" : "Mark as inspiring")
-                ) {
-                    if !isUserPost { toggleLightbulb() }
-                }
+                        : (hasLitLightbulb ? "Remove inspiration" : "Mark as inspiring"),
+                    longPressAccessibilityLabel: "Touch and hold to open hidden reactions",
+                    contentText: safetyOSDisplayText,
+                    contentType: contextualContentType,
+                    action: {
+                        if !isUserPost { toggleLightbulb() }
+                    },
+                    onReactionSelected: { _ in
+                        triggerContextualReaction(AmenContextualReactionEngine.shared.reactionRingResult())
+                    },
+                    onPresentationChanged: { presentation in
+                        activeContextualReactionPresentation = presentation
+                    }
+                )
+                .buttonStyle(MinimalReactionButtonStyle(isActive: hasLitLightbulb))
+                .opacity(isUserPost ? 0.4 : 1.0)
+                .disabled(isUserPost)
             } else {
-                // Unified Amen button for Prayer, Testimonies, and other categories
-                circularInteractionButton(
+                AmenContextualReactionButton(
                     icon: hasSaidAmen ? "hands.clap.fill" : "hands.clap",
-                    count: nil,
+                    activeIcon: "hands.clap.fill",
                     isActive: hasSaidAmen,
-                    activeColor: .black,
-                    disabled: isUserPost,
-                    // HIGH FIX: Provide descriptive label so VoiceOver reads action, not SF Symbol name
                     accessibilityLabel: isUserPost
                         ? (hasSaidAmen ? "Remove Amen" : "Say Amen — disabled for your own post")
-                        : (hasSaidAmen ? "Remove Amen" : "Say Amen")
-                ) {
-                    if !isUserPost { 
-                        toggleAmen()
-                        // For prayer posts, also toggle the praying status
-                        if category == .prayer {
-                            togglePraying()
+                        : (hasSaidAmen ? "Remove Amen" : "Say Amen"),
+                    longPressAccessibilityLabel: "Touch and hold to open hidden reactions",
+                    contentText: safetyOSDisplayText,
+                    contentType: contextualContentType,
+                    action: {
+                        if !isUserPost {
+                            toggleAmen()
+                            if category == .prayer {
+                                togglePraying()
+                            }
+                            triggerSafetyOSFeedback(for: category == .prayer ? .praying : .amen)
                         }
+                    },
+                    onReactionSelected: { _ in
+                        triggerContextualReaction(AmenContextualReactionEngine.shared.reactionRingResult())
+                    },
+                    onPresentationChanged: { presentation in
+                        activeContextualReactionPresentation = presentation
                     }
-                }
+                )
+                .buttonStyle(MinimalReactionButtonStyle(isActive: hasSaidAmen))
+                .opacity(isUserPost ? 0.4 : 1.0)
+                .disabled(isUserPost)
             }
 
             // 2. Comment — illuminates when current user has commented
@@ -3241,10 +4481,11 @@ struct PostCard: View {
                 activeColor: .black,
                 disabled: false,
                 enableBounce: false,
-                accessibilityLabel: "Comment"
+                accessibilityLabel: "Comment",
+                accessibilityHint: "Double tap to open comments"
             ) {
                 guard let post = post else { return }
-                presentSheet(.comments(post: post))
+                presentCommentsIfAllowed(for: post)
             }
 
             // 3. Repost (repeat — illuminates when active; tap opens Repost/Quote sheet)
@@ -3254,7 +4495,8 @@ struct PostCard: View {
                 isActive: hasReposted,
                 activeColor: .black,
                 disabled: isUserPost,
-                accessibilityLabel: hasReposted ? "Remove repost" : "Repost"
+                accessibilityLabel: hasReposted ? "Remove repost" : "Repost",
+                accessibilityHint: isUserPost ? "You cannot repost your own post" : (hasReposted ? "Double tap to undo repost" : "Double tap to share with your followers")
             ) {
                 if !isUserPost {
                     if hasReposted {
@@ -3305,30 +4547,190 @@ struct PostCard: View {
                 }
             }
             
+            // 4. Share — tap → share sheet, long press → instant copy link
+            PostShareButton(
+                onShare: {
+                    triggerSafetyOSFeedback()
+                    sharePost()
+                },
+                onCopyLink: { copyLink() }
+            )
+
+            // 5. Berean — kept adjacent to share for faster study handoff
+            if category == .testimonies || category == .openTable || category == .prayer {
+                AISparkleSearchButton {
+                    if let post = post {
+                        handleBereanActivation(post)
+                    } else {
+                        presentSheet(.berean(initialQuery: bereanInitialQuery, postContext: nil))
+                    }
+                }
+                .accessibilityLabel("Analyze with Berean AI")
+                .accessibilityHint("Opens AI biblical insight for this post")
+            }
+
             // Prayer Echo button — shown only for prayer posts
             if category == .prayer, let post = post {
                 EchoButton(post: post)
             }
 
-            // 4. Berean AI sparkle (next to repost, testimonies + OpenTable + prayer)
-            if category == .testimonies || category == .openTable || category == .prayer {
-                AISparkleSearchButton {
-                    HapticManager.impact(style: .light)
-                    // Launch Berean Live Activity (Dynamic Island) or fallback sheet
-                    if let post = post {
-                        BereanLiveActivityService.shared.startActivity(for: post)
-                    } else {
-                        presentSheet(.berean(initialQuery: bereanInitialQuery))
-                    }
-                }
-                // ✅ FIX: Removed .frame(width: 20, height: 20) - was too small to tap
-                // Button has its own 28x28 frame which provides proper tap target
-            }
-            
-            Spacer()
+            Spacer(minLength: 0)
         }
     }
+
+    private func handleSafetyOSCardAction(_ action: AmenDiscernmentAction, trigger: AmenTriggerResult) {
+        if !stablePostId.isEmpty {
+            Task {
+                await PostInteractionsService.shared.recordSafetyOSAction(
+                    postId: stablePostId,
+                    surface: .post,
+                    trigger: trigger,
+                    action: action
+                )
+            }
+        }
+
+        switch action {
+        case .openScripture, .joinPrayer, .keepAsText, .postAnyway, .cancel:
+            triggerSafetyOSFeedback()
+        case .editWithGrace, .rewriteGently, .addContext, .pauseAndPray, .saveDraft:
+            triggerSafetyOSFeedback()
+        }
+
+        activeSafetyOSTrigger = nil
+    }
+
+    private func handleSpiritualReaction(_ reaction: AmenReactionType) {
+        guard !isUserPost else {
+            triggerSafetyOSFeedback(for: reaction)
+            return
+        }
+
+        switch reaction {
+        case .amen, .praiseGod:
+            if category != .openTable, !hasSaidAmen {
+                toggleAmen()
+            }
+        case .praying:
+            if category == .prayer, !isPraying {
+                togglePraying()
+            }
+        case .encouraged, .wisdom, .heart:
+            break
+        }
+
+        triggerSafetyOSFeedback(for: reaction)
+    }
+
+    private func triggerSafetyOSFeedback(for reaction: AmenReactionType? = nil) {
+        guard let policy = AmenLocalTriggerEngine.shared.effectPolicy(for: safetyOSTriggers, reaction: reaction) else {
+            return
+        }
+
+        activeSafetyOSEffectPolicy = policy
+        safetyOSEffectSeed = UUID()
+        safetyOSMicrocopy = policy.microcopy
+
+        if let reaction, !isUserPost, !stablePostId.isEmpty {
+            Task {
+                do {
+                    try await PostInteractionsService.shared.recordSpiritualReaction(
+                        postId: stablePostId,
+                        reaction: reaction,
+                        triggers: safetyOSTriggers,
+                        effectPolicy: policy
+                    )
+                } catch {
+                    reactionErrorToast = "Couldn't save privately. We'll keep the moment here."
+                    try? await Task.sleep(nanoseconds: 2_500_000_000)
+                    if reactionErrorToast != nil {
+                        reactionErrorToast = nil
+                    }
+                }
+            }
+        }
+
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: UInt64(policy.durationMs) * 1_000_000)
+            if activeSafetyOSEffectPolicy == policy {
+                activeSafetyOSEffectPolicy = nil
+            }
+            if safetyOSMicrocopy == policy.microcopy {
+                safetyOSMicrocopy = nil
+            }
+        }
+    }
+
+    private func triggerContextualReaction(
+        _ result: AmenContextualReactionResult,
+        morphSystemImage: String? = nil
+    ) {
+        activeContextualReactionPresentation = AmenContextualReactionPresentation(
+            result: result,
+            morphSystemImage: morphSystemImage
+        )
+
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: UInt64(result.durationMs) * 1_000_000)
+            if activeContextualReactionPresentation?.result == result {
+                activeContextualReactionPresentation = nil
+            }
+        }
+    }
+
+    private var interactionSectionBottomPadding: CGFloat {
+        let basePadding: CGFloat = showTestimonyResonance ? 8 : 10
+        let safeAreaInset = UIApplication.shared.connectedScenes
+            .compactMap { ($0 as? UIWindowScene)?.keyWindow?.safeAreaInsets.bottom }
+            .max() ?? 0
+        return safeAreaInset > 0 ? max(basePadding, 12) : basePadding
+    }
     
+    // MARK: - Post Share Button (tap = share sheet, long press = copy link)
+
+    /// Lightweight paper plane button. Tap opens the share sheet. Long press (≥0.35s)
+    /// instantly copies the post deep link with haptic + toast — no modal interruption.
+    private struct PostShareButton: View {
+        var onShare: () -> Void
+        var onCopyLink: () -> Void
+
+        @State private var isPressed = false
+        @State private var didLongPress = false
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+        var body: some View {
+            Image(systemName: "paperplane")
+                .font(.system(size: 15, weight: .thin))
+                .foregroundStyle(Color.secondary)
+                .scaleEffect(isPressed ? 0.88 : 1.0)
+                .animation(
+                    reduceMotion ? .none : .spring(response: 0.18, dampingFraction: 0.72),
+                    value: isPressed
+                )
+                .gesture(
+                    // Long press fires first — prevents tap from also triggering on a long press
+                    LongPressGesture(minimumDuration: 0.35)
+                        .onChanged { _ in
+                            isPressed = true
+                        }
+                        .onEnded { _ in
+                            isPressed = false
+                            didLongPress = true
+                            onCopyLink()
+                        }
+                        .simultaneously(
+                            with: TapGesture()
+                                .onEnded {
+                                    guard !didLongPress else { didLongPress = false; return }
+                                    onShare()
+                                }
+                        )
+                )
+                .accessibilityLabel("Share post")
+                .accessibilityHint("Double tap to share. Touch and hold to copy link.")
+        }
+    }
+
     // MARK: - Minimal Outline/Filled Reaction Button (Instagram/Threads Style)
     
     private func circularInteractionButton(
@@ -3341,12 +4743,13 @@ struct PostCard: View {
         // P2-B FIX: Accessibility label so VoiceOver announces the action rather than
         // reading the raw SF Symbol name (e.g. "repeat" -> "Repost" / "Remove repost").
         accessibilityLabel: String? = nil,
+        accessibilityHint: String? = nil,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
             // Threads-style: small, uniform icons; filled/bold weight when active
             Image(systemName: icon)
-                .font(.systemScaled(17, weight: isActive ? .semibold : .thin))
+                .font(.systemScaled(15, weight: isActive ? .semibold : .thin))
                 .foregroundStyle(isActive ? Color.primary : Color.secondary)
                 .contentTransition(.identity)  // instant swap — spring handles the visual transition
                 // E) Reaction pop/dip on toggle — only when bounce is enabled
@@ -3358,18 +4761,10 @@ struct PostCard: View {
         // Fast spring so icon color/weight change feels instant on tap
         .animation(.spring(response: 0.12, dampingFraction: 0.75), value: isActive)
         .accessibilityLabel(accessibilityLabel ?? icon)
+        .accessibilityHint(accessibilityHint ?? "")
     }
 
-    // Feature 5 — Tiny insight counter (author-only)
-    private func insightItem(icon: String, count: Int, label: String) -> some View {
-        HStack(spacing: 3) {
-            Image(systemName: icon)
-                .font(.systemScaled(10, weight: .semibold))
-            Text("\(count) \(label)")
-                .font(.systemScaled(11, weight: .regular))
-        }
-        .foregroundStyle(.secondary)
-    }
+
     
     private var prayingNowButton: some View {
         Button {
@@ -3426,6 +4821,7 @@ struct PostCard: View {
         .symbolEffect(.bounce, value: isPraying)
         // HIGH FIX: VoiceOver label so "hands.sparkles" icon is announced as an action
         .accessibilityLabel(isPraying ? "Stop praying for this post" : "Pray for this post")
+        .accessibilityHint(isPraying ? "Double tap to remove your prayer" : "Double tap to add your prayer to this post")
     }
     
     // MARK: - Share Text Helper
@@ -3457,7 +4853,7 @@ struct PostCard: View {
         HapticManager.impact(style: .light)
         guard !post.authorId.isEmpty else { return }
         presentSheet(.userProfile(userId: post.authorId))
-        dlog("👤 Opening profile for: \(authorName) (ID: \(post.authorId))")
+        dlog("👤 Opening profile for: \(authorName)")
     }
     
     /// Check if post can be edited (within 30 minutes of creation)
@@ -3471,6 +4867,14 @@ struct PostCard: View {
     // This eliminates N Firestore reads (where N = number of posts on screen)
     // Performance improvement: 2x faster feed loading
     
+    private func showReactionErrorToast(_ message: String) {
+        reactionErrorToast = message
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(2.5))
+            reactionErrorToast = nil
+        }
+    }
+
     private func toggleLightbulb() {
         // P0 FIX: Check in-flight flag BEFORE processing
         guard !isLightbulbToggleInFlight else {
@@ -3543,6 +4947,7 @@ struct PostCard: View {
                 isLightbulbAnimating = false
                 lightbulbShakeError.toggle()
                 HapticManager.notification(type: .error)
+                showReactionErrorToast("Couldn't save reaction. Try again.")
 
                 logDebug("  AFTER ROLLBACK: hasLitLightbulb=\(hasLitLightbulb)", category: "LIGHTBULB")
             }
@@ -3622,6 +5027,7 @@ struct PostCard: View {
                         case .tip:         return "bible_teaching"
                         case .funFact:     return "bible_teaching"
                         case .openTable:   return "community"
+                        default:           return "community"
                         }
                     }()
                     HeyFeedContradictionService.shared.recordEngage(targetId: amenTopicId)
@@ -3637,6 +5043,7 @@ struct PostCard: View {
                 }
                 amenShakeError.toggle()
                 HapticManager.notification(type: .error)
+                showReactionErrorToast("Couldn't save reaction. Try again.")
 
                 logDebug("  AFTER ROLLBACK: hasSaidAmen=\(hasSaidAmen)", category: "AMEN")
             }
@@ -3652,7 +5059,9 @@ struct PostCard: View {
             isDeletingPost = true
         }
         Task {
-            postsManager.deletePost(postId: post.id)
+            // Always use firestoreId (= firebaseId if set, else UUID string).
+            // This covers both feed posts and profile posts that lack a firebaseId.
+            postsManager.deletePost(firestoreId: post.firestoreId)
             NotificationCenter.default.post(
                 name: Notification.Name("postDeleted"),
                 object: nil,
@@ -3768,8 +5177,13 @@ struct PostCard: View {
 
     private func sharePost() {
         HapticManager.impact(style: .light)
+        if let result = AmenContextualReactionEngine.shared.reactionForShare(contentText: safetyOSDisplayText) {
+            triggerContextualReaction(result)
+        }
         if let post = post {
+            let sharePostId = post.firebaseId ?? post.id.uuidString
             presentSheet(.share(post: post, churchNote: churchNote))
+            AMENAnalyticsService.shared.track(.postShareTapped(postId: sharePostId, surface: "post_card"))
         }
         
         // Record share engagement for ML training
@@ -3783,6 +5197,7 @@ struct PostCard: View {
                 case .tip:         return "bible_teaching"
                 case .funFact:     return "bible_teaching"
                 case .openTable:   return "community"
+                default:           return "community"
                 }
             }()
             Task {
@@ -3801,6 +5216,32 @@ struct PostCard: View {
         }
     }
     
+    // MARK: - Post Action Menu (long-press glass overlay)
+
+    @ViewBuilder
+    private var postActionMenuPreview: some View {
+        if let urlStr = post?.imageURLs?.first, let url = URL(string: urlStr) {
+            AsyncImage(url: url) { phase in
+                switch phase {
+                case .success(let img):
+                    img.resizable().scaledToFill()
+                default:
+                    postActionMenuGradient
+                }
+            }
+        } else {
+            postActionMenuGradient
+        }
+    }
+
+    private var postActionMenuGradient: some View {
+        LinearGradient(
+            colors: [category.color.opacity(0.7), category.color.opacity(0.25)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
     private func copyLink() {
         guard let post = post else { return }
 
@@ -3809,7 +5250,7 @@ struct PostCard: View {
 
         UIPasteboard.general.string = deepLink
         HapticManager.notification(type: .success)
-        ToastManager.shared.success("Link copied")
+        ToastManager.shared.showCopyLinkHUD()
         dlog("🔗 Deep link copied to clipboard: \(deepLink)")
     }
     
@@ -3902,6 +5343,7 @@ struct PostCard: View {
                     case .tip:         return "bible_teaching"
                     case .funFact:     return "bible_teaching"
                     case .openTable:   return "community"
+                    default:           return "community"
                     }
                 }()
                 await MainActor.run {
@@ -4065,6 +5507,14 @@ struct PostCard: View {
                 logDebug("  AFTER: isSaved=\(isSaved)", category: "SAVE")
                 logDebug(isSavedNow ? "💾 Post saved" : "🗑️ Post unsaved", category: "SAVE")
                 ToastManager.shared.success(isSavedNow ? "Post saved" : "Post unsaved")
+                if isSavedNow {
+                    triggerSafetyOSFeedback()
+                    if let result = AmenContextualReactionEngine.shared.reactionForSave(contentText: safetyOSDisplayText) {
+                        await MainActor.run {
+                            triggerContextualReaction(result)
+                        }
+                    }
+                }
                 
                 // ✅ Post notification with full Post object for ProfileView
                 if isSavedNow {
@@ -4095,6 +5545,7 @@ struct PostCard: View {
                             case .tip:         return "bible_teaching"
                             case .funFact:     return "bible_teaching"
                             case .openTable:   return "community"
+                            default:           return "community"
                             }
                         }()
                         HeyFeedContradictionService.shared.recordEngage(targetId: saveTopicId)
@@ -4324,6 +5775,7 @@ private struct AmenPostCardPlusButton: View {
             .animation(.spring(response: 0.34, dampingFraction: 0.82), value: isExpanded)
             .animation(.easeOut(duration: 0.12), value: isPressed)
         }
+        .accessibilityLabel(isExpanded ? "Close post actions" : "Open post actions")
         .buttonStyle(.plain)
         .gesture(
             DragGesture(minimumDistance: 0)
@@ -4372,6 +5824,7 @@ private struct AmenPostCardOverflowButton: View {
             .scaleEffect(isPressed ? 0.94 : 1.0)
             .animation(.easeOut(duration: 0.12), value: isPressed)
         }
+        .accessibilityLabel("More options")
         .buttonStyle(.plain)
         .gesture(
             DragGesture(minimumDistance: 0)
@@ -4383,8 +5836,8 @@ private struct AmenPostCardOverflowButton: View {
 }
 
 private struct AmenPostCardActionMenu: View {
-    static let preferredWidth: CGFloat = 296
-    static let preferredHeight: CGFloat = 196
+    static let preferredWidth: CGFloat = 200
+    static let preferredHeight: CGFloat = 96
 
     let isFollowing: Bool
     let canFollow: Bool
@@ -4394,7 +5847,7 @@ private struct AmenPostCardActionMenu: View {
     @State private var hasAppeared = false
 
     var body: some View {
-        AmenGlassContainer(cornerRadius: 32) {
+        AmenGlassContainer(cornerRadius: 18) {
             VStack(spacing: 0) {
                 AmenGlassRow(
                     icon: isFollowing ? "person.crop.circle.badge.checkmark" : "person.badge.plus",
@@ -4405,8 +5858,8 @@ private struct AmenPostCardActionMenu: View {
 
                 Rectangle()
                     .fill(AmenTheme.Colors.separatorSubtle)
-                    .frame(height: 0.8)
-                    .padding(.horizontal, 18)
+                    .frame(height: 0.5)
+                    .padding(.horizontal, 10)
 
                 AmenGlassRow(
                     icon: "person.circle",
@@ -4414,15 +5867,15 @@ private struct AmenPostCardActionMenu: View {
                     action: onVisitProfile
                 )
             }
-            .padding(8)
+            .padding(3)
         }
         .frame(width: Self.preferredWidth, height: Self.preferredHeight)
-        .scaleEffect(hasAppeared ? 1.0 : 0.88, anchor: .topLeading)
+        .scaleEffect(hasAppeared ? 1.0 : 0.96, anchor: .topLeading)
         .opacity(hasAppeared ? 1 : 0)
-        .offset(y: hasAppeared ? 0 : -10)
-        .shadow(color: AmenTheme.Colors.glassHighlightTop.opacity(hasAppeared ? 0.35 : 0), radius: 18, y: -4)
+        .offset(y: hasAppeared ? 0 : -6)
+        .shadow(color: AmenTheme.Colors.glassHighlightTop.opacity(hasAppeared ? 0.2 : 0), radius: 8, y: -2)
         .onAppear {
-            withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.84))) {
+            withAnimation(.easeOut(duration: 0.2)) {
                 hasAppeared = true
             }
         }
@@ -4484,8 +5937,8 @@ private struct AmenGlassContainer<Content: View>: View {
             content
         }
         .compositingGroup()
-        .shadow(color: AmenTheme.Colors.shadowFloating.opacity(0.82), radius: 34, y: 20)
-        .shadow(color: AmenTheme.Colors.shadowCard.opacity(0.55), radius: 12, y: 4)
+        .shadow(color: AmenTheme.Colors.shadowFloating.opacity(0.45), radius: 16, y: 8)
+        .shadow(color: AmenTheme.Colors.shadowCard.opacity(0.28), radius: 6, y: 2)
         .overlay {
             GeometryReader { proxy in
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
@@ -4544,30 +5997,30 @@ private struct AmenGlassRow: View {
             HapticManager.impact(style: .light)
             action()
         } label: {
-            HStack(spacing: 16) {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(isDark ? AmenTheme.Colors.surfaceElevated.opacity(0.92) : AmenTheme.Colors.glassFill.opacity(0.8))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .stroke(AmenTheme.Colors.glassStroke.opacity(isDark ? 0.9 : 0.75), lineWidth: 0.8)
-                    )
-                    .frame(width: 56, height: 56)
-                    .overlay(
-                        Image(systemName: icon)
-                            .font(.systemScaled(24, weight: .medium))
-                            .foregroundStyle(.primary)
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(.primary)
+                    .frame(width: 28, height: 28)
+                    .background(
+                        RoundedRectangle(cornerRadius: 7, style: .continuous)
+                            .fill(isDark ? AmenTheme.Colors.surfaceElevated.opacity(0.92) : AmenTheme.Colors.glassFill.opacity(0.8))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                    .stroke(AmenTheme.Colors.glassStroke.opacity(isDark ? 0.9 : 0.75), lineWidth: 0.8)
+                            )
                     )
 
                 Text(title)
-                    .font(.systemScaled(25, weight: .medium, design: .rounded))
+                    .font(.system(size: 15, weight: .medium, design: .rounded))
                     .foregroundStyle(isDisabled ? AmenTheme.Colors.textSecondary : AmenTheme.Colors.textPrimary)
 
                 Spacer(minLength: 0)
             }
-            .padding(.horizontal, 18)
-            .frame(maxWidth: .infinity, minHeight: 84, maxHeight: 84, alignment: .leading)
+            .padding(.horizontal, 12)
+            .frame(maxWidth: .infinity, minHeight: 44, maxHeight: 44, alignment: .leading)
             .background(
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(
                         isDark
                         ? AmenTheme.Colors.pressedOverlay.opacity(isPressed ? 1.0 : 0.6)
@@ -4576,7 +6029,7 @@ private struct AmenGlassRow: View {
             )
             .scaleEffect(isPressed ? 0.98 : 1.0)
             .opacity(isDisabled ? 0.72 : 1.0)
-            .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             .animation(.easeOut(duration: 0.12), value: isPressed)
         }
         .buttonStyle(.plain)
@@ -4589,309 +6042,7 @@ private struct AmenGlassRow: View {
     }
 }
 
-// MARK: - Report Post Sheet
-
-struct ReportPostSheet: View {
-    @Environment(\.dismiss) private var dismiss
-    let post: Post
-    let postAuthor: String
-    let category: PostCard.PostCardCategory
-    
-    @State private var selectedReason: ReportReason?
-    @State private var additionalDetails = ""
-    @State private var showSuccessAlert = false
-    @FocusState private var isTextFieldFocused: Bool
-    
-    enum ReportReason: String, CaseIterable, Identifiable {
-        case spam = "Spam or misleading"
-        case harassment = "Harassment or bullying"
-        case hateSpeech = "Hate speech or violence"
-        case inappropriateContent = "Inappropriate content"
-        case falseInformation = "False information"
-        case offTopic = "Off-topic or irrelevant"
-        case copyright = "Copyright violation"
-        case other = "Other"
-        
-        var id: String { rawValue }
-        
-        var icon: String {
-            switch self {
-            case .spam: return "envelope.badge.fill"
-            case .harassment: return "exclamationmark.bubble.fill"
-            case .hateSpeech: return "hand.raised.fill"
-            case .inappropriateContent: return "eye.slash.fill"
-            case .falseInformation: return "checkmark.seal.fill"
-            case .offTopic: return "arrow.triangle.branch"
-            case .copyright: return "c.circle.fill"
-            case .other: return "ellipsis.circle.fill"
-            }
-        }
-        
-        var description: String {
-            switch self {
-            case .spam:
-                return "Unwanted commercial content or repetitive posts"
-            case .harassment:
-                return "Targeted harassment, threats, or bullying"
-            case .hateSpeech:
-                return "Content promoting violence or hatred"
-            case .inappropriateContent:
-                return "Sexually explicit or disturbing content"
-            case .falseInformation:
-                return "Deliberately misleading or false claims"
-            case .offTopic:
-                return "Content that doesn't fit this category"
-            case .copyright:
-                return "Unauthorized use of copyrighted material"
-            case .other:
-                return "Something else that violates community guidelines"
-            }
-        }
-    }
-    
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    // Header
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Report Post")
-                            .font(AMENFont.bold(28))
-                        
-                        Text("Help us keep AMEN safe. Why are you reporting this post?")
-                            .font(AMENFont.regular(15))
-                            .foregroundStyle(.secondary)
-                            .lineSpacing(4)
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
-                    
-                    // Report Reasons
-                    VStack(spacing: 12) {
-                        ForEach(ReportReason.allCases) { reason in
-                            ReportReasonCard(
-                                reason: reason,
-                                isSelected: selectedReason == reason
-                            ) {
-                                HapticManager.impact(style: .light)
-                                selectedReason = reason
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    
-                    // Additional Details (optional)
-                    if selectedReason != nil {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Additional Details (Optional)")
-                                .font(AMENFont.semiBold(16))
-                                .foregroundStyle(.primary)
-                            
-                            ZStack(alignment: .topLeading) {
-                                if additionalDetails.isEmpty {
-                                    Text("Provide any additional context that might help us review this report...")
-                                        .font(AMENFont.regular(15))
-                                        .foregroundStyle(.secondary)
-                                        .padding(.horizontal, 16)
-                                        .padding(.vertical, 12)
-                                }
-                                
-                                TextEditor(text: $additionalDetails)
-                                    .font(AMENFont.regular(15))
-                                    .frame(minHeight: 100)
-                                    .focused($isTextFieldFocused)
-                                    .scrollContentBackground(.hidden)
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 8)
-                            }
-                            .background(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color(.systemGray6))
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color(.systemGray4), lineWidth: 1)
-                            )
-                            
-                            Text("\(additionalDetails.count)/500 characters")
-                                .font(AMENFont.regular(12))
-                                .foregroundStyle(additionalDetails.count > 500 ? .red : .secondary)
-                        }
-                        .padding(.horizontal, 16)
-                        .transition(.opacity.combined(with: .move(edge: .top)).animation(.easeOut(duration: 0.2)))
-                    }
-                    
-                    // Privacy Notice
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack(spacing: 8) {
-                            Image(systemName: "shield.checkered")
-                                .font(.systemScaled(14))
-                                .foregroundStyle(.blue)
-                            
-                            Text("Your report is confidential")
-                                .font(AMENFont.semiBold(14))
-                                .foregroundStyle(.primary)
-                        }
-                        
-                        Text("We'll review this report and take appropriate action. The person who posted this won't know you reported it.")
-                            .font(AMENFont.regular(13))
-                            .foregroundStyle(.secondary)
-                            .lineSpacing(4)
-                    }
-                    .padding(16)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.blue.opacity(0.08))
-                    )
-                    .padding(.horizontal, 16)
-                    
-                    Spacer(minLength: 100)
-                }
-                .padding(.vertical, 20)
-            }
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                }
-            }
-            .safeAreaInset(edge: .bottom) {
-                // Submit Button
-                Button {
-                    submitReport()
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.systemScaled(18))
-                        Text("Submit Report")
-                            .font(AMENFont.bold(16))
-                    }
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(selectedReason != nil ? Color.red : Color.red.opacity(0.3))
-                    )
-                }
-                .disabled(selectedReason == nil)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(Color(.systemBackground))
-                .shadow(color: .black.opacity(0.1), radius: 10, y: -5)
-            }
-        }
-        .alert("Report Submitted", isPresented: $showSuccessAlert) {
-            Button("OK") {
-                dismiss()
-            }
-        } message: {
-            Text("Thank you for helping keep AMEN safe. We'll review this report and take appropriate action.")
-        }
-    }
-    
-    private func submitReport() {
-        guard let reason = selectedReason else { return }
-        
-        Task {
-            do {
-                try await ModerationService.shared.reportPost(
-                    postId: post.firestoreId,
-                    postAuthorId: post.authorId,
-                    reason: convertToModerationReason(reason),
-                    additionalDetails: additionalDetails.isEmpty ? nil : additionalDetails
-                )
-                
-                dlog("✅ Report submitted successfully")
-                
-                await MainActor.run {
-                    showSuccessAlert = true
-                }
-                
-            } catch {
-                dlog("❌ Failed to submit report: \(error)")
-                
-                await MainActor.run {
-                    // Show error to user
-                    dismiss()
-                }
-            }
-        }
-    }
-    
-    private func convertToModerationReason(_ reason: ReportReason) -> ModerationReportReason {
-        switch reason {
-        case .spam: return .spam
-        case .harassment: return .harassment
-        case .hateSpeech: return .hateSpeech
-        case .inappropriateContent: return .inappropriateContent
-        case .falseInformation: return .falseInformation
-        case .offTopic: return .offTopic
-        case .copyright: return .copyright
-        case .other: return .other
-        }
-    }
-}
-
-// MARK: - Report Reason Card
-
-struct ReportReasonCard: View {
-    let reason: ReportPostSheet.ReportReason
-    let isSelected: Bool
-    let action: () -> Void
-    
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 16) {
-                // Icon
-                ZStack {
-                    Circle()
-                        .fill(isSelected ? AmenTheme.Colors.statusError.opacity(0.16) : AmenTheme.Colors.surfaceElevated)
-                        .frame(width: 48, height: 48)
-                    
-                    Image(systemName: reason.icon)
-                        .font(.systemScaled(20, weight: .semibold))
-                        .foregroundStyle(isSelected ? AmenTheme.Colors.statusError : AmenTheme.Colors.iconSecondary)
-                }
-                
-                // Text
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(reason.rawValue)
-                        .font(AMENFont.bold(16))
-                        .foregroundStyle(.primary)
-                    
-                    Text(reason.description)
-                        .font(AMENFont.regular(13))
-                        .foregroundStyle(AmenTheme.Colors.textSecondary)
-                        .lineSpacing(2)
-                }
-                
-                Spacer()
-                
-                // Checkmark
-                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .font(.systemScaled(24))
-                    .foregroundStyle(isSelected ? AmenTheme.Colors.statusError : AmenTheme.Colors.textPlaceholder)
-                    .symbolEffect(.bounce, value: isSelected)
-            }
-            .padding(16)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(AmenTheme.Colors.surfaceCard)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(isSelected ? AmenTheme.Colors.statusError.opacity(0.3) : AmenTheme.Colors.borderSoft, lineWidth: isSelected ? 2 : 1)
-                    )
-                    .shadow(color: isSelected ? AmenTheme.Colors.statusError.opacity(0.12) : AmenTheme.Colors.shadowCard.opacity(0.55), radius: isSelected ? 12 : 6, y: 2)
-            )
-        }
-        .buttonStyle(.plain)
-        .scaleEffect(isSelected ? 1.0 : 1.0)
-        .animation(.easeOut(duration: 0.15), value: isSelected)
-    }
-}
+// ReportPostSheet and ReportReasonCard moved to PostCardReportSheet.swift
 
 // MARK: - View Modifiers
 
@@ -4907,6 +6058,7 @@ private struct PostCardSheetsModifier: ViewModifier {
     let optionsQuickActionsBuilder: () -> [AmenQuickAction]
     let optionsSectionsBuilder: () -> [AmenOptionsSectionModel]
     let feedReasonsBuilder: (Post) -> [FeedReason]
+    let contextFeedbackHandler: (AmenFeedContextFeedbackAction) -> Void
     let authorName: String
     let category: PostCard.PostCardCategory
 
@@ -4936,6 +6088,28 @@ private struct PostCardSheetsModifier: ViewModifier {
             .presentationBackground(.regularMaterial)
         case .whyThisPost(let post):
             WhyAmISeeingThisSheet(post: post, reasons: feedReasonsBuilder(post))
+        case .whyThisAppeared(let post, let context):
+            WhyThisAppearedSheet(
+                post: post,
+                label: context,
+                onShowLess: { contextFeedbackHandler(.showLess) },
+                onMuteTopic: { contextFeedbackHandler(.muteTopic) },
+                onHideAll: { contextFeedbackHandler(.hideAll) }
+            )
+        case .topicFeed(let topicKey, let displayName):
+            NavigationStack {
+                TopicFeedView(topicKey: topicKey, displayName: displayName)
+            }
+        case .churchPulse(let churchId):
+            NavigationStack {
+                ContextChurchPulseRouteView(churchId: churchId)
+            }
+        case .prayerMoment(let targetId, let fallbackPost):
+            NavigationStack {
+                ContextPrayerMomentRouteView(targetId: targetId, fallbackPost: fallbackPost)
+            }
+        case .contextUnavailable(let title, let reason):
+            ContextUnavailableRouteView(title: title, reason: reason)
         case .userProfile(let userId):
             UserProfileView(userId: userId, showsDismissButton: true)
         case .mentionedProfile(let userId):
@@ -4943,31 +6117,14 @@ private struct PostCardSheetsModifier: ViewModifier {
         case .edit(let post):
             EditPostSheet(post: post)
         case .share(let post, let note):
-            if post.churchNoteId != nil, let note {
-                ChurchNoteShareOptionsSheet(note: note)
-                    .presentationDetents([.medium])
-                    .presentationDragIndicator(.visible)
-                    .presentationCornerRadius(28)
-            } else if post.isChurchShare, let churchName = post.sharedChurchName {
-                FindChurchShareOptionsSheet(church: Church(
-                    name: churchName,
-                    denomination: post.sharedChurchDenomination ?? "",
-                    address: "",
-                    distance: "",
-                    serviceTime: post.sharedChurchServiceTime ?? "",
-                    phone: "",
-                    coordinate: .init()
-                ))
-                .presentationDetents([.medium])
-                .presentationDragIndicator(.visible)
-                .presentationCornerRadius(28)
-            } else {
-                PostShareOptionsSheet(post: post)
-            }
+            PostShareOptionsSheet(entity: ShareRouter.entity(for: post, note: note, sourceSurface: "post_card"))
         case .postDetail(let post):
             PostDetailView(post: post)
         case .comments(let post):
             CommentsView(post: post)
+                .onDisappear { refreshCommentedState(for: post) }
+        case .commentsHighlighted(let post, let replyId, let highlightedCommentIds):
+            CommentsView(post: post, highlightedCommentId: replyId, highlightedCommentIds: highlightedCommentIds)
                 .onDisappear { refreshCommentedState(for: post) }
         case .commentsWithQuote(let post, let prefill):
             CommentsView(post: post, prefillText: prefill)
@@ -4988,12 +6145,71 @@ private struct PostCardSheetsModifier: ViewModifier {
             TipView(creatorId: creatorId, creatorName: creatorName, onSuccess: {})
                 .presentationDetents([.medium])
                 .presentationDragIndicator(.visible)
-        case .berean(let initialQuery):
-            BereanAIAssistantView(initialQuery: initialQuery)
+        case .berean(let initialQuery, let postContext):
+            BereanChatRouteView(
+                entryPoint: .postReflection,
+                initialQuery: initialQuery,
+                conversationTitle: postContext == nil ? nil : "Post Reflection",
+                postContext: postContext
+            )
         case .quoteComposer(let context):
             QuoteComposerView(context: context)
         case .shareExcerpt(let text, let attribution):
             ShareSheet(items: ["\(text)\n\n\(attribution)"])
+        case .verseAttachment(let payload):
+            VerseAttachmentDetailView(
+                reference: payload.verseReference ?? payload.title,
+                verseText: payload.verseText,
+                translation: payload.translation ?? "NIV"
+            )
+            .presentationDragIndicator(.visible)
+        case .goingSundayAttachment(let payload):
+            GoingSundayAttachmentDetailView(
+                churchId: payload.churchId,
+                eventId: payload.eventId,
+                churchName: payload.title,
+                denomination: payload.churchDenomination,
+                address: payload.churchAddress,
+                latitude: payload.churchLatitude,
+                longitude: payload.churchLongitude,
+                serviceTime: payload.churchServiceTime,
+                eventName: payload.churchEventName,
+                eventTime: payload.churchEventTime,
+                postId: payload.postId
+            )
+            .presentationDragIndicator(.visible)
+        case .churchNoteAttachment(let note, let postId):
+            ChurchNoteAttachmentDetailView(note: note, postId: postId)
+                .presentationDragIndicator(.visible)
+        case .selah(let message, let query):
+            SelahView(message: message, originalQuery: query)
+        case .blessLater(let post):
+            BlessLaterSheet(post: post)
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
+                .presentationBackground(.ultraThinMaterial)
+        case .whyThis(let post):
+            if AMENFeatureFlags.shared.whyThisPostBackendEnabled {
+                FeedIntelligenceWhyThisPostSheet(postId: post.firestoreId)
+                    .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
+                    .presentationBackground(.ultraThinMaterial)
+            } else {
+                PostWhyThisSheet(post: post)
+                    .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
+                    .presentationBackground(.ultraThinMaterial)
+            }
+        case .objectHub(let canonicalObjectId, let url, _):
+            NavigationStack {
+                if let canonicalObjectId, !canonicalObjectId.isEmpty {
+                    AmenObjectHubView(canonicalObjectId: canonicalObjectId)
+                } else if let url, !url.isEmpty {
+                    AmenObjectHubView(url: url)
+                } else {
+                    AmenObjectHubErrorState(error: .loadFailed("Couldn’t open this hub.")) {}
+                }
+            }
         }
     }
 
@@ -5071,8 +6287,16 @@ private struct PostCardInteractionsModifier: ViewModifier {
         var comments: Int
         var reposts: Int
     }
+    private var interactionPostId: String {
+        if let post {
+            if !post.firestoreId.isEmpty { return post.firestoreId }
+            if let firebaseId = post.firebaseId, !firebaseId.isEmpty { return firebaseId }
+            return post.id.uuidString
+        }
+        return "preview-interactions"
+    }
     private var countsForThisPost: PostCounts {
-        let id = post?.firebaseId ?? post?.id.uuidString ?? ""
+        let id = interactionPostId
         return PostCounts(
             lightbulbs: interactionsService.postLightbulbs[id] ?? lightbulbCount,
             amens:      interactionsService.postAmens[id]      ?? amenCount,
@@ -5133,6 +6357,7 @@ private struct PostCardInteractionsModifier: ViewModifier {
                     case .tip:         return "bible_teaching"
                     case .funFact:     return "bible_teaching"
                     case .openTable:   return "community"
+                    default:           return "community"
                     }
                 }()
                 await MainActor.run {
@@ -5339,7 +6564,7 @@ private struct PostCardInteractionsModifier: ViewModifier {
 
 struct EditCommentSheet: View {
     @Environment(\.dismiss) private var dismiss
-    @ObservedObject private var commentService = CommentService.shared
+    private let commentService = CommentService.shared
     
     let comment: Comment
     @State private var editedContent: String
@@ -5361,6 +6586,7 @@ struct EditCommentSheet: View {
                     .focused($isFocused)
                     .scrollContentBackground(.hidden)
                     .background(Color(.systemGroupedBackground))
+                    .accessibilityLabel("Edit post content")
                 
                 Spacer()
                 
@@ -5591,213 +6817,63 @@ struct PostLinkButton: View {
     }
 }
 
-// MARK: - Minimal Reaction Button Style (Instagram/Threads Style)
-/// Custom button style for minimal outline/filled reactions.
-/// Press-down: immediate tight spring. Release: crisp snap back via Motion presets.
-struct MinimalReactionButtonStyle: ButtonStyle {
-    let isActive: Bool
+private struct ContextChurchPulseRouteView: View {
+    let churchId: String
 
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? 0.88 : 1.0)
-            .animation(
-                Motion.adaptive(
-                    configuration.isPressed ? Motion.springPress : Motion.springRelease
-                ),
-                value: configuration.isPressed
-            )
-    }
-}
-
-// MARK: - Poll Display Component
-
-struct PostPollView: View {
-    let postId: String
-    let poll: PostPoll
-    let currentUserId: String?
-    
-    @State private var userVote: String? = nil
-    @State private var isVoting = false
-    @State private var localPoll: PostPoll
-    
-    init(postId: String, poll: PostPoll, currentUserId: String?) {
-        self.postId = postId
-        self.poll = poll
-        self.currentUserId = currentUserId
-        self._localPoll = State(initialValue: poll)
-    }
-    
-    var isPollExpired: Bool {
-        guard let expiresAt = poll.expiresAt else { return false }
-        return Date() > expiresAt
-    }
-    
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Poll question (if provided)
-            if !poll.question.isEmpty {
-                Text(poll.question)
-                    .font(AMENFont.semiBold(15))
-                    .foregroundStyle(.primary)
-            }
-            
-            // Poll options
-            VStack(spacing: 8) {
-                ForEach(localPoll.options) { option in
-                    pollOptionButton(option)
-                }
-            }
-            
-            // Poll footer (total votes + expiry)
-            HStack(spacing: 12) {
-                Text("\(localPoll.totalVotes) \(localPoll.totalVotes == 1 ? "vote" : "votes")")
-                    .font(AMENFont.regular(13))
-                    .foregroundStyle(.secondary)
-                
-                if let expiresAt = poll.expiresAt {
-                    Text("•")
-                        .foregroundStyle(.secondary)
-                    
-                    if isPollExpired {
-                        Text("Poll ended")
-                            .font(AMENFont.regular(13))
-                            .foregroundStyle(.secondary)
-                    } else {
-                        Text("Ends \(expiresAt, style: .relative)")
-                            .font(AMENFont.regular(13))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
+        ScrollView {
+            ChurchPulseSection(churchId: churchId)
+                .padding(16)
         }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
-        )
-        .onAppear {
-            loadUserVote()
+        .navigationTitle("Church Pulse")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct ContextPrayerMomentRouteView: View {
+    let targetId: String
+    let fallbackPost: Post
+    @StateObject private var prayerRoomService = PrayerRoomService.shared
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                if let matchingRoom {
+                    PrayerRoomCard(room: matchingRoom)
+                } else {
+                    ContentUnavailableView("Prayer room unavailable", systemImage: "hands.sparkles")
+                }
+
+                CommentsView(post: fallbackPost)
+                    .frame(minHeight: 420)
+            }
+            .padding(16)
+        }
+        .navigationTitle("Prayer Moment")
+        .navigationBarTitleDisplayMode(.inline)
+        .task {
+            prayerRoomService.loadUpcoming()
         }
     }
-    
-    @ViewBuilder
-    private func pollOptionButton(_ option: PostPoll.PollOption) -> some View {
-        let hasVoted = userVote != nil
-        let isThisOption = userVote == option.id
-        let percentage = localPoll.totalVotes > 0 ? Double(option.voteCount) / Double(localPoll.totalVotes) : 0.0
-        
-        Button {
-            guard !hasVoted && !isPollExpired else { return }
-            vote(for: option.id)
-        } label: {
-            HStack(spacing: 0) {
-                // Background bar (shows percentage if voted)
-                if hasVoted {
-                    GeometryReader { geometry in
-                        Rectangle()
-                            .fill(isThisOption ? Color.blue.opacity(0.2) : Color(.tertiarySystemFill))
-                            .frame(width: geometry.size.width * percentage)
-                    }
-                }
-                
-                HStack {
-                    Text(option.text)
-                        .font(AMENFont.semiBold(15))
-                        .foregroundStyle(isThisOption ? .blue : .primary)
-                    
-                    Spacer()
-                    
-                    if hasVoted {
-                        Text("\(Int(percentage * 100))%")
-                            .font(AMENFont.bold(14))
-                            .foregroundStyle(isThisOption ? .blue : .secondary)
-                        
-                        if isThisOption {
-                            Image(systemName: "checkmark.circle.fill")
-                                .font(.systemScaled(16))
-                                .foregroundStyle(.blue)
-                        }
-                    }
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-            }
-        }
-        .frame(height: 44)
-        .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .strokeBorder(
-                    isThisOption ? Color.blue : Color(.separator),
-                    lineWidth: isThisOption ? 2 : 1
-                )
-                .background(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(hasVoted ? Color.clear : Color(.tertiarySystemFill))
-                )
-        )
-        .disabled(hasVoted || isPollExpired || isVoting)
-    }
-    
-    private func loadUserVote() {
-        guard let uid = currentUserId else { return }
-        
-        // Check if user already voted by querying Firestore poll data
-        Task {
-            do {
-                let doc = try await Firestore.firestore()
-                    .collection("posts")
-                    .document(postId)
-                    .getDocument()
-                
-                if let pollData = doc.data()?["poll"] as? [String: Any],
-                   let voters = pollData["voters"] as? [String: String],
-                   let votedOptionId = voters[uid] {
-                    await MainActor.run {
-                        userVote = votedOptionId
-                    }
-                }
-            } catch {
-                dlog("❌ Error loading user vote: \(error)")
-            }
-        }
-    }
-    
-    private func vote(for optionId: String) {
-        guard currentUserId != nil, !isVoting else { return }
-        
-        isVoting = true
-        HapticManager.impact(style: .light)
-        
-        // Optimistic update
-        userVote = optionId
-        var updatedOptions = localPoll.options
-        if let index = updatedOptions.firstIndex(where: { $0.id == optionId }) {
-            updatedOptions[index].voteCount += 1
-        }
-        localPoll = PostPoll(
-            question: localPoll.question,
-            options: updatedOptions,
-            expiresAt: localPoll.expiresAt,
-            totalVotes: localPoll.totalVotes + 1
-        )
-        
-        Task {
-            do {
-                try await PollService.shared.vote(postId: postId, optionId: optionId)
-                await MainActor.run {
-                    isVoting = false
-                    HapticManager.notification(type: .success)
-                }
-            } catch {
-                // Revert optimistic update on error
-                await MainActor.run {
-                    userVote = nil
-                    localPoll = poll
-                    isVoting = false
-                    HapticManager.notification(type: .error)
-                    dlog("❌ Error voting: \(error)")
-                }
-            }
+
+    private var matchingRoom: PrayerRoom? {
+        prayerRoomService.upcomingRooms.first { room in
+            room.id == targetId || room.linkedPrayerRequestIds.contains(targetId)
         }
     }
 }
+
+private struct ContextUnavailableRouteView: View {
+    let title: String
+    let reason: String
+
+    var body: some View {
+        ContentUnavailableView {
+            Label(title, systemImage: "lock.slash")
+        } description: {
+            Text(reason)
+        }
+    }
+}
+
+// MinimalReactionButtonStyle and PostPollView moved to PostCardPollView.swift

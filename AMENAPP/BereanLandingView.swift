@@ -11,8 +11,8 @@ import SwiftUI
 // MARK: - Colour tokens (matches existing AMEN / Berean palette)
 
 private extension Color {
-    static let bereanBackground  = Color(red: 0.97, green: 0.97, blue: 0.97)   // near-white
-    static let bereanCard        = Color.white
+    static let bereanBackground  = Color(red: 0.975, green: 0.972, blue: 0.968) // warm near-white
+    static let bereanCard        = AmenTheme.Colors.surfaceCard
     static let bereanCardStroke  = Color(white: 0, opacity: 0.06)
     static let bereanCoral       = Color(red: 0.88, green: 0.38, blue: 0.28)
     static let bereanPrimary     = Color(white: 0.10)
@@ -149,6 +149,13 @@ struct BereanLandingView: View {
                     ))
                 }
 
+                // ── Context strip — fades out when suggestions are visible ──
+                BereanContextStrip(label: "Scripture-grounded · Always discerning", icon: "sparkles")
+                    .padding(.horizontal, 20)
+                    .opacity(suggestionsVisible ? 0 : 0.70)
+                    .scaleEffect(suggestionsVisible ? 0.96 : 1.0, anchor: .bottom)
+                    .animation(.easeOut(duration: 0.18), value: suggestionsVisible)
+
                 // ── Floating input bar ──────────────────────────────────
                 BereanInputBar(
                     text: $inputText,
@@ -274,6 +281,7 @@ private struct BereanContinuityCard: View {
                     Image(systemName: entry.icon)
                         .font(.systemScaled(15, weight: .medium))
                         .foregroundColor(.bereanPrimary)
+                        .accessibilityHidden(true)
                 }
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -291,17 +299,22 @@ private struct BereanContinuityCard: View {
                 Image(systemName: "arrow.right")
                     .font(.systemScaled(11, weight: .medium))
                     .foregroundColor(.bereanTertiary)
+                    .accessibilityHidden(true)
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 12)
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.bereanCard)
-                    .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
+                    .fill(.ultraThinMaterial)
                     .overlay(
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .strokeBorder(Color.bereanCardStroke, lineWidth: 0.5)
+                            .fill(AmenTheme.Colors.glassFill)
                     )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .strokeBorder(AmenTheme.Colors.glassStroke, lineWidth: 0.75)
+                    )
+                    .shadow(color: .black.opacity(0.05), radius: 14, x: 0, y: 4)
             )
             .scaleEffect(isPressed ? 0.97 : 1.0)
             .animation(.spring(response: 0.28, dampingFraction: 0.75), value: isPressed)
@@ -355,12 +368,16 @@ struct BereanContinueCard: View {
             .padding(.vertical, 14)
             .background(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(Color.bereanCard)
-                    .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 3)
+                    .fill(.ultraThinMaterial)
                     .overlay(
                         RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .strokeBorder(Color.bereanCardStroke, lineWidth: 0.5)
+                            .fill(AmenTheme.Colors.glassFill)
                     )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .strokeBorder(AmenTheme.Colors.glassStroke, lineWidth: 0.75)
+                    )
+                    .shadow(color: .black.opacity(0.05), radius: 14, x: 0, y: 4)
             )
             .scaleEffect(isPressed ? 0.97 : 1.0)
             .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isPressed)
@@ -447,13 +464,17 @@ struct BereanActionCard: View {
             .padding(.vertical, 16)
             .background(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(Color.bereanCard)
-                    .shadow(color: Color.black.opacity(isPressed ? 0.02 : 0.05),
-                            radius: isPressed ? 4 : 10, x: 0, y: isPressed ? 1 : 3)
+                    .fill(.ultraThinMaterial)
                     .overlay(
                         RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .strokeBorder(Color.bereanCardStroke, lineWidth: 0.5)
+                            .fill(AmenTheme.Colors.glassFill)
                     )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .strokeBorder(AmenTheme.Colors.glassStroke, lineWidth: 0.75)
+                    )
+                    .shadow(color: .black.opacity(isPressed ? 0.03 : 0.06),
+                            radius: isPressed ? 6 : 14, x: 0, y: isPressed ? 2 : 4)
             )
             .scaleEffect(isPressed ? 0.97 : 1.0)
             .animation(.spring(response: 0.28, dampingFraction: 0.75), value: isPressed)
@@ -509,6 +530,7 @@ struct BereanInputBar: View {
                             .foregroundColor(Color(.secondaryLabel))
                             .frame(width: 34, height: 34)
                     }
+                    .accessibilityLabel("Voice input")
                     .buttonStyle(.plain)
                     .transition(.opacity.combined(with: .scale(scale: 0.8)))
                 }
@@ -524,6 +546,7 @@ struct BereanInputBar: View {
                             .foregroundColor(hasText ? .white : Color(.tertiaryLabel))
                     }
                 }
+                .accessibilityLabel("Send message")
                 .buttonStyle(.plain)
                 .disabled(!hasText)
                 .animation(.spring(response: 0.3, dampingFraction: 0.8), value: hasText)
@@ -552,17 +575,26 @@ struct BereanInputBar: View {
         }
         .background(
             RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .fill(Color(.systemBackground))
-                .shadow(
-                    color: Color.black.opacity(focused ? 0.10 : 0.06),
-                    radius: focused ? 20 : 14, x: 0, y: focused ? 6 : 3
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 26, style: .continuous)
+                        .fill(AmenTheme.Colors.glassFill)
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 26, style: .continuous)
                         .strokeBorder(
-                            focused ? Color.black.opacity(0.14) : Color.bereanCardStroke,
-                            lineWidth: focused ? 1.0 : 0.5
+                            focused
+                                ? AnyShapeStyle(LinearGradient(
+                                    colors: [Color.black.opacity(0.14), Color.black.opacity(0.10)],
+                                    startPoint: .topLeading, endPoint: .bottomTrailing
+                                  ))
+                                : AnyShapeStyle(AmenTheme.Colors.glassStroke),
+                            lineWidth: focused ? 1.0 : 0.75
                         )
+                )
+                .shadow(
+                    color: .black.opacity(focused ? 0.10 : 0.06),
+                    radius: focused ? 22 : 16, x: 0, y: focused ? 6 : 4
                 )
         )
         .offset(y: focused ? -4 : 0)
@@ -623,8 +655,10 @@ private struct BereanSuggestionPanel: View {
                             .padding(.vertical, 7)
                             .background(
                                 Capsule()
-                                    .fill(Color(.secondarySystemBackground))
-                                    .overlay(Capsule().strokeBorder(Color.bereanCardStroke, lineWidth: 0.5))
+                                    .fill(.ultraThinMaterial)
+                                    .overlay(Capsule().fill(AmenTheme.Colors.glassFill))
+                                    .overlay(Capsule().strokeBorder(AmenTheme.Colors.glassStroke, lineWidth: 0.5))
+                                    .shadow(color: .black.opacity(0.04), radius: 6, x: 0, y: 2)
                             )
                         }
                         .buttonStyle(.plain)
@@ -667,12 +701,16 @@ private struct BereanSuggestionPanel: View {
             }
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color(.systemBackground))
-                    .shadow(color: Color.black.opacity(0.05), radius: 12, x: 0, y: 3)
+                    .fill(.ultraThinMaterial)
                     .overlay(
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .strokeBorder(Color.bereanCardStroke, lineWidth: 0.5)
+                            .fill(AmenTheme.Colors.glassFill)
                     )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .strokeBorder(AmenTheme.Colors.glassStroke, lineWidth: 0.75)
+                    )
+                    .shadow(color: .black.opacity(0.05), radius: 12, x: 0, y: 3)
             )
             .padding(.horizontal, 16)
         }
@@ -688,6 +726,7 @@ struct BereanStatusCard: View {
 
     @State private var rotationDegrees: Double = 0
     @State private var pulseScale: CGFloat = 1.0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 14) {
@@ -702,8 +741,10 @@ struct BereanStatusCard: View {
                     .frame(width: 26, height: 26)
                     .rotationEffect(.degrees(rotationDegrees))
                     .onAppear {
-                        withAnimation(.linear(duration: 1.1).repeatForever(autoreverses: false)) {
-                            rotationDegrees = 360
+                        if !reduceMotion {
+                            withAnimation(.linear(duration: 1.1).repeatForever(autoreverses: false)) {
+                                rotationDegrees = 360
+                            }
                         }
                     }
             }
@@ -718,12 +759,16 @@ struct BereanStatusCard: View {
         .padding(.vertical, 14)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color.bereanCard)
-                .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 2)
+                .fill(.ultraThinMaterial)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .strokeBorder(Color.bereanCardStroke, lineWidth: 0.5)
+                        .fill(AmenTheme.Colors.glassFill)
                 )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .strokeBorder(AmenTheme.Colors.glassStroke, lineWidth: 0.75)
+                )
+                .shadow(color: .black.opacity(0.05), radius: 12, x: 0, y: 3)
         )
         .opacity(isVisible ? 1 : 0)
         .scaleEffect(isVisible ? 1 : 0.97)
@@ -763,21 +808,28 @@ struct BereanWorkspaceCard<Content: View>: View {
             content()
         }
         .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(isDashed ? Color.bereanBackground : Color.bereanCard)
-                .shadow(color: isDashed ? .clear : Color.black.opacity(0.04),
-                        radius: 10, x: 0, y: 3)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .strokeBorder(
-                            isDashed ? Color.bereanDash : Color.bereanCardStroke,
-                            style: isDashed
-                                ? StrokeStyle(lineWidth: 1.2, dash: [5, 5])
-                                : StrokeStyle(lineWidth: 0.5)
-                        )
-                )
-        )
+        .background {
+            if isDashed {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(Color.bereanBackground)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .strokeBorder(Color.bereanDash, style: StrokeStyle(lineWidth: 1.2, dash: [5, 5]))
+                    )
+            } else {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .fill(AmenTheme.Colors.glassFill)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .strokeBorder(AmenTheme.Colors.glassStroke, lineWidth: 0.75)
+                    )
+                    .shadow(color: .black.opacity(0.05), radius: 12, x: 0, y: 3)
+            }
+        }
     }
 }
 
@@ -824,12 +876,16 @@ struct BereanInsightCard: View {
         .padding(.vertical, 12)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color.bereanCard)
-                .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 2)
+                .fill(.ultraThinMaterial)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .strokeBorder(Color.bereanCardStroke, lineWidth: 0.5)
+                        .fill(AmenTheme.Colors.glassFill)
                 )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .strokeBorder(AmenTheme.Colors.glassStroke, lineWidth: 0.75)
+                )
+                .shadow(color: .black.opacity(isPressed ? 0.03 : 0.05), radius: isPressed ? 6 : 12, x: 0, y: isPressed ? 1 : 3)
         )
         .scaleEffect(isPressed ? 0.97 : 1)
         .animation(.spring(response: 0.28, dampingFraction: 0.8), value: isPressed)

@@ -41,6 +41,7 @@ struct TopicFeedView: View {
         }
         .navigationTitle(displayName)
         .navigationBarTitleDisplayMode(.large)
+        .refreshable { await viewModel.loadInitial() }
         .task {
             if viewModel.posts.isEmpty {
                 await viewModel.loadInitial()
@@ -61,18 +62,19 @@ struct TopicFeedView: View {
                         } label: {
                             Text(filter.displayName)
                                 .font(AMENFont.semiBold(12))
-                                .foregroundColor(viewModel.activeFilter == filter ? .white : .black.opacity(0.6))
+                                .foregroundColor(viewModel.activeFilter == filter ? .white : Color(.label).opacity(0.6))
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 6)
                                 .background(
                                     Capsule()
-                                        .fill(viewModel.activeFilter == filter ? Color.black.opacity(0.8) : Color.white.opacity(0.82))
+                                        .fill(viewModel.activeFilter == filter ? Color(.label) : Color(.secondarySystemBackground).opacity(0.82))
                                 )
                                 .overlay(
                                     Capsule()
-                                        .strokeBorder(Color.black.opacity(0.07), lineWidth: 0.5)
+                                        .strokeBorder(Color(.separator).opacity(0.5), lineWidth: 0.5)
                                 )
                         }
+                        .accessibilityLabel("Filter: \(filter.displayName)")
                         .buttonStyle(.plain)
                     }
                 }
@@ -92,16 +94,18 @@ struct TopicFeedView: View {
             } label: {
                 Image(systemName: viewModel.activeSort.icon)
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.black.opacity(0.6))
+                    .foregroundColor(Color(.secondaryLabel))
                     .frame(width: 32, height: 32)
                     .background(
                         Circle()
-                            .fill(Color.white.opacity(0.82))
+                            .fill(Color(.secondarySystemBackground).opacity(0.82))
                     )
                     .overlay(
                         Circle()
-                            .strokeBorder(Color.black.opacity(0.07), lineWidth: 0.5)
+                            .strokeBorder(Color(.separator).opacity(0.5), lineWidth: 0.5)
                     )
+                    .accessibilityLabel("Sort: \(viewModel.activeSort.displayName)")
+                    .accessibilityHint("Double tap to change sort order")
             }
         }
     }

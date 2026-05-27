@@ -415,7 +415,7 @@ final class BereanPulseService {
 
     init(provider: BereanPulseProviding? = nil) {
         self.provider = provider ?? FirestoreBereanPulseProvider()
-        self.cacheDirectoryURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+        self.cacheDirectoryURL = (FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first ?? FileManager.default.temporaryDirectory)
             .appendingPathComponent("bereanPulse", isDirectory: true)
     }
 

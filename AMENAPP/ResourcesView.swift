@@ -2431,6 +2431,7 @@ struct LiquidGlassSegmentedControl: View {
             Text(category.rawValue)
                 .font(.custom(isSelected ? "OpenSans-Bold" : "OpenSans-Regular", size: 14))
                 .foregroundStyle(isSelected ? .white : Color(.label).opacity(0.65))
+                .lineLimit(1)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
                 .background(

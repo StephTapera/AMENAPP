@@ -89,7 +89,7 @@ private struct EngagementChip: View {
                 Text(action.label)
                     .font(.systemScaled(13, weight: .medium))
             }
-            .foregroundStyle(Color.black.opacity(0.75))
+            .foregroundStyle(Color.primary.opacity(0.75))
             .padding(.horizontal, 13)
             .padding(.vertical, 8)
             .background {
@@ -106,6 +106,8 @@ private struct EngagementChip: View {
                     .shadow(color: Color.black.opacity(0.06), radius: 12, x: 0, y: 2)
             }
         }
+        .accessibilityLabel(action.label)
+        .accessibilityHint("Double tap to \(action.label.lowercased()) this post")
         .buttonStyle(.plain)
         .scaleEffect(isPressed ? 0.95 : 1.0)
         .animation(.spring(response: 0.2, dampingFraction: 0.7), value: isPressed)
@@ -128,12 +130,12 @@ struct PostSmartSignalStrip: View {
                     ForEach(visibleSignals, id: \.self) { signal in
                         Text(signal)
                             .font(.systemScaled(12, weight: .regular))
-                            .foregroundStyle(Color.black.opacity(0.5))
+                            .foregroundStyle(Color.primary.opacity(0.5))
                             .padding(.horizontal, 10)
                             .padding(.vertical, 5)
                             .background(
                                 Capsule()
-                                    .fill(Color.black.opacity(0.04))
+                                    .fill(Color.primary.opacity(0.04))
                             )
                     }
                 }
@@ -173,11 +175,28 @@ struct PostEngagementBar: View {
             HStack(spacing: 8) {
                 ForEach(primaryActions, id: \.rawValue) { action in
                     EngagementChip(action: action) {
+                        recordResonance(for: action)
                         onAction(action)
                     }
                 }
             }
             .padding(.horizontal, 2)
+        }
+    }
+
+    private func recordResonance(for action: EngagementAction) {
+        let store = AmenPrivateResonanceStore.shared
+        switch action {
+        case .illuminate:
+            store.recordHeart(contentId: postId)
+        case .save:
+            store.recordSave(contentId: postId)
+        case .reflect:
+            store.recordReflect(contentId: postId)
+        case .encouragePrivately:
+            store.recordPray(contentId: postId)
+        default:
+            break
         }
     }
 }
@@ -221,7 +240,7 @@ struct PostEngagementView: View {
                     accountType: "personal",
                     signals: SmartEngagementSignals.signalLabels(for: "reflection"),
                     onAction: { action in
-                        print("Tapped: \(action.label)")
+                        dlog("Tapped: \(action.label)")
                     }
                 )
             }
@@ -246,7 +265,7 @@ struct PostEngagementView: View {
                     accountType: "minister",
                     signals: SmartEngagementSignals.signalLabels(for: "sermonClip"),
                     onAction: { action in
-                        print("Tapped: \(action.label)")
+                        dlog("Tapped: \(action.label)")
                     }
                 )
             }
@@ -271,7 +290,7 @@ struct PostEngagementView: View {
                     accountType: "church",
                     signals: SmartEngagementSignals.signalLabels(for: "announcement"),
                     onAction: { action in
-                        print("Tapped: \(action.label)")
+                        dlog("Tapped: \(action.label)")
                     }
                 )
             }

@@ -49,7 +49,7 @@ final class CrisisHistoryService: ObservableObject {
     private var sessionStart: Date?
 
     private init() {
-        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first ?? FileManager.default.temporaryDirectory
         fileURL = docs.appendingPathComponent(".crisis_history.enc")
 
         // Derive a key from a stable device-specific seed stored in UserDefaults
@@ -147,7 +147,7 @@ struct CrisisHistorySheet: View {
     @State private var showShareSheet = false
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             List {
                 if service.visits.isEmpty {
                     Section {
