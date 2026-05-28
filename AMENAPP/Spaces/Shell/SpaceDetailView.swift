@@ -19,7 +19,7 @@ struct SpaceDetailView: View {
 
     // MARK: State
 
-    @State private var members: [SpaceMember] = []
+    @State private var members: [SpaceCommunityMember] = []
     @State private var isLoadingMembers: Bool = false
     @State private var showMemberRoster: Bool = false
     @State private var isLocked: Bool = false
@@ -34,10 +34,16 @@ struct SpaceDetailView: View {
     // Agent E's purchase sheet — LockedPreviewShell sets this to true via onUnlock.
     @State private var showPurchaseSheet: Bool = false
 
+    // Agent F: cross-community link state
+    // LinkInviteSheet — shown from the "Link another community" toolbar action (admin/owner only).
+    @State private var showLinkInviteSheet: Bool = false
+    // CrossCommunityViewModel drives the real-time sharedWith stream + revoked banner.
+    @StateObject private var crossCommunityVM = CrossCommunityViewModel()
+
     // MARK: Body
 
     var body: some View {
-        ZStack {
+        ZStack(alignment: .top) {
             mainScrollContent
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar { toolbarContent }
@@ -49,10 +55,27 @@ struct SpaceDetailView: View {
                 }
                 .transition(.opacity)
             }
+
+            // Agent F: LinkRevokedBanner — shown when external members' link is revoked mid-session.
+            // Driven by CrossCommunityViewModel.showRevokedBanner.
+            // Non-blocking, auto-dismisses after 5 seconds.
+            VStack {
+                LinkRevokedBanner(isVisible: $crossCommunityVM.showRevokedBanner)
+                    .padding(.top, 8)
+                Spacer()
+            }
+            .allowsHitTesting(crossCommunityVM.showRevokedBanner)
         }
         .task {
             await checkEntitlement()
             await loadMembers()
+            // Agent F: start real-time sharedWith stream.
+            if let spaceId = space.id {
+                crossCommunityVM.startListening(spaceId: spaceId)
+            }
+        }
+        .onDisappear {
+            crossCommunityVM.stopListening()
         }
         .sheet(isPresented: $showMemberRoster) {
             MemberRosterSheet(
@@ -75,6 +98,17 @@ struct SpaceDetailView: View {
             }
         }
         .animation(Motion.liquidSpring, value: isLocked)
+        // Agent F: LinkInviteSheet — presented from the "Link a community" toolbar button.
+        .sheet(isPresented: $showLinkInviteSheet) {
+            if let spaceId = space.id {
+                LinkInviteSheet(
+                    spaceId: spaceId,
+                    spaceTitle: space.title,
+                    communityId: communityId,
+                    isPresented: $showLinkInviteSheet
+                )
+            }
+        }
     }
 
     // MARK: - Main scroll content
@@ -109,24 +143,13 @@ struct SpaceDetailView: View {
                         .foregroundStyle(AmenTheme.Colors.textSecondary)
                         .lineLimit(3)
 
-                    // Topic chip
-                    HStack(spacing: 6) {
-                        Image(systemName: typeSystemImage)
-                            .font(.caption.weight(.semibold))
-                        Text(space.type.displayName)
-                            .font(.caption.weight(.semibold))
-                    }
-                    .foregroundStyle(AmenTheme.Colors.amenPurple)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background {
-                        Capsule(style: .continuous)
-                            .fill(AmenTheme.Colors.amenPurple.opacity(0.10))
-                            .overlay {
-                                Capsule(style: .continuous)
-                                    .stroke(AmenTheme.Colors.amenPurple.opacity(0.28), lineWidth: 0.5)
-                            }
-                    }
+                    SpaceFaithMetadataRow(
+                        spaceType: space.type,
+                        memberCount: members.count,
+                        bibleVersion: space.type == .bibleStudy ? "KJV" : nil,
+                        liturgicalSeason: nil,
+                        churchBadge: nil
+                    )
                 }
             }
             .padding(.horizontal, 20)
@@ -325,6 +348,17 @@ struct SpaceDetailView: View {
             .accessibilityLabel("Manage Space")
             .accessibilityHint("Opens Space settings.")
         }
+        // Agent F: "Link another community" — admin/owner entry point for cross-community linking.
+        ToolbarItem(placement: .navigationBarTrailing) {
+            Button {
+                showLinkInviteSheet = true
+            } label: {
+                Image(systemName: "link.badge.plus")
+                    .foregroundStyle(AmenTheme.Colors.amenPurple)
+            }
+            .accessibilityLabel("Link another community")
+            .accessibilityHint("Opens the cross-community link management sheet.")
+        }
     }
 
     // MARK: - Helpers
@@ -373,16 +407,16 @@ struct SpaceDetailView: View {
                 .document(spaceId)
                 .collection("members")
                 .getDocuments()
-            members = snapshot.documents.compactMap { doc -> SpaceMember? in
+            members = snapshot.documents.compactMap { doc -> SpaceCommunityMember? in
                 let data = doc.data()
                 guard
                     let roleStr   = data["role"] as? String,
                     let accessStr = data["access"] as? String,
-                    let access    = SpaceMemberAccess(rawValue: accessStr)
+                    let access    = SpaceCommunityMemberAccess(rawValue: accessStr)
                 else { return nil }
                 let homeCommunityId = data["homeCommunityId"] as? String
                 let joinedAt        = (data["joinedAt"] as? Timestamp)?.dateValue()
-                return SpaceMember(
+                return SpaceCommunityMember(
                     userId: doc.documentID,
                     role: roleStr,
                     homeCommunityId: homeCommunityId,

@@ -1,22 +1,16 @@
 // SpaceEntitlementViewModel.swift
 // AMENAPP — Spaces Monetization (Agent E)
 //
-// View model that drives the paywall / locked-preview state machine.
+// View model driving the paywall / locked-preview state machine.
 // Consumes SpacesEntitlementService and surfaces EntitlementState to views.
 //
 // State machine:
-//   .unknown   → initial
-//   .checking  → async check in flight
-//   .active    → entitlement status = active
-//   .grace     → entitlement status = grace (payment processing / subscription lapsing)
-//   .expired   → entitlement status = expired
+//   .unknown     → initial
+//   .checking    → async check in flight
+//   .active      → entitlement status = active
+//   .grace       → entitlement status = grace (payment processing / subscription lapsing)
+//   .expired     → entitlement status = expired
 //   .notRequired → space.accessPolicy == .free
-//
-// Usage:
-//   let vm = SpaceEntitlementViewModel()
-//   vm.check(space: space)        // on view appear
-//   vm.purchase(space: space)     // on [Unlock Space] tap
-//   vm.restore(space: space)      // on [Restore Purchase] tap
 
 import Foundation
 import FirebaseAuth
@@ -48,6 +42,7 @@ final class SpaceEntitlementViewModel: ObservableObject {
     // MARK: Private
 
     private let service: SpacesEntitlementService
+    private var observerTask: Task<Void, Never>? = nil
 
     init(service: SpacesEntitlementService = .shared) {
         self.service = service
@@ -60,7 +55,6 @@ final class SpaceEntitlementViewModel: ObservableObject {
     func check(space: AmenSpace) async {
         guard let spaceId = space.id, !spaceId.isEmpty else { return }
 
-        // Free spaces need no entitlement
         if !space.accessPolicy.isPaid {
             state = .notRequired
             return
@@ -73,41 +67,35 @@ final class SpaceEntitlementViewModel: ObservableObject {
             return
         }
 
-        // Start real-time listener — updates state whenever entitlement changes
+        // Start real-time listener — fires whenever entitlement document changes.
         service.startListening(userId: uid, spaceId: spaceId)
 
-        // Observe the service's published dictionary to drive local state
-        // (also do an immediate check so we don't wait for the first snapshot)
+        // Immediate snapshot check so we don't wait for the first Firestore event.
         do {
             let hasActive = try await service.hasActiveEntitlement(spaceId: spaceId)
             if hasActive {
-                // Snapshot check — listener will keep this up to date
-                let cachedStatus = service.entitlementsBySpace[spaceId]?.status
-                state = entitlementState(from: cachedStatus ?? .active)
+                let cached = service.entitlementsBySpace[spaceId]
+                state = entitlementState(from: cached?.status ?? .active)
             } else {
                 state = .expired
             }
         } catch {
-            // Treat auth/network errors as expired (paywall shows)
             state = .expired
         }
 
-        // Bind to service's real-time updates via task observation
-        observeServiceUpdates(spaceId: spaceId)
+        startObservingService(spaceId: spaceId)
     }
 
     // MARK: - Purchase
 
-    /// Starts the Stripe checkout flow for the space.
     func purchase(space: AmenSpace) async {
         guard !isPurchasing else { return }
         isPurchasing = true
         purchaseError = nil
         defer { isPurchasing = false }
-
         do {
             try await service.purchaseAccess(space: space)
-            // State will update via the real-time listener when the webhook fires.
+            // State update arrives via the real-time listener.
         } catch {
             purchaseError = error
         }
@@ -115,7 +103,6 @@ final class SpaceEntitlementViewModel: ObservableObject {
 
     // MARK: - Restore
 
-    /// Refreshes the entitlement from Firestore (for one-time purchases).
     func restore(space: AmenSpace) async {
         guard let spaceId = space.id, !spaceId.isEmpty else { return }
         state = .checking
@@ -131,12 +118,13 @@ final class SpaceEntitlementViewModel: ObservableObject {
 
     // MARK: - Cleanup
 
-    /// Cancel the listener when the view is torn down.
     func stopListening(spaceId: String) {
+        observerTask?.cancel()
+        observerTask = nil
         service.stopListening(spaceId: spaceId)
     }
 
-    // MARK: - Private Helpers
+    // MARK: - Helpers
 
     private func entitlementState(from status: SpaceEntitlement.EntitlementStatus?) -> EntitlementState {
         switch status {
@@ -147,21 +135,20 @@ final class SpaceEntitlementViewModel: ObservableObject {
         }
     }
 
-    /// Polls the service's entitlementsBySpace dictionary.
-    /// This is a lightweight Task loop — the actual work is driven by the Firestore listener
-    /// in SpacesEntitlementService; we just observe the @Published dictionary.
-    private func observeServiceUpdates(spaceId: String) {
-        Task { [weak self] in
+    /// Polls the service's @Published dictionary for changes driven by the Firestore listener.
+    private func startObservingService(spaceId: String) {
+        observerTask?.cancel()
+        observerTask = Task { [weak self] in
             guard let self else { return }
-            // Brief yield so the initial check completes first
-            try? await Task.sleep(nanoseconds: 300_000_000) // 0.3s
+            // Brief yield so the initial check result lands first.
+            try? await Task.sleep(nanoseconds: 300_000_000)
             while !Task.isCancelled {
                 let cached = service.entitlementsBySpace[spaceId]
                 let newState = entitlementState(from: cached?.status)
                 if newState != self.state {
                     self.state = newState
                 }
-                try? await Task.sleep(nanoseconds: 500_000_000) // 0.5s polling interval
+                try? await Task.sleep(nanoseconds: 500_000_000)
             }
         }
     }

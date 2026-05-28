@@ -32,6 +32,18 @@ class CloudFunctionsService: ObservableObject {
         return result.data
     }
 
+    // MARK: - Trust & Safety
+
+    @discardableResult
+    func submitTrustSafetyReport(contentType: String, contentId: String, reason: String) async throws -> String {
+        let result = try await call("submitTrustSafetyReport", data: [
+            "contentType": contentType,
+            "contentId": contentId,
+            "reason": reason
+        ])
+        return (result as? [String: Any])?["reportId"] as? String ?? ""
+    }
+
     // MARK: - Messaging Functions
     
     /// Create or get existing conversation
@@ -243,6 +255,58 @@ class CloudFunctionsService: ObservableObject {
     
     // MARK: - Helper Functions
     
+    // MARK: - Spiritual Systems
+
+    func updatePresenceState(selectedState: String, visibility: String) async throws {
+        let data: [String: Any] = ["selectedState": selectedState, "visibility": visibility]
+        _ = try await functions.httpsCallable("updatePresenceState").call(data)
+    }
+
+    func addSilentReaction(sourceId: String, sourceType: String, reactionType: String) async throws {
+        let data: [String: Any] = ["sourceId": sourceId, "sourceType": sourceType, "reactionType": reactionType]
+        _ = try await functions.httpsCallable("addSilentReaction").call(data)
+    }
+
+    func getSilentReactionSummary(sourceId: String, sourceType: String) async throws -> AmenSilentReactionSummary? {
+        let data: [String: Any] = ["sourceId": sourceId, "sourceType": sourceType]
+        let result = try await functions.httpsCallable("getSilentReactionSummary").call(data)
+        guard let d = result.data as? [String: Any],
+              let summaryText = d["summaryText"] as? String,
+              let rawTypes = d["reactionTypes"] as? [String] else { return nil }
+        let types = rawTypes.compactMap { AmenSilentReactionType(rawValue: $0) }
+        return AmenSilentReactionSummary(summaryText: summaryText, reactionTypes: types)
+    }
+
+    func getSpiritualPriorityInbox() async throws -> [AmenSpiritualPriorityItem] {
+        let result = try await functions.httpsCallable("getSpiritualPriorityInbox").call()
+        guard let items = (result.data as? [String: Any])?["items"] as? [[String: Any]] else { return [] }
+        return items.compactMap { d -> AmenSpiritualPriorityItem? in
+            guard let id = d["id"] as? String,
+                  let title = d["title"] as? String,
+                  let subtitle = d["subtitle"] as? String else { return nil }
+            return AmenSpiritualPriorityItem(
+                id: id, title: title, subtitle: subtitle,
+                reasonChips: d["reasonChips"] as? [String] ?? [],
+                priorityScore: d["priorityScore"] as? Double ?? 0
+            )
+        }
+    }
+
+    func summonThreads(query: String) async throws -> [AmenThreadSummoningResult] {
+        let result = try await functions.httpsCallable("summonThreads").call(["query": query])
+        guard let threads = (result.data as? [String: Any])?["threads"] as? [[String: Any]] else { return [] }
+        return threads.compactMap { d -> AmenThreadSummoningResult? in
+            guard let id = d["id"] as? String,
+                  let title = d["title"] as? String else { return nil }
+            return AmenThreadSummoningResult(
+                id: id, title: title,
+                subtitle: d["subtitle"] as? String ?? "",
+                reason: d["reason"] as? String ?? "",
+                sourceType: d["sourceType"] as? String ?? ""
+            )
+        }
+    }
+
     /// Test connection to Cloud Functions
     func testConnection() async throws -> Bool {
         do {

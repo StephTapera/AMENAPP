@@ -109,10 +109,16 @@ final class VideoExplainService: ObservableObject {
         inFlightTask?.cancel()
 
         state = .loading
-        analytics.log(.videoExplainTapped(postId: postId, mediaId: mediaId, surface: surface))
+        analytics.track(.custom(
+            name: "video_explain_tapped",
+            parameters: ["post_id": postId, "media_id": mediaId, "surface": surface]
+        ))
 
         let startTime = Date()
-        analytics.log(.aiGenerationStarted(feature: "video_explain", postId: postId))
+        analytics.track(.custom(
+            name: "ai_generation_started",
+            parameters: ["feature": "video_explain", "post_id": postId]
+        ))
 
         inFlightTask = Task {
             await performRequest(postId: postId, mediaId: mediaId, surface: surface, startedAt: startTime)
@@ -149,10 +155,13 @@ final class VideoExplainService: ObservableObject {
             guard !Task.isCancelled else { return }
 
             let durationMs = Int(Date().timeIntervalSince(startedAt) * 1000)
-            analytics.log(.aiGenerationCompleted(
-                feature: "video_explain",
-                postId: postId,
-                durationMs: durationMs
+            analytics.track(.custom(
+                name: "ai_generation_completed",
+                parameters: [
+                    "feature": "video_explain",
+                    "post_id": postId,
+                    "duration_ms": "\(durationMs)"
+                ]
             ))
 
             sessionCache[mediaId] = result
@@ -164,10 +173,13 @@ final class VideoExplainService: ObservableObject {
             let reason = functionsErrorReason(error)
             let userMessage = userFacingMessage(for: error)
 
-            analytics.log(.aiGenerationFailed(
-                feature: "video_explain",
-                postId: postId,
-                reason: reason
+            analytics.track(.custom(
+                name: "ai_generation_failed",
+                parameters: [
+                    "feature": "video_explain",
+                    "post_id": postId,
+                    "reason": reason
+                ]
             ))
 
             // Transcript-missing is a distinct state so the UI can show a different message.

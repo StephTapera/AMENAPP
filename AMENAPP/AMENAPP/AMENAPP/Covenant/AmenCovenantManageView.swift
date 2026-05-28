@@ -64,6 +64,7 @@ struct AmenCovenantManageView: View {
             .task { await manageVM.load(covenantId: covenantId) }
             .sheet(isPresented: $showComposer) {
                 AmenCovenantPostComposerView(covenantId: covenantId, preselectedType: nil)
+                    .environmentObject(vm)
             }
             .sheet(isPresented: $showEventsSheet) {
                 AmenCovenantEventsView(covenantId: covenantId)
@@ -364,39 +365,6 @@ private extension Color {
 }
 
 // MARK: - Stub Views
-
-/// Scaffolded post composer. Full implementation lives in a dedicated file.
-struct AmenCovenantPostComposerView: View {
-    let covenantId: String
-    let preselectedType: CovenantScheduledContent.TargetType?
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 20) {
-                Image(systemName: "square.and.pencil")
-                    .font(.system(size: 44))
-                    .foregroundStyle(.secondary)
-                Text("Post Composer")
-                    .font(.title3.bold())
-                Text("Compose and publish content to your community.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color(uiColor: .systemGroupedBackground))
-            .navigationTitle("New Post")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Cancel") { dismiss() }
-                }
-            }
-        }
-    }
-}
 
 /// Scaffolded stories composer. Full implementation lives in a dedicated file.
 struct AmenCovenantStoriesComposerView: View {

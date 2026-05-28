@@ -268,20 +268,16 @@ struct GivingInAppSheet: View {
                 .frame(height: 54)
             } else {
                 // Fallback card button (placeholder — wire to Stripe)
-                Button {
+                AmenLiquidGlassPillButton(
+                    title: "Donate with Card",
+                    systemImage: "creditcard.fill",
+                    isLoading: false,
+                    isDisabled: effectiveAmount <= 0
+                ) {
                     guard effectiveAmount > 0 else { return }
                     // TODO: Present Stripe payment sheet for non-Apple Pay users
                     withAnimation { showSuccess = true }
-                } label: {
-                    Label("Donate with Card", systemImage: "creditcard.fill")
-                        .font(.custom("OpenSans-SemiBold", size: 16))
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 54)
-                        .background(accent, in: RoundedRectangle(cornerRadius: 14))
                 }
-                .buttonStyle(PlainButtonStyle())
-                .disabled(effectiveAmount <= 0)
             }
         }
     }
@@ -327,15 +323,13 @@ struct GivingInAppSheet: View {
                 .italic()
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
-            Button { dismiss() } label: {
-                Text("Done")
-                    .font(.custom("OpenSans-SemiBold", size: 16))
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 52)
-                    .background(accent, in: RoundedRectangle(cornerRadius: 14))
-                    .padding(.horizontal, 32)
-            }
+            AmenLiquidGlassPillButton(
+                title: "Done",
+                systemImage: "checkmark",
+                isLoading: false,
+                isDisabled: false
+            ) { dismiss() }
+            .padding(.horizontal, 32)
             Spacer()
         }
     }

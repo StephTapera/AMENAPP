@@ -70,9 +70,9 @@ enum ChurchNotificationType: String {
 // MARK: - Smart Notification UI Components
 
 /// Notification preferences view
-struct NotificationPreferencesView: View {
+struct ChurchNotificationPreferencesView: View {
     @ObservedObject private var notificationManager = ChurchNotificationManager.shared
-    @State private var preferences = NotificationPreferences()
+    @State private var preferences = ChurchNotificationPreferences()
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
@@ -248,7 +248,7 @@ struct InAppNotification: Identifiable {
 
 // MARK: - Notification Preferences Model
 
-struct NotificationPreferences: Codable {
+struct ChurchNotificationPreferences: Codable {
     var notificationsEnabled: Bool = true
     
     // Time-based
@@ -634,17 +634,17 @@ extension ChurchNotificationManager {
         return 1 // Default to Sunday
     }
     
-    private func loadPreferences() -> NotificationPreferences {
+    private func loadPreferences() -> ChurchNotificationPreferences {
         guard let data = UserDefaults.standard.data(forKey: "notification_preferences"),
-              let preferences = try? JSONDecoder().decode(NotificationPreferences.self, from: data) else {
-            return NotificationPreferences()
+              let preferences = try? JSONDecoder().decode(ChurchNotificationPreferences.self, from: data) else {
+            return ChurchNotificationPreferences()
         }
         return preferences
     }
 }
 
 #Preview("Notification Settings") {
-    NotificationPreferencesView()
+    ChurchNotificationPreferencesView()
 }
 
 #Preview("Notification Banner") {

@@ -837,3 +837,17 @@ export {
   publishPostWithMedia,
   generateAltText,
 } from "./mediaCaptions";
+
+// ─── Community Notes ──────────────────────────────────────────────────────────
+// scriptureParser: parse + index Scripture refs from note text (server-side only)
+// communityNotesWriter: Gen2 Firestore trigger — Algolia + Pinecone sync on write/delete
+// engagement: counter triggers (likes, comments, amen, saves, follows) + hybrid search callable
+export { onCommunityNoteWritten } from "./communityNotes/communityNotesWriter";
+export {
+  onLikeCreated, onLikeDeleted,
+  onCommentCreated, onCommentDeleted,
+  onAmenCreated, onAmenDeleted,
+  onSaveCreated, onSaveDeleted,
+  onFollowCreated, onFollowDeleted,
+  searchCommunityNotes,
+} from "./communityNotes/engagement";

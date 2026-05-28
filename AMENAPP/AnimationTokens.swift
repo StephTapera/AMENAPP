@@ -18,6 +18,14 @@ extension Animation {
     static let amenSpringEntry = Animation
         .spring(response: 0.5, dampingFraction: 0.72)
 
+    /// General-purpose spring — alias for amenSpringStandard
+    static let amenSpring = Animation
+        .spring(response: 0.45, dampingFraction: 0.70)
+
+    /// Snappy spring for auto-advance carousels and fast transitions
+    static let amenSnappy = Animation
+        .spring(response: 0.30, dampingFraction: 0.78)
+
     /// Quick ease for state switches (active chip color, icon swap)
     static let amenEaseQuick = Animation
         .easeInOut(duration: 0.18)

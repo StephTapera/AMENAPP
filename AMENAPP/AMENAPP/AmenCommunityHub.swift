@@ -67,6 +67,7 @@ struct AmenCanonicalObject: Identifiable, Codable, Equatable, Hashable {
         case .spotify: return "spotify"
         case .youtube: return "youtube"
         case .generic: return nil
+        default: return nil
         }
     }
 }

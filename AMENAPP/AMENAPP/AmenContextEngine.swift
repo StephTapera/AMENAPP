@@ -177,19 +177,21 @@ enum AmenContextEngine {
                 return (.pray, ["song_worship"])
             }
             return (.listen, ["song_intent"])
-        case .video:
+        case .video, .reel, .short, .channel:
             if category == .sermon || category == .educational {
                 return (.watch, ["educational_video"])
             }
             return (.watch, ["video_intent"])
-        case .podcast:
+        case .podcast, .episode, .rssFeed:
             return (.listen, ["podcast_intent"])
-        case .article:
+        case .article, .scripture:
             return (.read, ["article_intent"])
-        case .genericLink:
+        case .sermon:
+            return (.watch, ["sermon_intent"])
+        case .event, .donation:
+            return (.read, ["event_intent"])
+        case .genericLink, .post, .profile:
             return (.read, ["generic_link"])
-        case .playlist:
-            return (.listen, ["playlist_intent"])
         }
     }
 

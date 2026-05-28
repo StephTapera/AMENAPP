@@ -33,6 +33,7 @@ import {
   BereanStructuredResponse,
   SensitivityFlag,
 } from "../models/berean";
+import {getBereanEntitlement} from "../services/BereanEntitlementService";
 
 const anthropicApiKey = defineSecret("ANTHROPIC_API_KEY");
 
@@ -59,6 +60,30 @@ export const bereanGenerateStructuredResponse = onCall(
       RATE_LIMITS.bereanPerMinute,
       RATE_LIMITS.bereanDailyBudget,
     ]);
+
+    // Free-tier daily cap: 3 Berean queries per day, enforced via Firestore transaction.
+    const entitlement = await getBereanEntitlement(userId);
+    if (entitlement.tier === "free") {
+      const today = new Date().toISOString().slice(0, 10);
+      const quotaRef = admin.firestore()
+        .collection("users").doc(userId)
+        .collection("aiQuota").doc(`berean_${today}`);
+      await admin.firestore().runTransaction(async (tx) => {
+        const snap = await tx.get(quotaRef);
+        const count = (snap.data()?.count as number) ?? 0;
+        if (count >= 3) {
+          throw new HttpsError(
+            "resource-exhausted",
+            "Daily Berean limit reached. Upgrade to AMEN+ for unlimited access."
+          );
+        }
+        tx.set(quotaRef, {
+          count: count + 1,
+          uid: userId,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        }, {merge: true});
+      });
+    }
 
     const body = request.data as GenerateStructuredResponseRequest;
     if (!body?.userMessage?.trim()) {

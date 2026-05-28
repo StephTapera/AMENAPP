@@ -112,7 +112,7 @@ struct SpiritualStreakView: View {
     }
 
     private var graceDaysMessage: String {
-        let totalGrace = service.streaks.values.map(\.gracePeriodUsed ? 0 : 1).reduce(0, +)
+        let totalGrace = service.streaks.values.map { $0.gracePeriodUsed ? 0 : 1 }.reduce(0, +)
         let noun = totalGrace == 1 ? "grace day" : "grace days"
         return "You have \(totalGrace) \(noun) available across your rhythms. Life happens — we understand."
     }
@@ -212,11 +212,6 @@ private struct StreakCard: View {
     }
 }
 
-// MARK: - AmenStreakLifeState helper
-
-private extension AmenStreakLifeState {
-    var isAlive: Bool { self == .alive }
-}
 
 // MARK: - Preview
 

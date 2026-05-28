@@ -834,7 +834,10 @@ struct BereanChatView: View {
     @State private var correctionTargetMessage: BereanChatMsg?
     @State private var showAttachmentPicker = false
     @State private var attachmentPickerMode: BereanAttachmentPickerMode = .file
-    @State private var showAttachmentsComingSoon = false
+    // CG-2 fix: showAttachmentsComingSoon removed — the attachment flow via
+    // handleQuickAction(.attachFile/.camera) already opens BereanAttachmentPickerSheet
+    // directly. The old flag was dead code (never set to true); the alert below
+    // was unreachable and only served to confuse the audit. Removed 2026-05-28.
     @State private var showVoiceDisabledAlert = false
 
     // Phase 5 / P0-2: real Berean voice input. Replaces the prior
@@ -848,6 +851,21 @@ struct BereanChatView: View {
 
     // MARK: - Intelligence layer
     @ObservedObject private var intelligence = BereanIntelligenceCoordinator.shared
+
+    // MARK: - Context memory (D-02)
+    @ObservedObject private var memoryService = BereanContextMemoryService.shared
+
+    /// Maps persisted BereanMemoryEntry records to the display model BereanMemoryChip expects.
+    private var memoryChipEntries: [BereanMemoryDisplayEntry] {
+        memoryService.memories.map { entry in
+            BereanMemoryDisplayEntry(
+                id: UUID(uuidString: entry.id) ?? UUID(),
+                title: entry.summary,
+                body: entry.detail,
+                savedAt: entry.createdAt
+            )
+        }
+    }
 
     init(initialMode: BereanPersonalityMode = .askBerean,
          initialQuery: String? = nil,
@@ -999,11 +1017,17 @@ struct BereanChatView: View {
                     .padding(.top, 4)
                     .padding(.bottom, 4)
                     // Liquid Glass v1: live action verb strip below capsule
-                    BereanThinkingStrip(action: currentThinkingAction)
+                    BereanThinkingStrip(action: $currentThinkingAction)
                     contentScrollView(metrics: metrics)
                 }
 
                 VStack(spacing: 0) {
+                    if let errMsg = vm.errorMessage {
+                        bereanErrorBanner(errMsg)
+                            .padding(.horizontal, metrics.contentHorizontalPadding)
+                            .padding(.bottom, 6)
+                            .transition(.opacity.combined(with: .move(edge: .bottom)))
+                    }
                     if let notice = vm.modelFallbackNotice {
                         modeFallbackBanner(notice)
                             .padding(.horizontal, metrics.contentHorizontalPadding)
@@ -1066,10 +1090,10 @@ struct BereanChatView: View {
 
                     HStack(spacing: 8) {
                         selectedComposerModeChip
-                        // Liquid Glass v1: memory chip — active when thinking, entries bound when service is wired
+                        // Liquid Glass v1: memory chip — active when thinking, entries wired from BereanContextMemoryService (D-02)
                         BereanMemoryChip(
                             isActive: vm.isThinking,
-                            entries: [],
+                            entries: memoryChipEntries,
                             onOpenSettings: { showSpiritualMemorySheet = true }
                         )
                     }
@@ -1137,16 +1161,16 @@ struct BereanChatView: View {
                     inputFocused = true
                 }
             }
-            .alert("Attachments unavailable", isPresented: $showAttachmentsComingSoon) {
-                Button("OK", role: .cancel) { }
-            } message: {
-                Text("Attachment upload is not enabled for this build. Describe what you want Berean to consider in the chat instead.")
-            }
-            .alert("Voice input is off", isPresented: $showVoiceDisabledAlert) {
-                Button("OK", role: .cancel) { }
-            } message: {
-                Text("Turn on Allow voice input in Berean AI settings before using the microphone.")
-            }
+            // CG-2 fix: "Attachments unavailable" alert removed — it was unreachable
+            // (showAttachmentsComingSoon was never set to true). The working path is the
+            // .sheet(isPresented: $showAttachmentPicker) above, already wired to
+            // BereanAttachmentPickerSheet via handleQuickAction. Removed 2026-05-28.
+            .amenAlert(isPresented: $showVoiceDisabledAlert, config: LiquidGlassAlertConfig(
+                title: "Voice input is off",
+                message: "Turn on Allow voice input in Berean AI settings before using the microphone.",
+                icon: "mic.slash",
+                primaryButton: LiquidGlassAlertButton("OK", tone: .dismiss, action: {})
+            ))
             // Phase 5 / P0-2: real voice input. User must review/edit and
             // explicitly tap Send — no auto-submit from the sheet itself.
             .sheet(isPresented: $showVoiceInputSheet) {
@@ -1179,11 +1203,12 @@ struct BereanChatView: View {
                     }
                 )
             }
-            .alert("Thank you", isPresented: $showReportedConfirmation) {
-                Button("OK", role: .cancel) { }
-            } message: {
-                Text("Your report was submitted. Our team will review it.")
-            }
+            .amenAlert(isPresented: $showReportedConfirmation, config: LiquidGlassAlertConfig(
+                title: "Thank you",
+                message: "Your report was submitted. Our team will review it.",
+                icon: "checkmark.shield",
+                primaryButton: LiquidGlassAlertButton("OK", tone: .spiritual, action: {})
+            ))
             .sheet(isPresented: $showSpiritualMemorySheet) {
                 NavigationStack {
                     SpiritualMemoryView()
@@ -1273,6 +1298,8 @@ struct BereanChatView: View {
             .task {
                 guard !hasPreparedInitialPrompt else { return }
                 hasPreparedInitialPrompt = true
+                // D-02: start memory listener so memoryChipEntries stays live
+                memoryService.startListening()
                 if !hasTrackedSessionStart {
                     hasTrackedSessionStart = true
                     AMENAnalyticsService.shared.track(.bereanSessionStarted)
@@ -1506,6 +1533,9 @@ struct BereanChatView: View {
             )
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Current mode: \(vm.currentMode.rawValue). Tap to expand thread details.")
+        .accessibilityHint("Shows thread context")
+        .accessibilityAddTraits(.isButton)
         .opacity(compressionProgress)
         .scaleEffect(0.9 + compressionProgress * 0.1, anchor: .center)
     }
@@ -2257,7 +2287,7 @@ struct BereanChatView: View {
                                 .shadow(color: .black.opacity(0.06), radius: 8, y: 3)
                         )
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(SelahGlassPressButtonStyle())
                 }
             }
             .padding(.horizontal, 18)
@@ -2353,7 +2383,7 @@ struct BereanChatView: View {
                 y: isSelected ? 3 : 2
             )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(SelahGlassPressButtonStyle())
         .scaleEffect(1.0 - heroCompressionProgress * 0.018)
         .opacity(Double(1.0 - heroCompressionProgress * 0.06))
     }
@@ -2478,7 +2508,7 @@ struct BereanChatView: View {
                     .shadow(color: .black.opacity(0.07), radius: 8, x: 0, y: 3)
             )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(SelahGlassPressButtonStyle())
         .scaleEffect(1.0 - heroCompressionProgress * 0.02)
         .opacity(Double(1.0 - heroCompressionProgress * 0.08))
     }
@@ -2674,7 +2704,7 @@ struct BereanChatView: View {
                     .overlay(Capsule().strokeBorder(Color.black.opacity(0.07), lineWidth: 0.5))
             )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(SelahGlassPressButtonStyle())
     }
 
     // MARK: - Intelligence follow-up chips
@@ -2705,7 +2735,7 @@ struct BereanChatView: View {
                                 .overlay(Capsule().strokeBorder(Color.accentColor.opacity(0.18), lineWidth: 0.5))
                         )
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(SelahGlassPressButtonStyle())
                 }
                 Button {
                     intelligence.followUpSuggestions = []
@@ -2716,7 +2746,7 @@ struct BereanChatView: View {
                         .padding(9)
                         .background(Circle().fill(.ultraThinMaterial))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(SelahGlassPressButtonStyle())
                 .accessibilityLabel("Dismiss suggestions")
                 .accessibilityHint("Double tap to hide follow-up suggestions")
             }
@@ -2873,6 +2903,50 @@ struct BereanChatView: View {
         )
     }
 
+    // MARK: - Session Error Banner
+
+    private func bereanErrorBanner(_ message: String) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "exclamationmark.circle")
+                .font(.systemScaled(13))
+                .foregroundColor(.red)
+            Text(message)
+                .font(AMENFont.regular(12))
+                .foregroundColor(BereanColor.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+            Button {
+                withAnimation(Motion.liquidSpring) {
+                    vm.errorMessage = nil
+                }
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(BereanColor.textSecondary)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Dismiss error")
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(Color.red.opacity(0.06))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .strokeBorder(Color.red.opacity(0.22), lineWidth: 0.5)
+                )
+        )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Error: \(message)")
+    }
+
     // MARK: - Mode Fallback Banner
 
     private func modeFallbackBanner(_ message: String) -> some View {
@@ -2893,7 +2967,7 @@ struct BereanChatView: View {
                 Image(systemName: "xmark")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(BereanColor.textSecondary)
-                    .frame(width: 28, height: 28)
+                    .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -3077,9 +3151,7 @@ struct BereanChatView: View {
                 HStack(alignment: .top, spacing: 10) {
                     bereanAvatar
 
-                    Text(message.content)
-                        .font(.system(size: 16, weight: .regular))
-                        .foregroundColor(BereanColor.textPrimary)
+                    BereanMarkdownText(message.content, font: .system(size: 16, weight: .regular))
                         .padding(.horizontal, 14)
                         .padding(.vertical, 11)
                         .background(
@@ -3207,7 +3279,7 @@ struct BereanChatView: View {
                                     .shadow(color: .black.opacity(0.04), radius: 6, y: 2)
                             )
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(SelahGlassPressButtonStyle())
                     }
                 }
             }
@@ -3228,9 +3300,7 @@ struct BereanChatView: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 6) {
-                    ProgressView()
-                        .scaleEffect(0.7)
-                        .frame(width: 16, height: 16)
+                    AMENLoader(particleCount: 16, size: 40, tint: AmenTheme.Colors.amenGold)
 
                     Text(vm.messages.last?.processingState ?? "Reading passage...")
                         .font(.system(size: 14, weight: .medium))
@@ -3536,6 +3606,41 @@ struct BereanChatBubble: View {
 
 struct BereanLiquidTypingIndicator: View {
     var body: some View { BereanThinkingIndicator() }
+}
+
+// MARK: - Markdown rendering helper
+
+/// Renders a markdown string using SwiftUI's native AttributedString engine (iOS 15+).
+/// Falls back to plain Text if the markdown parse fails.
+/// Use for AI (assistant) message content only — user messages are plain text.
+struct BereanMarkdownText: View {
+    private let content: String
+    private let font: Font
+
+    init(_ content: String, font: Font = BereanType.body()) {
+        self.content = content
+        self.font = font
+    }
+
+    var body: some View {
+        markdownText(content)
+            .font(font)
+            .foregroundColor(BereanColor.textPrimary)
+    }
+
+    private func markdownText(_ string: String) -> Text {
+        if let attributed = try? AttributedString(
+            markdown: string,
+            options: .init(
+                allowsExtendedAttributes: true,
+                interpretedSyntax: .inlineOnlyPreservingWhitespace,
+                failurePolicy: .returnPartiallyParsedIfPossible
+            )
+        ) {
+            return Text(attributed)
+        }
+        return Text(string)
+    }
 }
 
 // MARK: - Preview

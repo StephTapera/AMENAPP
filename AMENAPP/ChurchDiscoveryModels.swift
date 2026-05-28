@@ -72,16 +72,17 @@ struct ChurchDiscoveryResult: Codable, Identifiable, Equatable {
 
     var asChurch: Church? {
         guard let latitude, let longitude else { return nil }
+        let dist: String = distanceMiles.map { String(format: "%.1f mi", $0) } ?? "Distance unavailable"
+        let coord = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
         return Church(
-            canonicalChurchId: churchId ?? googlePlaceId ?? id,
             name: name,
             denomination: denomination ?? "Christian Church",
             address: address,
-            distance: distanceMiles.map { String(format: "%.1f mi", $0) } ?? "Distance unavailable",
+            distance: dist,
             distanceValue: distanceMiles ?? 0,
             serviceTime: "Service times not verified yet",
             phone: phone ?? "No phone available",
-            coordinate: CLLocationCoordinate2D(latitude: latitude, longitude: longitude),
+            coordinate: coord,
             website: website
         )
     }

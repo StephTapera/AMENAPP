@@ -54,6 +54,7 @@ struct BereanPulseView: View {
                 BereanPulseSmartComposerDock(
                     prompt: topCard == nil ? String(localized: "Ask Berean") : String(localized: "Continue with Berean"),
                     canAskBerean: topCard != nil,
+                    disabledReason: String(localized: "Tap a Berean Pulse card to enable questions"),
                     onAskBerean: askTopCard,
                     onCurate: {
                         softHaptic()
@@ -66,7 +67,8 @@ struct BereanPulseView: View {
                 )
                 .padding(.horizontal, 18)
                 .padding(.bottom, 18)
-                .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.82), value: collapseProgress)
+                // Pattern 2: canonical bouncy spring for Berean dock position change
+                .animation(reduceMotion ? .none : Motion.liquidSpring, value: collapseProgress)
             }
             .toolbar(.hidden, for: .navigationBar)
             .task { await viewModel.load() }
@@ -165,6 +167,8 @@ struct BereanPulseView: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
+        // Pattern 1: material solidifies as user scrolls down
+        .scrollMaterialReveal(scrollOffset: scrollOffset, revealRange: 48)
         .liquidGlassPanel(glassBehavior, cornerRadius: 28, elevated: false)
     }
 

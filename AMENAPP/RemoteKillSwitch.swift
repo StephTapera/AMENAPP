@@ -18,10 +18,16 @@ class RemoteKillSwitch: ObservableObject {
     @Published var feedEnabled = true
     @Published var bereanEnabled = true
     @Published var messagingEnabled = true
+    @Published var messagesSmartContextEnabled = false
     @Published var createPostEnabled = true
     @Published var searchEnabled = true
     @Published var notificationsEnabled = true
 
+    @Published var threadSmartRepliesEnabled = true
+    @Published var threadActionExtractionEnabled = true
+    @Published var threadMediaIntelligenceEnabled = false
+    @Published var groupDiscussionPulseEnabled = false
+    @Published var smartPresenceEnabled = true
     @Published var maintenanceMode = false
     @Published var maintenanceMessage = ""
     @Published var minimumAppVersion = "1.0"

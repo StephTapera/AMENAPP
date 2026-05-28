@@ -76,6 +76,9 @@ exports.RATE_LIMITS = {
     // Berean Spiritual Intelligence — same budget as AI proxy (used by berean/controllers)
     bereanPerMinute: { name: "berean_1min", windowMs: 60000, maxCalls: 20 },
     bereanDailyBudget: { name: "berean_1day", windowMs: 86400000, maxCalls: 200 },
+    // Church Discovery (smartChurchSearch / bereanChurchChat / searchChurchesByKeyword)
+    CHURCH_DISCOVERY_PER_MINUTE: { name: "church_discovery_1min", windowMs: 60000, maxCalls: 10 },
+    CHURCH_DISCOVERY_PER_DAY: { name: "church_discovery_1day", windowMs: 86400000, maxCalls: 100 },
 };
 /**
  * Check and increment a rate-limit counter for a user.

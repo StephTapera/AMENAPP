@@ -331,7 +331,12 @@ final class ClaudeService: ObservableObject {
         case .strategist:  prompt += "\n\nMode: Strategist. Focus on business, leverage, sequencing, risk, metrics."
         case .creator:     prompt += "\n\nMode: Creator. Be imaginative, clear, useful, compelling."
         case .coach:       prompt += "\n\nMode: Coach. Be concise, motivating, practical, action-oriented."
-        case .debater:     prompt += "\n\nMode: Debater. Steelman both sides, avoid hostility, use logic carefully."
+        case .debater:          prompt += "\n\nMode: Debater. Steelman both sides, avoid hostility, use logic carefully."
+        case .askBerean:        prompt += "\n\nMode: Ask Berean. Answer the user's question with wisdom, warmth, and clarity."
+        case .scriptureStudy:   prompt += "\n\nMode: Scripture Study. Ground your response in the biblical text with careful, cross-referenced interpretation."
+        case .prayerCompanion:  prompt += "\n\nMode: Prayer Companion. Be gentle, prayerful, and spiritually attentive."
+        case .deepStudy:        prompt += "\n\nMode: Deep Study. Provide rigorous theological depth with historical and exegetical context."
+        case .discernment:      prompt += "\n\nMode: Discernment. Help the user weigh competing options or convictions with scriptural grounding and measured wisdom."
         }
 
         if let suffix, !suffix.isEmpty {

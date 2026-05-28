@@ -38,7 +38,7 @@ struct BereanContextPanelView: View {
         }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
-        .presentationBackground(reduceTransparency ? Color(.systemBackground) : .regularMaterial)
+        .presentationBackground(reduceTransparency ? AnyShapeStyle(Color(.systemBackground)) : AnyShapeStyle(.regularMaterial))
     }
 
     // MARK: - Section Picker (Liquid Glass floating capsule strip)

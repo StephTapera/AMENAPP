@@ -236,20 +236,19 @@ extension MediaPostIndexDoc {
             // Fallback: single item from primary fields
             return [MediaGridItem(
                 id: "\(postId)_0",
-                postId: postId,
                 imageURL: primaryThumbnailURL,
-                indexInPost: 0,
-                mediaType: mediaType
+                allImageURLs: [primaryThumbnailURL],
+                indexInPost: 0
             )]
         }
         let sorted = mediaItems.sorted { $0.order < $1.order }
+        let allURLs = sorted.compactMap { $0.thumbnailURL ?? $0.url }
         return sorted.enumerated().map { index, item in
             MediaGridItem(
                 id: "\(postId)_\(index)",
-                postId: postId,
-                imageURL: item.thumbnailURL ?? item.url,
-                indexInPost: index,
-                mediaType: item.postMediaType
+                imageURL: item.thumbnailURL ?? item.url ?? "",
+                allImageURLs: allURLs,
+                indexInPost: index
             )
         }
     }
@@ -271,6 +270,7 @@ extension MediaPostIndexDoc {
             postContent: caption,
             postTimestamp: createdAt.timeAgoString(),
             postType: category,
+            authorId: authorId,
             authorName: nil,   // hydrated by caller from user doc cache
             authorProfileImageURL: nil,
             createdAt: createdAt,

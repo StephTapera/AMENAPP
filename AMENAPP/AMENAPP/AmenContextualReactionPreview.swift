@@ -48,7 +48,6 @@ struct AmenContextualReactionPreview: View {
                             isActive: false,
                             accessibilityLabel: "Like testimony post",
                             longPressAccessibilityLabel: "Touch and hold to open hidden reactions",
-                            accessibilityIdentifier: "contextual_preview_like_button",
                             contentText: "God brought me back slowly. This is my testimony.",
                             contentType: .testimonyPost,
                             action: {}

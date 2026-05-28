@@ -197,6 +197,56 @@ final class ModerationAuditLogService {
         )
     }
 
+    // MARK: - True Source Event Log
+
+    enum TrueSourceEventType: String, Codable, CaseIterable {
+        case userTunedFeed    = "user_tuned_feed"
+        case healthyModeOn    = "healthy_mode_on"
+        case healthyModeOff   = "healthy_mode_off"
+        case sessionCheckpoint = "session_checkpoint"
+    }
+
+    struct TrueSourceEventEntry: Codable {
+        let type: TrueSourceEventType
+        let actor: String
+        let action: String
+        let reasonCodes: [String]
+        let decision: String
+        let timestamp: Date
+    }
+
+    func recordTrueSourceEvent(
+        type: TrueSourceEventType,
+        actor: String,
+        action: String,
+        reasonCodes: [String],
+        decision: String
+    ) {
+        let entry = TrueSourceEventEntry(
+            type: type,
+            actor: actor,
+            action: action,
+            reasonCodes: reasonCodes,
+            decision: decision,
+            timestamp: Date()
+        )
+        guard let data = try? Firestore.Encoder().encode(entry) else { return }
+        let db = Firestore.firestore()
+        Task.detached(priority: .utility) {
+            _ = try? await db.collection("trueSourceAuditLogs").addDocument(data: data)
+        }
+    }
+
+    func logHealthyModeChanged(userId: String, enabled: Bool) {
+        recordTrueSourceEvent(
+            type: enabled ? .healthyModeOn : .healthyModeOff,
+            actor: userId,
+            action: "healthy_mode_toggled",
+            reasonCodes: [],
+            decision: enabled ? "enabled" : "disabled"
+        )
+    }
+
     // MARK: - Helpers
 
     private func gatewayDecisionComponents(_ decision: GatewayDecision)

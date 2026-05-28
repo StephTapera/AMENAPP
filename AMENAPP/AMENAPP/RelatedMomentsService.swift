@@ -13,14 +13,14 @@ final class RelatedMomentsService {
     ) -> [RelatedMoment] {
         var results: [RelatedMoment] = []
 
-        if let verseReference = item.frameCaptionMetadata?.verseReference ?? item.verseLinkedMoments?.first?.reference {
+        if let verseReference = item.frameCaptionMetadata?.verseReference {
             results.append(
                 RelatedMoment(
                     id: "verse-\(item.id)-\(verseReference)",
                     postId: "",
                     mediaId: item.id,
                     label: verseReference,
-                    kind: .verse,
+                    kind: .scripture,
                     verseReference: verseReference,
                     presentationMode: presentationMode,
                     timestamp: item.featuredFrameTime,

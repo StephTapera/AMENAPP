@@ -14,7 +14,7 @@ import Combine
 class PostInteractionsViewModel: ObservableObject {
     // MARK: - Services
     private let commentService = CommentService.shared
-    private let savedPostsService = SavedPostsService.shared
+    private let savedPostsService = RealtimeSavedPostsService.shared
     private let repostService = RepostService.shared
     
     // MARK: - Published Properties
@@ -177,23 +177,23 @@ class PostInteractionsViewModel: ObservableObject {
     
     /// Save a post
     func savePost(_ postId: String, to collection: String? = nil) async {
+        guard !savedPostIds.contains(postId) else { return }
         isProcessing = true
         defer { isProcessing = false }
-        
         do {
-            try await savedPostsService.savePost(postId: postId, collection: collection)
+            _ = try await savedPostsService.toggleSavePost(postId: postId)
         } catch {
             handleError(error)
         }
     }
-    
+
     /// Unsave a post
     func unsavePost(_ postId: String) async {
+        guard savedPostIds.contains(postId) else { return }
         isProcessing = true
         defer { isProcessing = false }
-        
         do {
-            try await savedPostsService.unsavePost(postId: postId)
+            _ = try await savedPostsService.toggleSavePost(postId: postId)
         } catch {
             handleError(error)
         }
@@ -213,14 +213,10 @@ class PostInteractionsViewModel: ObservableObject {
         savedPostIds.contains(postId)
     }
     
-    /// Start listening to saved posts
-    func startListeningToSavedPosts() {
-        savedPostsService.startListening()
-    }
-    
-    /// Stop listening to saved posts
+    func startListeningToSavedPosts() {}
+
     func stopListeningToSavedPosts() {
-        savedPostsService.stopListening()
+        savedPostsService.removeSavedPostsListener()
     }
     
     // MARK: - Reposts

@@ -92,7 +92,7 @@ struct ChurchEnhancementData {
 /// Adds: brand color tint at 60% opacity + DNA theology bar at bottom edge.
 struct ChurchBannerOverlay: View {
     let churchId: String
-    @StateObject private var store = ChurchEnhancementStore.shared
+    @ObservedObject private var store = ChurchEnhancementStore.shared // PERF: singleton → @ObservedObject
 
     var body: some View {
         GeometryReader { geo in
@@ -122,7 +122,7 @@ struct ChurchBannerOverlay: View {
 struct ChurchLogoOverlay: View {
     let churchId: String
     let churchName: String
-    @StateObject private var store = ChurchEnhancementStore.shared
+    @ObservedObject private var store = ChurchEnhancementStore.shared // PERF: singleton → @ObservedObject
 
     private var initials: String {
         churchName
@@ -207,7 +207,7 @@ private struct ChurchDNABar: View {
 /// Small pill tag showing the church's AI-generated Sunday vibe phrase.
 struct SundayVibePill: View {
     let churchId: String
-    @StateObject private var store = ChurchEnhancementStore.shared
+    @ObservedObject private var store = ChurchEnhancementStore.shared // PERF: singleton → @ObservedObject
 
     var body: some View {
         if let vibe = store.data(for: churchId)?.sundayVibe, !vibe.isEmpty {
@@ -226,7 +226,7 @@ struct SundayVibePill: View {
 /// Single line of tertiary text shown only on boosted cards.
 struct SeasonRecommendationText: View {
     let churchId: String
-    @StateObject private var store = ChurchEnhancementStore.shared
+    @ObservedObject private var store = ChurchEnhancementStore.shared // PERF: singleton → @ObservedObject
     @AppStorage("spiritualSeason") private var spiritualSeason = ""
 
     var body: some View {
@@ -244,7 +244,7 @@ struct SeasonRecommendationText: View {
 /// 6pt animated circle on top-left of banner. Only visible Sundays 8:30am–2:00pm church local time.
 struct SundayPulseDot: View {
     let churchId: String
-    @StateObject private var store = ChurchEnhancementStore.shared
+    @ObservedObject private var store = ChurchEnhancementStore.shared // PERF: singleton → @ObservedObject
     @State private var pulsing = false
 
     private var isVisible: Bool {
@@ -284,7 +284,7 @@ struct SundayPulseDot: View {
 /// A single word ("rising", "steady", "quieter") appended to the info row.
 struct PrayerMomentumBadge: View {
     let churchId: String
-    @StateObject private var store = ChurchEnhancementStore.shared
+    @ObservedObject private var store = ChurchEnhancementStore.shared // PERF: singleton → @ObservedObject
     var onTap: () -> Void = {}
 
     var body: some View {
@@ -324,7 +324,7 @@ struct PrayerMomentumData {
 
 struct PrayerMomentumSheet: View {
     let churchId: String
-    @StateObject private var store = ChurchEnhancementStore.shared
+    @ObservedObject private var store = ChurchEnhancementStore.shared // PERF: singleton → @ObservedObject
 
     var body: some View {
         if let pm = store.data(for: churchId)?.prayerMomentum {

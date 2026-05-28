@@ -105,6 +105,7 @@ final class RelationshipService: ObservableObject {
         guard let uid = Auth.auth().currentUser?.uid else { throw RelationshipError.notAuthenticated }
         let snapshot = try await db.collection("groups")
             .whereField("memberUids", arrayContains: uid)
+            .limit(to: 100)
             .getDocuments()
         return snapshot.documents.compactMap { try? $0.data(as: AmenGroup.self) }
     }
@@ -117,6 +118,7 @@ final class RelationshipService: ObservableObject {
     func fetchMembers(of groupId: String) async throws -> [Membership] {
         let snapshot = try await db.collection("memberships")
             .whereField("groupId", isEqualTo: groupId)
+            .limit(to: 200)
             .getDocuments()
         return snapshot.documents.compactMap { try? $0.data(as: Membership.self) }
     }

@@ -40,7 +40,11 @@ final class SelahMediaService: ObservableObject {
     private init() {}
 
     deinit {
-        stopListening()
+        feedListener?.remove()
+        myMediaListener?.remove()
+        memoriesListener?.remove()
+        continuationsListener?.remove()
+        trustCirclesListener?.remove()
     }
 
     func startListening() {

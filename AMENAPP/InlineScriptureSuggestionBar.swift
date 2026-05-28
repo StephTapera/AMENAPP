@@ -31,7 +31,7 @@ struct InlineScriptureSuggestionBar: View {
                     .font(.systemScaled(10, weight: .medium))
                     .foregroundStyle(Color.secondary)
                 
-                Text(verse.reference)
+                Text(verse.reference.displayString)
                     .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(Color.primary)
             }

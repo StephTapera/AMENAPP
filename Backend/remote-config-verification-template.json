@@ -1,0 +1,53 @@
+{
+  "conditions": [
+    {
+      "name": "internal_beta",
+      "expression": "app.id == 'YOUR_APP_ID' && device.language in ['en']",
+      "tagColor": "BLUE"
+    },
+    {
+      "name": "kyc_provider_ready",
+      "expression": "app.id == 'YOUR_APP_ID'",
+      "tagColor": "ORANGE"
+    }
+  ],
+  "parameters": {
+    "verification_center_enabled": {
+      "defaultValue": { "value": "false" },
+      "conditionalValues": {
+        "internal_beta": { "value": "false" }
+      },
+      "description": "System 39: Master gate for the Verification Center tab. Enable for internal beta first."
+    },
+    "identity_verification_enabled": {
+      "defaultValue": { "value": "false" },
+      "conditionalValues": {
+        "kyc_provider_ready": { "value": "false" }
+      },
+      "description": "System 39: Identity (KYC) verification. MUST remain false until KYC provider is fully integrated and tested."
+    },
+    "organization_verification_enabled": {
+      "defaultValue": { "value": "false" },
+      "description": "System 39: Organization verification via domain email challenge."
+    },
+    "role_verification_enabled": {
+      "defaultValue": { "value": "false" },
+      "description": "System 39: Role verification (Pastor, Youth Leader, etc.) within organizations."
+    },
+    "creator_verification_enabled": {
+      "defaultValue": { "value": "false" },
+      "description": "System 39: Creator verification badge. Requires identity verification to be active first."
+    },
+    "public_trust_badges_enabled": {
+      "defaultValue": { "value": "false" },
+      "description": "System 39: Show trust badges on public profiles. Enable after at least one verification type is live."
+    },
+    "impersonation_reports_enabled": {
+      "defaultValue": { "value": "false" },
+      "description": "System 39: Allow users to file impersonation reports. Enable once moderation queue is staffed."
+    }
+  },
+  "version": {
+    "description": "System 39: Verification & Trust — initial deploy (all flags false)"
+  }
+}

@@ -889,10 +889,8 @@ class ChurchProfileViewModel: ObservableObject {
         guard let church = profileData?.church else { return }
         
         let coordinate = church.coordinate
-        let mapItem = MKMapItem(location: CLLocation(
-            latitude: coordinate.latitude,
-            longitude: coordinate.longitude
-        ), address: nil)
+        let placemark = MKPlacemark(coordinate: CLLocationCoordinate2D(latitude: coordinate.latitude, longitude: coordinate.longitude))
+        let mapItem = MKMapItem(placemark: placemark)
         mapItem.name = church.name
         mapItem.openInMaps(launchOptions: [MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDriving])
     }

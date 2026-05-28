@@ -90,7 +90,10 @@ struct BereanEnhancedResponseCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Message content
-            BereanMessageBubble(content: message.content, isUser: message.role == .user, isStreaming: message.isStreaming)
+            Text(message.content)
+                .font(AMENFont.regular(16))
+                .foregroundStyle(.primary)
+                .lineSpacing(3)
             
             // Action chips
             if showActions {

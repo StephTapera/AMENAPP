@@ -640,7 +640,7 @@ export const onChurchWrite = onDocumentWritten(
         const text = compositeChurchText(data);
         const textHash = createHash("sha256").update(text).digest("hex");
         const needsEmbedding = data.embeddingTextHash !== textHash || data.embeddingVersion !== EMBEDDING_VERSION;
-        const updates: FirebaseFirestore.UpdateData = {};
+        const updates: FirebaseFirestore.UpdateData<FirebaseFirestore.DocumentData> = {};
         if (needsEmbedding) {
             const embedding = await embedText(text);
             if (embedding) {
@@ -713,6 +713,186 @@ async function saveAlgoliaChurch(id: string, data: FirebaseFirestore.DocumentDat
     });
 }
 
+// ─── bereanChurchChat ────────────────────────────────────────────────────────
+// Callable used by the Berean Church Finder conversational UI.
+// Runs the full search pipeline then returns a conversational narrative so
+// the iOS client can emit status → results → message events from one response.
+
+async function buildBereanNarrative(
+    originalQuery: string,
+    results: Array<{ id: string; data: FirebaseFirestore.DocumentData }>,
+    radiusMiles: number,
+): Promise<string> {
+    const fallback = results.length === 0
+        ? "I searched within the radius but did not find grounded church matches. Try widening the radius or clarifying your priorities."
+        : `I found ${results.length} church${results.length === 1 ? "" : "es"} that match your priorities. Each one is grounded in verified profile data — no invented details.`;
+
+    const key = anthropicApiKey.value();
+    if (!key || !results.length) return fallback;
+
+    const payload = results.slice(0, 6).map((church) => ({
+        name: church.data.name ?? "",
+        denomination: church.data.denomination ?? "",
+        worshipStyles: church.data.worshipStyles ?? [],
+        ministries: church.data.ministries ?? [],
+        size: church.data.size ?? "",
+        city: church.data.city ?? "",
+    }));
+
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+            "content-type": "application/json",
+            "x-api-key": key,
+            "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+            model: CLAUDE_MODEL,
+            max_tokens: 400,
+            temperature: 0.2,
+            system: `You are a warm church-finder assistant. Given the user's search and a list of matching churches,
+write 2-3 sentences explaining what you found and what these churches have in common that fits the request.
+Only reference fields you were given. Never invent facts about real churches. Sound helpful and grounded.`,
+            messages: [{ role: "user", content: JSON.stringify({ query: originalQuery, radiusMiles, churches: payload }) }],
+        }),
+    });
+    if (!response.ok) return fallback;
+
+    const json = await response.json() as { content?: Array<{ type: string; text?: string }> };
+    const text = (json.content?.find((part) => part.type === "text")?.text ?? "").trim();
+    return text.length > 20 ? text.slice(0, 600) : fallback;
+}
+
+export const bereanChurchChat = onCall(
+    {
+        region: REGION,
+        enforceAppCheck: true,
+        timeoutSeconds: 60,
+        memory: "1GiB",
+        secrets: [anthropicApiKey, openaiApiKey, pineconeApiKey],
+    },
+    async (request) => {
+        const uid = requireAuth(request);
+        await enforceRateLimit(uid, [RATE_LIMITS.CHURCH_DISCOVERY_PER_MINUTE, RATE_LIMITS.CHURCH_DISCOVERY_PER_DAY]);
+        const input = readSearchRequest(request.data);
+        const parsed = await parseSmartChurchQuery(input.query, input.radiusMiles);
+        const embedding = await embedText(parsed.semanticIntent);
+        const pineconeMatches = embedding ? await queryPinecone(embedding, parsed) : [];
+        const initial = pineconeMatches.length
+            ? rankCandidates(pineconeMatches, parsed, input)
+            : await firestoreFallback(parsed, input);
+        const ranked = finishRanking(initial, parsed.radiusMiles);
+        const hydrated = await hydrateChurches(ranked.map((candidate) => candidate.churchId));
+        const churchById = new Map(hydrated.map((church) => [church.id, church]));
+        const reasons = await explainMatches(input.query, hydrated);
+        const results = ranked.flatMap((candidate) => {
+            const church = churchById.get(candidate.churchId);
+            if (!church) return [];
+            return [{
+                church: { id: church.id, ...church.data },
+                distanceMiles: Number(candidate.distanceMiles.toFixed(2)),
+                matchReason: String(reasons[church.id] ?? fallbackReason(church.data)).slice(0, 180),
+                score: Number(candidate.blendedScore.toFixed(4)),
+            }];
+        });
+        const message = await buildBereanNarrative(input.query, hydrated, parsed.radiusMiles);
+        return {
+            status: results.length > 0
+                ? `Found ${results.length} grounded church match${results.length === 1 ? "" : "es"} within ${parsed.radiusMiles} miles.`
+                : "No grounded matches found in that radius.",
+            results,
+            message,
+        };
+    }
+);
+
+// ─── getChurchVisitReadiness ─────────────────────────────────────────────────
+// Callable used by SmartChurchDetailView to populate the "What To Expect" card.
+// Grounds all advice in stored church fields — never invents facts.
+
+const VISIT_READINESS_FALLBACK = {
+    dress: "Come as you are.",
+    serviceLength: "Confirm service length with the church.",
+    parking: "Check the address before leaving.",
+    kidsCheckIn: "Kids check-in details are not verified yet.",
+    whatToBring: "Bring anything you normally need for church.",
+};
+
+async function generateVisitReadiness(
+    data: FirebaseFirestore.DocumentData,
+): Promise<typeof VISIT_READINESS_FALLBACK> {
+    const key = anthropicApiKey.value();
+    if (!key) return VISIT_READINESS_FALLBACK;
+
+    const churchContext = JSON.stringify({
+        name: data.name ?? "",
+        denomination: data.denomination ?? "",
+        worshipStyles: data.worshipStyles ?? [],
+        ministries: data.ministries ?? [],
+        size: data.size ?? "",
+        serviceTimes: data.serviceTimes ?? [],
+        description: data.description ?? "",
+        statementOfFaith: data.statementOfFaith ?? "",
+    });
+
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+            "content-type": "application/json",
+            "x-api-key": key,
+            "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+            model: CLAUDE_MODEL,
+            max_tokens: 500,
+            temperature: 0,
+            system: `Given stored church profile data, return ONLY minified JSON describing a first-time visitor experience.
+Use only what the profile tells you. If a field is unknown, give a warm general default (no invented specifics).
+Schema: {"dress":string,"serviceLength":string,"parking":string,"kidsCheckIn":string,"whatToBring":string}
+Each value under 100 characters. Do not use church-specific claims unless they appear in the provided data.`,
+            messages: [{ role: "user", content: churchContext }],
+        }),
+    });
+    if (!response.ok) return VISIT_READINESS_FALLBACK;
+
+    const json = await response.json() as { content?: Array<{ type: string; text?: string }> };
+    const text = json.content?.find((part) => part.type === "text")?.text ?? "{}";
+    try {
+        const parsed = JSON.parse(text) as Partial<typeof VISIT_READINESS_FALLBACK>;
+        return {
+            dress: (parsed.dress ?? "").slice(0, 120) || VISIT_READINESS_FALLBACK.dress,
+            serviceLength: (parsed.serviceLength ?? "").slice(0, 120) || VISIT_READINESS_FALLBACK.serviceLength,
+            parking: (parsed.parking ?? "").slice(0, 120) || VISIT_READINESS_FALLBACK.parking,
+            kidsCheckIn: (parsed.kidsCheckIn ?? "").slice(0, 120) || VISIT_READINESS_FALLBACK.kidsCheckIn,
+            whatToBring: (parsed.whatToBring ?? "").slice(0, 120) || VISIT_READINESS_FALLBACK.whatToBring,
+        };
+    } catch {
+        return VISIT_READINESS_FALLBACK;
+    }
+}
+
+export const getChurchVisitReadiness = onCall(
+    {
+        region: REGION,
+        enforceAppCheck: true,
+        timeoutSeconds: 30,
+        memory: "512MiB",
+        secrets: [anthropicApiKey],
+    },
+    async (request) => {
+        requireAuth(request);
+        const churchId = String(request.data?.churchId ?? "").trim().slice(0, 80);
+        if (!churchId) throw new HttpsError("invalid-argument", "churchId is required.");
+        const snapshot = await db.collection("churches").doc(churchId).get();
+        if (!snapshot.exists) {
+            return VISIT_READINESS_FALLBACK;
+        }
+        const data = snapshot.data() ?? {};
+        return generateVisitReadiness(data);
+    }
+);
+
+// ─── extractDoctrinalTags ────────────────────────────────────────────────────
 async function extractDoctrinalTags(statementOfFaith: string): Promise<string[]> {
     const key = anthropicApiKey.value();
     if (!key) return [];

@@ -66,8 +66,9 @@ enum AmenMessagingAnalyticsEvent: String, CaseIterable {
     case groupPulseGenerated        = "msg_group_pulse_generated"
 
     // Command Palette
-    case commandPaletteOpened       = "msg_command_palette_opened"
-    case commandPaletteAction       = "msg_command_palette_action"
+    case commandPaletteOpened          = "msg_command_palette_opened"
+    case commandPaletteAction          = "msg_command_palette_action"
+    case commandPaletteResultSelected  = "msg_command_palette_result_selected"
 
     // Media Intelligence
     case mediaContextOpened         = "msg_media_context_opened"

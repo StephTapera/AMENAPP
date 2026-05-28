@@ -71,11 +71,15 @@ extension View {
 
 // MARK: - Models
 
-struct BibleVerse: Identifiable, Equatable {
+struct AttachedVerse: Identifiable, Equatable {
     let id = UUID()
     let reference: String
     let text: String
     let translation: String
+
+    var asBibleVerse: BibleVerse {
+        BibleVerse(reference: reference, text: text, translation: translation)
+    }
 }
 
 enum BibleTranslation: String, CaseIterable {
@@ -199,7 +203,7 @@ enum LocalVerseLibrary {
 
     // MARK: - Smart fuzzy search
 
-    static func search(_ query: String, translation: BibleTranslation) -> [BibleVerse] {
+    static func search(_ query: String, translation: BibleTranslation) -> [AttachedVerse] {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !q.isEmpty else { return [] }
 
@@ -239,7 +243,7 @@ enum LocalVerseLibrary {
         return scored
             .sorted { $0.score > $1.score }
             .prefix(8)
-            .map { BibleVerse(reference: $0.entry.reference, text: $0.entry.text, translation: translation.rawValue) }
+            .map { AttachedVerse(reference: $0.entry.reference, text: $0.entry.text, translation: translation.rawValue) }
     }
 }
 
@@ -249,8 +253,8 @@ enum LocalVerseLibrary {
 class AttachVerseViewModel: ObservableObject {
     @Published var searchText = ""
     @Published var selectedTranslation: BibleTranslation = .NIV
-    @Published var results: [BibleVerse] = []
-    @Published var selectedVerse: BibleVerse? = nil
+    @Published var results: [AttachedVerse] = []
+    @Published var selectedVerse: AttachedVerse? = nil
     @Published var isLoading = false
     @Published var hasSearched = false
     @Published var usingLocalFallback = false  // shown subtly when API unavailable
@@ -281,7 +285,7 @@ class AttachVerseViewModel: ObservableObject {
             guard !Task.isCancelled else { return }
 
             let isRef = looksLikeReference(query)
-            var apiResults: [BibleVerse] = []
+            var apiResults: [AttachedVerse] = []
             var apiSucceeded = false
 
             // Try the real API first
@@ -292,7 +296,7 @@ class AttachVerseViewModel: ObservableObject {
                     let passage = try await YouVersionBibleService.shared.fetchVerse(
                         reference: query, version: version
                     )
-                    apiResults = [BibleVerse(
+                    apiResults = [AttachedVerse(
                         reference: passage.reference,
                         text: passage.text,
                         translation: selectedTranslation.rawValue
@@ -302,7 +306,7 @@ class AttachVerseViewModel: ObservableObject {
                     let passages = try await YouVersionBibleService.shared.searchVerses(
                         query: query, version: version, limit: 10
                     )
-                    apiResults = passages.map { BibleVerse(
+                    apiResults = passages.map { AttachedVerse(
                         reference: $0.reference,
                         text: $0.text,
                         translation: selectedTranslation.rawValue
@@ -345,7 +349,7 @@ class AttachVerseViewModel: ObservableObject {
 struct AttachVerseSheet: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var vm = AttachVerseViewModel()
-    var onAttach: (BibleVerse) -> Void
+    var onAttach: (AttachedVerse) -> Void
 
     @State private var cardScale: CGFloat = 0.92
     @State private var contentOpacity: Double = 0
@@ -703,7 +707,7 @@ struct AttachVerseSheet: View {
         .transition(.opacity.combined(with: .move(edge: .bottom)))
     }
 
-    private func verseCard(_ verse: BibleVerse, index: Int) -> some View {
+    private func verseCard(_ verse: AttachedVerse, index: Int) -> some View {
         let isSelected = vm.selectedVerse?.id == verse.id
         return Button {
             withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.72))) {
@@ -809,7 +813,7 @@ struct AttachVerseSheet: View {
 // MARK: - Attached Verse Badge (in composer)
 
 struct AttachedVerseBadge: View {
-    let verse: BibleVerse
+    let verse: AttachedVerse
     var onRemove: () -> Void
 
     @State private var appear = false

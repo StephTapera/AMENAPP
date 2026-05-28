@@ -71,7 +71,7 @@ struct DevotionalGeneratorView: View {
                 DevotionalHeroHeader()
 
                 // Spiritual Rhythm Card
-                SpiritualRhythmCard(snapshot: SpiritualRhythmService.shared.snapshot)
+                SpiritualRhythmCard(snapshot: DevotionalRhythmService.shared.snapshot)
 
                 // Topic input
                 DevotionalInputCard(viewModel: viewModel)

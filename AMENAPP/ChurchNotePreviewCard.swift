@@ -550,7 +550,7 @@ struct ChurchNoteDetailModal: View {
 
 // MARK: - Note Metadata Row
 
-private struct NoteMetadataRow: View {
+struct NoteMetadataRow: View {
     let label: String
     let value: String
 

@@ -338,7 +338,7 @@ struct SmartProfileBannerPicker: View {
 
             Text(helperText)
                 .font(AMENFont.regular(12))
-                .foregroundStyle(errorMessage == nil ? .secondary : .red)
+                .foregroundStyle(errorMessage == nil ? Color.secondary : Color.red)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .onChange(of: selectedItem) { _, newItem in

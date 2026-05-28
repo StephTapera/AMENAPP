@@ -91,7 +91,7 @@ class VerseSmartSearchEngine: ObservableObject {
             return [BibleVerse(reference: passage.reference, text: passage.text, translation: translation.rawValue)]
         } catch {
             // Fallback to local library
-            return LocalVerseLibrary.search(ref, translation: translation)
+            return LocalVerseLibrary.search(ref, translation: translation).map(\.asBibleVerse)
         }
     }
     
@@ -182,7 +182,7 @@ class VerseSmartSearchEngine: ObservableObject {
             return passages.map { BibleVerse(reference: $0.reference, text: $0.text, translation: translation.rawValue) }
         } catch {
             // Fallback to local library
-            return LocalVerseLibrary.search(query, translation: translation)
+            return LocalVerseLibrary.search(query, translation: translation).map(\.asBibleVerse)
         }
     }
     
@@ -193,7 +193,7 @@ class VerseSmartSearchEngine: ObservableObject {
         
         return verses.map { verse in
             var score = 0
-            let refLower = verse.reference.lowercased()
+            let refLower = verse.reference.displayString.lowercased()
             let textLower = verse.text.lowercased()
             
             // Base score by match type
@@ -268,7 +268,7 @@ class VerseSmartSearchEngine: ObservableObject {
         ]
         
         return popular.compactMap { ref in
-            let verses = LocalVerseLibrary.search(ref, translation: translation)
+            let verses = LocalVerseLibrary.search(ref, translation: translation).map(\.asBibleVerse)
             guard let verse = verses.first else { return nil }
             return SmartVerseResult(
                 verse: verse,
@@ -281,7 +281,7 @@ class VerseSmartSearchEngine: ObservableObject {
     
     func getTopicalSuggestions(topic: VerseTopic, translation: BibleTranslation) -> [SmartVerseResult] {
         let keywords = topic.keywords.first ?? topic.rawValue
-        let verses = LocalVerseLibrary.search(keywords, translation: translation)
+        let verses = LocalVerseLibrary.search(keywords, translation: translation).map(\.asBibleVerse)
         
         return verses.prefix(5).map { verse in
             SmartVerseResult(

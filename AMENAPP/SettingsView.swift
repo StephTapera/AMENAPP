@@ -38,7 +38,7 @@ struct SettingsView: View {
     @State private var navigateToAccountSettings = false
     @State private var groupsVisible = false     // drives stagger entrance
     @ObservedObject private var prefsService = AMENUserPreferencesService.shared
-    @StateObject private var searchEngine = SettingsSearchEngine.shared
+    @ObservedObject private var searchEngine = SettingsSearchEngine.shared // PERF: singleton → @ObservedObject
     @State private var settingsSearchText = ""
     @FocusState private var isSettingsSearchFocused: Bool
 
@@ -97,6 +97,8 @@ struct SettingsView: View {
                             SDNavRow(icon: "lock", label: "Privacy & Safety", subtitle: "Who can see your content", iconBg: .green) { PrivacySettingsView() }
                             SDDivider()
                             SDNavRow(icon: "shield", label: "Security", subtitle: "2FA, active sessions", iconBg: .yellow) { SecurityGroupView() }
+                            SDDivider()
+                            SDNavRow(icon: "person.2", label: "Family Safety", subtitle: "Parental controls, content filters", iconBg: .cyan) { DestinationFamilySafetySettingsView() }
                         }
                         .opacity(groupsVisible ? 1 : 0)
                         .offset(y: groupsVisible ? 0 : 18)
@@ -121,6 +123,10 @@ struct SettingsView: View {
                             SDNavRow(icon: "heart.text.square", label: "Wellbeing", subtitle: "Screen time, daily limits", iconBg: .teal) { WellbeingGroupView() }
                             SDDivider()
                             SDNavRow(icon: "character.bubble", label: "Language", subtitle: "Language & Translation", iconBg: .indigo) { TranslationSettingsView() }
+                            SDDivider()
+                            SDNavRow(icon: "paintpalette", label: "Appearance", subtitle: "Dark mode, display", iconBg: .pink) { DestinationAppearanceSettingsView() }
+                            SDDivider()
+                            SDNavRow(icon: "accessibility", label: "Accessibility", subtitle: "Motion, contrast, text size", iconBg: Color(red: 0.4, green: 0.4, blue: 0.45)) { AccessibilitySettingsView() }
                         }
                         .opacity(groupsVisible ? 1 : 0)
                         .offset(y: groupsVisible ? 0 : 18)
@@ -131,6 +137,8 @@ struct SettingsView: View {
                             SDNavRow(icon: "chart.line.uptrend.xyaxis", label: "Creator & Insights", subtitle: "Analytics, reach, growth", iconBg: Color(.darkGray)) { CreatorGroupView() }
                             SDDivider()
                             SDNavRow(icon: "square.and.arrow.down.on.square", label: "Import Content", subtitle: "Bring in from other platforms", iconBg: Color(.darkGray)) { ImportLauncherView() }
+                            SDDivider()
+                            SDNavRow(icon: "internaldrive", label: "Storage & Data", subtitle: "Cache, media quality", iconBg: Color(.darkGray)) { DestinationStorageDataSettingsView() }
                         }
                         .opacity(groupsVisible ? 1 : 0)
                         .offset(y: groupsVisible ? 0 : 18)
@@ -331,6 +339,10 @@ struct SettingsView: View {
         case .drafts:             DraftsSettingsView()
         case .scheduleReply:      MessagingSettingsView()
         case .editMessages:       MessagingSettingsView()
+        case .appearance:         DestinationAppearanceSettingsView()
+        case .accessibility:      AccessibilitySettingsView()
+        case .storageData:        DestinationStorageDataSettingsView()
+        case .familySafety:       DestinationFamilySafetySettingsView()
         }
     }
 
@@ -398,11 +410,11 @@ struct SettingsView: View {
         .padding(.vertical, 14)
         .background(
             RoundedRectangle(cornerRadius: SD.radius, style: .continuous)
-                .fill(SD.panel)
-                .overlay(
+                .fill(.thinMaterial)
+                .overlay {
                     RoundedRectangle(cornerRadius: SD.radius, style: .continuous)
-                        .stroke(SD.panelEdge, lineWidth: 1)
-                )
+                        .strokeBorder(Color.white.opacity(0.20), lineWidth: 0.6)
+                }
         )
     }
 
@@ -419,9 +431,9 @@ struct SettingsView: View {
         }()
         return ZStack {
             Circle()
-                .fill(SD.panel)
+                .fill(.thinMaterial)
                 .frame(width: 52, height: 52)
-                .overlay(Circle().stroke(SD.panelEdge, lineWidth: 1))
+                .overlay(Circle().strokeBorder(Color.white.opacity(0.20), lineWidth: 0.6))
             Text(initials)
                 .font(.systemScaled(18, weight: .semibold))
                 .foregroundStyle(SD.label)
@@ -452,11 +464,11 @@ struct SDGroup<Content: View>: View {
         }
         .background(
             RoundedRectangle(cornerRadius: SD.radius, style: .continuous)
-                .fill(SD.panel)
-                .overlay(
+                .fill(.thinMaterial)
+                .overlay {
                     RoundedRectangle(cornerRadius: SD.radius, style: .continuous)
-                        .stroke(SD.panelEdge, lineWidth: 1)
-                )
+                        .strokeBorder(Color.white.opacity(0.20), lineWidth: 0.6)
+                }
         )
         .clipShape(RoundedRectangle(cornerRadius: SD.radius, style: .continuous))
     }

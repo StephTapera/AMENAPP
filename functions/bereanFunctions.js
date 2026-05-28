@@ -673,6 +673,7 @@ exports.bereanChatProxy = onCall(
     {
       region: REGION,
       secrets: [ANTHROPIC_API_KEY],
+      minInstances: 1,
     },
     async (request) => {
       if (!request.auth) {

@@ -1486,17 +1486,6 @@ struct CommentsView: View {
     // Extracted to avoid Swift type-checker complexity limit on the deeply-nested VStack body
     // that held 12+ conditional child views — broken into commentAttachmentPreview + composerAnnotations.
     @ViewBuilder private var composerAnnotations: some View {
-        if let alignmentResult = commentService.composerAlignmentResult,
-           alignmentResult.status == .needsDiscernment || alignmentResult.status == .blocked {
-            LiquidGlassAlignmentBanner(
-                result: alignmentResult,
-                onViewContext: {},
-                onCorrectAI: nil,
-                onRewrite: { requestBereanRewrite() },
-                onContinue: nil,
-                onHold: alignmentResult.status == .humanReview ? {} : nil
-            )
-        }
         if !detectedComposerScriptureRefs.isEmpty {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
@@ -1529,13 +1518,13 @@ struct CommentsView: View {
             }
             .transition(.opacity.combined(with: .move(edge: .top)))
         }
-        if AMENFeatureFlags.shared.commentsSmartPromptsV1, safetyComposer.toneCheckSuggestion != nil {
+        if AMENFeatureFlags.shared.smartContextualPromptsEnabled, safetyComposer.toneCheckSuggestion != nil {
             AmenSmartPill(title: "Want help rephrasing this kindly?", systemImage: "sparkles", variant: .regular,
                           accessibilityHint: "Tap to get a Berean AI rewrite suggestion") { requestBereanRewrite() }
                 .transition(.opacity.combined(with: .move(edge: .top)))
         }
-        if AMENFeatureFlags.shared.commentsSmartPromptsV1, replyingTo == nil,
-           (post.category == .prayer || post.category == .anonCrisisPost), commentText.isEmpty {
+        if AMENFeatureFlags.shared.smartContextualPromptsEnabled, replyingTo == nil,
+           post.category == .prayer, commentText.isEmpty {
             AmenSmartPill(title: "Need help responding with care?", systemImage: "heart", variant: .regular,
                           accessibilityHint: "Tap to get compassionate response suggestions") {
                 Task {
@@ -1556,7 +1545,7 @@ struct CommentsView: View {
             }
             .transition(.opacity.combined(with: .move(edge: .top)))
         }
-        if AMENFeatureFlags.shared.commentsSmartPromptsV1, showIdleReplyPrompt,
+        if AMENFeatureFlags.shared.smartContextualPromptsEnabled, showIdleReplyPrompt,
            replyingTo != nil, commentText.isEmpty {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
@@ -1679,26 +1668,11 @@ struct CommentsView: View {
         toneGuidanceService?.analyzeText(newValue)
         handleMentionDetection(in: newValue)
         if !newValue.isEmpty { smartReplySuggestions = [] }
-        alignmentPreviewTask?.cancel()
-        alignmentPreviewTask = Task {
-            try? await Task.sleep(nanoseconds: 350_000_000)
-            guard !Task.isCancelled else { return }
-            await commentService.previewAlignment(text: newValue)
-        }
         spiritualComposeAnalysis = AmenSpiritualSystemsService.shared.analyzeComposer(text: newValue)
         safetyOSTriggers = AmenLocalTriggerEngine.shared.analyze(
             text: newValue,
             surface: replyingTo == nil ? .comment : .reply
         )
-        safetyOSCanonicalTask?.cancel()
-        safetyOSCanonicalTask = Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 450_000_000)
-            guard !Task.isCancelled, commentText == newValue else { return }
-            safetyOSTriggers = await AmenLocalTriggerEngine.shared.analyzeWithCanonicalServer(
-                text: newValue,
-                surface: replyingTo == nil ? .comment : .reply
-            )
-        }
         contextualComposerObserver.update(text: newValue)
         resolveCommentAttachmentIfNeeded(for: newValue)
         scriptureDetectionTask?.cancel()
@@ -1711,7 +1685,7 @@ struct CommentsView: View {
                 detectedComposerScriptureRefs = ScriptureVerificationService.shared.detectScriptures(in: newValue)
             }
         }
-        if AMENFeatureFlags.shared.commentsSmartPromptsV1 {
+        if AMENFeatureFlags.shared.smartContextualPromptsEnabled {
             smartPromptIdleTimer?.cancel()
             showIdleReplyPrompt = false
             if replyingTo != nil && newValue.isEmpty {
@@ -2224,7 +2198,6 @@ struct CommentsView: View {
         }
 
         let text = commentText
-        let momentAnchor = activeMomentAnchor
         let submittedSafetyOSTriggers = AmenLocalTriggerEngine.shared.analyze(
             text: text,
             surface: replyingTo == nil ? .comment : .reply
@@ -2432,9 +2405,7 @@ struct CommentsView: View {
                         postId: postId,
                         parentCommentId: parentCommentId,
                         content: text,
-                        post: self.post,  // ✅ Pass Post object to bypass Firestore lookup
-                        threadCategory: self.threadCategoryOverride,
-                        momentAnchor: momentAnchor
+                        post: self.post
                     )
                     newCommentId = newComment.id
                     
@@ -2454,12 +2425,10 @@ struct CommentsView: View {
                     let newComment = try await commentService.addComment(
                         postId: postId,
                         content: text,
-                        post: self.post,  // ✅ Pass the Post object to bypass Firestore lookup
-                        threadCategory: self.threadCategoryOverride,
-                        momentAnchor: momentAnchor
+                        post: self.post
                     )
                     newCommentId = newComment.id
-                    AMENAnalyticsService.shared.track(.commentSubmitted(postId: postId))
+                    AMENAnalyticsService.shared.track(.feedMeaningfulInteraction(type: "comment"))
                     // Record for slow mode cooldown tracking and start visual timer
                     let currentUID = FirebaseManager.shared.currentUser?.uid ?? ""
                     InteractionThrottleService.shared.recordCommentPosted(userId: currentUID, postId: postId)
@@ -2568,15 +2537,6 @@ struct CommentsView: View {
     }
 
     private func handleSafetyOSComposerAction(_ action: AmenDiscernmentAction, trigger: AmenTriggerResult) {
-        Task {
-            await PostInteractionsService.shared.recordSafetyOSAction(
-                postId: postId,
-                surface: replyingTo == nil ? .comment : .reply,
-                trigger: trigger,
-                action: action
-            )
-        }
-
         switch action {
         case .editWithGrace, .cancel:
             bypassSpiritualDiscernmentGate = false
@@ -2845,7 +2805,7 @@ struct CommentsView: View {
         // Only `.approved` and `.pending` states are visible. `.rejected`, `.removed`, `.hidden`,
         // `.escalated`, and `.flagged` are kept off the read path.
         let visibleComments = allComments.filter {
-            $0.moderationState.status == .approved || $0.moderationState.status == .pending
+            $0.approvalStatus == nil || $0.approvalStatus == "approved" || $0.approvalStatus == "pending"
         }
 
         // Build commentsWithReplies from service data
@@ -2860,7 +2820,7 @@ struct CommentsView: View {
             let rawReplies = commentService.commentReplies[commentId] ?? []
             let unblocked = blockedUsers.isEmpty ? rawReplies : rawReplies.filter { !blockedUsers.contains($0.authorId) }
             let replies = unblocked.filter {
-                $0.moderationState.status == .approved || $0.moderationState.status == .pending
+                $0.approvalStatus == nil || $0.approvalStatus == "approved" || $0.approvalStatus == "pending"
             }
 
             // Update reply count
@@ -3369,32 +3329,6 @@ private struct PostCommentRow: View {
         VStack(alignment: .leading, spacing: 6) {
             // Author and time
             authorHeaderRow
-
-            if let anchor = comment.momentAnchor {
-                Button {
-                    NotificationCenter.default.post(
-                        name: .amenMediaCommentAnchorSelected,
-                        object: nil,
-                        userInfo: ["anchor": anchor]
-                    )
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "scope")
-                            .font(.system(size: 10, weight: .semibold))
-                        Text(anchor.displayLabel)
-                            .lineLimit(1)
-                    }
-                    .font(.custom("OpenSans-SemiBold", size: 11))
-                    .foregroundStyle(.black.opacity(0.55))
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 5)
-                    .background(
-                        Capsule()
-                            .fill(Color.black.opacity(0.05))
-                    )
-                }
-                .buttonStyle(.plain)
-            }
 
             // Content with highlight-to-quote support
             contentBlock

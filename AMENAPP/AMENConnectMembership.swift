@@ -11,6 +11,23 @@ import StoreKit
 import FirebaseAuth
 import FirebaseFirestore
 
+// MARK: - Connect Tab
+
+enum AMENConnectTab: String, Codable, CaseIterable, Identifiable, Hashable {
+    case all        = "All"
+    case jobs       = "Jobs"
+    case network    = "Network"
+    case marketplace = "Marketplace"
+    case serve      = "Serve"
+    case events     = "Events"
+    case ministries = "Ministries"
+    case prayer     = "Prayer"
+    case mentorship = "Mentorship"
+    case forum      = "Forum"
+
+    var id: String { rawValue }
+}
+
 // MARK: - Membership Tier
 
 enum AMENConnectTier: String, Codable, CaseIterable {

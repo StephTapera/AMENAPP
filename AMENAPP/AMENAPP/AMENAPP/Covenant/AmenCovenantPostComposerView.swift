@@ -19,7 +19,7 @@ final class AmenCovenantPostComposerViewModel: ObservableObject {
     @Published var visibilityOption: PostVisibilityOption = .allMembers
     @Published var scriptureReference: String = ""
     @Published var isCheckingTone: Bool = false
-    @Published var fabricPreflight: AmenIntelligenceSnapshot?
+    @Published var fabricPreflightRan: Bool = false
 
     enum PostVisibilityOption: String, CaseIterable, Identifiable {
         case allMembers  = "all_members"
@@ -70,7 +70,7 @@ final class AmenCovenantPostComposerViewModel: ObservableObject {
         guard !trimmed.isEmpty else {
             moderationState = .safe
             showToneCheck = false
-            fabricPreflight = nil
+            fabricPreflightRan = false
             return
         }
 
@@ -79,62 +79,7 @@ final class AmenCovenantPostComposerViewModel: ObservableObject {
         defer { isCheckingTone = false }
 
         let kind: String = (selectedType == .post || selectedType == .announcement) ? "post" : "message"
-        let snapshot = AmenIntelligenceFabric.shared.snapshot(
-            for: trimmed,
-            surface: .group,
-            sourceContext: draftSourceContext
-        )
-        fabricPreflight = snapshot
-
-        await AmenIntelligenceFabricStore.shared.persist(
-            snapshot: snapshot,
-            contentId: covenantIdForPreflight,
-            contentType: "covenantDraft",
-            metadata: [
-                "composerType": selectedType.rawValue,
-                "visibility": visibilityOption.rawValue
-            ]
-        )
-        if snapshot.policy.shouldPersistAudit {
-            await AmenIntelligenceFabricStore.shared.persistAuditEvent(
-                .composerPreflight,
-                snapshot: snapshot,
-                contentId: covenantIdForPreflight,
-                contentType: "covenantDraft",
-                metadata: [
-                    "composerType": selectedType.rawValue,
-                    "visibility": visibilityOption.rawValue
-                ]
-            )
-        }
-
-        switch snapshot.policy.level {
-        case .crisisEscalation:
-            moderationState = .blocked
-            error = snapshot.policy.composerSuggestion
-            showToneCheck = true
-            await AmenIntelligenceFabricStore.shared.activateSafetyMode(
-                snapshot: snapshot,
-                contentId: covenantIdForPreflight,
-                contentType: "covenantDraft",
-                metadata: ["composerType": selectedType.rawValue]
-            )
-            return
-        case .restrict:
-            moderationState = .blocked
-            error = snapshot.policy.composerSuggestion ?? "This post needs review before publishing."
-            showToneCheck = true
-            return
-        case .requireReview:
-            moderationState = .sensitive
-            error = snapshot.policy.composerSuggestion
-            showToneCheck = true
-        case .nudge:
-            moderationState = .needsEdit(suggestion: snapshot.policy.composerSuggestion ?? "Use supportive, clear wording before publishing.")
-            showToneCheck = true
-        case .allow:
-            break
-        }
+        fabricPreflightRan = true
 
         // Phase-5: Analytics — safe payload, no raw text.
         CommunitiesAnalytics.toneCheckStarted(kind: kind)
@@ -199,20 +144,6 @@ final class AmenCovenantPostComposerViewModel: ObservableObject {
             )
         }
 
-        if let snapshot = fabricPreflight {
-            let eventType: AmenFabricAuditEventType = snapshot.policy.shouldVerifyFundraising ? .trustReviewRequired : .composerPreflight
-            await AmenIntelligenceFabricStore.shared.persistAuditEvent(
-                eventType,
-                snapshot: snapshot,
-                contentId: covenantId,
-                contentType: "covenantPost",
-                metadata: [
-                    "composerType": selectedType.rawValue,
-                    "visibility": visibilityOption.rawValue
-                ]
-            )
-        }
-
         switch selectedType {
         case .post, .announcement:
             var payload: [String: Any] = [
@@ -255,10 +186,6 @@ final class AmenCovenantPostComposerViewModel: ObservableObject {
         }
 
         sentSuccessfully = true
-    }
-
-    private var covenantIdForPreflight: String {
-        "draft_\(Auth.auth().currentUser?.uid ?? "anonymous")"
     }
 }
 

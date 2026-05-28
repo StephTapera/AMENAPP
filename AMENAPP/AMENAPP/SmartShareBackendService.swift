@@ -82,17 +82,14 @@ final class SmartShareBackendService {
 
             return SmartShareTarget(
                 id: id,
-                targetType: targetType,
-                displayName: displayName,
-                username: raw["username"] as? String,
-                photoURL: raw["photoURL"] as? String,
+                type: targetType,
+                title: displayName,
                 subtitle: raw["subtitle"] as? String ?? "",
-                badgeReason: raw["badgeReason"] as? String,
+                imageURL: (raw["photoURL"] as? String).flatMap(URL.init),
+                badge: raw["badgeReason"] as? String,
                 score: raw["score"] as? Double ?? 0,
                 reasons: raw["reasons"] as? [String] ?? [],
                 isOnline: raw["isOnline"] as? Bool ?? false,
-                isVerified: raw["isVerified"] as? Bool ?? false,
-                churchAffiliation: raw["churchAffiliation"] as? String,
                 conversation: nil,
                 user: nil
             )
@@ -202,7 +199,7 @@ final class SmartShareBackendService {
         ])
         let data = result.data as? [String: Any] ?? [:]
         return StoryCardResponse(
-            deepLink: (data["deepLink"] as? String).flatMap(URL.init(string:)) ?? URL(string: "amen://\(entity.route.path)")!,
+            deepLink: (data["deepLink"] as? String).flatMap(URL.init(string:)) ?? URL(string: "amen://\(entity.route.path)") ?? URL(string: "amen://home")!,
             caption: data["caption"] as? String ?? entity.title
         )
     }

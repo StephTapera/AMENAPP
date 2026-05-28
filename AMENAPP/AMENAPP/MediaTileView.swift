@@ -13,6 +13,7 @@ import SwiftUI
 struct MediaTileView: View {
     let item: EnrichedMediaGridItem
     let onTap: () -> Void
+    var onLongPress: (() -> Void)? = nil
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isPressed = false
@@ -31,8 +32,13 @@ struct MediaTileView: View {
                 )
         }
         .buttonStyle(MediaTileButtonStyle(isPressed: $isPressed))
+        .simultaneousGesture(
+            LongPressGesture(minimumDuration: 0.5)
+                .onEnded { _ in onLongPress?() }
+        )
         .accessibilityLabel(accessibilityDescription)
         .accessibilityAddTraits(.isButton)
+        .accessibilityAction(named: "More options") { onLongPress?() }
     }
 
     // MARK: - Thumbnail

@@ -19,6 +19,6 @@ struct CreatorProjectDetailView: View {
             .padding(.horizontal, 20)
             .padding(.top, 16)
         }
-        .background(Color.white)
+        .background(Color(.systemBackground))
     }
 }

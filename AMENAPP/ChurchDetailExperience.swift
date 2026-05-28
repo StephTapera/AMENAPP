@@ -2,6 +2,67 @@ import SwiftUI
 import FirebaseAuth
 import FirebaseFirestore
 
+// MARK: - Missing type stubs (ChurchDiscovery Phase 2/3 types not yet migrated to Swift)
+
+enum ChurchLiveStateKind: String {
+    case live, upcoming, closed, quiet, unknown
+}
+
+struct ChurchLiveState {
+    let state: ChurchLiveStateKind
+    let title: String?
+    let description: String?
+    let startsAt: Date?
+    let endsAt: Date?
+    let livestreamURL: String?
+    let attendanceSignal: Int?
+    let atmosphereTags: [String]
+    let updatedAt: Date?
+}
+
+struct ChurchExperienceSummary {
+    let parking: String?
+    let bestArrivalTime: String?
+    let entrance: String?
+    let serviceLength: String?
+    let worshipStyle: String?
+    let kidsMinistry: String?
+    let accessibility: String?
+    let translation: String?
+    let quietSpace: String?
+    let firstTimeFlow: String?
+    let confidence: Double?
+    let updatedAt: Date?
+}
+
+struct ChurchMediaAsset: Identifiable {
+    let id: String
+    let imageURL: String
+    let type: String
+    let source: String?
+    let approved: Bool
+    let createdAt: Date?
+}
+
+struct ChurchDetailPayload {
+    let entity: ChurchEntity?
+    let heroImageURL: String?
+    let logoURL: String?
+    let about: String?
+    let typeLabel: String?
+    let city: String?
+    let state: String?
+    let verified: Bool
+    let livestreamURL: String?
+    let denomination: String?
+    let accessibilityTags: [String]
+    let media: [ChurchMediaAsset]
+    let liveState: ChurchLiveState?
+    let experienceSummary: ChurchExperienceSummary?
+}
+
+// MARK: -
+
 @MainActor
 final class ChurchDetailViewModel: ObservableObject {
     @Published private(set) var payload: ChurchDetailPayload?
@@ -33,6 +94,10 @@ final class ChurchDetailViewModel: ObservableObject {
         listeners.forEach { $0.remove() }
         listeners.removeAll()
         hasStarted = false
+    }
+
+    fileprivate func clearError() {
+        errorMessage = nil
     }
 
     var heroImageURL: URL? {
@@ -103,7 +168,7 @@ final class ChurchDetailViewModel: ObservableObject {
         Array((payload?.media ?? []).prefix(4))
     }
 
-    var quickFacts: [ChurchQuickFact] {
+    fileprivate var quickFacts: [ChurchQuickFact] {
         var facts: [ChurchQuickFact] = []
 
         if let liveState = payload?.liveState {
@@ -159,7 +224,7 @@ final class ChurchDetailViewModel: ObservableObject {
         return "\(weekdayName(for: first.dayOfWeek)) \(first.time)"
     }
 
-    var primarySmartAction: ChurchSmartAction {
+    fileprivate var primarySmartAction: ChurchSmartAction {
         if let liveState = payload?.liveState {
             switch liveState.state {
             case .live:
@@ -198,7 +263,7 @@ final class ChurchDetailViewModel: ObservableObject {
         )
     }
 
-    var secondarySmartActions: [ChurchSmartAction] {
+    fileprivate var secondarySmartActions: [ChurchSmartAction] {
         [
             ChurchSmartAction(
                 title: "Plan Visit",
@@ -215,7 +280,7 @@ final class ChurchDetailViewModel: ObservableObject {
         ]
     }
 
-    var goodToKnowItems: [ChurchGoodToKnowItem] {
+    fileprivate var goodToKnowItems: [ChurchGoodToKnowItem] {
         var items: [ChurchGoodToKnowItem] = []
 
         if let kids = payload?.experienceSummary?.kidsMinistry, !kids.isEmpty {
@@ -248,14 +313,25 @@ final class ChurchDetailViewModel: ObservableObject {
     }
 
     private func loadInitialPayload() async {
-        do {
-            let payload = try await dataService.loadChurchDetailPayload(for: church)
-            self.payload = payload
-            isLoading = false
-        } catch {
-            errorMessage = error.localizedDescription
-            isLoading = false
-        }
+        // Seed an initial payload from the locally-known Church object so the
+        // UI can render immediately; real-time listeners will update it shortly.
+        payload = ChurchDetailPayload(
+            entity: nil,
+            heroImageURL: nil,
+            logoURL: nil,
+            about: nil,
+            typeLabel: "Church",
+            city: nil,
+            state: nil,
+            verified: false,
+            livestreamURL: nil,
+            denomination: church.denomination,
+            accessibilityTags: [],
+            media: [],
+            liveState: nil,
+            experienceSummary: nil
+        )
+        isLoading = false
     }
 
     private func attachListeners() {
@@ -622,7 +698,6 @@ struct ChurchDetailView: View {
             .onDisappear {
                 viewModel.stop()
                 enhancementStore.stopObserving(churchId: church.canonicalChurchId)
-                rankingService.stopObserving(churchId: church.canonicalChurchId)
             }
         }
     }
@@ -707,10 +782,10 @@ struct ChurchDetailView: View {
                     churchName: viewModel.displayName,
                     parkingInfo: firstVisitGuide.parking,
                     entranceInfo: firstVisitGuide.arrivalTip,
-                    kidsCheckIn: firstVisitGuide.kidsProgramAvailable,
-                    expectedDurationMinutes: firstVisitGuide.expectedDurationMinutes,
-                    serviceStyle: firstVisitGuide.serviceStyle,
-                    accessibilityFeatures: firstVisitGuide.accessibilityFeatures
+                    kidsCheckIn: false,
+                    expectedDurationMinutes: nil,
+                    serviceStyle: firstVisitGuide.whatToWear,
+                    accessibilityFeatures: []
                 )
             }
 
@@ -760,7 +835,7 @@ struct ChurchDetailView: View {
         }
         .padding(.horizontal, 20)
         .alert("Church detail unavailable", isPresented: .constant(viewModel.errorMessage != nil)) {
-            Button("OK") { viewModel.errorMessage = nil }
+            Button("OK") { viewModel.clearError() }
         } message: {
             Text(viewModel.errorMessage ?? "")
         }

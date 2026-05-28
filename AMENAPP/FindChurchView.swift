@@ -32,6 +32,8 @@ struct Church: Identifiable, Codable, Equatable {
     var coordinate: CLLocationCoordinate2D {
         CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
     }
+
+    var canonicalChurchId: String { id.uuidString }
     
     init(id: UUID = UUID(),
          name: String,
@@ -110,13 +112,6 @@ extension Church {
             return String(components[timeIndex])
         }
         return "Sunday"
-    }
-}
-
-// MARK: - CLLocationCoordinate2D Extension
-extension CLLocationCoordinate2D: @retroactive Equatable {
-    public static func == (lhs: CLLocationCoordinate2D, rhs: CLLocationCoordinate2D) -> Bool {
-        lhs.latitude == rhs.latitude && lhs.longitude == rhs.longitude
     }
 }
 
@@ -916,6 +911,12 @@ struct FindChurchView: View {
         case openNow = "Open Now"
         case visitedBefore = "Visited Before"
         case highlyRated = "Highly Saved"
+        case serviceSoon = "Service Soon"
+        case teaching = "Teaching"
+        case worship = "Worship"
+        case family = "Family"
+        case youngAdults = "Young Adults"
+        case newHere = "New Here"
     }
     
     enum ChurchSortMode: String, CaseIterable {
@@ -1058,6 +1059,10 @@ struct FindChurchView: View {
             return churches.filter { userPreferences.visitedChurches.contains($0.id) }
         case .highlyRated:
             return churches.filter { savedChurchIds.contains($0.id) }
+        case .serviceSoon:
+            return churches
+        case .teaching, .worship, .family, .youngAdults, .newHere:
+            return churches
         }
     }
     
@@ -1409,7 +1414,7 @@ struct FindChurchView: View {
                                 .padding(.horizontal, 16)
                                 .padding(.bottom, 80)
                             }
-                            .scrollTargetBehavior(.viewAligned(limitBehavior: .alwaysByFew))
+                            .scrollTargetBehavior(.viewAligned)
                             .coordinateSpace(name: "churchScroll")
                             .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
                                 withAnimation(.interactiveSpring(response: 0.2, dampingFraction: 0.8)) {
@@ -1663,14 +1668,10 @@ struct FindChurchView: View {
         let location = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
         Task {
             do {
-                guard let request = MKReverseGeocodingRequest(location: location) else {
-                    currentLocationName = "Unknown Location"
-                    return
-                }
-                let mapItems = try await request.mapItems
-                if let mapItem = mapItems.first,
-                   let addr = mapItem.addressRepresentations?.cityWithContext(.automatic) {
-                    currentLocationName = addr
+                let placemarks = try await CLGeocoder().reverseGeocodeLocation(location)
+                if let placemark = placemarks.first {
+                    let city = placemark.locality ?? placemark.administrativeArea ?? "Current Location"
+                    currentLocationName = city
                 } else {
                     currentLocationName = "Current Location"
                 }
@@ -2101,10 +2102,8 @@ struct FindChurchView: View {
         let haptic = UIImpactFeedbackGenerator(style: .medium)
         haptic.impactOccurred()
 
-        let mapItem = MKMapItem(location: CLLocation(
-            latitude: coord.latitude,
-            longitude: coord.longitude
-        ), address: nil)
+        let placemark = MKPlacemark(coordinate: coord)
+        let mapItem = MKMapItem(placemark: placemark)
         mapItem.name = church.name
         mapItem.openInMaps(launchOptions: [MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDriving])
     }
@@ -2883,82 +2882,45 @@ struct EnhancedChurchCard: View {
                     }
                 }
                 
-                // Action buttons - Modern style with loading states
+                // Action buttons - Glass style
                 HStack(spacing: 12) {
-                    Button {
-                        guard !isCallingInProgress else { return }
-                        
-                        isCallingInProgress = true
-                        let haptic = UIImpactFeedbackGenerator(style: .light)
-                        haptic.impactOccurred()
-                        
-                        // Simulate brief delay for visual feedback
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                            onCall()
-                            isCallingInProgress = false
-                        }
-                    } label: {
-                        HStack(spacing: 8) {
-                            if isCallingInProgress {
-                                ProgressView()
-                                    .tint(.white)
-                                    .scaleEffect(0.8)
-                            } else {
-                                Image(systemName: "phone.fill")
-                                    .font(.systemScaled(16))
+                    AmenLiquidGlassPillButton(
+                        title: "Call",
+                        systemImage: "phone.fill",
+                        isLoading: isCallingInProgress,
+                        isDisabled: isCallingInProgress,
+                        hint: "Calls the church directly",
+                        action: {
+                            guard !isCallingInProgress else { return }
+                            isCallingInProgress = true
+                            let haptic = UIImpactFeedbackGenerator(style: .light)
+                            haptic.impactOccurred()
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                onCall()
+                                isCallingInProgress = false
                             }
-                            Text("Call")
-                                .font(AMENFont.bold(15))
                         }
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(
-                            RoundedRectangle(cornerRadius: 14)
-                                .fill(Color(red: 0.2, green: 0.2, blue: 0.2).opacity(isCallingInProgress ? 0.7 : 1.0))
-                                .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
-                        )
-                    }
-                    .disabled(isCallingInProgress)
-                    
-                    Button {
-                        guard !isGettingDirections else { return }
-                        
-                        isGettingDirections = true
-                        let haptic = UIImpactFeedbackGenerator(style: .light)
-                        haptic.impactOccurred()
-                        
-                        // Simulate brief delay for visual feedback
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                            onGetDirections()
-                            isGettingDirections = false
-                        }
-                    } label: {
-                        HStack(spacing: 8) {
-                            if isGettingDirections {
-                                ProgressView()
-                                    .tint(Color(red: 0.2, green: 0.2, blue: 0.2))
-                                    .scaleEffect(0.8)
-                            } else {
-                                Image(systemName: "arrow.triangle.turn.up.right.circle.fill")
-                                    .font(.systemScaled(16))
+                    )
+                    .frame(maxWidth: .infinity)
+
+                    AmenLiquidGlassPillButton(
+                        title: "Directions",
+                        systemImage: "arrow.triangle.turn.up.right.circle.fill",
+                        isLoading: isGettingDirections,
+                        isDisabled: isGettingDirections,
+                        hint: "Opens Maps with directions to this church",
+                        action: {
+                            guard !isGettingDirections else { return }
+                            isGettingDirections = true
+                            let haptic = UIImpactFeedbackGenerator(style: .light)
+                            haptic.impactOccurred()
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                onGetDirections()
+                                isGettingDirections = false
                             }
-                            Text("Directions")
-                                .font(AMENFont.bold(15))
                         }
-                        .foregroundStyle(Color(red: 0.2, green: 0.2, blue: 0.2))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(
-                            RoundedRectangle(cornerRadius: 14)
-                                .strokeBorder(Color.gray.opacity(0.3), lineWidth: 2)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 14)
-                                        .fill(.white.opacity(isGettingDirections ? 0.7 : 1.0))
-                                )
-                        )
-                    }
-                    .disabled(isGettingDirections)
+                    )
+                    .frame(maxWidth: .infinity)
                 }
                 
                 // Expandable details
@@ -4994,6 +4956,12 @@ struct QuickFilterBar: View {
         case .openNow: return "clock.fill"
         case .visitedBefore: return "checkmark.circle.fill"
         case .highlyRated: return "bookmark.fill"
+        case .serviceSoon: return "bell.fill"
+        case .teaching: return "book.fill"
+        case .worship: return "music.note"
+        case .family: return "figure.2.and.child.holdinghands"
+        case .youngAdults: return "person.2.fill"
+        case .newHere: return "figure.walk.arrival"
         }
     }
 }
@@ -6607,15 +6575,16 @@ struct ChurchCheckInSheet: View {
                 .padding(.horizontal)
 
             HStack(spacing: 12) {
-                Button {
-                    onPostToFeed(thought)
-                } label: {
-                    Text("Post to Feed")
-                        .font(.systemScaled(15, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity).padding(.vertical, 14)
-                        .background(RoundedRectangle(cornerRadius: 12).fill(Color(red: 0.878, green: 0.227, blue: 0.227)))
-                }
+                AmenLiquidGlassPillButton(
+                    title: "Post to Feed",
+                    systemImage: "paperplane.fill",
+                    isLoading: false,
+                    isDisabled: false,
+                    hint: "Posts your check-in to your feed",
+                    action: { onPostToFeed(thought) }
+                )
+                .frame(maxWidth: .infinity)
+
                 Button(action: onDone) {
                     Text("Done")
                         .font(.systemScaled(15, weight: .semibold))
@@ -6623,6 +6592,7 @@ struct ChurchCheckInSheet: View {
                         .frame(maxWidth: .infinity).padding(.vertical, 14)
                         .background(RoundedRectangle(cornerRadius: 12).fill(Color(.systemGray6)))
                 }
+                .buttonStyle(SelahGlassPressButtonStyle())
             }
             .padding(.horizontal)
             Spacer()

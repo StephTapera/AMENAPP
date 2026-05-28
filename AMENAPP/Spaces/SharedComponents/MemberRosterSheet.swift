@@ -2,17 +2,17 @@
 // AMENAPP — Spaces v2 Shared Components (Agent C)
 //
 // Bottom sheet listing Space members, external members SECTIONED under their
-// homeCommunityId. Driven by [SpaceMember] — no additional Firestore reads.
+// homeCommunityId. Driven by [SpaceCommunityMember] — no additional Firestore reads.
 // Import this — never re-implement. See CONTRACT_C.md for full API.
 
 import SwiftUI
 
 /// Bottom sheet listing Space members, external members SECTIONED under their
-/// homeCommunityId. Driven by [SpaceMember] — no additional Firestore reads.
+/// homeCommunityId. Driven by [SpaceCommunityMember] — no additional Firestore reads.
 /// Import this — never re-implement.
 struct MemberRosterSheet: View {
 
-    let members: [SpaceMember]
+    let members: [SpaceCommunityMember]
     /// The owning community — members with homeCommunityId == nil or matching this
     /// appear in the primary "Members" section. Others are grouped by their external
     /// homeCommunityId.
@@ -23,18 +23,18 @@ struct MemberRosterSheet: View {
 
     // MARK: - Computed sections
 
-    private var localMembers: [SpaceMember] {
+    private var localMembers: [SpaceCommunityMember] {
         members.filter { m in
             m.homeCommunityId == nil || m.homeCommunityId == localCommunityId
         }
     }
 
-    private var externalGroups: [(communityId: String, members: [SpaceMember])] {
+    private var externalGroups: [(communityId: String, members: [SpaceCommunityMember])] {
         let externals = members.filter { m in
             guard let hcid = m.homeCommunityId else { return false }
             return hcid != localCommunityId
         }
-        var grouped: [String: [SpaceMember]] = [:]
+        var grouped: [String: [SpaceCommunityMember]] = [:]
         for m in externals {
             guard let hcid = m.homeCommunityId else { continue }
             grouped[hcid, default: []].append(m)
@@ -139,7 +139,7 @@ extension MemberRosterSheet {
 // MARK: - MemberRow
 
 private struct MemberRow: View {
-    let member: SpaceMember
+    let member: SpaceCommunityMember
     let isExternal: Bool
     let communityNames: MemberRosterSheet.CommunityNameMap
 
@@ -191,16 +191,16 @@ private struct MemberRow: View {
 #Preview("MemberRosterSheet") {
     @Previewable @State var isPresented = true
 
-    let sample: [SpaceMember] = [
-        SpaceMember(userId: "alice", role: "owner", homeCommunityId: nil,
+    let sample: [SpaceCommunityMember] = [
+        SpaceCommunityMember(userId: "alice", role: "owner", homeCommunityId: nil,
                     access: .granted, joinedAt: nil),
-        SpaceMember(userId: "bob", role: "member", homeCommunityId: nil,
+        SpaceCommunityMember(userId: "bob", role: "member", homeCommunityId: nil,
                     access: .granted, joinedAt: nil),
-        SpaceMember(userId: "carol", role: "member", homeCommunityId: "community_xyz",
+        SpaceCommunityMember(userId: "carol", role: "member", homeCommunityId: "community_xyz",
                     access: .granted, joinedAt: nil),
-        SpaceMember(userId: "dave", role: "guest", homeCommunityId: "community_xyz",
+        SpaceCommunityMember(userId: "dave", role: "guest", homeCommunityId: "community_xyz",
                     access: .none, joinedAt: nil),
-        SpaceMember(userId: "eve", role: "member", homeCommunityId: "community_abc",
+        SpaceCommunityMember(userId: "eve", role: "member", homeCommunityId: "community_abc",
                     access: .granted, joinedAt: nil),
     ]
 

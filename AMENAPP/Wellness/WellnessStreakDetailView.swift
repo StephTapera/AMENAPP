@@ -1,4 +1,5 @@
 import SwiftUI
+import FirebaseCore
 
 struct WellnessStreakDetailView: View {
     let streak: WellnessStreak

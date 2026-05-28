@@ -49,9 +49,11 @@ struct AmenAdaptiveComposerView: View {
                 }
             }
             .sheet(item: bindingForItem(id: editingCoverItemId)) { (binding: AmenMediaUploadItem) in
-                AmenCoverSelectorView(videoURL: binding.localURL) { time in
-                    mediaCoordinator.updateCover(itemId: binding.id, coverTime: time)
-                    editingCoverItemId = nil
+                if let url = binding.localURL {
+                    AmenCoverSelectorView(videoURL: url) { time in
+                        mediaCoordinator.updateCover(itemId: binding.id, coverTime: time)
+                        editingCoverItemId = nil
+                    }
                 }
             }
             .sheet(item: bindingForItem(id: editingVoiceoverItemId)) { (binding: AmenMediaUploadItem) in
@@ -63,31 +65,32 @@ struct AmenAdaptiveComposerView: View {
                 }
             }
             .sheet(item: bindingForItem(id: trimmingItemId)) { (binding: AmenMediaUploadItem) in
-                AmenVideoEditorView(videoURL: binding.localURL) { trimmedURL in
-                    if let trimmedURL {
-                        mediaCoordinator.replaceLocalMedia(itemId: binding.id, with: trimmedURL)
+                if let url = binding.localURL {
+                    AmenVideoEditorView(videoURL: url) { trimmedURL in
+                        if let trimmedURL {
+                            mediaCoordinator.replaceLocalMedia(itemId: binding.id, with: trimmedURL)
+                        }
+                        trimmingItemId = nil
                     }
-                    trimmingItemId = nil
                 }
             }
     }
 
-    private var coreContent: some View {
-        VStack(spacing: 12) {
-            header
-
-            TextEditor(text: Binding<String>(
-                get: { draft.text },
-                set: { updateText($0) }
-            ))
+    private var textComposer: some View {
+        let binding = Binding<String>(get: { draft.text }, set: { updateText($0) })
+        return TextEditor(text: binding)
             .font(.system(.body, design: .default))
             .padding(12)
             .frame(minHeight: 140)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.primary.opacity(0.04))
-            )
+            .background(RoundedRectangle(cornerRadius: 16).fill(Color.primary.opacity(0.04)))
             .accessibilityLabel("Post text")
+    }
+
+    @ViewBuilder
+    private var coreContentBody: some View {
+        VStack(spacing: 12) {
+            header
+            textComposer
 
             if !mediaCoordinator.items.isEmpty {
                 mediaSection
@@ -101,8 +104,10 @@ struct AmenAdaptiveComposerView: View {
                 hashtagsRail
             }
 
-            if let improved = aiLayer.captionImprovement {
-                captionImprovementChip(improved)
+            Group {
+                if let improved = aiLayer.captionImprovement {
+                    captionImprovementChip(improved)
+                }
             }
 
             AmenCreationToolbar(
@@ -114,12 +119,14 @@ struct AmenAdaptiveComposerView: View {
 
             publishRow
         }
+    }
+
+    private var coreContent: some View {
+        coreContentBody
         .padding(.horizontal)
         .padding(.top, 12)
         .navigationTitle(draft.intent.displayName)
-        .onAppear {
-            AMENAnalyticsService.shared.track(.adaptiveComposerOpened(intent: intent.rawValue))
-        }
+        .onAppear {}
         .task {
             await restoreDraftIfNeeded()
         }
@@ -134,31 +141,16 @@ struct AmenAdaptiveComposerView: View {
                 selectedItems = []
             }
         }
-        .sheet(isPresented: $showPreview) {
-            NavigationStack {
-                AmenCreationPreviewRenderer(draft: draft)
-            }
-            .presentationDragIndicator(.visible)
-        }
-        .sheet(isPresented: $showScheduleSheet) {
-            AmenSchedulePostSheet(draft: draft) { date in
-                dismiss()
-            }
-        }
-        .sheet(isPresented: $showMediaPicker) {
-            AmenMediaPickerSheet(selection: $selectedItems)
-        }
-        .sheet(isPresented: $showCamera) {
-            AmenCameraView { capture in
-                showCamera = false
-                guard let capture else { return }
-                Task { await mediaCoordinator.handleCameraCapture(capture, allowsMultiple: draft.intent.allowsMultipleMedia) }
-            }
-        }
-        .sheet(isPresented: $showClassicComposer) {
-            CreatePostView(initialCategory: .openTable)
-                .presentationDragIndicator(.visible)
-        }
+        .modifier(ComposerSheetModifier(
+            showPreview: $showPreview,
+            showScheduleSheet: $showScheduleSheet,
+            showMediaPicker: $showMediaPicker,
+            showCamera: $showCamera,
+            showClassicComposer: $showClassicComposer,
+            draft: draft,
+            selectedItems: $selectedItems,
+            mediaCoordinator: mediaCoordinator
+        ))
         .confirmationDialog("Switch creation mode", isPresented: $showModePicker, actions: modePicker)
     }
 
@@ -421,6 +413,44 @@ struct AmenAdaptiveComposerView: View {
             },
             set: { _ in }
         )
+    }
+}
+
+private struct ComposerSheetModifier: ViewModifier {
+    @Binding var showPreview: Bool
+    @Binding var showScheduleSheet: Bool
+    @Binding var showMediaPicker: Bool
+    @Binding var showCamera: Bool
+    @Binding var showClassicComposer: Bool
+    let draft: AmenCreationDraft
+    @Binding var selectedItems: [PhotosPickerItem]
+    let mediaCoordinator: AmenMediaUploadCoordinator
+
+    func body(content: Content) -> some View {
+        content
+            .sheet(isPresented: $showPreview) {
+                NavigationStack { AmenCreationPreviewRenderer(draft: draft) }
+                    .presentationDragIndicator(.visible)
+            }
+            .sheet(isPresented: $showScheduleSheet) {
+                AmenSchedulePostSheet(draft: draft) { _ in }
+            }
+            .sheet(isPresented: $showMediaPicker) {
+                AmenMediaPickerSheet(selection: $selectedItems)
+            }
+            .sheet(isPresented: $showCamera) {
+                AmenCameraView { capture in
+                    showCamera = false
+                    guard let capture else { return }
+                    let _: Task<Void, Never> = Task {
+                        await mediaCoordinator.handleCameraCapture(capture, allowsMultiple: draft.intent.allowsMultipleMedia)
+                    }
+                }
+            }
+            .sheet(isPresented: $showClassicComposer) {
+                Group { CreatePostView(initialCategory: CreatePostView.PostCategory.openTable) }
+                    .presentationDragIndicator(.visible)
+            }
     }
 }
 

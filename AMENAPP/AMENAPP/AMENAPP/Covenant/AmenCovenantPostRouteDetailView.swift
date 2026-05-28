@@ -6,7 +6,7 @@ struct AmenCovenantPostRouteDetailView: View {
     let postId: String
 
     @State private var title = "Community Post"
-    @State private var body = ""
+    @State private var bodyText = ""
     @State private var author = "Community"
     @State private var isLoading = true
     @State private var errorMessage: String?
@@ -32,7 +32,7 @@ struct AmenCovenantPostRouteDetailView: View {
                             .foregroundStyle(.secondary)
                     }
 
-                    Text(body.isEmpty ? "This post has no body text." : body)
+                    Text(bodyText.isEmpty ? "This post has no body text." : bodyText)
                         .font(.body)
                         .lineSpacing(4)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -64,7 +64,7 @@ struct AmenCovenantPostRouteDetailView: View {
             }
 
             title = data["title"] as? String ?? "Community Post"
-            body = data["body"] as? String ?? ""
+            bodyText = data["body"] as? String ?? ""
             author = data["authorDisplayName"] as? String ?? data["authorName"] as? String ?? "Community"
         } catch {
             errorMessage = "We could not load this post. Please try again."

@@ -232,6 +232,10 @@ struct BereanStructuredResponse: Codable, Equatable {
     let generatedAt: Date
 }
 
+extension BereanStructuredResponse {
+    var reflectionPrompts: [String] { [] }
+}
+
 // MARK: - Berean Message
 
 /// Unified message model for the Berean chat surface. Extends the existing

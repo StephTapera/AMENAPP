@@ -380,7 +380,7 @@ final class TranslationService: ObservableObject {
     ) async throws -> String {
         // Apple Translation framework — on-device, private, no API cost
         // Requires iOS 17.4+; language models downloaded on first use
-        if #available(iOS 17.4, *) {
+        if #available(iOS 18.0, *) {
             return try await AppleTranslationBridge.shared.translate(
                 text: text,
                 from: sourceLang,
@@ -518,7 +518,7 @@ final class AppleTranslationBridge {
     static let shared = AppleTranslationBridge()
     private init() {}
 
-    @available(iOS 17.4, *)
+    @available(iOS 18.0, *)
     func translate(text: String, from sourceLang: String, to targetLang: String) async throws -> String {
         let source = Locale.Language(identifier: sourceLang)
         let target = Locale.Language(identifier: targetLang)
@@ -530,10 +530,15 @@ final class AppleTranslationBridge {
 
         switch status {
         case .installed:
-            // Models are downloaded — use the fast headless path
-            let session = TranslationSession(installedSource: source, target: target)
-            let response = try await session.translate(text)
-            return response.targetText.trimmingCharacters(in: .whitespacesAndNewlines)
+            if #available(iOS 26.0, *) {
+                // iOS 26+: fast headless path using installed models
+                let session = TranslationSession(installedSource: source, target: target)
+                let response = try await session.translate(text)
+                return response.targetText.trimmingCharacters(in: .whitespacesAndNewlines)
+            } else {
+                // iOS 18–25: models installed but headless init unavailable; fall through to UI-download path
+                throw AppleTranslationNotInstalledError(sourceLanguage: sourceLang, targetLanguage: targetLang)
+            }
 
         case .supported:
             // Language pair is supported but models aren't downloaded yet.

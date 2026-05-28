@@ -2,7 +2,7 @@ import Foundation
 import SwiftUI
 import PhotosUI
 
-struct AmenMediaUploadItem: Identifiable {
+struct AmenMediaUploadItem: Identifiable, Equatable {
     let id: String
     var mediaRef: MediaRef
     var progress: Double = 0.0
@@ -28,4 +28,6 @@ final class AmenMediaUploadCoordinator: ObservableObject {
     func updateCover(itemId: String, coverTime: Double) {}
     func attachVoiceover(itemId: String, voiceoverURL: URL) {}
     func replaceLocalMedia(itemId: String, with url: URL) {}
+    func retryUpload(itemId: String) {}
+    func seed(with refs: [MediaRef]) { items = refs.map { AmenMediaUploadItem(id: $0.id, mediaRef: $0) } }
 }

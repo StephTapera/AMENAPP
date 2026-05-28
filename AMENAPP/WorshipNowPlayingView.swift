@@ -379,16 +379,22 @@ private struct MeshBackground: View {
     }
 
     var body: some View {
-        TimelineView(.animation) { timeline in
-            let t = timeline.date.timeIntervalSinceReferenceDate
-            MeshGradient(
-                width: 4,
-                height: 4,
-                points: warpedPoints(t: t),
-                colors: meshColors,
-                smoothsColors: true,
-                colorSpace: .perceptual   // smoother colour blending
-            )
+        Group {
+            if #available(iOS 18.0, *) {
+                TimelineView(.animation) { timeline in
+                    let t = timeline.date.timeIntervalSinceReferenceDate
+                    MeshGradient(
+                        width: 4,
+                        height: 4,
+                        points: warpedPoints(t: t),
+                        colors: meshColors,
+                        smoothsColors: true,
+                        colorSpace: .perceptual
+                    )
+                }
+            } else {
+                LinearGradient(colors: meshColors, startPoint: .topLeading, endPoint: .bottomTrailing)
+            }
         }
     }
 

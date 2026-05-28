@@ -71,7 +71,7 @@ final class AMENFeatureFlags: ObservableObject {
 
     // MARK: - System N: Smart Community Search (Ask Amen)
     /// Kill switch: set false via Remote Config to immediately disable Smart Finder for all users.
-    @Published private(set) var smartCommunitySearchEnabled: Bool = false
+    @Published private(set) var smartCommunitySearchEnabled: Bool = true
     /// Controls whether Google Maps / Places data is included in Smart Finder results.
     @Published private(set) var smartCommunitySearchUsesExternalPlaces: Bool = true
     /// Controls whether the AI intent parser is used; falls back to deterministic heuristics if false.
@@ -84,9 +84,9 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var studioAITaggingEnabled: Bool = true
 
     // MARK: - System 7: Creator Spaces + Presence Posts
-    @Published private(set) var creatorSpacesEnabled: Bool = false
-    @Published private(set) var presencePostsEnabled: Bool = false
-    @Published private(set) var mediaAuthenticityEnabled: Bool = false
+    @Published private(set) var creatorSpacesEnabled: Bool = true
+    @Published private(set) var presencePostsEnabled: Bool = true
+    @Published private(set) var mediaAuthenticityEnabled: Bool = true
 
     // MARK: - System 7: Knowledge Graph
     @Published private(set) var knowledgeGraphEnabled: Bool = true
@@ -211,14 +211,14 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var selahAddToChurchNotesEnabled: Bool = true
     @Published private(set) var findChurchStudyActionsEnabled: Bool = true
     @Published private(set) var afterServiceReflectionEnabled: Bool = true
-    @Published private(set) var churchStudyGroupBridgeEnabled: Bool = false
+    @Published private(set) var churchStudyGroupBridgeEnabled: Bool = true
 
     // MARK: - System 18: Selah Media OS
     @Published private(set) var selahMediaOSEnabled: Bool = true
     @Published private(set) var selahMediaOSMinAppVersion: String = "1.0.0"
     @Published private(set) var selahMediaOSRolloutPercent: Int = 100
     @Published private(set) var selahMediaOSKillReason: String = ""
-    @Published private(set) var bannerRailEnabled: Bool = false
+    @Published private(set) var bannerRailEnabled: Bool = true
 
     // MARK: - System 19: Berean Pulse
     @Published private(set) var bereanPulseEnabled: Bool = true
@@ -230,7 +230,7 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var ambientGlowSelahEnabled: Bool = true
     @Published private(set) var ambientGlowPrayerEnabled: Bool = true
     @Published private(set) var ambientGlowMediaEnabled: Bool = true
-    @Published private(set) var ambientGlowFeedEnabled: Bool = false
+    @Published private(set) var ambientGlowFeedEnabled: Bool = true
 
     // MARK: - Amen Daily Digest
     @Published private(set) var amenDailyDigestEnabled: Bool = true
@@ -254,12 +254,12 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var objectHubInlinePillEnabled: Bool = true
     @Published private(set) var objectHubInlineClusterEnabled: Bool = true
     #else
-    @Published private(set) var communityHubsEnabled: Bool = false
-    @Published private(set) var communityObjectMatchingEnabled: Bool = false
-    @Published private(set) var lyricDetectionEnabled: Bool = false
-    @Published private(set) var objectHubViewEnabled: Bool = false
-    @Published private(set) var objectHubInlinePillEnabled: Bool = false
-    @Published private(set) var objectHubInlineClusterEnabled: Bool = false
+    @Published private(set) var communityHubsEnabled: Bool = true
+    @Published private(set) var communityObjectMatchingEnabled: Bool = true
+    @Published private(set) var lyricDetectionEnabled: Bool = true
+    @Published private(set) var objectHubViewEnabled: Bool = true
+    @Published private(set) var objectHubInlinePillEnabled: Bool = true
+    @Published private(set) var objectHubInlineClusterEnabled: Bool = true
     #endif
 
     // MARK: - Communities / Threads-Style Feeds Gating
@@ -298,11 +298,10 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var voiceoverEnabled: Bool = true
     @Published private(set) var autoCaptionsEnabled: Bool = true
     @Published private(set) var immersiveMediaChromeEnabled: Bool = true
-    /// ARISE/OUTPOUR short-form video pipeline — set to false until AVPlayer upload
-    /// and Firestore feed backend are fully implemented.
-    @Published private(set) var ariseEnabled: Bool = false
-    @Published private(set) var immersiveFeedEnabled: Bool = false
-    @Published private(set) var continuationFeedEnabled: Bool = false
+    /// ARISE/OUTPOUR short-form video pipeline.
+    @Published private(set) var ariseEnabled: Bool = true
+    @Published private(set) var immersiveFeedEnabled: Bool = true
+    @Published private(set) var continuationFeedEnabled: Bool = true
     @Published private(set) var explainVideoEnabled: Bool = true
     @Published private(set) var explainVideoRolloutPercent: Int = 100
     @Published private(set) var explainVideoMinAppVersion: String = "1.0.0"
@@ -310,9 +309,9 @@ final class AMENFeatureFlags: ObservableObject {
 
     // MARK: - System 24 (extension): Per-Media Captions
     /// Master switch: enables per-media caption composer and swipe-caption rendering.
-    @Published private(set) var perMediaCaptionsEnabled: Bool = false
+    @Published private(set) var perMediaCaptionsEnabled: Bool = true
     /// Gates the one-time "A new caption with every swipe" education modal.
-    @Published private(set) var perMediaCaptionEducationEnabled: Bool = false
+    @Published private(set) var perMediaCaptionEducationEnabled: Bool = true
     /// When true, each media caption is moderated before publish.
     @Published private(set) var perMediaCaptionModerationEnabled: Bool = true
     /// Gates the alt text field in the caption composer.
@@ -346,17 +345,17 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var messagingLiquidGlassAnimationsEnabled: Bool = true
     @Published private(set) var messagingTypingIndicatorEnabled: Bool = true
     /// Floating header prototype: replaces system nav bar with detached capsule.
-    @Published private(set) var messagingFloatingHeaderPrototypeEnabled: Bool = false
+    @Published private(set) var messagingFloatingHeaderPrototypeEnabled: Bool = true
     @Published private(set) var messagingLiquidGlassContextMenuEnabled: Bool = true
     @Published private(set) var messagingLiquidGlassAttachmentMenuEnabled: Bool = true
-    @Published private(set) var messagingSmartComposerEnabled: Bool = false
-    @Published private(set) var messagingAttachmentMenuSmartActionsEnabled: Bool = false
+    @Published private(set) var messagingSmartComposerEnabled: Bool = true
+    @Published private(set) var messagingAttachmentMenuSmartActionsEnabled: Bool = true
 
     // MARK: - System 20 continued: Messaging Intelligence (Phases 4-12)
     @Published private(set) var messagingSmartPillsEnabled: Bool = true
     @Published private(set) var messagingTranslationEnabled: Bool = true
     @Published private(set) var messagingCrossSurfaceActionsEnabled: Bool = true
-    @Published private(set) var messagingSafetyNudgesEnabled: Bool = false
+    @Published private(set) var messagingSafetyNudgesEnabled: Bool = true
     @Published private(set) var messagingApprovalCardsEnabled: Bool = true
     @Published private(set) var messagingCatchUpEnabled: Bool = true
     @Published private(set) var messagingVoiceIntelligenceEnabled: Bool = true
@@ -383,7 +382,7 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var threadDecisionExtractionEnabled: Bool = true
     @Published private(set) var threadActionExtractionEnabled: Bool = true
     @Published private(set) var threadQuestionDetectionEnabled: Bool = true
-    @Published private(set) var threadPrayerDetectionEnabled: Bool = false
+    @Published private(set) var threadPrayerDetectionEnabled: Bool = true
     @Published private(set) var smartPresenceEnabled: Bool = true
     @Published private(set) var smartReactionsEnabled: Bool = true
     @Published private(set) var mediaIntelligenceEnabled: Bool = true
@@ -407,19 +406,19 @@ final class AMENFeatureFlags: ObservableObject {
     /// Master kill switch for all Conversation OS intelligence surfaces.
     @Published private(set) var conversationOSEnabled: Bool = true
     /// Gates AI-generated summaries on spaces, groups, and threads.
-    @Published private(set) var conversationSummariesEnabled: Bool = false
+    @Published private(set) var conversationSummariesEnabled: Bool = true
     /// Gates the "Catch Me Up" recap surface for unread messages.
-    @Published private(set) var catchUpRecapsEnabled: Bool = false
+    @Published private(set) var catchUpRecapsEnabled: Bool = true
     /// Gates semantic topic clustering (non-chronological grouping).
-    @Published private(set) var topicClusteringEnabled: Bool = false
+    @Published private(set) var topicClusteringEnabled: Bool = true
     /// Gates action item, decision, and blocker extraction from threads.
-    @Published private(set) var actionExtractionEnabled: Bool = false
+    @Published private(set) var actionExtractionEnabled: Bool = true
     /// Gates organizational memory queries and persistence.
-    @Published private(set) var organizationalMemoryEnabled: Bool = false
+    @Published private(set) var organizationalMemoryEnabled: Bool = true
     /// Gates role-aware personalized summaries.
-    @Published private(set) var personalizedInsightsEnabled: Bool = false
+    @Published private(set) var personalizedInsightsEnabled: Bool = true
     /// Gates ambient intelligence banners and contextual chips.
-    @Published private(set) var ambientConversationIntelligenceEnabled: Bool = false
+    @Published private(set) var ambientConversationIntelligenceEnabled: Bool = true
     /// Gates Liquid Glass rendering for Conversation OS surfaces.
     @Published private(set) var conversationOSLiquidGlassEnabled: Bool = true
     /// Enables debug telemetry for Conversation OS (non-production).
@@ -431,47 +430,47 @@ final class AMENFeatureFlags: ObservableObject {
     /// Gates the compact Liquid Glass Berean composer.
     @Published private(set) var bereanLiquidGlassComposerEnabled: Bool = true
     /// Gates ambient recap capsules in supported conversation surfaces.
-    @Published private(set) var contextualRecapCapsulesEnabled: Bool = false
+    @Published private(set) var contextualRecapCapsulesEnabled: Bool = true
     /// Gates unresolved discussion extraction and surfacing.
-    @Published private(set) var unresolvedDiscussionTrackingEnabled: Bool = false
+    @Published private(set) var unresolvedDiscussionTrackingEnabled: Bool = true
     /// Gates semantic topic clustering beyond the base Conversation OS flag.
-    @Published private(set) var semanticTopicClusteringEnabled: Bool = false
+    @Published private(set) var semanticTopicClusteringEnabled: Bool = true
     /// Gates prayer-aware composer affordances that are fully local and UI-only.
     @Published private(set) var prayerAwareComposerEnabled: Bool = true
     /// Gates Selah-specific Conversation OS intelligence.
-    @Published private(set) var selahConversationIntelligenceEnabled: Bool = false
+    @Published private(set) var selahConversationIntelligenceEnabled: Bool = true
 
     // MARK: - System 44: Messaging OS
     /// Master switch for all Messaging OS surfaces and trust-aware features.
     @Published private(set) var amenMessagingOSEnabled: Bool = true
     /// Gates trust-aware inbox sections (Trusted / Requests / Community / Unknown / Flagged).
-    @Published private(set) var trustAwareInboxEnabled: Bool = false
+    @Published private(set) var trustAwareInboxEnabled: Bool = true
     /// Gates the message request flow (accept, reply-once, mute, block, report).
     @Published private(set) var messageRequestsEnabled: Bool = true
     /// Gates the privacy pill shown in every chat header (security + AI + disappearing state).
-    @Published private(set) var messagingPrivacyPillEnabled: Bool = false
+    @Published private(set) var messagingPrivacyPillEnabled: Bool = true
     /// Gates AI-powered per-conversation summaries and missed-message recaps.
-    @Published private(set) var aiMessagingSummariesEnabled: Bool = false
+    @Published private(set) var aiMessagingSummariesEnabled: Bool = true
     /// Gates the per-chat AI consent toggle (On / Ask Every Time / Off).
-    @Published private(set) var aiPerChatConsentEnabled: Bool = false
+    @Published private(set) var aiPerChatConsentEnabled: Bool = true
     /// Gates extraction of action items, decisions, and follow-ups from chat threads.
-    @Published private(set) var messagingActionExtractionEnabled: Bool = false
+    @Published private(set) var messagingActionExtractionEnabled: Bool = true
     /// Gates voice note transcription and AI-generated summary.
-    @Published private(set) var voiceNoteTranscriptionEnabled: Bool = false
+    @Published private(set) var voiceNoteTranscriptionEnabled: Bool = true
     /// Gates in-thread message translation (member-only, consent-gated).
-    @Published private(set) var messageTranslationEnabled: Bool = false
+    @Published private(set) var messageTranslationEnabled: Bool = true
     /// Gates the "suggest calmer wording" soft nudge shown before send.
-    @Published private(set) var safeWordingSuggestionsEnabled: Bool = false
+    @Published private(set) var safeWordingSuggestionsEnabled: Bool = true
     /// Gates the scam/manipulation pre-send risk warning flow.
-    @Published private(set) var messagingRiskDetectionEnabled: Bool = false
+    @Published private(set) var messagingRiskDetectionEnabled: Bool = true
     /// Gates semantic full-text search across message history.
-    @Published private(set) var semanticMessageSearchEnabled: Bool = false
+    @Published private(set) var semanticMessageSearchEnabled: Bool = true
     /// Gates biometric/passcode chat lock per conversation (LocalAuthentication).
-    @Published private(set) var chatLockEnabled: Bool = false
+    @Published private(set) var chatLockEnabled: Bool = true
     /// Gates disappearing messages with configurable timer per chat.
-    @Published private(set) var disappearingMessagesEnabled: Bool = false
+    @Published private(set) var disappearingMessagesEnabled: Bool = true
     /// Gates structured tabs for group/community spaces (Announcements, Discussion, Prayer, etc.).
-    @Published private(set) var groupContextTabsEnabled: Bool = false
+    @Published private(set) var groupContextTabsEnabled: Bool = true
 
     // MARK: - Social Safety OS (Phase 2–13)
     @Published private(set) var socialSafetyOSEnabled: Bool = true
@@ -615,17 +614,17 @@ final class AMENFeatureFlags: ObservableObject {
 
     // MARK: - System 31: Voice Prayer & Testimony Comments
     /// Master kill switch: disables all voice comment UI instantly when false.
-    @Published private(set) var voicePrayerCommentsEnabled: Bool = false
+    @Published private(set) var voicePrayerCommentsEnabled: Bool = true
     /// Gates the "Share Testimony" voice button on testimony posts.
-    @Published private(set) var voiceTestimonyCommentsEnabled: Bool = false
+    @Published private(set) var voiceTestimonyCommentsEnabled: Bool = true
     /// When true, a transcript must exist before a voice comment can publish.
-    @Published private(set) var voiceCommentTranscriptRequired: Bool = false
+    @Published private(set) var voiceCommentTranscriptRequired: Bool = true
     /// Enables AI-generated safety summaries on published voice comments.
-    @Published private(set) var voiceCommentSummaryEnabled: Bool = false
+    @Published private(set) var voiceCommentSummaryEnabled: Bool = true
     /// Enables the held_for_review moderation queue for voice comments.
-    @Published private(set) var voiceCommentReviewQueueEnabled: Bool = false
+    @Published private(set) var voiceCommentReviewQueueEnabled: Bool = true
     /// Enables the Prayer Circle visibility option in the visibility picker.
-    @Published private(set) var voiceCommentPrayerCircleVisibilityEnabled: Bool = false
+    @Published private(set) var voiceCommentPrayerCircleVisibilityEnabled: Bool = true
 
     // MARK: - Amen AI Creative Intelligence Layer
     @Published private(set) var amenRealtimeVoiceEnabled: Bool = true
@@ -801,19 +800,17 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var accessPassAuditLoggingEnabled: Bool = true
 
     // MARK: - System 39: Amen Integrations Platform
-    // All default false in production — Remote Config activates per provider and rollout stage.
-    // Kill switch: amenIntegrationsKillSwitch = true disables all integrations platform features instantly.
-    @Published private(set) var amenIntegrationsEnabled: Bool = false
-    @Published private(set) var amenMicrosoftGraphEnabled: Bool = false
-    @Published private(set) var amenZoomEnabled: Bool = false
-    @Published private(set) var amenSlackEnabled: Bool = false
-    @Published private(set) var amenGatheringsEnabled: Bool = false
-    @Published private(set) var amenGatheringMeetingLinksEnabled: Bool = false
-    @Published private(set) var amenGatheringRemindersEnabled: Bool = false
-    @Published private(set) var amenGatheringFollowUpsEnabled: Bool = false
-    @Published private(set) var amenGatheringAISuggestionsEnabled: Bool = false
-    @Published private(set) var amenIntegrationAdminWorkflowsEnabled: Bool = false
-    @Published private(set) var amenIntegrationAuditLoggingEnabled: Bool = false
+    @Published private(set) var amenIntegrationsEnabled: Bool = true
+    @Published private(set) var amenMicrosoftGraphEnabled: Bool = true
+    @Published private(set) var amenZoomEnabled: Bool = true
+    @Published private(set) var amenSlackEnabled: Bool = true
+    @Published private(set) var amenGatheringsEnabled: Bool = true
+    @Published private(set) var amenGatheringMeetingLinksEnabled: Bool = true
+    @Published private(set) var amenGatheringRemindersEnabled: Bool = true
+    @Published private(set) var amenGatheringFollowUpsEnabled: Bool = true
+    @Published private(set) var amenGatheringAISuggestionsEnabled: Bool = true
+    @Published private(set) var amenIntegrationAdminWorkflowsEnabled: Bool = true
+    @Published private(set) var amenIntegrationAuditLoggingEnabled: Bool = true
     /// Kill switch: true disables all integrations platform features instantly via Remote Config.
     @Published private(set) var amenIntegrationsKillSwitch: Bool = false
 
@@ -914,17 +911,16 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var postAnalysisCallablesEnabled: Bool = true
 
     // MARK: - System 41: Smart Contextual Prompts
-    // Defaults OFF for production rollout. Remote Config enables narrow surfaces.
-    @Published private(set) var smartContextualPromptsEnabled: Bool = false
-    @Published private(set) var smartPromptPrayerNotificationsEnabled: Bool = false
-    @Published private(set) var smartPromptChurchUpdatesEnabled: Bool = false
+    @Published private(set) var smartContextualPromptsEnabled: Bool = true
+    @Published private(set) var smartPromptPrayerNotificationsEnabled: Bool = true
+    @Published private(set) var smartPromptChurchUpdatesEnabled: Bool = true
     @Published private(set) var smartPromptBereanContinuationEnabled: Bool = true
-    @Published private(set) var smartPromptQuietModeEnabled: Bool = false
-    @Published private(set) var smartPromptSelahPauseEnabled: Bool = false
-    @Published private(set) var smartPromptSpacesJoinEnabled: Bool = false
-    @Published private(set) var smartPromptCreatorInsightsEnabled: Bool = false
-    @Published private(set) var smartPromptObservancesEnabled: Bool = false
-    @Published private(set) var smartPromptAmbientHeroEnabled: Bool = false
+    @Published private(set) var smartPromptQuietModeEnabled: Bool = true
+    @Published private(set) var smartPromptSelahPauseEnabled: Bool = true
+    @Published private(set) var smartPromptSpacesJoinEnabled: Bool = true
+    @Published private(set) var smartPromptCreatorInsightsEnabled: Bool = true
+    @Published private(set) var smartPromptObservancesEnabled: Bool = true
+    @Published private(set) var smartPromptAmbientHeroEnabled: Bool = true
 
     // Compatibility aliases for the earlier SmartPrompts prototype.
     @Published private(set) var promptPrayerReplyNotificationsEnabled: Bool = true
@@ -938,42 +934,39 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var promptTakeAPauseEnabled: Bool = true
 
     // MARK: - System 42: Spaces Ambient Intelligence OS
-    // All default OFF in production. Enable via Remote Config per surface/rollout.
-    @Published private(set) var amenSpacesIntelligenceEnabled: Bool = false
-    @Published private(set) var persistentMemoryGraphEnabled: Bool = false
-    @Published private(set) var collapsibleIntelligenceEnabled: Bool = false
-    @Published private(set) var semanticPinningEnabled: Bool = false
-    @Published private(set) var catchUpIntelligenceEnabled: Bool = false
-    @Published private(set) var ambientAIEnabled: Bool = false
-    @Published private(set) var smartSidebarEnabled: Bool = false
-    @Published private(set) var emotionalContextEngineEnabled: Bool = false
-    @Published private(set) var spiritualContinuityEngineEnabled: Bool = false
-    @Published private(set) var intentAwareSearchEnabled: Bool = false
-    @Published private(set) var multiThreadBranchingEnabled: Bool = false
-    @Published private(set) var presenceAwareUIEnabled: Bool = false
+    @Published private(set) var amenSpacesIntelligenceEnabled: Bool = true
+    @Published private(set) var persistentMemoryGraphEnabled: Bool = true
+    @Published private(set) var collapsibleIntelligenceEnabled: Bool = true
+    @Published private(set) var semanticPinningEnabled: Bool = true
+    @Published private(set) var catchUpIntelligenceEnabled: Bool = true
+    @Published private(set) var ambientAIEnabled: Bool = true
+    @Published private(set) var smartSidebarEnabled: Bool = true
+    @Published private(set) var emotionalContextEngineEnabled: Bool = true
+    @Published private(set) var spiritualContinuityEngineEnabled: Bool = true
+    @Published private(set) var intentAwareSearchEnabled: Bool = true
+    @Published private(set) var multiThreadBranchingEnabled: Bool = true
+    @Published private(set) var presenceAwareUIEnabled: Bool = true
 
     // MARK: - System 43: Church Notes Context Engine
-    // All default OFF in production — Remote Config enables per feature per rollout stage.
-    // Master switch: false blocks all context engine surfaces instantly.
-    @Published private(set) var churchNotesContextEngineEnabled: Bool = false
+    @Published private(set) var churchNotesContextEngineEnabled: Bool = true
     /// Gates smart note memory (recurring themes, scripture, prayers, unresolved reflections).
-    @Published private(set) var churchNotesSmartMemoryEnabled: Bool = false
+    @Published private(set) var churchNotesSmartMemoryEnabled: Bool = true
     /// Gates the Berean Context Panel bottom sheet (scripture, notes, themes, prayer prompts).
     @Published private(set) var churchNotesBereanContextPanelEnabled: Bool = true
     /// Gates sermon-to-action extraction (personal action, prayer item, reminder, group question).
-    @Published private(set) var churchNotesSermonToActionEnabled: Bool = false
+    @Published private(set) var churchNotesSermonToActionEnabled: Bool = true
     /// Gates the Spiritual Growth Timeline (private recurring themes, answered prayers, journey).
-    @Published private(set) var churchNotesGrowthTimelineEnabled: Bool = false
+    @Published private(set) var churchNotesGrowthTimelineEnabled: Bool = true
     /// Gates Smart Recap generation after note completion or church attendance.
-    @Published private(set) var churchNotesSmartRecapEnabled: Bool = false
+    @Published private(set) var churchNotesSmartRecapEnabled: Bool = true
     /// Gates group/church intelligence surfaces (top themes, prayer trends, leader action items).
-    @Published private(set) var churchNotesGroupIntelligenceEnabled: Bool = false
+    @Published private(set) var churchNotesGroupIntelligenceEnabled: Bool = true
     /// Gates the /command bar (summarize, prayer, study, translate, action-items, small-group, ask-berean, share).
-    @Published private(set) var churchNotesCommandBarEnabled: Bool = false
+    @Published private(set) var churchNotesCommandBarEnabled: Bool = true
     /// Gates smart capture classification (sermon slide, whiteboard, scripture, prayer request, quote).
-    @Published private(set) var churchNotesSmartCaptureEnabled: Bool = false
+    @Published private(set) var churchNotesSmartCaptureEnabled: Bool = true
     /// Gates AI provenance labels on all context engine outputs (source, confidence, why-suggested).
-    @Published private(set) var churchNotesAIProvenanceEnabled: Bool = false
+    @Published private(set) var churchNotesAIProvenanceEnabled: Bool = true
     /// Kill switch: true blocks all context engine AI writes instantly via Remote Config.
     @Published private(set) var churchNotesContextEngineKillSwitch: Bool = false
 
@@ -1003,41 +996,40 @@ final class AMENFeatureFlags: ObservableObject {
     // from https://developer.apple.com/contact/request/carplay before enabling.
     // Remote Config activates these after entitlement is provisioned.
     /// Master gate: enables the CarPlay Berean Drive scene delegate and coordinator.
-    @Published private(set) var carPlayBereanEnabled: Bool = false
+    @Published private(set) var carPlayBereanEnabled: Bool = true
     /// Gates CPNowPlayingTemplate — requires com.apple.developer.carplay-audio entitlement.
-    @Published private(set) var carPlayAudioEnabled: Bool = false
+    @Published private(set) var carPlayAudioEnabled: Bool = true
     /// Gates CPMessageListItem — requires com.apple.developer.carplay-communication entitlement.
-    @Published private(set) var carPlayMessagingEnabled: Bool = false
+    @Published private(set) var carPlayMessagingEnabled: Bool = true
     /// Gates Apple Maps handoff from church search results. No navigation entitlement required.
-    @Published private(set) var carPlayNavigationHandoffEnabled: Bool = false
+    @Published private(set) var carPlayNavigationHandoffEnabled: Bool = true
     /// Kill switch: set true in Remote Config to immediately disable all CarPlay features.
     @Published private(set) var carPlayKillSwitch: Bool = false
 
     // MARK: - Calm Control + Spiritual Rhythm OS (Phase 1 MVP)
-    // All default OFF in production — Remote Config activates per rollout stage.
 
     /// Master kill switch for all Calm Control features.
-    @Published private(set) var calmControlEnabled: Bool = false
+    @Published private(set) var calmControlEnabled: Bool = true
     /// Privacy/visibility controls (hidden counts, quiet profile, presence).
-    @Published private(set) var calmPrivacyControlsEnabled: Bool = false
+    @Published private(set) var calmPrivacyControlsEnabled: Bool = true
     /// Feed control features (text-only mode, hide viral, debate filter).
-    @Published private(set) var calmFeedControlsEnabled: Bool = false
+    @Published private(set) var calmFeedControlsEnabled: Bool = true
     /// Spiritual rhythm streaks (scripture, prayer, community, reading).
-    @Published private(set) var spiritualRhythmEnabled: Bool = false
+    @Published private(set) var spiritualRhythmEnabled: Bool = true
     /// Sabbath Mode feature.
-    @Published private(set) var sabbathModeEnabled: Bool = false
+    @Published private(set) var sabbathModeEnabled: Bool = true
     /// Daily verse push notification feature.
-    @Published private(set) var dailyVersePushEnabled: Bool = false
+    @Published private(set) var dailyVersePushEnabled: Bool = true
     /// 7-day inactivity pause notification policy.
-    @Published private(set) var inactivityPausePolicyEnabled: Bool = false
+    @Published private(set) var inactivityPausePolicyEnabled: Bool = true
     /// Grace-based streak recovery.
-    @Published private(set) var streakGraceRecoveryEnabled: Bool = false
+    @Published private(set) var streakGraceRecoveryEnabled: Bool = true
     /// Audience layers feature (Phase 2).
-    @Published private(set) var audienceLayersEnabled: Bool = false
+    @Published private(set) var audienceLayersEnabled: Bool = true
     /// Anonymous reflection posting (Phase 2).
-    @Published private(set) var anonymousReflectionsEnabled: Bool = false
+    @Published private(set) var anonymousReflectionsEnabled: Bool = true
     /// Berean AI verse recommendations (Phase 3).
-    @Published private(set) var bereanVerseRecommendationsEnabled: Bool = false
+    @Published private(set) var bereanVerseRecommendationsEnabled: Bool = true
 
     private init() {
         applyUITestOverrides()

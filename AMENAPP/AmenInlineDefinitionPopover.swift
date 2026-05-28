@@ -79,7 +79,7 @@ struct AmenInlineDefinitionPopover: View {
         HStack(spacing: 8) {
             ProgressView()
                 .scaleEffect(0.8)
-            Text("Looking up "\(term)"…")
+            Text("Looking up \"\(term)\"…")
                 .font(.system(size: 13))
                 .foregroundStyle(.secondary)
         }
@@ -197,7 +197,7 @@ struct AmenInlineDefinitionPopover: View {
             .padding(.vertical, 6)
             .background(
                 Capsule(style: .continuous)
-                    .fill(reduceTransparency ? Color(.secondarySystemBackground) : AnyShapeStyle(.ultraThinMaterial))
+                    .fill(reduceTransparency ? AnyShapeStyle(Color(.secondarySystemBackground)) : AnyShapeStyle(.ultraThinMaterial))
                     .overlay(Capsule(style: .continuous).strokeBorder(Color.white.opacity(0.4), lineWidth: 0.5))
             )
         }

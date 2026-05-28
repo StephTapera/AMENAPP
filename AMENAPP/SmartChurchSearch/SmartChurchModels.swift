@@ -85,6 +85,8 @@ struct SmartChurchServiceTime: Codable, Hashable, Identifiable {
         [day, time, language, type].joined(separator: "|")
     }
 
+    var displayText: String { "\(day) \(time)" }
+
     enum CodingKeys: String, CodingKey {
         case day
         case time

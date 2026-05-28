@@ -78,7 +78,7 @@ struct SabbathModeView: View {
                 get: { service.rhythm.sabbathModeEnabled },
                 set: { newValue in
                     withAnimation(.easeInOut) {
-                        Task { await service.setSabbathMode(enabled: newValue) }
+                        let _: Task<Void, Never> = Task { await service.setSabbathMode(enabled: newValue) }
                     }
                 }
             )) {

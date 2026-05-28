@@ -174,7 +174,7 @@ struct LiveUserProfileMiniAnalytics: UserProfileMiniAnalyticsServicing {
             case .unfollowTap:
                 return .profileMiniUnfollowTap(userId: userId, surface: surface)
             case .messageTap:
-                return .profileMiniMessageTap(userId: userId, surface: surface, viewerId: viewerUid)
+                return .profileMiniMessageTap(userId: userId, surface: surface, viewerId: viewerUid ?? "")
             case .messageBlocked:
                 return .profileMiniMessageBlocked(userId: userId, surface: surface)
             case .primaryCTATap:

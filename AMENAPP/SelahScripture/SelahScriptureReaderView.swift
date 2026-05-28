@@ -84,7 +84,7 @@ private enum SelahScriptureReaderHardeningStore {
         }
     }
 
-    static func loadDraft(for reference: SelahScriptureReference, translationId: String) -> SelahScriptureReaderDraft {
+    static func loadDraft(for reference: ScriptureReference, translationId: String) -> SelahScriptureReaderDraft {
         let key = draftKey(reference: reference, translationId: translationId)
         guard let data = defaults.data(forKey: key),
               let draft = try? JSONDecoder().decode(SelahScriptureReaderDraft.self, from: data) else {
@@ -93,7 +93,7 @@ private enum SelahScriptureReaderHardeningStore {
         return draft
     }
 
-    static func saveDraft(reflection: String, prayer: String, for reference: SelahScriptureReference, translationId: String) {
+    static func saveDraft(reflection: String, prayer: String, for reference: ScriptureReference, translationId: String) {
         let draft = SelahScriptureReaderDraft(
             reflection: sanitizedDraft(reflection),
             prayer: sanitizedDraft(prayer),
@@ -104,12 +104,12 @@ private enum SelahScriptureReaderHardeningStore {
         defaults.set(data, forKey: key)
     }
 
-    static func clearReflection(for reference: SelahScriptureReference, translationId: String) {
+    static func clearReflection(for reference: ScriptureReference, translationId: String) {
         let existing = loadDraft(for: reference, translationId: translationId)
         saveDraft(reflection: "", prayer: existing.prayer, for: reference, translationId: translationId)
     }
 
-    static func clearPrayer(for reference: SelahScriptureReference, translationId: String) {
+    static func clearPrayer(for reference: ScriptureReference, translationId: String) {
         let existing = loadDraft(for: reference, translationId: translationId)
         saveDraft(reflection: existing.reflection, prayer: "", for: reference, translationId: translationId)
     }
@@ -118,7 +118,7 @@ private enum SelahScriptureReaderHardeningStore {
         "\(selectedVersePrefix).\(translationId).\(bookId).\(chapter)"
     }
 
-    private static func draftKey(reference: SelahScriptureReference, translationId: String) -> String {
+    private static func draftKey(reference: ScriptureReference, translationId: String) -> String {
         let verse = reference.startVerse.map(String.init) ?? "chapter"
         return "\(draftPrefix).\(translationId).\(reference.bookId).\(reference.chapter).\(verse)"
     }
@@ -138,7 +138,7 @@ struct SelahScriptureReaderView: View {
 
     // MARK: - Inputs
 
-    let initialReference: SelahScriptureReference
+    let initialReference: ScriptureReference
     let provider: SelahBibleTranslationProvider
     @ObservedObject var preferencesStore: SelahScriptureReaderPreferencesStore
 
@@ -174,7 +174,7 @@ struct SelahScriptureReaderView: View {
     @State private var prayerDraft: String = ""
     @State private var crisisSupportMessage: String?
     @State private var isRestoringDrafts: Bool = false
-    @StateObject private var engagements = SelahVerseEngagementStore.shared
+    @ObservedObject private var engagements = SelahVerseEngagementStore.shared // PERF: singleton → @ObservedObject
 
     // MARK: - Selah Lens + Guided Session state
 
@@ -188,7 +188,7 @@ struct SelahScriptureReaderView: View {
     // MARK: - Init
 
     init(
-        initialReference: SelahScriptureReference,
+        initialReference: ScriptureReference,
         provider: SelahBibleTranslationProvider,
         preferencesStore: SelahScriptureReaderPreferencesStore
     ) {
@@ -245,6 +245,119 @@ struct SelahScriptureReaderView: View {
     }
 
     private var readerContent: some View {
+        readerBaseView
+            .erasedToAnyView()
+            .alert("Pause and get support", isPresented: crisisSupportBinding) {
+                Button("OK", role: .cancel) { crisisSupportMessage = nil }
+            } message: {
+                Text(verbatim: crisisSupportText)
+            }
+            .sheet(isPresented: $showSearch) {
+                SelahScriptureSearchView(
+                    provider: provider,
+                    preferencesStore: preferencesStore
+                )
+            }
+            // Handoff — advertise the current reading position so the user can
+            // pick up where they left off on iPad / Mac.
+            .userActivity(SelahHandoff.readScriptureActivityType) { activity in
+                let next = SelahHandoff.makeReadingActivity(
+                    bookId: currentBookId,
+                    chapter: currentChapter,
+                    verse: selectedVerseNumber,
+                    translationId: translation.id,
+                    bookDisplayName: book?.displayName ?? currentBookId.capitalized
+                )
+                activity.title = next.title
+                activity.isEligibleForHandoff = true
+                activity.isEligibleForSearch = true
+                activity.isEligibleForPrediction = true
+                if let info = next.userInfo {
+                    activity.addUserInfoEntries(from: info)
+                }
+            }
+            .sheet(isPresented: $showReactionPicker) {
+                if let n = selectedVerseNumber,
+                   let ref = currentSelectedVerseReference(verseNumber: n) {
+                    SelahVerseReactionPickerSheet(
+                        reference: ref,
+                        translationId: translation.id,
+                        store: engagements
+                    )
+                }
+            }
+            .sheet(isPresented: $showCompanion) {
+                SelahScriptureCompanionSheet(
+                    reference: companionReference(),
+                    translationAbbreviation: translation.abbreviation,
+                    visibleVerses: visibleVerseTexts()
+                )
+            }
+            .sheet(isPresented: $showDeeperStudy) {
+                SelahBereanContextSheet(
+                    reference: companionReference(),
+                    translationAbbreviation: translation.abbreviation,
+                    verseText: selectedVerseText()
+                )
+            }
+            .sheet(isPresented: $showRewrite) {
+                SelahReflectionRewriteSheet()
+            }
+            .sheet(isPresented: $showAddToChurchNotes) {
+                if let verse = selectedVerse() {
+                    SelahAddToChurchNotesSheet(
+                        verse: verse,
+                        translation: translation,
+                        mode: .appendReference
+                    )
+                }
+            }
+            .sheet(isPresented: $showCreateSermonNote) {
+                if let verse = selectedVerse() {
+                    SelahAddToChurchNotesSheet(
+                        verse: verse,
+                        translation: translation,
+                        mode: .sermonNote
+                    )
+                }
+            }
+            // MARK: - Selah Lens sheets
+            .sheet(isPresented: $showSelahStudySheet) {
+                if let n = selectedVerseNumber, let text = selectedVerseText() {
+                    BereanStudySheetView(
+                        verseId: selahVerseId(number: n),
+                        verseText: text,
+                        translation: selahTranslation,
+                        viewModel: lensViewModel,
+                        onCrossRefTapped: handleCrossRefTapped
+                    )
+                }
+            }
+            .sheet(isPresented: $showSelahReflectionComposer) {
+                SelahReflectionComposerView(
+                    viewModel: selahReflectionVM,
+                    verseReference: selectedVerseNumber.map { n in
+                        ScriptureReference(bookId: currentBookId, chapter: currentChapter, startVerse: n, endVerse: nil).displayString
+                    } ?? ""
+                )
+            }
+            .fullScreenCover(isPresented: $showGuidedSelahSession) {
+                if let n = selectedVerseNumber, let text = selectedVerseText() {
+                    GuidedSelahSessionView(
+                        verseId: selahVerseId(number: n),
+                        verseText: text,
+                        translation: selahTranslation,
+                        verseReference: ScriptureReference(bookId: currentBookId, chapter: currentChapter, startVerse: n, endVerse: nil).displayString
+                    )
+                }
+            }
+            .sabbathFocusMode(sabbathFocusActive)
+            .onReceive(NotificationCenter.default.publisher(for: .selahSabbathFocusModeExitRequested)) { _ in
+                sabbathFocusActive = false
+            }
+    }
+
+    private var readerBaseView: some View {
         ZStack {
             canvasTone.ignoresSafeArea() // reading canvas — soft, time-aware
             VStack(spacing: 0) {
@@ -285,18 +398,7 @@ struct SelahScriptureReaderView: View {
                 .animation(.spring(response: 0.38, dampingFraction: 0.8), value: selectedVerseNumber)
             }
 
-            if let toast {
-                VStack {
-                    Spacer()
-                    Text(toast)
-                        .font(.system(size: 13, weight: .semibold))
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .background(.regularMaterial, in: Capsule())
-                        .padding(.bottom, 96)
-                }
-                .transition(.opacity)
-            }
+            toastOverlay
         }
         .navigationBarBackButtonHidden(true)
         .toolbar(.hidden, for: .navigationBar)
@@ -321,10 +423,11 @@ struct SelahScriptureReaderView: View {
             loadChapterIfNeeded(bookId: currentBookId, chapter: currentChapter)
         }
         .onChange(of: selectedVerseNumber) { _, newVerse in
+            let shouldResetLens: Bool = (newVerse == nil)
             persistSelectedVerse()
             restoreDraftsForSelectedVerse()
             recordPosition()
-            if newVerse == nil { lensViewModel.reset() }
+            if shouldResetLens { lensViewModel.reset() }
         }
         .onChange(of: activeMode) { _, mode in
             SelahScriptureReaderHardeningStore.saveMode(mode)
@@ -335,135 +438,40 @@ struct SelahScriptureReaderView: View {
         .onChange(of: prayerDraft) { _, _ in
             persistDraftsForSelectedVerse()
         }
-        .erasedToAnyView()
-        .alert("Pause and get support", isPresented: crisisSupportBinding) {
-            Button("OK", role: .cancel) { crisisSupportMessage = nil }
-        } message: {
-            Text(verbatim: crisisSupportText)
-        }
-        .sheet(isPresented: $showSearch) {
-            SelahScriptureSearchView(
-                provider: provider,
-                preferencesStore: preferencesStore
-            )
-        }
-        // Handoff — advertise the current reading position so the user can
-        // pick up where they left off on iPad / Mac. Only active when the
-        // app target declares `NSUserActivityTypes` in Info.plist; without
-        // that declaration this is a harmless no-op.
-        .userActivity(SelahHandoff.readScriptureActivityType) { activity in
-            let next = SelahHandoff.makeReadingActivity(
-                bookId: currentBookId,
-                chapter: currentChapter,
-                verse: selectedVerseNumber,
-                translationId: translation.id,
-                bookDisplayName: book?.displayName ?? currentBookId.capitalized
-            )
-            activity.title = next.title
-            activity.isEligibleForHandoff = true
-            activity.isEligibleForSearch = true
-            activity.isEligibleForPrediction = true
-            if let info = next.userInfo {
-                activity.addUserInfoEntries(from: info)
+    }
+
+    @ViewBuilder
+    private var toastOverlay: some View {
+        if let toast {
+            VStack {
+                Spacer()
+                Text(toast)
+                    .font(.system(size: 13, weight: .semibold))
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(.regularMaterial, in: Capsule())
+                    .padding(.bottom, 96)
             }
-        }
-        .sheet(isPresented: $showReactionPicker) {
-            if let n = selectedVerseNumber,
-               let ref = currentSelectedVerseReference(verseNumber: n) {
-                SelahVerseReactionPickerSheet(
-                    reference: ref,
-                    translationId: translation.id,
-                    store: engagements
-                )
-            }
-        }
-        .sheet(isPresented: $showCompanion) {
-            SelahScriptureCompanionSheet(
-                reference: companionReference(),
-                translationAbbreviation: translation.abbreviation,
-                visibleVerses: visibleVerseTexts(),
-                initialQuestion: companionPrompt
-            )
-        }
-        .sheet(isPresented: $showDeeperStudy) {
-            SelahBereanContextSheet(
-                reference: companionReference(),
-                translationAbbreviation: translation.abbreviation,
-                verseText: selectedVerseText()
-            )
-        }
-        .sheet(isPresented: $showRewrite) {
-            SelahReflectionRewriteSheet()
-        }
-        .sheet(isPresented: $showAddToChurchNotes) {
-            if let verse = selectedVerse() {
-                SelahAddToChurchNotesSheet(
-                    verse: verse,
-                    translation: translation,
-                    mode: .appendReference
-                )
-            }
-        }
-        .sheet(isPresented: $showCreateSermonNote) {
-            if let verse = selectedVerse() {
-                SelahAddToChurchNotesSheet(
-                    verse: verse,
-                    translation: translation,
-                    mode: .sermonNote
-                )
-            }
-        }
-        // MARK: - Selah Lens sheets
-        .sheet(isPresented: $showSelahStudySheet) {
-            if let n = selectedVerseNumber, let text = selectedVerseText() {
-                BereanStudySheetView(
-                    verseId: selahVerseId(number: n),
-                    verseText: text,
-                    translation: selahTranslation,
-                    viewModel: lensViewModel,
-                    onCrossRefTapped: handleCrossRefTapped
-                )
-            }
-        }
-        .sheet(isPresented: $showSelahReflectionComposer) {
-            SelahReflectionComposerView(
-                viewModel: selahReflectionVM,
-                verseReference: selectedVerseNumber.map { n in
-                    SelahScriptureReference(bookId: currentBookId, chapter: currentChapter, startVerse: n, endVerse: nil).displayString
-                } ?? ""
-            )
-        }
-        .fullScreenCover(isPresented: $showGuidedSelahSession) {
-            if let n = selectedVerseNumber, let text = selectedVerseText() {
-                GuidedSelahSessionView(
-                    verseId: selahVerseId(number: n),
-                    verseText: text,
-                    translation: selahTranslation,
-                    verseReference: SelahScriptureReference(bookId: currentBookId, chapter: currentChapter, startVerse: n, endVerse: nil).displayString
-                )
-            }
-        }
-        .sabbathFocusMode(sabbathFocusActive)
-        .onReceive(NotificationCenter.default.publisher(for: .selahSabbathFocusModeExitRequested)) { _ in
-            sabbathFocusActive = false
+            .transition(.opacity)
         }
     }
 
     private func handleCrossRefTapped(_ crossRefId: String) {
         showSelahStudySheet = false
-        guard let ref = SelahScriptureReferenceParser.parse(crossRefId) else { return }
-        advance(to: ref.bookId, chapter: ref.chapter)
-        selectedVerseNumber = ref.startVerse
+        let ref = ScriptureReferenceParser.parse(crossRefId)
+        let bookId = BibleBook.all.first(where: { $0.displayName.lowercased() == ref.book.lowercased() || $0.abbreviation.lowercased() == ref.book.lowercased() })?.id ?? ref.book.lowercased()
+        advance(to: bookId, chapter: ref.chapter)
+        selectedVerseNumber = ref.verseStart
     }
 
-    private func companionReference() -> SelahScriptureReference {
+    private func companionReference() -> ScriptureReference {
         if let n = selectedVerseNumber {
-            return SelahScriptureReference(
+            return ScriptureReference(
                 bookId: currentBookId, chapter: currentChapter,
                 startVerse: n, endVerse: nil
             )
         }
-        return SelahScriptureReference(
+        return ScriptureReference(
             bookId: currentBookId, chapter: currentChapter,
             startVerse: nil, endVerse: nil
         )
@@ -486,8 +494,8 @@ struct SelahScriptureReaderView: View {
         return chapter.verses.first(where: { $0.number == n })
     }
 
-    private func currentSelectedVerseReference(verseNumber: Int) -> SelahScriptureReference? {
-        SelahScriptureReference(
+    private func currentSelectedVerseReference(verseNumber: Int) -> ScriptureReference? {
+        ScriptureReference(
             bookId: currentBookId,
             chapter: currentChapter,
             startVerse: verseNumber,
@@ -622,12 +630,17 @@ struct SelahScriptureReaderView: View {
     /// TabView's own paging — and accessible to VoiceOver.
     @ViewBuilder
     private var chapterBoundaryControls: some View {
-        let canPrevBook = currentChapter == 1 && book?.previousBook() != nil
-        let canNextBook = currentChapter == chapterCount && book?.nextBook() != nil
+        let currentOrder = book?.canonOrder ?? 0
+        let prevBook: BibleBook? = currentChapter == 1
+            ? BibleBook.all.first(where: { $0.canonOrder == currentOrder - 1 })
+            : nil
+        let nextBook: BibleBook? = currentChapter == chapterCount
+            ? BibleBook.all.first(where: { $0.canonOrder == currentOrder + 1 })
+            : nil
 
-        if canPrevBook || canNextBook {
+        if prevBook != nil || nextBook != nil {
             HStack {
-                if canPrevBook, let prev = book?.previousBook() {
+                if let prev = prevBook {
                     Button {
                         advance(to: prev.id, chapter: prev.chapterCount)
                     } label: {
@@ -646,7 +659,7 @@ struct SelahScriptureReaderView: View {
                     .accessibilityLabel("Previous book: \(prev.displayName)")
                 }
                 Spacer()
-                if canNextBook, let next = book?.nextBook() {
+                if let next = nextBook {
                     Button {
                         advance(to: next.id, chapter: 1)
                     } label: {
@@ -1063,12 +1076,17 @@ struct SelahScriptureReaderView: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             if translation.id != SelahBibleTranslation.kjv.id {
-                Button("Try KJV") {
-                    preferencesStore.setTranslation(SelahBibleTranslation.kjv.id)
-                    loadChapterIfNeeded(bookId: currentBookId, chapter: currentChapter)
-                }
-                .buttonStyle(.borderedProminent)
-                .accessibilityHint("Switches to the bundled public-domain KJV translation for this passage")
+                AmenLiquidGlassPillButton(
+                    title: "Try KJV",
+                    systemImage: "book",
+                    isLoading: false,
+                    isDisabled: false,
+                    hint: "Switches to the bundled public-domain KJV translation for this passage",
+                    action: {
+                        preferencesStore.setTranslation(SelahBibleTranslation.kjv.id)
+                        loadChapterIfNeeded(bookId: currentBookId, chapter: currentChapter)
+                    }
+                )
             }
         }
         .frame(maxWidth: .infinity)
@@ -1210,9 +1228,9 @@ struct SelahScriptureReaderView: View {
         )
     }
 
-    private func selectedDraftReference() -> SelahScriptureReference? {
+    private func selectedDraftReference() -> ScriptureReference? {
         guard let selectedVerseNumber else { return nil }
-        return SelahScriptureReference(
+        return ScriptureReference(
             bookId: currentBookId,
             chapter: currentChapter,
             startVerse: selectedVerseNumber,

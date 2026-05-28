@@ -44,7 +44,8 @@ private struct AmenLiquidGlassCapsuleSurface: ViewModifier {
                     )
             }
             .shadow(color: .black.opacity(isSelected ? 0.10 : 0.08), radius: 18, x: 0, y: 8)
-            .scaleEffect(reduceMotion ? 1 : (isPressed ? 0.97 : 1))
+            // Pattern 7: 0.96 scale with canonical bouncy spring
+            .scaleEffect(reduceMotion ? 1 : (isPressed ? 0.96 : 1))
             .brightness(isPressed ? 0.02 : 0)
     }
 }
@@ -60,6 +61,7 @@ struct AmenLiquidGlassPillButton: View {
     let systemImage: String
     let isLoading: Bool
     let isDisabled: Bool
+    var hint: String? = nil
     let action: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -68,7 +70,13 @@ struct AmenLiquidGlassPillButton: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 6) {
-                Image(systemName: isLoading ? "hourglass" : systemImage)
+                if #available(iOS 17, *) {
+                    // Pattern 8: SF Symbol scale-up on active state
+                    Image(systemName: isLoading ? "hourglass" : systemImage)
+                        .symbolEffect(.bounce, options: .speed(1.4), value: isPressed)
+                } else {
+                    Image(systemName: isLoading ? "hourglass" : systemImage)
+                }
                 Text(title).lineLimit(1)
             }
             .font(.subheadline.weight(.semibold))
@@ -86,8 +94,10 @@ struct AmenLiquidGlassPillButton: View {
                     state = true
                 }
         )
-        .animation(reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.24, dampingFraction: 0.84), value: isPressed)
+        // Pattern 7: canonical bouncy spring for press-state shrink
+        .animation(reduceMotion ? .easeOut(duration: 0.12) : Motion.liquidSpring, value: isPressed)
         .accessibilityLabel(title)
+        .accessibilityHint(hint ?? "")
     }
 }
 

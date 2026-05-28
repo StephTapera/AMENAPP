@@ -239,15 +239,15 @@ extension Post {
                     height: item.height,
                     duration: item.duration,
                     caption: item.frameCaption,
-                    processingState: item.processingStatus?.mediaProcessing
+                    processingState: item.generationStatus.mediaProcessing
                 )
             })
         }
 
         let moderationState: ModerationState = {
-            if removed { return ModerationState(status: .rejected, reason: "removed") }
-            if flaggedForReview { return ModerationState(status: .pending, reason: "flagged") }
-            return ModerationState(status: .approved)
+            if removed { return ModerationState.rejected }
+            if flaggedForReview { return ModerationState.flagged }
+            return ModerationState.approved
         }()
 
         let aiMeta: AIMetadata = {
@@ -355,7 +355,6 @@ extension ContentNode {
             topicTag: nil,
             visibility: visibility.toPostVisibility,
             imageURLs: imageURLs.isEmpty ? nil : imageURLs,
-            mediaItems: postMediaItems.isEmpty ? nil : postMediaItems,
             createdAt: createdAt,
             updatedAt: updatedAt,
             wasEdited: updatedAt > createdAt,
@@ -363,7 +362,8 @@ extension ContentNode {
             lightbulbCount: 0,
             commentCount: 0,
             repostCount: 0,
-            contentSource: aiMetadata.usedAI ? aiMetadata.disclosureLabel : nil
+            contentSource: aiMetadata.usedAI ? aiMetadata.disclosureLabel : nil,
+            mediaItems: postMediaItems.isEmpty ? nil : postMediaItems
         )
     }
 }

@@ -70,6 +70,12 @@ final class BannerRouter {
         item: AmenSpaceBannerItem,
         completion: @escaping (Bool) -> Void
     ) {
+        // Dispatch navigation into the app's existing flows first.
+        // AmenSpaceBannerRouteOpener calls NotificationDeepLinkRouter for every route,
+        // ensuring the correct screen opens regardless of whether the target view
+        // also observes the per-route NotificationCenter names below.
+        AmenSpaceBannerRouteOpener.open(route)
+
         switch route {
 
         // ── Action routes ─────────────────────────────────────────────────────

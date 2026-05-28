@@ -202,9 +202,3 @@ struct ProvenanceLabelFullView: View {
     }
 }
 
-// MARK: - Color bridge
-
-private extension AmenTheme.Colors {
-    static var amenGold:   Color { Color(red: 0.83, green: 0.69, blue: 0.22) }
-    static var amenPurple: Color { Color(red: 0.42, green: 0.28, blue: 1.00) }
-}

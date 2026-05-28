@@ -283,10 +283,19 @@ struct TestimoniesView: View {
                                 .foregroundStyle(selectedFilter == filter ? .white : .black)
                                 .padding(.horizontal, 16)
                                 .padding(.vertical, 8)
-                                .background(
-                                    Capsule()
-                                        .fill(selectedFilter == filter ? Color.black : Color.clear)
-                                )
+                                .background {
+                                    if selectedFilter == filter {
+                                        Capsule(style: .continuous)
+                                            .fill(.ultraThinMaterial)
+                                            .overlay {
+                                                Capsule(style: .continuous)
+                                                    .strokeBorder(Color.white.opacity(0.35), lineWidth: 0.8)
+                                            }
+                                            .shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 3)
+                                    } else {
+                                        Color.clear
+                                    }
+                                }
                         }
                         .buttonStyle(.plain)
                     }

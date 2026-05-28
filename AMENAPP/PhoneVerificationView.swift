@@ -71,28 +71,19 @@ struct PhoneVerificationView: View {
                         .padding(.horizontal, 20)
                         
                         // Send code button
-                        Button {
-                            Task {
-                                await viewModel.sendVerificationCode(phoneNumber: "+1" + phoneNumber)
-                            }
-                        } label: {
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.blue)
-                                    .frame(height: 50)
-                                
-                                if viewModel.isSending {
-                                    ProgressView()
-                                        .tint(.white)
-                                } else {
-                                    Text("Send Verification Code")
-                                        .font(AMENFont.semiBold(16))
-                                        .foregroundStyle(.white)
+                        AmenLiquidGlassPillButton(
+                            title: "Send Verification Code",
+                            systemImage: "message.badge",
+                            isLoading: viewModel.isSending,
+                            isDisabled: phoneNumber.isEmpty || viewModel.isSending,
+                            hint: "Sends a 6-digit SMS code to your phone number",
+                            action: {
+                                Task {
+                                    await viewModel.sendVerificationCode(phoneNumber: "+1" + phoneNumber)
                                 }
                             }
-                        }
-                        .disabled(phoneNumber.isEmpty || viewModel.isSending)
-                        .opacity(phoneNumber.isEmpty ? 0.5 : 1.0)
+                        )
+                        .frame(maxWidth: .infinity)
                         .padding(.horizontal, 20)
                     }
                     
@@ -142,31 +133,22 @@ struct PhoneVerificationView: View {
                         .padding(.horizontal, 20)
                         
                         // Verify button
-                        Button {
-                            Task {
-                                let success = await viewModel.verifyCode(code: otpCode)
-                                if success {
-                                    dismiss()
+                        AmenLiquidGlassPillButton(
+                            title: "Verify Phone Number",
+                            systemImage: "phone.badge.checkmark",
+                            isLoading: viewModel.isVerifying,
+                            isDisabled: otpCode.count != 6 || viewModel.isVerifying,
+                            hint: "Verifies the 6-digit code and links your phone number",
+                            action: {
+                                Task {
+                                    let success = await viewModel.verifyCode(code: otpCode)
+                                    if success {
+                                        dismiss()
+                                    }
                                 }
                             }
-                        } label: {
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.blue)
-                                    .frame(height: 50)
-                                
-                                if viewModel.isVerifying {
-                                    ProgressView()
-                                        .tint(.white)
-                                } else {
-                                    Text("Verify Phone Number")
-                                        .font(AMENFont.semiBold(16))
-                                        .foregroundStyle(.white)
-                                }
-                            }
-                        }
-                        .disabled(otpCode.count != 6 || viewModel.isVerifying)
-                        .opacity(otpCode.count == 6 ? 1.0 : 0.5)
+                        )
+                        .frame(maxWidth: .infinity)
                         .padding(.horizontal, 20)
                     }
                     

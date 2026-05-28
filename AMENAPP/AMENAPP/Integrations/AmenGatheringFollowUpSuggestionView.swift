@@ -199,9 +199,9 @@ struct AmenGatheringFollowUpSuggestionView: View {
                 "gatheringId": gatheringId,
                 "userConfirmed": true,
                 "isAIGenerated": false,
-                "scripture": scripture.isEmpty ? NSNull() : scripture,
-                "actionItems": cleanItems.isEmpty ? NSNull() : cleanItems,
-                "prayerPoints": cleanPrayer.isEmpty ? NSNull() : cleanPrayer,
+                "scripture": (scripture.isEmpty ? NSNull() : scripture) as Any,
+                "actionItems": (cleanItems.isEmpty ? NSNull() : cleanItems) as Any,
+                "prayerPoints": (cleanPrayer.isEmpty ? NSNull() : cleanPrayer) as Any,
             ])
             phase = .success
         } catch {

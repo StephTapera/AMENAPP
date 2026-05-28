@@ -13,7 +13,7 @@ struct AmenIntegrationsHomeView: View {
             List {
                 // Connected Apps section
                 Section {
-                    NavigationLink(destination: AmenConnectedAppsView().environmentObject(flags)) {
+                    NavigationLink(destination: AmenIntegrationConnectionsView().environmentObject(flags)) {
                         Label {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Connected Apps")

@@ -523,7 +523,7 @@ private struct SessionCompleteView: View {
 
             Image(systemName: "checkmark.seal.fill")
                 .font(.system(size: 60))
-                .foregroundStyle(.accentColor)
+                .foregroundStyle(Color.accentColor)
 
             VStack(spacing: 8) {
                 Text("Session Complete")

@@ -578,7 +578,8 @@ struct WalkFollowThroughPlan: Identifiable, Codable {
         for date in sorted {
             if Calendar.current.isDate(date, inSameDayAs: check) {
                 streak += 1
-                check = Calendar.current.date(byAdding: .day, value: -1, to: check)!
+                guard let previous = Calendar.current.date(byAdding: .day, value: -1, to: check) else { break }
+                check = previous
             } else { break }
         }
         return streak

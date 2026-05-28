@@ -382,7 +382,7 @@ struct InAppNotificationBannerView: View {
 
 private struct InAppNotificationBannerModifier: ViewModifier {
 
-    @StateObject private var banner = InAppNotificationBanner.shared
+    @ObservedObject private var banner = InAppNotificationBanner.shared // PERF: singleton → @ObservedObject
     @ObservedObject private var notificationService = NotificationService.shared
     @State private var navigationObserver: NSObjectProtocol?
 

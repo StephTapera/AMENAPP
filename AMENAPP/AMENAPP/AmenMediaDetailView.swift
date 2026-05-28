@@ -9,6 +9,7 @@ enum MediaSourceContext: String, Hashable {
     case postDetail
     case notification
     case deepLink
+    case saved
 }
 
 struct AmenMediaDetailLoaderView: View {
@@ -87,6 +88,7 @@ struct AmenMediaDetailView: View {
     @State private var showChrome = true
     @State private var showOverflowSheet = false
     @State private var activeContextSheet: AmenContextSheet?
+    @State private var showMediaLongPressMenu = false
 
     init(post: Post, initialMediaIndex: Int, sourceContext: MediaSourceContext) {
         self.post = post
@@ -96,6 +98,11 @@ struct AmenMediaDetailView: View {
     }
 
     private var postID: String { post.firestoreId }
+
+    private var isOwnPost: Bool {
+        guard let uid = Auth.auth().currentUser?.uid else { return false }
+        return post.authorId == uid
+    }
 
     private var media: PostMediaContainer? {
         post.mediaContainer
@@ -122,7 +129,7 @@ struct AmenMediaDetailView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            Color(red: 0.972, green: 0.972, blue: 0.965)
+            Color(.systemBackground)
                 .ignoresSafeArea()
 
             ScrollView(showsIndicators: false) {
@@ -145,7 +152,7 @@ struct AmenMediaDetailView: View {
             await startCommentTasks()
         }
         .onDisappear {
-            commentService.stopListening(postId: postID)
+            commentService.stopListening()
         }
         .sheet(isPresented: $showOverflowSheet) {
             AmenMediaOverflowSheet(post: post)
@@ -184,10 +191,28 @@ struct AmenMediaDetailView: View {
                             isHero: true
                         )
                         .tag(index)
+                        .onLongPressGesture(minimumDuration: 0.4) {
+                            showMediaLongPressMenu = true
+                        }
                     }
                 }
                 .tabViewStyle(.page(indexDisplayMode: mediaItems.count > 1 ? .automatic : .never))
                 .frame(height: heroHeight)
+                .mediaLongPressMenu(
+                    isPresented: $showMediaLongPressMenu,
+                    isOwnPost: isOwnPost,
+                    postPreviewImageURL: mediaItems.first.flatMap { URL(string: $0.url) },
+                    postAuthorName: post.authorName,
+                    onLike: {},
+                    onRepost: {},
+                    onShare: { showOverflowSheet = true },
+                    onViewProfile: {},
+                    onNotInterested: { Task { await HeyFeedPreferencesService.shared.hidePost(postID) } },
+                    onReport: {},
+                    onDelete: { Task { try? await FirebasePostService.shared.deletePost(postId: postID) } },
+                    onEdit: {},
+                    onPin: { Task { try? await PinnedPostService.shared.togglePin(postId: postID) } }
+                )
             }
 
             if let text = post.content.nilIfEmpty {
@@ -209,7 +234,7 @@ struct AmenMediaDetailView: View {
                     }
                 }
                 .padding(14)
-                .background(AmenGlassCard(cornerRadius: 22))
+                .background(MediaGlassBackground(cornerRadius:22))
             }
         }
     }
@@ -229,7 +254,7 @@ struct AmenMediaDetailView: View {
                 }
                 if post.isChurchShare, let churchName = post.sharedChurchName, !churchName.isEmpty {
                     AmenContextPill(title: "Find a Church", systemImage: "building.columns") {
-                        activeContextSheet = .church(name: churchName, subtitle: post.sharedChurchAddress)
+                        activeContextSheet = .church(name: churchName, subtitle: nil)
                     }
                 }
             }
@@ -276,15 +301,15 @@ struct AmenMediaDetailView: View {
             VStack(spacing: 12) {
                 AmenContextCard(
                     title: "Original post thread",
-                    body: "Comments here read and write against the canonical post thread, so feed, profile, and detail stay in sync."
+                    text:"Comments here read and write against the canonical post thread, so feed, profile, and detail stay in sync."
                 )
                 AmenContextCard(
                     title: "Source context",
-                    body: "Opened from \(sourceTitle.lowercased()). Dismissal keeps the underlying profile or feed state intact because the detail is layered over the current surface."
+                    text:"Opened from \(sourceTitle.lowercased()). Dismissal keeps the underlying profile or feed state intact because the detail is layered over the current surface."
                 )
                 AmenContextCard(
                     title: "Attached context",
-                    body: contextSummary
+                    text:contextSummary
                 )
             }
         }
@@ -389,7 +414,7 @@ struct AmenMediaDetailView: View {
                 }
             }
             group.addTask {
-                commentService.startListening(postId: postID)
+                await commentService.startListening(to: postID)
             }
             group.addTask {
                 await prefetchHeroMedia()
@@ -437,6 +462,7 @@ struct AmenMediaDetailView: View {
         case .postDetail: return "Post"
         case .notification: return "Notification"
         case .deepLink: return "Post"
+        case .saved: return "Saved"
         }
     }
 
@@ -448,6 +474,7 @@ struct AmenMediaDetailView: View {
         case .postDetail: return "Post Detail"
         case .notification: return "Notification"
         case .deepLink: return "Deep Link"
+        case .saved: return "Saved"
         }
     }
 
@@ -566,7 +593,10 @@ private struct AmenVideoPlayerSurface: View {
                 VideoPlayer(player: player)
                     .aspectRatio(item.computedAspectRatio, contentMode: contentMode)
                     .overlay(alignment: .center) {
-                        if !model.isPlaying {
+                        if model.isBuffering {
+                            AMENLoader.inline
+                                .accessibilityLabel("Buffering video")
+                        } else if !model.isPlaying {
                             Image(systemName: "play.fill")
                                 .font(.system(size: 22, weight: .semibold))
                                 .foregroundStyle(.white)
@@ -578,7 +608,7 @@ private struct AmenVideoPlayerSurface: View {
                 Rectangle()
                     .fill(Color.black.opacity(0.08))
                     .aspectRatio(item.computedAspectRatio, contentMode: contentMode)
-                    .overlay(ProgressView().tint(.black.opacity(0.45)))
+                    .overlay(AMENLoader.inline.accessibilityLabel("Loading video"))
             }
         }
         .onTapGesture {
@@ -593,13 +623,24 @@ private struct AmenVideoPlayerSurface: View {
     }
 }
 
+@MainActor
 private final class AmenVideoPlayerModel: ObservableObject {
     @Published var player: AVPlayer?
     @Published var isPlaying = false
+    @Published var isBuffering = false
+
+    private var statusObservation: NSKeyValueObservation?
+    private var bufferingTask: Task<Void, Never>?
 
     func configure(urlString: String) {
         guard player == nil, let url = URL(string: urlString) else { return }
-        player = AVPlayer(url: url)
+        let newPlayer = AVPlayer(url: url)
+        player = newPlayer
+        // Observe timeControlStatus to detect mid-playback stalls with a 300ms debounce.
+        statusObservation = newPlayer.observe(\.timeControlStatus, options: [.new]) { [weak self] _, change in
+            guard let self, let status = change.newValue else { return }
+            Task { @MainActor [weak self] in self?.handleTimeControl(status) }
+        }
     }
 
     func toggle() {
@@ -615,6 +656,31 @@ private final class AmenVideoPlayerModel: ObservableObject {
     func pause() {
         player?.pause()
         isPlaying = false
+        isBuffering = false
+        bufferingTask?.cancel()
+    }
+
+    deinit {
+        statusObservation?.invalidate()
+        bufferingTask?.cancel()
+    }
+
+    @MainActor
+    private func handleTimeControl(_ status: AVPlayer.TimeControlStatus) {
+        switch status {
+        case .waitingToPlayAtSpecifiedRate:
+            // Debounce 300ms so quick network hiccups don't flash the loader.
+            bufferingTask?.cancel()
+            bufferingTask = Task {
+                try? await Task.sleep(for: .milliseconds(300))
+                guard !Task.isCancelled else { return }
+                isBuffering = true
+            }
+        default:
+            bufferingTask?.cancel()
+            bufferingTask = nil
+            isBuffering = false
+        }
     }
 }
 
@@ -638,7 +704,7 @@ struct AmenCommentThreadSection: View {
             if comments.isEmpty {
                 AmenContextCard(
                     title: "No comments yet",
-                    body: "Start the conversation from the original post thread."
+                    text:"Start the conversation from the original post thread."
                 )
             } else {
                 ForEach(comments, id: \.comment.stableId) { item in
@@ -684,7 +750,7 @@ struct AmenCommentRow: View {
             Spacer(minLength: 0)
         }
         .padding(14)
-        .background(AmenGlassCard(cornerRadius: 22))
+        .background(MediaGlassBackground(cornerRadius:22))
         .padding(.leading, isReply ? 8 : 0)
     }
 
@@ -718,21 +784,21 @@ struct AmenCommentRow: View {
 
 private struct AmenContextCard: View {
     let title: String
-    let body: String
+    let text: String
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(AMENFont.semiBold(14))
                 .foregroundStyle(.black)
-            Text(body)
+            Text(text)
                 .font(AMENFont.regular(14))
                 .foregroundStyle(.black.opacity(0.7))
                 .lineSpacing(5)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
-        .background(AmenGlassCard(cornerRadius: 24))
+        .background(MediaGlassBackground(cornerRadius:24))
     }
 }
 
@@ -852,7 +918,7 @@ private struct AmenGlassCapsule: View {
     }
 }
 
-private struct AmenGlassCard: View {
+private struct MediaGlassBackground: View {
     var cornerRadius: CGFloat
 
     var body: some View {

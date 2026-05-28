@@ -84,7 +84,7 @@ struct SelahGlassSegmentedControl<T: Hashable & CaseIterable & Identifiable>: Vi
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 0) {
-                ForEach(Array(T.allCases as! [T])) { item in
+                ForEach(Array(T.allCases)) { item in
                     Button {
                         UIImpactFeedbackGenerator(style: .light).impactOccurred()
                         withAnimation(reduceMotion ? .none
@@ -368,7 +368,7 @@ final class SelahReflectionService {
         guard !reflection.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw SelahReflectionError.emptyText
         }
-        let ref = try db.collection("users").document(userId)
+        let ref = try await db.collection("users").document(userId)
             .collection("selah_reflections")
             .addDocument(data: [
                 "userId": userId,

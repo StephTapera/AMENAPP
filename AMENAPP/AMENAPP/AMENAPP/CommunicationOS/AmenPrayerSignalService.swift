@@ -10,7 +10,7 @@
 //   - requestorId is redacted to "[private]" for all non-owner signals.
 //   - SmartContextSafety.requiresExplicitOptIn(.prayerSignal) == true — no auto-amplify.
 //
-// Feature flag: RemoteKillSwitch.shared.threadPrayerDetectionEnabled (default OFF).
+// Feature flag: AMENFeatureFlags.shared.threadPrayerDetectionEnabled (default OFF).
 
 import Foundation
 import Combine
@@ -35,14 +35,14 @@ final class AmenPrayerSignalService: ObservableObject {
     // MARK: - Start Listening
 
     /// Attach real-time listener for the prayerSignals sub-collection.
-    /// No-op if `RemoteKillSwitch.shared.threadPrayerDetectionEnabled` is OFF.
+    /// No-op if `AMENFeatureFlags.shared.threadPrayerDetectionEnabled` is OFF.
     func startListening(
         threadId: String,
         threadType: AmenSmartThreadType,
         spaceId: String?,
         channelId: String?
     ) {
-        guard RemoteKillSwitch.shared.threadPrayerDetectionEnabled else {
+        guard AMENFeatureFlags.shared.threadPrayerDetectionEnabled else {
             dlog("[PrayerSignalService] threadPrayerDetectionEnabled is OFF — skipping listener.")
             return
         }
@@ -122,7 +122,7 @@ final class AmenPrayerSignalService: ObservableObject {
         channelId: String?,
         messageId: String
     ) async {
-        guard RemoteKillSwitch.shared.threadPrayerDetectionEnabled else { return }
+        guard AMENFeatureFlags.shared.threadPrayerDetectionEnabled else { return }
 
         // No raw message text in the payload — only IDs.
         var payload: [String: Any] = [
@@ -153,7 +153,7 @@ final class AmenPrayerSignalService: ObservableObject {
         spaceId: String?,
         channelId: String?
     ) async {
-        guard RemoteKillSwitch.shared.threadPrayerDetectionEnabled else { return }
+        guard AMENFeatureFlags.shared.threadPrayerDetectionEnabled else { return }
 
         // Safety: only proceed if the caller is authenticated.
         guard let currentUid = Auth.auth().currentUser?.uid else { return }

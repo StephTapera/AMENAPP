@@ -150,7 +150,7 @@ struct BereanThreadCapsule: View {
             .padding(.vertical, 6)
             .background(
                 Capsule()
-                    .fill(reduceTransparency ? Color(uiColor: .secondarySystemBackground) : .ultraThinMaterial)
+                    .fill(reduceTransparency ? AnyShapeStyle(Color(uiColor: .secondarySystemBackground)) : AnyShapeStyle(.ultraThinMaterial))
                     .overlay(
                         reduceTransparency ? nil :
                             Capsule().fill(BereanColor.glassFill)
@@ -159,8 +159,10 @@ struct BereanThreadCapsule: View {
                         Capsule().strokeBorder(BereanColor.glassStroke, lineWidth: 0.5)
                     )
             )
+            // Fix 4: Mode pill is visible and meaningful to VoiceOver users
+            // while the compact capsule is scroll-collapsed — do not hide it.
             .accessibilityLabel("Mode: \(mode.rawValue)")
-            .accessibilityHidden(true)
+            .accessibilityHidden(false)
 
             Spacer(minLength: 0)
         }
@@ -358,7 +360,7 @@ private struct DrawerChip: View {
     VStack {
         BereanThreadCapsule(
             threadTitle: "Romans 8 Deep Study",
-            mode: .scriptureStudy,
+            mode: .scholar,
             verseCount: 3,
             docCount: 1,
             memoryOn: true,
@@ -378,7 +380,7 @@ private struct DrawerChip: View {
     VStack {
         BereanThreadCapsule(
             threadTitle: "Prayer for Anxiety",
-            mode: .prayerCompanion,
+            mode: .shepherd,
             verseCount: 0,
             docCount: 0,
             memoryOn: false,

@@ -123,7 +123,7 @@ enum LivingEntryContextEngine {
             }
         }
 
-        if context.focusModeActive && entry.intent == .work == false && entry.isDueNow == false {
+        if context.focusModeActive && entry.intent != .work && !entry.isDueNow {
             interruptionPenalty += 0.12
         }
         if context.quietModeActive && entry.intent == .work {

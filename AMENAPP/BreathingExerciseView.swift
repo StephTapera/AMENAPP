@@ -268,14 +268,15 @@ struct BreathingExerciseView: View {
             Spacer()
 
             // Start button
-            Button { startSession() } label: {
-                Text("Begin")
-                    .font(.custom("OpenSans-SemiBold", size: 17))
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 56)
-                    .background(accent, in: RoundedRectangle(cornerRadius: 16))
-            }
+            AmenLiquidGlassPillButton(
+                title: "Begin",
+                systemImage: "play.fill",
+                isLoading: false,
+                isDisabled: false,
+                hint: "Starts the breathing exercise session",
+                action: { startSession() }
+            )
+            .frame(maxWidth: .infinity)
             .padding(.horizontal, 24)
             .padding(.bottom, 48)
         }
@@ -383,16 +384,15 @@ struct BreathingExerciseView: View {
             .padding(.horizontal, 36)
 
             if sessionComplete {
-                Button {
-                    withAnimation { showMoodCheck = true }
-                } label: {
-                    Text("How do you feel?")
-                        .font(.custom("OpenSans-SemiBold", size: 16))
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 52)
-                        .background(accent, in: RoundedRectangle(cornerRadius: 14))
-                }
+                AmenLiquidGlassPillButton(
+                    title: "How do you feel?",
+                    systemImage: "heart.text.square",
+                    isLoading: false,
+                    isDisabled: false,
+                    hint: "Opens the post-session mood check-in",
+                    action: { withAnimation { showMoodCheck = true } }
+                )
+                .frame(maxWidth: .infinity)
                 .padding(.horizontal, 24)
                 .padding(.top, 24)
                 .transition(.opacity.combined(with: .move(edge: .bottom)))

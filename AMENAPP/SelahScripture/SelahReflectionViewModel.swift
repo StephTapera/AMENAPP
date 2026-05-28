@@ -11,40 +11,6 @@
 import Foundation
 import FirebaseAuth
 
-// MARK: - SelahFunctionsService (Phase 3a contract)
-
-/// Thin wrapper around the Firebase Callable that classifies a reflection for
-/// safety themes. Implemented in Phase 3a; declared here as the seam so Phase
-/// 3b can compile independently.
-@MainActor
-final class SelahFunctionsService {
-
-    static let shared = SelahFunctionsService()
-    private init() {}
-
-    /// Calls the `classifySafety` Firebase Callable function and returns a
-    /// structured response. Throws on network or server error.
-    func classifySafety(
-        reflectionText: String,
-        verseId: String?
-    ) async throws -> ClassifySafetyResponse {
-        // This body is the Phase 3a implementation seam. During Phase 3b
-        // compilation the function is callable; the real network call lives in
-        // the Phase 3a implementation file which wins at link time.
-        //
-        // Fallback used only when no Phase 3a implementation is linked (e.g.
-        // unit-test targets that stub this class):
-        return ClassifySafetyResponse(
-            theme: .neutral,
-            confidence: 1.0,
-            canGenerateDevotional: true,
-            canShare: true,
-            supportPayload: nil,
-            promptVersion: "stub-3b"
-        )
-    }
-}
-
 // MARK: - ViewModel
 
 @MainActor
@@ -61,6 +27,7 @@ final class SelahReflectionViewModel: ObservableObject {
     @Published var isSaving: Bool = false
     @Published var saveError: String?
     @Published var savedSuccessfully: Bool = false
+    @Published var savedReflectionId: String?
     @Published var showSupportBanner: Bool = false
 
     // MARK: Context (set from outside when entering reflection mode)
@@ -133,6 +100,7 @@ final class SelahReflectionViewModel: ObservableObject {
         // Step 5: persist
         do {
             try await firestore.saveReflection(doc)
+            savedReflectionId = doc.id
             savedSuccessfully = true
         } catch {
             saveError = error.localizedDescription

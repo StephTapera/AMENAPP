@@ -38,6 +38,7 @@ final class NotificationDeepLinkRouter: ObservableObject {
         case job(jobId: String)
         case event(eventId: String)
         case studioProfile(creatorId: String)
+        case groupDetail(groupId: String)
 
         static func == (lhs: NavigationDestination, rhs: NavigationDestination) -> Bool {
             switch (lhs, rhs) {
@@ -531,6 +532,8 @@ struct NotificationNavigationHandler: ViewModifier {
                     
                 case .conversation(let conversationId, _):
                     selectedTab = 2  // Switch to Messages tab
+                    // Deep-linking into a specific conversation — clear messages badge.
+                    BadgeCountManager.shared.clearMessages()
                     pendingAction = {
                         NotificationCenter.default.post(
                             name: .openConversation,
@@ -541,10 +544,16 @@ struct NotificationNavigationHandler: ViewModifier {
                     
                 case .messages:
                     selectedTab = 2  // Messages tab
+                    // Clear the messages badge when a push routes here — the user
+                    // is about to see their messages so the dot should disappear.
+                    BadgeCountManager.shared.clearMessages()
                     pendingAction = nil
-                    
+
                 case .notifications:
                     selectedTab = 4  // Notifications tab
+                    // Clear the notifications badge when a push routes here — the
+                    // user is about to see their notifications feed.
+                    BadgeCountManager.shared.clearNotifications()
                     pendingAction = nil
                     
                 case .prayer, .churchNote:
@@ -566,7 +575,12 @@ struct NotificationNavigationHandler: ViewModifier {
                     // Studio profiles are accessible via Resources tab
                     selectedTab = 3
                     pendingAction = nil
-                    
+
+                case .groupDetail:
+                    // Groups are accessible via Discovery tab
+                    selectedTab = 1
+                    pendingAction = nil
+
                 case .groupJoinLink(let token):
                     selectedTab = 2  // Switch to Messages tab
                     pendingAction = {

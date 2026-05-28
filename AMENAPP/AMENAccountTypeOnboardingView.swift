@@ -492,39 +492,15 @@ private struct ContinueButton: View {
     let isSubmitting: Bool
     let action: () -> Void
 
-    @State private var isPressed: Bool = false
-
     var body: some View {
-        Button(action: {
-            guard isEnabled, !isSubmitting else { return }
-            action()
-        }) {
-            ZStack {
-                Capsule()
-                    .fill(isEnabled ? Color.black : Color(white: 0.82))
-
-                if isSubmitting {
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                        .scaleEffect(0.85)
-                } else {
-                    Text(label)
-                        .font(AMENFont.semiBold(17))
-                        .foregroundColor(isEnabled ? .white : Color(white: 0.55))
-                }
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: 54)
-        }
-        .scaleEffect(isPressed ? 0.97 : 1.0)
-        .animation(.spring(response: 0.4, dampingFraction: 0.85), value: isPressed)
-        .animation(.spring(response: 0.4, dampingFraction: 0.85), value: isEnabled)
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in isPressed = true }
-                .onEnded { _ in isPressed = false }
+        AmenLiquidGlassPillButton(
+            title: label,
+            systemImage: "arrow.right",
+            isLoading: isSubmitting,
+            isDisabled: !isEnabled,
+            action: action
         )
-        .disabled(!isEnabled || isSubmitting)
+        .frame(maxWidth: .infinity)
     }
 }
 

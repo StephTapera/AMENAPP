@@ -150,7 +150,8 @@ class ToastManager: ObservableObject {
     
     func showCopyLinkHUD() {
         copyHUDTimer?.invalidate()
-        withAnimation(.spring(response: 0.32, dampingFraction: 0.72)) {
+        // Pattern 5: canonical bouncy spring for liquid glass pill morphing
+        withAnimation(Motion.liquidSpringAdaptive) {
             showCopyHUD = true
         }
         copyHUDTimer = Timer.scheduledTimer(withTimeInterval: 1.9, repeats: false) { [weak self] _ in
@@ -163,8 +164,9 @@ class ToastManager: ObservableObject {
     func show(_ toast: ToastNotification, duration: TimeInterval = 4.0) {
         // Dismiss any existing toast
         dismissTimer?.invalidate()
-        
-        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.8))) {
+
+        // Pattern 5: canonical bouncy spring for toast pill entrance
+        withAnimation(Motion.liquidSpringAdaptive) {
             currentToast = toast
         }
         
@@ -176,7 +178,7 @@ class ToastManager: ObservableObject {
     
     func dismiss() {
         dismissTimer?.invalidate()
-        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
+        withAnimation(Motion.liquidSpringAdaptive) {
             currentToast = nil
         }
     }
@@ -308,11 +310,8 @@ struct LiquidGlassCopyHUD: View {
         .scaleEffect(appeared ? 1.0 : 0.76)
         .opacity(appeared ? 1.0 : 0)
         .onAppear {
-            withAnimation(
-                reduceMotion
-                    ? .easeOut(duration: 0.15)
-                    : .spring(response: 0.30, dampingFraction: 0.70)
-            ) {
+            // Pattern 5: canonical bouncy spring for liquid glass pill entrance
+            withAnimation(reduceMotion ? .easeOut(duration: 0.15) : Motion.liquidSpring) {
                 appeared = true
             }
             checkTrim = 1

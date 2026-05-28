@@ -2,6 +2,8 @@ import Foundation
 
 // MARK: - Calm Control Settings
 
+typealias AmenCalmPresenceState = AmenPresenceState
+
 enum AmenPresenceState: String, Codable, CaseIterable, Identifiable {
     case visible
     case quiet
@@ -166,6 +168,19 @@ struct AmenSpiritualRhythm: Codable, Equatable {
     var lastActivityAt: Date? = nil
     var preferredReminderHour: Int = 8
     var preferredEveningDigestHour: Int = 18
+
+    // MARK: Extended rhythm properties (used by SpiritualRhythmService)
+    var momentumLabel: AmenMomentumLabel = .resting
+    var inactiveNoticeSent: Bool = false
+    var notificationsPausedDueToInactivity: Bool = false
+    var lastActivityDate: Date? = nil
+
+    /// True when the user has had no recorded activity for 7+ days.
+    var isInactiveSeven: Bool {
+        guard let last = lastActivityDate ?? lastActivityAt else { return true }
+        let days = Calendar.current.dateComponents([.day], from: last, to: Date()).day ?? 0
+        return days >= 7
+    }
 }
 
 struct AmenPresenceSettings: Codable, Equatable {
@@ -198,6 +213,107 @@ struct AmenStreakState: Codable, Identifiable, Equatable {
             graceRecoveriesRemaining: 2,
             isRecovered: false
         )
+    }
+}
+
+// MARK: - Streak Types (CalmControl / SpiritualRhythm)
+
+/// The activity types that are individually tracked as streaks in Spiritual Rhythm.
+enum AmenStreakType: String, Codable, CaseIterable, Identifiable, Hashable {
+    case scripture       = "scripture"
+    case bibleReading    = "bibleReading"
+    case prayer          = "prayer"
+    case community       = "community"
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .scripture:    return "Scripture"
+        case .bibleReading: return "Bible Reading"
+        case .prayer:       return "Prayer"
+        case .community:    return "Community"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .scripture:    return "book.fill"
+        case .bibleReading: return "text.book.closed.fill"
+        case .prayer:       return "hands.sparkles.fill"
+        case .community:    return "person.2.fill"
+        }
+    }
+}
+
+// MARK: - Streak State (alive / paused)
+
+enum AmenStreakLifeState: String, Codable, Equatable {
+    case alive
+    case paused
+    case broken
+
+    var isAlive: Bool { self == .alive }
+}
+
+// MARK: - AmenStreak
+
+struct AmenStreak: Codable, Identifiable, Equatable {
+    var id: String { type.rawValue }
+    var type: AmenStreakType
+    var currentCount: Int
+    var longestCount: Int
+    var state: AmenStreakLifeState
+    var gracePeriodUsed: Bool
+    var lastRecordedAt: Date?
+
+    init(type: AmenStreakType,
+         currentCount: Int = 0,
+         longestCount: Int = 0,
+         state: AmenStreakLifeState = .alive,
+         gracePeriodUsed: Bool = false,
+         lastRecordedAt: Date? = nil) {
+        self.type = type
+        self.currentCount = currentCount
+        self.longestCount = longestCount
+        self.state = state
+        self.gracePeriodUsed = gracePeriodUsed
+        self.lastRecordedAt = lastRecordedAt
+    }
+
+    /// Human-readable streak count (e.g. "7 days").
+    var displayCount: String {
+        currentCount == 1 ? "1 day" : "\(currentCount) days"
+    }
+}
+
+// MARK: - Momentum Label
+
+enum AmenMomentumLabel: String, Codable, CaseIterable {
+    case resting    = "resting"
+    case returning  = "returning"
+    case reflecting = "reflecting"
+    case growing    = "growing"
+    case grounded   = "grounded"
+
+    var displayName: String {
+        switch self {
+        case .resting:    return "Resting"
+        case .returning:  return "Returning"
+        case .reflecting: return "Reflecting"
+        case .growing:    return "Growing"
+        case .grounded:   return "Grounded"
+        }
+    }
+
+    var subtitle: String {
+        switch self {
+        case .resting:    return "Taking a break is part of the journey."
+        case .returning:  return "Welcome back — your rhythms are here for you."
+        case .reflecting: return "Small steps of faithfulness matter."
+        case .growing:    return "Consistency is building something beautiful."
+        case .grounded:   return "Your spiritual roots are going deep."
+        }
     }
 }
 

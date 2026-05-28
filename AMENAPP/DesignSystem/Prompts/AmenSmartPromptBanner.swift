@@ -60,9 +60,9 @@ struct AmenSmartPromptBanner: View {
     private var iconBadge: some View {
         Image(systemName: prompt.systemImage)
             .font(.footnote.weight(.semibold))
-            .foregroundStyle(.black.opacity(0.60))
+            .foregroundStyle(Color.primary.opacity(0.60))
             .frame(width: 32, height: 32)
-            .background(Circle().fill(Color.black.opacity(0.06)))
+            .background(Circle().fill(Color.primary.opacity(0.06)))
             .accessibilityHidden(true)
     }
 
@@ -70,11 +70,11 @@ struct AmenSmartPromptBanner: View {
         VStack(alignment: .leading, spacing: 2) {
             Text(prompt.title)
                 .font(.footnote.weight(.semibold))
-                .foregroundStyle(.black)
+                .foregroundStyle(.primary)
                 .lineLimit(1)
             Text(prompt.body)
                 .font(.caption)
-                .foregroundStyle(.black.opacity(0.55))
+                .foregroundStyle(Color.primary.opacity(0.55))
                 .lineLimit(2)
         }
     }
@@ -85,10 +85,10 @@ struct AmenSmartPromptBanner: View {
         } label: {
             Text(prompt.primaryAction.title)
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Color(.systemBackground))
                 .padding(.horizontal, 12)
                 .frame(height: 32)
-                .background(Capsule().fill(Color.black))
+                .background(Capsule().fill(Color.primary))
                 .lineLimit(1)
                 .minimumScaleFactor(0.80)
         }
@@ -102,9 +102,9 @@ struct AmenSmartPromptBanner: View {
         } label: {
             Image(systemName: "xmark")
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(.black.opacity(0.35))
+                .foregroundStyle(Color.primary.opacity(0.35))
                 .frame(width: 26, height: 26)
-                .background(Circle().fill(Color.black.opacity(0.05)))
+                .background(Circle().fill(Color.primary.opacity(0.05)))
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Dismiss prompt")
@@ -117,7 +117,7 @@ struct AmenSmartPromptBanner: View {
         if reduceTransparency {
             Color(.systemBackground)
         } else {
-            Color.white.opacity(0.96)
+            Color(.systemBackground).opacity(0.96)
                 .background(.regularMaterial)
         }
     }

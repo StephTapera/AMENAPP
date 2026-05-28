@@ -108,12 +108,16 @@ struct BereanShareSheet: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)
-            Button("Try again") {
+            AmenLiquidGlassPillButton(
+                title: "Try again",
+                systemImage: "arrow.clockwise",
+                isLoading: false,
+                isDisabled: false
+            ) {
                 loadError = nil
                 isLoading = true
                 Task { await loadBereanSuggestions() }
             }
-            .buttonStyle(.borderedProminent)
             Button("Share without Berean") {
                 ShareService.presentSystemSheet(for: makeContent())
                 dismiss()
@@ -224,7 +228,7 @@ struct BereanShareSheet: View {
                 Spacer()
                 Text("\(text.wrappedValue.count)/\(limit)")
                     .font(.caption2)
-                    .foregroundStyle(text.wrappedValue.count > limit ? .red : .tertiary)
+                    .foregroundStyle(text.wrappedValue.count > limit ? Color.red : Color.secondary.opacity(0.6))
             }
             TextField(placeholder, text: text, axis: .vertical)
                 .font(.body)
@@ -240,39 +244,42 @@ struct BereanShareSheet: View {
     private var actionButtons: some View {
         VStack(spacing: 12) {
             // Primary: Share to Story
-            Button {
+            AmenLiquidGlassPillButton(
+                title: "Share to Story",
+                systemImage: "play.square.stack",
+                isLoading: isSharingStory,
+                isDisabled: isSharingStory
+            ) {
                 Task { await shareToStory() }
-            } label: {
-                Label("Share to Story", systemImage: "play.square.stack")
-                    .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent)
-            .disabled(isSharingStory)
 
             HStack(spacing: 12) {
-                Button {
+                AmenLiquidGlassPillButton(
+                    title: "Send to friend",
+                    systemImage: "paperplane",
+                    isLoading: false,
+                    isDisabled: false
+                ) {
                     ShareService.presentSystemSheet(for: makeContent())
-                } label: {
-                    Label("Send to friend", systemImage: "paperplane")
-                        .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.bordered)
 
-                Button {
+                AmenLiquidGlassPillButton(
+                    title: "Copy",
+                    systemImage: "link",
+                    isLoading: false,
+                    isDisabled: false
+                ) {
                     Task { await copyLink() }
-                } label: {
-                    Label("Copy", systemImage: "link")
-                        .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.bordered)
 
-                Button {
+                AmenLiquidGlassPillButton(
+                    title: "Save",
+                    systemImage: "arrow.down.to.line",
+                    isLoading: false,
+                    isDisabled: false
+                ) {
                     Task { await saveImage() }
-                } label: {
-                    Label("Save", systemImage: "arrow.down.to.line")
-                        .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.bordered)
             }
         }
         .padding(.top, 8)
@@ -323,7 +330,7 @@ struct BereanShareSheet: View {
             let callable = Functions.functions().httpsCallable("bereanShareAssist")
             let result = try await callable.call(["postId": post.firestoreId])
             guard let payload = BereanSharePayload(data: result.data) else {
-                throw ShareError.malformedResponse
+                throw BereanShareError.malformedResponse
             }
             await MainActor.run {
                 pullQuote = payload.pullQuote
@@ -368,7 +375,7 @@ private struct BereanPulseRing: View {
 
 // MARK: - Error type
 
-private enum ShareError: LocalizedError {
+private enum BereanShareError: LocalizedError {
     case malformedResponse
     var errorDescription: String? { "Unexpected response from Berean." }
 }

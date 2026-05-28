@@ -100,8 +100,8 @@ struct BereanMemoryChip: View {
             // Background capsule
             Capsule()
                 .fill(reduceTransparency
-                    ? AmenTheme.Colors.surfaceChip
-                    : .ultraThinMaterial
+                    ? AnyShapeStyle(AmenTheme.Colors.surfaceChip)
+                    : AnyShapeStyle(.ultraThinMaterial)
                 )
 
             if !reduceTransparency {
@@ -196,8 +196,10 @@ struct BereanMemoryChip: View {
 
     private func startBorderPulse() {
         borderPulse = false
+        // capsuleSpring drives the pulse — approved interactive-transition preset,
+        // replaces the unapproved .easeInOut(duration:) that was here before.
         withAnimation(
-            .easeInOut(duration: 1.1)
+            capsuleSpring
             .repeatForever(autoreverses: true)
         ) {
             borderPulse = true
@@ -205,8 +207,11 @@ struct BereanMemoryChip: View {
     }
 
     private func stopAnimations() {
-        shimmerPhase = 0.0
-        borderPulse  = false
+        // withAnimation(.none) forcibly removes the in-flight repeatForever
+        // CAAnimations. Plain assignment would only update state values while
+        // the repeat-forever transaction keeps running on the render tree.
+        withAnimation(.none) { shimmerPhase = 0.0 }
+        withAnimation(.none) { borderPulse = false }
     }
 }
 
@@ -273,6 +278,7 @@ struct BereanMemoryDetailSheet: View {
                 Image(systemName: "brain")
                     .font(.systemScaled(20, weight: .medium))
                     .foregroundStyle(Color.amenGold)
+                    .accessibilityHidden(true) // A-24: adjacent Text provides the label; hide icon from VoiceOver
 
                 Text("What Berean remembered")
                     .font(AMENFont.semiBold(20))

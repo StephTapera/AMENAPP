@@ -572,10 +572,11 @@ struct PlatformHeroVisual: View {
 /// it via environment — used with NavigationLink wrappers.
 /// Also applies a direct scale since FeaturedResourceCard self-animates.
 struct FeaturedCardPressStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.974 : 1.0)
-            .animation(.spring(response: 0.28, dampingFraction: 0.70), value: configuration.isPressed)
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.974 : 1.0)
+            .animation(reduceMotion ? nil : Motion.liquidSpring, value: configuration.isPressed)
     }
 }
 

@@ -87,17 +87,17 @@ struct BereanVoiceChipButton: View {
             )
         }
         .buttonStyle(.plain)
-        .alert("Microphone Access Required",
-               isPresented: $showDeniedAlert) {
-            Button("Open Settings") {
+        .amenAlert(isPresented: $showDeniedAlert, config: LiquidGlassAlertConfig(
+            title: "Microphone Access Required",
+            message: "Please allow microphone access in Settings to use voice input.",
+            icon: "mic.slash.fill",
+            primaryButton: LiquidGlassAlertButton("Open Settings", tone: .primary) {
                 if let url = URL(string: UIApplication.openSettingsURLString) {
                     UIApplication.shared.open(url)
                 }
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Please allow microphone access in Settings to use voice input.")
-        }
+            },
+            secondaryButton: .cancel()
+        ))
     }
 
     // MARK: - Private

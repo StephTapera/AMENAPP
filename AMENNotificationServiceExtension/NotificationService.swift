@@ -5,6 +5,16 @@
 //  Mutates incoming push payloads for safe preview display.
 //
 
+// MARK: - Notification Service Ownership
+// This service owns: UNNotificationServiceExtension payload mutation before display;
+//                    safety-state check (guarded/moderated/restricted) — replaces body with
+//                    "Open AMEN to review this update safely."; title hydration from actorName
+//                    + type for generic "AMEN" push payloads (message, reply, comment, follow types).
+// It does NOT own: Notification creation, Firestore writes, priority scoring, batching, delivery,
+//                  re-engagement copy, action-thread events, or spiritual-rhythm gating.
+//                  This runs in the AMENNotificationServiceExtension process target, not the main app.
+// Canonical routing reference: See NotificationServiceMap.md
+
 import UserNotifications
 
 final class AMENNotificationServiceExtensionHandler: UNNotificationServiceExtension {

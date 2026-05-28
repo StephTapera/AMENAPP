@@ -87,6 +87,7 @@ struct PostDetailView: View {
     
     // Prayer features — fasting chain
     @State private var isFasting = false
+    @State private var showMediaLongPressMenu = false
 
     // Scroll-driven sheet expansion (0 = compact hero visible, 1 = full-screen sheet)
 
@@ -164,9 +165,7 @@ struct PostDetailView: View {
             AmenMediaDetailView(
                 post: post,
                 initialMediaIndex: carouselPage,
-                sourceContext: .postDetail,
-                initialBereanPostContext: currentBereanContext,
-                autoOpenBereanOnAppear: autoOpenBereanOnAppear
+                sourceContext: .postDetail
             )
         } else {
             legacyDetailView
@@ -184,6 +183,23 @@ struct PostDetailView: View {
                     // ── Media carousel or compact category banner ────────
                     if !allImageURLs.isEmpty {
                         mediaCarousel
+                            .mediaLongPressMenu(
+                                isPresented: $showMediaLongPressMenu,
+                                isOwnPost: isUserPost,
+                                postPreviewImageURL: post.imageURLs?.first.flatMap { URL(string: $0) } ?? allImageURLs.first,
+                                postAuthorName: post.authorUsername ?? post.authorName,
+                                onLike: {
+                                    Task { try? await interactionsService.toggleAmen(postId: post.firestoreId) }
+                                },
+                                onRepost: {},
+                                onShare: { activeDetailSheet = .share },
+                                onViewProfile: { activeDetailSheet = .profile },
+                                onNotInterested: {},
+                                onReport: { activeDetailSheet = .report },
+                                onDelete: {},
+                                onEdit: { activeDetailSheet = .editPost },
+                                onPin: {}
+                            )
                     } else {
                         textOnlyBanner
                     }
@@ -198,7 +214,6 @@ struct PostDetailView: View {
                             SelectablePostTextView(
                                 text: post.content,
                                 mentions: post.mentions,
-                                inlineContentTokens: post.inlineContentTokens,
                                 font: UIFont.systemFont(ofSize: 16),
                                 lineSpacing: 4,
                                 lineLimit: isPostExpanded ? nil : 5,
@@ -209,9 +224,6 @@ struct PostDetailView: View {
                                             object: mention.userId
                                         )
                                     }
-                                },
-                                onInlineActionTap: { token in
-                                    handleInlinePostAction(token)
                                 },
                                 onTextTap: {
                                     if textSelection != nil {
@@ -353,10 +365,6 @@ struct PostDetailView: View {
                             savedBookIds: [],
                             expandedClusters: $expandedCommentClusters,
                             highlightedCommentIDs: highlightedCommentIDs,
-                            hasMoreComments: commentService.hasMoreComments[postId] ?? false,
-                            onLoadMore: {
-                                Task { await commentService.loadMoreComments(postId: postId) }
-                            },
                             onReply: { parentComment in
                                 if let parent = parentComment {
                                     commentText = "@\(parent.authorUsername) "
@@ -569,10 +577,9 @@ struct PostDetailView: View {
 
         Task { @MainActor in
             do {
-                let conversationId = try await FirebaseMessagingService.shared.resolveOrCreateInlineDirectConversation(
+                let conversationId = try await FirebaseMessagingService.shared.getOrCreateDirectConversation(
                     withUserId: post.authorId,
-                    userName: post.authorName,
-                    sourcePostId: post.firestoreId.isEmpty ? post.firebaseId : post.firestoreId
+                    userName: post.authorName
                 )
                 MessagingCoordinator.shared.openConversation(conversationId)
             } catch let error as FirebaseMessagingError {
@@ -614,7 +621,8 @@ struct PostDetailView: View {
     @ViewBuilder
     private var authorAvatar: some View {
         if let imageURL = post.authorProfileImageURL, !imageURL.isEmpty, let url = URL(string: imageURL) {
-            AsyncImage(url: url) { image in
+            // PERF: CachedAsyncImage — avoids redundant URLSession fetches on re-render
+            CachedAsyncImage(url: url) { image in
                 image.resizable().aspectRatio(contentMode: .fill)
             } placeholder: {
                 Circle().fill(Color.gray.opacity(0.4))
@@ -696,33 +704,22 @@ struct PostDetailView: View {
             ZStack(alignment: .bottom) {
                 TabView(selection: $carouselPage) {
                     ForEach(Array(allImageURLs.enumerated()), id: \.offset) { index, url in
-                        AsyncImage(url: url) { phase in
-                            switch phase {
-                            case .success(let image):
-                                image
-                                    .resizable()
-                                    .scaledToFill()
-                                    .frame(width: geo.size.width, height: imageHeight)
-                                    .clipped()
-                            case .empty:
-                                Rectangle()
-                                    .fill(Color(.secondarySystemBackground))
-                                    .frame(width: geo.size.width, height: imageHeight)
-                                    .overlay(ProgressView().tint(.secondary))
-                            case .failure:
-                                Rectangle()
-                                    .fill(Color(.secondarySystemBackground))
-                                    .frame(width: geo.size.width, height: imageHeight)
-                                    .overlay(
-                                        Image(systemName: "photo")
-                                            .font(.systemScaled(32, weight: .light))
-                                            .foregroundStyle(.secondary)
-                                    )
-                            @unknown default:
-                                Rectangle()
-                                    .fill(Color(.secondarySystemBackground))
-                                    .frame(width: geo.size.width, height: imageHeight)
-                            }
+                        // PERF: CachedAsyncImage — keeps carousel swipe smooth by avoiding
+                        // redundant URLSession loads when TabView re-evaluates pages.
+                        CachedAsyncImage(
+                            url: url,
+                            size: CGSize(width: 800, height: 800)
+                        ) { image in
+                            image
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: geo.size.width, height: imageHeight)
+                                .clipped()
+                        } placeholder: {
+                            Rectangle()
+                                .fill(Color(.secondarySystemBackground))
+                                .frame(width: geo.size.width, height: imageHeight)
+                                .overlay(ProgressView().tint(.secondary))
                         }
                         .tag(index)
                         .accessibilityLabel(allImageURLs.count > 1 ? "Image \(index + 1) of \(allImageURLs.count)" : "Post photo")
@@ -735,6 +732,9 @@ struct PostDetailView: View {
                 .frame(height: imageHeight)
                 .onTapGesture {
                     showMediaDetail = true
+                }
+                .onLongPressGesture(minimumDuration: 0.4) {
+                    showMediaLongPressMenu = true
                 }
 
                 // Liquid glass pill indicators (multi-image only)
@@ -1197,7 +1197,6 @@ struct PostDetailView: View {
                     text: $commentText,
                     replyingToUsername: $replyingToUsername,
                     isFocused: $isCommentFocused,
-                    postId: postId,
                     onSubmit: { submitComment() },
                     onBerean: { query in activeDetailSheet = .berean(query: query, context: currentBereanContext) }
                 )
@@ -1610,10 +1609,11 @@ private extension Comparable {
 // MARK: - Liquid Glass button press style
 
 private struct LiquidGlassPressStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.90 : 1.0)
-            .animation(.spring(response: 0.2, dampingFraction: 0.6), value: configuration.isPressed)
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.90 : 1.0)
+            .animation(reduceMotion ? nil : Motion.liquidSpring, value: configuration.isPressed)
     }
 }
 
@@ -1882,7 +1882,9 @@ struct CommentRowView: View {
     @ViewBuilder
     private func commentAvatar(imageURL: String?, initials: String, size: CGFloat) -> some View {
         if let url = imageURL.flatMap({ URL(string: $0) }), !(imageURL?.isEmpty ?? true) {
-            AsyncImage(url: url) { image in
+            // PERF: CachedAsyncImage — comment rows render in a hot List; cache avoids
+            // redundant fetches when cells are recycled or the view re-renders.
+            CachedAsyncImage(url: url, size: CGSize(width: 80, height: 80)) { image in
                 image.resizable().aspectRatio(contentMode: .fill)
             } placeholder: {
                 Circle()
@@ -1908,10 +1910,10 @@ struct CommentRowView: View {
         Task {
             do {
                 try await CommentService.shared.deleteComment(commentId: commentId, postId: postId)
-            } catch let e as CommentServiceError {
+            } catch let e {
                 await MainActor.run {
                     isDeleting = false
-                    deleteErrorMessage = e.errorDescription
+                    deleteErrorMessage = e.localizedDescription
                 }
                 UINotificationFeedbackGenerator().notificationOccurred(.error)
             } catch {

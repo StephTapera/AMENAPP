@@ -20,11 +20,7 @@ struct PinnedProfileHeroSection: View {
     @State private var labelTransitionKey = UUID()
 
     private var mediaItems: [PostMediaItem] {
-        if let items = post.mediaItems, !items.isEmpty {
-            return items.sorted { $0.order < $1.order }
-        }
-
-        return (post.imageURLs ?? []).enumerated().map { index, url in
+        (post.imageURLs ?? []).enumerated().map { index, url in
             PostMediaItem(type: .image, url: url, order: index)
         }
     }

@@ -11,9 +11,9 @@ enum AgeBand: String, Codable, CaseIterable {
     var isMinor: Bool { self != .adult }
 }
 
-// MARK: - Church
+// MARK: - RelationshipChurch
 
-struct Church: Codable, Identifiable {
+struct RelationshipChurch: Codable, Identifiable {
     @DocumentID var id: String?
     var name: String
     var locationLat: Double

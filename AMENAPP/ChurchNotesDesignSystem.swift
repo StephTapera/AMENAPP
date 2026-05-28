@@ -23,9 +23,6 @@ extension Color {
     /// Rich violet — AI panels, insights, spiritual depth indicators
     static let amenPurple = Color(hex: "A855F7")
 
-    /// Sky blue — radar, community, trust indicators
-    static let amenBlue = Color(hex: "4A9EFF")
-
     /// Soft emerald — voice recording, growth, positive states
     static let amenEmerald = Color(hex: "34D399")
 
@@ -55,6 +52,7 @@ extension Color {
 /// Single-material pill — white pearl surface, black text, soft shadow.
 struct GlassPillButtonStyle: ButtonStyle {
     var isSelected: Bool = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -79,13 +77,13 @@ struct GlassPillButtonStyle: ButtonStyle {
                             )
                     )
             )
-            .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.96 : 1.0)
             .shadow(
                 color: isSelected ? Color.black.opacity(0.10) : Color.black.opacity(0.04),
                 radius: isSelected ? 8 : 4,
                 y: isSelected ? 3 : 2
             )
-            .animation(.spring(response: 0.28, dampingFraction: 0.72), value: configuration.isPressed)
+            .animation(reduceMotion ? nil : Motion.liquidSpring, value: configuration.isPressed)
     }
 }
 

@@ -20,6 +20,33 @@ enum PostAttachmentKind: Equatable {
     case verse
 }
 
+// MARK: - Attachment Payload
+
+/// Lightweight data bundle passed from PostCard to PostAttachmentContainer and sheet destinations.
+struct PostAttachmentPayload {
+    let id: String
+    let kind: PostAttachmentKind
+    let title: String
+    var subtitle: String?
+    let iconSystemName: String
+    var trailingMetadata: String?
+    var previewMetadata: [String]?
+    var bodyPreview: String?
+    var postId: String?
+    var verseReference: String?
+    var verseText: String?
+    var translation: String?
+    var churchId: String?
+    var eventId: String?
+    var churchAddress: String?
+    var churchDenomination: String?
+    var churchLatitude: Double?
+    var churchLongitude: Double?
+    var churchServiceTime: String?
+    var churchEventName: String?
+    var churchEventTime: String?
+}
+
 // MARK: - Shared Glass Background
 
 /// Reusable Liquid Glass background — matches the established ChurchNotePreviewCard direction.
@@ -347,6 +374,7 @@ struct PostAttachmentContainer: View {
     var bodyPreview: String? = nil
 
     // Church Note
+    var noteId: String? = nil
     var worshipSongs: [WorshipSongReference] = []
 
     // Going Sunday
@@ -370,8 +398,8 @@ struct PostAttachmentContainer: View {
     @State private var isExpanded = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private var expandAnimation: Animation {
-        reduceMotion ? .none : .interactiveSpring(response: 0.28, dampingFraction: 0.86, blendDuration: 0.18)
+    private var expandAnimation: Animation? {
+        reduceMotion ? nil : .interactiveSpring(response: 0.28, dampingFraction: 0.86, blendDuration: 0.18)
     }
 
     var body: some View {
@@ -1333,6 +1361,40 @@ struct VerseAttachmentDetailView: View {
             timestamp: Date(),
             verseReferences: [reference],
             isBookmarked: false
+        )
+    }
+}
+
+// MARK: - PostAttachmentContainer payload init
+
+extension PostAttachmentContainer {
+    init(
+        payload: PostAttachmentPayload,
+        onOpen: (() -> Void)? = nil,
+        onReadFull: (() -> Void)? = nil,
+        onReflect: (() -> Void)? = nil,
+        onGetDirections: (() -> Void)? = nil,
+        onPrepReminder: (() -> Void)? = nil,
+        onInviteFriend: (() -> Void)? = nil
+    ) {
+        self.init(
+            kind: payload.kind,
+            title: payload.title,
+            subtitle: payload.subtitle,
+            iconSystemName: payload.iconSystemName,
+            trailingMetadata: payload.trailingMetadata,
+            bodyPreview: payload.bodyPreview,
+            churchServiceTime: payload.churchServiceTime,
+            churchEventName: payload.churchEventName,
+            churchEventTime: payload.churchEventTime,
+            verseText: payload.verseText,
+            translation: payload.translation,
+            onOpen: onOpen,
+            onReadFull: onReadFull,
+            onReflect: onReflect,
+            onGetDirections: onGetDirections,
+            onPrepReminder: onPrepReminder,
+            onInviteFriend: onInviteFriend
         )
     }
 }

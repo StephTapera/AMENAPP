@@ -40,7 +40,7 @@ struct AmenCommandPaletteResult: Identifiable {
 
 // MARK: - AmenCommandPaletteViewState
 
-private enum AmenCommandPaletteViewState: Equatable {
+enum AmenCommandPaletteViewState: Equatable {
     case idle
     case loading
     case results([AmenCommandPaletteResult])
@@ -272,7 +272,7 @@ struct AmenSmartCommandPaletteView: View {
             }
         }
         .onAppear {
-            AMENAnalyticsService.shared.logEvent(.commandPaletteOpened(surface: surface))
+            AMENAnalyticsService.shared.track(.commandPaletteOpened(surface: surface))
         }
     }
 
@@ -321,7 +321,7 @@ struct AmenSmartCommandPaletteView: View {
                 results: results,
                 reduceMotion: reduceMotion
             ) { result in
-                AMENAnalyticsService.shared.logEvent(.commandPaletteResultSelected)
+                AMENAnalyticsService.shared.track(.commandPaletteResultSelected)
                 onResultSelected(result)
                 dismiss()
             }
@@ -493,7 +493,7 @@ private struct CommandPaletteEmptyView: View {
                 .font(.system(size: 36))
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
-            Text("No results for "\(query)"")
+            Text("No results for \"\(query)\"")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)

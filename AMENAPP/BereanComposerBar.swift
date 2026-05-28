@@ -911,7 +911,7 @@ private struct ComposerVoicePrayerPulse: View {
             messageText: $text,
             isFocused: $focused,
             availableWidth: 390,
-            selectedMode: .scriptureStudy,
+            selectedMode: .scholar,
             onSend: {},
             onVoice: {},
             onAction: { _ in },

@@ -5,7 +5,7 @@ struct AmenObjectHubTopicChips: View {
     @Binding var selectedChip: AmenHubTopicChip?
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-    @Environment(\.accessibilityContrast) private var accessibilityContrast
+    @Environment(\.colorSchemeContrast) private var accessibilityContrast
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var glass: AmenObjectHubLiquidGlassStyle {

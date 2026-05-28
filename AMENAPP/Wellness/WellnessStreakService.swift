@@ -80,7 +80,7 @@ private extension Calendar {
         return self.date(from: comps) ?? date
     }
     func endOfMonth(for date: Date) -> Date {
-        guard let start = date(from: dateComponents([.year, .month], from: date)),
+        guard let start = self.date(from: dateComponents([.year, .month], from: date)),
               let end = self.date(byAdding: DateComponents(month: 1, day: -1), to: start)
         else { return date }
         return end

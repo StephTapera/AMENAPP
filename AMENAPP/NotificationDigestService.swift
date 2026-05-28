@@ -1,3 +1,13 @@
+// MARK: - Notification Service Ownership
+// This service owns: Loading and displaying daily notification digests from the notificationDigests
+//                    Firestore collection; grouping raw digest items by NotificationCategory with counts
+//                    and deep-link previews; delivering a daily-summary push notification via the
+//                    pendingNotifications collection (picked up by Cloud Function); marking digests as
+//                    opened and bulk-marking their constituent notifications as read.
+// It does NOT own: Creating new notifications, priority scoring, batching social-activity events,
+//                  re-engagement copy, action-thread delivery, spiritual-rhythm gating, or direct FCM calls.
+// Canonical routing reference: See NotificationServiceMap.md
+
 import Foundation
 import FirebaseFirestore
 import FirebaseAuth

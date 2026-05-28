@@ -237,7 +237,7 @@ struct AmenGlassButtonStyle: ButtonStyle {
                 AmenGlassSurfaceLayer(shape: shape.shape, tokens: tokens)
             )
             .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
-            .animation(.spring(response: 0.2, dampingFraction: 0.82), value: configuration.isPressed)
+            .animation(Motion.liquidSpring, value: configuration.isPressed)
     }
 }
 

@@ -1,0 +1,167 @@
+================================================================================
+AI IN SOCIAL FEATURES AUDIT — EXECUTIVE SUMMARY
+================================================================================
+
+Report Location: 02-ai-social.md
+Run Date: 2026-05-27
+Auditor: Claude Code (AI-in-Social-Features Specialist)
+
+================================================================================
+SCOPE
+================================================================================
+
+✓ Post creation & moderation pipeline
+✓ Comment moderation (pre-publish & post-publish)
+✓ Direct messages (sacred E2E vs. monitored with AI)
+✓ Crisis detection & support resources
+✓ Report flow & appeal mechanisms
+✓ Privacy disclosures per surface
+✓ All AI integration points (Claude, Perspective API, Vision, Gemini)
+
+================================================================================
+KEY FINDINGS (12 TOTAL)
+================================================================================
+
+CRITICAL ISSUES (2):
+  F-social-012: DM Privacy Disclosure Missing [COPPA/FTC Risk]
+  F-social-011: Shadow-Ban Logic Lacks Transparency [Trust Risk]
+
+HIGH ISSUES (3):
+  F-social-001: Monitored DM Consent Not Obtained
+  F-social-003: Post Moderation Entry Points Not Unified
+  F-social-008: AI Model Transparency Not Applied to Moderation
+
+MEDIUM ISSUES (5):
+  F-social-002: Comment Moderation is Fully Async (Post-Publish)
+  F-social-004: DM Grooming Patterns Use Hardcoded Lists
+  F-social-006: Crisis Detection Lacks Audit Trail
+  F-social-007: Report Flow Has No Appeal Mechanism
+  F-social-010: Image Quarantine Lacks SLA & Appeal
+
+LOW ISSUES (2):
+  F-social-005: Sacred Channels Race Condition Risk
+  F-social-009: Text Moderation Bypasses Perspective for Logging
+
+================================================================================
+MODERATION MATRIX (Quick Reference)
+================================================================================
+
+Surface          | AI Used        | Entry Point      | Blocks UX | Privacy Disclosed
+─────────────────┼────────────────┼──────────────────┼───────────┼──────────────────
+Posts            | Claude+Vision  | Pre-pub (sync)   | Yes       | NO (gap)
+Comments         | Claude         | Post-pub (async) | Yes       | NO (gap)
+DM (Sacred)      | None           | —                | —         | YES ✓
+DM (Monitored)   | Claude         | Pre-delivery     | Yes       | NO ✗ CRITICAL
+Images           | Vision API     | Pre-pub (sync)   | Yes       | NO (gap)
+Crisis Content   | Gemini         | Post-pub (async) | NO        | NO (gap)
+Reports          | Human (triaged)| Post-report      | NO        | NO (gap)
+
+================================================================================
+VENDOR INTEGRATIONS
+================================================================================
+
+✓ Claude (Anthropic)   — Guardian DM moderation, comment moderation, content ingest
+✓ Perspective API      — Text toxicity scoring (Alphabet/Google)
+✓ Cloud Vision         — Image SafeSearch (Google)
+✓ Vertex AI Gemini     — Crisis detection (Google)
+
+================================================================================
+RECOMMENDED ACTIONS (Priority Order)
+================================================================================
+
+CRITICAL (Do First):
+  1. Add DM privacy disclosure banner in monitored channels
+     - Impact: COPPA compliance, informed consent
+     - Effort: 1-2 days (UI + backend flag)
+
+  2. Remove or transparency-flag shadow-ban capability
+     - Impact: User trust, legal compliance
+     - Effort: 1-2 days (remove `.shadowQueue` enum, add notifications)
+
+HIGH (Do Next):
+  3. Implement comment pre-publish gate (hold + notify, don't delete)
+     - Impact: User experience, appeal mechanism
+     - Effort: 2-3 days
+
+  4. Unify post moderation pipeline (single server entry point)
+     - Impact: Auditability, consistency
+     - Effort: 5-7 days (refactoring)
+
+MEDIUM (Next Sprint):
+  5. Build appeal flow (email user → form → decision log)
+  6. Register all moderation decisions with AmenAITransparencyService
+  7. Move DM pattern lists to Firestore config (not hardcoded)
+  8. Add image quarantine SLA & approval notifications
+
+================================================================================
+ARCHITECTURE STRENGTHS
+================================================================================
+
+✓ Server-side enforcement (client checks are advisory only)
+✓ Fail-open safeguards (never silently approve dangerous content)
+✓ Sacred vs. monitored channel separation (encrypted for adults)
+✓ Multi-layer defense (banned terms → Perspective → Vision → policy)
+✓ Crisis content never blocked (always delivers + support resources)
+✓ Hardcoded backdoors: 0 (all integrations require auth)
+
+================================================================================
+ARCHITECTURE WEAKNESSES
+================================================================================
+
+✗ Multiple moderation entry points (4+ stages for posts)
+✗ Privacy disclosure gaps (monitored DMs, comment rejection)
+✗ No unified appeal or moderation history UI
+✗ Async comment moderation (silent deletion, fire-and-forget)
+✗ Shadow-ban capability (deceptive to users)
+✗ Crisis detection not audited to Firestore (no feedback loop)
+
+================================================================================
+PRIVACY CHECKLIST
+================================================================================
+
+Content Type        | AI Involved | User Notified | Appeal Available
+─────────────────────┼─────────────┼───────────────┼──────────────────
+Sacred DM           | NO          | N/A           | N/A
+Monitored DM        | YES         | NO ✗          | NO
+Post                | YES         | Partial       | NO
+Comment             | YES         | NO            | NO
+Image               | YES (Vision)| NO            | NO
+Profile Bio         | Depends     | NO            | NO
+Report              | Implicit    | NO            | NO
+Crisis              | YES         | Support only  | NO
+
+================================================================================
+LEGAL/COMPLIANCE NOTES
+================================================================================
+
+COPPA (Children's Online Privacy Protection Act):
+  ⚠ Monitored channels (minors) lack required parental/minor notification
+  ✓ Data practices disclosed in privacy policy (recommend link in composer)
+
+GDPR (EU):
+  ✓ Users can request access to moderation decisions (recommend appeal form)
+  ✓ Right to erasure: not discussed (archive moderation logs separately)
+
+FTC Act (Unfair/Deceptive Practices):
+  ⚠ Shadow-banning is potentially deceptive (recommend removing)
+  ✓ Moderation transparency: partial (gap: no user notification of decisions)
+
+Consumer Rights (California, etc.):
+  ⚠ DM disclosure: consumers should know if content is sent to third-party AI
+  ⚠ Appeal: consumers should have mechanism to challenge moderation
+
+================================================================================
+NEXT STEPS
+================================================================================
+
+1. [ ] Review findings with Product & Trust & Safety team
+2. [ ] Prioritize CRITICAL & HIGH issues for next sprint
+3. [ ] Schedule design review for disclosure UI
+4. [ ] Partner with legal on COPPA/FTC compliance
+5. [ ] Implement analytics: false positive rate by model
+6. [ ] Set up moderation dashboard for transparency
+7. [ ] Scheduled re-audit in 2-3 months (post-fixes)
+
+================================================================================
+END SUMMARY
+================================================================================

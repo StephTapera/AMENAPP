@@ -103,10 +103,11 @@ struct ScriptureCitationChip: View {
 }
 
 private struct _ChipButtonStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.92 : 1.0)
-            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: configuration.isPressed)
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.92 : 1.0)
+            .animation(reduceMotion ? nil : Motion.liquidSpring, value: configuration.isPressed)
     }
 }
 

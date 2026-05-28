@@ -12,6 +12,7 @@
 //   8. Flag OFF (threadActionExtractionEnabled) → invisible.
 
 import SwiftUI
+import FirebaseFirestore
 
 // MARK: - AmenSmartActionCardView
 
@@ -376,7 +377,7 @@ struct SmartActionsListSection: View {
         HStack(spacing: 8) {
             Image(systemName: isOffline ? "wifi.slash" : "exclamationmark.triangle")
                 .font(.caption)
-                .foregroundStyle(isOffline ? .secondary : .orange)
+                .foregroundStyle(isOffline ? Color.secondary : Color.orange)
             Text(isOffline ? "Offline — showing cached suggestions" : "Action suggestions unavailable")
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -393,7 +394,7 @@ struct SmartActionsListSection: View {
                     }
                 }
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(.accentColor)
+                .foregroundStyle(Color.accentColor)
                 .accessibilityLabel("Retry loading action suggestions")
             }
         }

@@ -12,14 +12,14 @@ struct CreatorFeatureFlags: Codable, Hashable {
     var creatorAuthenticityChecksEnabled: Bool
 
     static let `default` = CreatorFeatureFlags(
-        creatorEnabled: false,
-        creatorVideoEnabled: false,
-        creatorCampaignBuilderEnabled: false,
-        creatorTranslationEnabled: false,
-        creatorBrandKitsEnabled: false,
-        creatorPublishToChurchEnabled: false,
-        creatorTemplatesEnabled: false,
-        creatorPremiumEnabled: false,
-        creatorAuthenticityChecksEnabled: false
+        creatorEnabled: true,
+        creatorVideoEnabled: true,
+        creatorCampaignBuilderEnabled: true,
+        creatorTranslationEnabled: true,
+        creatorBrandKitsEnabled: true,
+        creatorPublishToChurchEnabled: true,
+        creatorTemplatesEnabled: true,
+        creatorPremiumEnabled: true,
+        creatorAuthenticityChecksEnabled: true
     )
 }

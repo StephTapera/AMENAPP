@@ -134,6 +134,10 @@ struct SmartShareTarget: Identifiable, Equatable {
         let reasonText = primaryReason.map { ", \($0)" } ?? ""
         return "Share with \(title)\(reasonText)"
     }
+
+    static func == (lhs: SmartShareTarget, rhs: SmartShareTarget) -> Bool {
+        lhs.id == rhs.id
+    }
 }
 
 struct ShareContextOptions: Equatable {
@@ -255,7 +259,7 @@ struct SharePayloadFactory {
         if post.category == .prayer { return .prayerRequest }
         if post.category == .testimonies { return .testimony }
         if let verseReference = post.verseReference, !verseReference.isEmpty { return .versePost }
-        if (post.imageURLs?.isEmpty == false) || post.videoURL != nil { return .mediaPost }
+        if post.imageURLs?.isEmpty == false { return .mediaPost }
         return .regularPost
     }
 

@@ -1,25 +1,4 @@
 import SwiftUI
-// MARK: - Safe Frame Extension
-extension View {
-    /// Ensures frame dimensions are never negative or non-finite
-    func safeFrame(width: CGFloat? = nil, height: CGFloat? = nil, alignment: Alignment = .center) -> some View {
-        self.frame(
-            width: width.map { max(0, $0.isFinite ? $0 : 0) },
-            height: height.map { max(0, $0.isFinite ? $0 : 0) },
-            alignment: alignment
-        )
-    }
-    
-    /// Conditionally applies a transformation to a view
-    @ViewBuilder
-    func `if`<Transform: View>(_ condition: Bool, transform: (Self) -> Transform) -> some View {
-        if condition {
-            transform(self)
-        } else {
-            self
-        }
-    }
-}
 
 // MARK: - Post Success Toast (Glassmorphic Design)
 

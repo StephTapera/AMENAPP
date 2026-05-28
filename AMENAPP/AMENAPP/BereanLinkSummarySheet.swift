@@ -103,14 +103,12 @@ struct BereanLinkSummarySheet: View {
                 if !analysis.keyThemes.isEmpty {
                     VStack(alignment: .leading, spacing: 10) {
                         sectionLabel("Key themes")
-                        FlowLayout(spacing: 8) {
-                            ForEach(analysis.keyThemes, id: \.self) { theme in
-                                Text(theme)
-                                    .font(.caption.weight(.medium))
-                                    .padding(.horizontal, 10)
-                                    .padding(.vertical, 5)
-                                    .background(Color.black.opacity(0.06), in: Capsule())
-                            }
+                        FlowLayout(items: analysis.keyThemes) { theme in
+                            Text(theme)
+                                .font(.caption.weight(.medium))
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 5)
+                                .background(Color.black.opacity(0.06), in: Capsule())
                         }
                     }
                 }
@@ -137,15 +135,13 @@ struct BereanLinkSummarySheet: View {
                 if !analysis.scriptureReferencesFound.isEmpty {
                     VStack(alignment: .leading, spacing: 10) {
                         sectionLabel("Scripture mentioned in this content")
-                        FlowLayout(spacing: 8) {
-                            ForEach(analysis.scriptureReferencesFound, id: \.self) { ref in
-                                Text(ref)
-                                    .font(.caption.weight(.semibold))
-                                    .padding(.horizontal, 10)
-                                    .padding(.vertical, 5)
-                                    .background(Color.black.opacity(0.07), in: Capsule())
-                                    .overlay(Capsule().stroke(Color.black.opacity(0.1), lineWidth: 0.5))
-                            }
+                        FlowLayout(items: analysis.scriptureReferencesFound) { ref in
+                            Text(ref)
+                                .font(.caption.weight(.semibold))
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 5)
+                                .background(Color.black.opacity(0.07), in: Capsule())
+                                .overlay(Capsule().stroke(Color.black.opacity(0.1), lineWidth: 0.5))
                         }
                     }
                 }

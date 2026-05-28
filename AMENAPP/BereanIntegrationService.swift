@@ -22,7 +22,8 @@ class BereanIntegrationService: ObservableObject {
     private let answerEngine = BereanAnswerEngine.shared
     
     @Published var isProcessing = false
-    
+    @Published var streamError: String?
+
     private init() {}
     
     // MARK: - Chat Integration (for BereanAIAssistantView)
@@ -67,18 +68,23 @@ class BereanIntegrationService: ObservableObject {
         
         return AsyncStream { continuation in
             Task {
-                let stream = await fastMode.getFastAnswer(query: text, context: context)
-                
-                for await chunk in stream {
-                    let bereanChunk = BereanStreamChunk(
-                        content: chunk.content,
-                        isPartial: chunk.isPartial,
-                        citations: chunk.metadata?.citations ?? []
-                    )
-                    continuation.yield(bereanChunk)
+                do {
+                    let stream = await fastMode.getFastAnswer(query: text, context: context)
+
+                    for await chunk in stream {
+                        let bereanChunk = BereanStreamChunk(
+                            content: chunk.content,
+                            isPartial: chunk.isPartial,
+                            citations: chunk.metadata?.citations ?? []
+                        )
+                        continuation.yield(bereanChunk)
+                    }
+
+                    continuation.finish()
+                } catch {
+                    await MainActor.run { self.streamError = error.localizedDescription }
+                    continuation.finish()
                 }
-                
-                continuation.finish()
             }
         }
     }

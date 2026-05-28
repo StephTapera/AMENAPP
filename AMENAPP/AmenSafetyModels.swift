@@ -81,12 +81,12 @@ enum ContentSurface: String, Codable {
     case aiSummary           = "ai_summary"
 }
 
-struct SafetyDecision: Codable, Equatable {
+struct TSPreflightDecision: Codable, Equatable {
     let decision: SafetyDecisionOutcome
     let riskScore: Double
     let categories: [String: Double]
     let userFacingReason: String?
-    let provenanceStatus: ProvenanceStatus
+    let provenanceStatus: MediaAuthenticityStatus
     let aiGeneratedStatus: AIGeneratedStatus
     let enforcementAction: String
     let appealAllowed: Bool
@@ -101,8 +101,8 @@ struct SafetyDecision: Codable, Equatable {
     var isLimited: Bool { decision == .limitDistribution }
     var isPendingReview: Bool { decision == .quarantine || decision == .escalate }
 
-    // Default "clean" decision for UI loading state
-    static let checking = SafetyDecision(
+    // Default "checking" decision for UI loading state
+    static let checking = TSPreflightDecision(
         decision: .quarantine,
         riskScore: 0,
         categories: [:],
@@ -119,7 +119,7 @@ struct SafetyDecision: Codable, Equatable {
 
 // MARK: - Provenance
 
-enum ProvenanceStatus: String, Codable, Equatable {
+enum MediaAuthenticityStatus: String, Codable, Equatable {
     case original       = "original"
     case edited         = "edited"
     case aiAssisted     = "ai_assisted"
@@ -163,7 +163,7 @@ enum AIGeneratedStatus: String, Codable, Equatable {
     case unknown    = "unknown"
 }
 
-struct MediaProvenance: Codable, Identifiable {
+struct MediaProvenanceRecord: Codable, Identifiable {
     var id: String { mediaId }
     let mediaId: String
     let uploaderUid: String
@@ -172,7 +172,7 @@ struct MediaProvenance: Codable, Identifiable {
     let aiDetectionScore: Double
     let editingDetected: Bool
     let creatorDeclaration: CreatorDeclaration
-    let provenanceStatus: ProvenanceStatus
+    let provenanceStatus: MediaAuthenticityStatus
     let trendEligible: Bool
     let boostEligible: Bool
     let labelRequired: Bool
@@ -321,7 +321,9 @@ enum WellnessTrigger: String, Codable {
     case repeatedTraumaticContent = "repeated_traumatic_content"
 }
 
-enum WellnessIntervention: String, Codable {
+typealias TSWellnessIntervention = WellnessIntervention
+
+enum WellnessIntervention: String, Codable, CaseIterable {
     case selahPause              = "selah_pause"
     case reflectionPrompt        = "reflection_prompt"
     case postConfirmation        = "post_confirmation"
@@ -426,7 +428,7 @@ enum ReportCategory: String, Codable, CaseIterable, Identifiable {
     }
 }
 
-enum ReportStatus: String, Codable {
+enum SafetyReportStatus: String, Codable {
     case submitted          = "submitted"
     case queued             = "queued"
     case underReview        = "under_review"
@@ -439,7 +441,7 @@ enum ReportStatus: String, Codable {
 struct AbuseReportResult: Codable, Identifiable {
     var id: String { reportId }
     let reportId: String
-    let status: ReportStatus
+    let status: SafetyReportStatus
     let contentQuarantined: Bool
     let escalated: Bool
     let policyVersion: String
@@ -447,7 +449,7 @@ struct AbuseReportResult: Codable, Identifiable {
 
 // MARK: - Enforcement
 
-enum AccountStatus: String, Codable, Equatable {
+enum SafetyAccountStatus: String, Codable, Equatable {
     case active     = "active"
     case warned     = "warned"
     case restricted = "restricted"
@@ -461,7 +463,7 @@ struct EnforcementProfile: Codable {
     let uid: String
     let strikePoints: Int
     let trustScore: Int     // 0–100
-    let accountStatus: AccountStatus
+    let accountStatus: SafetyAccountStatus
     let policyVersion: String
 
     var canPost: Bool { accountStatus.canPost }
@@ -479,6 +481,8 @@ struct AITransparencyRecord: Codable, Identifiable {
     let labelShown: Bool
     let labelType: AILabelType
 }
+
+typealias TSAITransparencyRecord = AITransparencyRecord
 
 // MARK: - Preflight State (iOS UI state machine)
 
@@ -524,4 +528,84 @@ enum ContentPreflightState: Equatable {
         default:                    return nil
         }
     }
+}
+
+// MARK: - Enforcement Profile
+
+enum TSAccountStatus: String, Codable, Equatable {
+    case active     = "active"
+    case warned     = "warned"
+    case restricted = "restricted"
+    case suspended  = "suspended"
+    case banned     = "banned"
+}
+
+struct TSEnforcementProfile: Codable, Equatable {
+    let uid: String
+    let strikePoints: Int
+    let trustScore: Int
+    let accountStatus: TSAccountStatus
+    let policyVersion: String
+}
+
+// MARK: - Reporting
+
+typealias TSReportCategory = ReportCategory
+
+enum TSReportStatus: String, Codable, CaseIterable {
+    case submitted    = "submitted"
+    case underReview  = "under_review"
+    case resolved     = "resolved"
+    case dismissed    = "dismissed"
+}
+
+struct TSAbuseReportResult: Codable, Identifiable {
+    var id: String { reportId }
+    let reportId: String
+    let status: TSReportStatus
+    let contentQuarantined: Bool
+    let escalated: Bool
+    let policyVersion: String
+}
+
+// MARK: - Media Provenance
+
+enum TSCreatorDeclaration: String, Codable, CaseIterable, Equatable {
+    case humanOriginal    = "human_original"
+    case aiAssisted       = "ai_assisted"
+    case aiGenerated      = "ai_generated"
+    case editedOriginal   = "edited_original"
+    case unknown          = "unknown"
+
+    var displayLabel: String {
+        switch self {
+        case .humanOriginal:  return "Original human content"
+        case .aiAssisted:     return "Human-led, AI-assisted"
+        case .aiGenerated:    return "AI-generated"
+        case .editedOriginal: return "Edited original content"
+        case .unknown:        return "Not specified"
+        }
+    }
+}
+
+enum TSProvenanceStatus: String, Codable, Equatable {
+    case verified = "verified"
+    case pending  = "pending"
+    case flagged  = "flagged"
+    case unknown  = "unknown"
+}
+
+struct TSMediaProvenance: Codable, Equatable {
+    let mediaId: String
+    let uploaderUid: String
+    let originalHash: String
+    let perceptualHash: String
+    let aiDetectionScore: Double
+    let editingDetected: Bool
+    let creatorDeclaration: TSCreatorDeclaration
+    let provenanceStatus: TSProvenanceStatus
+    let trendEligible: Bool
+    let boostEligible: Bool
+    let labelRequired: Bool
+    let policyVersion: String
 }

@@ -10,6 +10,13 @@
 import SwiftUI
 import Combine
 
+/// One day's usage record — used by WellbeingDashboardView's Charts bar chart.
+struct UsageDayEntry: Codable, Identifiable {
+    var id: Date { date }
+    let date: Date
+    let minutes: Int
+}
+
 /// Tracks app usage time and manages daily time limits
 @MainActor
 class AppUsageTracker: ObservableObject {
@@ -31,6 +38,10 @@ class AppUsageTracker: ObservableObject {
     private let usageKey = "app_usage_today"
     private let limitKey = "daily_time_limit"
     private let lastSaveDateKey = "last_save_date"
+    private let historyKey = "app_usage_week_history_v1"
+
+    // Archived daily entries for the past 7 days (does not include today).
+    @Published private var archivedHistory: [UsageDayEntry] = []
     
     // Smart break reminder integration
     private let smartBreakReminder = SmartBreakReminderService.shared
@@ -75,14 +86,28 @@ class AppUsageTracker: ObservableObject {
     
     /// Reset usage for a new day
     func resetDailyUsage() {
+        archiveYesterdayUsage()
         todayUsageMinutes = 0
         hasShownLimitDialog = false
         saveUsageData()
-        
+
         // Also reset smart break reminder counters
         smartBreakReminder.resetDailyCounters()
-        
+
         dlog("🔄 AppUsageTracker: Daily usage reset")
+    }
+
+    private func archiveYesterdayUsage() {
+        let cal = Calendar.current
+        guard let yesterday = cal.date(byAdding: .day, value: -1, to: cal.startOfDay(for: Date())) else { return }
+        let entry = UsageDayEntry(date: yesterday, minutes: todayUsageMinutes)
+        var history = archivedHistory.filter { !cal.isDate($0.date, inSameDayAs: yesterday) }
+        history.append(entry)
+        let cutoff = cal.date(byAdding: .day, value: -7, to: Date()) ?? Date.distantPast
+        archivedHistory = history.filter { $0.date >= cutoff }.sorted { $0.date < $1.date }
+        if let encoded = try? JSONEncoder().encode(archivedHistory) {
+            UserDefaults.standard.set(encoded, forKey: historyKey)
+        }
     }
     
     /// Check if limit has been reached
@@ -99,6 +124,29 @@ class AppUsageTracker: ObservableObject {
     var usagePercentage: Double {
         guard dailyLimitMinutes > 0 else { return 0 }
         return min(1.0, Double(todayUsageMinutes) / Double(dailyLimitMinutes))
+    }
+
+    /// Past 7 days + today, sorted oldest→newest. Used by WellbeingDashboardView's chart.
+    var weekHistoryForChart: [UsageDayEntry] {
+        let today = Calendar.current.startOfDay(for: Date())
+        var entries = archivedHistory.filter {
+            !Calendar.current.isDate($0.date, inSameDayAs: today)
+        }
+        entries.append(UsageDayEntry(date: today, minutes: todayUsageMinutes))
+        return entries.sorted { $0.date < $1.date }
+    }
+
+    /// Consecutive days (going backwards from yesterday) where usage was ≤ daily limit.
+    var currentStreak: Int {
+        var streak = 0
+        let cal = Calendar.current
+        for offset in 1...7 {
+            guard let day = cal.date(byAdding: .day, value: -offset, to: cal.startOfDay(for: Date())),
+                  let entry = archivedHistory.first(where: { cal.isDate($0.date, inSameDayAs: day) })
+            else { break }
+            if entry.minutes <= dailyLimitMinutes { streak += 1 } else { break }
+        }
+        return streak
     }
     
     // MARK: - Private Methods
@@ -175,6 +223,12 @@ class AppUsageTracker: ObservableObject {
         
         // Load today's usage
         todayUsageMinutes = UserDefaults.standard.integer(forKey: usageKey)
+
+        // Load week history
+        if let data = UserDefaults.standard.data(forKey: historyKey),
+           let history = try? JSONDecoder().decode([UsageDayEntry].self, from: data) {
+            archivedHistory = history
+        }
         
         dlog("📊 AppUsageTracker: Loaded usage data - \(todayUsageMinutes) minutes used, \(dailyLimitMinutes) limit")
     }

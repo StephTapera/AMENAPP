@@ -63,13 +63,13 @@ enum SelahVerseReactionKind: String, CaseIterable, Codable, Identifiable {
 
 struct SelahVerseReactionEntry: Codable, Identifiable, Hashable {
     let id: UUID
-    let reference: SelahScriptureReference
+    let reference: ScriptureReference
     let translationId: String
     let kind: SelahVerseReactionKind
     let createdAt: Date
 
     init(id: UUID = UUID(),
-         reference: SelahScriptureReference,
+         reference: ScriptureReference,
          translationId: String,
          kind: SelahVerseReactionKind,
          createdAt: Date = Date()) {
@@ -85,13 +85,13 @@ struct SelahVerseReactionEntry: Codable, Identifiable, Hashable {
 
 struct SelahPrayedThroughEntry: Codable, Identifiable, Hashable {
     let id: UUID
-    let reference: SelahScriptureReference
+    let reference: ScriptureReference
     let translationId: String
     let note: String?
     let createdAt: Date
 
     init(id: UUID = UUID(),
-         reference: SelahScriptureReference,
+         reference: ScriptureReference,
          translationId: String,
          note: String? = nil,
          createdAt: Date = Date()) {
@@ -130,12 +130,12 @@ final class SelahVerseEngagementStore: ObservableObject {
 
     // MARK: Reactions
 
-    func reactions(for reference: SelahScriptureReference, translationId: String) -> [SelahVerseReactionEntry] {
+    func reactions(for reference: ScriptureReference, translationId: String) -> [SelahVerseReactionEntry] {
         reactions.filter { $0.reference == reference && $0.translationId == translationId }
     }
 
     func addReaction(_ kind: SelahVerseReactionKind,
-                     to reference: SelahScriptureReference,
+                     to reference: ScriptureReference,
                      translationId: String) {
         // Idempotent — adding the same reaction twice is a no-op.
         if reactions.contains(where: {
@@ -147,7 +147,7 @@ final class SelahVerseEngagementStore: ObservableObject {
     }
 
     func removeReaction(_ kind: SelahVerseReactionKind,
-                        from reference: SelahScriptureReference,
+                        from reference: ScriptureReference,
                         translationId: String) {
         reactions.removeAll {
             $0.reference == reference && $0.translationId == translationId && $0.kind == kind
@@ -157,11 +157,11 @@ final class SelahVerseEngagementStore: ObservableObject {
 
     // MARK: Prayed Through
 
-    func hasPrayedThrough(_ reference: SelahScriptureReference, translationId: String) -> Bool {
+    func hasPrayedThrough(_ reference: ScriptureReference, translationId: String) -> Bool {
         prayedThrough.contains { $0.reference == reference && $0.translationId == translationId }
     }
 
-    func togglePrayedThrough(_ reference: SelahScriptureReference,
+    func togglePrayedThrough(_ reference: ScriptureReference,
                               translationId: String,
                               note: String? = nil) {
         if hasPrayedThrough(reference, translationId: translationId) {
@@ -195,7 +195,7 @@ final class SelahVerseEngagementStore: ObservableObject {
 
 struct SelahVerseReactionPickerSheet: View {
 
-    let reference: SelahScriptureReference
+    let reference: ScriptureReference
     let translationId: String
     @ObservedObject var store: SelahVerseEngagementStore
     @Environment(\.dismiss) private var dismiss

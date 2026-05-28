@@ -80,7 +80,22 @@ struct BereanLiquidAction: Identifiable, Equatable {
         case verseLookup
         case summarize
         case searchScripture
+        case explainSimply
+        case exploreContext
+        case crossReference
+        case prayer
+        case deepStudy
+        case addPhoto
+        case addFile
+        case createNote
+        case saveToChurchNotes
     }
+}
+
+struct BereanComposerSubmissionContext: Equatable {
+    var attachments: [String] = []
+    var selectedTools: [String] = []
+    var instruction: String? = nil
 }
 
 // MARK: - Suggestion Chip

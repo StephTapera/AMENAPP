@@ -1927,3 +1927,384 @@ struct ProfileVisibilitySettingsView: View {
         .navigationBarTitleDisplayMode(.inline)
     }
 }
+
+// MARK: - Appearance Settings
+
+struct DestinationAppearanceSettingsView: View {
+    @AppStorage("colorSchemePreference") private var colorSchemePreference: String = "system"
+
+    private let schemes: [(id: String, label: String, icon: String)] = [
+        ("system", "System Default", "iphone"),
+        ("light", "Light", "sun.max"),
+        ("dark", "Dark", "moon")
+    ]
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 0) {
+
+                Text("COLOR SCHEME")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+
+                VStack(spacing: 0) {
+                    ForEach(Array(schemes.enumerated()), id: \.element.id) { index, scheme in
+                        Button {
+                            HapticManager.impact(style: .light)
+                            colorSchemePreference = scheme.id
+                        } label: {
+                            HStack(spacing: 14) {
+                                Image(systemName: scheme.icon)
+                                    .font(.systemScaled(18))
+                                    .foregroundStyle(colorSchemePreference == scheme.id ? .blue : .secondary)
+                                    .frame(width: 28)
+                                Text(scheme.label)
+                                    .font(AMENFont.semiBold(15))
+                                    .foregroundStyle(.primary)
+                                Spacer()
+                                if colorSchemePreference == scheme.id {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundStyle(.blue)
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                        }
+                        .buttonStyle(.plain)
+
+                        if index < schemes.count - 1 {
+                            Divider().padding(.leading, 16)
+                        }
+                    }
+                }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
+                Text("Restart the app after changing the color scheme for it to take effect.")
+                    .font(AMENFont.regular(12))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+
+                Spacer(minLength: 32)
+            }
+        }
+        .background(Color(.systemGroupedBackground).ignoresSafeArea())
+        .navigationTitle("Appearance")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+// MARK: - Storage & Data Settings
+
+struct DestinationStorageDataSettingsView: View {
+    @AppStorage("autoPlayVideos") private var autoPlayVideos: String = "wifi"
+    @AppStorage("imageQuality") private var imageQuality: String = "high"
+    @State private var cacheSize: String = "Calculating…"
+    @State private var isClearing = false
+    @State private var showClearConfirmation = false
+
+    private let autoPlayOptions: [(String, String)] = [
+        ("wifi", "Wi-Fi only"),
+        ("always", "Always"),
+        ("never", "Never")
+    ]
+
+    private let qualityOptions: [(String, String)] = [
+        ("high", "High"),
+        ("medium", "Medium"),
+        ("low", "Low (saves data)")
+    ]
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 0) {
+
+                Text("MEDIA")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+
+                VStack(spacing: 0) {
+                    Picker("Auto-play videos", selection: $autoPlayVideos) {
+                        ForEach(autoPlayOptions, id: \.0) { id, label in
+                            Text(label).tag(id)
+                        }
+                    }
+                    .font(AMENFont.regular(15))
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+
+                    Divider().padding(.leading, 16)
+
+                    Picker("Image quality", selection: $imageQuality) {
+                        ForEach(qualityOptions, id: \.0) { id, label in
+                            Text(label).tag(id)
+                        }
+                    }
+                    .font(AMENFont.regular(15))
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
+                Text("CACHE")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+
+                VStack(spacing: 0) {
+                    HStack {
+                        Text("Cached data")
+                            .font(AMENFont.regular(15))
+                        Spacer()
+                        Text(cacheSize)
+                            .font(AMENFont.regular(14))
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+
+                    Divider().padding(.leading, 16)
+
+                    Button {
+                        showClearConfirmation = true
+                    } label: {
+                        if isClearing {
+                            ProgressView()
+                                .frame(maxWidth: .infinity, alignment: .center)
+                        } else {
+                            Text("Clear Cache")
+                                .font(AMENFont.semiBold(15))
+                                .foregroundStyle(.red)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                    .disabled(isClearing)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
+                Text("DATA EXPORT")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+
+                VStack(spacing: 0) {
+                    NavigationLink(destination: DownloadDataView()) {
+                        HStack {
+                            Text("Download Your Data")
+                                .font(AMENFont.regular(15))
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.tertiary)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
+                Spacer(minLength: 32)
+            }
+        }
+        .background(Color(.systemGroupedBackground).ignoresSafeArea())
+        .navigationTitle("Storage & Data")
+        .navigationBarTitleDisplayMode(.inline)
+        .task { cacheSize = await calculateCacheSize() }
+        .confirmationDialog("Clear Cache", isPresented: $showClearConfirmation, titleVisibility: .visible) {
+            Button("Clear Cache", role: .destructive) { Task { await clearCache() } }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Cached images and media will be reloaded on next view.")
+        }
+    }
+
+    private func calculateCacheSize() async -> String {
+        let cacheURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
+        let tmpURL = FileManager.default.temporaryDirectory
+        var totalBytes: Int64 = 0
+        for url in [cacheURL, tmpURL].compactMap({ $0 }) {
+            guard let enumerator = FileManager.default.enumerator(
+                at: url,
+                includingPropertiesForKeys: [.fileSizeKey],
+                options: [.skipsHiddenFiles]
+            ) else { continue }
+            while let fileURL = enumerator.nextObject() as? URL {
+                totalBytes += Int64((try? fileURL.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
+            }
+        }
+        let formatter = ByteCountFormatter()
+        formatter.allowedUnits = [.useMB]
+        formatter.countStyle = .file
+        return formatter.string(fromByteCount: totalBytes)
+    }
+
+    private func clearCache() async {
+        isClearing = true
+        if let cacheURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first {
+            try? FileManager.default.removeItem(at: cacheURL)
+            try? FileManager.default.createDirectory(at: cacheURL, withIntermediateDirectories: true)
+        }
+        cacheSize = await calculateCacheSize()
+        isClearing = false
+        HapticManager.notification(type: .success)
+    }
+}
+
+// MARK: - Family Safety Settings
+
+struct DestinationFamilySafetySettingsView: View {
+    @AppStorage("familySafetyEnabled") private var familySafetyEnabled: Bool = false
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 0) {
+
+                Text("PARENTAL CONTROLS")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+
+                VStack(spacing: 0) {
+                    Toggle(isOn: $familySafetyEnabled) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Family Safety Mode")
+                                .font(AMENFont.semiBold(15))
+                            Text("Apply stricter content filters for younger users")
+                                .font(AMENFont.regular(13))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .tint(.blue)
+                    .onChange(of: familySafetyEnabled) { _, _ in HapticManager.impact(style: .light) }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
+                Text("CONTENT FILTERS")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+
+                VStack(spacing: 0) {
+                    NavigationLink(destination: SensitiveContentSettingsView()) {
+                        HStack {
+                            Text("Sensitive Content")
+                                .font(AMENFont.regular(15))
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.tertiary)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+
+                    Divider().padding(.leading, 16)
+
+                    NavigationLink(destination: HiddenWordsSettingsView()) {
+                        HStack {
+                            Text("Hidden Words & Filters")
+                                .font(AMENFont.regular(15))
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.tertiary)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
+                Text("SCREEN TIME")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+
+                VStack(spacing: 0) {
+                    NavigationLink(destination: ScrollBudgetSettingsView()) {
+                        HStack {
+                            Text("Screen Time & Usage")
+                                .font(AMENFont.regular(15))
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.tertiary)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
+                Text("Family Safety Mode enables stricter moderation and links with AMEN's community guardian system.")
+                    .font(AMENFont.regular(12))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+
+                Spacer(minLength: 32)
+            }
+        }
+        .background(Color(.systemGroupedBackground).ignoresSafeArea())
+        .navigationTitle("Family Safety")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}

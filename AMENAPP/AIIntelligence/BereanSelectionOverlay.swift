@@ -4,7 +4,7 @@ struct BereanSelectionOverlay<Content: View>: View {
     let payload: BereanContextPayload
     let content: Content
 
-    @StateObject private var engine = BereanContextActionEngine.shared
+    @ObservedObject private var engine = BereanContextActionEngine.shared // PERF: singleton → @ObservedObject
     @ObservedObject private var manager = BereanContextMenuManager.shared
 
     init(payload: BereanContextPayload, @ViewBuilder content: () -> Content) {

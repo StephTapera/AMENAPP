@@ -319,11 +319,12 @@ struct AMENSearchBar: View {
 // MARK: - Button Styles
 
 struct AMENChipButtonStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
-            .offset(y: configuration.isPressed ? 1 : 0)
-            .animation(.spring(response: 0.22, dampingFraction: 0.7), value: configuration.isPressed)
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.96 : 1.0)
+            .offset(y: configuration.isPressed && !reduceMotion ? 1 : 0)
+            .animation(reduceMotion ? nil : Motion.liquidSpring, value: configuration.isPressed)
     }
 }
 

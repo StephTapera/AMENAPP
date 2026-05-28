@@ -1,9 +1,9 @@
 import SwiftUI
 
-// MARK: - ReactionBubble
+// MARK: - PostReactionBubble
 
 @MainActor
-private struct ReactionBubble: View {
+private struct PostReactionBubble: View {
     let emoji: String
     let count: Int
     let isSelected: Bool
@@ -123,7 +123,7 @@ struct PostReactionTray: View {
         if !reactionCounts.isEmpty && !topEmojis.isEmpty {
             HStack(spacing: 6) {
                 ForEach(topEmojis, id: \.emoji) { item in
-                    ReactionBubble(
+                    PostReactionBubble(
                         emoji: item.emoji,
                         count: item.count,
                         isSelected: userReaction == item.emoji

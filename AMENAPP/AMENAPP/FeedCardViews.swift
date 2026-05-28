@@ -22,21 +22,22 @@ struct CategoryPill: View {
                 .scaleEffect(isPressed ? 0.96 : 1.0)
         }
         .buttonStyle(PlainButtonStyle())
+        // Pattern 7: unified bouncy spring for press-state shrink
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in
-                    withAnimation(.easeIn(duration: 0.1)) {
+                    withAnimation(Motion.liquidSpring) {
                         isPressed = true
                     }
                 }
                 .onEnded { _ in
-                    withAnimation(.easeOut(duration: 0.1)) {
+                    withAnimation(Motion.liquidSpring) {
                         isPressed = false
                     }
                 }
         )
     }
-    
+
     // MARK: - Glassmorphic Background
     
     @ViewBuilder
@@ -181,36 +182,31 @@ struct CommunityCard: View {
                 
                 Text(subtitle)
                     .font(AMENFont.regular(11))
-                    .foregroundStyle(.black.opacity(0.6))
+                    .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .frame(height: 100)
             .padding(14)
             .background(
                 RoundedRectangle(cornerRadius: 14)
-                    .fill(.white)
+                    .fill(Color(.systemBackground))
                     .shadow(color: .black.opacity(0.08), radius: 8, y: 2)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 14)
-                    .stroke(Color.black.opacity(0.1), lineWidth: 1)
+                    .stroke(Color(.separator).opacity(0.5), lineWidth: 1)
             )
             .scaleEffect(isPressed ? 0.96 : 1.0)
         }
         .buttonStyle(PlainButtonStyle())
+        // Pattern 7: unified bouncy spring for press-state shrink
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in
-                    if !isPressed {
-                        withAnimation(.easeIn(duration: 0.1)) {
-                            isPressed = true
-                        }
-                    }
+                    if !isPressed { withAnimation(Motion.liquidSpring) { isPressed = true } }
                 }
                 .onEnded { _ in
-                    withAnimation(.easeOut(duration: 0.1)) {
-                        isPressed = false
-                    }
+                    withAnimation(Motion.liquidSpring) { isPressed = false }
                 }
         )
     }
@@ -305,8 +301,9 @@ struct SmartCommunityCard: View {
             .scaleEffect(isPressed ? 0.98 : 1.0)
         }
         .buttonStyle(PlainButtonStyle())
+        // Pattern 7: unified bouncy spring for press-state shrink
         .onLongPressGesture(minimumDuration: .infinity, maximumDistance: .infinity, pressing: { pressing in
-            withAnimation(.smooth(duration: 0.2)) {
+            withAnimation(Motion.liquidSpring) {
                 isPressed = pressing
             }
         }, perform: {})
@@ -352,23 +349,23 @@ struct TrendingCard: View {
             .scaleEffect(isPressed ? 0.94 : 1.0)
         }
         .buttonStyle(PlainButtonStyle())
+        // Pattern 7: unified bouncy spring for press-state shrink
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in
                     if !isPressed {
-                        withAnimation(.easeIn(duration: 0.1)) {
-                            isPressed = true
-                        }
+                        withAnimation(Motion.liquidSpring) { isPressed = true }
                     }
                 }
                 .onEnded { _ in
-                    withAnimation(.easeOut(duration: 0.1)) {
-                        isPressed = false
-                    }
+                    withAnimation(Motion.liquidSpring) { isPressed = false }
                 }
         )
         .sheet(isPresented: $showDetails) {
             TrendingTopicDetailView(title: title, icon: icon)
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+                .presentationCornerRadius(24)
         }
     }
 }
@@ -479,7 +476,7 @@ struct TrendingTopicDetailView: View {
                         
                         Text(topicContent.description)
                             .font(AMENFont.regular(15))
-                            .foregroundStyle(.black.opacity(0.7))
+                            .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal)
                     }
@@ -496,18 +493,18 @@ struct TrendingTopicDetailView: View {
                                 
                                 Text(stat.0)
                                     .font(AMENFont.regular(12))
-                                    .foregroundStyle(.black.opacity(0.6))
+                                    .foregroundStyle(.secondary)
                             }
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
                             .background(
                                 RoundedRectangle(cornerRadius: 12)
-                                    .fill(.white)
+                                    .fill(Color(.secondarySystemBackground))
                                     .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
                             )
                             .overlay(
                                 RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color.black.opacity(0.1), lineWidth: 1)
+                                    .stroke(Color(.separator).opacity(0.5), lineWidth: 1)
                             )
                         }
                     }
@@ -715,19 +712,14 @@ struct ReactionButton: View {
             .scaleEffect(isPressed ? 0.92 : 1.0)
         }
         .buttonStyle(PlainButtonStyle())
+        // Pattern 7: unified bouncy spring for press-state shrink
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in
-                    if !isPressed {
-                        withAnimation(.easeIn(duration: 0.1)) {
-                            isPressed = true
-                        }
-                    }
+                    if !isPressed { withAnimation(Motion.liquidSpring) { isPressed = true } }
                 }
                 .onEnded { _ in
-                    withAnimation(.easeOut(duration: 0.1)) {
-                        isPressed = false
-                    }
+                    withAnimation(Motion.liquidSpring) { isPressed = false }
                 }
         )
     }

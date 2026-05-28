@@ -231,6 +231,24 @@ struct AmenGlassLoadingSkeleton: View {
     }
 }
 
+// MARK: - AmenMotionProfile
+// Semantic motion profile — choose the easing personality for a surface.
+// `.action` is the default fast spring; `.gentle` is for slow content reveals.
+
+enum AmenMotionProfile {
+    case action   // Snappy spring for interactive controls
+    case gentle   // Slow ease for content reveals and onboarding
+    case feedback // Quick bounce for confirmation micro-interactions
+
+    func animation() -> Animation {
+        switch self {
+        case .action:   return .spring(response: 0.30, dampingFraction: 0.82)
+        case .gentle:   return .spring(response: 0.55, dampingFraction: 0.88)
+        case .feedback: return .spring(response: 0.22, dampingFraction: 0.70)
+        }
+    }
+}
+
 // MARK: - AmenMotionProfile Environment Key
 // Passes the active motion profile through the view hierarchy so sheets,
 // composers, and overlays all pick up the right easing automatically.
@@ -477,4 +495,60 @@ extension View {
     func amenLuminanceDetect(_ luminance: Binding<AmenBackgroundLuminance>) -> some View {
         modifier(AmenBackgroundLuminanceModifier(luminance: luminance))
     }
+}
+
+// MARK: - Liquid Glass Motion System
+
+enum AmenLiquidGlassSurfaceRole: String, Hashable {
+    case navigation, feedCard, presenceCluster, prayerCircle, safetyBadge, aiSummary, composer, badge
+}
+
+struct AmenMotionSignals {
+    var contentDensity: CGFloat = 0.5
+    var activeUserCount: Int = 0
+    var typingUserCount: Int = 0
+    var prayingUserCount: Int = 0
+    var viewerCount: Int = 0
+    var hasUnsafeContent: Bool = false
+    var glassSurfaceCount: Int = 4
+}
+
+enum AmenTrustMotionState: String, Hashable, CaseIterable, Identifiable {
+    case verified, needsReview, unsafe
+    var id: String { rawValue }
+
+    var signals: AmenMotionSignals {
+        switch self {
+        case .verified:    return AmenMotionSignals(hasUnsafeContent: false)
+        case .needsReview: return AmenMotionSignals(hasUnsafeContent: false)
+        case .unsafe:      return AmenMotionSignals(hasUnsafeContent: true)
+        }
+    }
+}
+
+struct AmenLiquidGlassSocialMotionContext {
+    var contentDensity: CGFloat = 0.5
+    var emotionalIntensity: CGFloat = 0.0
+    var isActive: Bool = false
+    var isSafe: Bool = true
+    var isExpanded: Bool = false
+}
+
+struct AmenLiquidGlassMorphContainer<Content: View>: View {
+    var spacing: CGFloat = 16
+    @Namespace private var namespace
+    @ViewBuilder let content: (Namespace.ID) -> Content
+
+    var body: some View {
+        VStack(spacing: spacing) {
+            content(namespace)
+        }
+    }
+}
+
+extension View {
+    func amenMotionSignals(_ signals: AmenMotionSignals) -> some View { self }
+    func amenRuntimeMotionMonitored() -> some View { self }
+    func amenLiquidGlassSocialMotion(_ role: AmenLiquidGlassSurfaceRole, context: AmenLiquidGlassSocialMotionContext) -> some View { self }
+    func amenGlassMorphID(_ id: String, namespace: Namespace.ID, role: AmenLiquidGlassSurfaceRole) -> some View { self }
 }

@@ -144,7 +144,7 @@ private struct PrimaryFocusPlane: View {
     @State private var lastScrollOffset: CGFloat = 0
 
     var body: some View {
-        ScrollView {
+        ScrollView(.vertical, showsIndicators: false) {
             // Scroll offset tracker
             GeometryReader { proxy in
                 Color.clear
@@ -175,14 +175,14 @@ private struct PrimaryFocusPlane: View {
             .padding(.bottom, 96) // clear the FloatingComposerDock
         }
         .coordinateSpace(name: "spatialFeedScroll")
-        .onPreferenceChange(SpatialScrollOffsetPreferenceKey.self) { value in
+        .onPreferenceChange(SpatialScrollOffsetPreferenceKey.self) { @MainActor value in
             let delta = abs(value - lastScrollOffset)
             scrollVelocityFast = delta > 24
             lastScrollOffset = value
         }
         .background(Color.white)
         .refreshable {
-            viewModel.refresh()
+            await MainActor.run { viewModel.refresh() }
         }
     }
 }

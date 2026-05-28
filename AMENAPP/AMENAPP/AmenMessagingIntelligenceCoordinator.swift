@@ -25,6 +25,13 @@ final class AmenMessagingIntelligenceCoordinator: ObservableObject {
     @Published var catchUpState: AmenCatchUpState = .idle
     @Published var catchUpDismissed: Bool = false
 
+    // MARK: — Thread Intelligence (decisions, questions, actions)
+
+    @Published var decisions: [ConversationDecision] = []
+    @Published var questions: [ConversationUnresolvedQuestion] = []
+    @Published var actions: [ConversationActionItem] = []
+    @Published var isExtractingContext: Bool = false
+
     // MARK: — Pre-Send Safety Nudge
 
     @Published var pendingSafetyNudge: AmenSafetyNudgeContext? = nil
@@ -34,7 +41,7 @@ final class AmenMessagingIntelligenceCoordinator: ObservableObject {
     private var availability: AmenMessagingFeatureAvailability
 
     init(flags: AMENFeatureFlags = .shared) {
-        self.availability = AmenMessagingFeatureAvailability(flags: flags)
+        self.availability = AmenMessagingFeatureAvailability()
     }
 
     // MARK: — Smart Pill Computation

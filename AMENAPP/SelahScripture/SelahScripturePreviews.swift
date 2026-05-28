@@ -13,7 +13,7 @@ import SwiftUI
 
 #Preview("Scripture Reader · Psalm 23 (KJV)") {
     SelahScriptureReaderView(
-        initialReference: SelahScriptureReference(
+        initialReference: ScriptureReference(
             bookId: "psalms", chapter: 23, startVerse: nil, endVerse: nil
         ),
         provider: SelahLocalPublicDomainBibleProvider(),
@@ -25,7 +25,7 @@ import SwiftUI
 
 #Preview("Scripture Reader · Romans 8 (KJV)") {
     SelahScriptureReaderView(
-        initialReference: SelahScriptureReference(
+        initialReference: ScriptureReference(
             bookId: "romans", chapter: 8, startVerse: 28, endVerse: nil
         ),
         provider: SelahLocalPublicDomainBibleProvider(),
@@ -46,7 +46,7 @@ import SwiftUI
 
 #Preview("Reaction Picker · John 3:16") {
     SelahVerseReactionPickerSheet(
-        reference: SelahScriptureReference(
+        reference: ScriptureReference(
             bookId: "john", chapter: 3, startVerse: 16, endVerse: nil
         ),
         translationId: "kjv",
@@ -58,7 +58,7 @@ import SwiftUI
 
 #Preview("Share Card · Psalm 23:1") {
     SelahScriptureShareCardView(
-        reference: SelahScriptureReference(
+        reference: ScriptureReference(
             bookId: "psalms", chapter: 23, startVerse: 1, endVerse: nil
         ),
         text: "The LORD is my shepherd; I shall not want.",

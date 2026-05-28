@@ -6,6 +6,7 @@ import FirebaseFunctions
 final class BereanLiveTranscriptService: ObservableObject {
     @Published private(set) var captions: [BereanCaptionChunk] = []
     @Published private(set) var scriptures: [BereanScriptureReference] = []
+    @Published var listenerError: String?
 
     private let db = Firestore.firestore()
     private var captionListener: ListenerRegistration?
@@ -21,7 +22,12 @@ final class BereanLiveTranscriptService: ObservableObject {
             .whereField("targetLanguage", isEqualTo: language.rawValue)
             .order(by: "createdAt", descending: false)
             .limit(toLast: 40)
-            .addSnapshotListener { [weak self] snapshot, _ in
+            .addSnapshotListener { [weak self] snapshot, error in
+                if let error {
+                    dlog("⚠️ BereanLiveTranscriptService caption listener error: \(error.localizedDescription)")
+                    Task { @MainActor in self?.listenerError = error.localizedDescription }
+                    return
+                }
                 guard let docs = snapshot?.documents else { return }
                 Task { @MainActor in
                     self?.captions = docs.map { BereanCaptionChunk(id: $0.documentID, data: $0.data()) }
@@ -33,7 +39,12 @@ final class BereanLiveTranscriptService: ObservableObject {
             .collection("scriptureReferences")
             .order(by: "createdAt", descending: false)
             .limit(toLast: 20)
-            .addSnapshotListener { [weak self] snapshot, _ in
+            .addSnapshotListener { [weak self] snapshot, error in
+                if let error {
+                    dlog("⚠️ BereanLiveTranscriptService scripture listener error: \(error.localizedDescription)")
+                    Task { @MainActor in self?.listenerError = error.localizedDescription }
+                    return
+                }
                 guard let docs = snapshot?.documents else { return }
                 Task { @MainActor in
                     self?.scriptures = docs.map { BereanScriptureReference(id: $0.documentID, data: $0.data()) }

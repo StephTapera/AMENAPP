@@ -75,16 +75,16 @@ struct BereanFloatingTabBar: View {
 
                     Image(systemName: tab.icon)
                         .font(.system(size: 15, weight: isSelected ? .semibold : .regular))
-                        .foregroundStyle(isSelected ? Color.black : Color.black.opacity(0.40))
+                        .foregroundStyle(isSelected ? Color.primary : Color.secondary)
                         .frame(height: 28)
                         .symbolEffect(.bounce, value: isSelected)
                 }
 
                 Text(tab.rawValue)
                     .font(.system(size: 10, weight: isSelected ? .semibold : .regular))
-                    .foregroundStyle(isSelected ? Color.black : Color.black.opacity(0.38))
+                    .foregroundStyle(isSelected ? Color.primary : Color.secondary)
             }
-            .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, minHeight: 44)
             .padding(.vertical, 3)
             .contentShape(Rectangle())
         }

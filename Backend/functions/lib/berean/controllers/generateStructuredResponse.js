@@ -60,6 +60,7 @@ const systemPrompt_1 = require("../prompts/systemPrompt");
 const structuredOutputContract_1 = require("../prompts/structuredOutputContract");
 const AuthorityGuardrailEngine_1 = require("../services/AuthorityGuardrailEngine");
 const DiscipleshipTrackerService_1 = require("../services/DiscipleshipTrackerService");
+const BereanEntitlementService_1 = require("../services/BereanEntitlementService");
 const anthropicApiKey = (0, params_1.defineSecret)("ANTHROPIC_API_KEY");
 /**
  * Berean Spiritual Intelligence — Structured Response Generator
@@ -81,6 +82,26 @@ exports.bereanGenerateStructuredResponse = (0, https_1.onCall)({
         rateLimit_1.RATE_LIMITS.bereanPerMinute,
         rateLimit_1.RATE_LIMITS.bereanDailyBudget,
     ]);
+    // Free-tier daily cap: 3 Berean queries per day, enforced via Firestore transaction.
+    const entitlement = await (0, BereanEntitlementService_1.getBereanEntitlement)(userId);
+    if (entitlement.tier === "free") {
+        const today = new Date().toISOString().slice(0, 10);
+        const quotaRef = admin.firestore()
+            .collection("users").doc(userId)
+            .collection("aiQuota").doc(`berean_${today}`);
+        await admin.firestore().runTransaction(async (tx) => {
+            const snap = await tx.get(quotaRef);
+            const count = snap.data()?.count ?? 0;
+            if (count >= 3) {
+                throw new https_1.HttpsError("resource-exhausted", "Daily Berean limit reached. Upgrade to AMEN+ for unlimited access.");
+            }
+            tx.set(quotaRef, {
+                count: count + 1,
+                uid: userId,
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            }, { merge: true });
+        });
+    }
     const body = request.data;
     if (!body?.userMessage?.trim()) {
         throw new https_1.HttpsError("invalid-argument", "userMessage is required");

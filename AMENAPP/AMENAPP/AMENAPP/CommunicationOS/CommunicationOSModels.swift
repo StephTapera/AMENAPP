@@ -96,7 +96,7 @@ struct GroupPulseData {
 
 // MARK: - Smart Presence
 
-enum SmartPresenceStatus: String, CaseIterable {
+enum SmartPresenceStatus: String, Codable, CaseIterable {
     case activeNow       = "Active now"
     case recentlyActive  = "Recently active"
     case focusMode       = "Focus mode"

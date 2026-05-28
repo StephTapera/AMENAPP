@@ -36,7 +36,11 @@ struct AmenLiquidGlassTabBar: View {
     private var selectedTabAnimation: Animation? {
         guard !reduceMotion else { return .easeInOut(duration: 0.16) }
         guard !isFastScrolling else { return .easeOut(duration: 0.12) }
-        return .spring(response: 0.42, dampingFraction: 0.82, blendDuration: 0.08)
+        // Pattern 2: canonical bouncy spring for pill position change
+        if #available(iOS 17, *) {
+            return .spring(.bouncy(duration: 0.4, extraBounce: 0.1))
+        }
+        return .spring(response: 0.42, dampingFraction: 0.72)
     }
 
     var body: some View {
@@ -54,7 +58,8 @@ struct AmenLiquidGlassTabBar: View {
         .padding(.horizontal, 18)
         .scaleEffect(y: isCompressed ? 0.94 : 1.0, anchor: .bottom)
         .opacity(isCompressed ? 0.92 : 1.0)
-        .animation(reduceMotion ? .easeInOut(duration: 0.16) : .spring(response: 0.34, dampingFraction: 0.86), value: isCompressed)
+        // Pattern 2: canonical bouncy spring for tab bar compress/expand
+        .animation(reduceMotion ? .easeInOut(duration: 0.16) : Motion.liquidSpring, value: isCompressed)
         .animation(.easeOut(duration: isFastScrolling ? 0.08 : 0.18), value: isColorfulContentBehind)
         .accessibilityElement(children: .contain)
     }
@@ -185,8 +190,9 @@ private struct AmenLiquidGlassTabPressStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.94 : 1.0)
-            .animation(reduceMotion ? nil : .spring(response: 0.18, dampingFraction: 0.68), value: configuration.isPressed)
+            // Pattern 7: unified 0.96 press-shrink with canonical bouncy spring
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.96 : 1.0)
+            .animation(reduceMotion ? nil : Motion.liquidSpring, value: configuration.isPressed)
     }
 }
 

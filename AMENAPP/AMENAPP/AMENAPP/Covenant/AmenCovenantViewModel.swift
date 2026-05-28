@@ -38,7 +38,7 @@ final class AmenCovenantViewModel: ObservableObject {
                 let self,
                 let route = notification.userInfo?["route"] as? CovenantDeepLinkRoute
             else { return }
-            Task { await MainActor.run { self.handleDeepLink(route) } }
+            Task { @MainActor [weak self] in self?.handleDeepLink(route) }
         }
     }
 
@@ -122,7 +122,7 @@ final class AmenCovenantViewModel: ObservableObject {
 
     // MARK: - Covenant Loading
 
-    private func loadCovenant(_ covenantId: String) async {
+    func loadCovenant(_ covenantId: String) async {
         do {
             let doc = try await db.collection("covenants").document(covenantId).getDocument()
             currentCovenant = try? doc.data(as: Covenant.self)
@@ -158,7 +158,7 @@ final class AmenCovenantViewModel: ObservableObject {
         case .moderation(let cid):
             AmenCovenantModerationView(covenantId: cid).environmentObject(self)
         case .memberDirectory(let cid):
-            AmenCovenantMemberDirectoryView(covenantId: cid).environmentObject(self)
+            AmenCovenantMemberDirectoryView(covenantId: cid, directoryVisibility: .membersVisible).environmentObject(self)
         case .contentCalendar(let cid):
             AmenCovenantContentCalendarView(covenantId: cid).environmentObject(self)
         case .verification:

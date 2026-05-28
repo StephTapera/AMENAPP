@@ -1,7 +1,7 @@
 // AmenPrayerSignalCardView.swift
 // AMEN App — Smart Collaboration Layer: Slice 2 — Prayer Signal Card
 //
-// Feature flag gate: RemoteKillSwitch.shared.threadPrayerDetectionEnabled (default OFF)
+// Feature flag gate: AMENFeatureFlags.shared.threadPrayerDetectionEnabled (default OFF)
 //
 // Privacy contracts (non-negotiable):
 //   1. requestorId NEVER shown to anyone except the requestor.
@@ -45,7 +45,7 @@ struct AmenPrayerSignalCardView: View {
 
     var body: some View {
         // Flag gate — the parent (PrayerSignalListSection) also gates, but defend here too.
-        guard RemoteKillSwitch.shared.threadPrayerDetectionEnabled else {
+        guard AMENFeatureFlags.shared.threadPrayerDetectionEnabled else {
             return AnyView(EmptyView())
         }
 
@@ -272,7 +272,7 @@ private struct PrayerSignalSkeletonCard: View {
 // MARK: - PrayerSignalListSection
 
 /// Container that loads and displays all prayer signals for a thread.
-/// Fully gated behind `RemoteKillSwitch.shared.threadPrayerDetectionEnabled`.
+/// Fully gated behind `AMENFeatureFlags.shared.threadPrayerDetectionEnabled`.
 ///
 /// States covered:
 /// - `.loading` (no signals yet) → single `PrayerSignalSkeletonCard`
@@ -294,7 +294,7 @@ struct PrayerSignalListSection: View {
 
     var body: some View {
         // Flag gate — slice completely invisible when OFF.
-        guard RemoteKillSwitch.shared.threadPrayerDetectionEnabled else {
+        guard AMENFeatureFlags.shared.threadPrayerDetectionEnabled else {
             return AnyView(EmptyView())
         }
 

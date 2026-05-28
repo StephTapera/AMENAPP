@@ -115,6 +115,27 @@ class AlgoliaSyncService {
         dlog("✅ AlgoliaSyncService: deletePost \(postId) dispatched to Cloud Function")
     }
 
+    // MARK: - Bulk Sync (Debug / Admin)
+
+    func syncAllData() async throws {
+        try await bulkSyncUsers()
+        try await bulkSyncPosts()
+    }
+
+    func bulkSyncUsers() async throws {
+        let snapshot = try await db.collection("users").getDocuments()
+        for doc in snapshot.documents {
+            try await syncUser(userId: doc.documentID, userData: doc.data())
+        }
+    }
+
+    func bulkSyncPosts() async throws {
+        let snapshot = try await db.collection("posts").getDocuments()
+        for doc in snapshot.documents {
+            try await syncPost(postId: doc.documentID, postData: doc.data())
+        }
+    }
+
     // MARK: - Helpers
 
     private func normalizedAccountStatus(from userData: [String: Any]) -> String {

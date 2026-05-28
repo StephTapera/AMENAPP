@@ -19,6 +19,7 @@ struct SpiritualRhythmSettingsView: View {
             notificationIntensitySection
             notificationTypesSection
             sabbathModeSection
+            wellbeingSection
             aboutYourRhythmSection
         }
         .listStyle(.insetGrouped)
@@ -95,7 +96,7 @@ struct SpiritualRhythmSettingsView: View {
                     }
                 )
             ) {
-                ForEach(NotificationIntensityMode.allCases, id: \.rawValue) { mode in
+                ForEach(SpiritualNotificationIntensityMode.allCases, id: \.rawValue) { mode in
                     VStack(alignment: .leading, spacing: 2) {
                         Text(mode.displayName)
                         Text(mode.description)
@@ -307,6 +308,21 @@ struct SpiritualRhythmSettingsView: View {
         components.minute = 0
         let date = Calendar.current.date(from: components) ?? Date()
         return formatter.string(from: date)
+    }
+
+    // MARK: - Section 7: Digital Wellbeing
+
+    private var wellbeingSection: some View {
+        Section {
+            NavigationLink(destination: WellbeingDashboardView()) {
+                Label("Digital Wellbeing", systemImage: "chart.bar.xaxis")
+            }
+        } header: {
+            Text("Screen Time")
+        } footer: {
+            Text("Track how you use AMEN. Opt-in only, stored only on this device.")
+                .foregroundStyle(.secondary)
+        }
     }
 }
 

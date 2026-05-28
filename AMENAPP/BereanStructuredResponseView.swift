@@ -91,7 +91,7 @@ struct BereanStructuredResponseView: View {
             }
             .padding(.bottom, 2)
 
-            Text(content)
+            markdownText(content)
                 .font(isBold ? AMENFont.semiBold(17) : AMENFont.regular(15))
                 .foregroundStyle(.primary)
                 .lineSpacing(2)
@@ -160,7 +160,7 @@ struct BereanStructuredResponseView: View {
     // MARK: - Plain Content Fallback
 
     private var plainContent: some View {
-        Text(message.content)
+        markdownText(message.content)
             .font(.system(size: 16, weight: .regular))
             .foregroundColor(.black)
             .lineSpacing(2)
@@ -179,5 +179,23 @@ struct BereanStructuredResponseView: View {
                     )
                     .shadow(color: .black.opacity(0.04), radius: 9, y: 3)
             )
+    }
+
+    // MARK: - Markdown helper
+
+    /// Converts a String to a Text view with inline markdown rendered via AttributedString (iOS 15+).
+    /// Falls back to plain Text if the parse fails.
+    private func markdownText(_ string: String) -> Text {
+        if let attributed = try? AttributedString(
+            markdown: string,
+            options: .init(
+                allowsExtendedAttributes: true,
+                interpretedSyntax: .inlineOnlyPreservingWhitespace,
+                failurePolicy: .returnPartiallyParsedIfPossible
+            )
+        ) {
+            return Text(attributed)
+        }
+        return Text(string)
     }
 }

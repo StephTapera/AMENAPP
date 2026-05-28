@@ -7,6 +7,17 @@
 //  Integrates with the existing NotificationService for delivery.
 //
 
+// MARK: - Notification Service Ownership
+// This service owns: actionThreadInvite notifications (when a user is invited to a support flow);
+//                    actionThreadUpdate notifications (batch-written to all thread participants
+//                    except the actor, capped at 499 per batch write);
+//                    actionThreadReminder notifications (scheduled step reminders sent from system actor);
+//                    in-memory per-user rate limiting (max 10 thread notifications per hour).
+// It does NOT own: General social-activity notifications (amens, follows, comments, mentions, reposts),
+//                  prayer-answered notifications, re-engagement copy, priority scoring, batching windows,
+//                  quiet-hours enforcement, or push dispatch to FCM.
+// Canonical routing reference: See NotificationServiceMap.md
+
 import Foundation
 import FirebaseAuth
 import FirebaseFirestore

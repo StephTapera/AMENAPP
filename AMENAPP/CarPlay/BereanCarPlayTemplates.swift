@@ -19,7 +19,7 @@ final class BereanCarPlayTemplates: NSObject {
     // Weak ref to the coordinator so templates can invoke actions
     weak var coordinator: BereanCarPlayCoordinator?
 
-    init(coordinator: BereanCarPlayCoordinator) {
+    init(coordinator: BereanCarPlayCoordinator? = nil) {
         self.coordinator = coordinator
     }
 
@@ -203,6 +203,38 @@ final class BereanCarPlayTemplates: NSObject {
         let item = CPListItem(text: "No new messages", detailText: "Check back when you're parked")
         let section = CPListSection(items: [item])
         return CPListTemplate(title: "Small Group Messages", sections: [section])
+    }
+
+    // MARK: - Message Reply Template
+
+    /// Presents voice-dictation reply options for a single message in CarPlay.
+    /// `isListening` controls the subtitle shown on the dictate item.
+    func makeMessageReplyTemplate(
+        message: BereanDriveMessagePreview,
+        isListening: Bool = false
+    ) -> CPListTemplate {
+        let dictateItem = CPListItem(
+            text: "Dictate Reply",
+            detailText: isListening ? "Listening…" : "Tap to speak your reply"
+        )
+        dictateItem.accessoryType = .none
+        dictateItem.handler = { [weak self] _, completion in
+            self?.coordinator?.didTapDictateReply(for: message)
+            completion()
+        }
+
+        let skipItem = CPListItem(text: "Skip — can't reply right now", detailText: nil)
+        skipItem.accessoryType = .none
+        skipItem.handler = { _, completion in
+            completion()
+        }
+
+        let section = CPListSection(
+            items: [dictateItem, skipItem],
+            header: "Reply to \(message.senderName)",
+            sectionIndexTitle: nil
+        )
+        return CPListTemplate(title: "Reply", sections: [section])
     }
 
     // MARK: - Now Playing Template (audio entitlement required)

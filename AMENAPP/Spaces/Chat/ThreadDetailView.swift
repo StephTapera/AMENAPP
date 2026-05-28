@@ -25,7 +25,6 @@ struct ThreadDetailView: View {
     @StateObject private var service = SpacesChatService()
 
     // Entitlement observation
-    @State private var entitlement: SpaceEntitlement?
     @State private var entitlementTask: Task<Void, Never>?
 
     // Input bar state
@@ -130,7 +129,7 @@ struct ThreadDetailView: View {
                 .padding(.top, 12)
                 .padding(.bottom, 8)
             }
-            .onChange(of: service.messages.count) { _ in
+            .onChange(of: service.messages.count) { _, _ in
                 scrollToBottom(proxy: proxy)
             }
             .onAppear {
@@ -194,13 +193,15 @@ struct ThreadDetailView: View {
                 .padding(.vertical, 8)
                 .background {
                     RoundedRectangle(cornerRadius: LiquidGlassTokens.cornerRadiusSmall, style: .continuous)
-                        .fill(reduceTransparency ? Color(.secondarySystemBackground) : LiquidGlassTokens.blurThin)
+                        .fill(reduceTransparency
+                              ? AnyShapeStyle(Color(.secondarySystemBackground))
+                              : AnyShapeStyle(LiquidGlassTokens.blurThin))
                         .overlay(
                             RoundedRectangle(cornerRadius: LiquidGlassTokens.cornerRadiusSmall, style: .continuous)
                                 .stroke(Color.white.opacity(0.28), lineWidth: 0.5)
                         )
                 }
-                .onChange(of: inputText) { newValue in
+                .onChange(of: inputText) { _, newValue in
                     if !newValue.isEmpty {
                         Task { await service.startTyping(threadId: threadId, spaceId: spaceId) }
                     }
@@ -294,7 +295,6 @@ struct ThreadDetailView: View {
         entitlementTask = Task {
             for await result in stream {
                 guard !Task.isCancelled else { break }
-                entitlement = result
                 let status = result?.status
                 isLocked = !(status == .active || status == .grace)
             }
@@ -358,7 +358,7 @@ struct ThreadDetailView: View {
 
 private struct MessageBubble: View {
 
-    let message: SpaceMessage
+    let message: SpacesChatMessage
     let currentUserId: String
     let quickEmojis: [String]
     @Binding var emojiPickerMessageId: String?
@@ -491,7 +491,9 @@ private struct MessageBubble: View {
                     .fill(AmenTheme.Colors.amenGold)
             } else {
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(reduceTransparency ? Color(.secondarySystemBackground) : LiquidGlassTokens.blurThin)
+                    .fill(reduceTransparency
+                          ? AnyShapeStyle(Color(.secondarySystemBackground))
+                          : AnyShapeStyle(LiquidGlassTokens.blurThin))
                     .overlay(
                         RoundedRectangle(cornerRadius: 18, style: .continuous)
                             .stroke(Color.white.opacity(0.28), lineWidth: 0.5)

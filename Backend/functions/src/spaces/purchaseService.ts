@@ -24,7 +24,7 @@ const db = admin.firestore();
 function stripeClient(): Stripe {
     const key = process.env.STRIPE_SECRET_KEY;
     if (!key) throw new HttpsError("internal", "Stripe secret key not configured.");
-    return new Stripe(key, { apiVersion: "2023-10-16" });
+    return new Stripe(key, { apiVersion: "2024-06-20" });
 }
 
 async function getConnectAccountId(communityId: string): Promise<string> {
@@ -176,15 +176,16 @@ export const purchaseSpaceAccess = onCall(async (request) => {
         // and return the latest_invoice.payment_intent.client_secret.
         // We use the direct subscription approach here for predictability.
 
-        // Find or create a Stripe Customer for this userId on the Connect account
-        // (v1: use metadata to correlate; no cross-account customer sharing)
+        // Find or create a Stripe Customer for this userId on the Connect account.
+        // (v1: metadata-keyed correlation; no cross-account customer sharing)
+        // Use customers.search which supports metadata queries in Stripe 16+.
         let customerId: string;
-        const existingCustomers = await stripe.customers.list(
-            { limit: 1, metadata: { userId } as unknown as Stripe.CustomerListParams },
+        const searchResult = await stripe.customers.search(
+            { query: `metadata["userId"]:"${userId}"`, limit: 1 },
             { stripeAccount: connectAccountId }
         );
-        if (existingCustomers.data.length > 0 && existingCustomers.data[0].id) {
-            customerId = existingCustomers.data[0].id;
+        if (searchResult.data.length > 0 && searchResult.data[0].id) {
+            customerId = searchResult.data[0].id;
         } else {
             const customer = await stripe.customers.create(
                 { metadata: { userId } },

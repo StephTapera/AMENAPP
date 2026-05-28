@@ -28,7 +28,7 @@ final class AmenSuggestionsService: ObservableObject {
     @Published private(set) var suggestions: [AmenContentSuggestion] = []
 
     private let storageKey = "amen.suggestions.engagement.v1"
-    private let tagger = NLTagger(tagSchemes: [.namedEntity, .lexicalClass])
+    private let tagger = NLTagger(tagSchemes: [.nameType, .lexicalClass])
 
     // MARK: Record engagement
 
@@ -50,7 +50,7 @@ final class AmenSuggestionsService: ObservableObject {
         tagger.enumerateTags(
             in: text.startIndex..<text.endIndex,
             unit: .word,
-            scheme: .namedEntity,
+            scheme: .nameType,
             options: [.omitWhitespace, .omitPunctuation]
         ) { tag, range in
             if tag != nil { found.insert(String(text[range]).lowercased()) }
@@ -150,7 +150,7 @@ final class AmenSuggestionsService: ObservableObject {
 // MARK: - Suggestions Strip (embed in any feed/home view)
 
 struct AmenSuggestionsStrip: View {
-    @StateObject private var service = AmenSuggestionsService.shared
+    @ObservedObject private var service = AmenSuggestionsService.shared // PERF: singleton → @ObservedObject
 
     var body: some View {
         if !service.suggestions.isEmpty {

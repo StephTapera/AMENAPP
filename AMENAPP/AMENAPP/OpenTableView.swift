@@ -69,7 +69,7 @@ struct OpenTableView: View {
                             
                             // Refresh indicator
                             if isRefreshing {
-                                AMENLoadingIndicator(dotSize: 7, spacing: 6, bounceHeight: 8)
+                                AMENLoader.inline
                             }
                         }
                         
@@ -128,10 +128,11 @@ struct OpenTableView: View {
                     if isLoadingMore || firebasePostService.isLoadingMore {
                         HStack {
                             Spacer()
-                            AMENLoadingIndicator(dotSize: 7, spacing: 6, bounceHeight: 8)
+                            AMENLoader.inline
                                 .padding(.vertical, 20)
                             Spacer()
                         }
+                        .accessibilityLabel("Loading more posts")
                     }
 
                     // Caught-up card: shown when all 72-hour posts have been seen

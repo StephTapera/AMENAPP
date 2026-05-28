@@ -12,12 +12,26 @@
 //   - Sabbath mode silences everything, no exceptions.
 //   - All categories are user-configurable via SpiritualRhythmSettings.
 
+// MARK: - Notification Service Ownership
+// This service owns: Pure-logic (no Firebase) eligibility evaluation for SpiritualNotificationCategory
+//                    types (dailyVerse, readingReminder, prayerReminder, communityDigest, streakReminder,
+//                    quietReturn, milestoneReflection); sabbath-mode hard stop, inactivity-pause gating,
+//                    daily intensity cap, per-category user toggle, duplicate-today guard;
+//                    copy generation with per-session random variant rotation (suggestedCopy);
+//                    scheduleNotificationCategories() — builds ScheduledNotificationConfig list
+//                    with time mapping from SpiritualRhythmSettings for UNUserNotificationCenter.
+// It does NOT own: Social-activity notifications, action-thread events, prayer-answered fan-out,
+//                  push delivery, Firestore writes, priority scoring, or batching.
+//                  NOTE: Near-duplicate of CalmNotificationPolicyEngine.swift and
+//                  NotificationPolicyEngine.swift (CalmControl/Services) — consolidation candidate.
+// Canonical routing reference: See NotificationServiceMap.md
+
 import Foundation
 
 // MARK: - Policy Result Types
 
 /// Why a notification was suppressed. Never surfaced to the user directly.
-enum NotificationSuppressReason: String, Sendable {
+enum SpiritualNotificationSuppressReason: String, Sendable {
     case sabbathMode
     case inactivityPause
     case intensityLimitReached
@@ -26,17 +40,17 @@ enum NotificationSuppressReason: String, Sendable {
 }
 
 /// The policy engine's verdict for a single notification evaluation.
-struct NotificationEligibilityResult: Sendable {
+struct SpiritualNotificationEligibilityResult: Sendable {
     let shouldSend: Bool
-    let reason: NotificationSuppressReason?
+    let reason: SpiritualNotificationSuppressReason?
     let suggestedCopy: String?
 
-    static func allowed(copy: String) -> NotificationEligibilityResult {
-        NotificationEligibilityResult(shouldSend: true, reason: nil, suggestedCopy: copy)
+    static func allowed(copy: String) -> SpiritualNotificationEligibilityResult {
+        SpiritualNotificationEligibilityResult(shouldSend: true, reason: nil, suggestedCopy: copy)
     }
 
-    static func suppressed(reason: NotificationSuppressReason) -> NotificationEligibilityResult {
-        NotificationEligibilityResult(shouldSend: false, reason: reason, suggestedCopy: nil)
+    static func suppressed(reason: SpiritualNotificationSuppressReason) -> SpiritualNotificationEligibilityResult {
+        SpiritualNotificationEligibilityResult(shouldSend: false, reason: reason, suggestedCopy: nil)
     }
 }
 
@@ -79,7 +93,7 @@ final class SpiritualNotificationPolicyEngine: ObservableObject {
         settings: SpiritualRhythmSettings,
         sentTodayCount: Int,
         alreadySentCategories: Set<SpiritualNotificationCategory>
-    ) -> NotificationEligibilityResult {
+    ) -> SpiritualNotificationEligibilityResult {
 
         // 1. Sabbath mode silences everything.
         if settings.sabbathMode.isCurrentlyActive {

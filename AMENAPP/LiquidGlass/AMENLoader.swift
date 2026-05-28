@@ -90,16 +90,16 @@ struct AMENLoader: View {
     private var pulseVariant: some View {
         HStack(spacing: size / 10) {
             ForEach(0..<3, id: \.self) { i in
-                PulsingDot(tint: tint, radius: maxRadius, delay: Double(i) * 0.22)
+                AMENLoaderPulsingDot(tint: tint, radius: maxRadius, delay: Double(i) * 0.22)
             }
         }
         .frame(width: size, height: size * 0.42, alignment: .center)
     }
 }
 
-// MARK: - PulsingDot (Reduce Motion fallback only)
+// MARK: - AMENLoaderPulsingDot (Reduce Motion fallback only)
 
-private struct PulsingDot: View {
+private struct AMENLoaderPulsingDot: View {
     let tint: Color
     let radius: CGFloat
     let delay: Double
@@ -253,7 +253,6 @@ extension View {
         .padding(32)
     }
     .preferredColorScheme(.light)
-    .previewDisplayName("Light")
 }
 
 #Preview("Dark mode — all variants") {
@@ -288,7 +287,6 @@ extension View {
         .padding(32)
     }
     .preferredColorScheme(.dark)
-    .previewDisplayName("Dark")
 }
 
 #Preview("Full screen — light") {
@@ -312,5 +310,4 @@ extension View {
         .amenLoadingOverlay(isVisible: true, caption: "processing")
     }
     .preferredColorScheme(.dark)
-    .previewDisplayName("Overlay — Dark")
 }

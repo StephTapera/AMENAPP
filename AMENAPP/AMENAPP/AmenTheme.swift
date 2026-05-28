@@ -271,6 +271,16 @@ enum AmenTheme {
         static let amenBronze = Color(red: 0.80, green: 0.50, blue: 0.20)
         static let amenSilver = Color(red: 0.75, green: 0.75, blue: 0.75)
 
+        /// Tab-bar / interactive accent blue. Used for the active tab selection tint.
+        /// Fixed value (not adaptive) so it reads as the same vivid blue on both themes.
+        static let amenBlue   = Color(red: 0.04, green: 0.52, blue: 1.0)
+
+        /// LinkedGlyph tint — interlocking-rings community signal (Agent C).
+        static let amenPurple = Color(red: 0.44, green: 0.26, blue: 0.80)
+
+        /// Deep background for immersive Spaces surfaces.
+        static let amenBlack  = Color(red: 0.06, green: 0.06, blue: 0.07)
+
         // ---- Shadow ----
 
         static let shadowCard = Color(uiColor: UIColor { t in
@@ -343,6 +353,9 @@ extension Color {
     static var amenStatusSuccess: Color       { AmenTheme.Colors.statusSuccess }
     static var amenStatusWarning: Color       { AmenTheme.Colors.statusWarning }
     static var amenStatusError: Color         { AmenTheme.Colors.statusError }
+
+    // Brand accent
+    static var amenBlue: Color                { AmenTheme.Colors.amenBlue }
 
     // Shimmer
     static var amenShimmerBase: Color         { AmenTheme.Colors.shimmerBase }

@@ -2216,7 +2216,8 @@ class FirebasePostService: ObservableObject {
     }
     
     // MARK: - Admin/Development Functions
-    
+
+#if DEBUG
     /// ⚠️ DANGER: Delete ALL posts from Firestore (for development/testing only)
     /// This will permanently delete all posts in the database
     func deleteAllPosts() async throws {
@@ -2249,7 +2250,7 @@ class FirebasePostService: ObservableObject {
         }
         
         dlog("✅ ALL POSTS DELETED")
-        
+
         // Clear local cache
         await MainActor.run {
             self.posts = []
@@ -2258,7 +2259,8 @@ class FirebasePostService: ObservableObject {
             self.prayerPosts = []
         }
     }
-    
+#endif
+
     /// Delete posts by specific author name (useful for removing fake data)
     func deletePostsByAuthorName(_ authorName: String) async throws {
         dlog("🗑️ Deleting posts by author: \(authorName)")

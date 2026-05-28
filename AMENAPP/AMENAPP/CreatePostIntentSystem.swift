@@ -109,14 +109,15 @@ enum PostAudienceHint: String, CaseIterable, Codable, Identifiable {
 // Tapping auto-sets the post category without requiring the user to navigate menus.
 
 struct ComposerSuggestionChips: View {
-    @Binding var selectedCategory: Post.PostCategory
+    var onMarkAsTestimony: () -> Void = {}
+    var onMarkAsPrayer: () -> Void = {}
     var onAddScripture: (() -> Void)? = nil
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                chip(icon: "star.bubble",     label: "Tag as Testimony") { selectedCategory = .testimonies }
-                chip(icon: "hands.sparkles",  label: "Mark as Prayer")   { selectedCategory = .prayer }
+                chip(icon: "star.bubble",     label: "Tag as Testimony") { onMarkAsTestimony() }
+                chip(icon: "hands.sparkles",  label: "Mark as Prayer")   { onMarkAsPrayer() }
                 if let action = onAddScripture {
                     chip(icon: "book",        label: "Add Scripture")     { action() }
                 }

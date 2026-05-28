@@ -67,9 +67,9 @@ struct AmenSmartPromptCard: View {
     private var iconBadge: some View {
         Image(systemName: prompt.systemImage)
             .font(.body.weight(.semibold))
-            .foregroundStyle(.black.opacity(0.65))
+            .foregroundStyle(Color.primary.opacity(0.65))
             .frame(width: 38, height: 38)
-            .background(Circle().fill(Color.black.opacity(0.06)))
+            .background(Circle().fill(Color.primary.opacity(0.06)))
             .accessibilityHidden(true)
     }
 
@@ -77,11 +77,11 @@ struct AmenSmartPromptCard: View {
         VStack(alignment: .leading, spacing: 3) {
             Text(prompt.title)
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.black)
+                .foregroundStyle(.primary)
                 .lineLimit(2)
             Text(prompt.body)
                 .font(.footnote)
-                .foregroundStyle(.black.opacity(0.60))
+                .foregroundStyle(.secondary)
                 .lineLimit(3)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -93,9 +93,9 @@ struct AmenSmartPromptCard: View {
         } label: {
             Image(systemName: "xmark")
                 .font(.footnote.weight(.semibold))
-                .foregroundStyle(.black.opacity(0.38))
+                .foregroundStyle(Color.primary.opacity(0.38))
                 .frame(width: 30, height: 30)
-                .background(Circle().fill(Color.black.opacity(0.05)))
+                .background(Circle().fill(Color.primary.opacity(0.05)))
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Dismiss")
@@ -114,10 +114,10 @@ struct AmenSmartPromptCard: View {
         } label: {
             Text(prompt.secondaryAction.title)
                 .font(.subheadline.weight(.medium))
-                .foregroundStyle(.black.opacity(0.55))
+                .foregroundStyle(Color.primary.opacity(0.55))
                 .frame(maxWidth: .infinity)
                 .frame(height: 44)
-                .background(Capsule().fill(Color.black.opacity(0.06)))
+                .background(Capsule().fill(Color.primary.opacity(0.06)))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(prompt.secondaryAction.title)
@@ -129,12 +129,12 @@ struct AmenSmartPromptCard: View {
         } label: {
             Text(prompt.primaryAction.title)
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Color(.systemBackground))
                 .lineLimit(1)
                 .minimumScaleFactor(0.85)
                 .frame(maxWidth: .infinity)
                 .frame(height: 44)
-                .background(Capsule().fill(Color.black))
+                .background(Capsule().fill(Color.primary))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(prompt.primaryAction.title)
@@ -147,7 +147,7 @@ struct AmenSmartPromptCard: View {
         if reduceTransparency {
             Color(.systemBackground)
         } else {
-            Color.white.opacity(0.97)
+            Color(.systemBackground).opacity(0.97)
         }
     }
 

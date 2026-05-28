@@ -22,7 +22,6 @@ struct AmenGroupPulseCardView: View {
     let channelId: String
 
     @ObservedObject private var service = AmenGroupPulseService.shared
-    @ObservedObject private var killSwitch = RemoteKillSwitch.shared
 
     /// Local dismiss — not persisted, resets when the parent view is recreated.
     @State private var isDismissed = false
@@ -36,7 +35,7 @@ struct AmenGroupPulseCardView: View {
 
     var body: some View {
         // Rule 3: flag OFF → no space, no layout impact.
-        guard killSwitch.groupDiscussionPulseEnabled, !isDismissed else {
+        guard AMENFeatureFlags.shared.groupDiscussionPulseEnabled, !isDismissed else {
             return AnyView(EmptyView())
         }
         return AnyView(content)
@@ -261,7 +260,7 @@ struct AmenGroupPulseCardView: View {
             } label: {
                 Text("Refresh")
                     .font(.caption.weight(.medium))
-                    .foregroundStyle(.accentColor)
+                    .foregroundStyle(Color.accentColor)
             }
             .accessibilityLabel("Refresh group pulse")
         }

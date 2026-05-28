@@ -1,5 +1,8 @@
 import SwiftUI
 
+/// Alias used in LivingEntries module — matches the same glass card contract.
+typealias LivingEntryLiquidGlassCard = LiquidGlassCard
+
 struct LiquidGlassCard<Content: View>: View {
     var contextTint: Color? = nil
     var elevated = false

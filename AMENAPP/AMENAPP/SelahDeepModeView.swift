@@ -284,7 +284,6 @@ struct SelahDeepModeView: View {
                 savedToMemory = true
                 showReflectionEntry = false
             } catch {
-                sessionRef?.fail()
                 Analytics.logEvent("selah_session_failed", parameters: nil)
                 try? modelContext.save()
             }

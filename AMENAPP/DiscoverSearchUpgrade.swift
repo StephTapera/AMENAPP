@@ -217,22 +217,9 @@ struct BereanSearchAnswerCard: View {
             }
 
             if isLoading {
-                // Typing dots
-                HStack(spacing: 5) {
-                    ForEach(0..<3, id: \.self) { i in
-                        Circle()
-                            .fill(Color(.tertiaryLabel))
-                            .frame(width: 6, height: 6)
-                            .scaleEffect(isLoading ? 1.0 : 0.6)
-                            .animation(
-                                .easeInOut(duration: 0.5)
-                                    .repeatForever()
-                                    .delay(Double(i) * 0.15),
-                                value: isLoading
-                            )
-                    }
-                }
-                .padding(.vertical, 4)
+                AMENLoader.inline
+                    .padding(.vertical, 4)
+                    .accessibilityLabel("Searching")
             } else if !answer.isEmpty {
                 Text(answer)
                     .font(.systemScaled(14))

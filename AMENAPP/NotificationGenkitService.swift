@@ -7,6 +7,20 @@
 //  AI-powered notification enhancement using Genkit
 //
 
+// MARK: - Notification Service Ownership
+// This service owns: AI-generated notification copy via the generateNotificationText Cloud Function
+//                    for any NotificationEventType (message, like, comment, prayerRequest, newFollower,
+//                    verseOfDay, devotional, etc.); AI summarization of multiple pending notifications
+//                    via the summarizeNotifications Cloud Function; timing optimization based on user
+//                    activity patterns; the end-to-end sendSmartNotification flow (generate copy →
+//                    optimize timing → fetch FCM token → queue push → save in-app Firestore record);
+//                    batch notification summary (for 3+ pending notifications); all Genkit-specific
+//                    models (SmartNotification, NotificationSummary, PendingNotification, TimingRecommendation).
+// It does NOT own: Action-thread events, re-engagement scheduling, spiritual-rhythm gating,
+//                  quiet-hours enforcement, follow-deduplication, priority scoring for display,
+//                  or the in-app notification listener.
+// Canonical routing reference: See NotificationServiceMap.md
+
 import Foundation
 import SwiftUI
 import Combine

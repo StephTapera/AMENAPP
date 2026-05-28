@@ -93,8 +93,7 @@ struct AmenLiquidGlassPressStyle: ButtonStyle {
         configuration.label
             .scaleEffect(configuration.isPressed && !reduceMotion ? 0.97 : 1.0)
             .opacity(configuration.isPressed ? 0.92 : 1.0)
-            .animation(reduceMotion ? nil : .spring(response: 0.28, dampingFraction: 0.85),
-                       value: configuration.isPressed)
+            .animation(reduceMotion ? nil : Motion.liquidSpring, value: configuration.isPressed)
     }
 }
 

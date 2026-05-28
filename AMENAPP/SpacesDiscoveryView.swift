@@ -34,6 +34,13 @@ struct SpacesDiscoveryView: View {
                             .padding(.horizontal, 16)
                             .padding(.bottom, 20)
 
+                        // Selah Banner Rail — server-resolved editorial banners for Spaces.
+                        // Hidden during search. Flag-gated via AMENFeatureFlags.bannerRailEnabled.
+                        if vm.searchText.isEmpty {
+                            AmenSpaceBannerRail(surface: .spacesHome)
+                                .padding(.bottom, 20)
+                        }
+
                         // Recommended horizontal strip
                         if !vm.recommendedSpaces.isEmpty && vm.searchText.isEmpty {
                             recommendedSection

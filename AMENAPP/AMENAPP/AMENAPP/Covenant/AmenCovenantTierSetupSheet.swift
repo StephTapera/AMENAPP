@@ -20,7 +20,7 @@ struct AmenCovenantTierSetupSheet: View {
     @State private var errorMessage: String?
 
     private var tiers: [CovenantTier] {
-        vm.covenant?.tiers ?? []
+        vm.currentCovenant?.tiers ?? []
     }
 
     var body: some View {
@@ -68,7 +68,7 @@ struct AmenCovenantTierSetupSheet: View {
             }
             .onAppear {
                 for tier in tiers {
-                    priceInputs[tier.id] = tier.stripePriceId ?? ""
+                    priceInputs[tier.id] = ""
                 }
             }
         }
@@ -132,7 +132,7 @@ struct AmenCovenantTierSetupSheet: View {
             } label: {
                 Text("Save")
                     .font(.subheadline.bold())
-                    .foregroundStyle(isValid ? .accentColor : .secondary)
+                    .foregroundStyle(isValid ? Color.accentColor : Color.secondary)
             }
             .disabled(!isValid || isSaving)
             .buttonStyle(.plain)
@@ -157,7 +157,7 @@ struct AmenCovenantTierSetupSheet: View {
             ])
             savedTierIds.insert(tier.id)
             // Refresh covenant so the updated stripePriceId is reflected in-memory.
-            await vm.loadCovenant(covenantId: covenantId)
+            await vm.refreshMembership(for: covenantId)
         } catch {
             errorMessage = error.localizedDescription
         }

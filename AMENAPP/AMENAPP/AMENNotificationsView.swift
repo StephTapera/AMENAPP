@@ -159,8 +159,8 @@ private struct ActivityFilterChipBar: View {
                         .background(
                             Capsule()
                                 .fill(selected == category
-                                      ? AmenTheme.Colors.buttonPrimary
-                                      : .ultraThinMaterial)
+                                      ? AnyShapeStyle(AmenTheme.Colors.buttonPrimary)
+                                      : AnyShapeStyle(Material.ultraThinMaterial))
                                 .overlay(
                                     selected == category ? nil :
                                         Capsule().fill(AmenTheme.Colors.glassFill)
@@ -336,7 +336,7 @@ private struct ActivityActionButton: View {
             .padding(.vertical, 6)
             .background(
                 Capsule()
-                    .fill(action.style == .primary ? AmenTheme.Colors.buttonPrimary : .ultraThinMaterial)
+                    .fill(action.style == .primary ? AnyShapeStyle(AmenTheme.Colors.buttonPrimary) : AnyShapeStyle(.ultraThinMaterial))
                     .overlay(
                         action.style == .secondary
                             ? Capsule().fill(AmenTheme.Colors.glassFill)

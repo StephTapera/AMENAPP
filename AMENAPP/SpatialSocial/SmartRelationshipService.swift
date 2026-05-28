@@ -33,7 +33,7 @@ final class SmartRelationshipService: ObservableObject {
         } catch {}
     }
 
-    func proposeRelationship(targetUID: String, type: RelationshipType, context: String) async throws {
+    func proposeRelationship(targetUID: String, type: SpatialRelationshipType, context: String) async throws {
         guard let uid = Auth.auth().currentUser?.uid else { return }
         let id = UUID().uuidString
         let relationship = SocialRelationship(
@@ -87,7 +87,7 @@ final class SmartRelationshipService: ObservableObject {
                       let displayName = row["displayName"] as? String,
                       let reason = row["reason"] as? String,
                       let typeString = row["relationshipType"] as? String,
-                      let relType = RelationshipType(rawValue: typeString) else { return nil }
+                      let relType = SpatialRelationshipType(rawValue: typeString) else { return nil }
                 return SmartIntroduction(
                     id: id,
                     targetUID: targetUID,
@@ -109,7 +109,7 @@ final class SmartRelationshipService: ObservableObject {
         pendingIntroductions.removeAll { $0.id == id }
     }
 
-    func relationships(ofType type: RelationshipType) -> [SocialRelationship] {
+    func relationships(ofType type: SpatialRelationshipType) -> [SocialRelationship] {
         relationships.filter { $0.type == type && $0.isConfirmed }
     }
 }

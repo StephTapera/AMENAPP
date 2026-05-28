@@ -41,11 +41,12 @@ struct PrayerSuggestedRailView: View {
             .presentationBackground(.ultraThinMaterial)
             .presentationDragIndicator(.visible)
         }
-        .alert("Why am I seeing this?", isPresented: $showWhyShownAlert) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(SuggestionSurface.prayer.whyShownExplanation)
-        }
+        .amenAlert(isPresented: $showWhyShownAlert, config: LiquidGlassAlertConfig(
+            title: "Why am I seeing this?",
+            message: SuggestionSurface.prayer.whyShownExplanation,
+            icon: "questionmark.circle",
+            primaryButton: LiquidGlassAlertButton("OK", tone: .spiritual) {}
+        ))
     }
 
     // MARK: - Loaded State

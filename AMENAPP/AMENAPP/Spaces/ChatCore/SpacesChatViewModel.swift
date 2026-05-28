@@ -15,6 +15,11 @@
 //
 // Delegates all Firestore/RTDB I/O to SpacesChatService (Chat/ layer).
 // Computes SpaceFilterSignals via SpacesFilterService.
+//
+// Types:
+//   SpacesChatMessage   — AMENAPP/Spaces/Chat/SpacesChatModels.swift
+//   ThreadSummary       — AMENAPP/Spaces/Chat/SpacesChatModels.swift
+//   ThreadFilter        — AMENAPP/Spaces/Chat/SpacesChatModels.swift
 
 import Foundation
 import FirebaseAuth
@@ -27,7 +32,7 @@ final class SpacesChatViewModel: ObservableObject {
     // MARK: - Published State
 
     /// All messages for the active thread (soft-deleted entries included).
-    @Published var messages: [SpaceMessage] = []
+    @Published var messages: [SpacesChatMessage] = []
 
     /// Threads for the active space, ordered by lastMessageAt desc.
     @Published var threads: [ThreadSummary] = []
@@ -49,36 +54,28 @@ final class SpacesChatViewModel: ObservableObject {
 
     // MARK: - Private Services
 
-    private let chatService: SpacesChatService
-    private let filterService: SpacesFilterService
+    // SpacesChatService is @MainActor — use lazy var so the init runs on MainActor.
+    private lazy var chatService: SpacesChatService = SpacesChatService()
+    // SpacesFilterService.shared is safe to access from nonisolated contexts —
+    // use lazy to defer creation to when it's first needed on MainActor.
+    private lazy var filterService: SpacesFilterService = SpacesFilterService.shared
     private var spaceId: String = ""
 
     // MARK: - Init
 
-    /// Designated initialiser. Prefer `SpacesChatViewModel(spaceId:)` after
-    /// calling `loadSpace(spaceId:)`. Services are injectable for testing.
-    init(
-        chatService: SpacesChatService = SpacesChatService(),
-        filterService: SpacesFilterService = SpacesFilterService.shared
-    ) {
-        self.chatService = chatService
-        self.filterService = filterService
-    }
+    init() {}
 
     // MARK: - Filter Signals (for Agent C)
 
     /// Pre-computed filter signals that drive the Spaces list badge / sort in Agent C.
     /// Derived from local thread state; no extra Firestore read required.
     var filterSignals: SpaceFilterSignals {
-        filterService.signals(
-            for: spaceId,
-            threads: threads
-        )
+        filterService.signals(for: spaceId, threads: threads)
     }
 
     /// Messages authored by members whose `authorHomeCommunityId` is non-nil
     /// (i.e., authors from a linked external community).
-    var externalMemberMessages: [SpaceMessage] {
+    var externalMemberMessages: [SpacesChatMessage] {
         messages.filter { $0.authorHomeCommunityId != nil }
     }
 
@@ -92,7 +89,7 @@ final class SpacesChatViewModel: ObservableObject {
         defer { isLoading = false }
 
         await chatService.loadThreads(spaceId: spaceId, filter: .all)
-        // Mirror service threads to our published property.
+        // SpacesChatService is @MainActor — safe to read @Published directly here.
         threads = chatService.threads
         startListening()
     }
@@ -101,24 +98,25 @@ final class SpacesChatViewModel: ObservableObject {
 
     /// Selects a thread and loads its messages + typing observers.
     func selectThread(_ threadId: String) async {
+        // Tear down previous typing observer before switching.
+        if let prev = activeThreadId {
+            chatService.stopObservingTyping(threadId: prev, spaceId: spaceId)
+        }
         activeThreadId = threadId
         isLoading = true
         defer { isLoading = false }
 
-        // Stop previous thread observers.
-        chatService.stopObservingTyping(threadId: threadId, spaceId: spaceId)
-
         await chatService.loadMessages(threadId: threadId, spaceId: spaceId)
         chatService.observeTyping(threadId: threadId, spaceId: spaceId)
 
-        // Mirror from service.
+        // Both this VM and SpacesChatService are @MainActor — safe direct read.
         messages = chatService.messages
         typingUserIds = chatService.typingUsers.map(\.userId)
     }
 
     // MARK: - Send
 
-    /// Sends the current draft body. Clears `draftBody` on success.
+    /// Sends the provided body as a new message. Clears `draftBody` on success.
     func sendMessage(body: String) async {
         guard let threadId = activeThreadId else { return }
         let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -162,7 +160,6 @@ final class SpacesChatViewModel: ObservableObject {
         guard let threadId = activeThreadId,
               let userId = Auth.auth().currentUser?.uid else { return }
 
-        // Determine if the user has already reacted.
         let message = messages.first { $0.id == messageId }
         let hasReacted = message?.reactions[emoji]?.contains(userId) == true
 
@@ -204,14 +201,10 @@ final class SpacesChatViewModel: ObservableObject {
     // MARK: - Listeners
 
     /// Starts Firestore + RTDB listeners and bridges updates to @Published properties.
-    /// Safe to call multiple times — existing listeners are torn down first via stopListening().
+    /// Thread-list listener is already attached by loadThreads().
+    /// Message + typing listeners are attached by selectThread().
     func startListening() {
-        // Observe service's published threads and mirror them.
-        // Because SpacesChatService is @MainActor, we can read its @Published directly
-        // after the listener fires via Task { @MainActor in ... }.
-        //
-        // We piggyback on loadThreads which already attaches the snapshot listener.
-        // Future: replace with AsyncStream when service exposes one.
+        // Hook provided for future AsyncStream migration.
     }
 
     /// Removes all listeners and clears ephemeral state.
@@ -220,28 +213,29 @@ final class SpacesChatViewModel: ObservableObject {
         typingUserIds = []
     }
 
-    // MARK: - Filter Convenience
+    // MARK: - Filter
 
-    /// Updates the thread filter and re-applies it.
+    /// Updates the thread filter and re-applies it over the loaded thread list.
     func setFilter(_ filter: ThreadFilter) {
         chatService.setFilter(filter)
         threads = chatService.threads
     }
 
-    /// Marks a space as VIP (starred) in UserDefaults.
+    /// Toggles the VIP (starred) status for the current space.
     func toggleVIP() {
         filterService.toggleVIP(spaceId: spaceId)
     }
 
-    /// Marks the active thread as read.
+    /// Marks the active thread as read (updates lastSeenAt + Firestore readState).
     func markActiveThreadRead() {
         guard let threadId = activeThreadId,
               let lastMsg = messages.last else { return }
+        let lastId = lastMsg.id
         Task {
             await chatService.markThreadRead(
                 threadId: threadId,
                 spaceId: spaceId,
-                lastMessageId: lastMsg.id
+                lastMessageId: lastId
             )
             filterService.markSeen(spaceId: spaceId)
         }

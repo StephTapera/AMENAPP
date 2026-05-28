@@ -128,15 +128,17 @@ struct WellnessDetailView: View {
                 .accessibilityLabel("Step \(index + 1): \(step)")
             }
             if currentStep < (steps.count - 1) {
-                Button("Next Step") {
-                    withAnimation(.spring(response: 0.32, dampingFraction: 0.80)) { currentStep += 1 }
-                }
-                .font(.custom("OpenSans-Bold", size: 15))
-                .foregroundStyle(.white)
-                .padding()
+                AmenLiquidGlassPillButton(
+                    title: "Next Step",
+                    systemImage: "arrow.right",
+                    isLoading: false,
+                    isDisabled: false,
+                    hint: "Advances to the next grounding step",
+                    action: {
+                        withAnimation(.spring(response: 0.32, dampingFraction: 0.80)) { currentStep += 1 }
+                    }
+                )
                 .frame(maxWidth: .infinity)
-                .background(Color(red: 0.10, green: 0.60, blue: 0.56))
-                .cornerRadius(12)
                 .accessibilityLabel("Next step")
             }
         }

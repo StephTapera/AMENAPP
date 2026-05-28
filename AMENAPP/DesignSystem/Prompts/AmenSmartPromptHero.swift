@@ -57,14 +57,14 @@ struct AmenSmartPromptHero: View {
         HStack(spacing: 10) {
             Image(systemName: prompt.systemImage)
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.black.opacity(0.60))
+                .foregroundStyle(Color.primary.opacity(0.60))
                 .frame(width: 34, height: 34)
-                .background(Circle().fill(Color.black.opacity(0.06)))
+                .background(Circle().fill(Color.primary.opacity(0.06)))
                 .accessibilityHidden(true)
 
             Text(prompt.title)
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.black)
+                .foregroundStyle(.primary)
 
             Spacer(minLength: 0)
 
@@ -73,9 +73,9 @@ struct AmenSmartPromptHero: View {
             } label: {
                 Image(systemName: "xmark")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(.black.opacity(0.35))
+                    .foregroundStyle(Color.primary.opacity(0.35))
                     .frame(width: 26, height: 26)
-                    .background(Circle().fill(Color.black.opacity(0.05)))
+                    .background(Circle().fill(Color.primary.opacity(0.05)))
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Dismiss")
@@ -85,7 +85,7 @@ struct AmenSmartPromptHero: View {
     private var bodyText: some View {
         Text(prompt.body)
             .font(.footnote)
-            .foregroundStyle(.black.opacity(0.58))
+            .foregroundStyle(Color.primary.opacity(0.58))
             .lineSpacing(2)
             .fixedSize(horizontal: false, vertical: true)
     }
@@ -97,10 +97,10 @@ struct AmenSmartPromptHero: View {
             } label: {
                 Text(prompt.secondaryAction.title)
                     .font(.footnote.weight(.medium))
-                    .foregroundStyle(.black.opacity(0.50))
+                    .foregroundStyle(Color.primary.opacity(0.50))
                     .frame(maxWidth: .infinity)
                     .frame(height: 40)
-                    .background(Capsule().fill(Color.black.opacity(0.06)))
+                    .background(Capsule().fill(Color.primary.opacity(0.06)))
             }
             .buttonStyle(.plain)
             .accessibilityLabel(prompt.secondaryAction.title)
@@ -110,12 +110,12 @@ struct AmenSmartPromptHero: View {
             } label: {
                 Text(prompt.primaryAction.title)
                     .font(.footnote.weight(.semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color(.systemBackground))
                     .lineLimit(1)
                     .minimumScaleFactor(0.82)
                     .frame(maxWidth: .infinity)
                     .frame(height: 40)
-                    .background(Capsule().fill(Color.black))
+                    .background(Capsule().fill(Color.primary))
             }
             .buttonStyle(.plain)
             .accessibilityLabel(prompt.primaryAction.title)
@@ -129,7 +129,7 @@ struct AmenSmartPromptHero: View {
         if reduceTransparency {
             Color(.secondarySystemBackground)
         } else {
-            Color.white.opacity(0.95)
+            Color(.systemBackground).opacity(0.95)
         }
     }
 }

@@ -105,9 +105,9 @@ enum SupportDomain: String, CaseIterable, Identifiable {
     }
 }
 
-// MARK: WellnessIntervention
+// MARK: WellnessEscalationLevel
 
-enum WellnessIntervention: Int, Comparable {
+enum WellnessEscalationLevel: Int, Comparable {
     case none              = 0
     case feedAdjustment    = 1   // invisible — no UI
     case softNudge         = 2   // optional gentle card
@@ -116,7 +116,7 @@ enum WellnessIntervention: Int, Comparable {
     case crisisSheet       = 5   // dedicated crisis support
     case urgentEscalation  = 6   // imminent danger only
 
-    static func < (lhs: WellnessIntervention, rhs: WellnessIntervention) -> Bool {
+    static func < (lhs: WellnessEscalationLevel, rhs: WellnessEscalationLevel) -> Bool {
         lhs.rawValue < rhs.rawValue
     }
 }
@@ -141,7 +141,7 @@ struct WellnessRiskState {
     var abuseRiskScore: Double          = 0.0   // 0–1, coercion/abuse indicators
     var socialIsolationScore: Double    = 0.0   // 0–1, withdrawal signals
     var confidenceScore: Double         = 0.0   // 0–1, system confidence
-    var recommendedIntervention: WellnessIntervention = .none
+    var recommendedIntervention: WellnessEscalationLevel = .none
     var recommendedSupportDomains: [SupportDomain] = []
     var lastUpdated: Date = Date()
 
@@ -264,7 +264,7 @@ final class WellnessRiskService: ObservableObject {
     static let shared = WellnessRiskService()
 
     @Published var currentRiskState = WellnessRiskState()
-    @Published var pendingIntervention: WellnessIntervention = .none
+    @Published var pendingIntervention: WellnessEscalationLevel = .none
     @Published var activeSupportDomains: [SupportDomain] = []
 
     // Internal rolling event window (7 days)
@@ -272,7 +272,7 @@ final class WellnessRiskService: ObservableObject {
     // Language assessments in a 48h window for pattern confirmation
     private var recentLanguageAssessments: [LanguageRiskAssessment] = []
     // Suppressed interventions: type → soonest allowed Date
-    private var suppressedUntil: [WellnessIntervention: Date] = [:]
+    private var suppressedUntil: [WellnessEscalationLevel: Date] = [:]
     // Last nudge timestamp to enforce 24h throttle
     private var lastSoftNudgeDate: Date?
 
@@ -574,7 +574,7 @@ final class WellnessRiskService: ObservableObject {
 
         // Determine intervention
         let now = Date()
-        let intervention: WellnessIntervention
+        let intervention: WellnessEscalationLevel
 
         switch level {
         case .normal:
@@ -690,7 +690,7 @@ final class WellnessRiskService: ObservableObject {
 
     // MARK: Private helpers
 
-    private func isSuppressed(_ intervention: WellnessIntervention) -> Bool {
+    private func isSuppressed(_ intervention: WellnessEscalationLevel) -> Bool {
         guard let until = suppressedUntil[intervention] else { return false }
         return Date() < until
     }
@@ -700,7 +700,7 @@ final class WellnessRiskService: ObservableObject {
 
 // MARK: Glass ViewModifier
 
-private struct AMENGlassCard: ViewModifier {
+private struct WellnessGlassCard: ViewModifier {
     var cornerRadius: CGFloat = 16
 
     func body(content: Content) -> some View {
@@ -725,7 +725,7 @@ private struct AMENGlassCard: ViewModifier {
 
 private extension View {
     func amenGlassCard(cornerRadius: CGFloat = 16) -> some View {
-        self.modifier(AMENGlassCard(cornerRadius: cornerRadius))
+        self.modifier(WellnessGlassCard(cornerRadius: cornerRadius))
     }
 }
 
@@ -751,7 +751,9 @@ private struct GlassCapsuleButton: View {
 
 struct WellnessSoftNudgeCard: View {
 
-    @StateObject private var service = WellnessRiskService.shared
+    // PERF: @ObservedObject for shared singletons — @StateObject would create an
+    // independent ownership chain per card instance, fighting the real singleton state.
+    @ObservedObject private var service = WellnessRiskService.shared
     @State private var dismissed = false
     var onTap: (() -> Void)?
     var onDismiss: (() -> Void)?
@@ -809,7 +811,7 @@ struct WellnessSoftNudgeCard: View {
 
 struct WellnessReflectionPromptCard: View {
 
-    @StateObject private var service = WellnessRiskService.shared
+    @ObservedObject private var service = WellnessRiskService.shared // PERF: singleton → @ObservedObject
     var onOpenChurchNotes: (() -> Void)?
     var onOpenBerean: (() -> Void)?
     var onSkip: (() -> Void)?
@@ -892,7 +894,7 @@ struct SupportChoiceRow: View {
 
 struct WellnessSupportSheet: View {
 
-    @StateObject private var service = WellnessRiskService.shared
+    @ObservedObject private var service = WellnessRiskService.shared // PERF: singleton → @ObservedObject
     @Environment(\.dismiss) private var dismiss
 
     var domains: [SupportDomain]
@@ -949,7 +951,7 @@ struct WellnessSupportSheet: View {
 
 struct WellnessCrisisSheet: View {
 
-    @StateObject private var service = WellnessRiskService.shared
+    @ObservedObject private var service = WellnessRiskService.shared // PERF: singleton → @ObservedObject
     @Environment(\.dismiss) private var dismiss
 
     var onOpenBerean: (() -> Void)?
@@ -1085,7 +1087,7 @@ private struct CrisisChoiceCard: View {
 
 struct WellnessUrgentEscalationView: View {
 
-    @StateObject private var service = WellnessRiskService.shared
+    @ObservedObject private var service = WellnessRiskService.shared // PERF: singleton → @ObservedObject
     @Environment(\.dismiss) private var dismiss
 
     var onOpenBerean: (() -> Void)?
@@ -1241,7 +1243,7 @@ private struct FeedAdjustmentExplanationSheet: View {
 
 struct WellnessComparisonHarmBanner: View {
 
-    @StateObject private var feedMode = WellnessFeedModeService.shared
+    @ObservedObject private var feedMode = WellnessFeedModeService.shared // PERF: singleton → @ObservedObject
     @State private var dismissed = false
 
     var body: some View {
@@ -1292,7 +1294,7 @@ struct WellnessComparisonHarmBanner: View {
 // MARK: - WellnessRiskOverlay
 
 struct WellnessRiskOverlay: View {
-    @StateObject private var service = WellnessRiskService.shared
+    @ObservedObject private var service = WellnessRiskService.shared // PERF: singleton → @ObservedObject
     @State private var activeSheet: ActiveSheet?
     @State private var showUrgentEscalation = false
 

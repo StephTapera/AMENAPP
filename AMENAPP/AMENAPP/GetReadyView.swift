@@ -4,6 +4,7 @@
 // Stable Sunday prep experience with a church-aware hero and journey-based sections.
 
 import SwiftUI
+import CoreLocation
 
 private struct GetReadyScrollOffsetKey: PreferenceKey {
     static var defaultValue: CGFloat = 0
@@ -13,7 +14,7 @@ private struct GetReadyScrollOffsetKey: PreferenceKey {
     }
 }
 
-private struct GetReadyHeroMotion {
+fileprivate struct GetReadyHeroMotion {
     var progress: CGFloat = 0
     var velocity: CGFloat = 0
 
@@ -250,7 +251,7 @@ private struct GetReadyHeroPhotoLayer: View {
 
 struct GetReadyGlassBanner: View {
     let plan: GetReadyPlan
-    let motion: GetReadyHeroMotion
+    fileprivate let motion: GetReadyHeroMotion
 
     private var foreground: Color {
         plan.hero.prefersDarkText ? Color.black.opacity(0.92) : Color.white.opacity(0.96)

@@ -83,13 +83,12 @@ class PostTranslationService: ObservableObject {
     /// Falls back to the original text if the language pair is unsupported or the
     /// model download fails.
     func translateText(_ text: String, from sourceLanguage: String, to targetLanguage: String) async throws -> String {
-        // Translation framework requires iOS 17.4+
-        guard #available(iOS 17.4, *) else {
+        guard #available(iOS 18.0, *) else {
             throw NSError(domain: "PostTranslationService", code: 1, userInfo: [
-                NSLocalizedDescriptionKey: "Translation requires iOS 17.4 or later"
+                NSLocalizedDescriptionKey: "Translation requires iOS 18.0 or later"
             ])
         }
-        
+
         // 1. In-memory cache hit
         let cacheKey = "\(sourceLanguage)_\(targetLanguage)_\(text.hashValue)"
         if let cached = translationCache[cacheKey],
@@ -117,9 +116,15 @@ class PostTranslationService: ObservableObject {
         let translated: String = try await withCheckedThrowingContinuation { continuation in
             Task { @MainActor in
                 do {
-                    let session = TranslationSession(installedSource: sourceLang, target: targetLang)
-                    let response = try await session.translate(text)
-                    continuation.resume(returning: response.targetText)
+                    if #available(iOS 26.0, *) {
+                        let session = TranslationSession(installedSource: sourceLang, target: targetLang)
+                        let response = try await session.translate(text)
+                        continuation.resume(returning: response.targetText)
+                    } else {
+                        continuation.resume(throwing: NSError(domain: "PostTranslationService", code: 3, userInfo: [
+                            NSLocalizedDescriptionKey: "Headless translation requires iOS 26.0 or later"
+                        ]))
+                    }
                 } catch {
                     continuation.resume(throwing: error)
                 }

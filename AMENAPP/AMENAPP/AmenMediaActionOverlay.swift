@@ -6,6 +6,27 @@
 
 import SwiftUI
 
+// MARK: - Floating Action Tray Container
+
+/// Horizontally-arranged action button row with ultra-thin material background.
+/// Used for overlays on media content — never stacked on other glass surfaces.
+private struct AmenFloatingActionTray<Content: View>: View {
+    @ViewBuilder let content: () -> Content
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    var body: some View {
+        HStack(spacing: 16, content: content)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(
+                reduceTransparency
+                    ? AnyShapeStyle(Color(.secondarySystemBackground).opacity(0.95))
+                    : AnyShapeStyle(.ultraThinMaterial),
+                in: Capsule()
+            )
+    }
+}
+
 struct AmenMediaActionOverlay: View {
     let message: AppMessage
     let flags: AMENFeatureFlags

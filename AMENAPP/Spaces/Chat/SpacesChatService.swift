@@ -315,7 +315,8 @@ final class SpacesChatService: ObservableObject {
             "userId": userId,
             "timestamp": ServerValue.timestamp()
         ]
-        ref.setValue(payload)
+        // Use completion-handler variant to suppress async-overload warnings.
+        ref.setValue(payload) { _, _ in }
     }
 
     /// Removes the user's typing node from RTDB.
@@ -326,7 +327,7 @@ final class SpacesChatService: ObservableObject {
             .child(spaceId)
             .child(threadId)
             .child(userId)
-            .removeValue()
+            .removeValue { _, _ in }
     }
 
     /// Subscribes to the RTDB typing node for a thread and updates `typingUsers`.
@@ -396,7 +397,7 @@ final class SpacesChatService: ObservableObject {
     /// and will appear via the existing `messageListener`.
     func invokeBerean(threadId: String, spaceId: String, message: String, spaceType: SpaceV2Type) async throws {
         let amenSpaceType: AmenSpaceType = amenSpaceTypeFrom(spaceV2Type: spaceType)
-        try await BereanSpaceMemberService.shared.invoke(
+        _ = try await BereanSpaceMemberService.shared.invoke(
             spaceId: spaceId,
             roomId: threadId,
             trigger: .atMention,

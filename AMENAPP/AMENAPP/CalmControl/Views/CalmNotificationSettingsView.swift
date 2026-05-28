@@ -76,7 +76,7 @@ struct CalmNotificationSettingsView: View {
             }
         }
         .task {
-            await service.loadAll()
+            service.startListening()
             await rhythmService.loadAll()
         }
     }

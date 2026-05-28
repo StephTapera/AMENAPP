@@ -193,6 +193,8 @@ enum ComposerSuggestionType: String, Codable {
     case scriptureRef   = "scripture_ref"
 }
 
+typealias SmartSuggestionType = ComposerSuggestionType
+
 // MARK: - Media Analysis Result
 
 struct MediaAnalysisResult: Equatable {

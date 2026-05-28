@@ -75,7 +75,7 @@ final class ChurchJourneyStore: ObservableObject {
 
         // Today's journeys
         let startOfDay = Calendar.current.startOfDay(for: Date())
-        let endOfDay = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay)!
+        let endOfDay = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay) ?? Date(timeIntervalSinceNow: 86400)
 
         journeyListener = db
             .collection("churchJourneys")
@@ -94,7 +94,7 @@ final class ChurchJourneyStore: ObservableObject {
             }
 
         // Recent journeys (last 7 days)
-        let weekAgo = Calendar.current.date(byAdding: .day, value: -7, to: Date())!
+        let weekAgo = Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date(timeIntervalSinceNow: -604800)
         db.collection("churchJourneys")
             .whereField("userId", isEqualTo: uid)
             .whereField("serviceStartAt", isGreaterThanOrEqualTo: Timestamp(date: weekAgo))

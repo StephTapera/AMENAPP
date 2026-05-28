@@ -64,6 +64,24 @@ extension Notification.Name {
     /// HomeView observes this to scroll to top and refresh the feed.
     static let homeTabTapped = Notification.Name("homeTabTapped")
 
+    /// Posted when the user re-taps the Search tab while already on it.
+    static let searchTabTapped = Notification.Name("searchTabTapped")
+
+    /// Posted when the user re-taps the Messages tab while already on it.
+    static let messagesTabTapped = Notification.Name("messagesTabTapped")
+
+    /// Posted when the user re-taps the Library tab while already on it.
+    static let libraryTabTapped = Notification.Name("libraryTabTapped")
+
+    /// Posted when the user re-taps the Notifications tab while already on it.
+    static let notificationsTabTapped = Notification.Name("notificationsTabTapped")
+
+    /// Posted when the user re-taps the Profile tab while already on it.
+    static let profileTabTapped = Notification.Name("profileTabTapped")
+
+    /// Posted when the user re-taps the Gatherings tab while already on it.
+    static let gatheringsTabTapped = Notification.Name("gatheringsTabTapped")
+
     /// Posted when the Share Extension hands off a draft to the main app.
     /// UserInfo: ["text": String, "linkURL": String, "destination": String]
     static let openCreatePostFromShare = Notification.Name("openCreatePostFromShare")
@@ -83,4 +101,11 @@ extension Notification.Name {
     /// Posted when a deep link resolves to a specific post.
     /// UserInfo: ["postId": String]
     static let navigateToPost = Notification.Name("navigateToPost")
+
+    /// Posted when a push notification tap (or deep link) requests opening Walk With Christ.
+    static let openWalkWithChristFromNotification = Notification.Name("amen.openWalkWithChrist")
+
+    /// Posted when Firebase Remote Config activates a newly fetched config.
+    /// Feature flag services observe this to re-apply remote values.
+    static let remoteConfigActivated = Notification.Name("amen.remoteConfigActivated")
 }

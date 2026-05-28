@@ -53,7 +53,10 @@ struct GuardianBlockedNoticeView: View {
 
 struct CrisisResourceSheet: View {
     @Environment(\.dismiss) private var dismiss
-    private let resources = CrisisResource.forRegion()
+    private let resources: [CrisisResource] = {
+        let locale = CrisisResourceResolver.resolve()
+        return CrisisResourceResolver.resources(for: .overwhelmedButSafe, locale: locale)
+    }()
 
     var body: some View {
         NavigationStack {
@@ -67,7 +70,7 @@ struct CrisisResourceSheet: View {
                         .padding(.top, 8)
 
                     ForEach(resources) { resource in
-                        CrisisResourceCard(resource: resource)
+                        GuardianCrisisResourceCard(resource: resource)
                     }
                 }
                 .padding()
@@ -84,16 +87,16 @@ struct CrisisResourceSheet: View {
     }
 }
 
-private struct CrisisResourceCard: View {
+private struct GuardianCrisisResourceCard: View {
     let resource: CrisisResource
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(resource.name)
+            Text(resource.title)
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(AmenTheme.Colors.textPrimary)
-            if !resource.shortcode.isEmpty {
-                Text(resource.shortcode)
+            if !resource.subtitle.isEmpty {
+                Text(resource.subtitle)
                     .font(.body.weight(.medium))
                     .foregroundStyle(AmenTheme.Colors.accentPrimary)
             }

@@ -15,6 +15,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.refineTranslation = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const params_1 = require("firebase-functions/params");
+const BereanEntitlementService_1 = require("./berean/services/BereanEntitlementService");
+const rateLimit_1 = require("./rateLimit");
 const anthropicApiKey = (0, params_1.defineSecret)("ANTHROPIC_API_KEY");
 /**
  * Refine a literal translation using Claude LLM
@@ -24,25 +26,31 @@ exports.refineTranslation = (0, https_1.onCall)({
     timeoutSeconds: 30,
     memory: "256MiB",
     // 5.1 FIX: Reject calls from clients without a valid App Check token.
-    enforceAppCheck: false,
+    enforceAppCheck: true,
 }, async (request) => {
     // Verify authentication
     if (!request.auth) {
-        throw new Error("User must be authenticated");
+        throw new https_1.HttpsError("unauthenticated", "User must be authenticated");
     }
+    const uid = request.auth.uid;
+    const entitlement = await (0, BereanEntitlementService_1.getBereanEntitlement)(uid);
+    if (entitlement.tier === "free") {
+        throw new https_1.HttpsError("permission-denied", "Translation refinement requires an AMEN+ subscription.");
+    }
+    await (0, rateLimit_1.enforceRateLimit)(uid, [rateLimit_1.RATE_LIMITS.AI_PER_MINUTE, rateLimit_1.RATE_LIMITS.AI_PER_DAY]);
     const data = request.data;
     const { originalText, literalTranslation, sourceLanguage, targetLanguage, mode, contentType, preservedEntities = [], } = data;
     // Validate
     if (!originalText || !literalTranslation || !mode) {
-        throw new Error("originalText, literalTranslation, and mode are required");
+        throw new https_1.HttpsError("invalid-argument", "originalText, literalTranslation, and mode are required");
     }
     if (mode !== "natural" && mode !== "contextual") {
-        throw new Error("mode must be 'natural' or 'contextual'");
+        throw new https_1.HttpsError("invalid-argument", "mode must be 'natural' or 'contextual'");
     }
     // Get API key
     const apiKey = anthropicApiKey.value();
     if (!apiKey) {
-        throw new Error("Translation refinement is not configured");
+        throw new https_1.HttpsError("unavailable", "Translation refinement is not configured");
     }
     // Build entity preservation instructions
     const entityList = preservedEntities
@@ -88,9 +96,8 @@ exports.refineTranslation = (0, https_1.onCall)({
         const result = await response.json();
         const refinedText = result.content?.[0]?.text?.trim() || literalTranslation;
         console.log(`refineTranslation (${mode}/${model}) — ` +
-            `User: ${request.auth.uid} — ` +
             `${sourceLanguage}→${targetLanguage} — ` +
-            `Tokens: ${result.usage?.output_tokens || 0}`);
+            `tokens: ${result.usage?.output_tokens || 0}`);
         return {
             refinedText,
             mode,

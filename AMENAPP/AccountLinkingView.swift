@@ -329,26 +329,31 @@ struct AccountLinkingView: View {
             .onAppear {
                 refreshLinkedProviders()
             }
-            .alert("Unlink Account?", isPresented: $showUnlinkConfirmation) {
-                Button("Cancel", role: .cancel) { }
-                Button("Unlink", role: .destructive) {
-                    if let provider = providerToUnlink {
-                        Task {
-                            await viewModel.unlinkProvider(provider)
-                            refreshLinkedProviders()
+            .amenAlert(
+                isPresented: $showUnlinkConfirmation,
+                config: LiquidGlassAlertConfig(
+                    title: "Unlink Account?",
+                    message: "Are you sure you want to unlink this sign-in method? You can always link it again later.",
+                    primaryButton: LiquidGlassAlertButton("Unlink", tone: .destructive, action: {
+                        if let provider = providerToUnlink {
+                            Task {
+                                await viewModel.unlinkProvider(provider)
+                                refreshLinkedProviders()
+                            }
                         }
-                    }
-                }
-            } message: {
-                Text("Are you sure you want to unlink this sign-in method? You can always link it again later.")
-            }
-            .alert("Error", isPresented: $viewModel.showError) {
-                Button("OK", role: .cancel) { }
-            } message: {
-                if let errorMessage = viewModel.errorMessage {
-                    Text(errorMessage)
-                }
-            }
+                    }),
+                    secondaryButton: .cancel()
+                )
+            )
+            .amenAlert(
+                isPresented: $viewModel.showError,
+                config: LiquidGlassAlertConfig(
+                    title: "Error",
+                    message: viewModel.errorMessage,
+                    primaryButton: LiquidGlassAlertButton("Try Again", tone: .primary, action: {}),
+                    secondaryButton: .cancel()
+                )
+            )
             .sheet(isPresented: $showPhoneLinking) {
                 PhoneLinkingSheet(
                     phoneNumber: $phoneNumber,

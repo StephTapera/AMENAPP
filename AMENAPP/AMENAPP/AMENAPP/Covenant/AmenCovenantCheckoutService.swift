@@ -32,6 +32,17 @@ extension AmenCovenantCheckoutService {
     }
 }
 
+extension AmenCovenantCheckoutService.CheckoutState: Equatable {
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        switch (lhs, rhs) {
+        case (.idle, .idle), (.loading, .loading), (.canceled, .canceled): return true
+        case (.success(let a), .success(let b)): return a == b
+        case (.failed, .failed): return true
+        default: return false
+        }
+    }
+}
+
 // MARK: - Covenant Checkout Service
 
 /// Drives the Stripe-hosted checkout flow for Covenant tier subscriptions.

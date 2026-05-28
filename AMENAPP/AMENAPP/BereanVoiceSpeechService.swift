@@ -67,7 +67,7 @@ final class BereanVoiceSpeechService: NSObject, ObservableObject {
         try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
 
         recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
-        guard let recognitionRequest else { throw BereanVoiceError.requestFailed }
+        guard let recognitionRequest else { throw SpeechRecognitionError.requestFailed }
         recognitionRequest.shouldReportPartialResults = true
         recognitionRequest.requiresOnDeviceRecognition = false
 
@@ -125,15 +125,15 @@ final class BereanVoiceSpeechService: NSObject, ObservableObject {
 // MARK: - AVSpeechSynthesizerDelegate
 extension BereanVoiceSpeechService: AVSpeechSynthesizerDelegate {
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-        Task { @MainActor in self.isSpeaking = false }
+        Task { @MainActor [weak self] in self?.isSpeaking = false }
     }
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
-        Task { @MainActor in self.isSpeaking = false }
+        Task { @MainActor [weak self] in self?.isSpeaking = false }
     }
 }
 
 // MARK: - Errors
-enum BereanVoiceError: LocalizedError {
+enum SpeechRecognitionError: LocalizedError {
     case requestFailed
     case permissionDenied
     case recognizerUnavailable

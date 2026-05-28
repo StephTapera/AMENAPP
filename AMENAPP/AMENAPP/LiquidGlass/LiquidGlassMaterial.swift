@@ -53,3 +53,23 @@ extension View {
         modifier(LiquidGlassMaterial(tint: tint, elevated: elevated))
     }
 }
+
+// MARK: - AmenSheetModifier
+
+/// Pattern 9: standard Liquid Glass sheet — ultraThinMaterial backdrop, 28pt corners,
+/// visible drag indicator, and [.medium, .large] detents so sheets feel anchored.
+struct AmenSheetModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .presentationCornerRadius(28)
+            .presentationBackground(.ultraThinMaterial)
+            .presentationDragIndicator(.visible)
+            .presentationDetents([.medium, .large])
+    }
+}
+
+extension View {
+    func amenSheet() -> some View {
+        modifier(AmenSheetModifier())
+    }
+}

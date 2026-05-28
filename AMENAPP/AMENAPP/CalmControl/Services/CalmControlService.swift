@@ -37,7 +37,11 @@ final class CalmControlService: ObservableObject {
     private init() {}
 
     deinit {
-        stopListening()
+        privacyListener?.remove()
+        feedListener?.remove()
+        presenceListener?.remove()
+        notifListener?.remove()
+        layersListener?.remove()
     }
 
     // MARK: - Start / Stop Listening

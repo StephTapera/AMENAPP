@@ -163,10 +163,13 @@ struct SelahReflectionListView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
 
-            Button("Try Again") {
-                Task { await viewModel.load() }
-            }
-            .buttonStyle(.borderedProminent)
+            AmenLiquidGlassPillButton(
+                title: "Try Again",
+                systemImage: "arrow.clockwise",
+                isLoading: false,
+                isDisabled: false,
+                action: { Task { await viewModel.load() } }
+            )
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }

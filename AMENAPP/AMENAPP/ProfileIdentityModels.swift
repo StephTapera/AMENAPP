@@ -315,6 +315,8 @@ struct UserProfileIdentity: Codable {
     var cityRegion:        String?             = nil  // coarse, user-controlled
     var faithJourneyStage: FaithJourneyStage?  = nil
     var denomination:      Denomination?       = nil
+    var churchAffiliationName: String?         = nil
+    var churchAffiliationId:   String?         = nil
     var openToSignalIds:   [String]            = []   // OpenToSignal.id values
     var burdens:           [ProfileBurden]     = []
     var pinnedCards:       [PinnedProfileCard] = []

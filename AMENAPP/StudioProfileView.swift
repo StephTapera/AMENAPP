@@ -532,7 +532,7 @@ struct StudioWorkGridView: View {
             } else {
                 LazyVGrid(columns: columns, spacing: 2) {
                     ForEach(workItems) { item in
-                        StudioWorkCell(item: item)
+                        StudioWorkCell(item: item, isOwnProfile: isOwnProfile)
                             .onTapGesture { selectedItem = item }
                     }
                 }
@@ -568,6 +568,10 @@ struct StudioWorkGridView: View {
 
 struct StudioWorkCell: View {
     let item: StudioWorkItem
+    var isOwnProfile: Bool = false
+
+    @State private var showLongPressMenu = false
+    @State private var showReportSheet = false
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
@@ -599,6 +603,33 @@ struct StudioWorkCell: View {
         .aspectRatio(1, contentMode: .fill)
         .clipped()
         .contentShape(Rectangle())
+        .onLongPressGesture(minimumDuration: 0.4) {
+            showLongPressMenu = true
+        }
+        .mediaLongPressMenu(
+            isPresented: $showLongPressMenu,
+            isOwnPost: isOwnProfile,
+            postPreviewImageURL: URL(string: item.mediaURLs.first ?? ""),
+            postAuthorName: item.title,
+            onShare: {
+                guard let urlStr = item.mediaURLs.first, let url = URL(string: urlStr) else { return }
+                let av = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+                if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                   let root = scene.windows.first?.rootViewController {
+                    root.present(av, animated: true)
+                }
+            },
+            onReport: { showReportSheet = true },
+            onDelete: isOwnProfile ? {
+                guard let itemId = item.id else { return }
+                Task { try? await StudioDataService.shared.deleteWorkItem(itemId) }
+            } : {}
+        )
+        .reportContentSheet(
+            isPresented: $showReportSheet,
+            targetType: .media,
+            targetId: item.id ?? ""
+        )
     }
 }
 

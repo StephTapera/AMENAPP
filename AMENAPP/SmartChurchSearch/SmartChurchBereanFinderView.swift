@@ -26,12 +26,12 @@ final class SmartChurchBereanFinderViewModel: ObservableObject {
 
     init(
         seedQuery: String? = nil,
-        service: SmartChurchSearchService = .shared,
-        locationProvider: ChurchSearchLocationProviding = ChurchSearchLocationProvider.shared,
+        service: SmartChurchSearchService? = nil,
+        locationProvider: ChurchSearchLocationProviding? = nil,
         radiusMiles: Double = 15
     ) {
-        self.service = service
-        self.locationProvider = locationProvider
+        self.service = service ?? SmartChurchSearchService.shared
+        self.locationProvider = locationProvider ?? ChurchSearchLocationProvider.shared
         self.radiusMiles = radiusMiles
 
         if let seedQuery, !seedQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -140,7 +140,7 @@ struct SmartChurchBereanFinderView: View {
                     .background(.ultraThinMaterial)
             }
             .sheet(item: $detailResult) { result in
-                ChurchDetailView(result: result)
+                SmartChurchDetailView(result: result)
             }
         }
     }

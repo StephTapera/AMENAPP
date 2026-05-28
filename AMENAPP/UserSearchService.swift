@@ -269,7 +269,7 @@ extension Array {
 
 /// Production-ready user search view with real-time search
 struct UserSearchView: View {
-    @StateObject private var searchService = UserSearchService.shared
+    @ObservedObject private var searchService = UserSearchService.shared // PERF: singleton → @ObservedObject
     @State private var searchQuery: String = ""
     @State private var selectedSearchType: SearchType = .both
     @Environment(\.dismiss) private var dismiss

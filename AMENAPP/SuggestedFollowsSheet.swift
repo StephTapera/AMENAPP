@@ -13,7 +13,7 @@ import SwiftUI
 
 struct SuggestedFollowsSheet: View {
     @StateObject var viewModel: SuggestedFollowsViewModel
-    @StateObject private var burstCoordinator = FollowBurstCoordinator.shared
+    @ObservedObject private var burstCoordinator = FollowBurstCoordinator.shared // PERF: singleton → @ObservedObject
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {

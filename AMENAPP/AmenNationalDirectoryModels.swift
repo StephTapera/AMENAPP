@@ -170,6 +170,19 @@ final class AmenNationalDirectoryService {
         return (result.data as? [String: Any])?["spaceId"] as? String
     }
 
+    func listReviewQueue() async throws -> [String: Any] {
+        let result = try await functions.httpsCallable("listAmenOrganizationReviewQueue").call([:])
+        return result.data as? [String: Any] ?? [:]
+    }
+
+    func resolveReview(_ item: AmenOrganizationAdminReviewItem, approve: Bool) async throws {
+        _ = try await functions.httpsCallable("resolveAmenOrganizationReview").call([
+            "itemId": item.id,
+            "kind": item.kind.rawValue,
+            "approve": approve
+        ])
+    }
+
     private static func decodeItem(_ data: [String: Any]) -> AmenNationalDirectoryItem? {
         guard
             let id = data["id"] as? String,

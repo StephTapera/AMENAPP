@@ -130,7 +130,7 @@ struct BilingualReplyComposer: View {
         // Reverse translation: user's language → post author's language
         // Uses AppleTranslationBridge directly since TranslationService always
         // translates TO the user's language, but here we need the opposite direction.
-        if #available(iOS 17.4, *) {
+        if #available(iOS 18, *) {
             do {
                 let translated = try await AppleTranslationBridge.shared.translate(
                     text: input,

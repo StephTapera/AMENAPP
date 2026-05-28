@@ -27,7 +27,7 @@ exports.openAIProxy = onCall({ secrets: [openAIKey], enforceAppCheck: false }, a
   return { text: json.choices?.[0]?.message?.content ?? "", usage: json.usage ?? null };
 });
 
-exports.whisperProxy = onCall({ secrets: [openAIKey], enforceAppCheck: false, timeoutSeconds: 120, memory: "512MiB" }, async (request) => {
+exports.whisperProxy = onCall({ secrets: [openAIKey], enforceAppCheck: false, timeoutSeconds: 120, memory: "512MiB", minInstances: 1 }, async (request) => {
   if (!request.auth) throw new HttpsError("unauthenticated", "Authentication required.");
   const uid = request.auth.uid;
   const hourKey = new Date().toISOString().slice(0, 13);

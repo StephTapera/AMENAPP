@@ -246,7 +246,7 @@ struct AmenObjectHubView: View {
                     Capsule().fill(hasJoined ? Color.clear : Color.accentColor)
                         .overlay(Capsule().strokeBorder(.white.opacity(0.4), lineWidth: hasJoined ? 1 : 0))
                 } else {
-                    Capsule().fill(hasJoined ? .ultraThinMaterial : Color.accentColor)
+                    Capsule().fill(hasJoined ? AnyShapeStyle(Material.ultraThinMaterial) : AnyShapeStyle(Color.accentColor))
                 }
             }
         }

@@ -29,6 +29,6 @@ struct CreatorBrandKitView: View {
                 await viewModel.load(ownerID: ownerID)
             }
         }
-        .background(Color.white)
+        .background(Color(.systemBackground))
     }
 }

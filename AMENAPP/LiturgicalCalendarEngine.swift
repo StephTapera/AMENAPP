@@ -207,29 +207,69 @@ enum HolidayType: String, Codable, CaseIterable {
     case advent               = "advent"
     case lent                 = "lent"
 
+    // Civil holidays
+    case mothersDay           = "mothers_day"
+    case fathersDay           = "fathers_day"
+    case memorialDay          = "memorial_day"
+    case laborDay             = "labor_day"
+    case independenceDay      = "independence_day"
+    case veteransDay          = "veterans_day"
+
+    // Biblical feasts (Hebrew calendar)
+    case passover             = "passover"
+    case unleavenedBread      = "unleavened_bread"
+    case firstfruits          = "firstfruits"
+    case feastOfWeeks         = "feast_of_weeks"
+    case feastOfTrumpets      = "feast_of_trumpets"
+    case dayOfAtonement       = "day_of_atonement"
+    case feastOfTabernacles   = "feast_of_tabernacles"
+
+    // Cultural / discernment
+    case halloween            = "halloween"
+    case valentinesDay        = "valentines_day"
+    case stPatricksDay        = "st_patricks_day"
+    case mardiGras            = "mardi_gras"
+
     var displayName: String {
         switch self {
-        case .adventStart:        return "First Sunday of Advent"
-        case .christmas:          return "Christmas Day"
-        case .christmasEve:       return "Christmas Eve"
-        case .epiphany:           return "Epiphany"
-        case .ashWednesday:       return "Ash Wednesday"
-        case .lentStart:          return "Lent Begins"
-        case .palmSunday:         return "Palm Sunday"
-        case .holyMonday:         return "Holy Monday"
-        case .holyTuesday:        return "Holy Tuesday"
-        case .holyWednesday:      return "Holy Wednesday"
-        case .maundyThursday:     return "Maundy Thursday"
-        case .goodFriday:         return "Good Friday"
-        case .holySaturday:       return "Holy Saturday"
-        case .easter:             return "Easter Sunday"
-        case .ascension:          return "Ascension Day"
-        case .pentecost:          return "Pentecost Sunday"
-        case .newYearConsecration: return "New Year Consecration"
-        case .prayerWeek:         return "Week of Prayer"
-        case .thanksgiving:       return "Thanksgiving"
-        case .advent:             return "Advent"
-        case .lent:               return "Lent"
+        case .adventStart:          return "First Sunday of Advent"
+        case .christmas:            return "Christmas Day"
+        case .christmasEve:         return "Christmas Eve"
+        case .epiphany:             return "Epiphany"
+        case .ashWednesday:         return "Ash Wednesday"
+        case .lentStart:            return "Lent Begins"
+        case .palmSunday:           return "Palm Sunday"
+        case .holyMonday:           return "Holy Monday"
+        case .holyTuesday:          return "Holy Tuesday"
+        case .holyWednesday:        return "Holy Wednesday"
+        case .maundyThursday:       return "Maundy Thursday"
+        case .goodFriday:           return "Good Friday"
+        case .holySaturday:         return "Holy Saturday"
+        case .easter:               return "Easter Sunday"
+        case .ascension:            return "Ascension Day"
+        case .pentecost:            return "Pentecost Sunday"
+        case .newYearConsecration:  return "New Year Consecration"
+        case .prayerWeek:           return "Week of Prayer"
+        case .thanksgiving:         return "Thanksgiving"
+        case .advent:               return "Advent"
+        case .lent:                 return "Lent"
+        case .mothersDay:           return "Mother's Day"
+        case .fathersDay:           return "Father's Day"
+        case .memorialDay:          return "Memorial Day"
+        case .laborDay:             return "Labor Day"
+        case .independenceDay:      return "Independence Day"
+        case .veteransDay:          return "Veterans Day"
+        case .passover:             return "Passover"
+        case .unleavenedBread:      return "Feast of Unleavened Bread"
+        case .firstfruits:          return "Firstfruits"
+        case .feastOfWeeks:         return "Feast of Weeks (Shavuot)"
+        case .feastOfTrumpets:      return "Feast of Trumpets (Rosh Hashana)"
+        case .dayOfAtonement:       return "Day of Atonement (Yom Kippur)"
+        case .feastOfTabernacles:   return "Feast of Tabernacles (Sukkot)"
+        case .halloween:            return "Halloween"
+        case .valentinesDay:        return "Valentine's Day"
+        case .stPatricksDay:        return "St. Patrick's Day"
+        case .mardiGras:            return "Mardi Gras"
         }
     }
 
@@ -279,6 +319,21 @@ enum HolidayType: String, Codable, CaseIterable {
         case .thanksgiving:       return 4
         case .prayerWeek:         return 4
         default:                  return 3
+        }
+    }
+
+    var category: HolidayCategory {
+        switch self {
+        case .passover, .unleavenedBread, .firstfruits, .feastOfWeeks,
+             .feastOfTrumpets, .dayOfAtonement, .feastOfTabernacles:
+            return .biblicalFeast
+        case .halloween, .valentinesDay, .stPatricksDay, .mardiGras:
+            return .discernment
+        case .mothersDay, .fathersDay, .memorialDay, .laborDay,
+             .independenceDay, .veteransDay, .newYearConsecration, .thanksgiving:
+            return .biblicallyConsistent
+        default:
+            return .christianEvent
         }
     }
 }

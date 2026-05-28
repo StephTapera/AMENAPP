@@ -208,6 +208,6 @@ struct CreatorEditorView: View {
             selection: $selectedItems,
             matching: .any(of: [.images, .videos])
         )
-        .background(Color.white)
+        .background(Color(.systemBackground))
     }
 }

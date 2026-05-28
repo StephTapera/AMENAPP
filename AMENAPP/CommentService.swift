@@ -547,7 +547,7 @@ class CommentService: ObservableObject {
 
                 if !mentions.isEmpty {
                     await NotificationService.shared.sendMentionNotifications(
-                        mentions: mentions,
+                        mentions: mentions.map { $0.userId },
                         actorId: userId,
                         actorName: self.firebaseManager.currentUser?.displayName ?? "User",
                         actorUsername: authorUsername,

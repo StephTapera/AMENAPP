@@ -5,11 +5,39 @@
 //  Core notification service, models, and Firestore listener.
 //
 
+// MARK: - Notification Service Ownership
+// This service owns: The AppNotification model (all types, icons, colors, Firestore init);
+//                    the real-time Firestore snapshot listener for users/{uid}/notifications;
+//                    read-state management (markAsRead, markAllAsRead, markAllAsReadViaQuery);
+//                    notification deletion (deleteNotification, deleteAllRead);
+//                    writing mention notifications to Firestore (sendMentionNotifications);
+//                    writing church-note-shared notifications (sendChurchNoteSharedNotifications);
+//                    inbox-opened analytics; the NotificationServiceError type.
+// It does NOT own: Priority scoring, batching windows, re-engagement copy, action-thread delivery,
+//                  prayer-answered delivery, quiet-hours enforcement, or push dispatch.
+// Canonical routing reference: See NotificationServiceMap.md
+
 import Foundation
 import SwiftUI
 import Combine
 import FirebaseFirestore
 import FirebaseAuth
+
+// MARK: - NotificationServiceError
+
+enum NotificationServiceError: Error, LocalizedError {
+    case networkError
+    case firestoreError(Error)
+    case unauthorized
+
+    var errorDescription: String? {
+        switch self {
+        case .networkError:            return "Network error. Please check your connection and try again."
+        case .firestoreError(let e):   return e.localizedDescription
+        case .unauthorized:            return "Please sign in to view notifications."
+        }
+    }
+}
 
 // MARK: - NotificationActor
 
@@ -112,8 +140,63 @@ struct AppNotification: Identifiable, Equatable {
     var updatedAt: Timestamp?
     var priority: Int?
     var commentText: String?
+    var targetRouteType: String?
+    var routePayload: [String: String]?
+    var fallbackRouteType: String?
+    var fallbackRoutePayload: [String: String]?
+
+    // Extended routing fields (set by ProductionNotificationRouting)
+    var userId: String?
+    var parentCommentId: String?
+    var idempotencyKey: String?
+    var openedAt: Timestamp?
+    var dismissedAt: Timestamp?
+    var schemaVersion: String?
+    var deepLinkVersion: String?
+    var invalidTarget: Bool?
+    var pushDelivered: Bool?
+    var pushDeliveredAt: Timestamp?
 
     var actionText: String { type.actionText }
+
+    var icon: String {
+        switch type {
+        case .follow, .followRequestAccepted, .messageRequestAccepted: return "person.fill.badge.plus"
+        case .mention:               return "at"
+        case .comment, .reply:       return "bubble.left.fill"
+        case .repost:                return "arrow.2.squarepath"
+        case .amen:                  return "hands.clap.fill"
+        case .prayerReminder, .prayerAnswered, .prayerSupported: return "hands.sparkles.fill"
+        case .churchNoteShared, .churchNoteReplied: return "note.text"
+        case .message, .messageRequest: return "message.fill"
+        case .actionThreadInvite, .actionThreadUpdate, .actionThreadReminder: return "person.2.wave.2.fill"
+        case .unknown:               return "bell.fill"
+        }
+    }
+
+    var color: Color {
+        switch type {
+        case .follow, .followRequestAccepted, .messageRequestAccepted: return .blue
+        case .mention:               return .purple
+        case .comment, .reply:       return .green
+        case .repost:                return .orange
+        case .amen:                  return Color(red: 0.4, green: 0.6, blue: 1.0)
+        case .prayerReminder, .prayerAnswered, .prayerSupported: return Color(red: 0.5, green: 0.3, blue: 0.9)
+        case .churchNoteShared, .churchNoteReplied: return .teal
+        case .message, .messageRequest: return .blue
+        case .actionThreadInvite, .actionThreadUpdate, .actionThreadReminder: return .indigo
+        case .unknown:               return .gray
+        }
+    }
+
+    var timeAgo: String {
+        let interval = Date().timeIntervalSince(createdAt.dateValue())
+        if interval < 60      { return "now" }
+        if interval < 3_600   { return "\(Int(interval / 60))m" }
+        if interval < 86_400  { return "\(Int(interval / 3_600))h" }
+        if interval < 604_800 { return "\(Int(interval / 86_400))d" }
+        return "\(Int(interval / 604_800))w"
+    }
 
     static func == (lhs: AppNotification, rhs: AppNotification) -> Bool {
         lhs.id == rhs.id && lhs.type == rhs.type && lhs.read == rhs.read
@@ -143,6 +226,10 @@ struct AppNotification: Identifiable, Equatable {
         self.updatedAt             = d["updatedAt"] as? Timestamp
         self.priority              = d["priority"] as? Int
         self.commentText           = d["commentText"] as? String
+        self.targetRouteType       = d["targetRouteType"] as? String
+        self.routePayload          = d["routePayload"] as? [String: String]
+        self.fallbackRouteType     = d["fallbackRouteType"] as? String
+        self.fallbackRoutePayload  = d["fallbackRoutePayload"] as? [String: String]
 
         if let actorsData = d["actors"] as? [[String: Any]] {
             self.actors = actorsData.compactMap { a in
@@ -169,12 +256,16 @@ final class NotificationService: ObservableObject {
     @Published var notifications: [AppNotification] = []
     @Published var unreadCount: Int = 0
     @Published var isLoading: Bool = false
+    @Published var error: NotificationServiceError?
 
     // Non-private so NotificationServiceExtensions can access it
     var db: Firestore = Firestore.firestore()
     private var listener: ListenerRegistration?
 
     private init() {}
+
+    func clearError() { error = nil }
+    func setError(_ e: NotificationServiceError) { error = e }
 
     // MARK: - Listener
 

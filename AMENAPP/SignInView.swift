@@ -1557,25 +1557,38 @@ struct AlertsModifier: ViewModifier {
     
     func body(content: Content) -> some View {
         content
-            .alert("Error", isPresented: $viewModel.showError) {
-                Button("OK", role: .cancel) {
-                    viewModel.errorMessage = nil
-                }
-            } message: {
-                if let errorMessage = viewModel.errorMessage {
-                    Text(errorMessage)
-                }
-            }
-            .alert("Email Sent! ✅", isPresented: $showResetSuccess) {
-                Button("OK", role: .cancel) { }
-            } message: {
-                Text("Check your inbox for password reset instructions")
-            }
-            .alert("Magic Link Sent! ✨", isPresented: $showEmailLinkSent) {
-                Button("OK", role: .cancel) { }
-            } message: {
-                Text("Check your inbox and tap the link to sign in instantly - no password needed!")
-            }
+            .amenAlert(
+                isPresented: $viewModel.showError,
+                config: LiquidGlassAlertConfig(
+                    title: "Error",
+                    message: viewModel.errorMessage,
+                    icon: "lock.slash",
+                    primaryButton: LiquidGlassAlertButton("Try Again", tone: .primary) {
+                        viewModel.errorMessage = nil
+                    },
+                    secondaryButton: LiquidGlassAlertButton.cancel("Cancel") {
+                        viewModel.errorMessage = nil
+                    }
+                )
+            )
+            .amenAlert(
+                isPresented: $showResetSuccess,
+                config: LiquidGlassAlertConfig(
+                    title: "Email Sent!",
+                    message: "Check your inbox for password reset instructions",
+                    icon: "envelope.badge.checkmark",
+                    primaryButton: LiquidGlassAlertButton("OK", tone: .primary) { }
+                )
+            )
+            .amenAlert(
+                isPresented: $showEmailLinkSent,
+                config: LiquidGlassAlertConfig(
+                    title: "Magic Link Sent!",
+                    message: "Check your inbox and tap the link to sign in instantly - no password needed!",
+                    icon: "envelope.arrow.triangle.branch",
+                    primaryButton: LiquidGlassAlertButton("OK", tone: .primary) { }
+                )
+            )
     }
 }
 

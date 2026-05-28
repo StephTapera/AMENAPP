@@ -27,83 +27,83 @@ final class SpacesFeatureFlags: ObservableObject {
 
     // MARK: - Feature 1: Adaptive Intelligent Spaces
     /// Master switch for the Spaces intelligence layer (DNA, rhythm, ambient signals).
-    @Published private(set) var spacesIntelligenceEnabled: Bool = false
+    @Published private(set) var spacesIntelligenceEnabled: Bool = true
 
     // MARK: - Feature 2: Liquid Glass Spatial Workspace
     /// Enables AmenLiquidGlassHeader, AmenSpaceHeroBanner, glass tab bar in Spaces.
-    @Published private(set) var spacesLiquidGlassEnabled: Bool = false
+    @Published private(set) var spacesLiquidGlassEnabled: Bool = true
 
     // MARK: - Feature 3: AI Relationship Graph
     /// Private graph of collaboration, mentorship, prayer, study signals.
     /// Server-only writes; client reads for mentorship matching UI.
-    @Published private(set) var spacesRelationshipGraphEnabled: Bool = false
+    @Published private(set) var spacesRelationshipGraphEnabled: Bool = true
 
     // MARK: - Feature 4: Church Notes OS (Spaces integration layer)
     /// Notes-to-Space sharing, collab notes, sermon fan-out within Spaces.
     /// Does NOT gate the standalone Church Notes editor.
-    @Published private(set) var spacesChurchNotesOSEnabled: Bool = false
+    @Published private(set) var spacesChurchNotesOSEnabled: Bool = true
 
     // MARK: - Feature 5: Intelligent Find a Church
     /// Church-type Spaces as live listings; relational graph matching.
-    @Published private(set) var spacesFindChurchIntelligenceEnabled: Bool = false
+    @Published private(set) var spacesFindChurchIntelligenceEnabled: Bool = true
 
     // MARK: - Feature 6: True Source Safety OS (per-Space covenant)
     /// GUARDIAN tuned per-Space covenant; moderation constitution per SpaceType.
-    @Published private(set) var spacesTrueSourceSafetyEnabled: Bool = false
+    @Published private(set) var spacesTrueSourceSafetyEnabled: Bool = true
 
     // MARK: - Feature 7: Smart Gatherings + Events
     /// RSVP, smart prep, live notes, follow-ups, Space-linked events.
-    @Published private(set) var spacesEventsRSVPEnabled: Bool = false
+    @Published private(set) var spacesEventsRSVPEnabled: Bool = true
 
     // MARK: - Feature 8: Enterprise + School Mode
     /// School/business Space templates, domain-based joining, org admin controls.
-    @Published private(set) var spacesEnterpriseSchoolModeEnabled: Bool = false
+    @Published private(set) var spacesEnterpriseSchoolModeEnabled: Bool = true
 
     // MARK: - Feature 9: Berean Multi-Agent System
     /// Berean as first-class Space member: @mention, DM, proactive surfacing,
     /// cited recall, rhythm-aware activation.
-    @Published private(set) var spacesBereanMemberEnabled: Bool = false
+    @Published private(set) var spacesBereanMemberEnabled: Bool = true
 
     // MARK: - Feature 10: Smart Discovery Feed
     /// Space discovery ranked by usefulness, trust, locality, safety, user intent.
-    @Published private(set) var spacesSmartDiscoveryEnabled: Bool = false
+    @Published private(set) var spacesSmartDiscoveryEnabled: Bool = true
 
     // MARK: - Feature 11: Ambient Presence System
     /// Subtle presence states (studying, praying, hosting, in class, mentoring).
-    @Published private(set) var spacesAmbientPresenceEnabled: Bool = false
+    @Published private(set) var spacesAmbientPresenceEnabled: Bool = true
 
     // MARK: - Feature 12: AI-Powered Group Formation
     /// Suggest study groups, accountability partners, volunteer teams.
-    @Published private(set) var spacesGroupFormationEnabled: Bool = false
+    @Published private(set) var spacesGroupFormationEnabled: Bool = true
 
     // MARK: - Feature 13: Smart Media Intelligence
     /// Captions, key moments, scripture linking, topic extraction in Space media.
-    @Published private(set) var spacesMediaIntelligenceEnabled: Bool = false
+    @Published private(set) var spacesMediaIntelligenceEnabled: Bool = true
 
     // MARK: - Feature 14: Living Banners
     /// Ambient Spatial Motion Hero banners for Spaces, churches, events, orgs.
-    @Published private(set) var spacesLivingBannersEnabled: Bool = false
+    @Published private(set) var spacesLivingBannersEnabled: Bool = true
 
     // MARK: - Feature 15: AI Reputation Without Vanity Metrics
     /// Private contribution quality, trust, mentorship signals. No public counts.
-    @Published private(set) var spacesPrivateReputationEnabled: Bool = false
+    @Published private(set) var spacesPrivateReputationEnabled: Bool = true
 
     // MARK: - Sub-flags (individual surface controls)
 
     /// Ephemeral rooms that auto-summarize into a Living Memory artifact.
-    @Published private(set) var spacesEphemeralRoomsEnabled: Bool = false
+    @Published private(set) var spacesEphemeralRoomsEnabled: Bool = true
 
     /// Space DNA generation via natural-language description.
-    @Published private(set) var spacesDNAGenerationEnabled: Bool = false
+    @Published private(set) var spacesDNAGenerationEnabled: Bool = true
 
     /// Space composition — a Space whose children are Spaces (denomination hierarchy).
-    @Published private(set) var spacesCompositionEnabled: Bool = false
+    @Published private(set) var spacesCompositionEnabled: Bool = true
 
     /// Per-Space reading plans with daily thread + Berean question.
-    @Published private(set) var spacesReadingPlansEnabled: Bool = false
+    @Published private(set) var spacesReadingPlansEnabled: Bool = true
 
     /// Scoped portable identity across Spaces (gifts, history, user-controlled visibility).
-    @Published private(set) var spacesScopedIdentityEnabled: Bool = false
+    @Published private(set) var spacesScopedIdentityEnabled: Bool = true
 
     // MARK: - Remote Config Keys
 
@@ -143,26 +143,26 @@ final class SpacesFeatureFlags: ObservableObject {
 
         // Register safe defaults (all OFF in production)
         rc.setDefaults([
-            RCKey.spacesIntelligence.rawValue:      false as NSObject,
-            RCKey.spacesLiquidGlass.rawValue:       false as NSObject,
-            RCKey.spacesRelationshipGraph.rawValue: false as NSObject,
-            RCKey.spacesChurchNotesOS.rawValue:     false as NSObject,
-            RCKey.spacesFindChurch.rawValue:        false as NSObject,
-            RCKey.spacesTrueSourceSafety.rawValue:  false as NSObject,
-            RCKey.spacesEventsRSVP.rawValue:        false as NSObject,
-            RCKey.spacesEnterpriseSchool.rawValue:  false as NSObject,
-            RCKey.spacesBereanMember.rawValue:      false as NSObject,
-            RCKey.spacesSmartDiscovery.rawValue:    false as NSObject,
-            RCKey.spacesAmbientPresence.rawValue:   false as NSObject,
-            RCKey.spacesGroupFormation.rawValue:    false as NSObject,
-            RCKey.spacesMediaIntelligence.rawValue: false as NSObject,
-            RCKey.spacesLivingBanners.rawValue:     false as NSObject,
-            RCKey.spacesPrivateReputation.rawValue: false as NSObject,
-            RCKey.spacesEphemeralRooms.rawValue:    false as NSObject,
-            RCKey.spacesDNAGeneration.rawValue:     false as NSObject,
-            RCKey.spacesComposition.rawValue:       false as NSObject,
-            RCKey.spacesReadingPlans.rawValue:      false as NSObject,
-            RCKey.spacesScopedIdentity.rawValue:    false as NSObject,
+            RCKey.spacesIntelligence.rawValue:      true as NSObject,
+            RCKey.spacesLiquidGlass.rawValue:       true as NSObject,
+            RCKey.spacesRelationshipGraph.rawValue: true as NSObject,
+            RCKey.spacesChurchNotesOS.rawValue:     true as NSObject,
+            RCKey.spacesFindChurch.rawValue:        true as NSObject,
+            RCKey.spacesTrueSourceSafety.rawValue:  true as NSObject,
+            RCKey.spacesEventsRSVP.rawValue:        true as NSObject,
+            RCKey.spacesEnterpriseSchool.rawValue:  true as NSObject,
+            RCKey.spacesBereanMember.rawValue:      true as NSObject,
+            RCKey.spacesSmartDiscovery.rawValue:    true as NSObject,
+            RCKey.spacesAmbientPresence.rawValue:   true as NSObject,
+            RCKey.spacesGroupFormation.rawValue:    true as NSObject,
+            RCKey.spacesMediaIntelligence.rawValue: true as NSObject,
+            RCKey.spacesLivingBanners.rawValue:     true as NSObject,
+            RCKey.spacesPrivateReputation.rawValue: true as NSObject,
+            RCKey.spacesEphemeralRooms.rawValue:    true as NSObject,
+            RCKey.spacesDNAGeneration.rawValue:     true as NSObject,
+            RCKey.spacesComposition.rawValue:       true as NSObject,
+            RCKey.spacesReadingPlans.rawValue:      true as NSObject,
+            RCKey.spacesScopedIdentity.rawValue:    true as NSObject,
         ])
 
         do {

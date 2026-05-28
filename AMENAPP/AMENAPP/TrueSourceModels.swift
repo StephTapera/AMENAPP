@@ -145,6 +145,8 @@ struct TrueSourceMetadata: Codable, Equatable {
 struct SafetyMetadata: Codable, Equatable {
     /// Risk that this content causes real-world harm (0–1.0)
     var harmRisk: Double
+    /// Risk this content manipulates users through psychological or emotional tactics (0–1.0)
+    var manipulationRisk: Double
     /// Risk that this content spreads false information (0–1.0)
     var misinformationRisk: Double
     /// Risk this content exploits vulnerable users (0–1.0)
@@ -315,6 +317,7 @@ extension TrueSourceBundle {
             ),
             safety: SafetyMetadata(
                 harmRisk: 0,
+                manipulationRisk: 0,
                 misinformationRisk: 0,
                 exploitationRisk: 0,
                 doomscrollRisk: 0,

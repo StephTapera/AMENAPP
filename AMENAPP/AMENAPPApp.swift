@@ -193,18 +193,22 @@ struct AMENAPPApp: App {
             }
             // Forced upgrade alert — shown when Remote Config minimum_app_version
             // is higher than the installed binary. Users must update before continuing.
-            .alert("Update Required", isPresented: Binding(
-                get: { !killSwitch.isAppVersionValid },
-                set: { _ in }
-            )) {
-                Button("Update Now") {
-                    if let url = URL(string: AppConfig.appStoreURL) {
-                        UIApplication.shared.open(url)
+            .amenAlert(
+                isPresented: Binding(
+                    get: { !killSwitch.isAppVersionValid },
+                    set: { _ in }
+                ),
+                config: LiquidGlassAlertConfig(
+                    title: "Update Required",
+                    message: "A new version of AMEN is available. Please update to continue.",
+                    icon: "arrow.down.circle",
+                    primaryButton: LiquidGlassAlertButton("Update Now", tone: .primary) {
+                        if let url = URL(string: AppConfig.appStoreURL) {
+                            UIApplication.shared.open(url)
+                        }
                     }
-                }
-            } message: {
-                Text("This version of AMEN is no longer supported. Please update to the latest version to continue.")
-            }
+                )
+            )
             .onAppear {
                     // Attach passive touch observer for session-timeout activity tracking.
                     // Uses a gesture recognizer that immediately fails (never consumes touches),
@@ -369,7 +373,7 @@ struct AMENAPPApp: App {
                 },
                 set: { _ in }
             )) {
-                OnboardingFlowView()
+                OnboardingView()
             }
             .onChange(of: scenePhase) { _, newPhase in
                 // P1 FIX: Drive behavioral awareness engine session lifecycle from scene phase
@@ -431,7 +435,11 @@ struct AMENAPPApp: App {
             } catch let error as NSError {
                 dlog("⚠️ Auth token invalid on foreground: \(error.localizedDescription)")
                 await MainActor.run {
-                    try? Auth.auth().signOut()
+                    do {
+                        try Auth.auth().signOut()
+                    } catch {
+                        dlog("⚠️ Sign-out failed after token invalidation: \(error.localizedDescription)")
+                    }
                 }
             }
         }

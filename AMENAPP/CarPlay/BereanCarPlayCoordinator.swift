@@ -19,6 +19,7 @@
 import CarPlay
 import UIKit
 import CoreLocation
+import Speech
 import FirebaseAuth
 
 @MainActor
@@ -161,6 +162,15 @@ final class BereanCarPlayCoordinator: NSObject, ObservableObject {
             analytics.track(.bereanVoiceQuery(commandType: "find_church"))
             router.pop()
             startChurchSearch()
+
+        case .dictatedReply(let text):
+            // Relay the transcribed text to the active messaging view via notification bridge.
+            analytics.track(.bereanVoiceQuery(commandType: "dictated_reply"))
+            NotificationCenter.default.post(
+                name: .bereanDriveDictatedReplyReady,
+                object: nil,
+                userInfo: ["replyText": text]
+            )
 
         case .unknown:
             let fallback = BereanDriveResponse(
@@ -312,6 +322,25 @@ final class BereanCarPlayCoordinator: NSObject, ObservableObject {
         audio.speak(text)
     }
 
+    func didTapDictateReply(for message: BereanDriveMessagePreview) {
+        router.refreshMessageReplyOptions(for: message, isListening: true)
+        voice.startListening { [weak self] command in
+            Task { @MainActor in
+                guard let self else { return }
+                self.router.refreshMessageReplyOptions(for: message, isListening: false)
+                // Post dictated reply to main app messaging layer via notification bridge
+                NotificationCenter.default.post(
+                    name: .bereanDriveDictatedReplyReady,
+                    object: nil,
+                    userInfo: [
+                        "conversationId": message.conversationId,
+                        "command": "\(command)"
+                    ]
+                )
+            }
+        }
+    }
+
     // MARK: - Drive Response Handler
 
     /// Central handler — speaks the response, updates now-playing, handles handoffs.
@@ -378,4 +407,5 @@ extension Notification.Name {
     static let bereanDriveSaveChurch = Notification.Name("bereanDriveSaveChurch")
     static let bereanDriveHandoffToPhone = Notification.Name("bereanDriveHandoffToPhone")
     static let bereanDriveResumeInCarPlay = Notification.Name("bereanDriveResumeInCarPlay")
+    static let bereanDriveDictatedReplyReady = Notification.Name("bereanDriveDictatedReplyReady")
 }

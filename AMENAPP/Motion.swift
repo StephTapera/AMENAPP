@@ -330,4 +330,54 @@ struct TabGlideItem<Tab: Hashable & Identifiable, Content: View>: View {
 /// Spring preset tuned for tab selection — fast lateral movement, light bounce.
 extension Motion {
     static let tabGlide = Animation.spring(response: 0.32, dampingFraction: 0.78)
+
+    /// Liquid Glass canonical spring — one ring to rule all Liquid Glass interactions.
+    /// iOS 17+: .bouncy(duration: 0.4, extraBounce: 0.1). Fallback: spring(response: 0.4, dampingFraction: 0.72).
+    static var liquidSpring: Animation {
+        if #available(iOS 17, *) {
+            return .spring(.bouncy(duration: 0.4, extraBounce: 0.1))
+        } else {
+            return .spring(response: 0.4, dampingFraction: 0.72)
+        }
+    }
+
+    /// Reduce-motion aware wrapper around `Motion.liquidSpring`.
+    /// Returns a simple easeOut fade when Reduce Motion is enabled.
+    static var liquidSpringAdaptive: Animation {
+        UIAccessibility.isReduceMotionEnabled
+            ? .easeOut(duration: 0.18)
+            : liquidSpring
+    }
+}
+
+// MARK: - AmenPressStyle
+// Canonical interactive ButtonStyle for Liquid Glass surfaces.
+// 0.96 scale on press + light haptic + reduceMotion guard.
+
+struct AmenPressStyle: ButtonStyle {
+    var scale: CGFloat = 0.96
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed && !reduceMotion ? scale : 1)
+            .animation(Motion.springPress, value: configuration.isPressed)
+            .onChange(of: configuration.isPressed) { _, pressed in
+                if pressed {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                }
+            }
+    }
+}
+
+extension View {
+    /// Standard Liquid Glass button press: 0.96 scale + haptic.
+    func amenPress(scale: CGFloat = 0.96) -> some View {
+        buttonStyle(AmenPressStyle(scale: scale))
+    }
+
+    /// Card-scale press: 0.985 — use for PostCard, AmenGatheringCard, etc.
+    func amenPressCard() -> some View {
+        buttonStyle(AmenPressStyle(scale: 0.985))
+    }
 }

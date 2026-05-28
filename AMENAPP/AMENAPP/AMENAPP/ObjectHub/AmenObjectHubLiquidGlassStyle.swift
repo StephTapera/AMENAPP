@@ -43,8 +43,8 @@ struct AmenHubGlassButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.97 : 1)
             .brightness(configuration.isPressed ? 0.01 : 0)
-            .animation(reduceMotion ? .none : .spring(response: 0.36, dampingFraction: 0.84), value: configuration.isPressed)
+            .animation(reduceMotion ? nil : Motion.liquidSpring, value: configuration.isPressed)
     }
 }

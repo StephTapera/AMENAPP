@@ -11,6 +11,7 @@
 import {onCall, HttpsError} from "firebase-functions/v2/https";
 import {defineSecret} from "firebase-functions/params";
 import * as admin from "firebase-admin";
+import {enforceRateLimit, RATE_LIMITS} from "./rateLimit";
 
 interface WhisperProxyRequest {
     audioURL: string; // Firebase Storage URL or HTTPS URL
@@ -34,6 +35,7 @@ export const whisperProxy = onCall(
         secrets: [openaiApiKey],
         timeoutSeconds: 540, // 9 minutes (Whisper can take time for long audio)
         memory: "512MiB",
+        minInstances: 1,
         // 5.1 FIX: Reject calls from clients without a valid App Check token.
         enforceAppCheck: true,
     },
@@ -42,6 +44,9 @@ export const whisperProxy = onCall(
         if (!request.auth) {
             throw new HttpsError("unauthenticated", "User must be authenticated to transcribe audio");
         }
+
+        const uid = request.auth.uid;
+        await enforceRateLimit(uid, [RATE_LIMITS.AI_PER_MINUTE, RATE_LIMITS.AI_PER_DAY]);
 
         const data = request.data as WhisperProxyRequest;
         const { audioURL, language, prompt } = data;

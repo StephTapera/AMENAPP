@@ -76,6 +76,11 @@ struct BereanGrokSettingsView: View {
             } header: {
                 Text("About Berean AI")
             }
+            #if DEBUG
+            Section("Developer") {
+                BereanOnboardingDebugBanner()
+            }
+            #endif
         }
         .navigationTitle("Berean AI Settings")
         .navigationBarTitleDisplayMode(.inline)

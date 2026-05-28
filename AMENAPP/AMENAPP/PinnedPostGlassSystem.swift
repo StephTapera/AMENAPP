@@ -222,8 +222,8 @@ enum PinnedProfileError: LocalizedError {
 }
 
 @MainActor
-final class ProfilePinnedPostService: ObservableObject {
-    static let shared = ProfilePinnedPostService()
+final class PinnedGlassPostService: ObservableObject {
+    static let shared = PinnedGlassPostService()
 
     private let db = Firestore.firestore()
 
@@ -361,7 +361,7 @@ final class ProfilePinnedPostService: ObservableObject {
     }
 }
 
-private struct PinnedPostHeaderConfiguration {
+struct PinnedPostHeaderConfiguration {
     let label: PinnedPostLabel
     let semanticTags: [String]
     let collapseProgress: CGFloat
@@ -593,9 +593,7 @@ struct PinnedPostGlassContainer<Content: View>: View {
             AmenMediaDetailView(
                 post: post,
                 initialMediaIndex: selectedMediaIndex,
-                sourceContext: .profile,
-                onClose: dismissMediaOverlay,
-                transitionContext: AmenMediaTransitionContext(id: transitionID, namespace: namespace)
+                sourceContext: .profile
             )
             .background(Color.clear)
 
@@ -754,9 +752,7 @@ struct PinnedPostMediaPreview: View {
                 item: item,
                 contentMode: .fill,
                 cornerRadius: 22,
-                showsVideoBadge: false,
-                postId: post.firestoreId.nilIfEmpty,
-                sourceContext: .profile
+                showsVideoBadge: false
             )
             .matchedGeometryEffect(id: transitionID, in: namespace)
 

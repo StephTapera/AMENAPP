@@ -165,7 +165,7 @@ struct AmenSmartSidebarView: View {
                     .font(.system(size: 13))
                     .foregroundStyle(Color.black.opacity(0.38))
             } else {
-                FlowLayout(spacing: 6) {
+                SidebarChipFlowLayout(spacing: 6) {
                     ForEach(themes, id: \.self) { theme in
                         Text(theme)
                             .font(.system(size: 12, weight: .medium))
@@ -274,7 +274,7 @@ private struct AmenSidebarPanel<Content: View>: View {
 
 // MARK: - Flow Layout (tag wrapping)
 
-private struct FlowLayout: Layout {
+private struct SidebarChipFlowLayout: Layout {
     var spacing: CGFloat = 6
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {

@@ -474,6 +474,11 @@ class OpenAIService: ObservableObject {
         case .creator:     prompt += "\n\nMode: Creator. Be imaginative, reflective, and devotional."
         case .coach:       prompt += "\n\nMode: Coach. Be concise, practical, action-oriented, and encouraging."
         case .debater:     prompt += "\n\nMode: Debater. Be intellectually rigorous, steelman positions, use careful logic."
+        case .askBerean:   prompt += "\n\nMode: Ask Berean. Answer directly, clearly, and with Scripture-grounded humility."
+        case .scriptureStudy: prompt += "\n\nMode: Scripture Study. Focus on textual context, cross-references, and careful interpretation."
+        case .prayerCompanion: prompt += "\n\nMode: Prayer Companion. Be gentle, prayerful, devotional, and pastorally safe."
+        case .deepStudy:   prompt += "\n\nMode: Deep Study. Be thorough, cite context, separate fact from interpretation, and flag uncertainty."
+        case .discernment: prompt += "\n\nMode: Discernment. Offer balanced, wisdom-focused guidance; acknowledge complexity; help users weigh options carefully."
         }
 
         if let suffix, !suffix.isEmpty {

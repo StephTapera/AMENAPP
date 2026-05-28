@@ -43,7 +43,7 @@ enum HolidayConsistencyLevel: String, Codable {
 // MARK: - Holiday Banner Content
 
 /// The scriptural and pastoral copy for a single holiday banner.
-struct HolidayBannerContent {
+struct HolidayBannerContent: Codable {
     let category: HolidayCategory
     let consistencyLevel: HolidayConsistencyLevel
     let canonicalName: String

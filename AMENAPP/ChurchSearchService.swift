@@ -61,7 +61,25 @@ final class ChurchSearchService: ObservableObject {
 
         let churches = results.compactMap { result -> Church? in
             guard let entity = result.church else { return nil }
-            return Church(entity: entity, userLocation: queryLocation)
+            let serviceTime = entity.serviceTimes.first.map { "\($0.time)" } ?? ""
+            let distanceMiles = result.distance ?? 0
+            let distanceStr = distanceMiles < 1
+                ? String(format: "%.0f ft", distanceMiles * 5280)
+                : String(format: "%.1f mi", distanceMiles)
+            return Church(
+                name: entity.name,
+                denomination: entity.denomination ?? "",
+                address: entity.address,
+                distance: distanceStr,
+                distanceValue: distanceMiles,
+                serviceTime: serviceTime,
+                phone: entity.phoneNumber ?? "",
+                coordinate: CLLocationCoordinate2D(
+                    latitude: entity.coordinate.latitude,
+                    longitude: entity.coordinate.longitude
+                ),
+                website: entity.website
+            )
         }
         .sorted { $0.distanceValue < $1.distanceValue }
 

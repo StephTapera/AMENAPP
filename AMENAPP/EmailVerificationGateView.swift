@@ -67,32 +67,16 @@ struct EmailVerificationGateView: View {
                 // Actions
                 VStack(spacing: 16) {
                     // Check verification status button
-                    Button {
-                        checkVerificationStatus()
-                    } label: {
-                        HStack(spacing: 12) {
-                            if isCheckingVerification {
-                                ProgressView()
-                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                    .scaleEffect(0.8)
-                            } else {
-                                Image(systemName: "checkmark.circle")
-                                    .font(.systemScaled(18))
-                            }
-                            
-                            Text(isCheckingVerification ? "Checking..." : "Check Verification Status")
-                                .font(.custom("OpenSans-SemiBold", size: 16))
-                        }
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 56)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(.green.opacity(0.8))
-                        )
-                    }
-                    .disabled(isCheckingVerification)
-                    
+                    AmenLiquidGlassPillButton(
+                        title: isCheckingVerification ? "Checking..." : "Check Verification Status",
+                        systemImage: "checkmark.circle",
+                        isLoading: isCheckingVerification,
+                        isDisabled: isCheckingVerification,
+                        hint: "Checks whether your email address has been verified",
+                        action: { checkVerificationStatus() }
+                    )
+                    .frame(maxWidth: .infinity)
+
                     // Resend email button
                     Button {
                         resendVerificationEmail()
@@ -100,7 +84,7 @@ struct EmailVerificationGateView: View {
                         HStack(spacing: 8) {
                             Image(systemName: "envelope.arrow.triangle.branch")
                                 .font(.systemScaled(16))
-                            
+
                             if resendCooldown > 0 {
                                 Text("Resend in \(resendCooldown)s")
                                     .font(.custom("OpenSans-Regular", size: 14))
@@ -111,6 +95,7 @@ struct EmailVerificationGateView: View {
                         }
                         .foregroundStyle(.white.opacity(canResend ? 1.0 : 0.5))
                     }
+                    .buttonStyle(SelahGlassPressButtonStyle())
                     .disabled(!canResend)
                     
                     // Success message

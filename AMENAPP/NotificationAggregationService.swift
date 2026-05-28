@@ -6,6 +6,19 @@
 //  Instagram/Threads-level notification grouping and foreground suppression
 //
 
+// MARK: - Notification Service Ownership
+// This service owns: Foreground-suppression logic — tracking which screen the user is viewing
+//                    (post, conversation, profile, messages, notifications) and deciding whether
+//                    an AppNotification should be suppressed while that content is on screen;
+//                    self-action suppression (actor == currentUser);
+//                    block-list checking against Firestore to filter notifications from blocked users;
+//                    aggregation-window detection (30-minute window) and Instagram-style grouped copy
+//                    ("John and 3 others liked your post");
+//                    app foreground/background screen-state reset via NotificationCenter observers.
+// It does NOT own: Delivery/write of notifications to Firestore, push dispatch, batching to FCM,
+//                  priority scoring, re-engagement copy, action-thread events, spiritual-rhythm gating.
+// Canonical routing reference: See NotificationServiceMap.md
+
 import Foundation
 import FirebaseFirestore
 import FirebaseAuth

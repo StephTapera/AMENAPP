@@ -167,7 +167,7 @@ struct AIBibleStudyView: View {
                     if !hasProAccess && selectedTab == .chat {
                         LightUsageLimitBanner(
                             messagesRemaining: premiumManager.freeMessagesRemaining,
-                            totalMessages: premiumManager.dailyMessageLimit ?? premiumManager.FREE_MESSAGES_PER_DAY,
+                            totalMessages: premiumManager.FREE_MESSAGES_PER_DAY,
                             onUpgrade: { showProUpgrade = true }
                         )
                         .transition(.move(edge: .top).combined(with: .opacity))
@@ -340,7 +340,7 @@ struct AIBibleStudyView: View {
         }
         .preferredColorScheme(nil)
         .sheet(isPresented: $showProUpgrade) {
-            PremiumUpgradeView(context: .aiLimit)
+            PremiumUpgradeView()
         }
         .sheet(isPresented: $showHistory) {
             AIBibleStudyConversationHistoryView(
@@ -538,10 +538,9 @@ struct AIBibleStudyView: View {
         guard !userInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
 
         let premiumManager = PremiumManager.shared
-        guard premiumManager.canSendMessage(),
-              await premiumManager.reserveAIMessageAllowance() else {
+        guard premiumManager.canSendMessage() else {
             showProUpgrade = true
-            let limit = premiumManager.dailyMessageLimit ?? premiumManager.FREE_MESSAGES_PER_DAY
+            let limit = premiumManager.FREE_MESSAGES_PER_DAY
             messages.append(AIStudyMessage(
                 text: "You've reached your daily limit of \(limit) AI study messages. Upgrade to Plus for more room or Pro for unlimited Berean depth.\n\nYour limit resets at midnight.",
                 isUser: false

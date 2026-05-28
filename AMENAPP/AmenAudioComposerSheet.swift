@@ -1,5 +1,40 @@
 import SwiftUI
 
+struct AmenAudioAttachmentDraft: Equatable, Hashable {
+    enum Category: String, CaseIterable, Hashable {
+        case worship
+        case instrumental
+        case sermonClips
+        case prayer
+        case testimony
+        case ambient
+        case originalAudio
+        case savedApproved
+    }
+
+    var title: String
+    var artist: String
+    var source: String
+    var category: Category
+    var trimStartMs: Int
+    var trimDurationMs: Int
+    var musicVolume: Double
+    var originalAudioVolume: Double
+    var isApproved: Bool
+
+    var asMediaAudioBed: MediaAudioBed? {
+        guard isApproved else { return nil }
+        return MediaAudioBed(
+            source: source,
+            title: title,
+            artist: artist,
+            startOffset: TimeInterval(trimStartMs) / 1000,
+            trimDuration: TimeInterval(trimDurationMs) / 1000,
+            volume: musicVolume
+        )
+    }
+}
+
 struct AmenAudioComposerSheet: View {
     private struct AmenAudioPreset: Identifiable {
         let id = UUID()

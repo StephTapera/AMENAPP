@@ -85,8 +85,8 @@ struct SafetyPreflightBanner: View {
 
 // MARK: - 2. TrueSourceBadge
 
-struct TrueSourceBadge: View {
-    let status: ProvenanceStatus
+struct ProvenanceBadge: View {
+    let status: MediaAuthenticityStatus
     var compact: Bool = false
     @State private var showDetail = false
 
@@ -140,7 +140,7 @@ struct TrueSourceBadge: View {
 }
 
 private struct ProvenanceDetailSheet: View {
-    let status: ProvenanceStatus
+    let status: MediaAuthenticityStatus
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -279,7 +279,7 @@ private struct AITransparencySheet: View {
 // MARK: - 4. SourceUncertainWarning
 
 struct SourceUncertainWarning: View {
-    let provenanceStatus: ProvenanceStatus
+    let provenanceStatus: MediaAuthenticityStatus
     var onConfirmShare: (() -> Void)? = nil
     var onCancel: (() -> Void)? = nil
 
@@ -685,7 +685,7 @@ struct TrustDetailsSheet: View {
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.orange)
                     ForEach(unverifiedClaims, id: \.self) { claim in
-                        Text(""\(claim)" — Unverified claim")
+                        Text("\"\(claim)\" — Unverified claim")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -876,7 +876,7 @@ struct TrustSafetyComponents_Previews: PreviewProvider {
                 .padding()
                 .previewDisplayName("Blocked")
 
-            TrueSourceBadge(status: .aiGenerated)
+            ProvenanceBadge(status: .aiGenerated)
                 .padding()
                 .previewDisplayName("AI Generated Badge")
 

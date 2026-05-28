@@ -1,4 +1,5 @@
 import SwiftUI
+import FirebaseFirestore
 
 // MARK: - Member Directory View
 // Respects creator-configured visibility settings.

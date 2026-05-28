@@ -504,7 +504,7 @@ private extension View {
 
 /// Small inline link chip shown in the feed when only a URL is available
 /// but no metadata has been fetched yet.
-struct LinkPreviewCard: View {
+struct LinkPreviewPillCard: View {
     let metadata: LinkPreviewMetadata
     let onTap: () -> Void
 

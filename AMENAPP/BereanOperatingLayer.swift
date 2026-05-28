@@ -67,7 +67,7 @@ final class BereanOperatingLayer: ObservableObject {
                         title: name,
                         detail: "Verified church metadata",
                         url: data["website"] as? String,
-                        verified: (data["verificationStatus"] as? String) == ChurchVerificationStatus.verified.rawValue,
+                        verified: (data["verificationStatus"] as? String) == "verified",
                         updatedAt: (data["updatedAt"] as? Timestamp)?.dateValue()
                     )
                 )

@@ -22,14 +22,12 @@ exports.generateDailyVerse = (0, https_1.onCall)({
     secrets: [openaiApiKey],
     timeoutSeconds: 30,
     memory: "256MiB",
-    // NOTE: enforceAppCheck is intentionally omitted here so the function
-    // works on the simulator before a debug App Check token is registered
-    // in the Firebase console. Add enforceAppCheck: false after registering.
+    enforceAppCheck: true,
 }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError("unauthenticated", "Must be signed in");
     }
-    await (0, rateLimit_1.enforceRateLimit)(request.auth.uid, [rateLimit_1.RATE_LIMITS.AI_PER_MINUTE]);
+    await (0, rateLimit_1.enforceRateLimit)(request.auth.uid, [rateLimit_1.RATE_LIMITS.AI_PER_MINUTE, rateLimit_1.RATE_LIMITS.AI_PER_DAY]);
     const data = request.data;
     const { goals = [], recentTopics = [], prayerThemes = [], liturgicalSeasonName = "", liturgicalThemes = [], activeObservances = [], upcomingObservance, } = data;
     const contextParts = [];

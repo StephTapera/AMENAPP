@@ -9,6 +9,6 @@ struct CreatorImportSheet: View {
                 .foregroundStyle(.secondary)
         }
         .padding(20)
-        .background(Color.white)
+        .background(Color(.systemBackground))
     }
 }

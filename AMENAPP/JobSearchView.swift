@@ -79,14 +79,15 @@ struct JobSearchView: View {
                     JobDetailView(jobId: jobId)
                 }
             }
-            .alert("Clear all filters?", isPresented: $showClearFiltersConfirmation) {
-                Button("Clear all", role: .destructive) {
+            .amenAlert(isPresented: $showClearFiltersConfirmation, config: LiquidGlassAlertConfig(
+                title: "Clear all filters?",
+                message: "This will remove all active job filters.",
+                icon: "line.3.horizontal.decrease.circle",
+                primaryButton: LiquidGlassAlertButton("Clear All", tone: .destructive) {
                     filters = JobSearchFilters()
-                }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text("This will remove all active job filters.")
-            }
+                },
+                secondaryButton: .cancel()
+            ))
         }
         .task {
             guard !hasLoadedInitial else { return }

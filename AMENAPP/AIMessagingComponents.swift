@@ -362,7 +362,7 @@ struct AILoadingIndicator: View {
         .padding(.vertical, 12)
         .background(
             Capsule()
-                .fill(Color(white, 0.95))
+                .fill(Color(white: 0.95))
         )
     }
 }

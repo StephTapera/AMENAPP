@@ -1,9 +1,8 @@
 // MentorshipPlanSheet.swift
 // AMENAPP
-// StoreKit-backed mentorship plan picker.
+// Stripe-backed mentorship plan picker.
 
 import SwiftUI
-import StoreKit
 
 struct MentorshipPlanSheet: View {
     let mentor: Mentor
@@ -11,8 +10,6 @@ struct MentorshipPlanSheet: View {
     let onDismiss: () -> Void
 
     @State private var selectedPlan: MentorshipPlan?
-    @State private var productsById: [String: Product] = [:]
-    @State private var isLoadingProducts = false
     @State private var isProcessing = false
     @State private var errorMessage: String?
     @State private var successMessage: String?
@@ -41,8 +38,8 @@ struct MentorshipPlanSheet: View {
                     }
                 }
                 ToolbarItem(placement: .bottomBar) {
-                    Button("Restore Purchases") {
-                        Task { await restorePurchases() }
+                    Button("Refresh Status") {
+                        Task { await vm.loadAll() }
                     }
                     .disabled(isProcessing)
                 }
@@ -50,7 +47,6 @@ struct MentorshipPlanSheet: View {
         }
         .task {
             if selectedPlan == nil { selectedPlan = plans.first }
-            await loadPaidProducts()
         }
     }
 
@@ -77,12 +73,6 @@ struct MentorshipPlanSheet: View {
             VStack(spacing: 20) {
                 mentorHeader
                 planCardsList
-
-                if isLoadingProducts {
-                    Label("Loading App Store products", systemImage: "cart")
-                        .font(.systemScaled(13))
-                        .foregroundStyle(.secondary)
-                }
 
                 if let errorMessage {
                     Text(errorMessage)
@@ -113,7 +103,7 @@ struct MentorshipPlanSheet: View {
         VStack(spacing: 12) {
             ForEach(plans) { plan in
                 let selected = selectedPlan?.id == plan.id
-                PlanCard(plan: plan, product: productsById[plan.storeKitProductId], isSelected: selected)
+                PlanCard(plan: plan, isSelected: selected)
                     .onTapGesture {
                         withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                             selectedPlan = plan
@@ -158,11 +148,11 @@ struct MentorshipPlanSheet: View {
             .padding(.vertical, 16)
             .background(RoundedRectangle(cornerRadius: 14).fill(Color(red: 0.49, green: 0.23, blue: 0.93)))
         }
-        .disabled(isProcessing || (!plan.isFree && productsById[plan.storeKitProductId] == nil))
+        .disabled(isProcessing || (!plan.isFree && plan.stripePriceId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty))
         .padding(.horizontal, 18)
 
-        if !plan.isFree && productsById[plan.storeKitProductId] == nil {
-            Text("The App Store product \(plan.storeKitProductId) is not configured for this build.")
+        if !plan.isFree && plan.stripePriceId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            Text("This paid plan is missing its Stripe price configuration.")
                 .font(.systemScaled(12))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -172,26 +162,7 @@ struct MentorshipPlanSheet: View {
 
     private func primaryButtonTitle(for plan: MentorshipPlan) -> String {
         if plan.isFree { return "Start Free - \(plan.name)" }
-        if let product = productsById[plan.storeKitProductId] {
-            return "Start \(plan.name) - \(product.displayPrice)"
-        }
-        return "Plan unavailable"
-    }
-
-    private func loadPaidProducts() async {
-        let ids = Array(Set(plans.filter { !$0.isFree }.map(\.storeKitProductId)))
-        guard !ids.isEmpty else { return }
-        isLoadingProducts = true
-        defer { isLoadingProducts = false }
-        do {
-            let products = try await Product.products(for: ids)
-            productsById = Dictionary(uniqueKeysWithValues: products.map { ($0.id, $0) })
-            if products.count < ids.count {
-                errorMessage = "Some mentorship products are missing from StoreKit configuration."
-            }
-        } catch {
-            errorMessage = "App Store products could not be loaded. Check your connection and StoreKit configuration."
-        }
+        return "Start \(plan.name) - \(plan.priceLabel)"
     }
 
     private func handlePlanSelection(_ plan: MentorshipPlan) async {
@@ -213,71 +184,27 @@ struct MentorshipPlanSheet: View {
                 onDismiss()
                 dismiss()
             } else {
-                try await purchasePaidPlan(plan)
+                _ = try await MentorshipService.shared.createPaidRelationship(
+                    mentorId: mentor.id,
+                    planId: plan.id,
+                    planName: plan.name,
+                    stripePriceId: plan.stripePriceId,
+                    mentorName: mentor.name,
+                    mentorPhotoURL: mentor.photoURL
+                )
+                await vm.loadAll()
+                successMessage = "Subscription started."
+                onDismiss()
+                dismiss()
             }
         } catch {
             errorMessage = error.localizedDescription.isEmpty ? "Something went wrong. Please try again." : error.localizedDescription
-        }
-    }
-
-    private func purchasePaidPlan(_ plan: MentorshipPlan) async throws {
-        guard let product = productsById[plan.storeKitProductId] else {
-            errorMessage = "This plan is not available for purchase on this device."
-            return
-        }
-
-        let result = try await product.purchase()
-        switch result {
-        case .success(let verification):
-            let transaction = try checkVerified(verification)
-            try await MentorshipService.shared.finalizeStoreKitRelationship(
-                mentorId: mentor.id,
-                planId: plan.id,
-                planName: plan.name,
-                transactionId: String(transaction.id),
-                mentorName: mentor.name,
-                mentorPhotoURL: mentor.photoURL
-            )
-            await transaction.finish()
-            await vm.loadAll()
-            successMessage = "Purchase complete."
-            onDismiss()
-            dismiss()
-        case .userCancelled:
-            errorMessage = "Purchase cancelled."
-        case .pending:
-            errorMessage = "Purchase pending approval."
-        @unknown default:
-            errorMessage = "The App Store returned an unknown purchase state."
-        }
-    }
-
-    private func restorePurchases() async {
-        isProcessing = true
-        errorMessage = nil
-        successMessage = nil
-        defer { isProcessing = false }
-        do {
-            try await AppStore.sync()
-            successMessage = "Purchases restored."
-        } catch {
-            errorMessage = "Restore failed. Please try again."
-        }
-    }
-
-    private func checkVerified<T>(_ result: VerificationResult<T>) throws -> T {
-        switch result {
-        case .unverified:
-            throw NSError(domain: "MentorshipStoreKit", code: 1, userInfo: [NSLocalizedDescriptionKey: "Transaction could not be verified."])
-        case .verified(let safe):
-            return safe
         }
     }
 }
 
 private struct PlanCard: View {
     let plan: MentorshipPlan
-    let product: Product?
     let isSelected: Bool
 
     private let accentPurple = Color(red: 0.49, green: 0.23, blue: 0.93)
@@ -293,7 +220,7 @@ private struct PlanCard: View {
     }
 
     private var priceLabel: String {
-        product?.displayPrice ?? plan.priceLabel
+        plan.priceLabel
     }
 
     var body: some View {

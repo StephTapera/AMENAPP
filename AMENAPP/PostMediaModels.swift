@@ -25,15 +25,36 @@ struct PostMediaItem: Identifiable, Codable, Equatable, Hashable {
     let thumbnailURL: String?
     let aspectRatio: CGFloat?
     let order: Int
-    
+
     // Video-specific metadata
     let duration: TimeInterval?
     let fileSize: Int64?
-    
+
     // Image-specific metadata
     let width: Int?
     let height: Int?
-    
+
+    // Caption & key moments
+    let captionTrack: MediaCaptionTrack?
+    let keyMoments: [MediaKeyMoment]
+
+    // Frame caption metadata
+    let frameCaption: String?
+    let frameCaptionMetadata: MediaFrameCaption?
+
+    // Audio & presentation
+    let audioBed: MediaAudioBed?
+    let isFeaturedFrame: Bool
+    let featuredFrameTime: TimeInterval?
+
+    // URL variants
+    let previewURL: String?
+    let originalURL: String?
+
+    // Processing & editorial metadata
+    let generationStatus: MediaGenerationStatus
+    let userEditedMetadata: Bool?
+
     init(
         id: String = UUID().uuidString,
         type: PostMediaType,
@@ -44,7 +65,18 @@ struct PostMediaItem: Identifiable, Codable, Equatable, Hashable {
         duration: TimeInterval? = nil,
         fileSize: Int64? = nil,
         width: Int? = nil,
-        height: Int? = nil
+        height: Int? = nil,
+        captionTrack: MediaCaptionTrack? = nil,
+        keyMoments: [MediaKeyMoment] = [],
+        frameCaption: String? = nil,
+        frameCaptionMetadata: MediaFrameCaption? = nil,
+        audioBed: MediaAudioBed? = nil,
+        isFeaturedFrame: Bool = false,
+        featuredFrameTime: TimeInterval? = nil,
+        previewURL: String? = nil,
+        originalURL: String? = nil,
+        processingStatus: MediaGenerationStatus = .default,
+        userEditedMetadata: Bool? = nil
     ) {
         self.id = id
         self.type = type
@@ -56,7 +88,21 @@ struct PostMediaItem: Identifiable, Codable, Equatable, Hashable {
         self.fileSize = fileSize
         self.width = width
         self.height = height
+        self.captionTrack = captionTrack
+        self.keyMoments = keyMoments
+        self.frameCaption = frameCaption
+        self.frameCaptionMetadata = frameCaptionMetadata
+        self.audioBed = audioBed
+        self.isFeaturedFrame = isFeaturedFrame
+        self.featuredFrameTime = featuredFrameTime
+        self.previewURL = previewURL
+        self.originalURL = originalURL
+        self.generationStatus = processingStatus
+        self.userEditedMetadata = userEditedMetadata
     }
+
+    var resolvedKeyMoments: [MediaKeyMoment] { keyMoments }
+    var effectiveFrameCaption: String? { frameCaption ?? frameCaptionMetadata?.text }
     
     /// Computed aspect ratio from width/height if not explicitly set
     var computedAspectRatio: CGFloat {

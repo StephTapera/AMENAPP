@@ -356,7 +356,6 @@
 		EF7FF4BC2F88A2CB00B31A9A /* ActionThreadService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionThreadService.swift; sourceTree = "<group>"; };
 		EF7FF4BD2F88A2CB00B31A9A /* ActionThreadPermissionsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionThreadPermissionsService.swift; sourceTree = "<group>"; };
 		EF7FF4BE2F88A31100B31A9A /* ActionSuggestionEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionSuggestionEngine.swift; sourceTree = "<group>"; };
-		EF7FF4BF2F88A31100B31A9A /* ActionThreadNotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionThreadNotificationService.swift; sourceTree = "<group>"; };
 		EF7FF4C02F88A37A00B31A9A /* UserIntelligenceOrchestrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserIntelligenceOrchestrator.swift; sourceTree = "<group>"; };
 		EF7FF4C12F88A37A00B31A9A /* TrustScoringEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrustScoringEngine.swift; sourceTree = "<group>"; };
 		EF7FF4C22F88A3AA00B31A9A /* TrustEventRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrustEventRecorder.swift; sourceTree = "<group>"; };
@@ -526,6 +525,12 @@
 		EFDDE9A72FB65AC100026DBC /* amenConnect.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = amenConnect.ts; sourceTree = "<group>"; };
 		EFFA73202FC63153004D4A2D /* AmenAmbientActionOrbit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmenAmbientActionOrbit.swift; sourceTree = "<group>"; };
 		EFFA73242FC63F2D004D4A2D /* spatialRooms.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = spatialRooms.ts; sourceTree = "<group>"; };
+		EFFAA5872FC8B2BA004D4A2D /* CommunityNotesModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommunityNotesModels.swift; sourceTree = "<group>"; };
+		EFFAA5882FC8B2DE004D4A2D /* CommunityNotesService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommunityNotesService.swift; sourceTree = "<group>"; };
+		EFFAA58A2FC8B326004D4A2D /* CommunityNotesFeedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommunityNotesFeedView.swift; sourceTree = "<group>"; };
+		EFFAA58B2FC8B349004D4A2D /* CommunityNotesBrowseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommunityNotesBrowseView.swift; sourceTree = "<group>"; };
+		EFFAA58C2FC8B363004D4A2D /* CommunityNoteCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommunityNoteCardView.swift; sourceTree = "<group>"; };
+		EFFAA58D2FC8B3A7004D4A2D /* CommunityNotePublishSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommunityNotePublishSheet.swift; sourceTree = "<group>"; };
 		FE6331EA2267427EBCD3177B /* AmenSyncReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmenSyncReviewView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -540,6 +545,7 @@
 		EF7F3C6A2F2352350016C6EE /* Exceptions for "AMENAPP" folder in "AMENAPP" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				ActionThreads/ActionThreadNotificationService.swift,
 				AmenDailyDigest.swift,
 				AmenOnboardingCompletionRouting.swift,
 				Impact/BadgeDetailSheet.swift,
@@ -573,9 +579,17 @@
 		EFAA00102FA1000100000001 /* Exceptions for "AMENAPPTests" folder in "AMENAPPTests" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				"CalmControlTests 2.swift",
 				Info.plist,
 			);
 			target = EF56F7402F2881A30019B94A /* AMENAPPTests */;
+		};
+		EFFAA4C02FC84628004D4A2D /* Exceptions for "AMENAPPTests" folder in "AMENAPP" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				"CalmControlTests 2.swift",
+			);
+			target = EF81519A2F184E97008912E3 /* AMENAPP */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -583,6 +597,7 @@
 		EF56F7422F2881A30019B94A /* AMENAPPTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
+				EFFAA4C02FC84628004D4A2D /* Exceptions for "AMENAPPTests" folder in "AMENAPP" target */,
 				EFAA00102FA1000100000001 /* Exceptions for "AMENAPPTests" folder in "AMENAPPTests" target */,
 			);
 			path = AMENAPPTests;
@@ -1185,7 +1200,6 @@
 				EF7FF4BC2F88A2CB00B31A9A /* ActionThreadService.swift */,
 				EF7FF4BD2F88A2CB00B31A9A /* ActionThreadPermissionsService.swift */,
 				EF7FF4BE2F88A31100B31A9A /* ActionSuggestionEngine.swift */,
-				EF7FF4BF2F88A31100B31A9A /* ActionThreadNotificationService.swift */,
 				EF7FF4C02F88A37A00B31A9A /* UserIntelligenceOrchestrator.swift */,
 				EF7FF4C12F88A37A00B31A9A /* TrustScoringEngine.swift */,
 				EF7FF4C22F88A3AA00B31A9A /* TrustEventRecorder.swift */,
@@ -1210,6 +1224,7 @@
 				EF7DBCFC2FC55476005CA8BC /* Notifications */,
 				EF7DBD2D2FC55951005CA8BC /* Config.local.xcconfig */,
 				EF7DBD3C2FC55A76005CA8BC /* Selah */,
+				EFFAA5862FC8B2BA004D4A2D /* CommunityNotes */,
 			);
 			sourceTree = "<group>";
 		};
@@ -1338,6 +1353,27 @@
 				532D988A95B88B47EAAEC22B /* iOS */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		EFFAA5862FC8B2BA004D4A2D /* CommunityNotes */ = {
+			isa = PBXGroup;
+			children = (
+				EFFAA5872FC8B2BA004D4A2D /* CommunityNotesModels.swift */,
+				EFFAA5882FC8B2DE004D4A2D /* CommunityNotesService.swift */,
+				EFFAA5892FC8B2E9004D4A2D /* Views */,
+			);
+			path = CommunityNotes;
+			sourceTree = "<group>";
+		};
+		EFFAA5892FC8B2E9004D4A2D /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				EFFAA58A2FC8B326004D4A2D /* CommunityNotesFeedView.swift */,
+				EFFAA58B2FC8B349004D4A2D /* CommunityNotesBrowseView.swift */,
+				EFFAA58C2FC8B363004D4A2D /* CommunityNoteCardView.swift */,
+				EFFAA58D2FC8B3A7004D4A2D /* CommunityNotePublishSheet.swift */,
+			);
+			path = Views;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */

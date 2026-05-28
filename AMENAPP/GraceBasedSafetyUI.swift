@@ -89,19 +89,14 @@ struct BlockedMessageExplanationView: View {
             }
             
             // Action button
-            Button {
-                onUnderstand()
-            } label: {
-                Text("I Understand")
-                    .font(.systemScaled(16, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .fill(.black)
-                    )
-            }
+            AmenLiquidGlassPillButton(
+                title: "I Understand",
+                systemImage: "checkmark",
+                isLoading: false,
+                isDisabled: false,
+                action: { onUnderstand() }
+            )
+            .frame(maxWidth: .infinity)
             .padding(.horizontal, 24)
             .padding(.top, 8)
         }
@@ -202,19 +197,14 @@ struct HeldForReviewView: View {
             .padding(.horizontal, 20)
             
             // Action button
-            Button {
-                onCancel()
-            } label: {
-                Text("Got It")
-                    .font(.systemScaled(16, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .fill(.blue)
-                    )
-            }
+            AmenLiquidGlassPillButton(
+                title: "Got It",
+                systemImage: "checkmark",
+                isLoading: false,
+                isDisabled: false,
+                action: { onCancel() }
+            )
+            .frame(maxWidth: .infinity)
             .padding(.horizontal, 24)
             .padding(.top, 8)
         }
@@ -285,19 +275,14 @@ struct WarningDeliveredView: View {
             .padding(.horizontal, 20)
             
             // Action button
-            Button {
-                onContinue()
-            } label: {
-                Text("Continue")
-                    .font(.systemScaled(16, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .fill(.yellow)
-                    )
-            }
+            AmenLiquidGlassPillButton(
+                title: "Continue",
+                systemImage: "arrow.forward",
+                isLoading: false,
+                isDisabled: false,
+                action: { onContinue() }
+            )
+            .frame(maxWidth: .infinity)
             .padding(.horizontal, 24)
             .padding(.top, 8)
         }

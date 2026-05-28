@@ -335,7 +335,7 @@ final class GrowthLoopEngine: ObservableObject {
 // MARK: - Growth Dashboard View
 
 struct GrowthDashboardView: View {
-    @StateObject private var engine = GrowthLoopEngine.shared
+    @ObservedObject private var engine = GrowthLoopEngine.shared // PERF: singleton → @ObservedObject
     @State private var showingCheckIn: GrowthLoop?
 
     var body: some View {

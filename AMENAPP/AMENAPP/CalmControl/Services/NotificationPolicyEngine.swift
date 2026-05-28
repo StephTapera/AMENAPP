@@ -1,7 +1,30 @@
+// MARK: - Notification Service Ownership
+// This service owns: Client-side AND server-side eligibility gating for AmenRhythmNotificationCategory
+//                    types; sabbath-mode suppression, inactivity-pause suppression, fixed quiet-hours
+//                    gate (22:00–07:00), per-category toggle, and intensity-mode filter;
+//                    evaluateEligibilityOnServer() — calls the evaluateNotificationEligibility
+//                    Cloud Function as authoritative server-side check.
+// It does NOT own: Social-activity notifications, action-thread events, prayer-answered fan-out,
+//                  push delivery, Firestore writes, priority scoring, or batching.
+//                  NOTE: Near-duplicate of CalmNotificationPolicyEngine.swift and
+//                  SpiritualNotificationPolicyEngine.swift — consolidation candidate.
+// Canonical routing reference: See NotificationServiceMap.md
+
 import Foundation
 import FirebaseAuth
 import FirebaseFunctions
 import SwiftUI
+
+struct AmenNotificationEligibility {
+    let isEligible: Bool
+    let suppressedReason: String?
+
+    static let eligible = AmenNotificationEligibility(isEligible: true, suppressedReason: nil)
+
+    static func suppressed(_ reason: String) -> AmenNotificationEligibility {
+        AmenNotificationEligibility(isEligible: false, suppressedReason: reason)
+    }
+}
 
 @MainActor
 final class NotificationPolicyEngine: ObservableObject {

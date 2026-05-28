@@ -36,7 +36,7 @@ struct SmartCommunityLocationPrompt: View {
                 Button(action: onManualEntry) {
                     Text("Enter ZIP or City")
                         .font(.subheadline)
-                        .foregroundStyle(.accentColor)
+                        .foregroundStyle(Color.accentColor)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
                         .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color.accentColor, lineWidth: 1))

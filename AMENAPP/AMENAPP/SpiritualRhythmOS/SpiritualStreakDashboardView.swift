@@ -6,6 +6,7 @@
 // Cards use a 2-column LazyVGrid with stroked RoundedRectangle cells.
 
 import SwiftUI
+import FirebaseFirestore
 
 // MARK: - SpiritualStreakDashboardView
 

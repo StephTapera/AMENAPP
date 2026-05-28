@@ -18,6 +18,8 @@ enum AmenObjectHubInlineActionRanker {
         switch objectType {
         case .song, .album, .playlist, .artist, .video, .podcast, .article, .genericLink:
             base = [.openProvider, .save, .discuss, .openHub]
+        default:
+            base = [.openHub, .discuss]
         }
         return Array(base.prefix(4))
     }
@@ -32,6 +34,7 @@ enum AmenObjectHubInlineActionRanker {
         case .podcast: return "waveform"
         case .article: return "doc.text"
         case .genericLink: return "circle.grid.2x2"
+        default: return "square.grid.2x2"
         }
     }
 
@@ -45,6 +48,7 @@ enum AmenObjectHubInlineActionRanker {
         case .podcast: return "Podcast Hub"
         case .article: return "Discuss"
         case .genericLink: return "Open Hub"
+        default: return "Open Hub"
         }
     }
 
@@ -55,6 +59,7 @@ enum AmenObjectHubInlineActionRanker {
         case .podcast: return "Play"
         case .article: return "Read"
         case .genericLink: return "Open"
+        default: return "Open"
         }
     }
 }

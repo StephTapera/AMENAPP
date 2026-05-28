@@ -30,11 +30,21 @@ import SwiftUI
 // MARK: - Animation Constants
 
 enum AmenMotion {
-    /// Card expand/collapse — soft, confident, not bouncy
-    static let cardSpring = Animation.spring(response: 0.42, dampingFraction: 0.82)
-    /// Sheet emergence — slightly faster
-    static let sheetSpring = Animation.spring(response: 0.38, dampingFraction: 0.85)
-    /// Micro-interaction (press scale, opacity)
+    /// Card expand/collapse — Pattern 2: canonical bouncy spring for size/position changes
+    static var cardSpring: Animation {
+        if #available(iOS 17, *) {
+            return .spring(.bouncy(duration: 0.4, extraBounce: 0.1))
+        }
+        return .spring(response: 0.4, dampingFraction: 0.72)
+    }
+    /// Sheet emergence — slightly tighter for entry; still uses bouncy character
+    static var sheetSpring: Animation {
+        if #available(iOS 17, *) {
+            return .spring(.bouncy(duration: 0.36, extraBounce: 0.08))
+        }
+        return .spring(response: 0.38, dampingFraction: 0.76)
+    }
+    /// Micro-interaction (press scale, opacity) — stays tight, no bounce
     static let micro = Animation.spring(response: 0.22, dampingFraction: 0.9)
     /// Refocus / blur fade — eased, not springy
     static let refocus = Animation.easeInOut(duration: 0.28)
@@ -57,6 +67,7 @@ enum AmenMotion {
 /// - Performance: uses `drawingGroup()` on the background blur only when expanded,
 ///   keeping the resting cost negligible in scroll lists.
 /// - Reduce Motion: collapses to a simple fade when the accessibility flag is set.
+@available(iOS 26, *)
 struct GlassExpandableCard<Header: View, Detail: View>: View {
     @Binding var isExpanded: Bool
     let cornerRadius: CGFloat

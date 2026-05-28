@@ -138,10 +138,11 @@ struct MessageActionCluster: View {
 }
 
 private struct ClusterButtonStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.92 : 1)
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.92 : 1)
             .opacity(configuration.isPressed ? 0.75 : 1)
-            .animation(.easeOut(duration: 0.09), value: configuration.isPressed)
+            .animation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.75), value: configuration.isPressed)
     }
 }

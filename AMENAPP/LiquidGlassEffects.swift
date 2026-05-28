@@ -346,3 +346,50 @@ struct SoftStickyHeaderModifier: ViewModifier {
             )
     }
 }
+
+// MARK: - 11) Scroll-Driven Material Reveal (Pattern 1)
+//
+// Apply to any floating nav bar or dock that should become more opaque as the
+// user scrolls away from the top. Pass a negative scroll offset (e.g. from a
+// GeometryReader preference).
+//
+// Usage:
+//   .scrollMaterialReveal(scrollOffset: scrollOffset)
+
+struct ScrollMaterialRevealModifier: ViewModifier {
+    /// Negative scroll offset value (below zero = scrolled down).
+    let scrollOffset: CGFloat
+    /// Offset range over which material fully solidifies (default 60 pts).
+    var revealRange: CGFloat = 60
+    /// Starting material opacity at top of scroll.
+    var minOpacity: Double = 0.0
+    /// Fully-revealed material opacity.
+    var maxOpacity: Double = 1.0
+
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    func body(content: Content) -> some View {
+        let progress = min(max(-scrollOffset / revealRange, 0), 1)
+        let opacity = reduceTransparency ? maxOpacity : (minOpacity + (maxOpacity - minOpacity) * Double(progress))
+        return content
+            .background(.ultraThinMaterial.opacity(opacity))
+            .animation(.easeOut(duration: 0.12), value: progress)
+    }
+}
+
+extension View {
+    /// Fades in ultraThinMaterial background as scroll offset increases downward.
+    func scrollMaterialReveal(
+        scrollOffset: CGFloat,
+        revealRange: CGFloat = 60,
+        minOpacity: Double = 0.0,
+        maxOpacity: Double = 1.0
+    ) -> some View {
+        modifier(ScrollMaterialRevealModifier(
+            scrollOffset: scrollOffset,
+            revealRange: revealRange,
+            minOpacity: minOpacity,
+            maxOpacity: maxOpacity
+        ))
+    }
+}

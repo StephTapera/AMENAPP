@@ -12,6 +12,24 @@ import SwiftData
 import Foundation
 import FirebaseAuth
 
+// MARK: - LocalPostDraftUploadPhase
+
+enum LocalPostDraftUploadPhase: String, Codable {
+    case idle      = "idle"
+    case uploading = "uploading"
+    case completed = "completed"
+    case failed    = "failed"
+}
+
+// MARK: - LocalPostDraftModerationPhase
+
+enum LocalPostDraftModerationPhase: String, Codable {
+    case pending      = "pending"
+    case passed       = "passed"
+    case blocked      = "blocked"
+    case editRequired = "edit_required"
+}
+
 // MARK: - LocalPostDraftPhase
 
 enum LocalPostDraftPhase: String, Codable {
@@ -53,6 +71,10 @@ final class LocalPostDraft {
     var witnessAttachmentJSON: String?
     var mediaMetadataDraftJSON: String?
     var phaseRawValue: String
+    var uploadPhaseRawValue: String
+    var moderationPhaseRawValue: String
+    var idempotencyToken: String?
+    var inFlightPostId: String?
     var createdAt: Date
     var updatedAt: Date
 
@@ -84,6 +106,10 @@ final class LocalPostDraft {
         self.witnessAttachmentJSON = nil
         self.mediaMetadataDraftJSON = nil
         self.phaseRawValue = LocalPostDraftPhase.editing.rawValue
+        self.uploadPhaseRawValue = LocalPostDraftUploadPhase.idle.rawValue
+        self.moderationPhaseRawValue = LocalPostDraftModerationPhase.pending.rawValue
+        self.idempotencyToken = nil
+        self.inFlightPostId = nil
         self.createdAt = Date()
         self.updatedAt = Date()
     }
@@ -177,7 +203,11 @@ final class CreatePostDraftStore {
         imageAltTexts: [String],
         imageCount: Int,
         witnessAttachmentJSON: String?,
-        mediaMetadataDraftJSON: String?
+        mediaMetadataDraftJSON: String?,
+        uploadPhaseRawValue: String? = nil,
+        moderationPhaseRawValue: String? = nil,
+        idempotencyToken: String? = nil,
+        inFlightPostId: String? = nil
     ) {
         guard let uid = Auth.auth().currentUser?.uid, !uid.isEmpty else { return }
         let context = ModelContext(container)
@@ -215,8 +245,34 @@ final class CreatePostDraftStore {
         draft.imageCount = imageCount
         draft.witnessAttachmentJSON = witnessAttachmentJSON
         draft.mediaMetadataDraftJSON = mediaMetadataDraftJSON
+        if let v = uploadPhaseRawValue { draft.uploadPhaseRawValue = v }
+        if let v = moderationPhaseRawValue { draft.moderationPhaseRawValue = v }
+        draft.idempotencyToken = idempotencyToken
+        draft.inFlightPostId = inFlightPostId
         draft.updatedAt = Date()
 
+        try? context.save()
+    }
+
+    // MARK: - Update Phase Only
+
+    func updatePhase(
+        uploadPhaseRawValue: String,
+        moderationPhaseRawValue: String,
+        idempotencyToken: String?,
+        inFlightPostId: String?
+    ) {
+        guard let uid = Auth.auth().currentUser?.uid, !uid.isEmpty else { return }
+        let context = ModelContext(container)
+        let descriptor = FetchDescriptor<LocalPostDraft>(
+            predicate: #Predicate { $0.userId == uid && $0.phaseRawValue == "editing" }
+        )
+        guard let draft = try? context.fetch(descriptor).first else { return }
+        draft.uploadPhaseRawValue = uploadPhaseRawValue
+        draft.moderationPhaseRawValue = moderationPhaseRawValue
+        draft.idempotencyToken = idempotencyToken
+        draft.inFlightPostId = inFlightPostId
+        draft.updatedAt = Date()
         try? context.save()
     }
 

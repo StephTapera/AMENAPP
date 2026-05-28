@@ -11,14 +11,14 @@ import Combine
 
 // MARK: - Voice Models
 
-enum BereanVoiceState: Equatable {
+enum BereanVoiceViewState: Equatable {
     case idle
     case listening
     case processing
     case speaking(text: String)
 }
 
-enum BereanVoiceMode: String, CaseIterable {
+enum BereanVoiceViewMode: String, CaseIterable {
     case listen  = "Listen"
     case prayer  = "Prayer"
     case study   = "Study"
@@ -62,8 +62,8 @@ struct BereanVoiceView: View {
     // Glass impl — default to .lensed for voice (most premium)
     var glassImpl: BereanGlass.Impl = .lensed
 
-    @State private var voiceState: BereanVoiceState = .idle
-    @State private var voiceMode: BereanVoiceMode = .listen
+    @State private var voiceState: BereanVoiceViewState = .idle
+    @State private var voiceMode: BereanVoiceViewMode = .listen
     @State private var transcript: String = ""
     @State private var isMuted = false
     @State private var showTranscript = false
@@ -369,9 +369,9 @@ struct BereanVoiceView: View {
     private var modePicker: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                ForEach(BereanVoiceMode.allCases, id: \.self) { mode in
+                ForEach(BereanVoiceViewMode.allCases, id: \.self) { mode in
                     BereanModeChip(
-                        label: mode.label,
+                        label: mode.rawValue,
                         icon: mode.icon,
                         isActive: voiceMode == mode
                     ) {

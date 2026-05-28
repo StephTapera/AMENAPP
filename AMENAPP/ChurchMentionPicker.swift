@@ -75,7 +75,7 @@ struct ChurchMentionPicker: View {
                 } else {
                     LazyVStack(spacing: 0) {
                         ForEach(viewModel.results) { result in
-                            ChurchSearchResultRow(result: result) {
+                            ChurchPillSearchResultRow(result: result) {
                                 if let church = result.church {
                                     onSelect(church)
                                     isPresented = false

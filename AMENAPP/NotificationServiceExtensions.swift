@@ -5,6 +5,16 @@
 //  Extensions for NotificationService with refresh, listeners, and duplicate prevention
 //
 
+// MARK: - Notification Service Ownership
+// This service owns: Extension methods on NotificationService for follow-notification lifecycle:
+//                    deduplication of follow notifications in memory (removeDuplicateFollowNotifications);
+//                    deleteFollowNotification(actorId:) — Firestore delete when user unfollows;
+//                    cleanupDuplicateFollowNotifications() — one-time or periodic Firestore cleanup
+//                    that keeps only the most recent follow notification per actor.
+// It does NOT own: Any notification type other than .follow, delivery/write of new notifications,
+//                  priority scoring, batching, re-engagement copy, or action-thread events.
+// Canonical routing reference: See NotificationServiceMap.md
+
 import Foundation
 import FirebaseFirestore
 import FirebaseAuth

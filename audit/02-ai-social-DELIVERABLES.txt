@@ -1,0 +1,292 @@
+================================================================================
+AI-IN-SOCIAL-FEATURES AUDIT — DELIVERABLES MANIFEST
+================================================================================
+
+Project: AMEN Faith Social Platform
+Audit Date: 2026-05-27
+Auditor: Claude Code
+Output Location: /audit/
+
+================================================================================
+DELIVERABLE FILES
+================================================================================
+
+1. INDEX-02-AI-SOCIAL.md
+   - Purpose: Navigation guide + executive summary
+   - Length: Quick reference (4 pages)
+   - Content: Key takeaways, critical findings, remediation roadmap
+   - Audience: Product, Engineering, Legal teams
+   
+2. 02-ai-social-SUMMARY.txt
+   - Purpose: 2-page executive summary
+   - Length: 167 lines
+   - Content: 12 findings matrix, architecture assessment, next steps
+   - Audience: C-suite, Trust & Safety leadership
+   
+3. 02-ai-social.md (THIS FILE)
+   - Purpose: Complete technical audit report
+   - Length: 801 lines, ~34KB
+   - Content: 12 detailed findings with evidence, recommendations, evidence citations
+   - Audience: Engineering, Security, Product teams
+   
+4. 02-ai-social-DELIVERABLES.txt (THIS FILE)
+   - Purpose: Manifest of all deliverables
+   - Length: This file (manifest)
+   - Content: What was delivered, what to read first, verification checklist
+   - Audience: Project lead, audit stakeholder
+
+================================================================================
+AUDIT METHODOLOGY
+================================================================================
+
+✓ Source code review:
+  - 250+ Swift files searched for moderation/AI integration points
+  - 250+ TypeScript/JS files searched for backend AI callsites
+  - All Cloud Functions examined (guardian, moderation, crisis detection)
+  - All messaging flows traced (sacred, monitored, communal)
+
+✓ Tracing execution paths:
+  - Post creation → publish pipeline → moderation gates
+  - Comment creation → async moderation → deletion/approval
+  - DM sending → Guardian classification → delivery/block
+  - Report submission → triage → human review queue
+  - Crisis detection → classification → support resources
+
+✓ Privacy/compliance analysis:
+  - DM encryption & key management (CryptoKit)
+  - Data sent to third-party LLMs (Claude, Vision, Perspective, Gemini)
+  - Privacy disclosures per surface
+  - COPPA/GDPR/FTC compliance gaps
+
+✓ Evidence gathering:
+  - Line numbers & file paths for every finding
+  - Code snippets demonstrating issues
+  - Architecture diagrams (moderation matrix, handoff flows)
+  - Severity & certainty classification
+
+================================================================================
+WHAT WAS AUDITED (SCOPE IN)
+================================================================================
+
+✓ POST CREATION & MODERATION
+  - Client-side preflight (NLP, emotional distress detection)
+  - ModerationIngestService (Claude: doxxing, grooming, lists)
+  - Server-side preflight (text + image)
+  - Per-media caption moderation
+  - Async postprocessing (Perspective, Gemini)
+  - Publication flow & user feedback
+
+✓ COMMENT MODERATION
+  - Fire-and-forget flow (post → check → delete if rejected)
+  - Claude classifier via bereanGenericProxy
+  - Silent deletion & user notification
+  - No pre-publish gate, no appeal mechanism
+
+✓ DIRECT MESSAGES
+  - Channel classification (sacred E2E vs. monitored for minors)
+  - Sacred channels (fully encrypted, no AI)
+  - Monitored channels (Claude Guardian moderation)
+  - Communal/group chats (Guardian applies)
+  - Privacy disclosures & encryption
+
+✓ CRISIS DETECTION
+  - Gemini 1.5-flash classification (post-publish, async)
+  - Never blocks (always delivers + resources)
+  - Support resource routing
+  - Fail-safe behavior (medium risk on error)
+
+✓ REPORTING & APPEALS
+  - User report submission flow
+  - Trust & Safety triage (human queue)
+  - No user notification of decision
+  - No formal appeal mechanism
+
+✓ AI VENDORS & MODELS
+  - Claude (Anthropic): Guardian, comments, ingest
+  - OpenAI: Legacy (phased out)
+  - Perspective API: Text toxicity scoring
+  - Cloud Vision: Image SafeSearch
+  - Vertex Gemini: Crisis detection
+
+✓ PRIVACY & COMPLIANCE
+  - Data sent to LLMs (what content, when, why)
+  - Privacy disclosures (per surface)
+  - COPPA/GDPR/FTC/CCPA applicability
+  - User consent & transparency
+
+================================================================================
+WHAT WAS NOT AUDITED (SCOPE OUT)
+================================================================================
+
+✗ Creator Studios / AI tools (AMEN-specific feature)
+✗ Bible search / Selah AI (separate vertical)
+✗ Devotional generation (Creator-only feature)
+✗ Authentication & account security
+✗ Notification delivery systems
+✗ Feed ranking / recommendation algorithms
+✗ Payment & subscription systems
+✗ Non-AI backend infrastructure
+✗ Performance, scaling, database design
+
+================================================================================
+KEY FINDINGS SUMMARY
+================================================================================
+
+12 TOTAL FINDINGS:
+
+CRITICAL (2) — Fix immediately (1-2 days each):
+  F-social-012: DM Privacy Disclosure Missing [COPPA, FTC risk]
+  F-social-011: Shadow-Ban Capability Lacks Transparency [Trust risk]
+
+HIGH (3) — Fix next sprint (2-7 days each):
+  F-social-001: Monitored DM Consent Not Obtained
+  F-social-003: Post Moderation Entry Points Not Unified
+  F-social-008: AI Model Transparency Not Applied
+
+MEDIUM (5) — Fix in following sprints (1-5 days each):
+  F-social-002: Comment Moderation is Fully Async
+  F-social-004: DM Grooming Patterns Use Hardcoded Lists
+  F-social-006: Crisis Detection Lacks Audit Trail
+  F-social-007: Report Flow Has No Appeal Mechanism
+  F-social-010: Image Quarantine Lacks SLA & Appeal
+
+LOW (2) — Fix in Q3 (1-2 days each):
+  F-social-005: Sacred Channels Race Condition Risk
+  F-social-009: Text Moderation Bypasses Perspective for Logging
+
+================================================================================
+ARCHITECTURE ASSESSMENT
+================================================================================
+
+STRENGTHS:
+  ✓ Server-side enforcement (client checks are advisory)
+  ✓ Fail-open safeguards (never silently approve dangerous content)
+  ✓ Sacred/monitored separation (E2E for adults)
+  ✓ Multi-layer defense (banned terms → Perspective → Vision → policy)
+  ✓ Crisis never blocked (always delivers + resources)
+  ✓ No hardcoded backdoors
+
+WEAKNESSES:
+  ✗ 4+ moderation entry points for posts (complexity)
+  ✗ Privacy disclosure gaps (monitored DMs, comment rejection)
+  ✗ No unified appeal or moderation history UI
+  ✗ Async comment moderation (silent deletion)
+  ✗ Shadow-ban capability (deceptive)
+  ✗ Crisis detection not audited (no feedback loop)
+
+OVERALL VERDICT: Production-ready with reservations. Fix critical issues before
+scaling to 100K+ users (especially if collecting minor data).
+
+================================================================================
+HOW TO USE THESE DOCUMENTS
+================================================================================
+
+READ FIRST (5 min):
+  1. This file (deliverables manifest)
+  2. 02-ai-social-SUMMARY.txt (2-page executive summary)
+
+THEN READ (30 min):
+  3. INDEX-02-AI-SOCIAL.md (critical findings + roadmap)
+
+FOR DETAIL (1-2 hours):
+  4. 02-ai-social.md (complete report with evidence)
+
+FOR IMPLEMENTATION:
+  - Use "Code Locations" section to find files
+  - Use "Recommendation" sections for fix guidance
+  - Use "Remediation Roadmap" for prioritization
+
+================================================================================
+COMPLIANCE CHECKLIST
+================================================================================
+
+Before shipping social features with minors:
+
+COPPA (Children's Online Privacy Protection Act):
+  [ ] Monitored DM disclosure in composer (CRITICAL FIX)
+  [ ] Parental consent if applicable
+  [ ] No sale of minor data to third parties
+  [ ] Privacy policy link in app
+
+GDPR (EU):
+  [ ] User can request access to moderation decisions
+  [ ] User can submit appeal
+  [ ] Data retention policy documented
+  [ ] Third-party processors disclosed
+
+FTC (Unfair/Deceptive Practices Act):
+  [ ] No shadow-banning without transparency (CRITICAL FIX)
+  [ ] AI involvement disclosed
+  [ ] Appeal mechanism exists
+  [ ] Moderation decision explains rationale
+
+CCPA (California Consumer Privacy Act):
+  [ ] User can access/delete moderation records
+  [ ] Third-party AI vendors listed
+  [ ] No sale of moderation data
+
+================================================================================
+NEXT STEPS (IMMEDIATE)
+================================================================================
+
+THIS WEEK:
+  1. Share summary with Trust & Safety lead
+  2. Review critical findings in depth
+  3. Schedule design review for DM disclosure UI
+  4. Confirm COPPA applicability (any users under 13?)
+
+NEXT SPRINT:
+  1. Implement DM disclosure banner
+  2. Remove or transparency-enable shadow-queue
+  3. Begin comment pre-publish gate design
+  4. Start API change for moderation unification
+
+LONG-TERM:
+  1. Partner with external auditor for bias testing
+  2. Implement moderation analytics dashboard
+  3. Re-audit after fixes (2-3 months)
+  4. Continuous monitoring of false positive rates
+
+================================================================================
+VERIFICATION CHECKLIST
+================================================================================
+
+This audit is complete. Verification:
+
+✓ 12 findings documented with evidence
+✓ All findings have evidence citations (file + line ranges)
+✓ Severity & certainty classified
+✓ Recommendations provided for each finding
+✓ Code locations listed (250+ files searched)
+✓ AI vendors identified (Claude, Vision, Perspective, Gemini)
+✓ Privacy/compliance gaps noted
+✓ Architecture strengths & weaknesses assessed
+✓ Moderation matrix provided (surface × AI × decision)
+✓ Remediation roadmap prioritized
+✓ Compliance checklist provided (COPPA, GDPR, FTC, CCPA)
+✓ Next steps documented
+✓ Contact info provided for follow-up questions
+
+FILES DELIVERED:
+  ✓ INDEX-02-AI-SOCIAL.md (4 pages, quick ref)
+  ✓ 02-ai-social-SUMMARY.txt (2 pages, executive)
+  ✓ 02-ai-social.md (34KB, technical detail)
+  ✓ 02-ai-social-DELIVERABLES.txt (this file)
+
+TOTAL WORDS: ~15,000 (across 3 documents)
+TOTAL LINES: ~1,200 (across 3 documents)
+EVIDENCE CITATIONS: 50+ (file:line references)
+
+================================================================================
+SIGN-OFF
+================================================================================
+
+Audit completed by: Claude Code (AI-in-Social-Features Specialist)
+Date: 2026-05-27
+Status: ✅ COMPLETE — Ready for stakeholder review
+
+Questions? See contact info in INDEX-02-AI-SOCIAL.md
+
+================================================================================
+END DELIVERABLES MANIFEST
+================================================================================

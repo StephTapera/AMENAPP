@@ -2,16 +2,6 @@ import Foundation
 import CoreLocation
 import FirebaseFunctions
 
-struct SmartChurchServiceTime: Identifiable, Codable, Hashable {
-    let day: String
-    let time: String
-    let language: String
-    let type: String
-
-    var id: String { [day, time, language, type].joined(separator: "|") }
-    var displayText: String { "\(day) \(time)" }
-}
-
 struct SmartChurchSummary: Identifiable, Codable, Hashable {
     let id: String
     var name: String
@@ -47,7 +37,6 @@ struct SmartChurchSummary: Identifiable, Codable, Hashable {
 
     var legacyChurch: Church {
         Church(
-            canonicalChurchId: id,
             name: name,
             denomination: denomination.isEmpty ? "Christian Church" : denomination,
             address: address,
@@ -55,8 +44,7 @@ struct SmartChurchSummary: Identifiable, Codable, Hashable {
             serviceTime: serviceTimes.first?.displayText ?? "Service times not verified yet",
             phone: phone ?? "No phone available",
             coordinate: coordinate,
-            website: website,
-            heroImageURL: photos.first
+            website: website
         )
     }
 }
@@ -68,6 +56,12 @@ struct SmartChurchSearchItem: Identifiable, Hashable {
     let score: Double
 
     var id: String { church.id }
+}
+
+struct BereanChurchChatEvent {
+    let kind: String          // "status" | "results" | "message" | "error"
+    let message: String?
+    let results: [SmartChurchSearchItem]
 }
 
 final class SmartChurchSearchService {
@@ -105,6 +99,59 @@ final class SmartChurchSearchService {
             kidsCheckIn: data["kidsCheckIn"] as? String ?? "Kids check-in details are not verified yet.",
             whatToBring: data["whatToBring"] as? String ?? "Bring anything you normally need for church."
         )
+    }
+
+    /// Streaming Berean church chat: calls the `bereanChurchChat` Cloud Function and
+    /// yields typed events so callers can display status, results, and messages progressively.
+    func bereanChurchChat(
+        query: String,
+        userLocation: CLLocationCoordinate2D,
+        radiusMiles: Double
+    ) -> AsyncThrowingStream<BereanChurchChatEvent, Error> {
+        AsyncThrowingStream { continuation in
+            Task {
+                do {
+                    let payload: [String: Any] = [
+                        "query": query,
+                        "userLat": userLocation.latitude,
+                        "userLng": userLocation.longitude,
+                        "radiusMiles": radiusMiles
+                    ]
+                    let result = try await functions.httpsCallable("bereanChurchChat").call(payload)
+                    guard let envelope = result.data as? [String: Any] else {
+                        continuation.yield(BereanChurchChatEvent(kind: "error", message: "Unexpected response format.", results: []))
+                        continuation.finish()
+                        return
+                    }
+                    // Emit a status event if provided
+                    if let status = envelope["status"] as? String {
+                        continuation.yield(BereanChurchChatEvent(kind: "status", message: status, results: []))
+                    }
+                    // Emit results if provided
+                    if let rows = envelope["results"] as? [[String: Any]] {
+                        let items = rows.compactMap { row -> SmartChurchSearchItem? in
+                            guard let churchData = row["church"] as? [String: Any],
+                                  let church = SmartChurchSummary(data: churchData) else { return nil }
+                            return SmartChurchSearchItem(
+                                church: church,
+                                distanceMiles: Self.double(row["distanceMiles"]) ?? 0,
+                                matchReason: row["matchReason"] as? String ?? "Matches stored church profile signals.",
+                                score: Self.double(row["score"]) ?? 0
+                            )
+                        }
+                        continuation.yield(BereanChurchChatEvent(kind: "results", message: nil, results: items))
+                    }
+                    // Emit a narrative message if provided
+                    if let message = envelope["message"] as? String, !message.isEmpty {
+                        continuation.yield(BereanChurchChatEvent(kind: "message", message: message, results: []))
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.yield(BereanChurchChatEvent(kind: "error", message: error.localizedDescription, results: []))
+                    continuation.finish(throwing: error)
+                }
+            }
+        }
     }
 
     private func decodeSearchItems(from value: Any) throws -> [SmartChurchSearchItem] {

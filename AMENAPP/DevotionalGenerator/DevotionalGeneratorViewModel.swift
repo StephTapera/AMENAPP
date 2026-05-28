@@ -62,7 +62,7 @@ final class DevotionalGeneratorViewModel {
     // MARK: - Services
 
     private let generationService = DevotionalGenerationService.shared
-    private let rhythmService = SpiritualRhythmService.shared
+    private let rhythmService = DevotionalRhythmService.shared
 
     // MARK: - Init
 

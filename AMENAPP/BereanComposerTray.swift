@@ -68,6 +68,9 @@ struct BereanComposerTray: View {
     @State private var showCapabilities = false
     @State private var scriptureGoldPulse = false
     @State private var modeChipPressedID: BereanPersonalityMode? = nil
+    /// Stored task reference so `startGoldPulse()` can cancel the previous loop
+    /// before starting a new one (P-07: unbounded concurrent task fix).
+    @State private var goldPulseTask: Task<Void, Never>? = nil
 
     // The five primary modes surfaced inline (matches the spec "all 5 modes").
     private let primaryModes: [BereanPersonalityMode] = [
@@ -242,11 +245,14 @@ struct BereanComposerTray: View {
         .accessibilityHint("Asks Berean about \(ref)")
         .onAppear { startGoldPulse() }
         .onChange(of: ref) { _, _ in startGoldPulse() }
+        .onDisappear { goldPulseTask?.cancel() }
     }
 
     // MARK: Reasoning ready chip
 
     private var reasoningReadyChip: some View {
+        // Color.amenPurple is a global token defined in ChurchNotesDesignSystem.swift.
+        // No private copy needed here. (DS-9: already promoted to global Color extension.)
         HStack(spacing: 6) {
             Image(systemName: "sparkles")
                 .font(AMENFont.semiBold(11))
@@ -600,14 +606,23 @@ struct BereanComposerTray: View {
 
     private func startGoldPulse() {
         guard !reduceMotion else { return }
+        // Cancel any in-flight pulse loop before starting a new one (P-07 fix:
+        // prevents unbounded concurrent tasks when scripture ref changes rapidly).
+        goldPulseTask?.cancel()
+        scriptureGoldPulse = false
         // Drive the border opacity between two values using a repeating task so
         // the only animation curve applied to SwiftUI state is a spring.
-        Task { @MainActor in
+        goldPulseTask = Task { @MainActor in
             while !Task.isCancelled {
-                withAnimation(.spring(response: 1.1, dampingFraction: 0.55)) {
-                    scriptureGoldPulse.toggle()
+                withAnimation(reduceMotion ? .none : .spring(response: 0.42, dampingFraction: 0.82)) {
+                    scriptureGoldPulse = true
                 }
-                try? await Task.sleep(for: .milliseconds(1200))
+                try? await Task.sleep(for: .milliseconds(900))
+                guard !Task.isCancelled else { break }
+                withAnimation(reduceMotion ? .none : .spring(response: 0.42, dampingFraction: 0.82)) {
+                    scriptureGoldPulse = false
+                }
+                try? await Task.sleep(for: .milliseconds(600))
             }
         }
     }
@@ -622,7 +637,7 @@ struct BereanComposerTray: View {
         BereanComposerTray(
             draftText: $draft,
             draftIntent: .empty,
-            selectedMode: .askBerean,
+            selectedMode: .scholar,
             onModeChange: { _ in },
             onChipTap: { draft = $0 },
             onActionTap: { _ in }
@@ -642,7 +657,7 @@ struct BereanComposerTray: View {
         BereanComposerTray(
             draftText: $draft,
             draftIntent: .scriptureRef("John 3:16"),
-            selectedMode: .scriptureStudy,
+            selectedMode: .scholar,
             onModeChange: { _ in },
             onChipTap: { draft = $0 },
             onActionTap: { _ in }
@@ -662,7 +677,7 @@ struct BereanComposerTray: View {
         BereanComposerTray(
             draftText: $draft,
             draftIntent: .question,
-            selectedMode: .deepStudy,
+            selectedMode: .strategist,
             onModeChange: { _ in },
             onChipTap: { draft = $0 },
             onActionTap: { _ in }
@@ -681,8 +696,8 @@ struct BereanComposerTray: View {
     VStack(spacing: 8) {
         BereanComposerTray(
             draftText: $draft,
-            draftIntent: .modeKeyword(.prayerCompanion),
-            selectedMode: .askBerean,
+            draftIntent: .modeKeyword(.shepherd),
+            selectedMode: .scholar,
             onModeChange: { _ in },
             onChipTap: { draft = $0 },
             onActionTap: { _ in }

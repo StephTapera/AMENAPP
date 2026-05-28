@@ -46,9 +46,23 @@ struct FeaturedHeroCarousel: View {
         max(0, scrollOffset) * 0.28
     }
 
+    // Outer hero parallax: when user scrolls content up (negative offset),
+    // the whole hero card moves at 40% speed creating depth separation.
+    private var scrollParallaxOffset: CGFloat {
+        min(0, scrollOffset) * 0.4
+    }
+
+    // Pull-down stretch: when overscrolled downward (positive offset),
+    // scale the hero slightly so it feels anchored at the bottom edge.
+    private var pullDownScale: CGFloat {
+        max(1.0, 1.0 + scrollOffset * 0.003)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 28) {
             heroPager
+                .offset(y: scrollParallaxOffset)
+                .scaleEffect(pullDownScale, anchor: .bottom)
             if !rowItems.isEmpty {
                 carouselRow
             }
@@ -71,7 +85,12 @@ struct FeaturedHeroCarousel: View {
             .frame(height: 500)
             .onReceive(autoAdvanceTimer) { _ in
                 guard !featured.isEmpty else { return }
-                withAnimation(.amenSnappy) {
+                // Pattern 2: bouncy spring for hero page advance
+                withAnimation(
+                    UIAccessibility.isReduceMotionEnabled
+                        ? .easeOut(duration: 0.18)
+                        : .spring(.bouncy(duration: 0.4, extraBounce: 0.1))
+                ) {
                     selection = (selection + 1) % featured.count
                 }
             }
@@ -121,13 +140,26 @@ struct FeaturedHeroCarousel: View {
                 .foregroundStyle(.white.opacity(0.85))
 
                 HStack(spacing: 14) {
+                    // Pattern 7 + 10: press-scale + specular top-edge shimmer on Play
                     Button { onPlay(item) } label: {
                         Label("Play", systemImage: "play.fill")
                             .fontWeight(.semibold)
                             .padding(.horizontal, 40).padding(.vertical, 14)
-                            .background(.white, in: Capsule())
+                            .background(
+                                ZStack {
+                                    Capsule().fill(Color.white)
+                                    // Pattern 10: specular top-edge highlight
+                                    Capsule()
+                                        .fill(Color.white.opacity(0.45))
+                                        .frame(height: 1.5)
+                                        .padding(.horizontal, 10)
+                                        .frame(maxHeight: .infinity, alignment: .top)
+                                        .padding(.top, 2)
+                                }
+                            )
                             .foregroundStyle(.black)
                     }
+                    .amenPress()
                     Button { onAdd(item) } label: {
                         Image(systemName: "plus")
                             .font(.title3.weight(.semibold))
@@ -135,6 +167,7 @@ struct FeaturedHeroCarousel: View {
                             .liquidGlass(cornerRadius: 25)
                             .foregroundStyle(.white)
                     }
+                    .amenPress()
                 }
                 .buttonStyle(.plain)
             }
@@ -145,12 +178,30 @@ struct FeaturedHeroCarousel: View {
     }
 
     private var pageDots: some View {
+        // Pattern 6: stretching page indicator — active dot morphs wider with bouncy spring
         HStack(spacing: 7) {
             ForEach(featured.indices, id: \.self) { i in
                 Capsule()
-                    .fill(.white.opacity(i == selection ? 0.95 : 0.3))
-                    .frame(width: i == selection ? 22 : 7, height: 7)
-                    .animation(.amenSnappy, value: selection)
+                    .fill(.white.opacity(i == selection ? 0.95 : 0.30))
+                    // Active pill stretches to 26pt; inactive dots collapse to 7pt
+                    .frame(width: i == selection ? 26 : 7, height: 7)
+                    // Pattern 6: canonical bouncy spring for pill width morph
+                    .animation(
+                        UIAccessibility.isReduceMotionEnabled
+                            ? .easeOut(duration: 0.18)
+                            : .spring(.bouncy(duration: 0.4, extraBounce: 0.1)),
+                        value: selection
+                    )
+                    // Pattern 10: specular top highlight on active pill
+                    .overlay(alignment: .top) {
+                        if i == selection {
+                            Capsule()
+                                .fill(Color.white.opacity(0.45))
+                                .frame(height: 1.5)
+                                .padding(.horizontal, 4)
+                                .padding(.top, 1)
+                        }
+                    }
             }
         }
     }

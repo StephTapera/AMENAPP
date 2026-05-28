@@ -6,6 +6,17 @@
 //  Batches similar notifications intelligently
 //
 
+// MARK: - Notification Service Ownership
+// This service owns: Social-activity batching (prayers, amens, comments, follows, reposts, mentions)
+//                    using a deterministic day-bucket deduplication key; queuing notifications into
+//                    Firestore notificationBatches collection; scheduling batch delivery based on
+//                    AI-learned user preferences (bestTimeOfDay, quietHours); delivering batched
+//                    UNNotificationRequests with grouped copy ("X people prayed for your request");
+//                    learning/updating AI notification preferences in userNotificationPreferences.
+// It does NOT own: Priority scoring, grouping of in-app notification objects, action-thread events,
+//                  re-engagement copy, spiritual rhythm gating, or raw per-notification Firestore reads.
+// Canonical routing reference: See NotificationServiceMap.md
+
 import Foundation
 import FirebaseFirestore
 import FirebaseAuth

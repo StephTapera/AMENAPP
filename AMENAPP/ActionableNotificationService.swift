@@ -1,3 +1,22 @@
+// MARK: - Notification Service Ownership
+// This service owns: The centralised, production-grade notification send path for all
+//                    NotificationCategory types (directMessages, groupMessages, follows, prayerUpdates,
+//                    replies, mentions, reactions, reposts, churchNotes, crisisAlerts);
+//                    atomic Firestore batch that writes in-app notification + pendingNotifications
+//                    push entry in one commit (idempotent via deterministic doc IDs);
+//                    like rollup (one rollup doc per post, updated in a Firestore transaction);
+//                    per-category UNNotificationAction generation (reply, mute, accept/decline follow,
+//                    markPrayed, restrict, hide, muteThread);
+//                    quiet-hours enforcement, per-category toggle, privacy level, and channel routing
+//                    (push / inApp / digest / silent / suppress);
+//                    handleAction() — processes taps on actionable notification buttons.
+// It does NOT own: Re-engagement copy, action-thread specific delivery (owned by ActionThreadNotificationService),
+//                  prayerAnswered fan-out (owned by PrayerAnsweredNotificationService),
+//                  AI copy generation (owned by NotificationGenkitService),
+//                  batching windows (owned by SmartNotificationService),
+//                  priority scoring for display (owned by SmartNotificationEngine).
+// Canonical routing reference: See NotificationServiceMap.md
+
 import Foundation
 import FirebaseFirestore
 import FirebaseAuth

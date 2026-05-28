@@ -55,6 +55,7 @@ struct EnrichedMediaGridItem: Identifiable, Equatable {
     let postContent: String
     let postTimestamp: String
     let postType: String?
+    let authorId: String
     let authorName: String?
     let authorProfileImageURL: String?
     let createdAt: Date
@@ -121,6 +122,7 @@ final class MediaFeedViewModel: ObservableObject {
                     postContent: post.content,
                     postTimestamp: post.timeAgo,
                     postType: post.category.displayName,
+                    authorId: post.authorId,
                     authorName: post.authorName,
                     authorProfileImageURL: post.authorProfileImageURL,
                     createdAt: post.createdAt,
@@ -154,6 +156,7 @@ final class MediaFeedViewModel: ObservableObject {
                     postContent: post.content,
                     postTimestamp: post.timestamp,
                     postType: post.postType?.rawValue,
+                    authorId: post.authorId,
                     authorName: post.authorName,
                     authorProfileImageURL: post.authorProfileImageURL,
                     createdAt: post.createdAt,

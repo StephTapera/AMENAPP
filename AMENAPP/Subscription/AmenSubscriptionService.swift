@@ -77,33 +77,34 @@ final class AmenSubscriptionService: ObservableObject {
     @Published private(set) var orgPlanFeatures: Set<String> = []
 
     private let db = Firestore.firestore()
-    private var listenerTask: Task<Void, Never>?
+    private var listenerRegistration: ListenerRegistration?
 
     private init() {}
 
     func startListening() {
         guard let uid = Auth.auth().currentUser?.uid else { return }
-        listenerTask?.cancel()
-        listenerTask = Task {
-            let ref = db.collection("users").document(uid)
-                .collection("entitlements").document("active")
-            do {
-                for try await snapshot in ref.snapshots() {
-                    let data = snapshot.data() ?? [:]
-                    let active = data["active"] as? [String] ?? []
-                    tier = Self.resolveTier(from: active)
-                    isOrgMember = active.contains("org_member")
-                    orgPlanFeatures = Set(data["orgPlanFeatures"] as? [String] ?? [])
-                }
-            } catch {
+        listenerRegistration?.remove()
+        let ref = db.collection("users").document(uid)
+            .collection("entitlements").document("active")
+        listenerRegistration = ref.addSnapshotListener { [weak self] snapshot, error in
+            guard let self else { return }
+            if let error = error {
                 dlog("⚠️ AmenSubscriptionService: \(error)")
+                return
+            }
+            let data = snapshot?.data() ?? [:]
+            let active = data["active"] as? [String] ?? []
+            Task { @MainActor in
+                self.tier = Self.resolveTier(from: active)
+                self.isOrgMember = active.contains("org_member")
+                self.orgPlanFeatures = Set(data["orgPlanFeatures"] as? [String] ?? [])
             }
         }
     }
 
     func stopListening() {
-        listenerTask?.cancel()
-        listenerTask = nil
+        listenerRegistration?.remove()
+        listenerRegistration = nil
     }
 
     func hasEntitlement(_ id: String) -> Bool {

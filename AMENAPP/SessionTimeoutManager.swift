@@ -862,7 +862,7 @@ struct AppLoadingScreen: View {
 
     var body: some View {
         ZStack {
-            Color.white.ignoresSafeArea()
+            Color(.systemBackground).ignoresSafeArea()
 
             VStack(spacing: 0) {
                 Spacer()
@@ -880,19 +880,15 @@ struct AppLoadingScreen: View {
                 Text("Social Media, Re-ordered")
                     .font(.systemScaled(13, weight: .light))
                     .tracking(2)
-                    .foregroundColor(.black.opacity(0.35))
+                    .foregroundStyle(.secondary)
                     .padding(.top, 16)
                     .opacity(taglineOpacity)
 
                 Spacer()
 
-                // Loading dots + status text
+                // Infinity loader + status text — adapts to color scheme automatically
                 VStack(spacing: 12) {
-                    AMENLoadingIndicator(color: .black.opacity(0.3), dotSize: 8, spacing: 7, bounceHeight: 10)
-
-                    Text("Loading your feed...")
-                        .font(.systemScaled(12, weight: .regular))
-                        .foregroundColor(.black.opacity(0.25))
+                    AMENLoader(size: 72, caption: "loading")
                 }
                 .opacity(dotsOpacity)
                 .padding(.bottom, 60)

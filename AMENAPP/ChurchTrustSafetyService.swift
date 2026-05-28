@@ -2,6 +2,73 @@ import Foundation
 import FirebaseFirestore
 import FirebaseFunctions
 
+// MARK: - Church Admin Models
+
+struct ChurchAdminProfile: Codable {
+    var uid: String
+    var churchId: String
+    var displayName: String?
+    var email: String?
+    var role: String?
+    var verificationStatus: String?
+}
+
+struct ChurchVerificationRequest: Codable {
+    var churchId: String
+    var contactEmail: String
+    var claimedDomain: String?
+    var websiteProofURL: String?
+    var livestreamProofURL: String?
+    var notes: String?
+}
+
+struct ChurchAdminEditableProfile: Codable {
+    var churchId: String
+    var displayDescription: String?
+    var serviceTimes: [ChurchServiceTime]
+    var livestreamURL: String?
+    var accessibilityInfo: [String: String]
+    var parkingInfo: String?
+    var ministries: [String]
+    var events: [String]
+    var prayerNights: [String]
+    var firstTimeVisitorInfo: String?
+}
+
+struct ChurchModerationQueueItem: Codable, Identifiable {
+    var id: String
+    var churchId: String
+    var reportedContentId: String?
+    var reportType: String?
+    var status: String?
+    var createdAt: Date?
+}
+
+enum ChurchModerationDecision: String, Codable {
+    case approve
+    case remove
+    case warn
+    case escalate
+}
+
+struct ChurchModerationDecisionPayload: Codable {
+    var queueItemId: String
+    var decision: ChurchModerationDecision
+    var reasons: [String]
+    var reviewerNote: String?
+    var reversible: Bool
+}
+
+struct ChurchQualitySnapshot: Codable {
+    var churchId: String
+    var overallScore: Double?
+    var engagementScore: Double?
+    var contentScore: Double?
+    var updatedAt: Date?
+}
+
+// MARK: - Service
+
 @MainActor
 final class ChurchTrustSafetyService {
     static let shared = ChurchTrustSafetyService()
@@ -34,8 +101,8 @@ final class ChurchTrustSafetyService {
         let serviceTimes = profile.serviceTimes.map { service in
             [
                 "dayOfWeek": service.dayOfWeek,
-                "time": service.time,
-                "serviceType": service.serviceType as Any,
+                "time": service.startTime,
+                "serviceType": service.label as Any,
             ]
         }
 

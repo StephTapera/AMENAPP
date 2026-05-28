@@ -130,11 +130,12 @@ struct PrivacyDashboardView: View {
         .task {
             await loadUserData()
         }
-        .alert("Export Requested", isPresented: $showExportSuccess) {
-            Button("OK") { }
-        } message: {
-            Text("We'll email you a copy of your data within 48 hours.")
-        }
+        .amenAlert(isPresented: $showExportSuccess, config: LiquidGlassAlertConfig(
+            title: "Export Requested",
+            message: "We'll email you a copy of your data within 48 hours.",
+            icon: "envelope.badge.shield.half.filled",
+            primaryButton: LiquidGlassAlertButton("OK", tone: .spiritual) {}
+        ))
     }
     
     private func dataRow(_ label: String, value: String) -> some View {
@@ -159,11 +160,11 @@ struct PrivacyDashboardView: View {
             let userDoc = try await db.collection("users").document(userId).getDocument()
             let created = (userDoc.data()?["createdAt"] as? Timestamp)?.dateValue() ?? Date()
             
-            // Count posts
-            let postsSnapshot = try await db.collection("posts").whereField("userId", isEqualTo: userId).getDocuments()
-            
-            // Count comments  
-            let commentsSnapshot = try await db.collection("comments").whereField("userId", isEqualTo: userId).getDocuments()
+            // Count posts (capped at 1000 for display purposes — exact count via backend if needed)
+            let postsSnapshot = try await db.collection("posts").whereField("userId", isEqualTo: userId).limit(to: 1000).getDocuments()
+
+            // Count comments (capped at 1000 for display purposes)
+            let commentsSnapshot = try await db.collection("comments").whereField("userId", isEqualTo: userId).limit(to: 1000).getDocuments()
             
             await MainActor.run {
                 userData = UserDataSummary(

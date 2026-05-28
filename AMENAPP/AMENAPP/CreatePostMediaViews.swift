@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 struct ImagePreviewGrid: View {
     @Binding var images: [Data]
     var onAddMore: (() -> Void)? = nil
+    var selectedIndex: Binding<Int>? = nil
     @State private var draggingItem: Data?
 
     var body: some View {

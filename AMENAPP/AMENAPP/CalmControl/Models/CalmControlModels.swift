@@ -20,6 +20,8 @@ enum PresenceState: String, Codable, CaseIterable {
         }
     }
 
+    var label: String { displayName }
+
     var icon: String {
         switch self {
         case .visible:    return "eye"

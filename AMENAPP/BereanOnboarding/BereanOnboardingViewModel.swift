@@ -48,7 +48,7 @@ final class BereanOnboardingManager: ObservableObject {
 
     /// Call once when the Berean feature first appears. Returns after Firestore resolves.
     func resolve() async {
-        presentation = .loading
+        guard presentation == .loading else { return }
 
         let localDecision = localEvaluation()
 

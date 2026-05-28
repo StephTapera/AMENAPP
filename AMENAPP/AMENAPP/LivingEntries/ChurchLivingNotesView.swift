@@ -1,4 +1,5 @@
 import SwiftUI
+import FirebaseFirestore
 
 struct ChurchLivingNotesView: View {
     let churchId: String

@@ -180,7 +180,7 @@ struct QuickReplaceVerseDrawer: View {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 6) {
-                        Text(verse.reference)
+                        Text(verse.reference.displayString)
                             .font(.systemScaled(13, weight: .bold))
                             .foregroundStyle(Color.primary)
                         
@@ -214,7 +214,7 @@ struct QuickReplaceVerseDrawer: View {
             )
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Replace with \(verse.reference)")
+        .accessibilityLabel("Replace with \(verse.reference.displayString)")
     }
     
     private func sectionHeader(_ title: String) -> some View {

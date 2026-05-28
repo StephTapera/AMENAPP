@@ -74,7 +74,7 @@ final class SingleCamCaptureService: NSObject {
         return try await withCheckedThrowingContinuation { continuation in
             sessionQueue.async {
                 let settings = AVCapturePhotoSettings()
-                if self.photoOutput.supportedFlashModes.contains(NSNumber(value: flashMode.rawValue)) {
+                if let device = self.videoInput?.device, device.isFlashModeSupported(flashMode) {
                     settings.flashMode = flashMode
                 }
                 self.photoCaptureContinuation = continuation

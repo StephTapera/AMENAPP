@@ -25,6 +25,9 @@ final class DiscoverViewModel {
     }
 
     private(set) var phase: Phase = .loading
+    /// Parallel array to `phase.featured`; retains `contentRef` which the
+    /// view-model `FeaturedItem` does not carry.
+    private var featuredEntries: [FeaturedEntry] = []
 
     private var featuredTask: Task<Void, Never>?
     private var continueTask: Task<Void, Never>?
@@ -44,6 +47,7 @@ final class DiscoverViewModel {
                     if entries.isEmpty {
                         if case .loading = phase { phase = .empty }
                     } else {
+                        featuredEntries = entries
                         let items = entries.map { $0.asFeaturedItem() }
                         let existing = phase.continueItems ?? []
                         phase = .loaded(featured: items, continueItems: existing)
@@ -83,7 +87,7 @@ final class DiscoverViewModel {
     // MARK: - Actions
 
     func play(_ item: FeaturedItem) {
-        guard let ref = item.contentRef,
+        guard let ref = featuredEntries.first(where: { $0.title == item.title })?.contentRef,
               let uid = Auth.auth().currentUser?.uid else { return }
         Task {
             try? await service.markEngaged(uid: uid, ref: ref)

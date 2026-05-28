@@ -266,6 +266,18 @@ final class ContextLabelPreferenceStore: ObservableObject {
         await saveRemote()
     }
 
+    func unmute(topicId: String) async {
+        mutedContextTopicIds.remove(topicId)
+        persistLocally()
+        await saveRemote()
+    }
+
+    func unmute(typeRawValue: String) async {
+        mutedContextTypes.remove(typeRawValue)
+        persistLocally()
+        await saveRemote()
+    }
+
     func setDisabled(_ disabled: Bool) async {
         contextualLabelsDisabled = disabled
         persistLocally()

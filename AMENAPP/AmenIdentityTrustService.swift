@@ -74,7 +74,7 @@ final class AmenIdentityTrustService: ObservableObject {
 
     private func parseProfile(_ data: [String: Any], uid: String) -> IdentityTrustProfile {
         let levelStr = data["trustLevel"] as? String ?? "basic"
-        IdentityTrustProfile(
+        return IdentityTrustProfile(
             uid: uid,
             trustLevel: IdentityTrustLevel(rawValue: levelStr) ?? .basic,
             verifiedAt: nil,

@@ -144,10 +144,22 @@ struct ShareExtensionComposeView: View {
 
                         // Link Card
                         if !viewModel.linkURLString.isEmpty {
-                            LinkCardView(
-                                urlString: viewModel.linkURLString,
-                                onRemove: { viewModel.linkURLString = "" }
-                            )
+                            HStack {
+                                Text(viewModel.linkURLString)
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                                Spacer()
+                                Button {
+                                    viewModel.linkURLString = ""
+                                } label: {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .foregroundStyle(.secondary)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                            .padding(10)
+                            .background(.quaternary, in: RoundedRectangle(cornerRadius: 10))
                             .padding(.horizontal, 20)
                         }
 
@@ -189,7 +201,7 @@ struct ShareExtensionComposeView: View {
                             let count = viewModel.draftText.count
                             Text("\(count)/500")
                                 .font(.system(size: 12))
-                                .foregroundStyle(count > 450 ? .orange : .tertiary)
+                                .foregroundStyle(count > 450 ? Color.orange : Color.secondary.opacity(0.5))
                         }
                         .padding(.horizontal, 24)
 

@@ -1,0 +1,51 @@
+{
+  "environment": "staging",
+  "reviewedBy": "",
+  "reviewedAt": "",
+  "checks": {
+    "liveProviderSmoke": {
+      "status": "pending",
+      "evidence": "Paste provider smoke command output or CI artifact URL."
+    },
+    "providerWebhookApproval": {
+      "status": "pending",
+      "evidence": "Firestore path showing approved privateVerification and public summary update."
+    },
+    "providerWebhookRejection": {
+      "status": "pending",
+      "evidence": "Firestore path showing rejected request without public badge."
+    },
+    "providerWebhookIdempotency": {
+      "status": "pending",
+      "evidence": "Repeated webhook result showing no duplicate approval/audit side effects."
+    },
+    "adminReviewerE2E": {
+      "status": "pending",
+      "evidence": "Reviewer flow notes: pending -> needs info/reject/approve/revoke -> audit log."
+    },
+    "broadSurfaceQA": {
+      "status": "pending",
+      "evidence": "Screens checked: profile header, org header, member cards, creator cards, DM sheet, contextual comments."
+    },
+    "remoteConfigRollout": {
+      "status": "pending",
+      "evidence": "Remote Config version and rollback test notes."
+    },
+    "dataBackfill": {
+      "status": "pending",
+      "evidence": "Dry-run and write output from backfill-verification-summaries.mjs."
+    },
+    "accessibilityDeviceQA": {
+      "status": "pending",
+      "evidence": "Device/settings matrix notes for VoiceOver, Dynamic Type, contrast, transparency, motion, dark mode."
+    },
+    "noRawIdStorageConfirmed": {
+      "status": "pending",
+      "evidence": "Firestore inspection confirming no raw ID/selfie/document fields."
+    },
+    "clientSpoofingBlockedConfirmed": {
+      "status": "pending",
+      "evidence": "Rules/backend test artifacts proving clients cannot write truth fields."
+    }
+  }
+}

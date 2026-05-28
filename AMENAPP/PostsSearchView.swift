@@ -426,7 +426,7 @@ struct PostsSearchView: View {
 
 // MARK: - Category Chip
 
-struct CategoryChip: View {
+private struct CategoryChip: View {
     let category: PostsSearchView.PostCategory
     let isSelected: Bool
     let action: () -> Void

@@ -136,7 +136,7 @@ class LiquidGlassVerseSearchService: ObservableObject {
                 }
             } catch {
                 dlog("⚠️ [LiquidGlassVerse] API failed, using local fallback")
-                apiResults = LocalVerseLibrary.search(query, translation: selectedTranslation)
+                apiResults = LocalVerseLibrary.search(query, translation: selectedTranslation).map { $0.asBibleVerse }
             }
             
             guard !Task.isCancelled else { return }
@@ -535,7 +535,7 @@ struct LiquidGlassVerseResultCard: View {
         Button(action: onTap) {
             VStack(alignment: .leading, spacing: 8) {
                 // Reference
-                Text(verse.reference)
+                Text(verse.reference.displayString)
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(isSelected ? Color.black.opacity(0.85) : Color.black.opacity(0.65))
                 
@@ -597,20 +597,20 @@ struct LiquidGlassVerseFullDrawerView: View {
             case .all:
                 return true
             case .psalms:
-                return verse.reference.lowercased().contains("psalm")
+                return verse.reference.displayString.lowercased().contains("psalm")
             case .gospels:
                 let gospels = ["matthew", "mark", "luke", "john"]
-                return gospels.contains(where: { verse.reference.lowercased().contains($0) })
+                return gospels.contains(where: { verse.reference.displayString.lowercased().contains($0) })
             case .epistles:
                 let epistles = ["romans", "corinthians", "galatians", "ephesians", "philippians", "colossians", "thessalonians", "timothy", "titus", "philemon", "hebrews", "james", "peter", "john", "jude"]
-                return epistles.contains(where: { verse.reference.lowercased().contains($0) })
+                return epistles.contains(where: { verse.reference.displayString.lowercased().contains($0) })
             case .oldTestament:
                 // Simplified: check if NOT in New Testament books
                 let ntBooks = ["matthew", "mark", "luke", "john", "acts", "romans", "corinthians", "galatians", "ephesians", "philippians", "colossians", "thessalonians", "timothy", "titus", "philemon", "hebrews", "james", "peter", "jude", "revelation"]
-                return !ntBooks.contains(where: { verse.reference.lowercased().contains($0) })
+                return !ntBooks.contains(where: { verse.reference.displayString.lowercased().contains($0) })
             case .newTestament:
                 let ntBooks = ["matthew", "mark", "luke", "john", "acts", "romans", "corinthians", "galatians", "ephesians", "philippians", "colossians", "thessalonians", "timothy", "titus", "philemon", "hebrews", "james", "peter", "jude", "revelation"]
-                return ntBooks.contains(where: { verse.reference.lowercased().contains($0) })
+                return ntBooks.contains(where: { verse.reference.displayString.lowercased().contains($0) })
             }
         }
     }
@@ -1017,7 +1017,7 @@ struct LiquidGlassVerseFullDrawerView: View {
                     .foregroundStyle(.secondary)
                 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(selectedVerse?.reference ?? "")
+                    Text(selectedVerse?.reference.displayString ?? "")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(.primary)
                     Text(selectedVerse?.text ?? "")
@@ -1077,7 +1077,7 @@ struct FullLiquidGlassVerseResultCard: View {
             VStack(alignment: .leading, spacing: 10) {
                 // Reference with selection indicator
                 HStack {
-                    Text(verse.reference)
+                    Text(verse.reference.displayString)
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(isSelected ? Color.black.opacity(0.85) : Color.black.opacity(0.65))
                     

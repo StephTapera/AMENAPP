@@ -13,7 +13,7 @@ import Foundation
 // MARK: - Models
 
 /// Detected intent of the user's draft
-enum ComposerIntent: String, CaseIterable {
+enum FaithComposerIntent: String, CaseIterable {
     case prayer
     case testimony
     case question
@@ -35,6 +35,9 @@ enum ComposerSuggestedAction: String, CaseIterable {
     case adjustAudience
     case addImage
     case addPoll
+    case markAsTestimony
+    case markAsPrayer
+    case markAsChurchNote
 
     var icon: String {
         switch self {
@@ -46,6 +49,9 @@ enum ComposerSuggestedAction: String, CaseIterable {
         case .adjustAudience:  return "person.2"
         case .addImage:        return "photo"
         case .addPoll:         return "chart.bar.xaxis"
+        case .markAsTestimony: return "scroll"
+        case .markAsPrayer:    return "hands.sparkles"
+        case .markAsChurchNote: return "note.text"
         }
     }
 
@@ -59,6 +65,9 @@ enum ComposerSuggestedAction: String, CaseIterable {
         case .adjustAudience:  return "Refine audience"
         case .addImage:        return "Add photo"
         case .addPoll:         return "Add poll"
+        case .markAsTestimony: return "Testimony"
+        case .markAsPrayer:    return "Prayer"
+        case .markAsChurchNote: return "Church Note"
         }
     }
 
@@ -87,7 +96,7 @@ enum ComposerReadinessState: String {
 
 /// The result container from analysis
 struct ComposerInsightResult: Equatable {
-    let intent: ComposerIntent
+    let intent: FaithComposerIntent
     let confidence: Double
     let primarySuggestion: ComposerSuggestedAction?
     let secondarySuggestions: [ComposerSuggestedAction]
@@ -207,7 +216,7 @@ final class ComposerInsightEngine: ObservableObject {
     // MARK: - Intent Detection
 
     private struct KeywordSet {
-        let intent: ComposerIntent
+        let intent: FaithComposerIntent
         let keywords: [String]
         let weight: Double
     }
@@ -281,8 +290,8 @@ final class ComposerInsightEngine: ObservableObject {
         try? NSRegularExpression(pattern: scripturePattern, options: .caseInsensitive)
     }()
 
-    private func detectIntent(_ lower: String) -> (ComposerIntent, Double) {
-        var scores: [(ComposerIntent, Double)] = []
+    private func detectIntent(_ lower: String) -> (FaithComposerIntent, Double) {
+        var scores: [(FaithComposerIntent, Double)] = []
 
         // Check scripture references first (high-confidence signal)
         if let regex = Self.scriptureRegex {
@@ -340,7 +349,7 @@ final class ComposerInsightEngine: ObservableObject {
     // MARK: - Suggestion Generation
 
     private func generateSuggestions(
-        intent: ComposerIntent,
+        intent: FaithComposerIntent,
         confidence: Double,
         text: String,
         category: String,

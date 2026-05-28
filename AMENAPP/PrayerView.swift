@@ -97,10 +97,19 @@ struct PrayerView: View {
                                 .foregroundStyle(selectedTab == tab ? .white : .black)
                                 .padding(.horizontal, 16)
                                 .padding(.vertical, 8)
-                                .background(
-                                    Capsule()
-                                        .fill(selectedTab == tab ? Color.black : Color.clear)
-                                )
+                                .background {
+                                    if selectedTab == tab {
+                                        Capsule(style: .continuous)
+                                            .fill(.ultraThinMaterial)
+                                            .overlay {
+                                                Capsule(style: .continuous)
+                                                    .strokeBorder(Color.white.opacity(0.35), lineWidth: 0.8)
+                                            }
+                                            .shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 3)
+                                    } else {
+                                        Color.clear
+                                    }
+                                }
                                 // Instant scale-down on finger contact — no render cycle needed
                                 .scaleEffect(pressedTab == tab ? 0.93 : 1.0)
                                 .animation(.easeOut(duration: 0.08), value: pressedTab)
@@ -1383,7 +1392,7 @@ struct PrayerPostCard: View {
     
     @ObservedObject private var postsManager = PostsManager.shared
     @ObservedObject private var interactionsService = PostInteractionsService.shared
-    @ObservedObject private var savedPostsService = SavedPostsService.shared
+    @ObservedObject private var savedPostsService = RealtimeSavedPostsService.shared
     @ObservedObject private var followService = FollowService.shared
     @State private var amenCount: Int
     @State private var commentCount: Int
@@ -2181,7 +2190,7 @@ struct PrayerPostCard: View {
         hasAmened = await interactionsService.hasAmened(postId: postId)
         
         // Check if user has saved
-        hasSaved = await savedPostsService.isPostSaved(postId: postId)
+        hasSaved = (try? await savedPostsService.isPostSaved(postId: postId)) ?? false
         
         // Check if user has reposted
         hasReposted = await interactionsService.hasReposted(postId: postId)
@@ -2304,13 +2313,8 @@ struct PrayerPostCard: View {
         // Background sync to Firebase
         Task.detached(priority: .userInitiated) { [savedPostsService] in
             do {
-                if currentSavedState {
-                    try await savedPostsService.savePost(postId: postId)
-                    dlog("✅ Post saved to Firebase")
-                } else {
-                    try await savedPostsService.unsavePost(postId: postId)
-                    dlog("✅ Post unsaved from Firebase")
-                }
+                _ = try await savedPostsService.toggleSavePost(postId: postId)
+                dlog("✅ Post \(currentSavedState ? "saved" : "unsaved") in Firebase")
             } catch {
                 dlog("❌ Failed to toggle save: \(error.localizedDescription)")
                 

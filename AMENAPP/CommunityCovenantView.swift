@@ -230,11 +230,16 @@ struct CommunityCovenantView: View {
                 .ignoresSafeArea(.keyboard)
             }
         }
-        .alert("Error", isPresented: $showError) {
-            Button("OK") { }
-        } message: {
-            Text(errorMessage)
-        }
+        .amenAlert(
+            isPresented: $showError,
+            config: LiquidGlassAlertConfig(
+                title: "Error",
+                message: errorMessage.isEmpty ? nil : errorMessage,
+                icon: "exclamationmark.triangle",
+                primaryButton: LiquidGlassAlertButton("Try Again", tone: .primary) { },
+                secondaryButton: LiquidGlassAlertButton.cancel("Cancel") { }
+            )
+        )
         .interactiveDismissDisabled()
     }
     

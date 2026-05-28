@@ -2,23 +2,23 @@ import Foundation
 import SwiftUI
 
 @MainActor
-final class FeedModeManager: ObservableObject {
-    static let shared = FeedModeManager()
-    @Published private(set) var activeModes: Set<FeedMode> = []
+final class AmenFeedModeManager: ObservableObject {
+    static let shared = AmenFeedModeManager()
+    @Published private(set) var activeModes: Set<AmenFeedMode> = []
     private init() {}
 
-    func activate(_ mode: FeedMode) {
+    func activate(_ mode: AmenFeedMode) {
         activeModes.insert(mode)
         FeedDirectionAnalytics.modeActivated(mode: mode.rawValue)
         NotificationCenter.default.post(name: .feedIntelligenceDidUpdate, object: nil)
     }
 
-    func deactivate(_ mode: FeedMode) {
+    func deactivate(_ mode: AmenFeedMode) {
         activeModes.remove(mode)
         NotificationCenter.default.post(name: .feedIntelligenceDidUpdate, object: nil)
     }
 
-    func toggle(_ mode: FeedMode) {
+    func toggle(_ mode: AmenFeedMode) {
         if activeModes.contains(mode) { deactivate(mode) } else { activate(mode) }
     }
 

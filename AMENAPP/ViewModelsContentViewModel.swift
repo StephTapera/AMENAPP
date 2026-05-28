@@ -12,10 +12,30 @@ import FirebaseAuth
 @MainActor
 class ContentViewModel: ObservableObject {
     // MARK: - Published Properties
-    @Published var selectedTab = 0  // Default to Home tab (OpenTable view)
+
+    /// Tab index persisted across app launches and backgrounding via UserDefaults.
+    /// The create-post compose button is NOT a tab — it has no tab index to persist.
+    /// Only indices 0–6 (valid AMENTab rawValues) are stored.
+    @Published var selectedTab: Int {
+        didSet {
+            // Guard: don't persist invalid indices. AMENTab has rawValues 0–6.
+            guard selectedTab >= 0 && selectedTab <= 6 else { return }
+            UserDefaults.standard.set(selectedTab, forKey: "amenSelectedTab")
+        }
+    }
     @Published var isAuthenticated = false
     @Published var currentUser: UserModel?
-    
+
+    // MARK: - Init
+
+    init() {
+        // Restore the last tab the user was on.
+        // Defaults to 0 (Home) for fresh installs or after a sign-out reset.
+        let persisted = UserDefaults.standard.integer(forKey: "amenSelectedTab")
+        // integer(forKey:) returns 0 when the key is absent, which is correct (Home).
+        _selectedTab = Published(initialValue: persisted)
+    }
+
     // MARK: - Public Methods
     func switchToTab(_ tab: Int) {
         selectedTab = tab
@@ -37,6 +57,9 @@ class ContentViewModel: ObservableObject {
     }
     
     func signOut() {
+        // Reset tab to Home on sign-out so the next user always starts at Home.
+        UserDefaults.standard.removeObject(forKey: "amenSelectedTab")
+        selectedTab = 0
         // Run full listener teardown and cache clear before invalidating credentials.
         Task(priority: .userInitiated) {
             await AppLifecycleManager.shared.performFullSignOutCleanup()

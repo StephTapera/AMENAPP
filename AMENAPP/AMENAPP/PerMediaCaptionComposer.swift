@@ -90,7 +90,7 @@ struct PerMediaCaptionComposer: View {
                     .controlSize(.mini)
                     .accessibilityLabel("Checking caption safety")
             }
-            if draft.hasMediaCaption {
+            if !draft.text.isEmpty {
                 Button {
                     withAnimation(reduceMotion ? nil : .easeOut(duration: 0.18)) {
                         draft.text = ""

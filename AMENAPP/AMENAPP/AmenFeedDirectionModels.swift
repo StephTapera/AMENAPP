@@ -63,7 +63,7 @@ enum FeedDirectionApplyState: Equatable {
     case idle, loading, success(SubmitFeedDirectionResponse), failed(String)
 }
 
-enum FeedMode: String, Codable, CaseIterable, Identifiable {
+enum AmenFeedMode: String, Codable, CaseIterable, Identifiable {
     case berean, worship, calmFeed, focus, community, sundayRest
     var id: String { rawValue }
     var displayName: String {

@@ -66,7 +66,7 @@ enum BereanType {
 
 /// Full liquid glass card: .ultraThinMaterial + adaptive highlight + hairline border + soft shadow.
 /// In dark mode renders as smoked glass. In light mode renders as bright liquid glass.
-struct LiquidGlassCard: ViewModifier {
+struct BereanGlassShadowCardModifier: ViewModifier {
     var cornerRadius: CGFloat = 18
     var shadowRadius: CGFloat = 16
     var shadowY: CGFloat      = 5
@@ -113,7 +113,7 @@ struct LiquidGlassInputBarModifier: ViewModifier {
 
 extension View {
     func bereanGlassCard(cornerRadius: CGFloat = 18, shadowRadius: CGFloat = 16, shadowY: CGFloat = 5) -> some View {
-        modifier(LiquidGlassCard(cornerRadius: cornerRadius, shadowRadius: shadowRadius, shadowY: shadowY))
+        modifier(BereanGlassShadowCardModifier(cornerRadius: cornerRadius, shadowRadius: shadowRadius, shadowY: shadowY))
     }
     func bereanGlassInputBar(cornerRadius: CGFloat = 24) -> some View {
         modifier(LiquidGlassInputBarModifier(cornerRadius: cornerRadius))
@@ -187,140 +187,7 @@ struct BereanSuggestionChip: View {
     }
 }
 
-// MARK: - BereanMessageBubble
 
-/// Chat message bubble — user (right, gray bg) or AI (left, white/glass bg).
-struct BereanMessageBubble: View {
-    let content: String
-    let isUser: Bool
-    var isStreaming: Bool = false
-
-    @State private var appeared = false
-
-    var body: some View {
-        HStack(alignment: .bottom, spacing: 8) {
-            if isUser { Spacer(minLength: 52) }
-
-            if !isUser {
-                avatarDot
-            }
-
-            VStack(alignment: isUser ? .trailing : .leading, spacing: 3) {
-                bubbleContent
-            }
-
-            if !isUser { Spacer(minLength: 52) }
-        }
-        .opacity(appeared ? 1 : 0)
-        .offset(x: appeared ? 0 : (isUser ? 8 : -8))
-        .onAppear {
-            withAnimation(Motion.adaptive(.spring(response: 0.40, dampingFraction: 0.72))) {
-                appeared = true
-            }
-        }
-    }
-
-    private var avatarDot: some View {
-        ZStack {
-            Circle()
-                .fill(Color.white)
-                .shadow(color: .black.opacity(0.06), radius: 5, x: 0, y: 2)
-                .frame(width: 26, height: 26)
-            Text("B")
-                .font(.systemScaled(10, weight: .bold))
-                .foregroundColor(Color(red: 0.788, green: 0.659, blue: 0.298))
-        }
-    }
-
-    @ViewBuilder
-    private var bubbleContent: some View {
-        Text(content.isEmpty && isStreaming ? "▌" : content)
-            .font(BereanType.body())
-            .foregroundColor(isUser ? Color.white : BereanColor.textPrimary)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .background(bubbleBackground)
-    }
-
-    @ViewBuilder
-    private var bubbleBackground: some View {
-        if isUser {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color.black)
-        } else {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color.white.opacity(0.88))
-                .background(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(.ultraThinMaterial)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.30), lineWidth: 0.5)
-                )
-                .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
-        }
-    }
-}
-
-// MARK: - BereanThinkingIndicator
-
-/// Animated 3-dot thinking indicator with breathing scale animation.
-struct BereanThinkingIndicator: View {
-    @State private var phase: Double = 0
-
-    var body: some View {
-        HStack(alignment: .bottom, spacing: 8) {
-            // Berean avatar
-            ZStack {
-                Circle()
-                    .fill(Color.white)
-                    .shadow(color: .black.opacity(0.06), radius: 5, x: 0, y: 2)
-                    .frame(width: 26, height: 26)
-                Text("B")
-                    .font(.systemScaled(10, weight: .bold))
-                    .foregroundColor(Color(red: 0.788, green: 0.659, blue: 0.298))
-            }
-
-            HStack(spacing: 5) {
-                ForEach(0..<3, id: \.self) { i in
-                    Circle()
-                        .fill(BereanColor.textTertiary)
-                        .frame(width: 7, height: 7)
-                        .scaleEffect(dotScale(index: i))
-                        .animation(
-                            .easeInOut(duration: 0.55)
-                                .repeatForever()
-                                .delay(Double(i) * 0.18),
-                            value: phase
-                        )
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.white.opacity(0.88))
-                    .background(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .fill(.ultraThinMaterial)
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .strokeBorder(Color.white.opacity(0.30), lineWidth: 0.5)
-                    )
-                    .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
-            )
-
-            Spacer(minLength: 52)
-        }
-        .onAppear { phase = 1 }
-    }
-
-    private func dotScale(index: Int) -> CGFloat {
-        phase == 0 ? 1.0 : (index % 2 == 0 ? 1.35 : 0.80)
-    }
-}
 
 // MARK: - BereanInputBar (Design System)
 
@@ -414,17 +281,6 @@ struct BereanDesignSystem_Previews: PreviewProvider {
                     }
                     .padding(.horizontal, 16)
                 }
-
-                // Message bubbles
-                VStack(spacing: 12) {
-                    BereanMessageBubble(content: "What does Proverbs say about wisdom?", isUser: true)
-                    BereanMessageBubble(content: "Proverbs teaches that wisdom begins with the fear of the Lord.", isUser: false)
-                }
-                .padding(.horizontal, 16)
-
-                // Thinking indicator
-                BereanThinkingIndicator()
-                    .padding(.horizontal, 16)
 
                 // Input composer
                 BereanInputComposer(text: .constant(""), onSend: {})

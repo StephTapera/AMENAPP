@@ -196,11 +196,7 @@ struct BereanGivingCounselView: View {
 
     private var loadingView: some View {
         VStack(spacing: 12) {
-            ProgressView()
-                .scaleEffect(1.2)
-            Text("Berean is thinking…")
-                .font(.system(size: 14))
-                .foregroundStyle(AmenTheme.Colors.textTertiary)
+            AMENLoader(size: 80, tint: AmenTheme.Colors.amenGold, caption: "thinking…")
             Text("Checking verified organizations against your values.")
                 .font(.system(size: 12))
                 .foregroundStyle(AmenTheme.Colors.textTertiary)
@@ -208,6 +204,7 @@ struct BereanGivingCounselView: View {
         }
         .padding(24)
         .frame(maxWidth: .infinity)
+        .accessibilityLabel("Berean is thinking")
     }
 
     // MARK: - Response
@@ -307,7 +304,7 @@ struct BereanGivingCounselView: View {
                     .buttonStyle(.plain)
 
                     if vm.showScripture.contains(rec.id) {
-                        Text(""\(text)"")
+                        Text("\"\(text)\"")
                             .font(.custom("Georgia", size: 14))
                             .foregroundStyle(AmenTheme.Colors.textSecondary)
                             .italic()

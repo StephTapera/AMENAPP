@@ -143,8 +143,11 @@ All changes are surgical substitutions in existing files. No new files created.
 | 32 | `SettingsView.swift` | `@StateObject` -> `@ObservedObject` for `SettingsSearchEngine.shared` |
 | 33 | `SmartCommunitySearch/SmartCommunitySearchView.swift` | `@StateObject` -> `@ObservedObject` for `SmartCommunityLocationManager.shared` |
 | 34 | `NotificationImageCache.swift` | `@StateObject` -> `@ObservedObject` for `NotificationImageCache.shared` |
+| 35 | `CreatePostView.swift` | `@StateObject` -> `@ObservedObject` for `AmenSmartAttachmentResolverService.shared` |
+| 36 | `CreatePostView.swift` | `@StateObject` -> `@ObservedObject` for `ComposerInsightEngine.shared` |
+| 37 | `UnifiedChatView.swift` | `@StateObject` -> `@ObservedObject` for `AmenSmartAttachmentResolverService.shared` |
 
-**Total: 34 changes across 14 files.**
+**Total: 37 changes across 16 files.**
 
 ---
 

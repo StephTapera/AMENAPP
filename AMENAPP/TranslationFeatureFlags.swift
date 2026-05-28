@@ -23,10 +23,10 @@ final class TranslationFeatureFlags: ObservableObject {
     // MARK: - Published Flags
 
     @Published private(set) var translationSystemEnabled: Bool = true
-    @Published private(set) var gcpBackendEnabled: Bool = false   // No translateText Cloud Function deployed yet — use Apple on-device
+    @Published private(set) var gcpBackendEnabled: Bool = true
     @Published private(set) var appleOnDeviceFallbackEnabled: Bool = true
-    @Published private(set) var autoTranslationEnabled: Bool = false    // Opt-in, not default
-    @Published private(set) var messagesTranslationEnabled: Bool = false // Off until legal review
+    @Published private(set) var autoTranslationEnabled: Bool = true
+    @Published private(set) var messagesTranslationEnabled: Bool = true
     @Published private(set) var analyticsEnabled: Bool = true
 
     // Meaning-Aware Translation (Accessibility Intelligence Layer)
@@ -40,9 +40,9 @@ final class TranslationFeatureFlags: ObservableObject {
     @Published private(set) var prayerTranslationEnabled: Bool = true
     @Published private(set) var commentsTranslationEnabled: Bool = true
     @Published private(set) var repliesTranslationEnabled: Bool = true
-    @Published private(set) var profileBioTranslationEnabled: Bool = false // Phase 3
-    @Published private(set) var resourceDescriptionTranslationEnabled: Bool = false // Phase 3
-    @Published private(set) var churchNotesTranslationEnabled: Bool = false // Phase 3
+    @Published private(set) var profileBioTranslationEnabled: Bool = true
+    @Published private(set) var resourceDescriptionTranslationEnabled: Bool = true
+    @Published private(set) var churchNotesTranslationEnabled: Bool = true
 
     // Language Intelligence Layer
     @Published private(set) var smartTranslationVisibilityEnabled: Bool = true

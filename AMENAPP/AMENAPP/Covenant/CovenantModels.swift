@@ -22,6 +22,11 @@ struct Covenant: Identifiable, Codable {
     var updatedAt: Timestamp
 }
 
+extension Covenant: Hashable {
+    static func == (lhs: Covenant, rhs: Covenant) -> Bool { lhs.id == rhs.id }
+    func hash(into hasher: inout Hasher) { hasher.combine(id) }
+}
+
 // MARK: - Covenant Tier
 
 struct CovenantTier: Identifiable, Codable, Equatable {
@@ -34,6 +39,7 @@ struct CovenantTier: Identifiable, Codable, Equatable {
     var perks: [String]
     var roomAccess: [String]
     var isPopular: Bool
+    var stripePriceId: String?
 
     enum BillingPeriod: String, Codable, CaseIterable {
         case monthly, annual, oneTime = "one_time"
@@ -310,7 +316,7 @@ struct CovenantModerationItem: Identifiable, Codable {
     var assignedTo: String?
     var resolvedBy: String?
     var resolvedAt: Timestamp?
-    var auditLog: [ModerationAuditEntry]
+    var auditLog: [CovenantModerationAuditEntry]
     var createdAt: Timestamp
 
     enum ContentType: String, Codable {
@@ -332,7 +338,7 @@ struct CovenantModerationItem: Identifiable, Codable {
     }
 }
 
-struct ModerationAuditEntry: Codable {
+struct CovenantModerationAuditEntry: Codable {
     var action: String
     var performedBy: String
     var note: String?

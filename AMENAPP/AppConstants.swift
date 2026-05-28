@@ -62,6 +62,11 @@ enum UserDefaultsKeys {
     /// First post welcome prompt pending flag
     static let showFirstPostPromptPending = "showFirstPostPromptPending"
 
+    // MARK: - Notification Settings
+
+    /// Notification focus mode — show only high-priority activity
+    static let notificationFocusMode = "notificationFocusMode"
+
     // MARK: - Current User Profile
 
     /// Current user's profile image URL (for tab bar avatar)
@@ -71,6 +76,14 @@ enum UserDefaultsKeys {
 
     /// Last launched app version (for detecting updates)
     static let lastLaunchedVersion = "lastLaunchedVersion"
+
+    // MARK: - Daily Verse Cache
+
+    /// Cached daily verse data (JSON-encoded PersonalizedDailyVerse)
+    static let cachedDailyVerse = "cachedDailyVerse"
+
+    /// Date when the daily verse was last cached
+    static let cachedVerseDate = "cachedVerseDate"
 }
 
 // MARK: - App Configuration

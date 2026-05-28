@@ -9,7 +9,7 @@ final class LivingComposerViewModel: ObservableObject {
     @Published var selectedImages: [UIImage] = []
     @Published var selectedPhotoItems: [PhotosPickerItem] = []
     @Published var composerMode: ComposerMode = .standard
-    @Published var selectedIntent: PostIntent = .shareM
+    @Published var selectedIntent: PostIntent = .general
 
     // MARK: - Intelligence State
     @Published private(set) var intelligenceResult: PostingIntelligenceResult = .empty
@@ -47,7 +47,7 @@ final class LivingComposerViewModel: ObservableObject {
         composerMode.uiHint
     }
 
-    var activeSafetyFlags: [SafetyFlag] {
+    var activeSafetyFlags: [PostSafetyFlag] {
         intelligence.intelligenceResult.safetyFlags.filter { $0.severity != .info }
     }
 
@@ -116,7 +116,7 @@ final class LivingComposerViewModel: ObservableObject {
 
     // MARK: - AI Assist
 
-    func applySuggestion(_ suggestion: SmartSuggestion) {
+    func applySuggestion(_ suggestion: ComposerSuggestion) {
         switch suggestion.type {
         case .captionAssist:
             if draftText.isEmpty { draftText = suggestion.text }

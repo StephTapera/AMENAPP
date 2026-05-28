@@ -299,7 +299,7 @@ final class VerseAttachmentViewModel: ObservableObject {
             }
             
             // Check if dismissed
-            if dismissedSuggestions.contains(result.verse.reference) {
+            if dismissedSuggestions.contains(result.verse.reference.displayString) {
                 return
             }
             
@@ -314,7 +314,7 @@ final class VerseAttachmentViewModel: ObservableObject {
     /// Dismiss inline suggestion
     func dismissInlineSuggestion() {
         if let verse = inlineSuggestedVerse {
-            dismissedSuggestions.insert(verse.reference)
+            dismissedSuggestions.insert(verse.reference.displayString)
         }
         withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
             showInlineSuggestion = false
@@ -385,7 +385,7 @@ final class VerseAttachmentViewModel: ObservableObject {
         // Search by book name for related verses
         await searchEngine.search(query: current.book, translation: selectedTranslation, baseViewModel: baseVM)
         let related = searchEngine.results
-            .filter { $0.verse.reference != current.canonicalReference }
+            .filter { $0.verse.reference.displayString != current.canonicalReference }
             .prefix(3)
             .map { $0.verse }
         results.append(contentsOf: related)
@@ -396,7 +396,7 @@ final class VerseAttachmentViewModel: ObservableObject {
             translation: selectedTranslation
         )
         let topicVerses = topicResults
-            .filter { $0.verse.reference != current.canonicalReference }
+            .filter { $0.verse.reference.displayString != current.canonicalReference }
             .prefix(3)
             .map { $0.verse }
         results.append(contentsOf: topicVerses)
@@ -411,7 +411,7 @@ final class VerseAttachmentViewModel: ObservableObject {
         // Deduplicate
         var seen = Set<String>()
         quickReplaceResults = results.filter { verse in
-            let key = verse.reference
+            let key = verse.reference.displayString
             if seen.contains(key) { return false }
             seen.insert(key)
             return true

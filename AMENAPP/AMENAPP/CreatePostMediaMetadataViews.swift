@@ -122,15 +122,15 @@ struct MediaMetadataAuthoringSheet: View {
     private var videoContent: some View {
         switch selectedTab {
         case .captions:
-            if let videoDraftBinding = $draft.videoDraft {
+            if let videoDraftBinding = Binding($draft.videoDraft) {
                 UploadCaptionEditorView(draft: videoDraftBinding)
             }
         case .moments:
-            if let videoDraftBinding = $draft.videoDraft {
+            if let videoDraftBinding = Binding($draft.videoDraft) {
                 UploadKeyMomentsEditorView(draft: videoDraftBinding)
             }
         case .featured:
-            if let videoDraftBinding = $draft.videoDraft, let url = witnessAttachment?.finalFileURL {
+            if let videoDraftBinding = Binding($draft.videoDraft), let url = witnessAttachment?.finalFileURL {
                 FeaturedVideoFramePickerView(draft: videoDraftBinding, videoURL: url, duration: witnessAttachment?.durationSec ?? 0)
             }
         case .frames:
@@ -467,5 +467,20 @@ struct FeaturedPhotoFramePickerView: View {
         }
         .padding(16)
         .background(AMENMediaGlassCard(cornerRadius: 24))
+    }
+}
+
+// MARK: - AMENMediaGlassCard
+
+private struct AMENMediaGlassCard: View {
+    var cornerRadius: CGFloat = 20
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .fill(Color(.systemBackground).opacity(0.92))
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(Color.primary.opacity(0.07), lineWidth: 0.5)
+            )
     }
 }

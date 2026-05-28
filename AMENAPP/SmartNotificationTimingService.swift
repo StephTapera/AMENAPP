@@ -6,6 +6,15 @@
 //  user's peak usage window based on historical open patterns.
 //
 
+// MARK: - Notification Service Ownership
+// This service owns: Tracking every app open by hour and day into users/{uid}/usagePatterns/opens
+//                    in Firestore; computing the optimal send hour (peak usage hour - 1) with local
+//                    UserDefaults caching; isNearPeakUsage() predicate for in-app nudge timing.
+// It does NOT own: Any notification delivery, Firestore notification writes, push dispatch,
+//                  priority scoring, batching, re-engagement copy, or spiritual-rhythm gating.
+//                  (Timing data is consumed by NotificationGenkitService.optimizeTiming().)
+// Canonical routing reference: See NotificationServiceMap.md
+
 import Foundation
 import FirebaseAuth
 import FirebaseFirestore

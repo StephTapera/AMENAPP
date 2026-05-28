@@ -140,7 +140,7 @@ final class AmenWellnessInterventionService: ObservableObject {
 
     // MARK: - Private
 
-    private func triggerIntervention(_ trigger: WellnessTrigger, intervention: TSWellnessIntervention) {
+    private func triggerIntervention(_ trigger: WellnessTrigger, intervention: WellnessIntervention) {
         // Debounce: don't show if already showing
         guard !isShowingIntervention else { return }
         pendingIntervention = WellnessInterventionContext(
@@ -172,7 +172,7 @@ final class AmenWellnessInterventionService: ObservableObject {
 struct WellnessInterventionContext: Identifiable {
     let id = UUID()
     let trigger: WellnessTrigger
-    let intervention: TSWellnessIntervention
+    let intervention: WellnessIntervention
     let customMessage: String?
 
     var title: String { intervention.title }

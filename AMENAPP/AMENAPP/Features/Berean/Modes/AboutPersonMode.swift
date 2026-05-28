@@ -304,10 +304,3 @@ public struct BereanAboutPersonView: View {
     }
 }
 
-// MARK: - amenGold fallback (safe if already defined elsewhere in the module)
-
-private extension Color {
-    // Using a file-private extension avoids redeclaration conflicts when
-    // amenGold is already defined in the broader module target.
-    static var amenGold: Color { Color("amenGold", bundle: .main) }
-}

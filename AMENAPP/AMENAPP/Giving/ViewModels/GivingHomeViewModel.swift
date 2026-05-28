@@ -37,8 +37,8 @@ final class GivingHomeViewModel: ObservableObject {
     private let rankingService = GivingRankingService()
     let stewardshipStore: StewardshipLocalStore
 
-    init(stewardshipStore: StewardshipLocalStore = StewardshipLocalStore()) {
-        self.stewardshipStore = stewardshipStore
+    init(stewardshipStore: StewardshipLocalStore? = nil) {
+        self.stewardshipStore = stewardshipStore ?? StewardshipLocalStore()
     }
 
     // MARK: - Lifecycle

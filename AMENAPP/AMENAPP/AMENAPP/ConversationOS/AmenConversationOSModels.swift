@@ -196,6 +196,7 @@ struct ConversationActionItem: Identifiable, Codable {
 }
 
 enum ConversationActionStatus: String, Codable {
+    case suggested
     case pending
     case inProgress  = "in_progress"
     case resolved
@@ -221,6 +222,7 @@ enum ConversationDecisionStatus: String, Codable {
     case confirmed
     case challenged
     case outdated
+    case reversed
 }
 
 // MARK: - Unresolved Questions

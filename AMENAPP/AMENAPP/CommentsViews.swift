@@ -115,7 +115,7 @@ struct CommentCard: View {
                             defer { isSubmittingAmen = false }
                             guard !postId.isEmpty else { return }
                             if let cid = comment.commentId, !cid.isEmpty {
-                                try? await PostInteractionsService.shared.toggleCommentAmen(postId: postId, commentId: cid)
+                                try? await PostInteractionsService.shared.toggleAmen(postId: postId)
                             }
                         }
                     } label: {
@@ -645,9 +645,7 @@ struct FullCommentsView: View {
                 postId: postId,
                 content: capturedText,
                 authorInitials: initials,
-                authorUsername: username,
-                gifURL: capturedGIF,
-                threadCategory: threadCategory
+                authorUsername: username
             )
         }
     }
@@ -793,7 +791,7 @@ struct CommentThreadCard: View {
                                 defer { isSubmittingAmen = false }
                                 guard !postId.isEmpty else { return }
                                 if let cid = comment.commentId, !cid.isEmpty {
-                                    try? await PostInteractionsService.shared.toggleCommentAmen(postId: postId, commentId: cid)
+                                    try? await PostInteractionsService.shared.toggleAmen(postId: postId)
                                 }
                             }
                         } label: {

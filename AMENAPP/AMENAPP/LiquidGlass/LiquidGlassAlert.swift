@@ -168,8 +168,8 @@ private struct AlertCapsuleStyle: ButtonStyle {
     let reduceTransparency: Bool
     let colorScheme: ColorScheme
 
-    private static let amenGold   = Color(hex: "F59E0B")
-    private static let amenPurple = Color(hex: "6B48FF")
+    private static let amenGold   = AmenTheme.Colors.amenGold
+    private static let amenPurple = Color(red: 0.42, green: 0.28, blue: 1.0)
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label

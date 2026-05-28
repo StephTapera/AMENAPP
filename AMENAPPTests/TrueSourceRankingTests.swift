@@ -21,7 +21,7 @@ private func makeSafety(
     harassmentRisk: Double = 0
 ) -> SafetyMetadata {
     SafetyMetadata(
-        harmRisk: harmRisk, misinformationRisk: misinformationRisk,
+        harmRisk: harmRisk, manipulationRisk: 0, misinformationRisk: misinformationRisk,
         exploitationRisk: exploitationRisk, doomscrollRisk: doomscrollRisk,
         childSafetyRisk: childSafetyRisk, selfHarmRisk: selfHarmRisk,
         harassmentRisk: harassmentRisk, violenceRisk: 0, sexualSafetyRisk: 0,

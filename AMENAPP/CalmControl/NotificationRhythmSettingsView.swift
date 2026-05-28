@@ -9,9 +9,9 @@
 
 import SwiftUI
 
-// MARK: - NotificationIntensityMode
+// MARK: - RhythmSettingsNotificationIntensityMode
 
-enum NotificationIntensityMode: String, CaseIterable, Identifiable {
+enum RhythmSettingsNotificationIntensityMode: String, CaseIterable, Identifiable {
     case minimal
     case balanced
     case encouraging
@@ -47,7 +47,7 @@ enum NotificationIntensityMode: String, CaseIterable, Identifiable {
 struct NotificationRhythmSettingsView: View {
 
     @ObservedObject var rhythmService: SpiritualRhythmService
-    @State private var intensityMode: NotificationIntensityMode = .balanced
+    @State private var intensityMode: RhythmSettingsNotificationIntensityMode = .balanced
 
     // Daily Verse
     @State private var dailyVerseEnabled: Bool = true
@@ -103,7 +103,7 @@ struct NotificationRhythmSettingsView: View {
 
     private var intensitySection: some View {
         Section {
-            ForEach(NotificationIntensityMode.allCases) { mode in
+            ForEach(RhythmSettingsNotificationIntensityMode.allCases) { mode in
                 IntensityOptionRow(
                     mode: mode,
                     isSelected: intensityMode == mode,
@@ -340,7 +340,7 @@ struct NotificationRhythmSettingsView: View {
 
 private struct IntensityOptionRow: View {
 
-    let mode: NotificationIntensityMode
+    let mode: RhythmSettingsNotificationIntensityMode
     let isSelected: Bool
     let action: () -> Void
 

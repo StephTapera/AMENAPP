@@ -167,8 +167,8 @@ final class CreatorSpacesUploadService {
         // Use FirebaseAuth — avoids importing FirebaseAuth in the model layer
         // by resolving the UID at the service boundary.
         return (NSClassFromString("FIRAuth") as? NSObject.Type)
-            .flatMap { _ in
-                let auth = NSClassFromString("FIRAuth")!
+            .flatMap { _ -> NSObject? in
+                guard let auth = NSClassFromString("FIRAuth") else { return nil }
                 let shared = (auth as AnyObject).value(forKey: "auth") as? NSObject
                 return shared?.value(forKey: "currentUser") as? NSObject
             }

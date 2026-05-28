@@ -22,6 +22,7 @@ struct ProfilePost: Identifiable {
     let createdAt: Date  // ✅ NEW: For chronological sorting
     var imageURLs: [String]? = nil  // Media URLs for grid view
     var verseReference: String? = nil  // Verse attachment for media tile badge
+    var authorId: String = ""  // Firebase UID for "View Profile" navigation
     var authorName: String? = nil  // Author name for media detail
     var authorProfileImageURL: String? = nil  // Avatar for media detail
 
@@ -339,6 +340,10 @@ struct UserProfileView: View {
 
     // Suggested Follows (System 13)
     @State private var showSuggestedFollows = false
+
+    // Media grid "View Profile" navigation
+    @State private var viewProfileFromGridId: String? = nil
+    @State private var showViewProfileFromGrid = false
 
     // Additional production-ready states
     @State private var showShareSheet = false
@@ -832,6 +837,7 @@ struct UserProfileView: View {
                         createdAt: timestamp.dateValue(),
                         imageURLs: data["imageURLs"] as? [String],
                         verseReference: data["verseReference"] as? String,
+                        authorId: data["authorId"] as? String ?? self.userId,
                         authorName: data["authorName"] as? String ?? self.profileData?.name,
                         authorProfileImageURL: data["authorProfileImageURL"] as? String ?? self.profileData?.profileImageURL
                     )
@@ -1250,6 +1256,7 @@ struct UserProfileView: View {
                 createdAt: post.createdAt,  // ✅ Include timestamp for sorting
                 imageURLs: post.imageURLs,
                 verseReference: post.verseReference,
+                authorId: post.authorId,
                 authorName: post.authorName,
                 authorProfileImageURL: post.authorProfileImageURL
             )
@@ -2645,9 +2652,17 @@ struct UserProfileView: View {
             }
 
             if feedViewMode == .media && AMENFeatureFlags.shared.feedViewModeSwitcherEnabled {
-                MediaOnlyFeedView(viewModel: mediaFeedVM) { postId in
-                    AMENAnalyticsService.shared.track(.mediaDetailJumpedToPost(postId: postId))
-                }
+                MediaOnlyFeedView(
+                    viewModel: mediaFeedVM,
+                    onViewFullPost: { postId in
+                        AMENAnalyticsService.shared.track(.mediaDetailJumpedToPost(postId: postId))
+                    },
+                    onViewProfile: { authorId in
+                        viewProfileFromGridId = authorId
+                        showViewProfileFromGrid = true
+                    },
+                    isCurrentUserProfile: userId == Auth.auth().currentUser?.uid
+                )
                 .transition(.opacity.animation(.easeOut(duration: 0.15)))
                 .id("media")
                 .onAppear {
@@ -2655,6 +2670,11 @@ struct UserProfileView: View {
                 }
                 .onChange(of: posts.count) { _, _ in
                     mediaFeedVM.ingestProfilePosts(posts)
+                }
+                .sheet(isPresented: $showViewProfileFromGrid) {
+                    if let profileId = viewProfileFromGridId {
+                        UserProfileView(userId: profileId)
+                    }
                 }
             } else {
                 UserPostsContentView(

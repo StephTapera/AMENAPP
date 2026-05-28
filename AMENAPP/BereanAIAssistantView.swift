@@ -79,8 +79,7 @@ struct BereanAIAssistantView: View {
         var lastRequestStartTime: Date?
     }
     
-    // ✅ New state variables for new features  
-    @State private var showOnboarding = !UserDefaults.standard.bool(forKey: "bereanOnboardingComplete")
+    // ✅ New state variables for new features
     @State private var showSavedMessages = false
     @State private var showReportIssue = false
     @State private var messageToReport: BereanMessage?
@@ -2277,6 +2276,35 @@ struct BereanAIAssistantView: View {
             #if DEBUG
             dlog("🔍 Search scripture action")
             #endif
+        case .explainSimply:
+            // TODO: Implement explain simply
+            #if DEBUG
+            dlog("💡 Explain simply action")
+            #endif
+        case .exploreContext:
+            // TODO: Implement explore context
+            break
+        case .crossReference:
+            // TODO: Implement cross reference
+            break
+        case .prayer:
+            // TODO: Implement prayer action
+            break
+        case .deepStudy:
+            // TODO: Implement deep study
+            break
+        case .addPhoto:
+            // TODO: Implement add photo
+            break
+        case .addFile:
+            // TODO: Implement add file
+            break
+        case .createNote:
+            // TODO: Implement create note
+            break
+        case .saveToChurchNotes:
+            // TODO: Implement save to church notes
+            break
         }
     }
     
@@ -2331,15 +2359,15 @@ struct BereanAIAssistantView: View {
     
     // MARK: - Actions
     
-    /// Check if onboarding should be shown
+    /// Resolve onboarding state via BereanOnboardingManager (Firestore-authoritative).
     private func checkOnboardingStatus() {
-        let hasCompletedOnboarding = UserDefaults.standard.bool(forKey: "bereanOnboardingComplete")
-            || UserDefaults.standard.bool(forKey: "berean_onboarding_completed")
-
-        if !hasCompletedOnboarding {
-            // Delay slightly to ensure view is loaded
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+        Task {
+            await BereanOnboardingManager.shared.resolve()
+            let p = BereanOnboardingManager.shared.presentation
+            if p == .fullOnboarding || p == .welcomeBack {
                 activeModal = .onboarding
+            } else if p == .none {
+                BereanOnboardingManager.shared.recordActivity()
             }
         }
     }
@@ -6820,7 +6848,12 @@ enum BereanPersonalityMode: String, CaseIterable, Identifiable {
     case builder    = "Builder"
     case strategist = "Strategist"
     case creator    = "Creator"
-    case debater    = "Debater"
+    case debater        = "Debater"
+    case askBerean      = "Ask Berean"
+    case scriptureStudy = "Scripture Study"
+    case prayerCompanion = "Prayer Companion"
+    case deepStudy      = "Deep Study"
+    case discernment    = "Discernment"
     var id: String { rawValue }
 
     var icon: String {
@@ -6831,7 +6864,12 @@ enum BereanPersonalityMode: String, CaseIterable, Identifiable {
         case .builder:    return "hammer.fill"
         case .strategist: return "checklist"
         case .creator:    return "paintbrush.fill"
-        case .debater:    return "text.bubble.fill"
+        case .debater:        return "text.bubble.fill"
+        case .askBerean:      return "questionmark.bubble.fill"
+        case .scriptureStudy: return "text.book.closed.fill"
+        case .prayerCompanion: return "hands.sparkles.fill"
+        case .deepStudy:      return "graduationcap.fill"
+        case .discernment:    return "scale.3d"
         }
     }
 
@@ -6843,7 +6881,12 @@ enum BereanPersonalityMode: String, CaseIterable, Identifiable {
         case .builder:    return "Faith-building encouragement"
         case .strategist: return "Structured study planning"
         case .creator:    return "Creative devotional content"
-        case .debater:    return "Socratic faith exploration"
+        case .debater:        return "Socratic faith exploration"
+        case .askBerean:      return "Interactive Q&A and inquiry"
+        case .scriptureStudy: return "In-depth scripture study"
+        case .prayerCompanion: return "Prayerful, devotional support"
+        case .deepStudy:      return "Advanced theological study"
+        case .discernment:    return "Wisdom and careful decision support"
         }
     }
 
@@ -6876,6 +6919,21 @@ enum BereanPersonalityMode: String, CaseIterable, Identifiable {
             return "You are Berean in Debater mode: intellectually rigorous and Socratic. " +
                    "Engage theological questions with careful reasoning, present multiple " +
                    "perspectives fairly, and always anchor conclusions in Scripture."
+        case .askBerean:
+            return "Answer questions about faith directly and clearly. " +
+                   "Be concise, welcoming, and grounded in Scripture for every response."
+        case .scriptureStudy:
+            return "Focus on detailed scripture analysis. " +
+                   "Walk through passages verse by verse, noting context, structure, and meaning."
+        case .prayerCompanion:
+            return "Speak as a gentle prayer companion. " +
+                   "Offer prayerful encouragement, devotional reflection, and spiritual comfort."
+        case .deepStudy:
+            return "Provide rigorous theological depth. " +
+                   "Engage with systematic theology, church history, and advanced exegesis."
+        case .discernment:
+            return "Help the user reason through choices with wisdom, Scripture, and humility. " +
+                   "Name tradeoffs clearly and avoid overclaiming certainty."
         }
     }
 }

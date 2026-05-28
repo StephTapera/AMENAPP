@@ -279,7 +279,7 @@ struct BereanVoiceOrb: View {
             .error
         ], id: \.rawValue) { s in
             VStack(spacing: 6) {
-                BereanVoiceOrb(state: s, micLevel: -20, mode: .conversation)
+                BereanVoiceOrb(state: s, micLevel: -20, mode: BereanVoiceMode.conversation)
                 Text(s.displayLabel)
                     .font(.caption)
                     .foregroundStyle(.secondary)

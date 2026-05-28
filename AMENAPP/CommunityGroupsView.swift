@@ -149,7 +149,7 @@ struct CommunityGroupsView: View {
                                 .font(.systemScaled(40))
                                 .foregroundStyle(.secondary.opacity(0.45))
                             VStack(spacing: 6) {
-                                Text(searchText.isEmpty ? "No groups yet" : "No groups match "\(searchText)"")
+                                Text(searchText.isEmpty ? "No groups yet" : "No groups match \"\(searchText)\"")
                                     .font(.systemScaled(16, weight: .semibold))
                                     .foregroundStyle(.primary)
                                 Text(searchText.isEmpty

@@ -37,13 +37,13 @@ final class PostingIntelligenceLayer: ObservableObject {
             let result = try await functions.httpsCallable("analyzePostingIntent").call(payload)
             guard let data = result.data as? [String: Any] else { return }
 
-            let intent = PostIntent(rawValue: data["intent"] as? String ?? "") ?? .shareM
+            let intent = ComposerIntent(rawValue: data["intent"] as? String ?? "") ?? .shareM
             let mode = ComposerMode(rawValue: data["composerMode"] as? String ?? "") ?? .standard
             let suggestionData = data["suggestions"] as? [[String: Any]] ?? []
             let suggestions = suggestionData.prefix(5).map { s in
-                SmartSuggestion(
+                ComposerSuggestion(
                     id: s["id"] as? String ?? UUID().uuidString,
-                    type: SmartSuggestionType(rawValue: s["type"] as? String ?? "") ?? .captionAssist,
+                    type: ComposerSuggestionType(rawValue: s["type"] as? String ?? "") ?? .captionAssist,
                     text: s["text"] as? String ?? "",
                     actionLabel: s["actionLabel"] as? String,
                     confidence: s["confidence"] as? Double ?? 0.5
@@ -51,11 +51,11 @@ final class PostingIntelligenceLayer: ObservableObject {
             }
             let safetyData = data["safetyFlags"] as? [[String: Any]] ?? []
             let safetyFlags = safetyData.map { f in
-                SafetyFlag(
+                PostSafetyFlag(
                     id: UUID().uuidString,
-                    type: SafetyFlagType(rawValue: f["type"] as? String ?? "") ?? .sensitiveInfo,
+                    type: PostSafetyFlagType(rawValue: f["type"] as? String ?? "") ?? .sensitiveInfo,
                     message: f["message"] as? String ?? "",
-                    severity: SafetyFlagSeverity(rawValue: f["severity"] as? String ?? "info") ?? .info
+                    severity: PostSafetyLevel(rawValue: f["severity"] as? String ?? "info") ?? .info
                 )
             }
 

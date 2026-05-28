@@ -83,10 +83,11 @@ extension EnvironmentValues {
 /// ButtonStyle that injects press state into the banner via environment.
 /// Allows NavigationLink to remain fully tappable — no gesture interception.
 struct WLBannerPressStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .environment(\.wlBannerIsPressed, configuration.isPressed)
-            .animation(.spring(response: 0.24, dampingFraction: 0.72), value: configuration.isPressed)
+            .animation(reduceMotion ? nil : Motion.liquidSpring, value: configuration.isPressed)
     }
 }
 

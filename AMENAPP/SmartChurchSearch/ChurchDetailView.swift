@@ -1,7 +1,7 @@
 import SwiftUI
 import MapKit
 
-struct ChurchDetailView: View {
+struct SmartChurchDetailView: View {
     let result: SmartChurchSearchItem
 
     @State private var readiness = SmartChurchVisitReadiness.fallback

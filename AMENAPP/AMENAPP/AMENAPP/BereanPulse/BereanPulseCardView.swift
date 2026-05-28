@@ -51,7 +51,8 @@ struct BereanPulseCardView: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel(Text(accessibilitySummary))
         .accessibilityHint(Text("Double tap to expand or collapse this Berean Pulse card."))
-        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.86), value: isExpanded)
+        // Pattern 2: canonical bouncy spring for card expand/collapse
+        .animation(reduceMotion ? .none : Motion.liquidSpring, value: isExpanded)
     }
 
     private var accessibilitySummary: String {

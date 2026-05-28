@@ -1,3 +1,13 @@
+// MARK: - Notification Service Ownership
+// This service owns: prayerAnswered notifications — calling the onPrayerAnswered Cloud Function
+//                    to fan out to all intercessors when a user marks a prayer as answered;
+//                    checking NotificationSettingsService for the user's prayerAnswered preference
+//                    before dispatching.
+// It does NOT own: Any other prayer notification types (prayerReminder, prayerSupported),
+//                  in-app notification writes, social-activity notifications, priority scoring,
+//                  batching, or push delivery beyond invoking the Cloud Function.
+// Canonical routing reference: See NotificationServiceMap.md
+
 import Foundation
 import FirebaseAuth
 import FirebaseFirestore

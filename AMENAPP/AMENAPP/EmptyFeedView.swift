@@ -28,7 +28,7 @@ struct EmptyFeedView: View {
     // ── New user: hasn't followed anyone yet ──────────────────────────────
     private var newUserState: some View {
         VStack(spacing: 0) {
-            // Icon cluster
+            // Icon cluster (decorative)
             ZStack {
                 Circle()
                     .fill(Color(.secondarySystemBackground))
@@ -37,6 +37,7 @@ struct EmptyFeedView: View {
                     .font(.systemScaled(32, weight: .medium))
                     .foregroundStyle(.secondary)
             }
+            .accessibilityHidden(true)
 
             Spacer().frame(height: 20)
 
@@ -57,6 +58,7 @@ struct EmptyFeedView: View {
 
             // Primary CTA — find people
             Button {
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                 NotificationCenter.default.post(name: .switchToDiscoverTab, object: nil)
             } label: {
                 Text("Find People to Follow")
@@ -67,13 +69,15 @@ struct EmptyFeedView: View {
                     .background(Color.primary, in: RoundedRectangle(cornerRadius: 12))
             }
             .buttonStyle(ScaleButtonStyle())
+            .accessibilityLabel("Find People to Follow")
+            .accessibilityHint("Opens the Discover tab to find people")
         }
     }
 
     // ── Following people but their feed is empty ──────────────────────────
     private var followingButEmptyState: some View {
         VStack(spacing: 0) {
-            // Icon cluster showing "all caught up / nothing new"
+            // Icon cluster (decorative)
             ZStack {
                 Circle()
                     .fill(Color(.secondarySystemBackground))
@@ -82,6 +86,7 @@ struct EmptyFeedView: View {
                     .font(.systemScaled(32, weight: .medium))
                     .foregroundStyle(.secondary)
             }
+            .accessibilityHidden(true)
 
             Spacer().frame(height: 20)
 
@@ -102,6 +107,7 @@ struct EmptyFeedView: View {
 
             // Primary CTA — create a post
             Button {
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                 NotificationCenter.default.post(name: .openCreatePost, object: nil)
             } label: {
                 Text("Share Something")
@@ -112,18 +118,24 @@ struct EmptyFeedView: View {
                     .background(Color.primary, in: RoundedRectangle(cornerRadius: 12))
             }
             .buttonStyle(ScaleButtonStyle())
+            .accessibilityLabel("Share Something")
+            .accessibilityHint("Opens the post composer")
 
             Spacer().frame(height: 12)
 
             // Secondary — find more people
             Button {
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
                 NotificationCenter.default.post(name: .switchToDiscoverTab, object: nil)
             } label: {
                 Text("Find more people to follow")
                     .font(AMENFont.semiBold(14))
                     .foregroundStyle(.secondary)
+                    .frame(minHeight: 44)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Find more people to follow")
+            .accessibilityHint("Opens the Discover tab")
         }
     }
 }

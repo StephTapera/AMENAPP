@@ -21,6 +21,9 @@ class PremiumManager: ObservableObject {
     @Published var hasProAccess: Bool = false
     @Published var isLoading: Bool = false
     @Published var purchaseError: String?
+    /// Non-purchase errors: product load failures + transaction listener errors.
+    /// Bind a `.amenAlert` on the presenting view to surface these to the user.
+    @Published var loadError: String?
 
     // Usage tracking for free tier
     @Published var freeMessagesUsed: Int = 0
@@ -71,6 +74,7 @@ class PremiumManager: ObservableObject {
     func loadProducts() async {
         isLoading = true
         purchaseError = nil
+        loadError = nil
 
         do {
             // Request products from App Store
@@ -86,6 +90,7 @@ class PremiumManager: ObservableObject {
         } catch {
             dlog("❌ Failed to load products: \(error.localizedDescription)")
             purchaseError = "Failed to load subscription options. Please try again."
+            loadError = "Could not load subscription options. Please check your connection and try again."
         }
 
         isLoading = false
@@ -220,6 +225,9 @@ class PremiumManager: ObservableObject {
 
                 } catch {
                     dlog("❌ Transaction update failed: \(error)")
+                    await MainActor.run {
+                        self.loadError = "A subscription update could not be verified. Please try again."
+                    }
                 }
             }
         }
@@ -335,6 +343,33 @@ class PremiumManager: ObservableObject {
 
     func getLifetimeProduct() -> Product? {
         products.first { $0.id == ProductID.lifetime.rawValue }
+    }
+}
+
+// MARK: - Premium Tier
+
+enum PremiumTier: String {
+    case free
+    case pro
+    case lifetime
+
+    var displayName: String {
+        switch self {
+        case .free:     return "Free"
+        case .pro:      return "Pro"
+        case .lifetime: return "Lifetime"
+        }
+    }
+}
+
+extension PremiumManager {
+    var currentTier: PremiumTier { hasProAccess ? .pro : .free }
+
+    var customTopicTagLimit: Int? { hasProAccess ? nil : 3 }
+
+    func canCreateCustomTopicTag(currentCount: Int) -> Bool {
+        guard let limit = customTopicTagLimit else { return true }
+        return currentCount < limit
     }
 }
 

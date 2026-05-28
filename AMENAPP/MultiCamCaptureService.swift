@@ -91,7 +91,7 @@ final class MultiCamCaptureService: NSObject {
         try await withCheckedThrowingContinuation { continuation in
             sessionQueue.async {
                 let settings = AVCapturePhotoSettings()
-                if output.supportedFlashModes.contains(NSNumber(value: flashMode.rawValue)) {
+                if output.supportedFlashModes.contains(flashMode) {
                     settings.flashMode = flashMode
                 }
 

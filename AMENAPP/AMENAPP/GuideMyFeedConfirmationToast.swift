@@ -33,7 +33,7 @@ struct GuideMyFeedConfirmationToast: View {
         .padding(.vertical, 12)
         .background {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(reduceTransparency ? Color(.systemBackground) : .regularMaterial)
+                .fill(reduceTransparency ? AnyShapeStyle(Color(.systemBackground)) : AnyShapeStyle(.regularMaterial))
                 .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .stroke(Color.black.opacity(0.06), lineWidth: 0.7))
                 .shadow(color: .black.opacity(0.10), radius: 12, x: 0, y: 4)

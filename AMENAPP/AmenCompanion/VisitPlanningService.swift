@@ -30,7 +30,7 @@ final class VisitPlanningService: ObservableObject {
         } catch {}
     }
 
-    func createPlan(church: SmartChurchSummary, serviceTime: SmartChurchSummaryServiceTime) async throws -> ChurchVisitPlan {
+    func createPlan(church: SmartChurchSummary, serviceTime: SmartChurchServiceTime) async throws -> ChurchVisitPlan {
         guard let uid = Auth.auth().currentUser?.uid else { throw VisitPlanError.notAuthenticated }
 
         let id = UUID().uuidString

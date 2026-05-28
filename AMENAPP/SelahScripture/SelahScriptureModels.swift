@@ -131,14 +131,70 @@ struct ScriptureReference: Equatable, Hashable, Codable {
         if let end = endVerse, end != start { return "\(name) \(chapter):\(start)-\(end)" }
         return "\(name) \(chapter):\(start)"
     }
+
+    static func parseDisplayString(_ rawValue: String) -> ScriptureReference? {
+        let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+
+        let pattern = #"^(.+?)\s+(\d+)(?::(\d+)(?:\s*[-–]\s*(\d+))?)?$"#
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: []),
+              let match = regex.firstMatch(in: trimmed, range: NSRange(trimmed.startIndex..., in: trimmed)),
+              match.numberOfRanges >= 3,
+              let bookRange = Range(match.range(at: 1), in: trimmed),
+              let chapterRange = Range(match.range(at: 2), in: trimmed),
+              let chapter = Int(trimmed[chapterRange]) else {
+            return nil
+        }
+
+        let bookToken = String(trimmed[bookRange]).lowercased().replacingOccurrences(of: ".", with: "")
+        let normalizedBookToken = bookToken.replacingOccurrences(of: " ", with: "")
+        guard let book = BibleBook.all.first(where: { candidate in
+            let names = ([candidate.displayName, candidate.abbreviation] + candidate.aliases)
+                .map { $0.lowercased().replacingOccurrences(of: ".", with: "").replacingOccurrences(of: " ", with: "") }
+            return names.contains(normalizedBookToken)
+        }) else {
+            return nil
+        }
+
+        let startVerse: Int?
+        if match.range(at: 3).location != NSNotFound,
+           let verseRange = Range(match.range(at: 3), in: trimmed) {
+            startVerse = Int(trimmed[verseRange])
+        } else {
+            startVerse = nil
+        }
+
+        let endVerse: Int?
+        if match.range(at: 4).location != NSNotFound,
+           let endRange = Range(match.range(at: 4), in: trimmed) {
+            endVerse = Int(trimmed[endRange])
+        } else {
+            endVerse = nil
+        }
+
+        return ScriptureReference(bookId: book.id, chapter: chapter, startVerse: startVerse, endVerse: endVerse)
+    }
 }
+
+/// Aliases used by Selah module files — underlying types are the canonical forms.
+typealias SelahScriptureReference = ScriptureReference
+typealias SelahBibleBook = BibleBook
+typealias SelahBibleTranslation = SelahTranslationDescriptor
+typealias SelahBibleTranslationAvailability = BibleTranslationAvailability
+typealias SelahBibleVerse = BibleVerse
+typealias SelahBibleChapter = BibleChapter
+typealias SelahScriptureSearchResult = ScriptureSearchResult
+typealias SelahSavedScripture = SavedScripture
+typealias SelahScriptureHighlightEntry = ScriptureHighlight
+typealias SelahScriptureReaderPreferences = ScriptureReaderPreferences
+typealias SelahLastReadScripturePosition = LastReadScripturePosition
 
 // MARK: - Translation
 
 /// A Bible translation identifier + license metadata. License is honest
 /// metadata only — runtime providers are responsible for refusing to ship
 /// copyrighted text without authorization.
-struct BibleTranslation: Codable, Identifiable, Hashable {
+struct SelahTranslationDescriptor: Codable, Identifiable, Hashable {
     let id: String              // "kjv", "esv", ...
     let displayName: String     // "King James Version"
     let abbreviation: String    // "KJV"
@@ -155,18 +211,18 @@ struct BibleTranslation: Codable, Identifiable, Hashable {
     }
 }
 
-extension BibleTranslation {
-    static let kjv = BibleTranslation(id: "kjv", displayName: "King James Version", abbreviation: "KJV", license: .publicDomain)
-    static let esv = BibleTranslation(id: "esv", displayName: "English Standard Version", abbreviation: "ESV", license: .licensed)
-    static let niv = BibleTranslation(id: "niv", displayName: "New International Version", abbreviation: "NIV", license: .licensed)
-    static let nlt = BibleTranslation(id: "nlt", displayName: "New Living Translation", abbreviation: "NLT", license: .licensed)
-    static let nasb = BibleTranslation(id: "nasb", displayName: "New American Standard Bible", abbreviation: "NASB", license: .licensed)
-    static let csb = BibleTranslation(id: "csb", displayName: "Christian Standard Bible", abbreviation: "CSB", license: .licensed)
-    static let nkjv = BibleTranslation(id: "nkjv", displayName: "New King James Version", abbreviation: "NKJV", license: .licensed)
+extension SelahTranslationDescriptor {
+    static let kjv = SelahTranslationDescriptor(id: "kjv", displayName: "King James Version", abbreviation: "KJV", license: .publicDomain)
+    static let esv = SelahTranslationDescriptor(id: "esv", displayName: "English Standard Version", abbreviation: "ESV", license: .licensed)
+    static let niv = SelahTranslationDescriptor(id: "niv", displayName: "New International Version", abbreviation: "NIV", license: .licensed)
+    static let nlt = SelahTranslationDescriptor(id: "nlt", displayName: "New Living Translation", abbreviation: "NLT", license: .licensed)
+    static let nasb = SelahTranslationDescriptor(id: "nasb", displayName: "New American Standard Bible", abbreviation: "NASB", license: .licensed)
+    static let csb = SelahTranslationDescriptor(id: "csb", displayName: "Christian Standard Bible", abbreviation: "CSB", license: .licensed)
+    static let nkjv = SelahTranslationDescriptor(id: "nkjv", displayName: "New King James Version", abbreviation: "NKJV", license: .licensed)
 
     /// All translations the app *knows about*. Whether they have text to
     /// render is determined by the active `BibleTranslationProvider`.
-    static let known: [BibleTranslation] = [.kjv, .esv, .niv, .nlt, .nasb, .csb, .nkjv]
+    static let known: [SelahTranslationDescriptor] = [.kjv, .esv, .niv, .nlt, .nasb, .csb, .nkjv]
 }
 
 // MARK: - Verse / Chapter
@@ -176,6 +232,23 @@ struct BibleVerse: Codable, Identifiable, Hashable {
     let reference: ScriptureReference   // address of THIS verse (chapter + startVerse=number)
     let number: Int
     let text: String
+
+    init(reference: ScriptureReference, number: Int, text: String) {
+        self.reference = reference
+        self.number = number
+        self.text = text
+    }
+
+    init(reference: String, text: String, translation: String) {
+        let parsedReference = ScriptureReference.parseDisplayString(reference)
+            ?? ScriptureReference(bookId: "john", chapter: 1, startVerse: 1, endVerse: nil)
+        self.reference = parsedReference
+        self.number = parsedReference.startVerse ?? 1
+        self.text = text
+    }
+
+    var translation: String { SelahTranslationDescriptor.kjv.abbreviation }
+    var displayReference: String { reference.displayString }
 }
 
 struct BibleChapter: Codable, Identifiable, Hashable {
@@ -202,7 +275,7 @@ struct ScriptureReaderPreferences: Codable, Equatable {
     var pageTurnSoundEnabled: Bool
 
     static let defaults = ScriptureReaderPreferences(
-        translationId: BibleTranslation.kjv.id,
+        translationId: SelahTranslationDescriptor.kjv.id,
         fontPointSize: 17,
         pageTurnSoundEnabled: false
     )

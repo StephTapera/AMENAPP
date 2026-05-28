@@ -126,7 +126,7 @@ struct SmartContextBar: View {
                 } label: {
                     Text("Retry")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(.accentColor)
+                        .foregroundStyle(Color.accentColor)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Retry loading thread summary")
@@ -583,10 +583,8 @@ struct SmartContextSummaryPanel: View {
                     .font(.subheadline.weight(.semibold))
                 Spacer(minLength: 0)
             }
-            FlowLayout(spacing: 8) {
-                ForEach(themes, id: \.self) { theme in
-                    themeChip(theme)
-                }
+            FlowLayout(items: themes) { theme in
+                themeChip(theme)
             }
         }
         .padding(14)
@@ -614,8 +612,8 @@ struct SmartContextSummaryPanel: View {
                 .background(
                     Capsule(style: .continuous)
                         .fill(reduceTransparency
-                              ? Color.indigo.opacity(0.15)
-                              : AnyShapeStyle(.ultraThinMaterial) as! Color)
+                              ? AnyShapeStyle(Color.indigo.opacity(0.15))
+                              : AnyShapeStyle(.ultraThinMaterial))
                 )
                 .overlay(
                     Capsule(style: .continuous)
@@ -770,46 +768,3 @@ struct SmartContextSummaryPanel: View {
     }
 }
 
-// MARK: - FlowLayout (wrapping chip layout)
-
-/// Minimal left-to-right wrapping layout for theme chips.
-private struct FlowLayout: Layout {
-    var spacing: CGFloat = 8
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let maxWidth = proposal.width ?? .infinity
-        var currentX: CGFloat = 0
-        var currentY: CGFloat = 0
-        var rowHeight: CGFloat = 0
-
-        for subview in subviews {
-            let size = subview.sizeThatFits(.unspecified)
-            if currentX + size.width > maxWidth, currentX > 0 {
-                currentX = 0
-                currentY += rowHeight + spacing
-                rowHeight = 0
-            }
-            currentX += size.width + spacing
-            rowHeight = max(rowHeight, size.height)
-        }
-        return CGSize(width: maxWidth, height: currentY + rowHeight)
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        var currentX = bounds.minX
-        var currentY = bounds.minY
-        var rowHeight: CGFloat = 0
-
-        for subview in subviews {
-            let size = subview.sizeThatFits(.unspecified)
-            if currentX + size.width > bounds.maxX, currentX > bounds.minX {
-                currentX = bounds.minX
-                currentY += rowHeight + spacing
-                rowHeight = 0
-            }
-            subview.place(at: CGPoint(x: currentX, y: currentY), proposal: .unspecified)
-            currentX += size.width + spacing
-            rowHeight = max(rowHeight, size.height)
-        }
-    }
-}

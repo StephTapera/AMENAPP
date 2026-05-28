@@ -162,13 +162,12 @@ struct FeedComposerRow: View {
     private var composerAvatar: some View {
         Group {
             if let url = avatarURL {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .success(let img):
-                        img.resizable().scaledToFill()
-                    default:
-                        avatarFallback
-                    }
+                // PERF: CachedAsyncImage — FeedComposerRow appears on every feed scroll-to-top;
+                // caching prevents a redundant URLSession hit on every re-render.
+                CachedAsyncImage(url: url, size: CGSize(width: 64, height: 64)) { img in
+                    img.resizable().scaledToFill()
+                } placeholder: {
+                    avatarFallback
                 }
             } else {
                 avatarFallback

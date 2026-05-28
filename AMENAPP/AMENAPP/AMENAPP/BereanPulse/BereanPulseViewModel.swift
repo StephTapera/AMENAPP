@@ -213,12 +213,17 @@ final class BereanPulseViewModel: ObservableObject {
 
     private func observeRealtime() {
         observationTask = Task {
-            guard let stream = try? await service.observeToday() else { return }
-            for await updatedCards in stream {
-                guard !Task.isCancelled else { return }
-                self.currentSnapshotSource = .live
-                self.cards = self.mergePermissionAvailability(into: updatedCards)
-                self.feedState = self.cards.isEmpty ? .empty : self.currentLoadedState()
+            do {
+                let stream = try await service.observeToday()
+                for await updatedCards in stream {
+                    guard !Task.isCancelled else { return }
+                    self.currentSnapshotSource = .live
+                    self.cards = self.mergePermissionAvailability(into: updatedCards)
+                    self.feedState = self.cards.isEmpty ? .empty : self.currentLoadedState()
+                }
+            } catch {
+                self.lastErrorMessage = error.localizedDescription
+                self.feedState = .error(error.localizedDescription)
             }
         }
     }

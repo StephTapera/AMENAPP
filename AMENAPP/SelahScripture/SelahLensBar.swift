@@ -17,15 +17,6 @@
 
 import SwiftUI
 
-// MARK: - Color palette (private constants)
-
-private extension Color {
-    static let amenGold   = Color(red: 1.0,    green: 0.843, blue: 0.0)    // #FFD700
-    static let amenPurple = Color(red: 0.420,  green: 0.129, blue: 0.659)  // #6B21A8
-    static let amenBlue   = Color(red: 0.145,  green: 0.388, blue: 0.922)  // #2563EB
-    static let amenBlack  = Color(red: 0.059,  green: 0.059, blue: 0.059)  // #0F0F0F
-}
-
 // MARK: - SelahLensBar
 
 struct SelahLensBar: View {

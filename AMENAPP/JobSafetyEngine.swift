@@ -166,7 +166,9 @@ final class JobSafetyEngine {
 
         // Moderation history penalty
         switch employer.moderationState {
-        case .active: break
+        case .active, .approved: break
+        case .pending, .flagged: score -= 0.10
+        case .rejected: score -= 0.30
         case .underReview: score -= 0.20
         case .warned: score -= 0.30
         case .restricted: score -= 0.50

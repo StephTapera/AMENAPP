@@ -214,7 +214,7 @@ private struct KeyMomentPillButtonStyle: ButtonStyle {
         configuration.label
             .scaleEffect(configuration.isPressed && !reduceMotion ? 0.96 : 1.0)
             .animation(
-                reduceMotion ? nil : .spring(response: 0.18, dampingFraction: 0.70),
+                reduceMotion ? nil : Motion.liquidSpring,
                 value: configuration.isPressed
             )
     }

@@ -14,6 +14,18 @@
 //    - Never reference streaks in a loss-aversion frame ("You're losing your streak!").
 //    - All messages are invitational ("Ready to continue?") or informational ("A moment for scripture.").
 
+// MARK: - Notification Service Ownership
+// This service owns: Client-side eligibility gating for CalmNotificationCategory types
+//                    (dailyVerse, readingReminder, prayerReminder, communityDigest, streakReminder,
+//                    quietReturn, milestoneReflection); evaluates inactivity-pause suppression,
+//                    Sabbath Mode suppression, presence-state suppression, and intensity-mode filtering;
+//                    non-manipulative pre-written notification copy for all 7 categories.
+// It does NOT own: Social-activity notifications (amens, follows, comments, messages), action-thread
+//                  events, prayer-answered fan-out, push delivery, Firestore writes, priority scoring,
+//                  or batching. NOTE: Near-duplicate of NotificationPolicyEngine.swift (CalmControl/Services)
+//                  and SpiritualNotificationPolicyEngine.swift — consolidation candidate.
+// Canonical routing reference: See NotificationServiceMap.md
+
 import Foundation
 
 // MARK: - Notification Categories

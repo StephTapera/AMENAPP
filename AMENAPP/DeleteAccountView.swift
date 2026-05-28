@@ -150,11 +150,18 @@ struct DeleteAccountView: View {
                 }
             }
         }
-        .alert("Deletion Failed", isPresented: $showError) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(deletionError ?? "An unexpected error occurred. Please try again.")
-        }
+        .amenAlert(
+            isPresented: $showError,
+            config: LiquidGlassAlertConfig(
+                title: "Deletion Failed",
+                message: deletionError ?? "An unexpected error occurred. Please try again.",
+                icon: "exclamationmark.triangle",
+                primaryButton: LiquidGlassAlertButton("Try Again", tone: .destructive) {
+                    Task { await performDeletion() }
+                },
+                secondaryButton: .cancel { }
+            )
+        )
         .fullScreenCover(isPresented: $deletionSucceeded) {
             AccountDeletedConfirmationView()
         }
@@ -212,9 +219,8 @@ struct AccountDeletedConfirmationView: View {
             Spacer()
 
             Button {
-                // Sign out navigates to the welcome screen
                 Task { @MainActor in
-                    try? Auth.auth().signOut()
+                    do { try Auth.auth().signOut() } catch { /* session cleared client-side */ }
                 }
             } label: {
                 Text("Done")

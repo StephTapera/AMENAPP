@@ -1,0 +1,447 @@
+import * as admin from "firebase-admin";
+import { randomUUID } from "crypto";
+import { setGlobalOptions } from "firebase-functions/v2";
+import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { onDocumentCreated } from "firebase-functions/v2/firestore";
+import { defineSecret } from "firebase-functions/params";
+import { logger } from "firebase-functions";
+
+if (!admin.apps.length) {
+    admin.initializeApp();
+}
+
+setGlobalOptions({ region: "us-central1" });
+
+const db = admin.firestore();
+const openAIKey = defineSecret("OPENAI_API_KEY");
+const managerRoles = new Set(["creator", "admin", "moderator", "owner"]);
+const validKinds = new Set([
+    "prayer",
+    "discussion",
+    "bibleStudy",
+    "church",
+    "creator",
+    "voice",
+    "event",
+    "community",
+    "selah",
+    "berean",
+]);
+
+type SpatialRoomKind =
+    | "prayer"
+    | "discussion"
+    | "bibleStudy"
+    | "church"
+    | "creator"
+    | "voice"
+    | "event"
+    | "community"
+    | "selah"
+    | "berean";
+
+type SpatialRoomDraft = {
+    covenantId: string;
+    name: string;
+    purpose: string;
+    kind: SpatialRoomKind;
+    isPublic: boolean;
+    voiceEnabled: boolean;
+    prayerEnabled: boolean;
+    aiModerationEnabled: boolean;
+};
+
+type GeneratedMedia = {
+    artworkURL?: string;
+    mediaStatus: "generated_media" | "generated_metadata" | "pending_media_generation" | "media_generation_failed";
+    mediaProvider?: "openai";
+    mediaModel?: string;
+    mediaError?: string;
+};
+
+function requireUid(uid?: string): string {
+    if (!uid) {
+        throw new HttpsError("unauthenticated", "Sign in before managing spatial rooms.");
+    }
+    return uid;
+}
+
+function readString(data: Record<string, unknown>, key: string, maxLength: number): string {
+    const value = data[key];
+    if (typeof value !== "string") {
+        throw new HttpsError("invalid-argument", `${key} is required.`);
+    }
+    const trimmed = value.trim();
+    if (!trimmed || trimmed.length > maxLength) {
+        throw new HttpsError("invalid-argument", `${key} must be 1-${maxLength} characters.`);
+    }
+    return trimmed;
+}
+
+function readBoolean(data: Record<string, unknown>, key: string, fallback = false): boolean {
+    const value = data[key];
+    return typeof value === "boolean" ? value : fallback;
+}
+
+function readKind(data: Record<string, unknown>): SpatialRoomKind {
+    const value = data.kind;
+    if (typeof value !== "string" || !validKinds.has(value)) {
+        throw new HttpsError("invalid-argument", "kind is not a supported spatial room kind.");
+    }
+    return value as SpatialRoomKind;
+}
+
+function readDraft(data: Record<string, unknown>): SpatialRoomDraft {
+    return {
+        covenantId: readString(data, "covenantId", 96),
+        name: readString(data, "name", 80),
+        purpose: readString(data, "purpose", 360),
+        kind: readKind(data),
+        isPublic: readBoolean(data, "isPublic", true),
+        voiceEnabled: readBoolean(data, "voiceEnabled"),
+        prayerEnabled: readBoolean(data, "prayerEnabled"),
+        aiModerationEnabled: readBoolean(data, "aiModerationEnabled", true),
+    };
+}
+
+async function assertCanManageCovenant(uid: string, covenantId: string): Promise<void> {
+    const covenantSnap = await db.collection("covenants").doc(covenantId).get();
+    if (!covenantSnap.exists) {
+        throw new HttpsError("not-found", "Covenant was not found.");
+    }
+
+    const covenant = covenantSnap.data() ?? {};
+    if (covenant.creatorUid === uid || covenant.ownerUid === uid || covenant.createdByUid === uid) {
+        return;
+    }
+
+    const membershipSnap = await db.collection("covenantMemberships")
+        .where("covenantId", "==", covenantId)
+        .where("userId", "==", uid)
+        .limit(1)
+        .get();
+
+    const membership = membershipSnap.docs[0]?.data();
+    const role = String(membership?.role ?? "member");
+    const status = String(membership?.status ?? "inactive");
+    if (!membership || !managerRoles.has(role) || !["active", "trialing"].includes(status)) {
+        throw new HttpsError("permission-denied", "Only covenant creators, admins, and moderators can manage spatial rooms.");
+    }
+}
+
+function roomTypeForKind(kind: SpatialRoomKind): string {
+    switch (kind) {
+    case "prayer": return "prayer";
+    case "bibleStudy": return "study";
+    case "event": return "events";
+    case "creator": return "inner_circle";
+    case "berean": return "q_and_a";
+    default: return "community";
+    }
+}
+
+function motionStyleForKind(kind: SpatialRoomKind): string {
+    switch (kind) {
+    case "prayer": return "slow_light_rays";
+    case "bibleStudy": return "turning_pages";
+    case "berean": return "scripture_highlights";
+    case "voice": return "soft_waveform";
+    case "event": return "arrival_lights";
+    case "selah": return "night_breath";
+    default: return "ambient_parallax";
+    }
+}
+
+function promptForDraft(draft: SpatialRoomDraft): string {
+    const atmosphere = draft.kind.replace(/([A-Z])/g, " $1").toLowerCase();
+    return [
+        `Create a calm cinematic ${atmosphere} room for Amen.`,
+        `Room name: ${draft.name}.`,
+        `Purpose: ${draft.purpose}.`,
+        "Use spiritual warmth, real-world texture, readable negative space, and restrained motion.",
+        "Design for an app header with clear lower-third readability and no text baked into the artwork.",
+        "Avoid neon, gamer styling, clutter, heavy glass, cyberpunk, or over-saturated effects.",
+    ].join(" ");
+}
+
+function safeFileSegment(value: string): string {
+    return value.toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 48) || "room";
+}
+
+async function uploadGeneratedImage(covenantId: string, roomName: string, base64Image: string): Promise<string> {
+    const bucket = admin.storage().bucket();
+    const token = randomUUID();
+    const path = `spatialRooms/${safeFileSegment(covenantId)}/${Date.now()}-${safeFileSegment(roomName)}.png`;
+    const file = bucket.file(path);
+    await file.save(Buffer.from(base64Image, "base64"), {
+        resumable: false,
+        contentType: "image/png",
+        metadata: {
+            cacheControl: "public, max-age=31536000, immutable",
+            metadata: { firebaseStorageDownloadTokens: token },
+        },
+    });
+    return `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(path)}?alt=media&token=${token}`;
+}
+
+async function generateSpatialMedia(draft: SpatialRoomDraft): Promise<GeneratedMedia | undefined> {
+    const apiKey = openAIKey.value();
+    if (!apiKey) { return undefined; }
+
+    const model = process.env.OPENAI_IMAGE_MODEL || "gpt-image-1";
+    try {
+        const response = await fetch("https://api.openai.com/v1/images/generations", {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${apiKey}`,
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                model,
+                prompt: promptForDraft(draft),
+                size: "1536x1024",
+                quality: "medium",
+                n: 1,
+            }),
+        });
+
+        if (!response.ok) {
+            const body = await response.text();
+            throw new Error(`OpenAI image generation failed: ${response.status} ${body.slice(0, 240)}`);
+        }
+
+        const payload = await response.json() as { data?: Array<{ b64_json?: string; url?: string }> };
+        const image = payload.data?.[0];
+        if (image?.b64_json) {
+            return {
+                artworkURL: await uploadGeneratedImage(draft.covenantId, draft.name, image.b64_json),
+                mediaStatus: "generated_media",
+                mediaProvider: "openai",
+                mediaModel: model,
+            };
+        }
+        if (image?.url) {
+            return {
+                artworkURL: image.url,
+                mediaStatus: "generated_media",
+                mediaProvider: "openai",
+                mediaModel: model,
+            };
+        }
+        throw new Error("OpenAI image generation returned no image data.");
+    } catch (error) {
+        logger.warn("Spatial room media generation failed", {
+            covenantId: draft.covenantId,
+            kind: draft.kind,
+            error: error instanceof Error ? error.message : String(error),
+        });
+        return {
+            mediaStatus: "media_generation_failed",
+            mediaProvider: "openai",
+            mediaModel: model,
+            mediaError: error instanceof Error ? error.message.slice(0, 240) : String(error).slice(0, 240),
+        };
+    }
+}
+
+function buildTheme(draft: SpatialRoomDraft, media?: GeneratedMedia | Record<string, unknown>) {
+    const generated = media as GeneratedMedia | undefined;
+    const mediaRecord = media as Record<string, unknown> | undefined;
+    return {
+        kind: draft.kind,
+        artworkURL: typeof mediaRecord?.artworkURL === "string" ? mediaRecord.artworkURL : undefined,
+        videoURL: typeof mediaRecord?.videoURL === "string" ? mediaRecord.videoURL : undefined,
+        ambientAudioURL: typeof mediaRecord?.ambientAudioURL === "string" ? mediaRecord.ambientAudioURL : undefined,
+        motionStyle: motionStyleForKind(draft.kind),
+        generatedPrompt: promptForDraft(draft),
+        voiceEnabled: draft.voiceEnabled,
+        prayerEnabled: draft.prayerEnabled,
+        aiModerationEnabled: draft.aiModerationEnabled,
+        mediaStatus: generated?.mediaStatus ?? (media ? "generated_metadata" : "pending_media_generation"),
+        mediaProvider: generated?.mediaProvider,
+        mediaModel: generated?.mediaModel,
+        mediaError: generated?.mediaError,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+}
+
+function buildAmbientState(draft: SpatialRoomDraft, activeCount = 0) {
+    const isLive = draft.voiceEnabled || activeCount > 0;
+    return {
+        activeCount,
+        activityText: isLive ? "Room live now" : "Ready for first reflection",
+        secondaryText: draft.voiceEnabled ? "Voice room enabled" : draft.isPublic ? "Open community space" : "Private room",
+        isLive,
+        momentum: draft.voiceEnabled ? 0.42 : 0.24,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+}
+
+function draftFromRoom(room: FirebaseFirestore.DocumentData): SpatialRoomDraft {
+    const type = String(room.type ?? "community");
+    const kind: SpatialRoomKind = type === "prayer" ? "prayer" : type === "study" ? "bibleStudy" : type === "q_and_a" ? "berean" : type === "events" ? "event" : "community";
+    return {
+        covenantId: String(room.covenantId ?? ""),
+        name: String(room.name ?? "Room"),
+        purpose: String(room.description ?? "A living room for spiritually constructive community."),
+        kind,
+        isPublic: room.isLocked !== true,
+        voiceEnabled: false,
+        prayerEnabled: kind === "prayer",
+        aiModerationEnabled: true,
+    };
+}
+
+export const generateSpatialRoomTheme = onCall({ secrets: [openAIKey] }, async (request) => {
+    const uid = requireUid(request.auth?.uid);
+    const data = request.data as Record<string, unknown>;
+    const draft = readDraft(data);
+    await assertCanManageCovenant(uid, draft.covenantId);
+
+    const media = data.media;
+    const suppliedMedia = typeof media === "object" && media !== null ? media as Record<string, unknown> : undefined;
+    const theme = buildTheme(draft, suppliedMedia ?? await generateSpatialMedia(draft));
+    await db.collection("spatialRoomThemeRequests").add({
+        covenantId: draft.covenantId,
+        requestedByUid: uid,
+        draftKind: draft.kind,
+        generatedPrompt: theme.generatedPrompt,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    return theme;
+});
+
+export const createCovenantSpatialRoom = onCall({ secrets: [openAIKey] }, async (request) => {
+    const uid = requireUid(request.auth?.uid);
+    const draft = readDraft(request.data as Record<string, unknown>);
+    await assertCanManageCovenant(uid, draft.covenantId);
+
+    const roomRef = db.collection("covenants").doc(draft.covenantId).collection("rooms").doc();
+    const theme = buildTheme(draft, await generateSpatialMedia(draft));
+    const ambientState = buildAmbientState(draft);
+
+    await roomRef.set({
+        covenantId: draft.covenantId,
+        name: draft.name,
+        description: draft.purpose,
+        type: roomTypeForKind(draft.kind),
+        isLocked: !draft.isPublic,
+        requiredTierId: null,
+        creatorOnly: false,
+        slowModeSeconds: 0,
+        unreadCount: 0,
+        lastMessage: null,
+        lastMessageAt: null,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdByUid: uid,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        spatialTheme: theme,
+        ambientState,
+        moderation: {
+            aiModerationEnabled: draft.aiModerationEnabled,
+            youthSafe: true,
+            level: draft.aiModerationEnabled ? "standard" : "manual",
+        },
+        voice: {
+            enabled: draft.voiceEnabled,
+            currentSessionId: null,
+        },
+        presence: {
+            activeCount: 0,
+            prayingCount: draft.prayerEnabled ? 0 : null,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+    });
+
+    await db.collection("spatialRoomAudit").add({
+        action: "create",
+        covenantId: draft.covenantId,
+        roomId: roomRef.id,
+        actorUid: uid,
+        kind: draft.kind,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    return { roomId: roomRef.id, spatialTheme: theme, ambientState };
+});
+
+export const backfillCovenantSpatialRooms = onCall({ secrets: [openAIKey], timeoutSeconds: 540 }, async (request) => {
+    const uid = requireUid(request.auth?.uid);
+    const data = request.data as Record<string, unknown>;
+    const covenantId = readString(data, "covenantId", 96);
+    await assertCanManageCovenant(uid, covenantId);
+
+    const roomIdsValue = data.roomIds;
+    const requestedRoomIds = Array.isArray(roomIdsValue)
+        ? roomIdsValue.filter((value): value is string => typeof value === "string" && value.trim().length > 0).slice(0, 100)
+        : [];
+
+    const roomsCollection = db.collection("covenants").doc(covenantId).collection("rooms");
+    const roomDocs = requestedRoomIds.length > 0
+        ? (await Promise.all(requestedRoomIds.map((roomId) => roomsCollection.doc(roomId).get()))).filter((snap) => snap.exists)
+        : (await roomsCollection.limit(100).get()).docs;
+
+    const batch = db.batch();
+    let count = 0;
+
+    for (const roomDoc of roomDocs) {
+        const room = roomDoc.data() ?? {};
+        const draft = draftFromRoom({ ...room, covenantId });
+        const update: Record<string, unknown> = {};
+        if (!room.spatialTheme) {
+            update.spatialTheme = buildTheme(draft, await generateSpatialMedia(draft));
+        }
+        if (!room.ambientState) {
+            update.ambientState = buildAmbientState(draft, Number(room.activeCount ?? 0));
+        }
+        if (Object.keys(update).length > 0) {
+            batch.set(roomDoc.ref, update, { merge: true });
+            count += 1;
+        }
+    }
+
+    if (count > 0) {
+        await batch.commit();
+    }
+
+    await db.collection("spatialRoomAudit").add({
+        action: "backfill",
+        covenantId,
+        actorUid: uid,
+        count,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    return { count };
+});
+
+export const onCovenantRoomMessageCreatedUpdateAmbientState = onDocumentCreated(
+    "covenants/{covenantId}/rooms/{roomId}/messages/{messageId}",
+    async (event) => {
+        const message = event.data?.data() ?? {};
+        const covenantId = event.params.covenantId;
+        const roomId = event.params.roomId;
+        const roomRef = db.collection("covenants").doc(covenantId).collection("rooms").doc(roomId);
+        const roomSnap = await roomRef.get();
+        if (!roomSnap.exists) { return; }
+
+        const room = roomSnap.data() ?? {};
+        const theme = room.spatialTheme as Record<string, unknown> | undefined;
+        const kind = typeof theme?.kind === "string" && validKinds.has(theme.kind) ? theme.kind as SpatialRoomKind : draftFromRoom({ ...room, covenantId }).kind;
+        const isPrayer = kind === "prayer";
+        const isVoice = Boolean((room.voice as Record<string, unknown> | undefined)?.enabled);
+        const authorName = typeof message.authorName === "string" ? message.authorName : "Someone";
+
+        await roomRef.set({
+            ambientState: {
+                activeCount: admin.firestore.FieldValue.increment(1),
+                activityText: isPrayer ? `${authorName} added a prayer reflection` : `${authorName} continued the room`,
+                secondaryText: isVoice ? "Voice room enabled" : "New reflection just arrived",
+                isLive: true,
+                momentum: isPrayer ? 0.72 : 0.58,
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            },
+        }, { merge: true });
+    }
+);

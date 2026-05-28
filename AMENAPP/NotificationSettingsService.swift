@@ -1,3 +1,15 @@
+// MARK: - Notification Service Ownership
+// This service owns: Reading and writing user notification settings from/to
+//                    users/{uid}/settings/notifications in Firestore; providing a preference(for:)
+//                    lookup used by other services (e.g. PrayerAnsweredNotificationService) to gate
+//                    delivery; writing default NotificationSettings on first access;
+//                    the settings keys: prayerIntercessors, prayerAnswered, prayerMilestone,
+//                    prayerInsights, testimonyStrength, testimonyRipple, testimonyNeededThis,
+//                    scriptureConfirmed, weeklyDigest.
+// It does NOT own: Delivery of any notification type, priority scoring, batching, re-engagement copy,
+//                  action-thread events, quiet-hours enforcement, or spiritual-rhythm gating.
+// Canonical routing reference: See NotificationServiceMap.md
+
 import Foundation
 import Combine
 import FirebaseAuth

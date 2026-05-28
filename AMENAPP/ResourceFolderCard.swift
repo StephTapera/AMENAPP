@@ -338,10 +338,11 @@ struct FolderSquareCard: View {
 /// Usage:  Button { ... } label: { ResourceFolderCard(..., isPressed: config.isPressed) }
 ///         .buttonStyle(FolderPressEffect())
 struct FolderPressEffect: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .environment(\.folderIsPressed, configuration.isPressed)
-            .animation(.spring(response: 0.28, dampingFraction: 0.70), value: configuration.isPressed)
+            .animation(reduceMotion ? nil : Motion.liquidSpring, value: configuration.isPressed)
     }
 }
 

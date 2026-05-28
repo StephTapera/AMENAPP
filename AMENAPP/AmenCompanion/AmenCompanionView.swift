@@ -387,7 +387,7 @@ struct ChurchTagPill: View {
 struct VisitPlanningSheet: View {
     let church: SmartChurchSummary
     @StateObject private var visitService = VisitPlanningService.shared
-    @State private var selectedServiceTime: SmartChurchSummaryServiceTime?
+    @State private var selectedServiceTime: SmartChurchServiceTime?
     @State private var prayerNote = ""
     @State private var isCreating = false
     @State private var created = false
@@ -504,7 +504,11 @@ struct SafeConnectionSheet: View {
                                 }
                             }
                             .padding()
-                            .background(selectedIntent == intent ? .blue.opacity(0.1) : .ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
+                            .background(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .fill(selectedIntent == intent ? Color.blue.opacity(0.1) : Color.clear)
+                            )
+                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
                         }
                         .buttonStyle(.plain)
                         .foregroundStyle(.primary)

@@ -109,7 +109,7 @@ private struct PinnedPostRowCard: View {
                 .strokeBorder(.white.opacity(0.5), lineWidth: 0.5)
         )
         .overlay(alignment: .topTrailing) {
-            PinBadge()
+            ProfilePinBadge()
         }
         .shadow(color: .black.opacity(0.10), radius: 8, x: 0, y: 4)
         .accessibilityElement(children: .ignore)

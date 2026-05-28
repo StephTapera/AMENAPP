@@ -10,15 +10,23 @@
 //
 
 import SwiftUI
+import FirebaseAuth
 
 struct MediaOnlyFeedView: View {
     @ObservedObject var viewModel: MediaFeedViewModel
     var onViewFullPost: ((String) -> Void)? = nil
+    var onViewProfile: ((String) -> Void)? = nil
+    var isCurrentUserProfile: Bool = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
     @State private var selectedItem: EnrichedMediaGridItem?
     @State private var showDetail = false
+
+    // Long-press menu state
+    @State private var longPressedItem: EnrichedMediaGridItem? = nil
+    @State private var showLongPressMenu = false
+    @State private var showReportSheet = false
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 2), count: 3)
 
@@ -62,6 +70,65 @@ struct MediaOnlyFeedView: View {
                 MediaDetailView(item: item, onViewFullPost: onViewFullPost)
             }
         }
+        .sheet(isPresented: $showReportSheet) {
+            if let item = longPressedItem {
+                ReportContentSheet(
+                    targetType: .post,
+                    targetId: item.postId,
+                    onSubmitted: { _ in showReportSheet = false },
+                    onDismiss: { showReportSheet = false }
+                )
+            }
+        }
+        .mediaLongPressMenu(
+            isPresented: $showLongPressMenu,
+            isOwnPost: isCurrentUserProfile,
+            postPreviewImageURL: longPressedItem.flatMap { URL(string: $0.imageURL) },
+            postAuthorName: longPressedItem?.authorName ?? "",
+            onLike: {
+                guard let item = longPressedItem else { return }
+                Task { try? await PostInteractionsService.shared.toggleAmen(postId: item.postId) }
+            },
+            onRepost: {
+                guard let item = longPressedItem else { return }
+                Task { _ = try? await PostInteractionsService.shared.toggleRepost(postId: item.postId) }
+            },
+            onShare: {
+                guard let item = longPressedItem else { return }
+                let shareURL = URL(string: "https://amenapp.com/post/\(item.postId)")
+                let activityVC = UIActivityViewController(
+                    activityItems: [shareURL as Any].compactMap { $0 },
+                    applicationActivities: nil
+                )
+                if let windowScene = UIApplication.shared.connectedScenes
+                    .compactMap({ $0 as? UIWindowScene })
+                    .first(where: { $0.activationState == .foregroundActive }),
+                   let root = windowScene.windows.first(where: { $0.isKeyWindow })?.rootViewController {
+                    root.present(activityVC, animated: true)
+                }
+            },
+            onViewProfile: {
+                if let authorId = longPressedItem?.authorId, !authorId.isEmpty {
+                    onViewProfile?(authorId)
+                }
+            },
+            onNotInterested: {
+                guard let item = longPressedItem else { return }
+                Task { await HeyFeedPreferencesService.shared.hidePost(item.postId) }
+            },
+            onReport: {
+                showReportSheet = true
+            },
+            onDelete: {
+                guard let item = longPressedItem else { return }
+                Task { try? await FirebasePostService.shared.deletePost(postId: item.postId) }
+            },
+            onEdit: {},   // Grid thumbnails do not edit inline
+            onPin: {
+                guard let item = longPressedItem else { return }
+                Task { try? await PinnedPostService.shared.togglePin(postId: item.postId) }
+            }
+        )
     }
 
     // MARK: - Filter Pills
@@ -134,6 +201,9 @@ struct MediaOnlyFeedView: View {
                     selectedItem = item
                     showDetail = true
                     AMENAnalyticsService.shared.track(.mediaGridTileOpened(postId: item.postId))
+                } onLongPress: {
+                    longPressedItem = item
+                    showLongPressMenu = true
                 }
             }
         }

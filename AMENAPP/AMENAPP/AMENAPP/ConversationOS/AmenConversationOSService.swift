@@ -199,6 +199,26 @@ final class AmenConversationOSService: ObservableObject {
         guard let jsonData = try? JSONSerialization.data(withJSONObject: data) else { return nil }
         return try? JSONDecoder.amenISO8601.decode(ConversationOrganizationalMemory.self, from: jsonData)
     }
+
+    // MARK: - Intent Routing
+
+    func routeIntent(query: String, threadId: String) async throws -> IntentRouteScore {
+        guard flags.conversationOSEnabled else { throw ConversationOSError.featureDisabled }
+        guard Auth.auth().currentUser?.uid != nil else { throw ConversationOSError.unauthenticated }
+        let payload: [String: Any] = ["query": query, "threadId": threadId]
+        let result = try await functions.httpsCallable("routeConversationIntent").call(payload)
+        let data = result.data as? [String: Any] ?? [:]
+        let confidence = data["confidence"] as? Double ?? 0.0
+        let routeType = data["routeType"] as? String ?? "unknown"
+        return IntentRouteScore(confidence: confidence, routeType: routeType)
+    }
+}
+
+// MARK: - Intent Route Score
+
+struct IntentRouteScore {
+    let confidence: Double
+    let routeType: String
 }
 
 // MARK: - Error

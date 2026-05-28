@@ -23,10 +23,11 @@ struct AmenContextualReactionButton: View {
                 triggerPrimaryReaction()
             } label: {
                 AmenReactionMorphIcon(
-                    systemImage: icon,
-                    fallbackSystemImage: activeIcon ?? icon,
-                    isActive: isActive,
-                    presentation: presentation
+                    baseSystemImage: icon,
+                    morphedSystemImage: presentation?.morphSystemImage ?? (activeIcon ?? icon),
+                    isAnimating: isActive,
+                    baseColor: .secondary,
+                    morphedColor: Color(hex: "6B48FF")
                 )
             }
             .buttonStyle(.plain)

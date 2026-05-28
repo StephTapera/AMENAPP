@@ -37,10 +37,11 @@ class ChurchDataService {
     /// Search churches near location
     func searchChurches(
         query: String,
-        near location: CLLocation,
+        near location: CLLocation?,
         radius: Double = 25.0  // miles
     ) async throws -> [ChurchSearchResult] {
-        
+        guard let location else { return [] }
+
         // First, check Firestore for existing churches
         let firestoreResults = try await searchFirestore(query: query, near: location, radius: radius)
         
@@ -127,7 +128,7 @@ class ChurchDataService {
         
         return response.mapItems.compactMap { item -> ChurchSearchResult? in
             guard let name = item.name else { return nil }
-            let coord = item.location.coordinate
+            let coord = item.placemark.coordinate
             let itemLocation = CLLocation(latitude: coord.latitude, longitude: coord.longitude)
             let distanceMiles = location.distance(from: itemLocation) / 1609.34
             guard distanceMiles <= radius else { return nil }
@@ -165,7 +166,7 @@ class ChurchDataService {
     /// Get or create a ChurchEntity from an Apple Maps MKMapItem (used when user taps a Maps result)
     func getOrCreateChurch(fromMapItem item: MKMapItem) async throws -> ChurchEntity {
         let name = item.name ?? "Unknown Church"
-        let coord = item.location.coordinate
+        let coord = item.placemark.coordinate
         
         // Check Firestore for existing church with same name + approximate location
         let snapshot = try await db.collection("churches")

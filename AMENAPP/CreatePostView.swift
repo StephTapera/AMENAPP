@@ -83,14 +83,14 @@ struct CreatePostView: View {
     @State private var autoSaveTask: Task<Void, Never>?
     @State private var mentionSearchTask: Task<Void, Never>?
     @StateObject private var linkController = ComposerLinkPreviewController()
-    @StateObject private var smartAttachmentResolver = AmenSmartAttachmentResolverService.shared
+    @ObservedObject private var smartAttachmentResolver = AmenSmartAttachmentResolverService.shared // PERF: singleton → @ObservedObject
     @State private var smartAttachmentState: AmenAttachmentComposerState = .empty
     @State private var smartAttachment: AmenSmartAttachment?
     @State private var mentionedLinkURLs: [URL] = []
     @State private var smartAttachmentResolutionTask: Task<Void, Never>?
     @State private var useSmartAttachmentAsSoundtrack = false
     @State private var showingMediaAttachmentPicker = false
-    @StateObject private var insightEngine = ComposerInsightEngine.shared
+    @ObservedObject private var insightEngine = ComposerInsightEngine.shared // PERF: singleton → @ObservedObject
     @State private var showMentionSuggestions = false
     @State private var mentionSuggestions: [AlgoliaUser] = []
     @State private var currentMentionQuery = ""
@@ -611,7 +611,7 @@ struct CreatePostView: View {
                     label: verseAttachmentVM.inlineSuggestionLabel,
                     onAttach: {
                         verseAttachmentVM.attachVerse(verse, source: .inlineSuggestion)
-                        attachedVerseReference = verse.reference
+                        attachedVerseReference = verse.reference.displayString
                         attachedVerseText = verse.text
                     },
                     onDismiss: {
@@ -630,7 +630,8 @@ struct CreatePostView: View {
             // MARK: - Quick Category Chips (Testimony / Prayer / Scripture shortcuts)
             if !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 ComposerSuggestionChips(
-                    selectedCategory: $selectedCategory,
+                    onMarkAsTestimony: { selectedCategory = .testimonies },
+                    onMarkAsPrayer: { selectedCategory = .prayer },
                     onAddScripture: { verseAttachmentVM.openMiniAttach(draftText: postText) }
                 )
                 .transition(.move(edge: .top).combined(with: .opacity))
@@ -1238,10 +1239,33 @@ struct CreatePostView: View {
             }
             .sheet(isPresented: $showAmenAudioComposer) {
                 AmenAudioComposerSheet(
-                    draft: mediaMetadataDraft.audioAttachment,
+                    draft: mediaMetadataDraft.audioAttachment.map { a in
+                        AmenAudioAttachmentDraft(
+                            title: a.title,
+                            artist: a.artist ?? "",
+                            source: a.source,
+                            category: .originalAudio,
+                            trimStartMs: Int(a.startOffset * 1000),
+                            trimDurationMs: Int((a.trimDuration ?? 30) * 1000),
+                            musicVolume: a.volume,
+                            originalAudioVolume: 1.0,
+                            isApproved: true
+                        )
+                    },
                     onCancel: { showAmenAudioComposer = false },
                     onApply: { updated in
-                        mediaMetadataDraft.audioAttachment = updated
+                        if let bed = updated.asMediaAudioBed {
+                            mediaMetadataDraft.audioAttachment = MediaAudioAttachment(
+                                source: bed.source,
+                                title: bed.title,
+                                artist: bed.artist,
+                                startOffset: bed.startOffset,
+                                trimDuration: bed.trimDuration,
+                                volume: bed.volume
+                            )
+                        } else {
+                            mediaMetadataDraft.audioAttachment = nil
+                        }
                         showAmenAudioComposer = false
                     }
                 )
@@ -1440,7 +1464,7 @@ struct CreatePostView: View {
         .perMediaCaptionEducation(isPresented: $showPerMediaCaptionEducation) {}
         // Verse drawer — top-level so it doesn't conflict with other sheets
         .verseDrawer(isPresented: $showingVersePickerSheet) { verse in
-            attachedVerseReference = verse.reference
+            attachedVerseReference = verse.reference.displayString
             attachedVerseText = verse.text
             verseAttachmentVM.attachVerse(verse, source: .manualSearch)
         }
@@ -1460,7 +1484,7 @@ struct CreatePostView: View {
                     replaceResults: verseAttachmentVM.quickReplaceResults,
                     onReplace: { newVerse in
                         verseAttachmentVM.attachVerse(newVerse, source: .replace)
-                        attachedVerseReference = newVerse.reference
+                        attachedVerseReference = newVerse.reference.displayString
                         attachedVerseText = newVerse.text
                     },
                     onOpenFullSearch: {
@@ -1503,37 +1527,20 @@ struct CreatePostView: View {
                 )
             }
         }
-        .alert(errorTitle, isPresented: $showingErrorAlert) {
-            // P1-6 FIX: Show retry button for network/upload errors
-            if isRetryableError, let retry = retryAction {
-                Button("Retry", role: .none) {
-                    retry()
-                }
-                Button("Cancel", role: .cancel) {
+        .amenAlert(isPresented: $showingErrorAlert, config: errorAlertConfig)
+        .amenAlert(
+            isPresented: $showAIContentAlert,
+            config: LiquidGlassAlertConfig(
+                title: "Share Your Own Voice",
+                message: "AMEN is a community for authentic, personal sharing. We noticed this content may not be written in your own words.\n\nPlease share your personal thoughts, experiences, and reflections.",
+                icon: "person.crop.circle.badge.exclamationmark",
+                primaryButton: LiquidGlassAlertButton("Edit Post", tone: .primary) {
                     activePublishTask?.cancel()
                     activePublishTask = nil
                     stopPublishAttempt()
-                    isRetryableError = false
-                    retryAction = nil
                 }
-            } else {
-                Button("OK", role: .cancel) {
-                    stopPublishAttempt()
-                }
-            }
-        } message: {
-            Text(errorMessage)
-        }
-        .alert("Share Your Own Voice", isPresented: $showAIContentAlert) {
-            Button("Edit Post", role: .cancel) {
-                activePublishTask?.cancel()
-                activePublishTask = nil
-                stopPublishAttempt()
-                // User can edit their post
-            }
-        } message: {
-            Text("AMEN is a community for authentic, personal sharing. We noticed this content may not be written in your own words.\n\nPlease share your personal thoughts, experiences, and reflections. We want to hear from you, not from AI tools.")
-        }
+            )
+        )
         .overlay {
             if showGuidelinesGate {
                 CommunityGuidelinesGateView(
@@ -1630,18 +1637,20 @@ struct CreatePostView: View {
             delayedTasks.removeAll()
         }
         .supportDestinationSheet()
-        .alert("Recover Draft?", isPresented: $showDraftRecovery) {
-            Button("Recover") {
-                if let draft = recoveredDraft {
-                    loadDraft(draft)
+        .amenAlert(
+            isPresented: $showDraftRecovery,
+            config: LiquidGlassAlertConfig(
+                title: "Recover Draft?",
+                message: "You have an unsaved draft from earlier. Would you like to continue editing it?",
+                icon: "doc.text",
+                primaryButton: LiquidGlassAlertButton("Recover", tone: .primary) {
+                    if let draft = recoveredDraft { loadDraft(draft) }
+                },
+                secondaryButton: LiquidGlassAlertButton("Discard", tone: .destructive) {
+                    clearRecoveredDraft()
                 }
-            }
-            Button("Discard", role: .destructive) {
-                clearRecoveredDraft()
-            }
-        } message: {
-            Text("You have an unsaved draft from earlier. Would you like to continue editing it?")
-        }
+            )
+        )
     }
 
     private func injectUITestMockMedia() {
@@ -2910,7 +2919,7 @@ struct CreatePostView: View {
                             safetyOSCanonicalTask = Task { @MainActor in
                                 try? await Task.sleep(nanoseconds: 450_000_000)
                                 guard !Task.isCancelled, postText == newValue else { return }
-                                safetyOSDraftTriggers = await AmenLocalTriggerEngine.shared.analyzeWithCanonicalServer(
+                                safetyOSDraftTriggers = AmenLocalTriggerEngine.shared.analyze(
                                     text: newValue,
                                     surface: .post
                                 )
@@ -3267,7 +3276,31 @@ struct CreatePostView: View {
         retryAction = retry
         showingErrorAlert = true
     }
-    
+
+    private var errorAlertConfig: LiquidGlassAlertConfig {
+        LiquidGlassAlertConfig(
+            title: errorTitle,
+            message: errorMessage,
+            icon: "exclamationmark.triangle",
+            primaryButton: isRetryableError
+                ? LiquidGlassAlertButton("Retry", tone: .primary) {
+                    retryAction?()
+                }
+                : LiquidGlassAlertButton("OK", tone: .dismiss) {
+                    stopPublishAttempt()
+                },
+            secondaryButton: isRetryableError
+                ? LiquidGlassAlertButton.cancel {
+                    activePublishTask?.cancel()
+                    activePublishTask = nil
+                    stopPublishAttempt()
+                    isRetryableError = false
+                    retryAction = nil
+                }
+                : nil
+        )
+    }
+
     /// Show crisis resources alert when crisis is detected in prayer request
     private func showCrisisResourcesAlert(crisisResult: CrisisDetectionResult) {
         let resourcesText = crisisResult.recommendedResources.map { resource in
@@ -4781,56 +4814,8 @@ struct CreatePostView: View {
                 
                 if !mentionUsernames.isEmpty {
                     dlog("📧 [P1-3] Found \(mentionUsernames.count) mentions: \(mentionUsernames)")
-                    
-                    // Fetch all mentions in parallel using TaskGroup
-                    await withTaskGroup(of: MentionedUser?.self) { group in
-                        for username in mentionUsernames {
-                            group.addTask {
-                                do {
-                                    let userQuery = try await FirebaseManager.shared.firestore
-                                        .collection("users")
-                                        .whereField("username", isEqualTo: username)
-                                        .limit(to: 1)
-                                        .getDocuments()
-                                    
-                                    if let userDoc = userQuery.documents.first {
-                                        let userId = userDoc.documentID
-                                        let displayName = userDoc.data()["displayName"] as? String ?? username
-                                        dlog("   ✓ Resolved @\(username) -> \(userId)")
-                                        
-                                        // ✅ PRIVACY CHECK: Verify user can mention this person
-                                        let canMention = try await TrustByDesignService.shared.canMention(
-                                            from: currentUser.uid,
-                                            mention: userId
-                                        )
-                                        
-                                        if canMention {
-                                            dlog("   ✅ Mention permission granted for @\(username)")
-                                            return MentionedUser(
-                                                userId: userId,
-                                                username: username,
-                                                displayName: displayName
-                                            )
-                                        } else {
-                                            dlog("   ⚠️ Mention permission denied for @\(username) - skipping")
-                                            return nil
-                                        }
-                                    }
-                                } catch {
-                                    dlog("   ⚠️ Failed to resolve @\(username): \(error)")
-                                }
-                                return nil
-                            }
-                        }
-                        
-                        // Collect all results
-                        for await mention in group {
-                            if let mention = mention {
-                                mentions.append(mention)
-                            }
-                        }
-                    }
-                    
+                    let viewerId = currentUser.uid
+                    mentions = await resolveMentions(mentionUsernames, viewerId: viewerId)
                     dlog("✅ [P1-3] Resolved \(mentions.count)/\(mentionUsernames.count) mentions in parallel")
                 }
                 
@@ -5410,6 +5395,35 @@ struct CreatePostView: View {
         }
     }
     
+    private func resolveMentions(_ usernames: [String], viewerId: String) async -> [MentionedUser] {
+        var results: [MentionedUser] = []
+        await withTaskGroup(of: MentionedUser?.self) { group in
+            for username in usernames {
+                group.addTask {
+                    do {
+                        let query = try await FirebaseManager.shared.firestore
+                            .collection("users")
+                            .whereField("username", isEqualTo: username)
+                            .limit(to: 1)
+                            .getDocuments()
+                        guard let doc = query.documents.first else { return nil }
+                        let userId = doc.documentID
+                        let displayName = doc.data()["displayName"] as? String ?? username
+                        let canMention = try await TrustByDesignService.shared.canMention(from: viewerId, mention: userId)
+                        guard canMention else { return nil }
+                        return MentionedUser(userId: userId, username: username, displayName: displayName)
+                    } catch {
+                        return nil
+                    }
+                }
+            }
+            for await mention in group {
+                if let mention { results.append(mention) }
+            }
+        }
+        return results
+    }
+
     /// Async wrapper for publishPost() - called by CirclePostButton
     @MainActor
     private func publishPostAsync() async {
@@ -7347,6 +7361,44 @@ struct TopicTagSheet: View {
         return "\(remaining) of \(limit) custom tags remaining on \(premiumManager.currentTier.displayName)"
     }
     
+    @ViewBuilder
+    private var tagListContent: some View {
+        if filteredTags.isEmpty {
+            VStack(spacing: 12) {
+                Image(systemName: "magnifyingglass")
+                    .font(.systemScaled(40))
+                    .foregroundStyle(.secondary.opacity(0.5))
+                Text("No topics found")
+                    .font(AMENFont.semiBold(16))
+                    .foregroundStyle(.secondary)
+                Text("Create it as a custom tag above")
+                    .font(AMENFont.regular(14))
+                    .foregroundStyle(.secondary.opacity(0.7))
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 60)
+        } else {
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                ForEach(filteredTags, id: \.0) { tag in
+                    TopicTagCard(
+                        title: tag.0,
+                        icon: tag.1,
+                        color: tag.2,
+                        isSelected: selectedTag == tag.0
+                    ) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
+                            selectedTag = tag.0
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                            isPresented = false
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal)
+        }
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -7354,7 +7406,7 @@ struct TopicTagSheet: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text(selectedCategory == .prayer ? "Choose Prayer Type" : selectedCategory == .testimonies ? "Testimony Category" : "Choose a Topic Tag")
                             .font(AMENFont.bold(20))
-                        
+
                         Text(selectedCategory == .prayer ?
                              "Optional: let others know what kind of prayer this is" :
                              selectedCategory == .testimonies ?
@@ -7366,18 +7418,15 @@ struct TopicTagSheet: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal)
                     .padding(.top, 8)
-                    
-                    // Search box - Liquid Glass design
+
                     HStack(spacing: 8) {
                         Image(systemName: "magnifyingglass")
                             .font(.systemScaled(14, weight: .semibold))
                             .foregroundStyle(.black.opacity(0.4))
-                        
                         TextField("Search topics...", text: $searchText)
                             .font(AMENFont.regular(15))
                             .autocorrectionDisabled()
                             .accessibilityLabel("Search topics")
-
                         if !searchText.isEmpty {
                             Button {
                                 withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.7))) {
@@ -7404,42 +7453,8 @@ struct TopicTagSheet: View {
 
                     customTopicTagComposer
                         .padding(.horizontal)
-                    
-                    if filteredTags.isEmpty {
-                        VStack(spacing: 12) {
-                            Image(systemName: "magnifyingglass")
-                                .font(.systemScaled(40))
-                                .foregroundStyle(.secondary.opacity(0.5))
-                            Text("No topics found")
-                                .font(AMENFont.semiBold(16))
-                                .foregroundStyle(.secondary)
-                            Text("Create it as a custom tag above")
-                                .font(AMENFont.regular(14))
-                                .foregroundStyle(.secondary.opacity(0.7))
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 60)
-                    }
-                    
-                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                        ForEach(filteredTags, id: \.0) { tag in
-                            TopicTagCard(
-                                title: tag.0,
-                                icon: tag.1,
-                                color: tag.2,
-                                isSelected: selectedTag == tag.0
-                            ) {
-                                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
-                                    selectedTag = tag.0
-                                }
-                                // Animation reset (non-critical)
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                                    isPresented = false
-                                }
-                            }
-                        }
-                    }
-                    .padding(.horizontal)
+
+                    tagListContent
                 }
                 .padding(.vertical)
             }

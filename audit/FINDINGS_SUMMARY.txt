@@ -1,0 +1,170 @@
+================================================================================
+AMEN PERFORMANCE, RELIABILITY & CRASHES AUDIT — EXECUTIVE SUMMARY
+================================================================================
+Run Date: 2026-05-27
+Scope: AI-touching code (Berean Chat, Prayer Room, Moderation, Memory Services)
+Coverage: BereanChatView, ClaudeService, BereanAPIClient, all AI Intelligence modules
+
+KEY FINDINGS
+================================================================================
+
+CRITICAL ISSUES (Act within 2 sprints)
+--------------------------------------
+1. [HIGH] Message Array Unbounded Growth (F-perf-001)
+   - Location: BereanChatView.swift:115-116, 328, 463
+   - Problem: messages[] array grows unbounded; no eviction for 50+ message convos
+   - Impact: Memory leak in multi-hour conversations (150+ MB possible)
+   - Risk: Graceful degradation expected (iOS memory warning cleanup), but not guaranteed
+   - Fix: Implement message windowing; keep only last 30 in memory; lazy-load old messages from Firestore
+
+2. [MEDIUM] BiblicalAlignmentService Blocking UI (F-perf-002)
+   - Location: BereanChatView.swift:477-495
+   - Problem: Post-stream alignment check blocks MainActor for 300-800ms
+   - Impact: Perceptible "app froze" stall after response arrived
+   - Fix: Move alignment check to background Task; update UI when ready
+
+3. [MEDIUM] Preflight Latency Misreported (F-perf-004)
+   - Location: ClaudeService.swift:502-572
+   - Problem: First-token latency doesn't include 100-500ms preflight time
+   - Impact: Product team sees 200ms when reality is 600-1200ms; SLOs silently missed
+   - Evidence: startedAt=Date() is AFTER preflight completes
+   - Fix: Move startedAt to start of sendBereanChatMessage; instrument preflight separately
+
+MEDIUM ISSUES (Act within 4 sprints)
+------------------------------------
+4. [MEDIUM] ChatMemoryService Listener Never Cancelled (F-perf-003)
+   - Location: BereanMemoryService.swift:41-58
+   - Problem: Firestore listener never stopped; accumulates on view reopen
+   - Impact: Firestore billing cost + memory leaks + 10x listeners firing after 10 view opens
+   - Fix: Call stopObserving() in view onDisappear or auto-stop on auth logout
+
+5. [MEDIUM] SSE Streaming String Concat O(n²) (F-perf-005)
+   - Location: BereanChatView.swift:463
+   - Problem: Every chunk appends via +=; for 2000 tokens = 2000 string ops
+   - Impact: UI stutter on older devices; CPU spike during streaming
+   - Fix: Buffer chunks locally; update UI every 5 chunks or 100ms in batches
+
+6. [MEDIUM] Cross-Session History Requeried Every Send (F-perf-006)
+   - Location: BereanChatView.swift:245-298
+   - Problem: buildAllBereanHistory() fetches from Firestore fresh every send
+   - Impact: Extra 200-500ms latency; compounds for users with 50+ conversations
+   - Fix: Cache result for 5 minutes; invalidate on new message
+
+7. [MEDIUM] WebSocket Audio Backpressure Throws (F-perf-007)
+   - Location: BereanRealtimeWebSocketTransport.swift:51-65
+   - Problem: appendInputAudio() throws immediately if buffer full; no backoff
+   - Impact: Audio input cut off after 6-8 seconds on slow networks
+   - Fix: Add async flow-control method that yields until buffer drains
+
+LOW ISSUES (Nice-to-have optimizations)
+---------------------------------------
+8. [LOW] Model Router Evaluation Not Cached (F-perf-008)
+   - Location: AmenAIModelRouter.swift:19-113
+   - Problem: route() re-evaluates for same input+policy every time
+   - Impact: Minimal (10-20ms per send); buried under preflight latency
+   - Fix: Memoize decision per session; clear on new conversation
+
+COMPLIANCE & GOOD NEWS
+================================================================================
+
+✓ @MainActor Declaration: All AI-touching ViewModels properly @MainActor
+✓ Capture Cycles: [weak self] correctly used in streaming Task
+✓ Sendable Models: No actor boundary violations in message passing
+✓ Crash Fixes: CRASH-3 FIX (retain cycle) and other mitigations in place
+✓ Force Unwraps: None found in critical hot paths
+✓ Error Handling: try? try await patterns properly used
+
+LATENCY TARGETS
+================================================================================
+                           TARGET          OBSERVED      STATUS
+First-token latency       <800ms          600-1200ms     ⚠️ MISREPORTED
+Complete response (<2K)   <5s             3-6s           ✓ MET
+Moderation decision       <1.5s           500-1500ms     ⚠️ MARGINAL
+Daily verse generation    <2s             UNKNOWN        ❓
+Smart Notes assist        <1.5s           UNKNOWN        ❓
+
+→ Primary issue: Preflight is hidden from observability; true latency is 25-50% higher than reported
+
+OFFLINE BEHAVIOR
+================================================================================
+PRESENT:
+  • Network reachability check before Firestore calls
+  • ImageCache with offline fallback
+  • FirebaseOfflineHelper for query caching
+  • OfflineWriteQueue for batching writes
+
+MISSING:
+  • ClaudeService doesn't handle offline with cached responses
+  • BereanMemoryService listener fails silently offline
+  • No UI indication that chat is unavailable offline
+
+MEMORY PROFILE (100-message conversation)
+================================================================================
+BereanChatMsg array:        ~20 KB (100 × 200 bytes struct)
+Streaming response peaks:   ~150 MB (50 responses × 3 MB each)
+Total with overhead:        ~150-200 MB worst case
+
+→ Approach limit of typical SwiftUI list memory budget (250-300 MB before jank)
+
+CRASH HYPOTHESIS VALIDATION
+================================================================================
+✓ Retain cycle (ViewModel → Task): MITIGATED via [weak self]
+✓ CALayerGetSuperlayer: NOT FOUND in chat code (image loading is guarded)
+✓ Force unwrap: UNLIKELY (no ! in hot paths)
+✓ Memory exhaustion: CONFIRMED RISK for 50+ message multi-hour sessions
+
+INSTRUMENTATION GAPS
+================================================================================
+1. Preflight latency (analyzeMessage + evaluateAuthorityEscalation) not logged separately
+2. BiblicalAlignmentService latency not tracked
+3. Cross-session history fetch time not instrumented
+4. No memory pressure monitoring (iOS memory warning events)
+5. Firestore listener count not tracked (silent accumulation possible)
+
+OPTIMIZATION BACKLOG (Prioritized by User-Visible Impact)
+================================================================================
+Priority | Issue         | Effort | Impact           | Status
+---------|---------------|--------|------------------|----------
+P0       | Unbounded msg | Medium | Memory leak (50+) | CONFIRMED
+P1       | Latency miss  | Small  | SLO tracking     | CONFIRMED
+P2       | Blocking UI   | Medium | 300-800ms stall  | CONFIRMED
+P2       | Listener leak | Small  | Cost + memory    | SUSPECTED
+P3       | String concat | Small  | UI jank          | CONFIRMED
+P3       | Requery hist  | Small  | 200-500ms latency| CONFIRMED
+P3       | Audio backpressure | Medium | 6-8s cutoff | CONFIRMED
+P4       | Cache router  | Minimal| 10-20ms wasted   | CONFIRMED
+
+NEXT STEPS
+================================================================================
+
+IMMEDIATE (Next Sprint)
+→ Implement message windowing + auto-trim (F-perf-001)
+→ Add latency instrumentation for preflight + streaming separately (F-perf-004)
+→ Move BiblicalAlignment check to non-blocking background Task (F-perf-002)
+→ Add ChatMemoryService.stopObserving() to view lifecycle (F-perf-003)
+
+SHORT-TERM (Next 2 Sprints)
+→ Cache cross-session history for 5 minutes (F-perf-006)
+→ Batch SSE chunks before UI update (F-perf-005)
+→ Add offline mode to ClaudeService with cached responses
+
+LONG-TERM (Next 4+ Sprints)
+→ Comprehensive memory profiling test suite (200+ message conversations)
+→ Monitor all Cloud Functions latency in production (bucket histograms)
+→ Message pagination UI (infinite scroll instead of all-in-memory)
+→ Adaptive network backpressure for WebSocket audio
+
+REFERENCED FILES
+================================================================================
+BereanChatView.swift                      — Message accumulation, streaming
+ClaudeService.swift                       — SSE client, latency logging
+BereanAPIClient.swift                     — Preflight, caching
+BereanMemoryService.swift                 — Listener lifecycle
+AmenAIModelRouter.swift                   — Routing decisions
+BereanRealtimeWebSocketTransport.swift    — WebSocket, backpressure
+ImageCache.swift                          — Image caching
+FirebaseOfflineHelper.swift               — Offline fallback
+
+Full report: /Users/stephtapera/Desktop/AMEN/AMENAPP copy/audit/08-performance-crashes.md
+
+================================================================================

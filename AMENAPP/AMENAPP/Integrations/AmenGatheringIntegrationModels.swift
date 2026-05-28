@@ -53,47 +53,6 @@ struct AmenScheduleGatheringForm {
     }
 }
 
-// MARK: - Gathering Types
-
-enum AmenGatheringType: String, CaseIterable, Identifiable {
-    case prayerNight
-    case bibleStudy
-    case worshipNight
-    case churchService
-    case smallGroup
-    case volunteerOpportunity
-    case retreat
-    case custom
-
-    var id: String { rawValue }
-
-    var displayName: String {
-        switch self {
-        case .prayerNight: return "Prayer Night"
-        case .bibleStudy: return "Bible Study"
-        case .worshipNight: return "Worship Night"
-        case .churchService: return "Church Service"
-        case .smallGroup: return "Small Group"
-        case .volunteerOpportunity: return "Volunteer"
-        case .retreat: return "Retreat"
-        case .custom: return "Custom"
-        }
-    }
-
-    var systemIcon: String {
-        switch self {
-        case .prayerNight: return "hands.sparkles.fill"
-        case .bibleStudy: return "book.fill"
-        case .worshipNight: return "music.note"
-        case .churchService: return "cross.fill"
-        case .smallGroup: return "person.3.fill"
-        case .volunteerOpportunity: return "heart.fill"
-        case .retreat: return "leaf.fill"
-        case .custom: return "square.grid.2x2.fill"
-        }
-    }
-}
-
 // MARK: - AI Suggestion State
 
 @MainActor

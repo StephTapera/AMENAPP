@@ -65,6 +65,14 @@ final class CreatePostDraftViewModel {
         flushPhaseToStore()
     }
 
+    /// Called when user cancels an in-progress publish attempt. Keeps the draft content.
+    func cancelPublishing() {
+        idempotencyToken = nil
+        inFlightPostId = nil
+        uploadPhase = .idle
+        flushPhaseToStore()
+    }
+
     /// Called when content moderation returns a hard block.
     func markModerationBlocked() {
         idempotencyToken = nil

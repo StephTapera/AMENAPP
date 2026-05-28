@@ -57,7 +57,7 @@ final class SpacesPurchaseService: ObservableObject {
 
     @Published var isPurchasing: Bool = false
     @Published var purchaseError: String? = nil
-    @Published var entitlement: SpaceEntitlement? = nil
+    @Published var entitlement: SpaceEntitlementV1? = nil
 
     /// Returned by `purchaseSpace` — the Stripe client secret for payment confirmation.
     /// The caller is responsible for presenting Stripe's payment sheet with this secret.

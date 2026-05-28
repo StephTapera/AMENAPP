@@ -1451,3 +1451,18 @@ exports.attachVerse      = mediaInteractionFns.attachVerse;
 exports.expireViewOnceMedia    = mediaInteractionFns.expireViewOnceMedia;
 exports.cleanupExpiredMutes    = mediaInteractionFns.cleanupExpiredMutes;
 exports.sendScheduledMessages  = mediaInteractionFns.sendScheduledMessages;
+
+// ============================================================================
+// AMEN Spaces — Data Layer + Entitlement Cloud Functions (Agent A)
+//   grantSpaceAccess           — callable: admin grants entitlement to a user
+//   handleStripeSpaceWebhook   — HTTP endpoint: Stripe subscription lifecycle
+//   revokeSpaceLinkAccess      — callable: revoke external member access on link revocation
+// Agent F Cross-Community Links:
+//   notifyCommunityLinkInvite  — Firestore onCreate trigger: push to target community admins
+// Auth required; grantSpaceAccess and revokeSpaceLinkAccess enforce App Check.
+// ============================================================================
+const spacesFns = require('./src/spaces/dist');
+exports.grantSpaceAccess             = spacesFns.grantSpaceAccess;
+exports.handleStripeSpaceWebhook     = spacesFns.handleStripeSpaceWebhook;
+exports.revokeSpaceLinkAccess        = spacesFns.revokeSpaceLinkAccess;
+exports.notifyCommunityLinkInvite    = spacesFns.notifyCommunityLinkInvite;

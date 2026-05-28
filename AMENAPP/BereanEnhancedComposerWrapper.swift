@@ -191,6 +191,26 @@ struct BereanEnhancedComposerWrapper: View {
             composerVM.showStatus(.searchMode)
             messageText = ""
             isInputFocused = true
+        case .explainSimply:
+            messageText = "Explain simply: "
+            isInputFocused = true
+        case .exploreContext:
+            messageText = "Give me more context on: "
+            isInputFocused = true
+        case .crossReference:
+            messageText = "Show me cross-references for: "
+            isInputFocused = true
+        case .prayer:
+            messageText = "Pray with me: "
+            isInputFocused = true
+        case .deepStudy:
+            composerVM.setState(.scriptureMode)
+            messageText = ""
+            isInputFocused = true
+        case .addPhoto, .addFile:
+            onPlusButtonTap()
+        case .createNote, .saveToChurchNotes:
+            break
         }
     }
     

@@ -15,10 +15,13 @@ struct SpacesNavigationView: View {
 
     @StateObject private var viewModel = SpacesShellViewModel()
 
-    // Locked space: shown as LockedPreviewShell sheet
+    // Locked space: shown as LockedPreviewShell sheet before purchase
     @State private var lockedSpaceForPreview: AmenSpaceExtended? = nil
-    // Navigation target: shown in NavigationLink push
-    @State private var navigationTarget: AmenSpaceExtended? = nil
+    // Purchase sheet state — wired to E's SpacesPurchaseSheet
+    @State private var showPurchaseSheet: Bool = false
+    @State private var purchaseTargetSpace: AmenSpaceExtended? = nil
+    // Creation wizard — FAB entry point
+    @State private var showCreationWizard: Bool = false
 
     var body: some View {
         NavigationStack {
@@ -35,15 +38,35 @@ struct SpacesNavigationView: View {
             .navigationBarTitleDisplayMode(.large)
             .task { await viewModel.loadSpaces(communityId: communityId) }
             .sheet(item: $lockedSpaceForPreview) { space in
-                // LockedPreviewShell shown when user lacks entitlement.
-                // Agent E wires onUnlock to its purchase sheet;
-                // for now we dismiss and log.
                 LockedPreviewShell(space: space) {
-                    // TODO(Agent E): Replace with purchaseSheet presentation.
+                    // Wire through to E's SpacesPurchaseSheet
+                    purchaseTargetSpace = space
                     lockedSpaceForPreview = nil
+                    showPurchaseSheet = true
                 }
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
+            }
+            .sheet(isPresented: $showPurchaseSheet) {
+                if let space = purchaseTargetSpace,
+                   let userId = Auth.auth().currentUser?.uid {
+                    SpacesPurchaseSheet(
+                        space: space,
+                        userId: userId,
+                        isPresented: $showPurchaseSheet
+                    )
+                    .presentationDetents([.large])
+                    .presentationDragIndicator(.visible)
+                }
+            }
+            .sheet(isPresented: $showCreationWizard) {
+                if let userId = Auth.auth().currentUser?.uid {
+                    SpaceCreationWizardView(
+                        communityId: communityId,
+                        creatorUserId: userId,
+                        isPresented: $showCreationWizard
+                    )
+                }
             }
         }
     }
@@ -107,20 +130,38 @@ struct SpacesNavigationView: View {
             ScrollView {
                 LazyVStack(spacing: 10) {
                     ForEach(viewModel.filteredSpaces) { space in
-                        SpaceListRow(
-                            space: space,
-                            unreadCount: viewModel.unreadCounts[space.id ?? ""] ?? 0,
-                            isVip: viewModel.vipSpaceIds.contains(space.id ?? "")
-                        )
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            Task { await handleSpaceTap(space) }
+                        NavigationLink {
+                            SpaceDetailView(space: space, communityId: communityId)
+                        } label: {
+                            SpaceListRow(
+                                space: space,
+                                unreadCount: viewModel.unreadCounts[space.id ?? ""] ?? 0,
+                                isVip: viewModel.vipSpaceIds.contains(space.id ?? "")
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .simultaneousGesture(TapGesture().onEnded {
+                            // If the space is gated, intercept to check entitlement first.
+                            // NavigationLink still pushes for free spaces.
+                            if space.accessPolicy != .free {
+                                Task { await handleGatedTap(space) }
+                            }
+                        })
+                        .contextMenu {
+                            Button {
+                                viewModel.toggleVip(spaceId: space.id ?? "")
+                            } label: {
+                                let isVip = viewModel.vipSpaceIds.contains(space.id ?? "")
+                                Label(
+                                    isVip ? "Remove from VIP" : "Add to VIP",
+                                    systemImage: isVip ? "star.slash" : "star"
+                                )
+                            }
                         }
                     }
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
-                // Reserve space so FAB doesn't cover last row
                 .padding(.bottom, 72)
             }
         }
@@ -138,9 +179,8 @@ struct SpacesNavigationView: View {
     // MARK: - FAB
 
     private var fabButton: some View {
-        NavigationLink {
-            // TODO(Agent D): Replace EmptyView with Space creation wizard entry.
-            EmptyView()
+        Button {
+            showCreationWizard = true
         } label: {
             ZStack {
                 Circle()
@@ -158,15 +198,16 @@ struct SpacesNavigationView: View {
         .accessibilityHint("Opens the Space creation wizard.")
     }
 
-    // MARK: - Tap handler
+    // MARK: - Gated tap handler
 
-    private func handleSpaceTap(_ space: AmenSpaceExtended) async {
-        guard space.accessPolicy != .free else {
-            navigationTarget = space
+    /// For paid Spaces the NavigationLink push is suppressed;
+    /// this handler checks entitlement and shows LockedPreviewShell if needed.
+    private func handleGatedTap(_ space: AmenSpaceExtended) async {
+        guard let userId = Auth.auth().currentUser?.uid,
+              let spaceId = space.id else {
+            lockedSpaceForPreview = space
             return
         }
-        guard let userId = Auth.auth().currentUser?.uid else { return }
-        guard let spaceId = space.id else { return }
         do {
             let entitlement = try await EntitlementService.shared.fetchEntitlement(
                 userId: userId,
@@ -176,13 +217,11 @@ struct SpacesNavigationView: View {
                 $0.status == .active || $0.status == .grace
             } ?? false
 
-            if isAccessible {
-                navigationTarget = space
-            } else {
+            if !isAccessible {
                 lockedSpaceForPreview = space
             }
+            // If accessible, the NavigationLink push proceeds normally.
         } catch {
-            // On error, fall through to locked state for safety
             lockedSpaceForPreview = space
         }
     }
@@ -199,41 +238,9 @@ private struct SpaceListRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            // Type glyph icon
-            ZStack(alignment: .bottomTrailing) {
-                ZStack {
-                    Circle()
-                        .fill(
-                            reduceTransparency
-                                ? AmenTheme.Colors.surfaceChip
-                                : LiquidGlassTokens.blurThin
-                        )
-                        .frame(width: 44, height: 44)
-                        .overlay {
-                            Circle()
-                                .stroke(Color.white.opacity(0.28), lineWidth: 0.5)
-                        }
-                    Image(systemName: typeSystemImage)
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(AmenTheme.Colors.amenPurple)
-                }
+            typeIconBadge
+                .accessibilityHidden(true)
 
-                // Lock overlay for gated Spaces
-                if space.accessPolicy != .free {
-                    ZStack {
-                        Circle()
-                            .fill(AmenTheme.Colors.amenGold)
-                            .frame(width: 18, height: 18)
-                        Image(systemName: "lock.fill")
-                            .font(.system(size: 9, weight: .bold))
-                            .foregroundStyle(.black)
-                    }
-                    .offset(x: 4, y: 4)
-                }
-            }
-            .accessibilityHidden(true)
-
-            // Title and description
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 4) {
                     Text(space.title)
@@ -258,12 +265,10 @@ private struct SpaceListRow: View {
 
             Spacer(minLength: 0)
 
-            // LinkedGlyph if Space is shared with other communities
             if !space.sharedWith.isEmpty {
                 LinkedGlyph(size: .small)
             }
 
-            // Unread badge
             if unreadCount > 0 {
                 Text(unreadCount > 99 ? "99+" : "\(unreadCount)")
                     .font(.caption2.weight(.bold))
@@ -298,6 +303,37 @@ private struct SpaceListRow: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel(rowAccessibilityLabel)
         .accessibilityHint("Double-tap to open this Space.")
+    }
+
+    @ViewBuilder
+    private var typeIconBadge: some View {
+        ZStack(alignment: .bottomTrailing) {
+            let circleFill: AnyShapeStyle = reduceTransparency
+                ? AnyShapeStyle(AmenTheme.Colors.surfaceChip)
+                : AnyShapeStyle(LiquidGlassTokens.blurThin)
+            ZStack {
+                Circle()
+                    .fill(circleFill)
+                    .frame(width: 44, height: 44)
+                    .overlay {
+                        Circle().stroke(Color.white.opacity(0.28), lineWidth: 0.5)
+                    }
+                Image(systemName: typeSystemImage)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(AmenTheme.Colors.amenPurple)
+            }
+            if space.accessPolicy != .free {
+                ZStack {
+                    Circle()
+                        .fill(AmenTheme.Colors.amenGold)
+                        .frame(width: 18, height: 18)
+                    Image(systemName: "lock.fill")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(.black)
+                }
+                .offset(x: 4, y: 4)
+            }
+        }
     }
 
     private var typeSystemImage: String {

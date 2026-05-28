@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 import UserNotifications
 
 // MARK: - Prompt Intelligence Engine
@@ -17,7 +18,7 @@ import UserNotifications
 @MainActor
 final class AmenPromptIntelligenceEngine: ObservableObject {
 
-    nonisolated(unsafe) static let shared = AmenPromptIntelligenceEngine()
+    @MainActor static let shared = AmenPromptIntelligenceEngine()
 
     @Published private(set) var activePrompt: AmenContextualPrompt?
     @Published var isPresented = false

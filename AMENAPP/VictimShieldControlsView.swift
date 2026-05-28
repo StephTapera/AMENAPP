@@ -6,7 +6,7 @@
 import SwiftUI
 
 struct VictimShieldControlsView: View {
-    @StateObject private var feedControls = AmenFeedControlService.shared
+    @ObservedObject private var feedControls = AmenFeedControlService.shared // PERF: singleton → @ObservedObject
     @State private var showPanicFlow = false
     @State private var showTrustedContacts = false
     @State private var errorMessage: String?

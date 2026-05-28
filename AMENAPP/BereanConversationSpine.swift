@@ -18,8 +18,8 @@ private enum SpineDotKind {
         switch self {
         case .user:          return Color.amenBlack.opacity(0.22)
         case .aiNormal:      return Color.amenGold.opacity(0.38)
-        case .aiCitation:    return BereanConversationSpineColors.amenPurple.opacity(0.55)
-        case .aiStructured:  return BereanConversationSpineColors.amenBlue.opacity(0.45)
+        case .aiCitation:    return Color.amenPurple.opacity(0.55)
+        case .aiStructured:  return Color.amenBlue.opacity(0.45)
         }
     }
 
@@ -33,15 +33,9 @@ private enum SpineDotKind {
     }
 }
 
-// MARK: - Color helpers (amenPurple / amenBlue not yet in global token sheet)
-
-/// Namespace so these are not exported at module scope — see BereanDesignSystem.swift
-/// for the canonical token discussion. Promote to Color extension once the design
-/// system audit adds them globally (audit item DS-9).
-private enum BereanConversationSpineColors {
-    static let amenPurple = Color(red: 0.42, green: 0.28, blue: 1.00)
-    static let amenBlue   = Color(red: 0.40, green: 0.70, blue: 0.95)
-}
+// Fix 3 (DS-9): amenPurple and amenBlue are globally available via
+// `extension Color` in ChurchNotesDesignSystem.swift.
+// Private copies removed — use Color.amenPurple / Color.amenBlue directly.
 
 // MARK: - BereanConversationSpine
 
@@ -108,7 +102,10 @@ struct BereanConversationSpine: View {
                             scrollProxy.scrollTo(message.id, anchor: .center)
                             visibleMessageId = message.id
                         }
-                    }
+                    },
+                    // Fix 2: 1-based index for human-readable a11y label
+                    index: index + 1,
+                    total: messages.count
                 )
                 .animation(contentAppear.delay(Double(index) * 0.012), value: messages.count)
             }
@@ -152,6 +149,9 @@ private struct SpineDot: View {
     let message: BereanChatMsg
     let isVisible: Bool
     let onTap: () -> Void
+    /// 1-based position index and total count — used for accessibility label (Fix 2)
+    let index: Int
+    let total: Int
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -178,8 +178,10 @@ private struct SpineDot: View {
                     height: kind.baseDiameter
                 )
                 .scaleEffect(isVisible ? 1.3 : 1.0)
-                // Ensure minimum 44×44 tap target via contentShape
-                .frame(width: 22, height: 22)
+                // Fix 1 (P0): Expand hit area to 44×44pt minimum.
+                // The visual dot remains at baseDiameter; the outer frame
+                // provides a transparent tap zone that meets WCAG 2.5.5.
+                .frame(width: 44, height: 44)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -191,17 +193,19 @@ private struct SpineDot: View {
 
     // MARK: - Helpers
 
+    // Fix 2: Include position index and total so VoiceOver users can navigate
+    // by message number (e.g. "Message 5 of 23 — Berean reply, citation-heavy").
     private var dotAccessibilityLabel: String {
         let roleLabel = message.role == .user ? "Your message" : "Berean reply"
         let kindLabel: String
         switch kind {
         case .user:          kindLabel = ""
         case .aiNormal:      kindLabel = ""
-        case .aiCitation:    kindLabel = ", with citations"
-        case .aiStructured:  kindLabel = ", structured content"
+        case .aiCitation:    kindLabel = " — citation-heavy"
+        case .aiStructured:  kindLabel = " — structured content"
         }
         let visibilityLabel = isVisible ? ", currently visible" : ""
-        return "\(roleLabel)\(kindLabel)\(visibilityLabel)"
+        return "Message \(index) of \(total) — \(roleLabel)\(kindLabel)\(visibilityLabel)"
     }
 
     /// Detect code blocks or heavy bullet structure in message content.

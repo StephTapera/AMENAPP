@@ -216,6 +216,12 @@ struct CrisisResource: Identifiable, Equatable {
 
     enum Channel: String { case call, text, web }
     enum ResourceTint: String { case red, purple, orange, blue, green }
+
+    static let defaults: [CrisisResource] = [
+        CrisisResource(id: "988", title: "988 Suicide & Crisis Lifeline", subtitle: "Call or text 24/7", channel: .call, target: "988", tint: .purple),
+        CrisisResource(id: "cct", title: "Crisis Text Line", subtitle: "Text HOME to 741741", channel: .text, target: "741741", tint: .blue),
+        CrisisResource(id: "nami", title: "NAMI Helpline", subtitle: "1-800-950-NAMI (6264)", channel: .call, target: "1-800-950-6264", tint: .green)
+    ]
 }
 
 // MARK: - Safety Plan

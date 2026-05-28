@@ -112,9 +112,9 @@ struct LivingComposerView: View {
                 vm.showIntentPicker = true
             } label: {
                 HStack(spacing: 4) {
-                    Image(systemName: vm.selectedIntent.systemImage)
+                    Image(systemName: vm.selectedIntent.composerIcon)
                         .font(.caption)
-                    Text(vm.selectedIntent.displayName)
+                    Text(vm.selectedIntent.composerDisplayName)
                         .font(.caption)
                 }
                 .padding(.horizontal, 8)
@@ -273,7 +273,7 @@ struct LivingComposerView: View {
                             .padding(.vertical, 6)
                             .background(
                                 SmartAudienceRouter.shared.selectedRouteIds.contains(route.id)
-                                    ? .blue.opacity(0.15) : .ultraThinMaterial,
+                                    ? AnyShapeStyle(Color.blue.opacity(0.15)) : AnyShapeStyle(.ultraThinMaterial),
                                 in: Capsule()
                             )
                             .foregroundStyle(SmartAudienceRouter.shared.selectedRouteIds.contains(route.id) ? .blue : .secondary)
@@ -361,22 +361,24 @@ struct LivingComposerView: View {
 
     private var intentPickerSheet: some View {
         NavigationStack {
-            List(PostIntent.allCases, id: \.self) { intent in
-                Button {
-                    vm.setIntent(intent)
-                } label: {
-                    HStack {
-                        Image(systemName: intent.systemImage)
-                            .frame(width: 24)
-                            .foregroundStyle(.blue)
-                        Text(intent.displayName)
-                        Spacer()
-                        if vm.selectedIntent == intent {
-                            Image(systemName: "checkmark").foregroundStyle(.blue)
+            List {
+                ForEach(PostIntent.allCases, id: \.rawValue) { intent in
+                    Button {
+                        vm.setIntent(intent)
+                    } label: {
+                        HStack {
+                            Image(systemName: intent.composerIcon)
+                                .frame(width: 24)
+                                .foregroundStyle(.blue)
+                            Text(intent.composerDisplayName)
+                            Spacer()
+                            if vm.selectedIntent == intent {
+                                Image(systemName: "checkmark").foregroundStyle(.blue)
+                            }
                         }
                     }
+                    .foregroundStyle(.primary)
                 }
-                .foregroundStyle(.primary)
             }
             .navigationTitle("What are you trying to do?")
             .navigationBarTitleDisplayMode(.inline)

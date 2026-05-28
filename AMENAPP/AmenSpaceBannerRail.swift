@@ -472,6 +472,7 @@ final class AmenSpaceBannerRailViewModel: ObservableObject {
     @Published private(set) var items: [AmenSpaceBannerItem] = []
     @Published private(set) var isLoading = false
     @Published var errorMessage: String?
+    @Published var showSaveError = false
     @Published var selectedSize: AmenSpaceBannerSize
 
     private let surface: AmenSpaceBannerSurface
@@ -522,7 +523,11 @@ final class AmenSpaceBannerRailViewModel: ObservableObject {
         selectedSize = size
         Self.storeUserPreferredSize(size, surface: surface)
         Task {
-            try? await service.setUserPreferredSize(size, surface: surface)
+            do {
+                try await service.setUserPreferredSize(size, surface: surface)
+            } catch {
+                showSaveError = true
+            }
             await load()
         }
     }
@@ -530,7 +535,13 @@ final class AmenSpaceBannerRailViewModel: ObservableObject {
     func dismiss(_ item: AmenSpaceBannerItem) {
         dismissedIds.insert(item.id)
         items.removeAll { $0.id == item.id }
-        Task { try? await service.dismissBanner(item, surface: surface) }
+        Task {
+            do {
+                try await service.dismissBanner(item, surface: surface)
+            } catch {
+                showSaveError = true
+            }
+        }
     }
 
     func recordImpression(_ item: AmenSpaceBannerItem) {
@@ -642,6 +653,7 @@ struct AmenSpaceBannerRail: View {
     @StateObject private var viewModel: AmenSpaceBannerRailViewModel
     @Environment(\.openURL) private var openURL
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     init(surface: AmenSpaceBannerSurface, spaceId: String? = nil, title: String? = nil) {
         self.surface = surface
@@ -661,6 +673,14 @@ struct AmenSpaceBannerRail: View {
             }
         }
         .task { await viewModel.load() }
+        .amenAlert(
+            isPresented: $viewModel.showSaveError,
+            config: LiquidGlassAlertConfig(
+                title: "Could not save preference",
+                message: "Check your connection and try again.",
+                primaryButton: LiquidGlassAlertButton("OK", tone: .primary, action: {})
+            )
+        )
     }
 
     private var header: some View {
@@ -700,8 +720,10 @@ struct AmenSpaceBannerRail: View {
             AmenSpaceBannerUnavailableCard(message: error)
                 .padding(.horizontal, 20)
         } else if !viewModel.items.isEmpty {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 14) {
+            if dynamicTypeSize.isAccessibilitySize {
+                // Vertical list fallback at accessibility Dynamic Type sizes:
+                // no horizontal scroll clipping, full-width cards, CTA always visible.
+                LazyVStack(spacing: 14) {
                     ForEach(viewModel.items) { item in
                         AmenSpaceBannerCard(
                             item: item,
@@ -710,6 +732,7 @@ struct AmenSpaceBannerRail: View {
                             onDismiss: { viewModel.dismiss(item) },
                             onTap: { Task { await open(item) } }
                         )
+                        .frame(maxWidth: .infinity)
                         .background {
                             AmenSpaceBannerVisibilityReporter {
                                 viewModel.recordImpression(item)
@@ -718,7 +741,27 @@ struct AmenSpaceBannerRail: View {
                     }
                 }
                 .padding(.horizontal, 20)
-                .padding(.vertical, 2)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 14) {
+                        ForEach(viewModel.items) { item in
+                            AmenSpaceBannerCard(
+                                item: item,
+                                size: viewModel.selectedSize,
+                                reduceMotion: reduceMotion,
+                                onDismiss: { viewModel.dismiss(item) },
+                                onTap: { Task { await open(item) } }
+                            )
+                            .background {
+                                AmenSpaceBannerVisibilityReporter {
+                                    viewModel.recordImpression(item)
+                                }
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 2)
+                }
             }
         }
     }
@@ -815,11 +858,14 @@ struct AmenSpaceBannerAdminSizePicker: View {
                     .padding(.trailing, 8)
             }
         }
-        .alert("Could not save banner size", isPresented: $saveFailed) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text("Check your admin access and try again.")
-        }
+        .amenAlert(
+            isPresented: $saveFailed,
+            config: LiquidGlassAlertConfig(
+                title: "Could not save banner size",
+                message: "Check your admin access and try again.",
+                primaryButton: LiquidGlassAlertButton("OK", tone: .primary, action: {})
+            )
+        )
     }
 
     @MainActor

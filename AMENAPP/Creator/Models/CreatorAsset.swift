@@ -17,7 +17,7 @@ struct CreatorAsset: Codable, Identifiable, Hashable {
     var mimeType: String?
     var checksum: String?
     var source: CreatorAssetSource
-    var moderationStatus: ModerationStatus
+    var moderationStatus: CreatorModerationStatus
     var authenticityStatus: AuthenticityStatus
     var createdAt: Date
 }

@@ -1,4 +1,5 @@
 import SwiftUI
+import FirebaseFirestore
 
 // MARK: - PrayerRequestOfferBanner
 // Non-intrusive offer shown to the sender after Berean detects a prayer need.
@@ -59,7 +60,7 @@ struct PrayerRequestOfferBanner: View {
 // Displayed in group channel sidebar / prayer list.
 
 struct PrayerRequestCard: View {
-    let request: PrayerRequest
+    let request: ChannelPrayerRequest
     let onMarkAnswered: () -> Void
 
     var body: some View {
@@ -114,7 +115,7 @@ struct PrayerRequestCard: View {
 struct GroupPrayerListView: View {
     let groupId: String
 
-    @State private var requests: [PrayerRequest] = []
+    @State private var requests: [ChannelPrayerRequest] = []
     @State private var listener: ListenerRegistration?
 
     var body: some View {
@@ -146,7 +147,7 @@ struct GroupPrayerListView: View {
         .navigationBarTitleDisplayMode(.inline)
         .background(AmenTheme.Colors.backgroundPrimary.ignoresSafeArea())
         .onAppear {
-            listener = BereanSmartChannelHook.shared.listenPrayerRequests(groupId: groupId) { reqs in
+            listener = BereanSmartChannelHook.shared.listenChannelPrayerRequests(groupId: groupId) { reqs in
                 withAnimation { requests = reqs }
             }
         }

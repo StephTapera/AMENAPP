@@ -14,7 +14,7 @@ import Foundation
 
 private func makeApprovedSafety() -> SafetyMetadata {
     SafetyMetadata(
-        harmRisk: 0, misinformationRisk: 0, exploitationRisk: 0,
+        harmRisk: 0, manipulationRisk: 0, misinformationRisk: 0, exploitationRisk: 0,
         doomscrollRisk: 0, childSafetyRisk: 0, selfHarmRisk: 0,
         harassmentRisk: 0, violenceRisk: 0, sexualSafetyRisk: 0,
         scamRisk: 0, religiousAbuseRisk: 0, medicalClaimRisk: 0,
@@ -29,7 +29,7 @@ private func makeApprovedSafety() -> SafetyMetadata {
 private func makeSafetyWithDecision(_ decision: DistributionDecision,
                                      status: ContentModerationStatus = .approved) -> SafetyMetadata {
     SafetyMetadata(
-        harmRisk: 0.9, misinformationRisk: 0, exploitationRisk: 0,
+        harmRisk: 0.9, manipulationRisk: 0, misinformationRisk: 0, exploitationRisk: 0,
         doomscrollRisk: 0, childSafetyRisk: 0, selfHarmRisk: 0,
         harassmentRisk: 0, violenceRisk: 0, sexualSafetyRisk: 0,
         scamRisk: 0, religiousAbuseRisk: 0, medicalClaimRisk: 0,
@@ -211,7 +211,7 @@ struct FeedSafetyFilterTests {
         // Simulate pipeline detecting CSAM-risk and setting remove decision
         var mutable = safety
         mutable = SafetyMetadata(
-            harmRisk: 0, misinformationRisk: 0, exploitationRisk: 0,
+            harmRisk: 0, manipulationRisk: 0, misinformationRisk: 0, exploitationRisk: 0,
             doomscrollRisk: 0, childSafetyRisk: 0.9, selfHarmRisk: 0,
             harassmentRisk: 0, violenceRisk: 0, sexualSafetyRisk: 0.8,
             scamRisk: 0, religiousAbuseRisk: 0, medicalClaimRisk: 0,

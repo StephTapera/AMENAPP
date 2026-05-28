@@ -86,7 +86,7 @@ struct UnifiedChatView: View {
     @ObservedObject private var networkMonitor = AMENNetworkMonitor.shared
     @ObservedObject private var toastManager = ToastManager.shared
     @ObservedObject private var linkPreviewService = LinkPreviewService.shared
-    @StateObject private var smartAttachmentResolver = AmenSmartAttachmentResolverService.shared
+    @ObservedObject private var smartAttachmentResolver = AmenSmartAttachmentResolverService.shared // PERF: singleton → @ObservedObject
     @StateObject private var chatLinkController = ComposerLinkPreviewController()
     // P0 FIX: These are shared singletons — @StateObject would take ownership and
     // may release them when the view disappears, destroying singleton state.
@@ -826,12 +826,160 @@ struct UnifiedChatView: View {
     }
 
     var body: some View {
+        chatBaseView
+            // Sheets cluster
+            .sheet(isPresented: $showVideoPicker) {
+                VideoPicker(conversationId: conversation.id) { videoURL in
+                    handleVideoSelected(videoURL)
+                }
+            }
+            .sheet(isPresented: $showThreadSearch) {
+                if #available(iOS 17.0, *) {
+                    MessagingThreadSearchView(
+                        messages: messages,
+                        currentUserId: Auth.auth().currentUser?.uid ?? "",
+                        onJumpToMessage: { messageId in threadSearchJumpTargetId = messageId }
+                    )
+                    .presentationDragIndicator(.visible)
+                }
+            }
+            .sheet(isPresented: $showDocumentPicker) { documentPickerSheetView }
+            .sheet(isPresented: $showLinkSheet) {
+                LinkAttachSheet(
+                    conversationId: conversation.id,
+                    senderId: Auth.auth().currentUser?.uid ?? "",
+                    senderName: messagingService.currentUserName
+                ) { msg in appendAttachmentMessage(msg) }
+            }
+            .sheet(isPresented: $showCreatePollSheet) {
+                CreatePollSheet(isPresented: $showCreatePollSheet) { poll in sendPoll(poll) }
+            }
+            .sheet(isPresented: $showSchedulePicker) {
+                ScheduleReplyPickerSheet(text: messageText, selectedDate: $scheduledDate) { confirmedDate in
+                    scheduleReply(at: confirmedDate)
+                }
+            }
+            .sheet(isPresented: $showMemorySheet) {
+                ChatMemorySheetView(
+                    memoryService: chatMemoryService,
+                    extractionEngine: chatExtractionEngine,
+                    calendarBridge: chatCalendarBridge
+                )
+            }
+            .sheet(isPresented: $showConversationMemorySearch) {
+                ConversationMemorySearchView(
+                    conversationId: conversation.id,
+                    onSelectResult: { _ in showConversationMemorySearch = false },
+                    onDismiss: { showConversationMemorySearch = false }
+                )
+            }
+            .sheet(isPresented: $showThreadSummaryPanel) {
+                ThreadSummaryPanel(
+                    threadId: conversation.id,
+                    onOpenSourceMessage: { messageId in
+                        showThreadSummaryPanel = false; scrollToMessage(messageId)
+                    },
+                    onCreateTask: { action in
+                        showThreadSummaryPanel = false
+                        toastManager.showSuccess("Suggested follow-up ready")
+                        dlog("[ThreadSummary] Create task requested: \(action.title)")
+                    },
+                    onDismiss: { showThreadSummaryPanel = false }
+                )
+            }
+            .overlay(alignment: .bottom) { messageActionClusterOverlay.zIndex(100) }
+            .overlay(alignment: .bottom) { mediaIntelligenceDockOverlay.zIndex(99) }
+            .sheet(isPresented: $showPresencePicker) { PresenceModePickerSheet() }
+            .sheet(item: $pendingSaveMessage) { ctx in
+                AmenMessageSaveActionsSheet(context: ctx, flags: AMENFeatureFlags.shared, onDismiss: { pendingSaveMessage = nil })
+            }
+            .sheet(item: $pendingTranscriptMessage) { _ in unavailableTranscriptPanel }
+            .overlay(alignment: .bottom) {
+                if let mediaMsg = activeMediaActionMessage {
+                    mediaActionOverlayView(for: mediaMsg)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .padding(.bottom, 96)
+                }
+            }
+            .animation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75)), value: activeMediaActionMessage?.id)
+            // Alerts cluster
+            .alert("Add to Calendar?", isPresented: $chatCalendarBridge.showCalendarConfirmation) {
+                Button("Add") { Task { await chatCalendarBridge.confirmCalendarAdd() } }
+                Button("Not now", role: .cancel) { Task { await chatCalendarBridge.declineCalendarAdd() } }
+            } message: {
+                if let item = chatCalendarBridge.pendingCalendarItem { Text(item.summary) }
+            }
+            .alert("Message Failed", isPresented: $showErrorAlert) {
+                Button("OK", role: .cancel) {}
+            } message: { Text(errorMessage) }
+            .alert("Report Message", isPresented: $showReportConfirmation) {
+                Button("Report", role: .destructive) {
+                    if let msg = messageToReport { reportMessage(msg) }
+                    messageToReport = nil
+                }
+                Button("Cancel", role: .cancel) { messageToReport = nil }
+            } message: { Text("This message will be reported for review. Thank you for helping keep AMEN safe.") }
+            .alert("Block User", isPresented: $showBlockConfirmation) {
+                Button("Block", role: .destructive) {
+                    if let uid = userIdToBlock { blockSender(userId: uid) }
+                    userIdToBlock = nil
+                }
+                Button("Cancel", role: .cancel) { userIdToBlock = nil }
+            } message: { Text("You will no longer receive messages from this person.") }
+            .alert("Berean AI in this conversation", isPresented: $showBereanDMDisclosure) {
+                Button("Allow") {
+                    UserDefaults.standard.set(true, forKey: "berean_dm_ai_disclosed_\(conversation.id)")
+                    if let text = pendingBereanText { sendBereanMessage(userText: text); pendingBereanText = nil }
+                }
+                Button("No thanks", role: .cancel) { pendingBereanText = nil }
+            } message: {
+                Text("Typing @Berean routes this message to an AI model for a spiritual response. The conversation stays in this chat and is not used for training.")
+            }
+            // Lifecycle cluster
+            .task {
+                await setupChatViewAsync()
+                await chatMemoryService.loadItems(for: conversation.id)
+                chatExtractionEngine.resetSession()
+                voiceViewModel.onComplete = handleVoiceRecordingCompletion
+            }
+            .onAppear {
+                isViewActive = true
+                generateRandomPlaceholder()
+                NotificationAggregationService.shared.trackConversationViewing(conversation.id)
+                scheduledMessagesService.startListening()
+                if let saved = UserDefaults.standard.string(forKey: messageDraftKey), !saved.isEmpty {
+                    messageText = saved
+                }
+            }
+            .onDisappear {
+                isViewActive = false
+                cleanupChatView()
+                scheduledMessagesService.stopListening()
+                chatMemoryService.cleanup()
+                chatExtractionEngine.clearPending()
+                NotificationAggregationService.shared.updateCurrentScreen(.messages)
+            }
+            .onChange(of: scenePhase) { _, newPhase in handleScenePhaseChange(newPhase) }
+            .onChange(of: messages) { _, newMessages in updateSmartPillContext(for: newMessages) }
+            .onChange(of: messageText) { _, newValue in handleMessageTextChanged(newValue) }
+            .onChange(of: isInputFocused) { _, newValue in
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
+                    isInputBarFocused = newValue
+                    if newValue {
+                        isMediaSectionExpanded = false
+                        composerCollapseProgress = 0
+                    }
+                }
+            }
+    }
+
+    // MARK: - Body decomposition (extracted to reduce type-checker complexity)
+
+    @ViewBuilder
+    private var chatBaseView: some View {
         ZStack {
-            // Clean gradient background - black and white theme
             liquidGlassBackground
-
             mainStack
-
             if showLiquidGlassAttachmentMenu {
                 AmenAttachmentMenu(
                     items: attachmentMenuItems,
@@ -841,7 +989,6 @@ struct UnifiedChatView: View {
                 )
                 .zIndex(70)
             }
-
             if LiquidGlassEffectsFlags.floatingStatusPill, !networkMonitor.isConnected {
                 VStack {
                     Spacer()
@@ -850,12 +997,8 @@ struct UnifiedChatView: View {
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
-
-            // Premium iMessage-quality reaction tray overlay (AMENReactionSystem)
             ReactionTrayOverlay(state: ReactionPresentationState.shared)
-
-            // Layer 3: Liquid Glass context menu overlay
-            AmenMessageContextMenuOverlay(presenter: AmenMessageContextMenuPresenter.shared)
+            // AmenMessageContextMenuOverlay(presenter: AmenMessageContextMenuPresenter.shared)
         }
         .navigationBarHidden(true)
         .withToast()
@@ -871,17 +1014,12 @@ struct UnifiedChatView: View {
         ))
         .onChange(of: networkMonitor.isConnected) { oldValue, newValue in
             if !oldValue && newValue {
-                // Just came back online
                 toastManager.showSuccess("Back online")
-                
-                // Retry the last failed message (tracked in state)
                 if let failedId = failedMessageId, let failedText = failedMessageText {
                     retryFailedMessage(messageId: failedId, text: failedText)
                 }
-                // Flush any messages that were queued while fully offline
                 Task { await OfflineMessageQueue.shared.processQueue() }
             } else if oldValue && !newValue {
-                // Just went offline
                 toastManager.showWarning("You're offline. Messages will send when connection is restored.")
             }
         }
@@ -897,233 +1035,9 @@ struct UnifiedChatView: View {
             showingCameraPicker: $showingCameraPicker,
             capturedCameraImage: $capturedCameraImage,
             showCameraPermissionAlert: $showCameraPermissionAlert,
-            onPhotoItemsSelected: { items in
-                Task { await handleSelectedPhotoItems(items) }
-            },
-            onCameraImageSelected: { image in
-                Task { await sendPhotoAttachments([image]) }
-            }
+            onPhotoItemsSelected: { items in Task { await handleSelectedPhotoItems(items) } },
+            onCameraImageSelected: { image in Task { await sendPhotoAttachments([image]) } }
         ))
-        // Video picker sheet
-        .sheet(isPresented: $showVideoPicker) {
-            VideoPicker(conversationId: conversation.id) { videoURL in
-                handleVideoSelected(videoURL)
-            }
-        }
-        // System 36: Thread-level search/filter sheet
-        .sheet(isPresented: $showThreadSearch) {
-            if #available(iOS 17.0, *) {
-                MessagingThreadSearchView(
-                    messages: messages,
-                    currentUserId: Auth.auth().currentUser?.uid ?? "",
-                    onJumpToMessage: { messageId in
-                        threadSearchJumpTargetId = messageId
-                    }
-                )
-                .presentationDragIndicator(.visible)
-            }
-        }
-        // Document picker sheet
-        .sheet(isPresented: $showDocumentPicker) {
-            documentPickerSheetView
-        }
-        // Link attach sheet
-        .sheet(isPresented: $showLinkSheet) {
-            LinkAttachSheet(
-                conversationId: conversation.id,
-                senderId: Auth.auth().currentUser?.uid ?? "",
-                senderName: messagingService.currentUserName
-            ) { msg in
-                appendAttachmentMessage(msg)
-            }
-        }
-        // Feature 3: Poll creation sheet
-        .sheet(isPresented: $showCreatePollSheet) {
-            CreatePollSheet(isPresented: $showCreatePollSheet) { poll in
-                sendPoll(poll)
-            }
-        }
-        // Schedule Reply picker sheet
-        .sheet(isPresented: $showSchedulePicker) {
-            ScheduleReplyPickerSheet(
-                text: messageText,
-                selectedDate: $scheduledDate
-            ) { confirmedDate in
-                scheduleReply(at: confirmedDate)
-            }
-        }
-        // Chat memory sheet
-        .sheet(isPresented: $showMemorySheet) {
-            ChatMemorySheetView(
-                memoryService: chatMemoryService,
-                extractionEngine: chatExtractionEngine,
-                calendarBridge: chatCalendarBridge
-            )
-        }
-        // System 32: Conversation Memory Search sheet
-        .sheet(isPresented: $showConversationMemorySearch) {
-            ConversationMemorySearchView(
-                conversationId: conversation.id,
-                onSelectResult: { _ in showConversationMemorySearch = false },
-                onDismiss: { showConversationMemorySearch = false }
-            )
-        }
-        // System 32: Thread Summary panel
-        .sheet(isPresented: $showThreadSummaryPanel) {
-            ThreadSummaryPanel(
-                threadId: conversation.id,
-                onOpenSourceMessage: { messageId in
-                    showThreadSummaryPanel = false
-                    scrollToMessage(messageId)
-                },
-                onCreateTask: { action in
-                    showThreadSummaryPanel = false
-                    toastManager.showSuccess("Suggested follow-up ready")
-                    dlog("[ThreadSummary] Create task requested: \(action.title)")
-                },
-                onDismiss: { showThreadSummaryPanel = false }
-            )
-        }
-        // System 32: Message Action Cluster overlay
-        .overlay(alignment: .bottom) {
-            messageActionClusterOverlay
-                .zIndex(100)
-        }
-        // System 32: Media Intelligence Dock overlay
-        .overlay(alignment: .bottom) {
-            mediaIntelligenceDockOverlay
-                .zIndex(99)
-        }
-        // System 32: Presence picker sheet
-        .sheet(isPresented: $showPresencePicker) {
-            PresenceModePickerSheet()
-        }
-        // Phase 6: Save / cross-surface actions sheet
-        .sheet(item: $pendingSaveMessage) { ctx in
-            AmenMessageSaveActionsSheet(
-                context: ctx,
-                flags: AMENFeatureFlags.shared,
-                onDismiss: { pendingSaveMessage = nil }
-            )
-        }
-        // CF-2: Voice transcript panel — honest unavailable state until STT is wired
-        .sheet(item: $pendingTranscriptMessage) { _ in
-            unavailableTranscriptPanel
-        }
-        // Phase 11: Media action overlay — floating tray over media messages
-        .overlay(alignment: .bottom) {
-            if let mediaMsg = activeMediaActionMessage {
-                mediaActionOverlayView(for: mediaMsg)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-                .padding(.bottom, 96) // above composer bar
-            }
-        }
-        .animation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75)), value: activeMediaActionMessage?.id)
-        .alert("Add to Calendar?", isPresented: $chatCalendarBridge.showCalendarConfirmation) {
-            Button("Add") {
-                Task { await chatCalendarBridge.confirmCalendarAdd() }
-            }
-            Button("Not now", role: .cancel) {
-                Task { await chatCalendarBridge.declineCalendarAdd() }
-            }
-        } message: {
-            if let item = chatCalendarBridge.pendingCalendarItem {
-                Text(item.summary)
-            }
-        }
-        .alert("Message Failed", isPresented: $showErrorAlert) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(errorMessage)
-        }
-        .alert("Report Message", isPresented: $showReportConfirmation) {
-            Button("Report", role: .destructive) {
-                if let msg = messageToReport {
-                    reportMessage(msg)
-                }
-                messageToReport = nil
-            }
-            Button("Cancel", role: .cancel) { messageToReport = nil }
-        } message: {
-            Text("This message will be reported for review. Thank you for helping keep AMEN safe.")
-        }
-        .alert("Block User", isPresented: $showBlockConfirmation) {
-            Button("Block", role: .destructive) {
-                if let uid = userIdToBlock {
-                    blockSender(userId: uid)
-                }
-                userIdToBlock = nil
-            }
-            Button("Cancel", role: .cancel) { userIdToBlock = nil }
-        } message: {
-            Text("You will no longer receive messages from this person.")
-        }
-        .alert("Berean AI in this conversation", isPresented: $showBereanDMDisclosure) {
-            Button("Allow") {
-                UserDefaults.standard.set(true, forKey: "berean_dm_ai_disclosed_\(conversation.id)")
-                if let text = pendingBereanText {
-                    sendBereanMessage(userText: text)
-                    pendingBereanText = nil
-                }
-            }
-            Button("No thanks", role: .cancel) {
-                pendingBereanText = nil
-            }
-        } message: {
-            Text("Typing @Berean routes this message to an AI model for a spiritual response. The conversation stays in this chat and is not used for training.")
-        }
-        .task {
-            // P0 FIX: Move all setup to async task for instant view appearance
-            await setupChatViewAsync()
-            // Load chat memory items for this conversation
-            await chatMemoryService.loadItems(for: conversation.id)
-            chatExtractionEngine.resetSession()
-
-            // Wire voice recording completion → send audio message
-            voiceViewModel.onComplete = handleVoiceRecordingCompletion
-        }
-        .onAppear {
-            isViewActive = true
-            // Only do lightweight, synchronous work here
-            generateRandomPlaceholder()
-            NotificationAggregationService.shared.trackConversationViewing(conversation.id)
-            scheduledMessagesService.startListening()
-            // Restore any unsent draft for this conversation
-            if let saved = UserDefaults.standard.string(forKey: messageDraftKey), !saved.isEmpty {
-                messageText = saved
-            }
-        }
-        .onDisappear {
-            isViewActive = false
-            cleanupChatView()
-            scheduledMessagesService.stopListening()
-            chatMemoryService.cleanup()
-            chatExtractionEngine.clearPending()
-
-            // ✅ Reset screen tracking
-            NotificationAggregationService.shared.updateCurrentScreen(.messages)
-        }
-        .onChange(of: scenePhase) { _, newPhase in
-            handleScenePhaseChange(newPhase)
-        }
-        // Phase 4A/4B: Update smart pill eligibility when message list changes
-        .onChange(of: messages) { _, newMessages in
-            updateSmartPillContext(for: newMessages)
-        }
-        .onChange(of: messageText) { _, newValue in
-            handleMessageTextChanged(newValue)
-        }
-        .onChange(of: isInputFocused) { _, newValue in
-            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
-                isInputBarFocused = newValue
-                if newValue {
-                    // Auto-collapse media section when keyboard appears
-                    isMediaSectionExpanded = false
-                    // Restore composer to full size when user starts typing
-                    composerCollapseProgress = 0
-                }
-            }
-        }
     }
     
     // MARK: - Computed Properties
@@ -1348,7 +1262,7 @@ struct UnifiedChatView: View {
             // System 36: Thread-level search/filter — flag-gated, no-op when off
             if #available(iOS 17.0, *), amenFeatureFlags.messagingThreadSearchFiltersEnabled {
                 Button {
-                    AMENAnalyticsService.shared.track(.messageThreadFilterOpened)
+                    AMENAnalyticsService.shared.track(.messageThreadFilterSelected(filter: "search"))
                     showThreadSearch = true
                 } label: {
                     Image(systemName: "magnifyingglass")
@@ -1610,13 +1524,8 @@ struct UnifiedChatView: View {
                     if newCount > oldCount {
                         refreshSmartReplies()
                     }
-                    // System 32: Trigger smart context extraction once we have enough messages
-                    if AMENFeatureFlags.shared.messagesSmartContextEnabled, newCount >= 5 {
-                        intelligenceCoordinator.extractSmartContext(
-                            conversationId: conversation.id,
-                            messages: messages
-                        )
-                    }
+                    // System 32: extractSmartContext not yet implemented on coordinator
+                    // if AMENFeatureFlags.shared.messagesSmartContextEnabled, newCount >= 5 { ... }
                 }
                 // Berean: scroll to bottom when typing indicator appears
                 .onChange(of: isBereanStreaming) { _, isStreaming in
@@ -1897,7 +1806,7 @@ struct UnifiedChatView: View {
         case .saveToNotes:
             presentSaveSheet(actions: [.saveToNotes])
         case .startReflection:
-            presentSaveSheet(actions: [.startReflection])
+            presentSaveSheet(actions: [.saveToSelah])
         case .createReminder:
             presentSaveSheet(actions: [.remindMe])
         case .askBerean:
@@ -2010,8 +1919,7 @@ struct UnifiedChatView: View {
         pendingSaveMessage = AmenMessageSaveContext(
             message: message,
             conversationName: conversation.name,
-            presentedActions: actions,
-            conversationId: conversation.id
+            presentedActions: actions
         )
     }
     
@@ -3183,7 +3091,6 @@ struct UnifiedChatView: View {
     // Phase 4B: Build pill context from current message state — extracted to avoid type-checker timeout.
     private func updateSmartPillContext(for newMessages: [AppMessage]) {
         guard AMENFeatureFlags.shared.messagingSmartPillsEnabled else { return }
-        let lastIncoming = newMessages.last(where: { !$0.isFromCurrentUser })
         let sel = selectedMessage
         let unread = newMessages.filter { !$0.isRead && !$0.isFromCurrentUser }.count
         let langCode = Locale.current.language.languageCode?.identifier ?? "en"
@@ -3199,7 +3106,7 @@ struct UnifiedChatView: View {
             selectedMessage: sel,
             userLanguageCode: langCode,
             isGroupConversation: conversation.isGroup,
-            detectedLanguage: lastIncoming?.detectedLanguage,
+            detectedLanguage: nil, // AppMessage does not expose detectedLanguage
             hasVoiceMessage: isVoice,
             hasMediaMessage: isMedia,
             hasLongText: isLong,
@@ -3284,11 +3191,11 @@ struct UnifiedChatView: View {
         case .summary:
             showThreadSummaryPanel = true
         case .decisions:
-            intelligenceCoordinator.extractSmartContext(conversationId: conversation.id, messages: messages)
+            break // extractSmartContext not yet implemented on coordinator
         case .questions:
-            intelligenceCoordinator.extractSmartContext(conversationId: conversation.id, messages: messages)
+            break // extractSmartContext not yet implemented on coordinator
         case .actions:
-            intelligenceCoordinator.extractSmartContext(conversationId: conversation.id, messages: messages)
+            break // extractSmartContext not yet implemented on coordinator
         case .media:
             if let mediaMsg = messages.last(where: { $0.messageType == .image || $0.messageType == .video }) {
                 mediaDockMessage = mediaMsg
@@ -3326,9 +3233,9 @@ struct UnifiedChatView: View {
         case .summarize:
             showThreadSummaryPanel = true
         case .createTask:
-            intelligenceCoordinator.extractSmartContext(conversationId: conversation.id, messages: messages)
+            break // extractSmartContext not yet implemented on coordinator
         case .markDecision:
-            intelligenceCoordinator.extractSmartContext(conversationId: conversation.id, messages: messages)
+            break // extractSmartContext not yet implemented on coordinator
         case .remindMe:
             pendingSaveMessage = AmenMessageSaveContext(
                 message: message,

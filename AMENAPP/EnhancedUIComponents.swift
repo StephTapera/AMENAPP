@@ -45,7 +45,8 @@ struct AmenLoadingSpinner: View {
 // MARK: - Elegant Button Style (Matching Dark Theme)
 struct AmenButtonStyle: ButtonStyle {
     var isPrimary: Bool = true
-    
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.systemScaled(16, weight: .light, design: .default))
@@ -61,8 +62,8 @@ struct AmenButtonStyle: ButtonStyle {
                 RoundedRectangle(cornerRadius: 12)
                     .strokeBorder(Color.white.opacity(0.2), lineWidth: isPrimary ? 0 : 1)
             )
-            .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
-            .animation(.easeInOut(duration: 0.15), value: configuration.isPressed)
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.97 : 1.0)
+            .animation(reduceMotion ? nil : Motion.liquidSpring, value: configuration.isPressed)
     }
 }
 

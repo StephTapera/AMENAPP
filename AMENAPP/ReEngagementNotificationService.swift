@@ -7,6 +7,17 @@
 //  Functions to produce Spirit-led notification copy.
 //
 
+// MARK: - Notification Service Ownership
+// This service owns: AI-generated re-engagement push notifications for dormant/backgrounded users;
+//                    calling the bereanNotificationText Cloud Function (Claude API) to produce
+//                    faith-based personalized copy (title + body); scheduling the resulting
+//                    UNNotificationRequest with a configurable delay (default 2 hours after backgrounding);
+//                    the onAppBackgrounded() lifecycle hook that triggers re-engagement scheduling.
+// It does NOT own: Social-activity notifications, prayer or action-thread notifications,
+//                  spiritual-rhythm gating (sabbath mode, quiet hours), priority scoring, batching,
+//                  or Firestore notification writes.
+// Canonical routing reference: See NotificationServiceMap.md
+
 import Foundation
 import FirebaseAuth
 import UserNotifications

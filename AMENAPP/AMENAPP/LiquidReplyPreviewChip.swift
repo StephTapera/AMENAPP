@@ -72,7 +72,7 @@ struct LiquidReplyPreviewChip: View {
                 .replyPreviewTapped(
                     postId: preview.postId,
                     type: preview.type.rawValue,
-                    replyId: preview.replyId
+                    replyId: preview.replyId ?? ""
                 )
             )
             onTap()

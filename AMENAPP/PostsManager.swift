@@ -212,9 +212,28 @@ struct Post: Identifiable, Codable, Equatable {
     // nil means unknown (treat as public). true = private account (gate by follow).
     var authorIsPrivate: Bool? = nil
 
+    // Verification — cached from author's user document at post-load time.
+    var authorIsVerified: Bool = false
+    var authorVerificationType: VerificationType = .none
+
+    // Dynamic reply previews — server-ranked, moderation-approved (nil until enriched)
+    var dynamicReplyPreviewCandidates: [DynamicReplyPreview]? = nil
+
     // Moderation metadata (set by server-side onPostCreate trigger)
     var flaggedForReview: Bool = false // Post is under review by moderators
     var removed: Bool = false // Post was removed by automated moderation
+    var lowTrustAuthor: Bool = false // Author flagged as low-trust by safety system
+
+    // Feed context label (set by AmenFeedContextEnrichmentService after feed load)
+    var feedContext: AmenFeedContextLabel? = nil
+    /// Stable ID used by feed context analytics — prefers Firestore ID then UUID string.
+    var contextStableId: String { firebaseId ?? id.uuidString }
+
+    // Church share ID (set when the post is a church discovery share)
+    var sharedChurchId: String? = nil
+    var sharedChurchAddress: String? = nil
+    var sharedChurchLatitude: Double? = nil
+    var sharedChurchLongitude: Double? = nil
 
     // Poll attachment — nil when the post has no poll
     var poll: PostPoll? = nil
@@ -243,6 +262,36 @@ struct Post: Identifiable, Codable, Equatable {
     var normalizedTopicKeys: [String]? = nil     // Canonical topic keys (e.g. ["prayer", "healing"])
     var topicScoreMap: [String: Double]? = nil    // Per-key confidence (0–1.0) from enrichment
     var primaryTopicKey: String? = nil            // Highest-confidence topic key
+
+    // Structured media items
+    var mediaItems: [PostMediaItem]? = nil
+    var witnessMedia: PostWitnessMediaMetadata? = nil
+
+    // Smart attachment
+    var smartAttachment: AmenSmartAttachment? = nil
+    var hasSmartAttachment: Bool = false
+    var attachmentCount: Int = 0
+    var primaryAttachmentId: String? = nil
+
+    // Publication visibility (private_pending → public after media processing)
+    var publicationVisibility: String? = nil
+
+    // Aggregate harm score — set by backend enrichment (0.0 = safe, 1.0 = harmful)
+    var aggregateHarmScore: Double = 0.0
+
+    // AI usage attribution
+    var aiUsage: PostAIUsage? = nil
+
+    // True Source metadata — written by backend enrichment; nil on posts not yet evaluated
+    var trueSource: TrueSourceBundle? = nil
+
+    var requiresAIGeneratedLabel: Bool {
+        aiUsage?.usedAI == true && aiUsage?.disclosureRequired == true
+    }
+
+    var isEligibleForFeedDisplay: Bool {
+        !flaggedForReview && !removed && visibility == .everyone
+    }
 
     enum PostCategory: String, Codable, CaseIterable {
         case openTable = "openTable"      // ✅ Firebase-safe (no special chars)
@@ -279,6 +328,26 @@ struct Post: Identifiable, Codable, Equatable {
             case .prayer: return .prayer
             case .tip: return .openTable  // Use openTable style for now
             case .funFact: return .openTable  // Use openTable style for now
+            }
+        }
+
+        var icon: String {
+            switch self {
+            case .openTable: return "bubble.left.and.bubble.right.fill"
+            case .testimonies: return "star.bubble.fill"
+            case .prayer: return "hands.sparkles.fill"
+            case .tip: return "lightbulb.fill"
+            case .funFact: return "info.circle.fill"
+            }
+        }
+
+        var color: Color {
+            switch self {
+            case .openTable: return .primary
+            case .testimonies: return .yellow
+            case .prayer: return .blue
+            case .tip: return .orange
+            case .funFact: return .teal
             }
         }
     }
@@ -533,6 +602,15 @@ struct Post: Identifiable, Codable, Equatable {
         normalizedTopicKeys = try container.decodeIfPresent([String].self, forKey: .normalizedTopicKeys)
         topicScoreMap = try container.decodeIfPresent([String: Double].self, forKey: .topicScoreMap)
         primaryTopicKey = try container.decodeIfPresent(String.self, forKey: .primaryTopicKey)
+        // Client-only fields — not stored in Firestore, set to defaults on decode
+        mediaItems = nil
+        witnessMedia = nil
+        smartAttachment = nil
+        hasSmartAttachment = false
+        attachmentCount = 0
+        primaryAttachmentId = nil
+        publicationVisibility = nil
+        aiUsage = nil
     }
 
     func encode(to encoder: Encoder) throws {
@@ -654,7 +732,13 @@ struct Post: Identifiable, Codable, Equatable {
         originalAuthorId: String? = nil,
         churchNoteId: String? = nil,
         contentSource: String? = nil,
-        quote: PostQuoteMetadata? = nil
+        quote: PostQuoteMetadata? = nil,
+        mediaItems: [PostMediaItem]? = nil,
+        witnessMedia: PostWitnessMediaMetadata? = nil,
+        smartAttachment: AmenSmartAttachment? = nil,
+        hasSmartAttachment: Bool = false,
+        attachmentCount: Int = 0,
+        primaryAttachmentId: String? = nil
     ) {
         self.id = id
         self.firebaseId = firebaseId
@@ -700,6 +784,12 @@ struct Post: Identifiable, Codable, Equatable {
         self.churchNoteId = churchNoteId
         self.contentSource = contentSource
         self.quote = quote
+        self.mediaItems = mediaItems
+        self.witnessMedia = witnessMedia
+        self.smartAttachment = smartAttachment
+        self.hasSmartAttachment = hasSmartAttachment
+        self.attachmentCount = attachmentCount
+        self.primaryAttachmentId = primaryAttachmentId
     }
 
     var backendId: String {

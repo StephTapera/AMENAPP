@@ -41,7 +41,7 @@ final class ChurchDiscoveryCallableService: ObservableObject {
         activeSearchTask = task
         isSearching = true
         defer {
-            if activeSearchTask === task { activeSearchTask = nil }
+            activeSearchTask = nil
             isSearching = false
         }
 

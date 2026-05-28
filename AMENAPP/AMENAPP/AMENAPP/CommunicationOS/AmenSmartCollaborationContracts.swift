@@ -56,6 +56,21 @@ struct AmenThreadSmartContext: Identifiable, Codable {
     var lastSourceMessageId: String
     /// True when new messages have arrived since the last generation pass.
     var isStale: Bool
+
+    // MARK: - Count fields (UI layer, merged from AmenThreadSmartContext.swift)
+    var summaryCount: Int = 0
+    var decisionCount: Int = 0
+    var actionCount: Int = 0
+    var questionCount: Int = 0
+    var mediaCount: Int = 0
+    var fileCount: Int = 0
+    var eventCount: Int = 0
+    var catchUpAvailable: Bool = false
+    var staleAfter: Date?
+
+    var hasMeaningfulContext: Bool {
+        summaryCount > 0 || decisionCount > 0 || actionCount > 0 || questionCount > 0 || mediaCount > 0 || fileCount > 0 || eventCount > 0 || catchUpAvailable
+    }
 }
 
 // MARK: - AmenSmartActionType

@@ -177,7 +177,7 @@ struct ChurchNotesSmartRecapView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Label("Related scriptures", systemImage: "book.fill")
                     .font(.headline)
-                FlowLayout(spacing: 8) {
+                CNRecapFlowLayout(spacing: 8) {
                     ForEach(recap.relatedScriptures, id: \.self) { ref in
                         Text(ref)
                             .font(.caption.weight(.medium))
@@ -243,7 +243,7 @@ struct ChurchNotesSmartRecapView: View {
 
 // MARK: - Flow Layout (for scripture chips)
 
-private struct FlowLayout: Layout {
+private struct CNRecapFlowLayout: Layout {
     var spacing: CGFloat = 8
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {

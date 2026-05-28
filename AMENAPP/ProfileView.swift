@@ -304,44 +304,48 @@ struct ProfileView: View {
             // Single sheet presentation — avoids "only one sheet at a time" warnings
             // and prevents re-initialisation of sheet content when not presented.
             .sheet(item: $activeSheet) { sheet in
-                switch sheet {
-                case .settings:
-                    AMENSettingsView()
-                case .editProfile:
-                    EditProfileView(profileData: $profileData)
-                case .qrCode:
-                    ProfileQRCodeView(username: "@\(profileData.username)", name: profileData.name)
-                case .fullScreenAvatar:
-                    FullScreenAvatarView(name: profileData.name, initials: profileData.initials, profileImageURL: profileData.profileImageURL)
-                case .loginHistory:
-                    LoginHistoryView()
-                case .followersList:
-                    if let userId = Auth.auth().currentUser?.uid {
-                        SocialFollowersListView(userId: userId, listType: .followers)
-                    } else {
-                        Text("Error: Not signed in").padding()
-                    }
-                case .followingList:
-                    if let userId = Auth.auth().currentUser?.uid {
-                        SocialFollowersListView(userId: userId, listType: .following)
-                    } else {
-                        Text("Error: Not signed in").padding()
-                    }
-                case .journey:
-                    NavigationStack {
-                        LongitudinalSelfView()
-                    }
-                case .followRequests:
-                    FollowRequestsView()
-                case .changePhoto:
-                    ProfilePhotoEditView(
-                        currentImageURL: profileData.profileImageURL,
-                        onPhotoUpdated: { newURL in
-                            profileData.profileImageURL = newURL
-                            lastProfileLoad = nil
+                Group {
+                    switch sheet {
+                    case .settings:
+                        AMENSettingsView()
+                    case .editProfile:
+                        EditProfileView(profileData: $profileData)
+                    case .qrCode:
+                        ProfileQRCodeView(username: "@\(profileData.username)", name: profileData.name)
+                    case .fullScreenAvatar:
+                        FullScreenAvatarView(name: profileData.name, initials: profileData.initials, profileImageURL: profileData.profileImageURL)
+                    case .loginHistory:
+                        LoginHistoryView()
+                    case .followersList:
+                        if let userId = Auth.auth().currentUser?.uid {
+                            SocialFollowersListView(userId: userId, listType: .followers)
+                        } else {
+                            Text("Error: Not signed in").padding()
                         }
-                    )
+                    case .followingList:
+                        if let userId = Auth.auth().currentUser?.uid {
+                            SocialFollowersListView(userId: userId, listType: .following)
+                        } else {
+                            Text("Error: Not signed in").padding()
+                        }
+                    case .journey:
+                        NavigationStack {
+                            LongitudinalSelfView()
+                        }
+                    case .followRequests:
+                        FollowRequestsView()
+                    case .changePhoto:
+                        ProfilePhotoEditView(
+                            currentImageURL: profileData.profileImageURL,
+                            onPhotoUpdated: { newURL in
+                                profileData.profileImageURL = newURL
+                                lastProfileLoad = nil
+                            }
+                        )
+                    }
                 }
+                .amenSheet()
+                .presentationDetents([.large])
             }
             // Legacy bool bindings: mirror them into activeSheet so old call sites still work
             .onChange(of: showSettings) { _, v in if v { activeSheet = .settings; showSettings = false } }
@@ -352,20 +356,20 @@ struct ProfileView: View {
             .onChange(of: showFollowersList) { _, v in if v { activeSheet = .followersList; showFollowersList = false } }
             .onChange(of: showFollowingList) { _, v in if v { activeSheet = .followingList; showFollowingList = false } }
             // P0-1: Surface profile load failures so the user can retry
-            .alert("Couldn't Load Profile", isPresented: $showLoadError) {
-                Button("Retry") { Task { await loadProfileData() } }
-                Button("Cancel", role: .cancel) { }
-            } message: {
-                Text(loadErrorMessage)
-            }
-            .alert("Sign Out?", isPresented: $showSignOutConfirmation) {
-                Button("Cancel", role: .cancel) { }
-                Button("Sign Out", role: .destructive) {
-                    authViewModel.signOut()
-                }
-            } message: {
-                Text("You’ll need to sign in again to access your account.")
-            }
+            .amenAlert(isPresented: $showLoadError, config: LiquidGlassAlertConfig(
+                title: "Couldn’t Load Profile",
+                message: loadErrorMessage,
+                icon: "exclamationmark.circle",
+                primaryButton: LiquidGlassAlertButton("Retry", tone: .primary, action: { Task { await loadProfileData() } }),
+                secondaryButton: .cancel()
+            ))
+            .amenAlert(isPresented: $showSignOutConfirmation, config: LiquidGlassAlertConfig(
+                title: "Sign Out?",
+                message: "You’ll need to sign in again to access your account.",
+                icon: "rectangle.portrait.and.arrow.right",
+                primaryButton: LiquidGlassAlertButton("Sign Out", tone: .destructive, action: { authViewModel.signOut() }),
+                secondaryButton: .cancel()
+            ))
     }
 
     private var profileScrollView: some View {
@@ -380,10 +384,10 @@ struct ProfileView: View {
         .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
             scrollOffset = value
             
-            // Show compact header when scrolled past 200 points
+            // Pattern 1: compact header reveal uses bouncy spring for natural feel
             let shouldShow = value < -200
             if showCompactHeader != shouldShow {
-                withAnimation(.easeOut(duration: 0.15)) {
+                withAnimation(Motion.liquidSpringAdaptive) {
                     showCompactHeader = shouldShow
                 }
             }
@@ -403,8 +407,13 @@ struct ProfileView: View {
     @ViewBuilder
     private var profileScrollContent: some View {
         VStack(spacing: 0) {
-            // Profile Header
+            // Pattern 4: Stretchy parallax header — avatar and name scale up on pull-down
             profileHeaderViewWithoutTabs
+                .scaleEffect(
+                    scrollOffset > 0 ? (1.0 + scrollOffset * 0.0012) : 1.0,
+                    anchor: .top
+                )
+                .animation(scrollOffset > 0 ? .none : Motion.liquidSpring, value: scrollOffset)
                 .background(
                     GeometryReader { geometry in
                         Color.clear
@@ -1702,7 +1711,8 @@ struct ProfileView: View {
                 Button {
                     HapticManager.impact(style: .light)
                     
-                    withAnimation(Motion.adaptive(.spring(response: 0.32, dampingFraction: 0.78))) {
+                    // Pattern 2: canonical bouncy spring for tab pill position change
+                    withAnimation(Motion.liquidSpringAdaptive) {
                         selectedTab = tab
                     }
                     
@@ -1712,11 +1722,11 @@ struct ProfileView: View {
                     VStack(spacing: 4) {
                         Image(systemName: tab.icon)
                             .font(.systemScaled(15, weight: selectedTab == tab ? .bold : .medium))
-                            .foregroundStyle(selectedTab == tab ? .black : .black.opacity(0.35))
+                            .foregroundStyle(selectedTab == tab ? Color.primary : Color.primary.opacity(0.35))
 
                         Text(tab.rawValue)
                             .font(AMENFont.semiBold(11))
-                            .foregroundStyle(selectedTab == tab ? .black : .black.opacity(0.35))
+                            .foregroundStyle(selectedTab == tab ? Color.primary : Color.primary.opacity(0.35))
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
@@ -1724,12 +1734,14 @@ struct ProfileView: View {
                         Group {
                             if selectedTab == tab {
                                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .fill(Color.white.opacity(0.90))
+                                    .fill(Color(.systemBackground).opacity(0.90))
                                     .shadow(color: .black.opacity(0.06), radius: 4, y: 2)
                                     .matchedGeometryEffect(id: "tabBackground", in: tabNamespace)
                             }
                         }
                     )
+                    .accessibilityLabel(tab.rawValue)
+                    .accessibilityAddTraits(selectedTab == tab ? [.isSelected] : [])
                 }
                 .buttonStyle(PlainButtonStyle())
             }
@@ -1820,8 +1832,10 @@ struct ProfileView: View {
                         .scaleEffect(avatarPressed ? 0.92 : 1.0)
                 }
                 .buttonStyle(PlainButtonStyle())
+                .accessibilityLabel(profileData.name.isEmpty ? "Profile photo" : "\(profileData.name)'s profile photo")
+                .accessibilityHint("Double tap to view or change photo")
             }
-            
+
             // Bio with Link Detection
             if !profileData.bio.isEmpty {
                 BioLinkText(text: profileData.bio)
@@ -1933,7 +1947,9 @@ struct ProfileView: View {
                     }
                 }
                 .buttonStyle(PlainButtonStyle())
-                
+                .accessibilityLabel("\(followService.currentUserFollowersCount) followers")
+                .accessibilityHint("Double tap to view followers list")
+
                 Button {
                     showFollowingList = true
                     HapticManager.impact(style: .light)
@@ -1948,6 +1964,8 @@ struct ProfileView: View {
                     }
                 }
                 .buttonStyle(PlainButtonStyle())
+                .accessibilityLabel("\(followService.currentUserFollowingCount) following")
+                .accessibilityHint("Double tap to view following list")
                 
                 Spacer()
             }
@@ -1955,57 +1973,24 @@ struct ProfileView: View {
             
             // Action Buttons — liquid glass
             HStack(spacing: 8) {
-                Button {
+                AmenLiquidGlassButton(
+                    icon: "pencil",
+                    label: "Edit profile",
+                    shape: .capsule,
+                    intensity: .light,
+                    accessibilityLabel: "Edit profile"
+                ) {
                     showEditProfile = true
-                } label: {
-                    Text("Edit profile")
-                        .font(AMENFont.bold(14))
-                        .foregroundStyle(.primary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .fill(Color.white.opacity(0.80))
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .strokeBorder(
-                                    LinearGradient(
-                                        colors: [Color.white.opacity(0.6), Color.black.opacity(0.06)],
-                                        startPoint: .top,
-                                        endPoint: .bottom
-                                    ),
-                                    lineWidth: 0.75
-                                )
-                        )
-                        .shadow(color: .black.opacity(0.04), radius: 3, y: 1)
                 }
-                
-                Button {
-                    shareProfile()
-                } label: {
-                    Text("Share profile")
-                        .font(AMENFont.bold(14))
-                        .foregroundStyle(.primary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .fill(Color.white.opacity(0.80))
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .strokeBorder(
-                                    LinearGradient(
-                                        colors: [Color.white.opacity(0.6), Color.black.opacity(0.06)],
-                                        startPoint: .top,
-                                        endPoint: .bottom
-                                    ),
-                                    lineWidth: 0.75
-                                )
-                        )
-                        .shadow(color: .black.opacity(0.04), radius: 3, y: 1)
-                }
+
+                AmenLiquidGlassPillButton(
+                    title: "Share profile",
+                    systemImage: "square.and.arrow.up",
+                    isLoading: false,
+                    isDisabled: false,
+                    hint: "Share your profile link",
+                    action: { shareProfile() }
+                )
             }
         }
         .padding(.horizontal, 16)
@@ -2054,9 +2039,13 @@ struct ProfileView: View {
                         }
                 }
                 if feedViewMode == .media && AMENFeatureFlags.shared.feedViewModeSwitcherEnabled {
-                    MediaOnlyFeedView(viewModel: mediaFeedVM) { postId in
-                        AMENAnalyticsService.shared.track(.mediaDetailJumpedToPost(postId: postId))
-                    }
+                    MediaOnlyFeedView(
+                        viewModel: mediaFeedVM,
+                        onViewFullPost: { postId in
+                            AMENAnalyticsService.shared.track(.mediaDetailJumpedToPost(postId: postId))
+                        },
+                        isCurrentUserProfile: true
+                    )
                     .transition(.opacity.animation(.easeOut(duration: 0.15)))
                     .id("media")
                     .onAppear {
@@ -3004,44 +2993,26 @@ struct ProfileReplyCard: View {
                     HapticManager.impact(style: .light)
                 } label: {
                     Group {
-                        if let profileImageURL = comment.authorProfileImageURL, 
+                        if let profileImageURL = comment.authorProfileImageURL,
                            !profileImageURL.isEmpty,
                            let url = URL(string: profileImageURL) {
-                            AsyncImage(url: url) { phase in
-                                switch phase {
-                                case .success(let image):
-                                    image
-                                        .resizable()
-                                        .scaledToFill()
-                                        .frame(width: 32, height: 32)
-                                        .clipShape(Circle())
-                                case .failure:
-                                    Circle()
-                                        .fill(Color.black)
-                                        .frame(width: 32, height: 32)
-                                        .overlay(
-                                            Text(comment.authorInitials)
-                                                .font(AMENFont.bold(14))
-                                                .foregroundStyle(.white)
-                                        )
-                                case .empty:
-                                    Circle()
-                                        .fill(Color.black.opacity(0.1))
-                                        .frame(width: 32, height: 32)
-                                        .overlay(
-                                            ProgressView()
-                                                .scaleEffect(0.7)
-                                        )
-                                @unknown default:
-                                    Circle()
-                                        .fill(Color.black)
-                                        .frame(width: 32, height: 32)
-                                        .overlay(
-                                            Text(comment.authorInitials)
-                                                .font(AMENFont.bold(14))
-                                                .foregroundStyle(.white)
-                                        )
-                                }
+                            // PERF: CachedAsyncImage — reply rows are rendered per-row;
+                            // cache prevents repeated URLSession fetches for the same avatar.
+                            CachedAsyncImage(url: url, size: CGSize(width: 64, height: 64)) { image in
+                                image
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: 32, height: 32)
+                                    .clipShape(Circle())
+                            } placeholder: {
+                                Circle()
+                                    .fill(Color.black.opacity(0.1))
+                                    .frame(width: 32, height: 32)
+                                    .overlay(
+                                        Text(comment.authorInitials)
+                                            .font(AMENFont.bold(14))
+                                            .foregroundStyle(.white)
+                                    )
                             }
                         } else {
                             Circle()
@@ -3826,25 +3797,21 @@ struct EditProfileView: View {
         ZStack(alignment: .bottomTrailing) {
             // Show current profile image or initials
             if let imageURL = profileData.profileImageURL, !imageURL.isEmpty, let url = URL(string: imageURL) {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: 100, height: 100)
-                            .clipShape(Circle())
-                    case .failure, .empty:
-                        avatarCircle
-                    @unknown default:
-                        avatarCircle
-                    }
+                // PERF: CachedAsyncImage — avoids redundant URLSession hit on every ProfileView appear
+                CachedAsyncImage(url: url, size: CGSize(width: 200, height: 200)) { image in
+                    image
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 100, height: 100)
+                        .clipShape(Circle())
+                } placeholder: {
+                    avatarCircle
                 }
                 .frame(width: 100, height: 100)
             } else {
                 avatarCircle
             }
-            
+
             cameraButton
         }
     }
@@ -4973,21 +4940,20 @@ struct FullScreenAvatarView: View {
                     if let profileImageURL = profileImageURL,
                        !profileImageURL.isEmpty,
                        let url = URL(string: profileImageURL) {
-                        AsyncImage(url: url) { phase in
-                            switch phase {
-                            case .success(let image):
-                                image
-                                    .resizable()
-                                    .scaledToFill()
-                                    .frame(width: 300, height: 300)
-                                    .clipShape(Circle())
-                                    .overlay(
-                                        Circle()
-                                            .stroke(Color.white.opacity(0.2), lineWidth: 2)
-                                    )
-                            default:
-                                avatarPlaceholder
-                            }
+                        // PERF: CachedAsyncImage — full-screen avatar is likely already in cache
+                        // from the profile header load; prevents a redundant network request.
+                        CachedAsyncImage(url: url, size: CGSize(width: 600, height: 600)) { image in
+                            image
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 300, height: 300)
+                                .clipShape(Circle())
+                                .overlay(
+                                    Circle()
+                                        .stroke(Color.white.opacity(0.2), lineWidth: 2)
+                                )
+                        } placeholder: {
+                            avatarPlaceholder
                         }
                     } else {
                         avatarPlaceholder
@@ -5235,24 +5201,21 @@ struct ProfilePhotoEditView: View {
             } else if let currentImageURL = currentImageURL,
                       !currentImageURL.isEmpty,
                       let url = URL(string: currentImageURL) {
-                // Show current image
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: 200, height: 200)
-                            .clipShape(Circle())
-                            .overlay(
-                                Circle()
-                                    .stroke(Color.black.opacity(0.1), lineWidth: 1)
-                            )
-                    default:
-                        placeholderAvatar
-                    }
+                // PERF: CachedAsyncImage — likely already in cache from profile header load
+                CachedAsyncImage(url: url, size: CGSize(width: 400, height: 400)) { image in
+                    image
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 200, height: 200)
+                        .clipShape(Circle())
+                        .overlay(
+                            Circle()
+                                .stroke(Color.black.opacity(0.1), lineWidth: 1)
+                        )
+                } placeholder: {
+                    placeholderAvatar
                 }
-                
+
                 Text("Current photo")
                     .font(AMENFont.regular(14))
                     .foregroundStyle(.secondary)

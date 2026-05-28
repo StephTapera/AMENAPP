@@ -47,6 +47,12 @@ struct BereanButtonFramePreferenceKey: PreferenceKey {
 // MARK: - View Extensions
 
 extension View {
+    /// Conditionally applies a transform to a view.
+    @ViewBuilder
+    func `if`<Content: View>(_ condition: Bool, transform: (Self) -> Content) -> some View {
+        if condition { transform(self) } else { self }
+    }
+
     /// Reports this view's frame for post card coach mark
     /// PERFORMANCE: Uses debouncing to prevent multiple updates per frame
     func reportPostCardFrame() -> some View {

@@ -162,7 +162,7 @@ final class TranslationModerationBridge {
     private func translateForModeration(text: String, sourceLang: String) async -> String? {
         // Lightweight on-device translation for moderation pivot — not user-facing
         // Uses Apple Translation to avoid external API calls for moderation purposes
-        guard #available(iOS 17.4, *) else { return nil }
+        guard #available(iOS 18.0, *) else { return nil }
         return try? await AppleTranslationBridge.shared.translate(
             text: String(text.prefix(500)), // truncate for speed
             from: sourceLang,

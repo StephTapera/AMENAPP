@@ -176,14 +176,12 @@ struct BereanExternalContextSheet: View {
         return AnyView(
             VStack(alignment: .leading, spacing: 10) {
                 sectionLabel("Scripture angles to explore")
-                FlowLayout(spacing: 8) {
-                    ForEach(result.suggestedScriptureAngles, id: \.self) { angle in
-                        Text(angle)
-                            .font(.caption.weight(.medium))
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 5)
-                            .background(Color.black.opacity(0.06), in: Capsule())
-                    }
+                FlowLayout(items: result.suggestedScriptureAngles) { angle in
+                    Text(angle)
+                        .font(.caption.weight(.medium))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(Color.black.opacity(0.06), in: Capsule())
                 }
             }
         )

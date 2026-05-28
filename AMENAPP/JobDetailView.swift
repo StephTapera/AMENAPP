@@ -517,24 +517,14 @@ struct JobDetailView: View {
             }
 
             // Apply CTA
-            Button {
+            AmenLiquidGlassPillButton(
+                title: hasApplied ? "Applied" : job.applyModel.ctaLabel,
+                systemImage: job.applyModel.icon,
+                isLoading: false,
+                isDisabled: hasApplied || job.isExpired
+            ) {
                 handleApplyTap(job)
-            } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: job.applyModel.icon)
-                        .font(.systemScaled(15, weight: .semibold))
-                    Text(hasApplied ? "Applied" : job.applyModel.ctaLabel)
-                        .font(AMENFont.bold(15))
-                }
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity)
-                .frame(height: 44)
-                .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(hasApplied ? Color(red: 0.35, green: 0.75, blue: 0.45) : Color(red: 0.20, green: 0.55, blue: 0.95))
-                )
             }
-            .disabled(hasApplied || job.isExpired)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -1059,18 +1049,16 @@ struct ExternalApplyConfirmation: View {
                 }
 
                 VStack(spacing: 12) {
-                    Button {
+                    AmenLiquidGlassPillButton(
+                        title: "Continue to \(employerName)",
+                        systemImage: "arrow.up.right.square",
+                        isLoading: false,
+                        isDisabled: false
+                    ) {
                         if let url = URL(string: urlString) {
                             UIApplication.shared.open(url)
                         }
                         onDismiss()
-                    } label: {
-                        Label("Continue to \(employerName)", systemImage: "arrow.up.right.square")
-                            .font(AMENFont.bold(15))
-                            .foregroundStyle(.white)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 48)
-                            .background(Color(red: 0.20, green: 0.55, blue: 0.95), in: RoundedRectangle(cornerRadius: 12))
                     }
 
                     Button("Cancel") { onDismiss() }

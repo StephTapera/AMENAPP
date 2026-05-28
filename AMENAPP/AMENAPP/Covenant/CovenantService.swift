@@ -200,7 +200,7 @@ final class CovenantService: ObservableObject {
         note: String? = nil
     ) async throws {
         guard let uid = Auth.auth().currentUser?.uid else { return }
-        let entry = ModerationAuditEntry(
+        let entry = CovenantModerationAuditEntry(
             action: action,
             performedBy: uid,
             note: note,

@@ -129,22 +129,27 @@ struct ReportContentView: View {
                     .font(.custom("OpenSans-SemiBold", size: 16))
                 }
             }
-            .alert("Report Submitted", isPresented: $showSuccessAlert) {
-                Button("OK") {
-                    dismiss()
-                }
-            } message: {
-                Text("Thank you for helping keep AMEN safe. We'll review this report and take appropriate action.")
-            }
-            .alert("Error", isPresented: .constant(errorMessage != nil)) {
-                Button("OK") {
-                    errorMessage = nil
-                }
-            } message: {
-                if let error = errorMessage {
-                    Text(error)
-                }
-            }
+            .amenAlert(
+                isPresented: $showSuccessAlert,
+                config: LiquidGlassAlertConfig(
+                    title: "Report Submitted",
+                    message: "Thank you for helping keep AMEN safe. We'll review this report and take appropriate action.",
+                    icon: "checkmark.shield.fill",
+                    primaryButton: LiquidGlassAlertButton("OK", tone: .spiritual, action: { dismiss() })
+                )
+            )
+            .amenAlert(
+                isPresented: Binding(
+                    get: { errorMessage != nil },
+                    set: { if !$0 { errorMessage = nil } }
+                ),
+                config: LiquidGlassAlertConfig(
+                    title: "Error",
+                    message: errorMessage,
+                    primaryButton: LiquidGlassAlertButton("Try Again", tone: .primary, action: { errorMessage = nil }),
+                    secondaryButton: .cancel()
+                )
+            )
         }
     }
     

@@ -831,6 +831,7 @@ struct YourFeedView: View {
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(.secondary)
                         .frame(width: 20)
+                        .accessibilityHidden(true)
 
                     Text(title)
                         .font(AMENFont.semiBold(15))
@@ -850,11 +851,15 @@ struct YourFeedView: View {
                     Image(systemName: isExpanded.wrappedValue ? "chevron.up" : "chevron.down")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(.secondary)
+                        .accessibilityHidden(true)
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 14)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel(title)
+            .accessibilityHint(isExpanded.wrappedValue ? "Double tap to collapse" : "Double tap to expand")
+            .accessibilityAddTraits(.isButton)
 
             if isExpanded.wrappedValue {
                 content()
@@ -1047,6 +1052,8 @@ struct YourFeedTopicChip: View {
         .scaleEffect(pressing ? 0.94 : 1.0)
         .animation(Motion.adaptive(.spring(response: 0.22, dampingFraction: 0.7)), value: pressing)
         .animation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.75)), value: chipState)
+        .accessibilityLabel(chipAccessibilityLabel)
+        .accessibilityHint(chipState == .suppressed ? "Double tap to unblock" : "Double tap to boost, long press to suppress")
         .simultaneousGesture(
             LongPressGesture(minimumDuration: 0.5)
                 .onChanged { _ in pressing = true }
@@ -1057,6 +1064,14 @@ struct YourFeedTopicChip: View {
                 }
         )
         .onTapGesture { onTap() }
+    }
+
+    private var chipAccessibilityLabel: String {
+        switch chipState {
+        case .neutral:    return topic.displayName
+        case .boosted:    return "\(topic.displayName), boosted"
+        case .suppressed: return "\(topic.displayName), suppressed"
+        }
     }
 
     private var leadingIcon: String {
@@ -1122,6 +1137,8 @@ struct YourFeedSessionModeChip: View {
         }
         .buttonStyle(.plain)
         .animation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.75)), value: isActive)
+        .accessibilityLabel(isActive ? "\(mode.label), active" : mode.label)
+        .accessibilityHint(isActive ? "Double tap to clear session mode" : "Double tap to activate \(mode.label) session mode")
     }
 }
 
@@ -1153,9 +1170,11 @@ struct YourFeedActiveAdjustmentRow: View {
                 Image(systemName: "xmark")
                     .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(.secondary)
-                    .padding(5)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Remove \(preference.targetLabel) adjustment")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 9)

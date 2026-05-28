@@ -88,7 +88,22 @@ class DraftsManager: ObservableObject {
     
     // MARK: - Save Draft
     
-    func saveDraft(content: String, category: String, topicTag: String?, linkURL: String?, visibility: String, scriptureAttachment: ScriptureAttachment? = nil) {
+    func saveDraft(
+        content: String,
+        category: String,
+        topicTag: String?,
+        linkURL: String?,
+        visibility: String,
+        scriptureAttachment: ScriptureAttachment? = nil,
+        witnessAttachment: Any? = nil,
+        showingPoll: Bool = false,
+        pollQuestion: String = "",
+        pollOptions: [String] = [],
+        pollDurationRawValue: String = "",
+        isThreadMode: Bool = false,
+        threadPosts: [String] = [],
+        currentThreadIndex: Int = 0
+    ) {
         let draft = PostDraft(
             id: UUID(),
             content: content,

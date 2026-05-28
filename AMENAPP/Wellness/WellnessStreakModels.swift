@@ -23,7 +23,7 @@ enum WellnessStreakType: String, Codable, CaseIterable {
     }
 }
 
-enum WellnessMood: String, Codable, CaseIterable {
+enum WellnessCheckInMood: String, Codable, CaseIterable {
     case great, good, okay, bad, terrible
     var emoji: String {
         switch self { case .great: return "😊"; case .good: return "🙂"; case .okay: return "😐"; case .bad: return "😔"; case .terrible: return "😢" }
@@ -49,7 +49,7 @@ struct WellnessJournalEntry: Identifiable, Codable {
     @DocumentID var id: String?
     var date: Timestamp?
     var entry: String
-    var mood: WellnessMood?
+    var mood: WellnessCheckInMood?
     var linkedVerse: LinkedVerse?
     var reflection: String?
     var shared: Bool

@@ -8,6 +8,52 @@
 //  Core principle: "No citation → no claim"
 //  Clearly separates: Scripture, Historical Context, Interpretation
 //
+// MARK: - D-03: BereanAnswerEngine ↔ send() Disconnection (audit 2026-05-28)
+//
+// STATUS: Intentionally NOT wired into BereanChatView.send(). See reasoning below.
+//
+// WHAT THIS ENGINE DOES:
+//   BereanAnswerEngine.answer() is a full RAG pipeline: safety check → intent
+//   classification → scripture extraction → YouVersion API fetch → answer generation
+//   via OpenAIService.shared.sendMessageSync (non-streaming, synchronous).
+//
+// WHY IT CAN'T BE NAIVELY WIRED:
+//   1. send() in BereanChatViewModel drives an SSE streaming pipeline via
+//      ClaudeService.shared.sendBereanChatMessage, which returns an AsyncThrowingStream.
+//      BereanAnswerEngine calls OpenAIService.shared.sendMessageSync — a completely
+//      different provider (OpenAI, not Claude) returning a single String, not a stream.
+//      Wiring the two without a streaming bridge would silently break the debounce
+//      buffer, the Dynamic Island Live Activity, the Study Mode reasoning animation,
+//      the provenance chip recording, and the cancel flow — all of which depend on
+//      the AsyncThrowingStream contract.
+//
+//   2. BereanAnswerEngine is a parallel response generator, not a decorator. Its
+//      answer() method generates and returns the final answer text itself; it does
+//      not enrich or pre-process a prompt for Claude. Using it as a pre-processor
+//      would mean discarding its response and only using side-effects (scripture refs),
+//      which duplicates logic already handled by ClaudeService's system prompt.
+//
+//   3. Safety checks already exist in the send() pipeline (ClaudeService preflight +
+//      BiblicalAlignmentService post-processing). Adding a third check from
+//      BereanAnswerEngine would triple-run safety logic on every message.
+//
+// CORRECT APPROACH (future work):
+//   Option A — Scripture pre-fetch seam: Extract only extractScriptureReferences() +
+//   fetchScripture() from BereanAnswerEngine, call them before the ClaudeService
+//   stream, then inject the fetched passages as additional system context into the
+//   ClaudeService call. This adds citations without changing the streaming contract.
+//   Requires refactoring those two private methods to internal/package access.
+//
+//   Option B — Post-stream citation annotation: After the stream completes (line 527
+//   in BereanChatView.swift, where streamingState is set to .completed), call
+//   BereanAnswerEngine.annotateWithCitations(responseText:) — a new targeted method
+//   that only runs steps 4-5 (scripture extraction from the assembled response +
+//   citation chip generation) and returns a BereanAnswer citation model without
+//   re-generating the prose. Wire the returned citations to the provenance/chip UI.
+//
+// DO NOT attempt to replace the ClaudeService stream with BereanAnswerEngine.answer()
+// wholesale — that would break streaming, the provider contract, and mode authority.
+//
 
 import Foundation
 import Combine

@@ -23,7 +23,7 @@ struct SavedPostsQuickAccessButton: View {
                 VStack(spacing: 8) {
                     Image(systemName: "bookmark.fill")
                         .font(.systemScaled(24))
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(.primary)
                     
                     Text("Saved")
                         .font(.custom("OpenSans-SemiBold", size: 12))
@@ -43,8 +43,9 @@ struct SavedPostsQuickAccessButton: View {
                         .padding(.horizontal, savedCount > 99 ? 6 : 8)
                         .padding(.vertical, 4)
                         .background(
-                            Capsule()
-                                .fill(Color.red)
+                            Capsule(style: .continuous)
+                                .fill(.ultraThinMaterial)
+                                .overlay { Capsule(style: .continuous).strokeBorder(Color.white.opacity(0.35), lineWidth: 0.8) }
                         )
                         .offset(x: 8, y: -8)
                         .scaleEffect(showBadgePulse ? 1.1 : 1.0)
@@ -106,7 +107,7 @@ struct SavedPostsRow: View {
                 // Icon
                 Image(systemName: "bookmark.fill")
                     .font(.systemScaled(22))
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(.primary)
                     .frame(width: 40, height: 40)
                     .background(Color.blue.opacity(0.1))
                     .clipShape(Circle())
@@ -137,7 +138,11 @@ struct SavedPostsRow: View {
                         .foregroundStyle(.white)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .background(Capsule().fill(Color.blue))
+                        .background(
+                        Capsule(style: .continuous)
+                            .fill(.ultraThinMaterial)
+                            .overlay { Capsule(style: .continuous).strokeBorder(Color.white.opacity(0.35), lineWidth: 0.8) }
+                    )
                 }
                 
                 Image(systemName: "chevron.right")

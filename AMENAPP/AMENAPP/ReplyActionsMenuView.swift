@@ -16,6 +16,14 @@
 import SwiftUI
 import FirebaseAuth
 
+// MARK: - ReplyActionsTarget
+
+struct ReplyActionsTarget: Identifiable, Equatable {
+    let postId: String
+    let replyId: String
+    var id: String { "\(postId)-\(replyId)" }
+}
+
 // MARK: - ReplyActionsMenuView
 
 struct ReplyActionsMenuView: View {
@@ -193,7 +201,7 @@ struct ReplyActionsMenuView: View {
 
     /// ShareLink with the canonical Amen deep link. Present natively; no custom code required.
     private func shareRow(post: Post) -> some View {
-        let shareURL = URL(string: "https://amenapp.page.link/post/\(target.postId)")!
+        let shareURL = URL(string: "https://amenapp.page.link/post/\(target.postId)") ?? URL(string: "https://amenapp.page.link")!
         return ShareLink(item: shareURL) {
             Label("Share", systemImage: "square.and.arrow.up")
         }
@@ -342,6 +350,10 @@ struct ReplyActionsMenuView: View {
 }
 
 // MARK: - Preview
+
+extension Notification.Name {
+    static let amenOpenRepliesRequested = Notification.Name("amen.openRepliesRequested")
+}
 
 #if DEBUG
 #Preview("Reply Actions Menu") {

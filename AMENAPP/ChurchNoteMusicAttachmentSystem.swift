@@ -2,6 +2,12 @@ import SwiftUI
 import UIKit
 import FirebaseFunctions
 
+// MARK: - Stub for music artwork color palette returned by resolveMusicAttachment CF
+struct MusicArtworkColors: Codable, Hashable {
+    let dominantHex: String?
+    let secondaryHex: String?
+}
+
 enum MusicAttachmentValidationError: LocalizedError, Equatable {
     case empty
     case unsupported
@@ -233,24 +239,18 @@ final class ChurchNoteMusicAttachmentResolverService {
             provider: payload.provider,
             entityType: payload.entityType,
             providerID: payload.providerID,
-            storefront: payload.storefront,
             title: payload.title,
             artist: payload.artistName,
             subtitle: payload.subtitle,
             musicKitID: payload.provider == .appleMusic ? payload.providerID : nil,
+            appleMusicURL: payload.provider == .appleMusic ? payload.canonicalURL : nil,
+            albumArtURL: payload.artworkURL,
             deepLinkURL: payload.appURL,
             webURL: payload.canonicalURL,
-            canonicalURL: payload.canonicalURL,
-            appURL: payload.appURL,
-            albumArtURL: payload.artworkURL,
-            artworkColors: payload.artworkColors,
             explicit: payload.explicit,
             durationMs: payload.durationMs,
-            requiresAccount: payload.requiresAccount,
-            mayRequireSubscription: payload.mayRequireSubscription,
-            metadataVersion: payload.metadataVersion,
-            addedAt: payload.attachedAt ?? Date(),
-            resolvedAt: payload.resolvedAt ?? Date()
+            requiresSubscription: payload.requiresAccount || payload.mayRequireSubscription ? true : nil,
+            addedAt: payload.attachedAt ?? Date()
         )
 
         await cache.store(attachment, forKey: cacheKey)
@@ -276,8 +276,8 @@ struct MusicAttachmentOpenRoute: Equatable {
 
 enum ChurchNoteMusicOpenRouter {
     static func route(for attachment: WorshipSongReference, nativeAppAvailable: Bool) -> MusicAttachmentOpenRoute {
-        let nativeURL = attachment.appURL.flatMap(URL.init(string:))
-        let webURL = attachment.canonicalURL.flatMap(URL.init(string:))
+        let nativeURL = attachment.deepLinkURL.flatMap(URL.init(string:))
+        let webURL = attachment.webURL.flatMap(URL.init(string:))
         let providerName = attachment.provider.displayName
         let requiresAccountCopy = attachment.provider == .appleMusic
             ? "Apple Music account may be required"
@@ -306,11 +306,11 @@ enum ChurchNoteMusicOpenRouter {
         let helperText: String
         switch state {
         case .attached, .missingArtwork:
-            helperText = attachment.requiresAccount || attachment.mayRequireSubscription
+            helperText = attachment.requiresSubscription == true || attachment.requiresAppInstall == true
                 ? requiresAccountCopy
                 : "Open in \(providerName)"
         case .webFallback:
-            helperText = attachment.requiresAccount || attachment.mayRequireSubscription
+            helperText = attachment.requiresSubscription == true || attachment.requiresAppInstall == true
                 ? "\(requiresAccountCopy) · Web fallback"
                 : "Opens on web if the app is unavailable"
         case .unavailable:
@@ -586,7 +586,7 @@ private struct ComposerMusicAttachmentPreview: View {
         HStack(spacing: 12) {
             MusicAttachmentArtworkView(
                 artworkURL: attachment.artworkURL,
-                artworkColors: attachment.artworkColors,
+                artworkColors: nil,
                 size: CGSize(width: 52, height: 52),
                 cornerRadius: 14
             )

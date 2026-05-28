@@ -34,6 +34,8 @@
 import {onCall, HttpsError} from "firebase-functions/v2/https";
 import {defineSecret} from "firebase-functions/params";
 import * as admin from "firebase-admin";
+import {getBereanEntitlement} from "./berean/services/BereanEntitlementService";
+import {enforceRateLimit, RATE_LIMITS} from "./rateLimit";
 
 if (!admin.apps.length) {
     admin.initializeApp();
@@ -167,6 +169,15 @@ export const explainVideoContent = onCall(
                 cachedAt: cachedAt.toDate().toISOString(),
             };
         }
+
+        // ── Entitlement gate ──────────────────────────────────────────────────
+        // Cache hits (above) are served to all tiers — AI cost is only incurred
+        // on a fresh Claude call. Gate here so free users still see cached results.
+        const entitlement = await getBereanEntitlement(callerId);
+        if (entitlement.tier === "free") {
+            throw new HttpsError("permission-denied", "Video explanations require an AMEN+ subscription.");
+        }
+        await enforceRateLimit(callerId, [RATE_LIMITS.AI_PER_MINUTE, RATE_LIMITS.AI_PER_DAY]);
 
         // ── Read transcript ───────────────────────────────────────────────────
         const captionTracksSnap = await mediaMetaRef

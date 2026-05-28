@@ -16,6 +16,8 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
     let content: (Image) -> Content
     let placeholder: () -> Placeholder
     
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     @State private var loadedImage: UIImage?
     @State private var isLoading = false
     @State private var hasFailed = false
@@ -46,11 +48,7 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
                     )
             } else {
                 placeholder()
-                    .overlay(
-                        ProgressView()
-                            .progressViewStyle(.circular)
-                            .tint(.secondary)
-                    )
+                    .overlay(AMENLoader.inline.accessibilityLabel("Loading image"))
             }
         }
         .task(id: url) {
@@ -69,7 +67,7 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
         // Use existing ImageCache
         if let image = await ImageCache.shared.loadImage(url: url.absoluteString, size: size) {
             await MainActor.run {
-                withAnimation(.easeOut(duration: 0.25)) {
+                withAnimation(reduceMotion ? .none : .easeOut(duration: 0.25)) {
                     loadedImage = image
                 }
                 isLoading = false

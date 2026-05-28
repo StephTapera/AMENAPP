@@ -122,6 +122,20 @@ final class GoogleBooksService: @unchecked Sendable {
         Task { await cache.clear() }
     }
 
+    // MARK: - Fetch by ID
+
+    func fetchById(_ id: String) async throws -> WLBook? {
+        var components = URLComponents(string: "\(GoogleBooksConfig.baseURL)/volumes/\(id)")!
+        if !GoogleBooksConfig.apiKey.isEmpty {
+            components.queryItems = [.init(name: "key", value: GoogleBooksConfig.apiKey)]
+        }
+        guard let url = components.url else { return nil }
+        let (data, response) = try await session.data(from: url)
+        guard (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
+        let item = try JSONDecoder().decode(GBItem.self, from: data)
+        return WLBook(fromAPI: item)
+    }
+
     // MARK: - Static Fallback Catalog
     // Used when the Google Books API is unavailable or returns empty results.
     // Each entry mirrors the WLBook structure so the UI always has content.

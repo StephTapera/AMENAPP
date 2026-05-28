@@ -309,7 +309,7 @@ struct CrisisTrustedContactModule: View {
             }
         }
         .sheet(isPresented: $showAddContact) {
-            AddTrustedContactSheet(viewModel: viewModel)
+            CrisisAddTrustedContactSheet(viewModel: viewModel)
         }
         .sheet(isPresented: $viewModel.showTrustedContactSheet) {
             TrustedContactMessageSheet(viewModel: viewModel)
@@ -346,7 +346,7 @@ struct CrisisTrustedContactModule: View {
     private var contactList: some View {
         VStack(spacing: 8) {
             ForEach(viewModel.trustedContacts) { contact in
-                TrustedContactRow(contact: contact) {
+                CrisisTrustedContactRow(contact: contact) {
                     viewModel.prepareTrustedContactMessage(contact: contact)
                 }
             }
@@ -366,7 +366,7 @@ struct CrisisTrustedContactModule: View {
 
 // MARK: - Trusted Contact Row
 
-private struct TrustedContactRow: View {
+private struct CrisisTrustedContactRow: View {
     let contact: CrisisTrustedContact
     let onReach: () -> Void
 
@@ -413,7 +413,7 @@ private struct TrustedContactRow: View {
 
 // MARK: - Add Trusted Contact Sheet
 
-private struct AddTrustedContactSheet: View {
+private struct CrisisAddTrustedContactSheet: View {
     @Bindable var viewModel: CrisisSupportViewModel
     @Environment(\.dismiss) private var dismiss
 

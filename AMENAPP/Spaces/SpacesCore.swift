@@ -506,7 +506,7 @@ struct AmenSpaceMembershipV2: Identifiable, Codable {
 
 // MARK: - Presence
 
-enum AmenPresenceState: String, Codable, CaseIterable {
+enum AmenSpacePresenceState: String, Codable, CaseIterable {
     case available    = "available"
     case studying     = "studying"
     case praying      = "praying"
@@ -549,7 +549,7 @@ enum AmenPresenceState: String, Codable, CaseIterable {
 struct AmenSpacePresence: Codable {
     var userId: String
     var spaceId: String
-    var state: AmenPresenceState
+    var state: AmenSpacePresenceState
     var updatedAt: Date?
     var expiresAt: Date?    // auto-revert to offline after TTL (server enforces)
 }
@@ -592,4 +592,21 @@ enum SpacesCallable: String {
     case bereanSpaceInvoke   = "bereanSpaceInvoke"     // @mention / DM Berean in a Space
     case dissolveEphemeralRoom = "dissolveEphemeralRoom"
     case generateSpaceDNA    = "generateSpaceDNA"      // AI DNA generation
+    case createSpacePrayerRequest = "createSpacePrayerRequest"
+
+    // Spaces v2 — Community & Monetization
+    case createCommunity              = "createCommunity"
+    case linkCommunity                = "linkCommunity"           // Agent F uses
+    case acceptCommunityLink          = "acceptCommunityLink"     // Agent F uses
+    case revokeCommunityLink          = "revokeCommunityLink"     // Agent F uses
+    case purchaseSpaceAccess          = "purchaseSpaceAccess"     // Agent E uses
+    case grantAccess                  = "grantAccess"             // Agent E uses (admin comp)
+    case revokeAccess                 = "revokeAccess"            // Agent E uses
+    case stripeWebhookEntitlement     = "stripeWebhookEntitlement" // backend only, documents intent
+}
+
+// MARK: - Space Body Renderer Protocol
+
+protocol SpaceBodyRenderer {
+    static var renderedType: SpaceV2Type { get }
 }

@@ -102,40 +102,39 @@ extension AIBibleStudyView {
         guard let userId = Auth.auth().currentUser?.uid else { return }
 
         do {
-            lazy var db = Firestore.firestore()
+            let db = Firestore.firestore()
             let snapshot = try await db.collection("aiBibleStudyConversations")
                 .whereField("userId", isEqualTo: userId)
                 .order(by: "createdAt", descending: true)
                 .limit(to: 20)
                 .getDocuments()
 
-            var loadedConversations: [[AIStudyMessage]] = []
-
-            for document in snapshot.documents {
-                let conversationId = document.documentID
-
-                // Load messages for this conversation
-                let messagesSnapshot = try await db.collection("aiBibleStudyConversations")
-                    .document(conversationId)
-                    .collection("messages")
-                    .order(by: "index")
-                    .getDocuments()
-
-                let messages: [AIStudyMessage] = messagesSnapshot.documents.compactMap { doc in
-                    guard let text = doc.data()["text"] as? String,
-                          let isUser = doc.data()["isUser"] as? Bool else {
-                        return nil
+            // Fetch all message sub-collections in parallel (eliminates N+1 serial fetch)
+            let loadedConversations: [[AIStudyMessage]] = try await withThrowingTaskGroup(of: (Int, [AIStudyMessage]).self) { group in
+                for (index, document) in snapshot.documents.enumerated() {
+                    let conversationId = document.documentID
+                    group.addTask {
+                        let messagesSnapshot = try await db.collection("aiBibleStudyConversations")
+                            .document(conversationId)
+                            .collection("messages")
+                            .order(by: "index")
+                            .limit(to: 200)
+                            .getDocuments()
+                        let messages: [AIStudyMessage] = messagesSnapshot.documents.compactMap { doc in
+                            guard let text = doc.data()["text"] as? String,
+                                  let isUser = doc.data()["isUser"] as? Bool else { return nil }
+                            return AIStudyMessage(text: text, isUser: isUser)
+                        }
+                        return (index, messages)
                     }
-
-                    return AIStudyMessage(
-                        text: text,
-                        isUser: isUser
-                    )
                 }
-
-                if !messages.isEmpty {
-                    loadedConversations.append(messages)
-                }
+                // Collect results preserving insertion order
+                var indexed: [(Int, [AIStudyMessage])] = []
+                for try await pair in group { indexed.append(pair) }
+                return indexed
+                    .sorted { $0.0 < $1.0 }
+                    .map(\.1)
+                    .filter { !$0.isEmpty }
             }
 
             await MainActor.run {
@@ -253,7 +252,7 @@ struct AISettingsView: View {
     @AppStorage("aiResponseStyle") private var responseStyle = "Balanced"
     @AppStorage("includeReferences") private var includeReferences = true
     @AppStorage("enableNotifications") private var enableNotifications = true
-    @AppStorage("dailyReminderTime") private var dailyReminderTime = Date()
+    @AppStorage("dailyReminderTimeInterval") private var dailyReminderTimeInterval: Double = Date().timeIntervalSince1970
 
     let responseStyles = ["Concise", "Balanced", "Detailed", "Academic"]
 
@@ -322,7 +321,7 @@ struct AISettingsView: View {
 
                         if enableNotifications {
                             Divider().padding(.leading, 16)
-                            DatePicker("Reminder Time", selection: $dailyReminderTime, displayedComponents: .hourAndMinute)
+                            DatePicker("Reminder Time", selection: Binding(get: { Date(timeIntervalSince1970: dailyReminderTimeInterval) }, set: { dailyReminderTimeInterval = $0.timeIntervalSince1970 }), displayedComponents: .hourAndMinute)
                                 .font(AMENFont.regular(16))
                                 .padding(.horizontal, 16)
                                 .padding(.vertical, 14)

@@ -124,7 +124,7 @@ struct AmenConnectFilters {
 
 // MARK: - Amen Connect Product Model
 
-enum AmenConnectRoom: String, CaseIterable, Identifiable {
+enum AmenConnectRoom: String, Codable, CaseIterable, Identifiable {
     case lobby = "Lobby"
     case discover = "Discover"
     case spaces = "Spaces"

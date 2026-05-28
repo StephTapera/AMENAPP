@@ -12,6 +12,17 @@ import Foundation
 import SwiftUI
 import FirebaseFunctions
 
+// MARK: - TSRankingDecision
+
+struct TSRankingDecision {
+    let contentId: String
+    let finalScore: Double
+    let trendEligible: Bool
+    let boostEligible: Bool
+    let suppressedReason: String?
+    let policyVersion: String
+}
+
 @MainActor
 final class AmenRankingSafetyService: ObservableObject {
 

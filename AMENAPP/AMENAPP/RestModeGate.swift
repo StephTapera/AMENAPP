@@ -22,6 +22,10 @@ enum AmenRoute: String, CaseIterable {
     case likes
     case reposts
     case profile
+    case search
+    case resources
+    case gatherings
+    case spaces
 
     var policyKey: String {
         switch self {
@@ -41,6 +45,10 @@ enum AmenRoute: String, CaseIterable {
         case .likes:            return "likes"
         case .reposts:          return "reposts"
         case .profile:          return "profile"
+        case .search:           return "search"
+        case .resources:        return "resources"
+        case .gatherings:       return "gatherings"
+        case .spaces:           return "spaces"
         }
     }
 }

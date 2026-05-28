@@ -16,6 +16,7 @@ struct PremiumUpgradeView: View {
     @State private var animateGradient = false
     @State private var showingPurchaseSuccess = false
     @State private var showingRestoreSuccess = false
+    @State private var showLoadError = false
 
     var body: some View {
         NavigationStack {
@@ -343,7 +344,20 @@ struct PremiumUpgradeView: View {
             await premiumManager.loadProducts()
             // Auto-select yearly plan
             selectedProduct = premiumManager.getYearlyProduct() ?? premiumManager.getMonthlyProduct()
+            if premiumManager.loadError != nil { showLoadError = true }
         }
+        .onChange(of: premiumManager.loadError) { _, newVal in
+            if newVal != nil { showLoadError = true }
+        }
+        .amenAlert(isPresented: $showLoadError, config: LiquidGlassAlertConfig(
+            title: "Subscription Unavailable",
+            message: premiumManager.loadError ?? "Could not load subscription options.",
+            icon: "exclamationmark.triangle",
+            primaryButton: LiquidGlassAlertButton("Try Again", tone: .primary) {
+                Task { await premiumManager.loadProducts() }
+            },
+            secondaryButton: .cancel()
+        ))
     }
 }
 

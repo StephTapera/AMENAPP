@@ -197,8 +197,8 @@ struct ShareableEntity: Identifiable, Codable, Equatable {
             sourceSurface: sourceSurface,
             linkedPostId: post.firestoreId,
             linkedChurchNoteId: post.churchNoteId,
-            churchId: post.sharedChurchId ?? post.taggedChurchId,
-            churchName: post.sharedChurchName ?? post.taggedChurchName,
+            churchId: post.taggedChurchId,
+            churchName: post.taggedChurchName,
             groupId: nil,
             prayerCircleId: nil,
             verseReference: post.verseReference,
@@ -232,7 +232,7 @@ struct ShareableEntity: Identifiable, Codable, Equatable {
                     "shareLinkId": note.shareLinkId ?? ""
                 ]
             ),
-            externallyShareable: note.permission == .publicLink,
+            externallyShareable: note.permission == .publicNote,
             attributionPolicy: .required,
             sourceSurface: sourceSurface,
             linkedPostId: nil,
@@ -378,7 +378,7 @@ struct ShareableEntity: Identifiable, Codable, Equatable {
         if post.category == .prayer { return .prayerRequest }
         if post.category == .testimonies { return .testimony }
         if post.verseReference?.isEmpty == false { return .verse }
-        if post.witnessMedia != nil || (post.mediaItems?.isEmpty == false) { return .sermonClip }
+        if post.imageURLs?.isEmpty == false { return .sermonClip }
         return .post
     }
 
@@ -386,7 +386,7 @@ struct ShareableEntity: Identifiable, Codable, Equatable {
         if post.removed { return .unavailable }
         if post.category == .prayer { return .prayerCircleOnly }
         if post.authorIsPrivate == true { return .privateOnly }
-        if post.sharedChurchId != nil || post.taggedChurchId != nil { return .churchOnly }
+        if post.taggedChurchId != nil { return .churchOnly }
         return .public
     }
 
@@ -394,12 +394,10 @@ struct ShareableEntity: Identifiable, Codable, Equatable {
         switch permission {
         case .privateNote:
             return .privateOnly
-        case .sharedWithPeople:
+        case .shared:
             return .closeFriends
-        case .publicLink:
+        case .publicNote:
             return .public
-        case .churchOnly:
-            return .churchOnly
         }
     }
 }

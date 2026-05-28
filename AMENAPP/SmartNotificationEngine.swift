@@ -6,6 +6,15 @@
 //
 //  Instagram/Threads-level smart notification prioritization
 
+// MARK: - Notification Service Ownership
+// This service owns: Priority scoring (0-100) for all AppNotification types based on recency,
+//                    notification type weight, user relationship score, and engagement-pattern bonus;
+//                    smart grouping into SmartNotificationGroup (e.g. "John and 5 others liked your post");
+//                    batch priority calculation; engagement-score tracking and UserDefaults persistence.
+// It does NOT own: Delivery/write to Firestore, FCM push dispatch, quiet-hours enforcement,
+//                  batching windows, re-engagement copy, or action-thread events.
+// Canonical routing reference: See NotificationServiceMap.md
+
 import Foundation
 import FirebaseFirestore
 import FirebaseAuth

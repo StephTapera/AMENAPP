@@ -59,7 +59,7 @@ final class SpacesFilterService {
         // External = any thread with at least one external member.
         let hasExternal = threads.contains { $0.hasExternalMembers }
 
-        // Latest message across all threads.
+        // Latest message across all threads (most recent lastMessageAt).
         let latestThread = threads.max(by: { $0.lastMessageAt < $1.lastMessageAt })
 
         return SpaceFilterSignals(
@@ -86,7 +86,10 @@ final class SpacesFilterService {
     /// Stamps the current time as the last-seen timestamp for a space.
     /// Call when the user opens the space or marks a thread as read.
     func markSeen(spaceId: String) {
-        UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: Keys.lastSeenPrefix + spaceId)
+        UserDefaults.standard.set(
+            Date().timeIntervalSince1970,
+            forKey: Keys.lastSeenPrefix + spaceId
+        )
     }
 
     // MARK: - VIP

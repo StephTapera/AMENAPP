@@ -48,6 +48,7 @@ struct SavedPostsView: View {
     @State private var errorMessage = ""
     @State private var refreshTrigger = false
     @State private var selectedFolder: SavedFolder = .all
+    @State private var showClearAllAlert = false
     
     private var displayedPosts: [Post] {
         guard selectedFolder != .all else { return savedPosts }
@@ -127,11 +128,21 @@ struct SavedPostsView: View {
                     }
                 }
             }
-            .alert("Error", isPresented: $showError) {
-                Button("OK", role: .cancel) {}
-            } message: {
-                Text(errorMessage)
-            }
+            .amenAlert(isPresented: $showError, config: LiquidGlassAlertConfig(
+                title: "Error",
+                message: errorMessage,
+                icon: "exclamationmark.triangle",
+                primaryButton: LiquidGlassAlertButton("OK", tone: .primary) {}
+            ))
+            .amenAlert(isPresented: $showClearAllAlert, config: LiquidGlassAlertConfig(
+                title: "Clear All Saved Posts?",
+                message: "This will remove all \(savedPosts.count) saved posts. This action cannot be undone.",
+                icon: "trash",
+                primaryButton: LiquidGlassAlertButton("Clear All", tone: .destructive) {
+                    Task { await clearAllSavedPosts() }
+                },
+                secondaryButton: .cancel()
+            ))
         }
     }
     
@@ -351,27 +362,9 @@ struct SavedPostsView: View {
     }
     
     // MARK: - Clear All
-    
+
     private func showClearAllConfirmation() {
-        let alert = UIAlertController(
-            title: "Clear All Saved Posts?",
-            message: "This will remove all \(savedPosts.count) saved posts. This action cannot be undone.",
-            preferredStyle: .actionSheet
-        )
-        
-        alert.addAction(UIAlertAction(title: "Clear All", style: .destructive) { _ in
-            Task {
-                await clearAllSavedPosts()
-            }
-        })
-        
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        
-        // Present alert
-        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let rootViewController = windowScene.windows.first?.rootViewController {
-            rootViewController.present(alert, animated: true)
-        }
+        showClearAllAlert = true
     }
     
     private func clearAllSavedPosts() async {

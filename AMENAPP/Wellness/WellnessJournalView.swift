@@ -1,4 +1,5 @@
 import SwiftUI
+import FirebaseFirestore
 
 struct WellnessJournalView: View {
     @StateObject private var service = WellnessStreakService()
@@ -34,7 +35,7 @@ struct WellnessJournalView: View {
                 service.loadJournalEntries(month: currentMonth)
             }
             .sheet(isPresented: $showNewEntry) {
-                JournalEntryEditorView(service: service)
+                WellnessJournalEntryEditorView(service: service)
             }
         }
     }
@@ -115,11 +116,11 @@ struct WellnessJournalView: View {
     }
 }
 
-struct JournalEntryEditorView: View {
+struct WellnessJournalEntryEditorView: View {
     let service: WellnessStreakService
     @Environment(\.dismiss) private var dismiss
     @State private var entryText = ""
-    @State private var selectedMood: WellnessMood? = nil
+    @State private var selectedMood: WellnessCheckInMood? = nil
     @State private var reflection = ""
     @State private var isShared = false
     @State private var isSaving = false
@@ -165,7 +166,7 @@ struct JournalEntryEditorView: View {
                 .font(.custom("OpenSans-Bold", size: 15))
                 .foregroundStyle(AmenTheme.Colors.textPrimary)
             HStack(spacing: 12) {
-                ForEach(WellnessMood.allCases, id: \.self) { mood in
+                ForEach(WellnessCheckInMood.allCases, id: \.self) { mood in
                     Button {
                         withAnimation(.spring(response: 0.32, dampingFraction: 0.80)) { selectedMood = mood }
                     } label: {

@@ -15,6 +15,36 @@
 
 import SwiftUI
 
+// MARK: - BereanScriptureReferenceExtractor
+
+enum BereanScriptureReferenceExtractor {
+    private static let pattern: String = {
+        let books = [
+            "genesis","exodus","leviticus","numbers","deuteronomy",
+            "joshua","judges","ruth","samuel","kings","chronicles",
+            "ezra","nehemiah","esther","job","psalm","psalms",
+            "proverbs","ecclesiastes","isaiah","jeremiah","lamentations",
+            "ezekiel","daniel","hosea","joel","amos","obadiah","jonah",
+            "micah","nahum","habakkuk","zephaniah","haggai","zechariah",
+            "malachi","matthew","mark","luke","john","acts","romans",
+            "corinthians","galatians","ephesians","philippians","colossians",
+            "thessalonians","timothy","titus","philemon","hebrews","james",
+            "peter","jude","revelation"
+        ]
+        return "(?:1|2|3|i|ii|iii)?\\s*(?:\(books.joined(separator: "|")))\\s+\\d+(?:[:\\.]\\d+)?(?:\\s*-\\s*\\d+)?"
+    }()
+
+    private static let regex: NSRegularExpression? = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive)
+
+    static func references(in text: String) -> [String] {
+        guard let regex else { return [] }
+        let range = NSRange(text.startIndex..., in: text)
+        return regex.matches(in: text, range: range).compactMap {
+            Range($0.range, in: text).map { String(text[$0]) }
+        }
+    }
+}
+
 // MARK: - BereanSmartPill
 
 enum BereanSmartPill: String, CaseIterable {

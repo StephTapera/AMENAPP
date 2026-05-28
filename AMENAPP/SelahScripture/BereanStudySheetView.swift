@@ -17,15 +17,6 @@
 
 import SwiftUI
 
-// MARK: - Color palette (private constants mirror SelahLensBar)
-
-private extension Color {
-    static let amenGold   = Color(red: 1.0,    green: 0.843, blue: 0.0)
-    static let amenPurple = Color(red: 0.420,  green: 0.129, blue: 0.659)
-    static let amenBlue   = Color(red: 0.145,  green: 0.388, blue: 0.922)
-    static let amenBlack  = Color(red: 0.059,  green: 0.059, blue: 0.059)
-}
-
 // MARK: - BereanStudySheetView
 
 struct BereanStudySheetView: View {
@@ -100,7 +91,7 @@ struct BereanStudySheetView: View {
 
     private var dragIndicator: some View {
         Capsule()
-            .fill(Color.quaternaryLabel)
+            .fill(Color(UIColor.quaternaryLabel))
             .frame(width: 36, height: 4)
             .padding(.top, 8)
             .padding(.bottom, 4)
@@ -191,7 +182,7 @@ struct BereanStudySheetView: View {
                 }
                 if !layer.keyTerms.isEmpty {
                     SectionSubheading("Key Terms")
-                    FlowLayout(spacing: 8) {
+                    SelahChipFlowLayout(spacing: 8) {
                         ForEach(layer.keyTerms) { term in
                             Button {
                                 selectedKeyTerm = term
@@ -350,7 +341,7 @@ struct BereanStudySheetView: View {
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 20)
             } else {
-                FlowLayout(spacing: 8) {
+                SelahChipFlowLayout(spacing: 8) {
                     ForEach(refs, id: \.self) { ref in
                         Button {
                             onCrossRefTapped(ref)
@@ -562,9 +553,9 @@ private struct SheetShimmerLine: View {
     }
 }
 
-// MARK: - FlowLayout (wrapping chip row)
+// MARK: - SelahChipFlowLayout (wrapping chip row)
 
-private struct FlowLayout: Layout {
+private struct SelahChipFlowLayout: Layout {
     var spacing: CGFloat
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {

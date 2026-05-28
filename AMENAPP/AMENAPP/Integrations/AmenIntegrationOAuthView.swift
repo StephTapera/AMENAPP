@@ -17,6 +17,10 @@ struct AmenIntegrationOAuthView: View {
         case loading, awaitingAuth(URL), completing, success, failed(Error)
     }
 
+    private var isCompleting: Bool {
+        if case .completing = phase { true } else { false }
+    }
+
     init(provider: AmenIntegrationProvider, viewModel: AmenIntegrationViewModel) {
         self.provider = provider
         _vm = StateObject(wrappedValue: viewModel)
@@ -51,7 +55,7 @@ struct AmenIntegrationOAuthView: View {
             }
         }
         .task { await beginOAuth() }
-        .interactiveDismissDisabled(phase == .completing)
+        .interactiveDismissDisabled(isCompleting)
     }
 
     // MARK: - Phases

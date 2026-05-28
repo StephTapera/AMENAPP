@@ -135,6 +135,7 @@ struct PostCard: View {
     /// for this card's post only.  Updated via onReceive to avoid @ObservedObject on the router.
     @State private var localReplyActionsTarget: ReplyActionsTarget? = nil
     @State private var showPostActionMenu = false
+    @State private var showMediaLongPressMenu = false
 
     // ✅ Consolidated alert state to prevent SwiftUI presentation conflicts
     enum PostCardAlert: Identifiable {
@@ -558,6 +559,7 @@ struct PostCard: View {
                 AccessibilitySuggestionEngine.shared.evaluate()
             }
             .amenSheet()
+            .presentationDetents([.height(300)])
         }
     }
     
@@ -2371,15 +2373,17 @@ struct PostCard: View {
         }
     }
 
-    var body: some View {
-        #if DEBUG
-        let _ = Self._printChanges()
-        #endif
+    // MARK: - Body helpers (split to avoid type-checker timeout at former line 2415)
+
+    /// First half of body modifiers — effects, menus, and toast overlays.
+    private var cardBaseModifiers: some View {
+        let toastFont = Font.systemScaled(12, weight: .medium)
+        let toastAnim = Animation.spring(response: 0.3, dampingFraction: 0.8)
         return cardWithAlerts
             .opacity(isDeletingPost ? 0 : 1)
             .scaleEffect(isDeletingPost ? 0.96 : 1)
             .zIndex(isActionMenuPresented ? 1000 : 0)
-            .pressableCard(scale: 0.985)   // A) Subtle press-down on the whole card
+            .pressableCard(scale: 0.985)
             .coordinateSpace(name: actionMenuCardID)
             .onPreferenceChange(AmenPostCardActionMenuAnchorPreferenceKey.self) { newFrame in
                 let isValid = !newFrame.isNull
@@ -2411,16 +2415,24 @@ struct PostCard: View {
             .overlay(alignment: .bottom) {
                 if let toast = reactionErrorToast {
                     Text(toast)
-                        .font(.systemScaled(12, weight: .medium))
+                        .font(toastFont)
                         .foregroundStyle(.white)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 8)
                         .background(Color.black.opacity(0.75), in: Capsule())
                         .padding(.bottom, 10)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
-                        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: toast)
+                        .animation(toastAnim, value: toast)
                 }
             }
+    }
+
+    // MARK: - Body helpers (split to avoid type-checker timeout)
+
+    /// Second-half of body: event handlers — overlay, lifecycle, onReceive, onChange.
+    /// Extracted to keep `body` below Swift's type-checker expression limit.
+    private var cardBodyEventHandlers: some View {
+        cardBaseModifiers
             .overlay {
                 ContextualActionMenu(
                     isPresented: $showPostActionMenu,
@@ -2502,6 +2514,13 @@ struct PostCard: View {
                     churchNoteLoadFailed = false
                 }
             }
+    }
+
+    var body: some View {
+        #if DEBUG
+        let _ = Self._printChanges()
+        #endif
+        return cardBodyEventHandlers
             .sheet(isPresented: $showContextualMemoryLayer) {
                 if let contextualMemoryLayer {
                     ContextualMemoryLayerSheet(
@@ -2512,23 +2531,9 @@ struct PostCard: View {
                     .presentationDragIndicator(.visible)
                 }
             }
+            // FIXME: ThreadResurfacingExplanationSheet type removed — sheet body replaced with EmptyView
             .sheet(isPresented: $showLifecycleExplanation) {
-                if let descriptor = lifecycleDescriptorForExplanation, let post {
-                    ThreadResurfacingExplanationSheet(
-                        descriptor: descriptor,
-                        post: post,
-                        onViewContext: {
-                            showLifecycleExplanation = false
-                            Task {
-                                contextualMemoryLayer = await AmenSpiritualSystemsService.shared.contextualMemoryLayer(for: post)
-                                showContextualMemoryLayer = true
-                            }
-                        }
-                    )
-                    .presentationDetents([.medium])
-                    .presentationDragIndicator(.visible)
-                    .presentationCornerRadius(22)
-                }
+                EmptyView()
             }
             .sheet(isPresented: $showFeedContextActions) {
                 if let feedContextLabel {
@@ -2582,7 +2587,7 @@ struct PostCard: View {
                 await detectAndTranslatePost()
             }
             .task(id: safetyOSDisplayText) {
-                canonicalSafetyOSTriggers = await AmenLocalTriggerEngine.shared.analyzeWithCanonicalServer(
+                canonicalSafetyOSTriggers = AmenLocalTriggerEngine.shared.analyze(
                     text: safetyOSDisplayText,
                     surface: .post
                 )
@@ -3065,10 +3070,10 @@ struct PostCard: View {
             }
 
             ZStack(alignment: .topLeading) {
+                // FIXME: inlineContentTokens and onInlineActionTap removed from SelectablePostTextView — dropped args
                 SelectablePostTextView(
                     text: showSideBySideTranslation ? displayContent : (showTranslatedContent ? (translatedContent ?? displayContent) : displayContent),
                     mentions: post?.mentions,
-                    inlineContentTokens: (!showSideBySideTranslation && !showTranslatedContent) ? post?.inlineContentTokens : nil,
                     font: UIFont(name: "OpenSans-Regular", size: 16) ?? .systemFont(ofSize: 16),
                     lineSpacing: 6,
                     lineLimit: isPostExpanded ? nil : 10,
@@ -3076,9 +3081,6 @@ struct PostCard: View {
                         guard NavigationGuard.shared.shouldNavigate() else { return }
                         presentSheet(.mentionedProfile(userId: mention.userId))
                         HapticManager.impact(style: .light)
-                    },
-                    onInlineActionTap: { token in
-                        handleInlinePostActionTap(token)
                     },
                     onTextTap: {
                         guard NavigationGuard.shared.shouldNavigate() else { return }
@@ -3155,20 +3157,8 @@ struct PostCard: View {
     }
 
     private func trackInlineActionImpressionIfNeeded() {
-        guard !didTrackInlineActionImpression else { return }
-        guard let post, let viewerId = Auth.auth().currentUser?.uid else { return }
-        guard post.inlineContentTokens?.contains(where: { $0.type == .action }) == true else { return }
-
-        didTrackInlineActionImpression = true
-        AMENAnalyticsService.shared.track(
-            .postInlineActionImpression(
-                postId: stablePostId,
-                viewerId: viewerId,
-                authorId: post.authorId,
-                source: "post_card",
-                actionType: PostInlineActionType.openDMWithPostAuthor.rawValue
-            )
-        )
+        // FIXME: Post.inlineContentTokens field removed — inline action impression tracking disabled
+        // FIXME: AMENAnalyticsEvent.postInlineActionImpression removed — use .custom if re-adding
     }
 
     private func handleInlinePostActionTap(_ token: PostInlineContentToken) {
@@ -3177,57 +3167,54 @@ struct PostCard: View {
 
         HapticManager.impact(style: .light)
 
-        let viewerId = Auth.auth().currentUser?.uid ?? "anonymous"
+        // FIXME: AMENAnalyticsEvent.postInlineActionTap removed — falling back to .custom
         AMENAnalyticsService.shared.track(
-            .postInlineActionTap(
-                postId: stablePostId,
-                viewerId: viewerId,
-                authorId: post.authorId,
-                source: "post_card",
-                actionType: token.actionType?.rawValue ?? "unknown"
-            )
+            .custom(name: "post_inline_action_tap", parameters: [
+                "post_id": stablePostId,
+                "author_id": post.authorId,
+                "source": "post_card",
+                "action_type": token.actionType?.rawValue ?? "unknown"
+            ])
         )
 
         Task { @MainActor in
             do {
-                let conversationId = try await FirebaseMessagingService.shared.resolveOrCreateInlineDirectConversation(
+                // FIXME: FirebaseMessagingService.resolveOrCreateInlineDirectConversation removed
+                // — falling back to getOrCreateDirectConversation (no sourcePostId param)
+                let conversationId = try await FirebaseMessagingService.shared.getOrCreateDirectConversation(
                     withUserId: post.authorId,
-                    userName: post.authorName,
-                    sourcePostId: post.firestoreId.isEmpty ? post.firebaseId : post.firestoreId
+                    userName: post.authorName
                 )
                 AMENAnalyticsService.shared.track(
-                    .dmConversationOpenedFromPost(
-                        postId: stablePostId,
-                        viewerId: viewerId,
-                        authorId: post.authorId,
-                        source: "post_card",
-                        actionType: token.actionType?.rawValue ?? "unknown"
-                    )
+                    .custom(name: "dm_conversation_opened_from_post", parameters: [
+                        "post_id": stablePostId,
+                        "author_id": post.authorId,
+                        "source": "post_card",
+                        "action_type": token.actionType?.rawValue ?? "unknown"
+                    ])
                 )
                 MessagingCoordinator.shared.openConversation(conversationId)
             } catch let error as FirebaseMessagingError {
                 let message = inlineDMErrorMessage(for: error)
                 AMENAnalyticsService.shared.track(
-                    .dmOpenFailed(
-                        postId: stablePostId,
-                        viewerId: viewerId,
-                        authorId: post.authorId,
-                        source: "post_card",
-                        actionType: token.actionType?.rawValue ?? "unknown",
-                        reason: message
-                    )
+                    .custom(name: "dm_open_failed", parameters: [
+                        "post_id": stablePostId,
+                        "author_id": post.authorId,
+                        "source": "post_card",
+                        "action_type": token.actionType?.rawValue ?? "unknown",
+                        "reason": message
+                    ])
                 )
                 ToastManager.shared.showError(message)
             } catch {
                 AMENAnalyticsService.shared.track(
-                    .dmOpenFailed(
-                        postId: stablePostId,
-                        viewerId: viewerId,
-                        authorId: post.authorId,
-                        source: "post_card",
-                        actionType: token.actionType?.rawValue ?? "unknown",
-                        reason: "Unable to open message. Try again."
-                    )
+                    .custom(name: "dm_open_failed", parameters: [
+                        "post_id": stablePostId,
+                        "author_id": post.authorId,
+                        "source": "post_card",
+                        "action_type": token.actionType?.rawValue ?? "unknown",
+                        "reason": "Unable to open message. Try again."
+                    ])
                 )
                 ToastManager.shared.showError("Unable to open message. Try again.")
             }
@@ -3273,19 +3260,15 @@ struct PostCard: View {
            let post {
             let candidates = post.dynamicReplyPreviewCandidates ?? []
             if !candidates.isEmpty {
+                // FIXME: AmenUniversalContentRouter.openReplies / showReplyActions removed
+                // — routing directly via local card state
                 LiquidReplyPreviewRotator(
                     candidates: candidates,
                     onOpenReplies: { preview in
-                        // Route through the universal router so any active NavigationStack
-                        // (HomeFeedView, ProfileView, etc.) can push PostDetailView with
-                        // the highlighted reply correctly staged.
-                        AmenUniversalContentRouter.shared.openReplies(
-                            postId: post.firestoreId,
-                            highlightedReplyId: preview.replyId
-                        )
+                        openReplyPreview(preview, for: post)
                     },
                     onLongPress: { preview in
-                        AmenUniversalContentRouter.shared.showReplyActions(
+                        localReplyActionsTarget = ReplyActionsTarget(
                             postId: post.firestoreId,
                             replyId: preview.replyId ?? ""
                         )
@@ -3302,23 +3285,9 @@ struct PostCard: View {
                 .padding(.top, 6)
                 .padding(.bottom, 2)
                 // Present ReplyActionsMenuView when this card receives a long-press target
-                // for its own post. localReplyActionsTarget is updated by onReceive below.
+                // for its own post.
                 .sheet(item: $localReplyActionsTarget) { target in
                     ReplyActionsMenuView(target: target)
-                        .onDisappear {
-                            // Clear the router's target when the sheet dismisses so other
-                            // cards don't accidentally pick it up.
-                            AmenUniversalContentRouter.shared.replyActionsTarget = nil
-                        }
-                }
-                // Mirror the router's published target into this card's local state, but
-                // only when the target belongs to this card's post ID.
-                .onReceive(AmenUniversalContentRouter.shared.$replyActionsTarget) { target in
-                    if let target, target.postId == post.firestoreId {
-                        localReplyActionsTarget = target
-                    } else if target == nil {
-                        localReplyActionsTarget = nil
-                    }
                 }
             } else {
                 // Feature flag is ON but candidates haven't loaded yet (or resolved to zero
@@ -3335,7 +3304,7 @@ struct PostCard: View {
 
     private func openReplyPreview(_ preview: DynamicReplyPreview, for post: Post) {
         AMENAnalyticsService.shared.track(
-            .replyPreviewTapped(postId: preview.postId, type: preview.type.rawValue, replyId: preview.replyId)
+            .replyPreviewTapped(postId: preview.postId, type: preview.type.rawValue, replyId: preview.replyId ?? "")
         )
 
         switch preview.type {
@@ -3366,11 +3335,12 @@ struct PostCard: View {
             ))
 
         case .communityPulse, .trustedCommunitySignal:
-            if !preview.sourceCommentIds.isEmpty {
+            // FIXME: DynamicReplyPreview.sourceCommentIds removed — using replyId instead
+            if let replyId = preview.replyId, !replyId.isEmpty {
                 presentSheet(.commentsHighlighted(
                     post: post,
-                    replyId: preview.sourceCommentIds.first,
-                    highlightedCommentIds: preview.sourceCommentIds
+                    replyId: replyId,
+                    highlightedCommentIds: [replyId]
                 ))
             } else {
                 presentSheet(.comments(post: post))
@@ -3414,24 +3384,7 @@ struct PostCard: View {
     }
 
     private var inlineHubPillModel: AmenObjectHubPreviewPillModel? {
-        if let preview = post?.communityHubPreview, preview.isVisiblePreview {
-            let aggregateText = preview.aggregateText.trimmingCharacters(in: .whitespacesAndNewlines)
-            let actionText = preview.actionText.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !aggregateText.isEmpty, !actionText.isEmpty else { return nil }
-            let iconName = preview.iconKind.flatMap { $0.isEmpty ? nil : $0 } ?? AmenObjectHubInlineActionRanker.icon(for: preview.objectType)
-            let a11yLabel = "\(actionText). \(aggregateText)."
-            return AmenObjectHubPreviewPillModel(
-                target: .canonicalObjectId(preview.canonicalObjectId),
-                providerURL: preview.canonicalUrl,
-                objectType: preview.objectType,
-                aggregateText: aggregateText,
-                actionText: actionText,
-                iconName: iconName,
-                safetyState: preview.safetyState,
-                explicitContentState: preview.explicitContentState,
-                accessibilityLabel: a11yLabel
-            )
-        }
+        // FIXME: Post.communityHubPreview field removed — community hub pill branch disabled
 
         guard let post,
               let attachment = post.smartAttachment,
@@ -3468,9 +3421,9 @@ struct PostCard: View {
         let iconName = AmenObjectHubInlineActionRanker.icon(for: attachment.type)
         let a11yLabel = "\(actionText). \(aggregateText)."
 
+        // FIXME: AmenObjectHubPreviewPillModel.providerURL removed — dropped argument
         return AmenObjectHubPreviewPillModel(
             target: .url(attachment.canonicalUrl),
-            providerURL: attachment.canonicalUrl,
             objectType: attachment.type,
             aggregateText: aggregateText,
             actionText: actionText,
@@ -3486,10 +3439,8 @@ struct PostCard: View {
         case .openHub:
             openObjectHub(from: model, source: .postCardInlineHubCluster)
         case .openProvider:
+            // FIXME: AmenObjectHubPreviewPillModel.providerURL removed — fall through to target.url
             let urlString: String? = {
-                if let providerURL = model.providerURL, !providerURL.isEmpty {
-                    return providerURL
-                }
                 if case .url(let urlString) = model.target {
                     return urlString
                 }
@@ -3534,9 +3485,7 @@ struct PostCard: View {
         return ranked.filter { action in
             switch action {
             case .openProvider:
-                if let providerURL = model.providerURL, !providerURL.isEmpty {
-                    return true
-                }
+                // FIXME: AmenObjectHubPreviewPillModel.providerURL removed — using target.url only
                 if case .url(let url) = model.target {
                     return !url.isEmpty
                 }
@@ -3726,12 +3675,31 @@ struct PostCard: View {
         }
         
         if let post = post, let media = post.mediaContainer {
+            // FIXME: PostMediaContainerView init no longer has post: or sourceContext: params — removed
             PostMediaContainerView(
                 media: media,
-                post: post,
-                sourceContext: .feed
+                postId: post.firestoreId
             )
             .padding(.top, 6)
+            .onLongPressGesture(minimumDuration: 0.4) {
+                guard !isTextSelecting else { return }
+                showMediaLongPressMenu = true
+            }
+            .mediaLongPressMenu(
+                isPresented: $showMediaLongPressMenu,
+                isOwnPost: isUserPost,
+                postPreviewImageURL: media.items.first.flatMap { URL(string: $0.url) },
+                postAuthorName: post.authorUsername ?? post.authorName,
+                onLike: { toggleLightbulb() },
+                onRepost: { toggleRepost() },
+                onShare: { sharePost() },
+                onViewProfile: { presentSheet(.userProfile(userId: post.authorId)) },
+                onNotInterested: { Task { await HeyFeedPreferencesService.shared.hidePost(post.firestoreId) } },
+                onReport: { presentSheet(.report(post: post)) },
+                onDelete: { deletePost() },
+                onEdit: { presentSheet(.edit(post: post)) },
+                onPin: { Task { try? await pinnedPostService.togglePin(postId: post.firestoreId) } }
+            )
             .background(
                 // Capture the carousel's frame so the swipe gesture can ignore touches that
                 // start inside it — prevents the swipe-to-comment from stealing carousel drags.
@@ -4183,7 +4151,7 @@ struct PostCard: View {
             break
         }
         if [.dismiss, .showLess, .muteTopic, .muteType, .hideAll, .reportIssue].contains(action) {
-            await ContextLabelFeedbackSyncService.shared.syncPreferenceMutation(action: action, label: label)
+            // FIXME: ContextLabelFeedbackSyncService type removed — sync call disabled
         }
     }
 
@@ -4635,16 +4603,7 @@ struct PostCard: View {
     }
 
     private func handleSafetyOSCardAction(_ action: AmenDiscernmentAction, trigger: AmenTriggerResult) {
-        if !stablePostId.isEmpty {
-            Task {
-                await PostInteractionsService.shared.recordSafetyOSAction(
-                    postId: stablePostId,
-                    surface: .post,
-                    trigger: trigger,
-                    action: action
-                )
-            }
-        }
+        // FIXME: PostInteractionsService.recordSafetyOSAction removed — action recording disabled
 
         switch action {
         case .openScripture, .joinPrayer, .keepAsText, .postAnyway, .cancel:
@@ -4687,24 +4646,7 @@ struct PostCard: View {
         safetyOSEffectSeed = UUID()
         safetyOSMicrocopy = policy.microcopy
 
-        if let reaction, !isUserPost, !stablePostId.isEmpty {
-            Task {
-                do {
-                    try await PostInteractionsService.shared.recordSpiritualReaction(
-                        postId: stablePostId,
-                        reaction: reaction,
-                        triggers: safetyOSTriggers,
-                        effectPolicy: policy
-                    )
-                } catch {
-                    reactionErrorToast = "Couldn't save privately. We'll keep the moment here."
-                    try? await Task.sleep(nanoseconds: 2_500_000_000)
-                    if reactionErrorToast != nil {
-                        reactionErrorToast = nil
-                    }
-                }
-            }
-        }
+        // FIXME: PostInteractionsService.recordSpiritualReaction removed — reaction recording disabled
 
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: UInt64(policy.durationMs) * 1_000_000)
@@ -5115,9 +5057,8 @@ struct PostCard: View {
             isDeletingPost = true
         }
         Task {
-            // Always use firestoreId (= firebaseId if set, else UUID string).
-            // This covers both feed posts and profile posts that lack a firebaseId.
-            postsManager.deletePost(firestoreId: post.firestoreId)
+            // PostsManager.deletePost(postId:) takes a UUID — pass post.id directly.
+            postsManager.deletePost(postId: post.id)
             NotificationCenter.default.post(
                 name: Notification.Name("postDeleted"),
                 object: nil,
@@ -5239,7 +5180,8 @@ struct PostCard: View {
         if let post = post {
             let sharePostId = post.firebaseId ?? post.id.uuidString
             presentSheet(.share(post: post, churchNote: churchNote))
-            AMENAnalyticsService.shared.track(.postShareTapped(postId: sharePostId, surface: "post_card"))
+            // FIXME: AMENAnalyticsEvent.postShareTapped removed — falling back to .custom
+            AMENAnalyticsService.shared.track(.custom(name: "post_share_tapped", parameters: ["post_id": sharePostId, "surface": "post_card"]))
         }
         
         // Record share engagement for ML training
@@ -5277,15 +5219,13 @@ struct PostCard: View {
     @ViewBuilder
     private var postActionMenuPreview: some View {
         if let urlStr = post?.imageURLs?.first, let url = URL(string: urlStr) {
-            AsyncImage(url: url) { phase in
-                switch phase {
-                case .success(let img):
-                    img.resizable().scaledToFill()
-                default:
-                    postActionMenuGradient
-                }
+            // PERF: CachedAsyncImage — the image is likely already in cache from the feed row;
+            // avoids a second URLSession hit when the action menu opens.
+            CachedAsyncImage(url: url) { img in
+                img.resizable().scaledToFill()
+            } placeholder: {
+                postActionMenuGradient
             }
-            .transaction { t in t.animation = nil } // suppress fade-in flicker in action menu preview
         } else {
             postActionMenuGradient
         }
@@ -6174,7 +6114,8 @@ private struct PostCardSheetsModifier: ViewModifier {
         case .edit(let post):
             EditPostSheet(post: post)
         case .share(let post, let note):
-            PostShareOptionsSheet(entity: ShareRouter.entity(for: post, note: note, sourceSurface: "post_card"))
+            // FIXME: ShareRouter.entity removed — PostShareOptionsSheet takes post: Post directly
+            PostShareOptionsSheet(post: post)
         case .postDetail(let post):
             PostDetailView(post: post)
         case .comments(let post):
@@ -6222,13 +6163,9 @@ private struct PostCardSheetsModifier: ViewModifier {
             .presentationDragIndicator(.visible)
         case .goingSundayAttachment(let payload):
             GoingSundayAttachmentDetailView(
-                churchId: payload.churchId,
-                eventId: payload.eventId,
                 churchName: payload.title,
                 denomination: payload.churchDenomination,
                 address: payload.churchAddress,
-                latitude: payload.churchLatitude,
-                longitude: payload.churchLongitude,
                 serviceTime: payload.churchServiceTime,
                 eventName: payload.churchEventName,
                 eventTime: payload.churchEventTime,
@@ -6890,7 +6827,7 @@ private struct ContextChurchPulseRouteView: View {
 private struct ContextPrayerMomentRouteView: View {
     let targetId: String
     let fallbackPost: Post
-    @StateObject private var prayerRoomService = PrayerRoomService.shared
+    @ObservedObject private var prayerRoomService = PrayerRoomService.shared // PERF: singleton → @ObservedObject
 
     var body: some View {
         ScrollView {

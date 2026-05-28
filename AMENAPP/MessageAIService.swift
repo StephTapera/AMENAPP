@@ -258,7 +258,7 @@ class MessageAIService: ObservableObject {
     func suggestScripture(
         conversationContext: String,
         mood: String? = nil
-    ) async throws -> [ScriptureSuggestion] {
+    ) async throws -> [MessageScriptureSuggestion] {
         
         dlog("📖 Finding relevant scripture for context")
         
@@ -283,7 +283,7 @@ class MessageAIService: ObservableObject {
                 return nil
             }
             
-            return ScriptureSuggestion(
+            return MessageScriptureSuggestion(
                 reference: reference,
                 text: text,
                 reason: reason
@@ -403,7 +403,7 @@ struct MessageTone {
     let suggestions: [String]
 }
 
-struct ScriptureSuggestion: Identifiable {
+struct MessageScriptureSuggestion: Identifiable {
     let id = UUID()
     let reference: String
     let text: String

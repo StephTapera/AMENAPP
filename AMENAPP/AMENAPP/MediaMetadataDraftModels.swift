@@ -1,6 +1,93 @@
 import Foundation
 import FirebaseFirestore
 
+// MARK: - Media Metadata Enums
+
+enum MediaGenerationState: String, Codable, Equatable {
+    case notRequested = "not_requested"
+    case queued       = "queued"
+    case generating   = "generating"
+    case ready        = "ready"
+    case failed       = "failed"
+}
+
+enum MediaProcessingState: String, Codable, Equatable {
+    case uploading  = "uploading"
+    case queued     = "queued"
+    case processing = "processing"
+    case ready      = "ready"
+    case partial    = "partial"
+    case failed     = "failed"
+}
+
+enum MediaKeyMomentKind: String, Codable, CaseIterable {
+    case prayer        = "prayer"
+    case scripture     = "scripture"
+    case testimony     = "testimony"
+    case teaching      = "teaching"
+    case reflection    = "reflection"
+    case callToAction  = "callToAction"
+    case worship       = "worship"
+    case mainPoint     = "mainPoint"
+
+    var title: String {
+        switch self {
+        case .prayer:       return "Prayer"
+        case .scripture:    return "Scripture"
+        case .testimony:    return "Testimony"
+        case .teaching:     return "Teaching"
+        case .reflection:   return "Reflection"
+        case .callToAction: return "Call to Action"
+        case .worship:      return "Worship"
+        case .mainPoint:    return "Main Point"
+        }
+    }
+}
+
+enum MediaCaptionModerationState: String, Codable, Equatable {
+    case notRequired = "not_required"
+    case pending     = "pending"
+    case approved    = "approved"
+    case rejected    = "rejected"
+    case removed     = "removed"
+}
+
+enum MediaTrackSource: String, Codable, Equatable {
+    case userEdited  = "user_edited"
+    case aiGenerated = "ai_generated"
+    case imported    = "imported"
+    case generated   = "generated"
+}
+
+enum MediaCaptionStyle: String, Codable, CaseIterable {
+    case minimal  = "minimal"
+    case standard = "standard"
+    case bold     = "bold"
+    case cinematic = "cinematic"
+
+    var title: String {
+        switch self {
+        case .minimal:   return "Minimal"
+        case .standard:  return "Standard"
+        case .bold:      return "Bold"
+        case .cinematic: return "Cinematic"
+        }
+    }
+}
+
+// MARK: - Per-Media Caption Editor Route
+
+struct PerMediaCaptionEditorRoute: Identifiable, Equatable {
+    enum Kind: String, Equatable {
+        case scripture
+        case reflection
+        case altText
+    }
+    let index: Int
+    let kind: Kind
+    var id: String { "\(index)-\(kind.rawValue)" }
+}
+
 struct VideoCaptionCueDraft: Identifiable, Codable, Equatable, Hashable {
     var id: String
     var startTime: TimeInterval
@@ -63,6 +150,10 @@ struct FrameCaptionDraft: Identifiable, Codable, Equatable, Hashable {
     var text: String
     var verseReference: String
     var isFeatured: Bool
+    var altText: String
+    var reflectionPrompt: String
+    var scriptureRefs: [String]
+    var captionModerationState: MediaCaptionModerationState
 
     init(
         id: String = UUID().uuidString,
@@ -70,7 +161,11 @@ struct FrameCaptionDraft: Identifiable, Codable, Equatable, Hashable {
         title: String = "",
         text: String = "",
         verseReference: String = "",
-        isFeatured: Bool = false
+        isFeatured: Bool = false,
+        altText: String = "",
+        reflectionPrompt: String = "",
+        scriptureRefs: [String] = [],
+        captionModerationState: MediaCaptionModerationState = .notRequired
     ) {
         self.id = id
         self.frameIndex = frameIndex
@@ -78,6 +173,10 @@ struct FrameCaptionDraft: Identifiable, Codable, Equatable, Hashable {
         self.text = text
         self.verseReference = verseReference
         self.isFeatured = isFeatured
+        self.altText = altText
+        self.reflectionPrompt = reflectionPrompt
+        self.scriptureRefs = scriptureRefs
+        self.captionModerationState = captionModerationState
     }
 
     var asFrameCaption: MediaFrameCaption {
@@ -205,17 +304,20 @@ struct CreatePostMediaMetadataDraft: Codable, Equatable, Hashable {
     var frameCaptions: [FrameCaptionDraft]
     var featuredFrameIndex: Int
     var draftUpdatedAt: Date
+    var audioAttachment: MediaAudioAttachment?
 
     init(
         videoDraft: VideoMetadataDraft? = nil,
         frameCaptions: [FrameCaptionDraft] = [],
         featuredFrameIndex: Int = 0,
-        draftUpdatedAt: Date = Date()
+        draftUpdatedAt: Date = Date(),
+        audioAttachment: MediaAudioAttachment? = nil
     ) {
         self.videoDraft = videoDraft
         self.frameCaptions = frameCaptions
         self.featuredFrameIndex = featuredFrameIndex
         self.draftUpdatedAt = draftUpdatedAt
+        self.audioAttachment = audioAttachment
     }
 
     mutating func syncForImages(count: Int) {

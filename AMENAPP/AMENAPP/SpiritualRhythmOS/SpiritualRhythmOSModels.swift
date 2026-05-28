@@ -128,9 +128,9 @@ struct SpiritualStreak: Identifiable, Codable {
     }
 }
 
-// MARK: - NotificationIntensityMode
+// MARK: - SpiritualNotificationIntensityMode
 
-enum NotificationIntensityMode: String, Codable, CaseIterable {
+enum SpiritualNotificationIntensityMode: String, Codable, CaseIterable {
     case minimal
     case balanced
     case encouraging
@@ -183,7 +183,7 @@ enum SpiritualNotificationCategory: String, Codable, CaseIterable {
 // MARK: - NotificationPreferences
 
 struct NotificationPreferences: Codable {
-    var intensity: NotificationIntensityMode
+    var intensity: SpiritualNotificationIntensityMode
     var enabledCategories: Set<SpiritualNotificationCategory>
     /// Preferred time for the daily verse notification (HH:mm, 24-hour).
     var preferredVerseTime: String

@@ -53,7 +53,7 @@ public enum MessageType: String, Codable {
 
 public class AppMessage: Identifiable, Equatable, Hashable {
     public var id: String
-    let text: String
+    var text: String
     let isFromCurrentUser: Bool
     let timestamp: Date
     var senderId: String
@@ -114,6 +114,9 @@ public class AppMessage: Identifiable, Equatable, Hashable {
     // MARK: - Feature: Poll
     // Non-nil when this message IS a poll card
     var poll: PollMessage? = nil
+
+    // Classification tags (e.g. "system", "prayerRequest")
+    var tags: [String] = []
 
     init(
         id: String = UUID().uuidString,

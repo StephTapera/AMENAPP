@@ -13,6 +13,8 @@
 
 import {onCall, HttpsError} from "firebase-functions/v2/https";
 import {defineSecret} from "firebase-functions/params";
+import {getBereanEntitlement} from "./berean/services/BereanEntitlementService";
+import {enforceRateLimit, RATE_LIMITS} from "./rateLimit";
 
 interface RefineTranslationRequest {
     originalText: string;
@@ -56,6 +58,18 @@ export const refineTranslation = onCall(
         if (!request.auth) {
             throw new HttpsError("unauthenticated", "User must be authenticated");
         }
+
+        const uid = request.auth.uid;
+
+        const entitlement = await getBereanEntitlement(uid);
+        if (entitlement.tier === "free") {
+            throw new HttpsError(
+                "permission-denied",
+                "Translation refinement requires an AMEN+ subscription."
+            );
+        }
+
+        await enforceRateLimit(uid, [RATE_LIMITS.AI_PER_MINUTE, RATE_LIMITS.AI_PER_DAY]);
 
         const data = request.data as RefineTranslationRequest;
         const {

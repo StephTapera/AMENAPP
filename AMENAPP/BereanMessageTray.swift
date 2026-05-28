@@ -66,6 +66,31 @@ struct BereanMessageTray: View {
             .opacity(isVisible ? 1 : 0)
             .animation(reduceMotion ? .none : floatIn, value: isVisible)
             .animation(reduceMotion ? .none : floatIn, value: showCopied)
+            // MARK: VoiceOver actions — mirrors every tray button so VoiceOver
+            // users can access all actions without performing a long-press.
+            .accessibilityActions {
+                Button("Copy") { performCopy() }
+                Button("Regenerate") {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    onRegenerate()
+                    dismiss()
+                }
+                Button("Share") {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    onShare()
+                    dismiss()
+                }
+                Button("Read aloud") {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    onAudio()
+                    dismiss()
+                }
+                Button("More actions") {
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    onMore()
+                    dismiss()
+                }
+            }
         }
     }
 

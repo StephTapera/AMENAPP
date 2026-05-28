@@ -281,7 +281,7 @@ struct SelahTopicExplorationView: View {
 // MARK: - Scripture Share Card
 
 struct SelahScriptureShareCardView: View {
-    let reference: SelahScriptureReference
+    let reference: ScriptureReference
     let text: String
     let translationAbbreviation: String
 

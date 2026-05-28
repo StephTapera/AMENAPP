@@ -63,7 +63,7 @@ final class SpacesEntitlementService: NSObject, ObservableObject {
 
     // MARK: Published State
 
-    /// Cached entitlement state per spaceId — used to avoid redundant Firestore fetches.
+    /// Cached entitlement state per spaceId.
     @Published var entitlementsBySpace: [String: SpaceEntitlement] = [:]
 
     // MARK: Private
@@ -72,7 +72,7 @@ final class SpacesEntitlementService: NSObject, ObservableObject {
     private let functions = Functions.functions()
     private var authSession: ASWebAuthenticationSession?
 
-    // Active AsyncStream listener tasks, keyed by spaceId.
+    // Active listener tasks, keyed by spaceId.
     private var listenerTasks: [String: Task<Void, Never>] = [:]
 
     private override init() {}
@@ -94,14 +94,8 @@ final class SpacesEntitlementService: NSObject, ObservableObject {
     // MARK: - Purchase Flow
 
     /// Initiates a Stripe checkout for a paid Space.
-    ///
-    /// Flow:
-    ///   1. Calls `createSpaceCheckoutSession` Cloud Function → receives `{ checkoutURL }`.
-    ///   2. Opens `checkoutURL` via `ASWebAuthenticationSession` using `amen://spaces-checkout`
-    ///      as the callback scheme.
-    ///   3. On successful callback: entitlement is written by the Stripe webhook CF.
-    ///   4. The real-time listener (startListening) fires immediately when the entitlement doc
-    ///      is written — the paywall view transitions without needing a manual refresh.
+    /// On successful payment the Stripe webhook CF writes the entitlement;
+    /// the real-time listener then fires and the paywall dissolves.
     func purchaseAccess(space: AmenSpace) async throws {
         guard let uid = Auth.auth().currentUser?.uid, !uid.isEmpty else {
             throw SpacesEntitlementError.notAuthenticated
@@ -117,7 +111,6 @@ final class SpacesEntitlementService: NSObject, ObservableObject {
         }
 
         let payload: [String: Any] = ["spaceId": spaceId]
-
         let result: HTTPSCallableResult
         do {
             result = try await functions.httpsCallable("createSpaceCheckoutSession").call(payload)
@@ -133,14 +126,12 @@ final class SpacesEntitlementService: NSObject, ObservableObject {
             throw SpacesEntitlementError.invalidServerResponse
         }
 
-        try await presentCheckoutSession(url: checkoutURL, spaceId: spaceId)
+        try await presentCheckoutSession(url: checkoutURL)
     }
 
     // MARK: - Restore
 
-    /// Refreshes entitlement state from Firestore.
-    /// For one-time purchases: re-checks the entitlement document.
-    /// The paywall lifts automatically if entitlement is active.
+    /// Refreshes entitlement state from Firestore for one-time purchases.
     func restorePurchase(spaceId: String) async throws {
         guard let uid = Auth.auth().currentUser?.uid else {
             throw SpacesEntitlementError.notAuthenticated
@@ -155,9 +146,8 @@ final class SpacesEntitlementService: NSObject, ObservableObject {
 
     // MARK: - Real-Time Listener
 
-    /// Starts a real-time entitlement listener for the given user/space pair.
-    /// Updates `entitlementsBySpace[spaceId]` reactively.
-    /// Call this on view appear so the paywall lifts instantly when payment completes.
+    /// Starts a real-time entitlement listener.
+    /// Updates `entitlementsBySpace[spaceId]` on every Firestore snapshot.
     func startListening(userId: String, spaceId: String) {
         guard !userId.isEmpty, !spaceId.isEmpty else { return }
         stopListening(spaceId: spaceId)
@@ -167,7 +157,7 @@ final class SpacesEntitlementService: NSObject, ObservableObject {
 
         let task = Task { [weak self] in
             let stream = AsyncStream<SpaceEntitlement?> { continuation in
-                let listener = ref.addSnapshotListener { snapshot, _ in
+                let listener = ref.addSnapshotListener { [weak self] snapshot, _ in
                     guard let self else { return }
                     guard let snapshot, snapshot.exists, let data = snapshot.data() else {
                         continuation.yield(nil)
@@ -204,18 +194,13 @@ final class SpacesEntitlementService: NSObject, ObservableObject {
 
     // MARK: - ASWebAuthenticationSession
 
-    /// Opens a Stripe Checkout URL in `ASWebAuthenticationSession`.
-    /// Callback URL scheme: `amen://spaces-checkout`
-    private func presentCheckoutSession(url: URL, spaceId: String) async throws {
+    private func presentCheckoutSession(url: URL) async throws {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             let session = ASWebAuthenticationSession(
                 url: url,
                 callbackURLScheme: "amen"
-            ) { [weak self] callbackURL, error in
-                guard let self else {
-                    continuation.resume()
-                    return
-                }
+            ) { [weak self] _, error in
+                guard self != nil else { continuation.resume(); return }
                 if let error = error as? ASWebAuthenticationSessionError,
                    error.code == .canceledLogin {
                     continuation.resume(throwing: SpacesEntitlementError.checkoutCanceled)
@@ -225,9 +210,7 @@ final class SpacesEntitlementService: NSObject, ObservableObject {
                     continuation.resume(throwing: SpacesEntitlementError.network(error))
                     return
                 }
-                // Success — entitlement will arrive via the real-time listener.
-                // The webhook writes the entitlement; no client write needed.
-                _ = callbackURL
+                // Entitlement written by webhook CF — no client write needed.
                 continuation.resume()
             }
             session.presentationContextProvider = self
@@ -237,7 +220,7 @@ final class SpacesEntitlementService: NSObject, ObservableObject {
         }
     }
 
-    // MARK: - Decode Helpers
+    // MARK: - Decode Helper
 
     private func decodeEntitlement(
         _ data: [String: Any],

@@ -71,6 +71,10 @@ enum SettingsDestination: String, Hashable {
     case drafts
     case scheduleReply
     case editMessages
+    case appearance
+    case accessibility
+    case storageData
+    case familySafety
 }
 
 // MARK: - Settings Search Engine
@@ -409,6 +413,42 @@ final class SettingsSearchEngine: ObservableObject {
                 synonyms: ["prayer time", "daily prayer"],
                 intents: ["set prayer reminders", "remind me to pray"],
                 destination: .prayerReminders
+            ),
+            SettingsSearchEntry(
+                icon: "paintpalette", iconBg: nil,
+                label: "Appearance", subtitle: "Dark mode, display",
+                group: "Preferences",
+                keywords: ["appearance", "dark mode", "light mode", "theme"],
+                synonyms: ["color scheme", "display", "dark", "light"],
+                intents: ["switch to dark mode", "change theme", "enable dark mode", "change appearance"],
+                destination: .appearance
+            ),
+            SettingsSearchEntry(
+                icon: "accessibility", iconBg: nil,
+                label: "Accessibility", subtitle: "Motion, contrast, text size",
+                group: "Preferences",
+                keywords: ["accessibility", "motion", "contrast", "haptic"],
+                synonyms: ["reduce motion", "high contrast", "voiceover", "a11y"],
+                intents: ["turn off animations", "increase contrast", "accessibility settings"],
+                destination: .accessibility
+            ),
+            SettingsSearchEntry(
+                icon: "internaldrive", iconBg: nil,
+                label: "Storage & Data", subtitle: "Cache, media quality",
+                group: "Tools & Data",
+                keywords: ["storage", "data", "cache", "media"],
+                synonyms: ["clear cache", "free space", "data usage", "video quality"],
+                intents: ["clear my cache", "free up storage", "reduce data usage"],
+                destination: .storageData
+            ),
+            SettingsSearchEntry(
+                icon: "person.2", iconBg: nil,
+                label: "Family Safety", subtitle: "Parental controls, content filters",
+                group: "Account",
+                keywords: ["family", "safety", "parental", "controls", "kids"],
+                synonyms: ["child", "guardian", "parent", "restrict"],
+                intents: ["set parental controls", "family settings", "restrict content for kids"],
+                destination: .familySafety
             ),
         ]
     }

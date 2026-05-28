@@ -112,6 +112,7 @@ struct LiveMeetingView: View {
             HostQuestionsSheet(questions: hostQuestions)
         }
         .task { await vm.start() }
+        .onDisappear { vm.stop() }
     }
 
     // MARK: - Sub-views
@@ -217,6 +218,10 @@ final class LiveMeetingViewModel: ObservableObject {
         self.liveMeeting = meeting
     }
 
+    deinit {
+        listener?.remove()
+    }
+
     func start() async {
         guard !meetingId.isEmpty else { return }
         listener = db.collection("meetings").document(meetingId)
@@ -225,17 +230,22 @@ final class LiveMeetingViewModel: ObservableObject {
             }
         groupChannel = try? await ChannelService.shared.openOrCreateGroupChannel(groupId: groupId)
     }
+
+    func stop() {
+        listener?.remove()
+        listener = nil
+    }
 }
 
 // MARK: - RSVP Row
 
 private struct RSVPRowView: View {
     let rsvps: [MeetingRSVP]
-    let onSelect: (RSVPStatus) -> Void
+    let onSelect: (MeetingRSVPStatus) -> Void
 
     var body: some View {
         HStack(spacing: 8) {
-            ForEach(RSVPStatus.allCases, id: \.self) { status in
+            ForEach(MeetingRSVPStatus.allCases, id: \.self) { status in
                 Button { onSelect(status) } label: {
                     Label(status.displayLabel, systemImage: status.systemImage)
                         .font(.caption.weight(.medium))

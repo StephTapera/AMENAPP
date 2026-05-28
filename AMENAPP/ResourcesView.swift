@@ -560,7 +560,7 @@ struct ResourcesView: View {
                         .buttonStyle(ResourceCardPressStyle())
 
                         // Find a Church
-                        NavigationLink(destination: FindChurchView()) {
+                        NavigationLink(destination: ChurchSearchView()) {
                             VStack(alignment: .leading, spacing: 10) {
                                 ZStack {
                                     RoundedRectangle(cornerRadius: 10)
@@ -1140,7 +1140,7 @@ struct ResourcesView: View {
     private func supportActionView(_ action: SupportAction) -> some View {
         switch action.type {
         case .openFindChurch, .shareWithPastorOrCareTeam:
-            NavigationLink(destination: FindChurchView()) {
+            NavigationLink(destination: ChurchSearchView()) {
                 IntelligentSupportActionCard(
                     icon: "mappin.and.ellipse",
                     title: action.title,
@@ -1984,19 +1984,19 @@ struct BibleAppCard: View {
             .padding(.horizontal)
         }
         .buttonStyle(PlainButtonStyle())
-        .alert("Open Bible App?", isPresented: $showAlert) {
-            Button("Cancel", role: .cancel) { }
-            Button("Open App Store") {
-                openAppStore(appID: "id282935706") // YouVersion Bible App
-            }
-            Button("Try Opening") {
+        .amenAlert(isPresented: $showAlert, config: LiquidGlassAlertConfig(
+            title: "Open Bible App?",
+            message: "This will open the YouVersion Bible app if installed, or take you to the App Store.",
+            icon: "book.fill",
+            primaryButton: LiquidGlassAlertButton("Try Opening", tone: .primary) {
                 if let url = URL(string: "bible://") {
                     UIApplication.shared.open(url)
                 }
+            },
+            secondaryButton: LiquidGlassAlertButton("Open App Store", tone: .dismiss) {
+                openAppStore(appID: "id282935706") // YouVersion Bible App
             }
-        } message: {
-            Text("This will open the YouVersion Bible app if installed, or take you to the App Store.")
-        }
+        ))
     }
     
     private func openBibleApp() {
@@ -2086,14 +2086,15 @@ struct PrayComCard: View {
             .padding(.horizontal)
         }
         .buttonStyle(PlainButtonStyle())
-        .alert("Open Pray.com?", isPresented: $showAlert) {
-            Button("Cancel", role: .cancel) { }
-            Button("Open App Store") {
+        .amenAlert(isPresented: $showAlert, config: LiquidGlassAlertConfig(
+            title: "Open Pray.com?",
+            message: "This will take you to the App Store to download Pray.com.",
+            icon: "hands.sparkles.fill",
+            primaryButton: LiquidGlassAlertButton("Open App Store", tone: .primary) {
                 openAppStore(appID: "id1447106941") // Pray.com app
-            }
-        } message: {
-            Text("This will take you to the App Store to download Pray.com.")
-        }
+            },
+            secondaryButton: .cancel()
+        ))
     }
     
     private func openPrayApp() {
@@ -3490,10 +3491,11 @@ struct ResourceCardPressStyle: ButtonStyle {
 // so the inner press animation (card offset + scale) works without _onButtonGesture.
 
 struct MediaBannerPressStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .environment(\.mediaBannerIsPressed, configuration.isPressed)
-            .animation(.spring(response: 0.22, dampingFraction: 0.72), value: configuration.isPressed)
+            .animation(reduceMotion ? nil : Motion.liquidSpring, value: configuration.isPressed)
     }
 }
 

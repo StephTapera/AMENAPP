@@ -95,19 +95,35 @@ struct AmenCovenantPaywallView: View {
                     break
                 }
             }
-            .alert("Welcome to the Community!", isPresented: $showSuccessAlert) {
-                Button("Let's Go!") { dismiss() }
-            } message: {
-                Text("You're now a member of \(covenant.name). Enjoy your access.")
-            }
-            .alert("Checkout Failed", isPresented: Binding(
-                get: { errorMessage != nil },
-                set: { if !$0 { errorMessage = nil } }
-            )) {
-                Button("OK", role: .cancel) { errorMessage = nil }
-            } message: {
-                Text(errorMessage ?? "Something went wrong. Please try again.")
-            }
+            .amenAlert(
+                isPresented: $showSuccessAlert,
+                config: LiquidGlassAlertConfig(
+                    title: "Welcome to the Community!",
+                    message: "You're now a member of \(covenant.name). Enjoy your access.",
+                    icon: "checkmark.seal.fill",
+                    primaryButton: LiquidGlassAlertButton("Let's Go!", tone: .spiritual) {
+                        dismiss()
+                    }
+                )
+            )
+            .amenAlert(
+                isPresented: Binding(
+                    get: { errorMessage != nil },
+                    set: { if !$0 { errorMessage = nil } }
+                ),
+                config: LiquidGlassAlertConfig(
+                    title: "Checkout Failed",
+                    message: errorMessage ?? "Something went wrong. Please try again.",
+                    icon: "exclamationmark.triangle",
+                    primaryButton: LiquidGlassAlertButton("Try Again", tone: .primary) {
+                        errorMessage = nil
+                        if let covenantId = covenant.id, let tier = selectedTier {
+                            Task { await checkoutService.startCheckout(covenantId: covenantId, tierId: tier.id) }
+                        }
+                    },
+                    secondaryButton: .cancel { errorMessage = nil }
+                )
+            )
         }
     }
 

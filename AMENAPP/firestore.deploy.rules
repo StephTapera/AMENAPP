@@ -4312,5 +4312,257 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow write: if false;
     }
+
+    // ============================================================================
+    // SPACES v2 - Community, Access Policy, Entitlements (Agent A)
+    // ============================================================================
+
+    // -- Spaces v2 helpers --------------------------------------------------------
+
+    function isCommunityOwner(communityId) {
+      return get(/databases/$(database)/documents/communities/$(communityId)/members/$(request.auth.uid)).data.role == "owner";
+    }
+
+    function isCommunityAdmin(communityId) {
+      let role = get(/databases/$(database)/documents/communities/$(communityId)/members/$(request.auth.uid)).data.role;
+      return role == "owner" || role == "admin";
+    }
+
+    function isSpaceAdminOrOwner(spaceId) {
+      let member = get(/databases/$(database)/documents/spaces/$(spaceId)/members/$(request.auth.uid));
+      return member.data.role == "owner" || member.data.role == "admin";
+    }
+
+    function hasActiveEntitlement(spaceId) {
+      let ent = get(/databases/$(database)/documents/entitlements/$(request.auth.uid + "_" + spaceId));
+      return ent.data.status == "active" || ent.data.status == "grace";
+    }
+
+    function canReadSpaceV2(spaceId) {
+      let space = get(/databases/$(database)/documents/spaces/$(spaceId));
+      return space.data.accessPolicy == "free"
+        ? get(/databases/$(database)/documents/spaces/$(spaceId)/members/$(request.auth.uid)).data.access == "granted"
+        : hasActiveEntitlement(spaceId);
+    }
+
+    function canWriteSpaceV2(spaceId) {
+      return canReadSpaceV2(spaceId);
+    }
+
+    // -- Spaces v2: communities subcollections ---------------------------------
+    // Adds members and links subcollections to the existing /communities path.
+    // The top-level /communities/{communityId} rule block above (legacy Ark) is
+    // preserved. These nested subcollection rules extend it for Spaces v2.
+
+    match /communities/{communityId}/members/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && (
+        isCommunityAdmin(communityId) || request.auth.uid == userId
+      );
+    }
+
+    match /communities/{communityId}/links/{linkId} {
+      allow read: if isAuthenticated() && isCommunityAdmin(communityId);
+      allow write: if false; // Cloud Function only
+    }
+
+    // -- Spaces v2: entitlements - flat top-level, one get() gate -------------
+
+    match /entitlements/{entitlementId} {
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.userId ||
+        isSpaceAdminOrOwner(resource.data.spaceId)
+      );
+      allow write: if false; // Cloud Function only (webhook + grantAccess + revokeAccess)
+    }
+
+    // -- Spaces v2: spaces subcollections (threads, studies, entitlement-gated) -
+    // The top-level /spaces/{spaceId} rules above cover existing Phase 0 paths.
+    // These subcollections are new in Spaces v2 and require canReadSpaceV2 gating.
+
+    match /spaces/{spaceId}/threads/{threadId} {
+      allow read: if isAuthenticated() && canReadSpaceV2(spaceId);
+      allow write: if isAuthenticated() && canWriteSpaceV2(spaceId);
+
+      match /messages/{messageId} {
+        allow read: if isAuthenticated() && canReadSpaceV2(spaceId);
+        allow create: if isAuthenticated() && canWriteSpaceV2(spaceId);
+        allow update: if isAuthenticated() && (
+          request.auth.uid == resource.data.authorId || isSpaceAdminOrOwner(spaceId)
+        ) && canWriteSpaceV2(spaceId);
+        allow delete: if false; // soft-delete: set isDeleted=true via Cloud Function
+      }
+    }
+
+    match /spaces/{spaceId}/studies/{studyId} {
+      allow read: if isAuthenticated() && canReadSpaceV2(spaceId);
+      allow write: if isAuthenticated() && isSpaceAdminOrOwner(spaceId);
+
+      match /blocks/{blockId} {
+        allow read: if isAuthenticated() && canReadSpaceV2(spaceId);
+        allow write: if isAuthenticated() && isSpaceAdminOrOwner(spaceId);
+      }
+    }
+
+    // ============================================================================
+    // SPACES v2 - amenCommunities collection (new, does NOT replace /communities)
+    // ============================================================================
+    //
+    // amenCommunities/{communityId} is the AMEN Spaces billing/branding identity.
+    // It is SEPARATE from /communities (legacy Ark). Do not merge them.
+    //
+    // Security model:
+    //   - Top-level community doc: any signed-in user may read (for discovery).
+    //   - Community creation goes through callable only (server sets ownerUserId,
+    //     stripeConnectAccountId, createdAt - no client spoofing).
+    //   - Member subcollection: any signed-in user can read; only admin/owner can
+    //     add/remove members (via callable); members can read their own record.
+    //   - Link subcollection: admin/owner reads; callable-only writes.
+
+    function isAmenCommunityMember(communityId) {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/amenCommunities/$(communityId)/members/$(request.auth.uid));
+    }
+
+    function isAmenCommunityAdmin(communityId) {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/amenCommunities/$(communityId)/members/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/amenCommunities/$(communityId)/members/$(request.auth.uid))
+          .data.role in ["owner", "admin"];
+    }
+
+    function isAmenCommunityOwner(communityId) {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/amenCommunities/$(communityId)/members/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/amenCommunities/$(communityId)/members/$(request.auth.uid))
+          .data.role == "owner";
+    }
+
+    match /amenCommunities/{communityId} {
+      // Community profile readable by any signed-in user (for discovery, invite links, etc.)
+      allow read: if isAuthenticated();
+      // Client cannot create community directly - callable sets server-owned fields.
+      allow create: if false;
+      // Admin/owner can update display fields only (name, handle, avatarURL).
+      // stripeConnectAccountId and createdAt are server-owned and must not change client-side.
+      allow update: if isAuthenticated() && isAmenCommunityAdmin(communityId) &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'ownerUserId', 'stripeConnectAccountId', 'createdAt'
+        ]);
+      allow delete: if isAdmin();
+
+      // Members subcollection
+      match /members/{userId} {
+        // Any signed-in member of the community can read the member list.
+        allow read: if isAuthenticated() && isAmenCommunityMember(communityId);
+        // Members can read their own record without needing to be a member yet (join flow).
+        allow get: if isAuthenticated() && (userId == request.auth.uid || isAmenCommunityMember(communityId));
+        // Only callable (Admin SDK) may write member records.
+        allow create, update, delete: if false;
+      }
+
+      // Links subcollection - cross-community sharing relationships
+      match /links/{linkId} {
+        // Admin/owner can read links; regular members cannot (privacy of partnerships).
+        allow read: if isAuthenticated() && isAmenCommunityAdmin(communityId);
+        // Callable-only writes (createCommunityLink, acceptCommunityLink, revokeCommunityLink).
+        allow create, update, delete: if false;
+      }
+    }
+
+    // -- Spaces v2: entitlement + member access helpers (amenCommunities-aware) --
+    //
+    // These helpers use amenCommunities instead of the legacy /communities path.
+    // They EXTEND (not replace) the v2 helpers defined above.
+
+    // Check if the caller is an admin/owner of the Space's parent amenCommunity.
+    function isAmenSpaceAdmin(spaceId) {
+      let communityId = get(/databases/$(database)/documents/spaces/$(spaceId)).data.communityId;
+      return isAmenCommunityAdmin(communityId);
+    }
+
+    // Check if caller has an active/grace entitlement for a paid space,
+    // OR if the space is free and caller is a member with access = "granted".
+    // Matches scenarios 1-5 in the Agent A spec.
+    function canReadAmenSpaceContent(spaceId) {
+      let space = get(/databases/$(database)/documents/spaces/$(spaceId));
+      let policy = space.data.accessPolicy;
+      let memberRef = get(/databases/$(database)/documents/spaces/$(spaceId)/members/$(request.auth.uid));
+      // Scenario 1: Free space - any member with access = "granted"
+      // Scenarios 2-5: Paid space - check entitlement
+      return policy == "free"
+        ? (exists(/databases/$(database)/documents/spaces/$(spaceId)/members/$(request.auth.uid)) &&
+           memberRef.data.access == "granted")
+        : hasActiveEntitlement(spaceId);
+    }
+
+    // Scenario 6: External member via active link.
+    // Caller must have a non-empty homeCommunityId in the Space members doc,
+    // and that community must have an active link with the Space's owning community.
+    function isExternalMemberWithActiveLink(spaceId) {
+      let memberRef = get(/databases/$(database)/documents/spaces/$(spaceId)/members/$(request.auth.uid));
+      let homeCommunityId = memberRef.data.homeCommunityId;
+      // Empty homeCommunityId = same-community member (not external)
+      let isExternal = homeCommunityId != "";
+      // Owning community for the Space
+      let owningCommunityId = get(/databases/$(database)/documents/spaces/$(spaceId)).data.communityId;
+      // Check the home community's link to the owning community is active
+      let linkId = homeCommunityId + "_" + owningCommunityId;
+      let linkActive = exists(/databases/$(database)/documents/amenCommunities/$(homeCommunityId)/links/$(linkId)) &&
+        get(/databases/$(database)/documents/amenCommunities/$(homeCommunityId)/links/$(linkId))
+          .data.status == "active";
+      return isExternal && linkActive;
+    }
+
+    // Combined reader check: regular member access OR external-via-link access
+    // OR admin/owner bypass.
+    function canReadSpaceContentFull(spaceId) {
+      return canReadAmenSpaceContent(spaceId) ||
+             isExternalMemberWithActiveLink(spaceId) ||
+             isAmenSpaceAdmin(spaceId);
+    }
+
+    // -- amenCommunities-aware Spaces subcollections ------------------------------
+    //
+    // These rules AUGMENT the existing /spaces/{spaceId} block above.
+    // They explicitly handle the amenCommunities entitlement path for threads/studies.
+    // The existing "canReadSpaceV2" rules remain; these add the full 7-scenario gate.
+
+    match /spaces/{spaceId}/threads/{threadId}/messages/{messageId} {
+      // Full 7-scenario read gate (scenarios 1-7 + admin bypass):
+      //   1. Free Space -> any member with access=granted reads
+      //   2. Paid, no entitlement -> deny
+      //   3. Paid, active entitlement -> allow
+      //   4. Paid, grace entitlement -> allow
+      //   5. Paid, expired entitlement -> deny
+      //   6. External member + active link -> allow
+      //   7. External member + revoked link -> deny (access set to "none" by revokeSpaceLinkAccess)
+      //   8. Admin/owner bypass -> allow
+      allow read: if isAuthenticated() && canReadSpaceContentFull(spaceId);
+      allow create: if isAuthenticated() && canReadAmenSpaceContent(spaceId) &&
+        request.resource.data.authorId == request.auth.uid &&
+        request.resource.data.status == "active";
+      // Update: only author or space admin (for moderation), never hard-delete
+      allow update: if isAuthenticated() && (
+        (request.auth.uid == resource.data.authorId && canReadAmenSpaceContent(spaceId)) ||
+        isAmenSpaceAdmin(spaceId)
+      );
+      // Hard-delete blocked globally - use status flip
+      allow delete: if false;
+    }
+
+    match /spaces/{spaceId}/studies/{studyId}/blocks/{blockId} {
+      allow read: if isAuthenticated() && canReadSpaceContentFull(spaceId);
+      allow create, update: if isAuthenticated() && isAmenSpaceAdmin(spaceId);
+      allow delete: if false;
+    }
+
+    // -- Scenario 9: Entitlement writes - Cloud Function / Admin SDK only ---------
+    // The entitlements collection is already defined above (lines 5656-5664).
+    // This comment confirms that:
+    //   - Client cannot write entitlements (allow write: if false above)
+    //   - Stripe webhook Cloud Function writes via Admin SDK (bypasses rules)
+    //   - grantSpaceAccess callable writes via Admin SDK (bypasses rules)
+
   }
 }

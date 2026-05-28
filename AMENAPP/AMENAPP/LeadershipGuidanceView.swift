@@ -174,21 +174,21 @@ struct LeadershipGuidanceView: View {
                 .font(AMENFont.semiBold(14))
                 .foregroundStyle(.primary)
 
-            CrisisResourceRow(
+            LeadershipCrisisRow(
                 icon: "phone.fill",
                 title: "988 Suicide & Crisis Lifeline",
                 subtitle: "Call or text 988 (US) — available 24/7",
                 accentColor: .red
             )
 
-            CrisisResourceRow(
+            LeadershipCrisisRow(
                 icon: "message.fill",
                 title: "Crisis Text Line",
                 subtitle: "Text HOME to 741741 (US/UK/CA)",
                 accentColor: .red
             )
 
-            CrisisResourceRow(
+            LeadershipCrisisRow(
                 icon: "person.2.fill",
                 title: "Your pastor or a trusted adult",
                 subtitle: "Reach out to someone you trust today",
@@ -295,7 +295,7 @@ struct LeadershipGuidanceView: View {
 
 // MARK: - Crisis Resource Row
 
-private struct CrisisResourceRow: View {
+private struct LeadershipCrisisRow: View {
     let icon: String
     let title: String
     let subtitle: String

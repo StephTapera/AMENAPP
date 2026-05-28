@@ -51,6 +51,9 @@ export const RATE_LIMITS = {
     // Berean Spiritual Intelligence — same budget as AI proxy (used by berean/controllers)
     bereanPerMinute:    { name: "berean_1min", windowMs: 60_000, maxCalls: 20 } as RateLimitConfig,
     bereanDailyBudget:  { name: "berean_1day", windowMs: 86_400_000, maxCalls: 200 } as RateLimitConfig,
+    // Church Discovery (smartChurchSearch / bereanChurchChat / searchChurchesByKeyword)
+    CHURCH_DISCOVERY_PER_MINUTE: { name: "church_discovery_1min", windowMs: 60_000, maxCalls: 10 } as RateLimitConfig,
+    CHURCH_DISCOVERY_PER_DAY:    { name: "church_discovery_1day", windowMs: 86_400_000, maxCalls: 100 } as RateLimitConfig,
 } as const;
 
 /**

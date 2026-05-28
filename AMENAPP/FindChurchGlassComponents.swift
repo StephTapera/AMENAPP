@@ -6,6 +6,24 @@
 
 import SwiftUI
 
+// MARK: - Stubs for ChurchDiscovery Phase 2/3 types not yet migrated to Swift
+
+enum ChurchDiscoverySheetState: Equatable {
+    case collapsed, medium, expanded, searchFocused
+}
+
+enum ChurchDiscoveryIntent: String, CaseIterable, Hashable {
+    case nearby, liveNow, deeperTeaching, youngAdults, kidsMinistry
+    case prayer, accessibility, translation, quietSpace, saved, upcomingService, askBerean
+}
+
+struct BereanChurchSuggestion: Identifiable {
+    let id: String
+    let iconName: String
+    let title: String
+    let subtitle: String?
+}
+
 // MARK: - Design Tokens
 
 enum FindChurchDesignTokens {

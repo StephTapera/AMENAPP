@@ -106,7 +106,7 @@ struct BereanCitedRecallResult: Codable, Identifiable {
     let spaceId: String
     let query: String
     let summary: String             // Berean's synthesized answer
-    let citations: [BereanCitation]
+    let citations: [BereanSpaceCitation]
     let confidence: Double
     let generatedAt: Date
     /// Humble qualifier shown when confidence < 0.7
@@ -115,9 +115,9 @@ struct BereanCitedRecallResult: Codable, Identifiable {
     }
 }
 
-struct BereanCitation: Codable, Identifiable {
+struct BereanSpaceCitation: Codable, Identifiable {
     let id: String                  // Firestore post/note ID
-    let kind: BereanCitationKind
+    let kind: BereanSpaceCitationKind
     let preview: String             // first 200 chars
     let authorDisplayName: String   // scoped name (anonymous if opted-in)
     let timestamp: Date
@@ -126,7 +126,7 @@ struct BereanCitation: Codable, Identifiable {
     let spaceId: String
 }
 
-enum BereanCitationKind: String, Codable {
+enum BereanSpaceCitationKind: String, Codable {
     case roomPost    = "room_post"
     case churchNote  = "church_note"
     case prayerRequest = "prayer_request"

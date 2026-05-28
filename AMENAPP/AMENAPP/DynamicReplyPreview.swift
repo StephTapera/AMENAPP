@@ -113,6 +113,32 @@ struct DynamicReplyPreview: Identifiable, Codable, Equatable, Hashable {
     }
 }
 
+// MARK: - ReplyCandidate
+
+struct ReplyCandidate {
+    let id: String
+    let authorUID: String
+    let authorDisplayName: String
+    let text: String
+    let createdAt: Date
+    let relevanceScore: Double
+    let spiritualUsefulness: Double
+    let engagementScore: Double
+    let safetyPassed: Bool
+}
+
+// MARK: - ResolvedReplyPreview
+
+struct ResolvedReplyPreview {
+    let postId: String
+    let type: ReplyPreviewType
+    let displayName: String
+    let text: String
+    let authorUID: String
+    let avatarURL: String?
+    let contentHash: String
+}
+
 // MARK: - Preview Helpers (SwiftUI preview use only, never in production feed)
 
 #if DEBUG

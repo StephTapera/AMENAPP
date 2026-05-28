@@ -77,6 +77,20 @@ struct BereanPostContext: Codable, Hashable {
         self.isSensitive = isSensitive
     }
 
+    init(post: Post) {
+        self.postId = post.firebaseId ?? post.id.uuidString
+        self.authorId = post.authorId
+        self.authorName = post.authorName
+        self.previewText = String(post.content.prefix(200))
+        self.category = post.category.rawValue
+        self.verseReference = post.verseReference
+        self.isSensitive = post.trustedCircle != nil || post.visibility != .everyone
+    }
+
+    func refreshed(from post: Post) -> BereanPostContext {
+        BereanPostContext(post: post)
+    }
+
     init?(userInfo: [AnyHashable: Any]) {
         if let raw = userInfo[Self.notificationUserInfoKey] as? [String: Any],
            let postId = raw["postId"] as? String {

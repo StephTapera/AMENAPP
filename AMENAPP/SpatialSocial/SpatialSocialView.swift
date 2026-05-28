@@ -3,7 +3,7 @@ import SwiftUI
 // The Spatial Social layer — surfaces contextual awareness, nearby gatherings,
 // ephemeral live spaces, and intelligent introductions.
 struct SpatialSocialView: View {
-    @StateObject private var vm = SpatialSocialViewModel.shared
+    @ObservedObject private var vm = SpatialSocialViewModel.shared // PERF: singleton → @ObservedObject
 
     var body: some View {
         NavigationStack {

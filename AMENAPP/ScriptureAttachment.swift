@@ -39,7 +39,7 @@ struct ScriptureAttachment: Codable, Equatable, Hashable, Identifiable {
     
     /// Create from a BibleVerse (bridge from existing system)
     static func from(verse: BibleVerse, source: AttachmentSource = .manualSearch) -> ScriptureAttachment {
-        let parsed = ScriptureReferenceParser.parse(verse.reference)
+        let parsed = ScriptureReferenceParser.parse(verse.reference.displayString)
         return ScriptureAttachment(
             id: UUID().uuidString,
             book: parsed.book,
@@ -47,8 +47,8 @@ struct ScriptureAttachment: Codable, Equatable, Hashable, Identifiable {
             verseStart: parsed.verseStart,
             verseEnd: parsed.verseEnd,
             translation: verse.translation,
-            canonicalReference: verse.reference,
-            displayReference: verse.reference,
+            canonicalReference: verse.reference.displayString,
+            displayReference: verse.reference.displayString,
             previewText: verse.text,
             source: source,
             createdAt: Date()

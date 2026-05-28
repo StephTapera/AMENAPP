@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct FeedIntelligenceSettingsView: View {
-    @StateObject private var modeManager = FeedModeManager.shared
+    @StateObject private var modeManager = AmenFeedModeManager.shared
     @State private var summary: FeedIntelligenceSummary? = nil
     @State private var isLoading = true
     @State private var isResetting = false
@@ -65,7 +65,7 @@ struct FeedIntelligenceSettingsView: View {
 
     private var feedModesSection: some View {
         Section("Feed Modes") {
-            ForEach(FeedMode.allCases) { mode in
+            ForEach(AmenFeedMode.allCases) { mode in
                 HStack(spacing: 12) {
                     Image(systemName: mode.icon)
                         .font(.system(size: 16))

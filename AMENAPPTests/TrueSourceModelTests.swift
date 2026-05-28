@@ -13,6 +13,7 @@ import Foundation
 
 private func makeSafety(
     harmRisk: Double = 0,
+    manipulationRisk: Double = 0,
     misinformationRisk: Double = 0,
     exploitationRisk: Double = 0,
     doomscrollRisk: Double = 0,
@@ -31,6 +32,7 @@ private func makeSafety(
 ) -> SafetyMetadata {
     SafetyMetadata(
         harmRisk: harmRisk,
+        manipulationRisk: manipulationRisk,
         misinformationRisk: misinformationRisk,
         exploitationRisk: exploitationRisk,
         doomscrollRisk: doomscrollRisk,

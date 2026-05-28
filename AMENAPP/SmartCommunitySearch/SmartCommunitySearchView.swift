@@ -2,7 +2,7 @@ import SwiftUI
 
 struct SmartCommunitySearchView: View {
     @StateObject private var viewModel: SmartCommunitySearchViewModel
-    @StateObject private var locationManager = SmartCommunityLocationManager.shared
+    @ObservedObject private var locationManager = SmartCommunityLocationManager.shared // PERF: singleton → @ObservedObject
     @EnvironmentObject private var featureFlags: AMENFeatureFlags
 
     @Environment(\.accessibilityReduceMotion) var reduceMotion
@@ -105,7 +105,7 @@ struct SmartCommunitySearchView: View {
                 VStack(spacing: 12) {
                     Image(systemName: "sparkles")
                         .font(.system(size: 36))
-                        .foregroundStyle(.accentColor)
+                        .foregroundStyle(Color.accentColor)
 
                     Text("Ask Amen")
                         .font(.title2.weight(.bold))
@@ -127,7 +127,7 @@ struct SmartCommunitySearchView: View {
                         Button { viewModel.queryText = example } label: {
                             HStack {
                                 Image(systemName: "sparkle")
-                                    .foregroundStyle(.accentColor)
+                                    .foregroundStyle(Color.accentColor)
                                     .font(.caption)
                                 Text(example)
                                     .font(.subheadline)

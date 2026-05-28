@@ -157,6 +157,16 @@ struct ModernPrayerWallView: View {
             .task {
                 await viewModel.loadPrayers()
             }
+            .amenAlert(
+                isPresented: $viewModel.showActionError,
+                config: LiquidGlassAlertConfig(
+                    title: "Action Failed",
+                    message: viewModel.actionErrorMessage,
+                    primaryButton: LiquidGlassAlertButton("OK", tone: .primary, action: {
+                        viewModel.actionErrorMessage = nil
+                    })
+                )
+            )
         }
     }
     
@@ -578,6 +588,8 @@ class PrayerWallViewModel: ObservableObject {
     @Published var answeredToday = 0
     @Published var isLoading = false
     @Published var errorMessage: String?
+    @Published var showActionError = false
+    @Published var actionErrorMessage: String?
 
     private lazy var db = Firestore.firestore()
 
@@ -644,9 +656,11 @@ class PrayerWallViewModel: ObservableObject {
             
             try await db.collection(FirestoreCollections.prayerWall).addDocument(data: prayerData)
             await loadPrayers()
-            
+
         } catch {
             dlog("❌ Failed to submit prayer: \(error)")
+            actionErrorMessage = "Unable to share your prayer. Please try again."
+            showActionError = true
         }
     }
     
@@ -681,6 +695,8 @@ class PrayerWallViewModel: ObservableObject {
             }
         } catch {
             dlog("❌ Failed to pray: \(error)")
+            actionErrorMessage = "Unable to record your prayer. Please try again."
+            showActionError = true
         }
     }
 }

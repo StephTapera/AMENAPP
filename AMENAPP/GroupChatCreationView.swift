@@ -480,7 +480,7 @@ struct CreateGroupView: View {
 
 // MARK: - Category Chip
 
-struct CategoryChip: View {
+private struct CategoryChip: View {
     let category: CreateGroupView.GroupCategory
     let isSelected: Bool
     let action: () -> Void

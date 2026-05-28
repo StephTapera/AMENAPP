@@ -87,10 +87,14 @@ struct BereanCitationTile: View {
                     .font(AMENFont.medium(11))
                     .foregroundStyle(BereanColor.textSecondary)
 
+                // A-23 fix: amenGold at 12pt on white glass is ~2.8:1 (WCAG AA fail).
+                // Use textPrimary for readable reference text; amenGold is kept
+                // only for the ornamental verification badge icon below.
                 Text(source.reference)
                     .font(AMENFont.medium(12))
-                    .foregroundStyle(Color.amenGold)
+                    .foregroundStyle(BereanColor.textPrimary)
                     .lineLimit(1)
+                    .dynamicTypeSize(.xSmall ... .accessibility3)
 
                 verificationBadge
             }
@@ -222,10 +226,13 @@ struct BereanCitationTile: View {
                             Image(systemName: iconForType(ref.type))
                                 .font(AMENFont.medium(10))
                                 .foregroundStyle(BereanColor.textSecondary)
+                                .accessibilityHidden(true)
+                            // A-23 fix: same contrast fix as the primary chip.
                             Text(ref.reference)
                                 .font(AMENFont.medium(11))
-                                .foregroundStyle(Color.amenGold)
+                                .foregroundStyle(BereanColor.textPrimary)
                                 .lineLimit(1)
+                                .dynamicTypeSize(.xSmall ... .accessibility3)
                         }
                         .padding(.horizontal, 10)
                         .frame(height: 28)
@@ -239,6 +246,8 @@ struct BereanCitationTile: View {
                     }
                 }
             }
+            // A-18 fix: group label so VoiceOver announces the section context.
+            .accessibilityLabel("Cross-references")
         }
     }
 
@@ -319,6 +328,8 @@ private struct BereanCitationDetailSheet: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Close") { dismiss() }
                         .font(AMENFont.medium(15))
+                        .accessibilityLabel("Close citation")
+                        .accessibilityHint("Dismisses citation detail")
                 }
             }
         }
@@ -360,7 +371,7 @@ private struct _CitationChipButtonStyle: ButtonStyle {
         configuration.label
             .scaleEffect(configuration.isPressed && !reduceMotion ? 0.93 : 1.0)
             .animation(
-                reduceMotion ? .none : .spring(response: 0.22, dampingFraction: 0.72),
+                reduceMotion ? nil : Motion.liquidSpring,
                 value: configuration.isPressed
             )
     }

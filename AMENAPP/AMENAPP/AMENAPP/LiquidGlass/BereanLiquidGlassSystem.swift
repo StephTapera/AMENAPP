@@ -38,6 +38,10 @@ struct LiquidGlassScrollBehavior {
     var highlightOpacity: Double {
         0.22 - (Double(compression) * 0.12)
     }
+
+    var shadowOpacity: Double {
+        0.12 + (Double(compression) * 0.08)
+    }
 }
 
 struct LiquidGlassSurface<Content: View>: View {
@@ -165,5 +169,31 @@ struct LiquidGlassMorphContainer<Content: View>: View {
 enum LiquidGlassMorphAnimator {
     static var spring: Animation {
         .spring(response: 0.28, dampingFraction: 0.82)
+    }
+}
+
+// MARK: - liquidGlassPanel modifier
+
+extension View {
+    /// Applies a Liquid Glass panel background driven by scroll behavior.
+    /// `elevated: true` adds stronger shadow and slightly higher white fill for floating panels.
+    func liquidGlassPanel(_ behavior: LiquidGlassScrollBehavior, cornerRadius: CGFloat = 20, elevated: Bool = true) -> some View {
+        self.background {
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay {
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .fill(Color.white.opacity(elevated ? 0.28 - behavior.compression * 0.08 : 0.18 - behavior.compression * 0.06))
+                }
+                .overlay {
+                    LiquidGlassAdaptiveBorder(cornerRadius: cornerRadius, contrastBoost: false)
+                }
+                .shadow(
+                    color: Color.black.opacity(behavior.shadowOpacity),
+                    radius: elevated ? 14 : 6,
+                    y: elevated ? 5 : 2
+                )
+        }
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
     }
 }

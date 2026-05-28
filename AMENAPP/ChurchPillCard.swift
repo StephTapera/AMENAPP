@@ -189,7 +189,7 @@ struct ChurchEntityCard: View {
 // MARK: - Church Search Result Row
 
 /// Row for church search results
-struct ChurchSearchResultRow: View {
+struct ChurchPillSearchResultRow: View {
     let result: ChurchSearchResult
     let onSelect: () -> Void
     

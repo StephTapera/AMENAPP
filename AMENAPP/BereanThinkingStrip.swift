@@ -80,7 +80,9 @@ enum BereanThinkingAction: String {
 /// The strip collapses to zero height when `action == .idle`.
 struct BereanThinkingStrip: View {
 
-    let action: BereanThinkingAction
+    // @Binding instead of let so parents can drive all 9 BereanThinkingAction
+    // states directly from SSE stream events, not just .drafting / .idle.
+    @Binding var action: BereanThinkingAction
 
     // MARK: Animation state
 
@@ -164,10 +166,11 @@ struct BereanThinkingStrip: View {
             .fill(action.dotColor)
             .frame(width: 8, height: 8)
             .scaleEffect(reduceMotion ? 1.0 : pulseScale)
+            // Inline animation uses approved fastSpring; imperative withAnimation
+            // in startPulse() drives the loop — this modifier handles reduce-motion
+            // and the color-change transition.
             .animation(
-                reduceMotion ? nil :
-                    .easeInOut(duration: 0.72)
-                    .repeatForever(autoreverses: true),
+                reduceMotion ? nil : fastSpring,
                 value: pulseScale
             )
     }
@@ -207,6 +210,7 @@ struct BereanThinkingStrip: View {
             .allowsHitTesting(false)
         }
         .allowsHitTesting(false)
+        .accessibilityHidden(true) // A-22: GeometryReader is decorative; parent strip carries the a11y label
     }
 
     // MARK: - Animation Helpers
@@ -224,8 +228,10 @@ struct BereanThinkingStrip: View {
 
     private func startPulse() {
         pulseScale = 1.0
+        // fastSpring drives the pulse dot — replaces unapproved .easeInOut;
+        // spring physics give a more natural "breathing" feel on the dot.
         withAnimation(
-            .easeInOut(duration: 0.72)
+            fastSpring
             .repeatForever(autoreverses: true)
         ) {
             pulseScale = 1.45
@@ -246,8 +252,10 @@ struct BereanThinkingStrip: View {
 
     private func stopAnimations() {
         shimmerRunning = false
-        pulseScale = 1.0
-        shimmerPhase = 0.0
+        // withAnimation(.none) cancels the in-flight repeatForever CAAnimations
+        // immediately; plain assignment would leave them running on the render tree.
+        withAnimation(.none) { pulseScale = 1.0 }
+        withAnimation(.none) { shimmerPhase = 0.0 }
     }
 }
 
@@ -271,7 +279,7 @@ struct BereanThinkingStrip: View {
                     .font(AMENFont.regular(11))
                     .foregroundStyle(BereanColor.textTertiary)
                     .padding(.top, 8)
-                BereanThinkingStrip(action: action)
+                BereanThinkingStrip(action: .constant(action))
             }
         }
         Spacer()
@@ -288,7 +296,7 @@ struct BereanThinkingStrip: View {
             .frame(height: 48)
             .overlay(Text("Thread capsule").font(AMENFont.regular(13)))
 
-        BereanThinkingStrip(action: action)
+        BereanThinkingStrip(action: $action)
 
         RoundedRectangle(cornerRadius: 12)
             .fill(AmenTheme.Colors.surfaceCard)

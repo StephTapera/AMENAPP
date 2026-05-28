@@ -5,7 +5,7 @@ struct AmenObjectHubDiscussionPrompts: View {
     let onSelectPrompt: (String) -> Void
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-    @Environment(\.accessibilityContrast) private var accessibilityContrast
+    @Environment(\.colorSchemeContrast) private var accessibilityContrast
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var safePrompts: [String] {

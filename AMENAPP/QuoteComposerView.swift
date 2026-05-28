@@ -66,11 +66,16 @@ struct QuoteComposerView: View {
                     Button("Cancel") { dismiss() }
                 }
             }
-            .alert("Unable to Post", isPresented: $showError) {
-                Button("OK", role: .cancel) {}
-            } message: {
-                Text(errorMessage)
-            }
+            .amenAlert(
+                isPresented: $showError,
+                config: LiquidGlassAlertConfig(
+                    title: "Unable to Post",
+                    message: errorMessage.isEmpty ? nil : errorMessage,
+                    icon: "exclamationmark.bubble",
+                    primaryButton: LiquidGlassAlertButton("Try Again", tone: .primary, action: { showError = false }),
+                    secondaryButton: .cancel()
+                )
+            )
         }
     }
 

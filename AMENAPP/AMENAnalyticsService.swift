@@ -46,6 +46,18 @@ enum AMENAnalyticsEvent {
     case bereanSourceTapped(sourceType: String)
     case bereanFollowUpUsed
     case bereanMessageSaved
+    case bereanFeatureFlagBlocked(feature: String)
+    case bereanStudyActionStarted(action: String)
+    case bereanStudyActionCompleted(action: String)
+    case bereanTheoLensSelected(lens: String)
+    case bereanProviderFailure(reason: String)
+
+    // Berean Onboarding
+    case bereanOnboardingStarted
+    case bereanOnboardingPageViewed(page: String)
+    case bereanOnboardingSkipped(fromPage: String)
+    case bereanOnboardingCompleted
+    case bereanWelcomeBackShown
 
     // Spiritual Check-In
     case checkInShown(tier: Int)
@@ -100,6 +112,161 @@ enum AMENAnalyticsEvent {
     case suggestionShowFewer(surface: String)
     case suggestionWhyShown(surface: String)
 
+    // Smart Catch-Up
+    case catchUpItemEngaged
+    case catchUpDigestOpened(itemCount: Int)
+
+    // Command Palette
+    case commandPaletteResultSelected
+    case prayerSignalEngaged
+    case replyPreviewTapped(postId: String, type: String, replyId: String)
+    case replyPreviewShown(postId: String, type: String)
+    case replyPreviewType(type: String)
+    case commandPaletteOpened(surface: String)
+
+    // Berean Smart Pills
+    case bereanSmartPillTapped(pill: String)
+    case bereanScriptureContextOpened
+    case bereanHumanSupportSuggested(context: String)
+    case bereanResearchViewOpened
+    case bereanSafetyRewrite(patternsDetected: Int)
+    case bereanSelahSaveStarted(entryType: String)
+    case manageSubscriptionOpened(surface: String)
+    case homeFeedLoadSucceeded(postCount: Int)
+    case homeFeedLoadFailed(reason: String)
+    case bereanSelahSaveCompleted(entryType: String)
+
+    // Living Hero
+    case livingHeroImpression(surface: String, sceneId: String)
+    case livingHeroAction(surface: String, sceneId: String, action: String)
+    case livingHeroFallbackShown(surface: String, sceneId: String, reason: String)
+
+    // Smart Context / Smart Reply / Smart Actions
+    case smartContextViewed(threadType: String)
+    case smartContextRefreshRequested(threadType: String)
+    case smartReplySelected(wasEdited: Bool)
+    case smartReplyDismissed
+    case smartActionCorrected(actionType: String)
+    case smartActionAccepted(actionType: String)
+    case smartActionDismissed(actionType: String)
+
+    // Selah Scripture
+    case selahVerseAddedToChurchNotes
+    case scriptureAddedToChurchNote(source: String)
+
+    // Profile Mini Actions
+    case profileMiniUnfollowTap(userId: String, surface: String)
+    case profileMiniMessageTap(userId: String, surface: String, viewerId: String)
+    case profileMiniMessageBlocked(userId: String, surface: String)
+    case profileMiniPrimaryCTATap(userId: String, surface: String, ctaType: String)
+    case profileMiniSecondaryCTATap(userId: String, surface: String, ctaType: String)
+    case profileMiniSaveSuggestion(userId: String, surface: String)
+    case profileMiniSeeSimilar(userId: String, surface: String)
+    case profileMiniShare(userId: String, surface: String)
+    case profileMiniUndoHide(userId: String, surface: String)
+    case profileMiniOverflowTapped(userId: String, surface: String)
+
+    // Covenant Paywall / Purchase
+    case paywallShown(surface: String, feature: String)
+    case purchaseStarted(surface: String, productId: String)
+    case purchaseSucceeded(surface: String, productId: String)
+    case purchaseFailed(surface: String, reason: String)
+    case purchaseCanceled(surface: String)
+
+    // Command Layer
+    case commandLayerOpened(surface: String)
+    case commandLayerActionTapped(surface: String, actionId: String)
+    case commandLayerRouteSucceeded(surface: String, actionId: String, routeId: String)
+    case commandLayerUnavailableActionTapped(surface: String, actionId: String, reason: String)
+    case commandLayerRouteFailed(surface: String, actionId: String, reason: String)
+
+    // Messaging
+    case messageFilterSelected(filter: String)
+    case messageFilterCleared
+    case messageSearchOpened(surface: String)
+    case messageComposeOpened
+    case messageThreadFilterSelected(filter: String)
+    case messageSearchResultTapped(surface: String, kind: String)
+    case messageSearchSubmitted(surface: String, hasResults: Bool, resultBuckets: Int)
+
+    // Music / Smart Attachment
+    case musicAttachmentRemoved(provider: String)
+    case musicAttachmentResolved(provider: String, entityType: String)
+
+    // Safety OS
+    case safetyOSDiscernmentAction(postId: String, surface: String, trigger: String, action: String)
+    case smartPresenceUpdated(stateCategory: String)
+
+    // Inline post
+    case homeInlinePostStarted
+
+    // Media captions
+    case mediaCaptionEdited(mediaIndex: Int, mediaType: String)
+    case mediaCaptionRemoved(mediaIndex: Int, mediaType: String)
+    case mediaCaptionComposerShown(mediaCount: Int)
+
+    // Content renderer
+    case contentNodeRendered(type: String)
+
+    // Group Pulse
+    case groupPulseViewed(urgencyLevel: String)
+
+    // Prayer Signal
+    case prayerSignalDismissed
+
+    // Discover
+    case discoverView
+    case discoverFeedLoaded(count: Int)
+    case discoverEmptyStateSeen
+    case discoverErrorSeen(message: String)
+    case discoverFilterChanged(filter: String)
+    case discoverDetailOpened(itemType: String)
+    case discoverItemTapped(itemType: String)
+    case discoverWhyThisOpened
+    case discoverFeedbackSubmitted(type: String)
+
+    // Voice Prayer Comments
+    case voiceCommentReacted(postId: String, reaction: String)
+    case voiceCommentRecordStarted(postId: String, type: String)
+    case voiceCommentProcessingStarted(postId: String)
+    case voiceCommentEntryTapped(postId: String, type: String)
+    case voiceCommentReported(postId: String)
+    case voiceCommentDeleted(postId: String)
+    case voiceCommentPreviewPlayed(postId: String)
+    case voiceCommentSubmitted(postId: String, type: String)
+
+    // Smart Prompts
+    case smartPromptImpression(promptType: String, surface: String)
+    case smartPromptPrimaryAction(promptType: String, surface: String)
+    case smartPromptPermissionRequested(promptType: String, permissionType: String)
+    case smartPromptSecondaryAction(promptType: String, surface: String)
+    case smartPromptDismissed(promptType: String, surface: String, reason: String)
+    case smartPromptPermissionGranted(promptType: String, permissionType: String)
+    case smartPromptPermissionDenied(promptType: String, permissionType: String)
+    case smartPromptSuppressed(surface: String, reason: String)
+
+    // Smart Context Bar
+    case smartContextDismissed(threadType: String)
+
+    // Create Hub
+    case createHubOpened
+    case creationIntentSelected(intent: String)
+
+    // Draft Persistence
+    case draftRestored(type: String)
+    case draftSaved(type: String)
+    case draftDeleted(type: String)
+    case draftPublished(type: String)
+
+    // Daily Digest
+    case amenDailyDigestLoaded(dateKey: String, priority: String, hasWeather: Bool, hasHoliday: Bool, source: String)
+    case amenDailyWeatherShown(dateKey: String, priority: String, hasWeather: Bool, hasHoliday: Bool, source: String)
+    case amenDailyHolidayShown(dateKey: String, priority: String, hasWeather: Bool, hasHoliday: Bool, source: String)
+    case amenDailyDigestFallbackUsed(dateKey: String, priority: String, hasWeather: Bool, hasHoliday: Bool, source: String)
+
+    // Custom / escape hatch
+    case custom(name: String, parameters: [String: String])
+
     var name: String {
         switch self {
         case .feedSessionStarted: return "feed_session_started"
@@ -117,6 +284,16 @@ enum AMENAnalyticsEvent {
         case .bereanSourceTapped: return "berean_source_tapped"
         case .bereanFollowUpUsed: return "berean_follow_up_used"
         case .bereanMessageSaved: return "berean_message_saved"
+        case .bereanFeatureFlagBlocked: return "berean_feature_flag_blocked"
+        case .bereanStudyActionStarted: return "berean_study_action_started"
+        case .bereanStudyActionCompleted: return "berean_study_action_completed"
+        case .bereanTheoLensSelected: return "berean_theo_lens_selected"
+        case .bereanProviderFailure: return "berean_provider_failure"
+        case .bereanOnboardingStarted:    return "berean_onboarding_started"
+        case .bereanOnboardingPageViewed: return "berean_onboarding_page_viewed"
+        case .bereanOnboardingSkipped:    return "berean_onboarding_skipped"
+        case .bereanOnboardingCompleted:  return "berean_onboarding_completed"
+        case .bereanWelcomeBackShown:     return "berean_welcome_back_shown"
         case .checkInShown: return "check_in_shown"
         case .checkInEngaged: return "check_in_engaged"
         case .checkInDismissed: return "check_in_dismissed"
@@ -156,6 +333,111 @@ enum AMENAnalyticsEvent {
         case .suggestionRailRestored: return "suggestion_rail_restored"
         case .suggestionShowFewer: return "suggestion_show_fewer"
         case .suggestionWhyShown: return "suggestion_why_shown"
+        case .catchUpItemEngaged: return "catch_up_item_engaged"
+        case .catchUpDigestOpened: return "catch_up_digest_opened"
+        case .commandPaletteResultSelected: return "command_palette_result_selected"
+        case .prayerSignalEngaged: return "prayer_signal_engaged"
+        case .replyPreviewTapped: return "reply_preview_tapped"
+        case .replyPreviewShown: return "reply_preview_shown"
+        case .replyPreviewType: return "reply_preview_type"
+        case .commandPaletteOpened: return "command_palette_opened"
+        case .bereanSmartPillTapped: return "berean_smart_pill_tapped"
+        case .bereanScriptureContextOpened: return "berean_scripture_context_opened"
+        case .bereanHumanSupportSuggested: return "berean_human_support_suggested"
+        case .bereanResearchViewOpened: return "berean_research_view_opened"
+        case .bereanSafetyRewrite: return "berean_safety_rewrite"
+        case .bereanSelahSaveStarted: return "berean_selah_save_started"
+        case .manageSubscriptionOpened: return "manage_subscription_opened"
+        case .homeFeedLoadSucceeded: return "home_feed_load_succeeded"
+        case .homeFeedLoadFailed: return "home_feed_load_failed"
+        case .bereanSelahSaveCompleted: return "berean_selah_save_completed"
+        case .livingHeroImpression: return "living_hero_impression"
+        case .livingHeroAction: return "living_hero_action"
+        case .livingHeroFallbackShown: return "living_hero_fallback_shown"
+        case .smartContextViewed: return "smart_context_viewed"
+        case .smartContextRefreshRequested: return "smart_context_refresh_requested"
+        case .smartReplySelected: return "smart_reply_selected"
+        case .smartReplyDismissed: return "smart_reply_dismissed"
+        case .smartActionCorrected: return "smart_action_corrected"
+        case .smartActionAccepted: return "smart_action_accepted"
+        case .smartActionDismissed: return "smart_action_dismissed"
+        case .selahVerseAddedToChurchNotes: return "selah_verse_added_to_church_notes"
+        case .scriptureAddedToChurchNote: return "scripture_added_to_church_note"
+        case .profileMiniUnfollowTap: return "profile_mini_unfollow_tap"
+        case .profileMiniMessageTap: return "profile_mini_message_tap"
+        case .profileMiniMessageBlocked: return "profile_mini_message_blocked"
+        case .profileMiniPrimaryCTATap: return "profile_mini_primary_cta_tap"
+        case .profileMiniSecondaryCTATap: return "profile_mini_secondary_cta_tap"
+        case .profileMiniSaveSuggestion: return "profile_mini_save_suggestion"
+        case .profileMiniSeeSimilar: return "profile_mini_see_similar"
+        case .profileMiniShare: return "profile_mini_share"
+        case .profileMiniUndoHide: return "profile_mini_undo_hide"
+        case .profileMiniOverflowTapped: return "profile_mini_overflow_tapped"
+        case .paywallShown: return "paywall_shown"
+        case .purchaseStarted: return "purchase_started"
+        case .purchaseSucceeded: return "purchase_succeeded"
+        case .purchaseFailed: return "purchase_failed"
+        case .purchaseCanceled: return "purchase_canceled"
+        case .commandLayerOpened: return "command_layer_opened"
+        case .commandLayerActionTapped: return "command_layer_action_tapped"
+        case .commandLayerRouteSucceeded: return "command_layer_route_succeeded"
+        case .commandLayerUnavailableActionTapped: return "command_layer_unavailable_action_tapped"
+        case .commandLayerRouteFailed: return "command_layer_route_failed"
+        case .messageFilterSelected: return "message_filter_selected"
+        case .messageFilterCleared: return "message_filter_cleared"
+        case .messageSearchOpened: return "message_search_opened"
+        case .messageComposeOpened: return "message_compose_opened"
+        case .messageThreadFilterSelected: return "message_thread_filter_selected"
+        case .messageSearchResultTapped: return "message_search_result_tapped"
+        case .messageSearchSubmitted(_, _, _): return "message_search_submitted"
+        case .musicAttachmentRemoved: return "music_attachment_removed"
+        case .musicAttachmentResolved: return "music_attachment_resolved"
+        case .safetyOSDiscernmentAction: return "safety_os_discernment_action"
+        case .smartPresenceUpdated: return "smart_presence_updated"
+        case .homeInlinePostStarted: return "home_inline_post_started"
+        case .mediaCaptionEdited: return "media_caption_edited"
+        case .mediaCaptionRemoved: return "media_caption_removed"
+        case .mediaCaptionComposerShown: return "media_caption_composer_shown"
+        case .contentNodeRendered: return "content_node_rendered"
+        case .groupPulseViewed: return "group_pulse_viewed"
+        case .prayerSignalDismissed: return "prayer_signal_dismissed"
+        case .discoverView: return "discover_view"
+        case .discoverFeedLoaded: return "discover_feed_loaded"
+        case .discoverEmptyStateSeen: return "discover_empty_state_seen"
+        case .discoverErrorSeen: return "discover_error_seen"
+        case .discoverFilterChanged: return "discover_filter_changed"
+        case .discoverDetailOpened: return "discover_detail_opened"
+        case .discoverItemTapped: return "discover_item_tapped"
+        case .discoverWhyThisOpened: return "discover_why_this_opened"
+        case .discoverFeedbackSubmitted: return "discover_feedback_submitted"
+        case .voiceCommentReacted: return "voice_comment_reacted"
+        case .voiceCommentRecordStarted: return "voice_comment_record_started"
+        case .voiceCommentProcessingStarted: return "voice_comment_processing_started"
+        case .voiceCommentEntryTapped: return "voice_comment_entry_tapped"
+        case .voiceCommentReported: return "voice_comment_reported"
+        case .voiceCommentDeleted: return "voice_comment_deleted"
+        case .voiceCommentPreviewPlayed: return "voice_comment_preview_played"
+        case .voiceCommentSubmitted: return "voice_comment_submitted"
+        case .smartPromptImpression: return "smart_prompt_impression"
+        case .smartPromptPrimaryAction: return "smart_prompt_primary_action"
+        case .smartPromptPermissionRequested: return "smart_prompt_permission_requested"
+        case .smartPromptSecondaryAction: return "smart_prompt_secondary_action"
+        case .smartPromptDismissed: return "smart_prompt_dismissed"
+        case .smartPromptPermissionGranted: return "smart_prompt_permission_granted"
+        case .smartPromptPermissionDenied: return "smart_prompt_permission_denied"
+        case .smartPromptSuppressed: return "smart_prompt_suppressed"
+        case .smartContextDismissed: return "smart_context_dismissed"
+        case .createHubOpened: return "create_hub_opened"
+        case .creationIntentSelected: return "creation_intent_selected"
+        case .draftRestored: return "draft_restored"
+        case .draftSaved: return "draft_saved"
+        case .draftDeleted: return "draft_deleted"
+        case .draftPublished: return "draft_published"
+        case .amenDailyDigestLoaded: return "amen_daily_digest_loaded"
+        case .amenDailyWeatherShown: return "amen_daily_weather_shown"
+        case .amenDailyHolidayShown: return "amen_daily_holiday_shown"
+        case .amenDailyDigestFallbackUsed: return "amen_daily_digest_fallback_used"
+        case .custom(let eventName, _): return eventName
         }
     }
 
@@ -217,6 +499,40 @@ enum AMENAnalyticsEvent {
             return ["surface": surface]
         case .suggestionWhyShown(let surface):
             return ["surface": surface]
+        case .catchUpDigestOpened(let itemCount):
+            return ["item_count": itemCount]
+        case .bereanFeatureFlagBlocked(let feature):
+            return ["feature": feature]
+        case .bereanStudyActionStarted(let action):
+            return ["action": action]
+        case .bereanStudyActionCompleted(let action):
+            return ["action": action]
+        case .bereanTheoLensSelected(let lens):
+            return ["lens": lens]
+        case .bereanProviderFailure(let reason):
+            return ["reason": reason]
+        case .bereanOnboardingPageViewed(let page):
+            return ["page": page]
+        case .bereanOnboardingSkipped(let fromPage):
+            return ["from_page": fromPage]
+        case .groupPulseViewed(let urgency):
+            return ["urgency_level": urgency]
+        case .voiceCommentReacted(let postId, let reaction):
+            return ["post_id": postId, "reaction": reaction]
+        case .voiceCommentRecordStarted(let postId, let type):
+            return ["post_id": postId, "comment_type": type]
+        case .voiceCommentProcessingStarted(let postId):
+            return ["post_id": postId]
+        case .voiceCommentEntryTapped(let postId, let type):
+            return ["post_id": postId, "comment_type": type]
+        case .voiceCommentReported(let postId):
+            return ["post_id": postId]
+        case .voiceCommentDeleted(let postId):
+            return ["post_id": postId]
+        case .voiceCommentPreviewPlayed(let postId):
+            return ["post_id": postId]
+        case .voiceCommentSubmitted(let postId, let type):
+            return ["post_id": postId, "comment_type": type]
         default:
             return [:]
         }

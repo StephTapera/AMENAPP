@@ -30,6 +30,8 @@ struct PostCardRenderModel: Equatable {
     let authorInitials: String
     let authorAvatarURL: String?
     let authorIsPrivate: Bool           // nil → false (treat as public)
+    let authorIsVerified: Bool
+    let authorVerificationType: VerificationType
 
     // MARK: - Timestamp
     let timeAgoDisplay: String          // Pre-formatted "2m", "3h", etc.
@@ -80,7 +82,7 @@ struct PostCardRenderModel: Equatable {
 
     // MARK: - Authorship / visibility
     let isUserPost: Bool
-    let visibility: PostVisibility
+    let visibility: Post.PostVisibility
     let lowTrustAuthor: Bool
     let isPinned: Bool
 
@@ -131,6 +133,8 @@ extension PostCardRenderModel {
         self.authorInitials = post.authorInitials
         self.authorAvatarURL = post.authorProfileImageURL
         self.authorIsPrivate = post.authorIsPrivate ?? false
+        self.authorIsVerified = post.authorIsVerified
+        self.authorVerificationType = post.authorVerificationType
 
         self.timeAgoDisplay = post.timeAgo
         self.createdAt = post.createdAt
@@ -213,6 +217,8 @@ extension PostCardRenderModel {
             authorInitials: "ST",
             authorAvatarURL: nil,
             authorIsPrivate: false,
+            authorIsVerified: false,
+            authorVerificationType: .none,
             timeAgoDisplay: "2m",
             createdAt: Date(),
             contentText: contentText,

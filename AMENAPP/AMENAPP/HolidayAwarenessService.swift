@@ -172,7 +172,7 @@ final class HolidayAwarenessService: ObservableObject {
                 else { continue }
 
                 let priority = data["priority"] as? Int ?? holidayType.priorityWeight
-                if best == nil || priority > best!.priority {
+                if best == nil || priority > (best?.priority ?? Int.min) {
                     // Use Firestore copy if available, else fall back to catalog
                     let content = firestoreContent(from: data, type: holidayType) ??
                                   HolidayBannerCatalog.content(for: holidayType)
@@ -380,7 +380,7 @@ private struct CachedHolidayContext: Codable {
     }
 }
 
-extension HolidayBannerContent: Codable {}
+// HolidayBannerContent: Codable conformance declared on struct in HolidayAwarenessModels.swift
 
 // MARK: - Daily Verse Holiday Context (for Cloud Function + Berean)
 

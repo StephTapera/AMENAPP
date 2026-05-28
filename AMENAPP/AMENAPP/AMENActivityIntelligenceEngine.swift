@@ -11,6 +11,7 @@
 
 import Foundation
 import SwiftUI
+import FirebaseFirestore
 
 // MARK: - Activity Priority
 
@@ -373,7 +374,7 @@ enum AMENActivityIntelligenceEngine {
         // Comment snippet preview
         if let text = primary.commentText, !text.isEmpty {
             let preview = String(text.prefix(80))
-            return preview.count < text.count ? ""\(preview)…"" : ""\(preview)""
+            return preview.count < text.count ? "\"\(preview)…\"" : "\"\(preview)\""
         }
         return nil
     }

@@ -361,7 +361,8 @@ private struct ProvenanceEditChain: View {
                                 .background(Color.blue.opacity(0.1), in: Capsule())
                         }
                     }
-                    if editEvents.indices.contains(editEvents.firstIndex(where: { $0.timestamp == event.timestamp })! + 1) {
+                    if let idx = editEvents.firstIndex(where: { $0.timestamp == event.timestamp }),
+                       editEvents.indices.contains(idx + 1) {
                         Divider().padding(.leading, 30)
                     }
                 }

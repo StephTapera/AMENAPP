@@ -270,8 +270,7 @@ struct AmenMediaSessionView: View {
                 AmenMediaDetailLoaderView(
                     postID: postId,
                     initialMediaIndex: 0,
-                    sourceContext: .saved,
-                    onClose: nil
+                    sourceContext: .saved
                 )
                 .id(postId)
             } else {

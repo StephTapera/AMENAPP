@@ -126,7 +126,7 @@ struct PostSkeletonView: View {
         .padding()
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(Color.white)
+                .fill(Color(.secondarySystemBackground))
                 .shadow(color: Color.black.opacity(0.05), radius: 8, y: 2)
         )
         .opacity(isAnimating ? 0.5 : 1.0)
@@ -134,6 +134,8 @@ struct PostSkeletonView: View {
             .easeInOut(duration: 1.0).repeatForever(autoreverses: true),
             value: isAnimating
         )
+        .accessibilityLabel("Loading posts")
+        .accessibilityHidden(true)
         .onAppear {
             isAnimating = true
         }
@@ -403,36 +405,40 @@ extension View {
 struct ErrorView: View {
     let error: Error
     var retryAction: (() -> Void)?
-    
+
     var body: some View {
         VStack(spacing: 16) {
             Image(systemName: "exclamationmark.triangle")
                 .font(.systemScaled(48))
-                .foregroundColor(.orange)
-            
+                .foregroundStyle(.orange)
+                .accessibilityHidden(true)
+
             Text("Something Went Wrong")
                 .font(AMENFont.bold(18))
-                .foregroundColor(.black)
-            
+                .foregroundStyle(.primary)
+
             Text(error.localizedDescription)
                 .font(AMENFont.regular(14))
-                .foregroundColor(.gray)
+                .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
-            
+
             if let retryAction = retryAction {
                 Button(action: retryAction) {
                     HStack(spacing: 8) {
                         Image(systemName: "arrow.clockwise")
+                            .accessibilityHidden(true)
                         Text("Try Again")
                     }
                     .font(AMENFont.semiBold(15))
-                    .foregroundColor(.white)
+                    .foregroundStyle(.white)
                     .padding(.horizontal, 24)
                     .padding(.vertical, 12)
-                    .background(Color.black)
+                    .background(Color.primary)
                     .cornerRadius(25)
                 }
+                .accessibilityLabel("Try Again")
+                .accessibilityHint("Retry the failed operation")
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -447,15 +453,16 @@ struct ErrorView: View {
 struct SharedUIInlineErrorBanner: View {
     let message: String
     var retryAction: (() -> Void)?
-    
+
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundColor(.orange)
-            
+                .foregroundStyle(.orange)
+                .accessibilityHidden(true)
+
             Text(message)
                 .font(AMENFont.regular(13))
-                .foregroundColor(.black)
+                .foregroundStyle(.primary)
                 .lineLimit(2)
             
             Spacer()

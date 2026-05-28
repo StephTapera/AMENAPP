@@ -219,7 +219,7 @@ struct ChurchNoteAnchorPickerSheet: View {
             }
             .buttonStyle(.plain)
             .disabled(selected == nil && resolvedCurrent == nil)
-            .accessibilityLabel(selected != nil ? "Apply anchor type \(selected!.displayName)" : "No anchor selected")
+            .accessibilityLabel(selected.map { "Apply anchor type \($0.displayName)" } ?? "No anchor selected")
         }
     }
 }

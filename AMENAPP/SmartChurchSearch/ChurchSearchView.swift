@@ -4,6 +4,7 @@ import MapKit
 struct ChurchSearchView: View {
     @StateObject private var viewModel = ChurchSearchViewModel()
     @State private var detailResult: SmartChurchSearchItem?
+    @State private var showBereanFinder = false
 
     var body: some View {
         NavigationStack {
@@ -17,8 +18,23 @@ struct ChurchSearchView: View {
             .background(AmenTheme.Colors.backgroundGrouped.ignoresSafeArea())
             .navigationTitle("Find a Church")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showBereanFinder = true
+                    } label: {
+                        Label("Berean Finder", systemImage: "sparkles")
+                            .labelStyle(.iconOnly)
+                            .foregroundStyle(AmenTheme.Colors.accentPrimary)
+                    }
+                    .accessibilityLabel("Berean Church Finder — conversational AI church search")
+                }
+            }
             .sheet(item: $detailResult) { result in
-                ChurchDetailView(result: result)
+                SmartChurchDetailView(result: result)
+            }
+            .sheet(isPresented: $showBereanFinder) {
+                SmartChurchBereanFinderView()
             }
         }
     }

@@ -26,9 +26,8 @@ struct SocialFollowersListView: View {
     let listType: ListType
     
     @Environment(\.dismiss) var dismiss
-    @ObservedObject private var followersService = FollowersService.shared
     @ObservedObject private var followService = FollowService.shared
-    @State private var users: [FollowUser] = []
+    @State private var users: [FollowUserProfile] = []
     @State private var isLoading = true
     
     var body: some View {
@@ -122,10 +121,10 @@ struct SocialFollowersListView: View {
         do {
             switch listType {
             case .followers:
-                users = try await followersService.fetchFollowers(userId: userId)
+                users = try await followService.fetchFollowers(userId: userId)
                 dlog("✅ Loaded \(users.count) followers")
             case .following:
-                users = try await followersService.fetchFollowing(userId: userId)
+                users = try await followService.fetchFollowing(userId: userId)
                 dlog("✅ Loaded \(users.count) following")
             }
         } catch {
@@ -139,7 +138,7 @@ struct SocialFollowersListView: View {
 
 /// Row view for displaying a user in the list
 private struct SocialUserRowView: View {
-    let user: FollowUser
+    let user: FollowUserProfile
 
     @ObservedObject private var followService = FollowService.shared
     @State private var isFollowing = false
@@ -161,7 +160,7 @@ private struct SocialUserRowView: View {
                 avatarView
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(user.name)
+                    Text(user.displayName)
                         .font(AMENFont.bold(16))
                         .foregroundStyle(.primary)
 

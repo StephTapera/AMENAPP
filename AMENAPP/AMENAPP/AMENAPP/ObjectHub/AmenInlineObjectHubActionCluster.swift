@@ -16,22 +16,26 @@ struct AmenInlineObjectHubActionCluster: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(actions, id: \.self) { action in
-                        Button(actionLabel(for: action)) {
-                            onAction(action)
-                        }
-                        .buttonStyle(AmenHubGlassButtonStyle(reduceMotion: reduceMotion))
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .frame(minHeight: 44)
-                        .background(reduceTransparency ? Color.white.opacity(0.92) : AnyShapeStyle(.thinMaterial), in: Capsule())
-                        .overlay(Capsule().stroke(Color.white.opacity(0.5), lineWidth: 1))
-                        .foregroundStyle(.black.opacity(0.86))
-                        .accessibilityLabel(actionLabel(for: action))
+                        actionButton(action)
                     }
                 }
             }
         }
         .transition(.opacity)
+    }
+
+    @ViewBuilder private func actionButton(_ action: AmenInlineObjectHubAction) -> some View {
+        let label = actionLabel(for: action)
+        let bg: AnyShapeStyle = reduceTransparency ? AnyShapeStyle(Color.white.opacity(0.92)) : AnyShapeStyle(.thinMaterial)
+        Button(label) { onAction(action) }
+            .buttonStyle(AmenHubGlassButtonStyle(reduceMotion: reduceMotion))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .frame(minHeight: 44)
+            .background(bg, in: Capsule())
+            .overlay(Capsule().stroke(Color.white.opacity(0.5), lineWidth: 1))
+            .foregroundStyle(.black.opacity(0.86))
+            .accessibilityLabel(label)
     }
 
     private func actionLabel(for action: AmenInlineObjectHubAction) -> String {

@@ -1,6 +1,26 @@
 import Foundation
 import FirebaseFunctions
 
+// MARK: - AmenPostCommunityHubPreview
+
+/// Lightweight hub metadata returned by `attachCommunityHubPreviewToPost`
+/// and applied to the local Post so PostCard can show the inline hub pill
+/// without a Firestore round-trip.
+struct AmenPostCommunityHubPreview: Codable, Equatable, Identifiable {
+    var id: String { hubId }
+    let hubId: String
+    let canonicalObjectId: String
+    let objectTypeRaw: String
+    let title: String
+    let aggregateText: String
+    let actionText: String
+    let safetyStateRaw: String
+    let explicitContentStateRaw: String
+    let privacyStateRaw: String
+    let iconKind: String?
+    let canonicalUrl: String?
+}
+
 /// Wires the post-publish community hub indexing path.
 ///
 /// After a post is published with a smart attachment, the iOS app calls

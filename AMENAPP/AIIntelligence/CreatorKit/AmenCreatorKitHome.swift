@@ -47,7 +47,7 @@ struct AmenCreatorKitHome: View {
         .background(AmenTheme.Colors.backgroundPrimary)
         .sheet(isPresented: $showBerean) {
             BereanChatView(
-                initialMode: .askBerean,
+                initialMode: .scholar,
                 initialQuery: bereanQuery,
                 conversationTitle: "Creator Kit"
             )

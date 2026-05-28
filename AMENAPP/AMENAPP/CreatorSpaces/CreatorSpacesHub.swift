@@ -162,12 +162,6 @@ struct CreatorSpacesHub: View {
     }
 }
 
-// MARK: - AmenTheme extension bridge (fills any missing tokens)
-
-private extension AmenTheme.Colors {
-    static var amenBlue: Color   { Color(red: 0.20, green: 0.48, blue: 0.96) }
-    static var amenPurple: Color { Color(red: 0.42, green: 0.28, blue: 1.00) }
-}
 
 #Preview {
     CreatorSpacesHub()

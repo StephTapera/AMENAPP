@@ -260,9 +260,6 @@ class BereanLiveActivityService: ObservableObject {
     func endActivity() async {
         let endContent = ActivityContent(
             state: BereanActivityAttributes.ContentState(
-                postID: currentPostID ?? "",
-                deepLinkURL: currentPostID.map { "amen://berean/post/\($0)" } ?? "",
-                postPreview: fallbackPostPreview,
                 phase: .complete,
                 responseText: fallbackState?.responseText ?? "",
                 sourceCount: fallbackState?.sourceCount ?? 0,
@@ -294,9 +291,6 @@ class BereanLiveActivityService: ObservableObject {
         scriptures: [String]
     ) -> BereanActivityAttributes.ContentState {
         BereanActivityAttributes.ContentState(
-            postID: context.postId,
-            deepLinkURL: context.deepLinkPath,
-            postPreview: context.previewText,
             phase: phase,
             responseText: responseText,
             sourceCount: sourceCount,

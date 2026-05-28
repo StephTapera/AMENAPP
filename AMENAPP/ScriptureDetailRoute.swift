@@ -283,14 +283,14 @@ struct ScriptureDetailRoute: View {
                 LazyVStack(alignment: .leading, spacing: 12) {
                     ForEach(chapterVerses, id: \.reference) { verse in
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(verse.reference)
+                            Text(verse.reference.displayString)
                                 .font(.systemScaled(11, weight: .bold))
                                 .foregroundStyle(Color.primary.opacity(0.5))
-                            
+
                             Text(verse.text)
                                 .font(.system(size: 15, design: .serif))
                                 .foregroundStyle(
-                                    verse.reference == context.attachment.canonicalReference
+                                    verse.reference.displayString == context.attachment.canonicalReference
                                     ? Color.primary
                                     : Color.primary.opacity(0.65)
                                 )
@@ -299,7 +299,7 @@ struct ScriptureDetailRoute: View {
                         .padding(.vertical, 4)
                         .padding(.horizontal, 4)
                         .background(
-                            verse.reference == context.attachment.canonicalReference
+                            verse.reference.displayString == context.attachment.canonicalReference
                             ? RoundedRectangle(cornerRadius: 8)
                                 .fill(Color.primary.opacity(0.04))
                                 .padding(.horizontal, -8)
@@ -351,7 +351,7 @@ struct ScriptureDetailRoute: View {
         // Use prefetched data if available
         if let payload = context.prefetchedPayload, !payload.isStale {
             verseText = payload.attachment.previewText
-            nearbyVerses = payload.nearbyVerses.map { ($0.reference, $0.text) }
+            nearbyVerses = payload.nearbyVerses.map { ($0.reference.displayString, $0.text) }
             isLoading = false
             return
         }

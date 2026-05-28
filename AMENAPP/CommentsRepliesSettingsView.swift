@@ -50,7 +50,7 @@ struct CommentsRepliesSettingsView: View {
         let key = "amen.commentsSmartPromptsEnabled.\(uid)"
         // Default: follow the feature flag
         if UserDefaults.standard.object(forKey: key) == nil {
-            return AMENFeatureFlags.shared.commentsSmartPromptsV1
+            return AMENFeatureFlags.shared.smartContextualPromptsEnabled
         }
         return UserDefaults.standard.bool(forKey: key)
     }()

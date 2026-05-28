@@ -31,6 +31,7 @@ final class BereanMemoryService: ObservableObject {
 
     @Published private(set) var insights: [BereanInsight] = []
     @Published private(set) var isLoading = false
+    @Published var saveError: String?
 
     private let functions = Functions.functions()
     private let db = Firestore.firestore()
@@ -66,29 +67,44 @@ final class BereanMemoryService: ObservableObject {
         tags: [String] = [],
         category: String = "insight"
     ) async throws -> String {
-        let result = try await functions.httpsCallable("saveBereanInsight").call([
-            "sessionId": sessionId,
-            "text": text,
-            "linkedVerses": linkedVerses,
-            "tags": tags,
-            "category": category
-        ])
-        let data = result.data as? [String: Any] ?? [:]
-        return data["entryId"] as? String ?? UUID().uuidString
+        do {
+            let result = try await functions.httpsCallable("saveBereanInsight").call([
+                "sessionId": sessionId,
+                "text": text,
+                "linkedVerses": linkedVerses,
+                "tags": tags,
+                "category": category
+            ])
+            let data = result.data as? [String: Any] ?? [:]
+            return data["entryId"] as? String ?? UUID().uuidString
+        } catch {
+            saveError = error.localizedDescription
+            throw error
+        }
     }
 
     func update(entryId: String, updates: [String: Any]) async throws {
-        _ = try await functions.httpsCallable("updateBereanMemory").call([
-            "entryId": entryId,
-            "updates": updates
-        ])
+        do {
+            _ = try await functions.httpsCallable("updateBereanMemory").call([
+                "entryId": entryId,
+                "updates": updates
+            ])
+        } catch {
+            saveError = error.localizedDescription
+            throw error
+        }
     }
 
     func delete(entryId: String) async throws {
-        _ = try await functions.httpsCallable("deleteBereanMemory").call([
-            "entryId": entryId
-        ])
-        insights.removeAll { $0.id == entryId }
+        do {
+            _ = try await functions.httpsCallable("deleteBereanMemory").call([
+                "entryId": entryId
+            ])
+            insights.removeAll { $0.id == entryId }
+        } catch {
+            saveError = error.localizedDescription
+            throw error
+        }
     }
 
     // MARK: Decode

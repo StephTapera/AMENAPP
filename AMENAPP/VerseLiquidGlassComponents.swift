@@ -332,7 +332,7 @@ struct VerseResultCard: View {
                 VStack(alignment: .leading, spacing: 8) {
                     // Reference row
                     HStack(spacing: 8) {
-                        Text(result.verse.reference)
+                        Text(result.verse.reference.displayString)
                             .font(.systemScaled(14, weight: .bold))
                             .foregroundStyle(isSelected ? VerseGlassTokens.accentPrimary : Color.primary)
                         
@@ -442,7 +442,7 @@ struct SelectedVerseFooter: View {
             HStack(spacing: 12) {
                 // Verse preview
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(verse.reference)
+                    Text(verse.reference.displayString)
                         .font(.systemScaled(13, weight: .bold))
                         .foregroundStyle(VerseGlassTokens.accentPrimary)
                     

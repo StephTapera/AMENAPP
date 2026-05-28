@@ -61,7 +61,7 @@ struct AmenCreatorHubView: View {
             .background(Color(uiColor: .systemGroupedBackground))
             .task { await hubVM.load(covenantId: covenantId) }
             .task {
-                await vm.loadMembership(covenantId: covenantId)
+                await vm.loadMembership(for: covenantId)
             }
             .task(id: vm.currentMembership?.id) {
                 await hubVM.checkOnboarding(membership: vm.currentMembership)
@@ -69,7 +69,7 @@ struct AmenCreatorHubView: View {
             .onChange(of: covenantId) { _, newId in
                 Task {
                     await hubVM.load(covenantId: newId)
-                    await vm.loadMembership(covenantId: newId)
+                    await vm.loadMembership(for: newId)
                 }
             }
 
