@@ -1,133 +1,77 @@
 import Foundation
 import AVFoundation
 import FirebaseDatabase
-import FirebaseAuth
-
-// MARK: - GroupWatchCoordinator
-// Synchronises playback position across participants via Firebase RTDB.
-// - Publishes currentTime every 500ms when hosting/watching.
-// - Seeks local player if remote drift exceeds 1 second.
-// - Manages participant presence via onDisconnect.
+import UIKit
 
 @MainActor
-final class GroupWatchCoordinator: ObservableObject {
-    @Published var currentTime: TimeInterval = 0
+class GroupWatchCoordinator: ObservableObject {
     @Published var participants: [String] = []
+    @Published var isConnected = false
 
     var player: AVPlayer?
 
     private var sessionId: String?
-    private var syncTimer: Timer?
-    private var rtdb: DatabaseReference { Database.database().reference() }
-    private var timeObserverHandle: DatabaseHandle?
-    private var participantsHandle: DatabaseHandle?
-    private var participantRef: DatabaseReference?
-
-    // MARK: - Public API
+    private var rtdb: DatabaseReference?
+    private var syncTask: Task<Void, Never>?
+    private var observeHandle: UInt = 0
 
     func join(sessionId: String, player: AVPlayer) {
         self.sessionId = sessionId
         self.player = player
+        let ref = Database.database().reference()
+        self.rtdb = ref
 
-        setupPresence(sessionId: sessionId)
-        seekToCurrentRemoteTime(sessionId: sessionId)
-        startObserving(sessionId: sessionId)
-        startSync(sessionId: sessionId)
+        let sessionRef = ref.child("groupWatch").child(sessionId)
+
+        // Set presence
+        let presenceRef = sessionRef.child("participants").child(currentUserId())
+        presenceRef.setValue(true)
+        presenceRef.onDisconnectRemoveValue()
+
+        // Observe current time from host
+        observeHandle = sessionRef.child("currentTime").observe(.value) { [weak self] snapshot in
+            guard let self, let serverTime = snapshot.value as? Double else { return }
+            Task { @MainActor in
+                guard let player = self.player else { return }
+                let localTime = player.currentTime().seconds
+                if abs(localTime - serverTime) > 1.0 {
+                    player.seek(to: CMTime(seconds: serverTime, preferredTimescale: 600))
+                }
+            }
+        }
+
+        // Observe participants
+        sessionRef.child("participants").observe(.value) { [weak self] snapshot in
+            let kids = (snapshot.value as? [String: Any])?.keys.map { $0 } ?? []
+            Task { @MainActor in self?.participants = kids }
+        }
+
+        isConnected = true
+        startSync(sessionRef: sessionRef)
     }
 
     func leave() {
-        syncTimer?.invalidate()
-        syncTimer = nil
-
-        if let id = sessionId {
-            if let handle = timeObserverHandle {
-                rtdb.child("groupWatch/\(id)/currentTime").removeObserver(withHandle: handle)
-            }
-            if let handle = participantsHandle {
-                rtdb.child("groupWatch/\(id)/participants").removeObserver(withHandle: handle)
-            }
-        }
-
-        // onDisconnect already handles RTDB cleanup; cancel it if leaving intentionally.
-        participantRef?.cancelDisconnectOperations()
-        participantRef?.removeValue()
-        participantRef = nil
-        sessionId = nil
-        player = nil
+        syncTask?.cancel()
+        guard let sessionId, let rtdb else { return }
+        rtdb.child("groupWatch").child(sessionId).child("participants").child(currentUserId()).removeValue()
+        rtdb.child("groupWatch").child(sessionId).child("currentTime").removeAllObservers()
+        isConnected = false
     }
 
-    // MARK: - Presence
-
-    private func setupPresence(sessionId: String) {
-        guard let uid = Auth.auth().currentUser?.uid else { return }
-        let ref = rtdb.child("groupWatch/\(sessionId)/participants/\(uid)")
-        participantRef = ref
-        ref.setValue(true)
-        ref.onDisconnectRemoveValue()
-    }
-
-    private func seekToCurrentRemoteTime(sessionId: String) {
-        rtdb.child("groupWatch/\(sessionId)/currentTime").observeSingleEvent(of: .value) { [weak self] snapshot in
-            guard let self, let value = snapshot.value as? TimeInterval else { return }
-            Task { @MainActor [weak self] in
-                guard let self else { return }
-                self.seekPlayer(to: value)
-            }
-        }
-    }
-
-    // MARK: - Sync (publish)
-
-    private func startSync(sessionId: String) {
-        syncTimer?.invalidate()
-        syncTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
-            guard let self else { return }
-            Task { @MainActor [weak self] in
-                guard let self,
-                      let player = self.player else { return }
+    private func startSync(sessionRef: DatabaseReference) {
+        syncTask = Task {
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(500))
+                guard let player else { continue }
                 let time = player.currentTime().seconds
-                guard time.isFinite else { return }
-                self.currentTime = time
-                self.rtdb.child("groupWatch/\(sessionId)/currentTime").setValue(time)
+                let timeRef = sessionRef.child("currentTime")
+                try? await timeRef.setValue(time)
             }
         }
     }
 
-    // MARK: - Observe (consume)
-
-    private func startObserving(sessionId: String) {
-        // Observe remote time for drift correction
-        timeObserverHandle = rtdb.child("groupWatch/\(sessionId)/currentTime")
-            .observe(.value) { [weak self] snapshot in
-                guard let self,
-                      let remoteTime = snapshot.value as? TimeInterval else { return }
-                Task { @MainActor [weak self] in
-                    guard let self,
-                          let player = self.player else { return }
-                    let localTime = player.currentTime().seconds
-                    let drift = abs(localTime - remoteTime)
-                    if drift > 1.0 {
-                        self.seekPlayer(to: remoteTime)
-                    }
-                }
-            }
-
-        // Observe participants list
-        participantsHandle = rtdb.child("groupWatch/\(sessionId)/participants")
-            .observe(.value) { [weak self] snapshot in
-                guard let self else { return }
-                let uids = (snapshot.value as? [String: Any])?.keys.map { $0 } ?? []
-                Task { @MainActor [weak self] in
-                    self?.participants = uids
-                }
-            }
-    }
-
-    // MARK: - Helpers
-
-    private func seekPlayer(to time: TimeInterval) {
-        guard time.isFinite, let player else { return }
-        let target = CMTime(seconds: time, preferredTimescale: 600)
-        player.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero)
+    private func currentUserId() -> String {
+        // Returns Firebase Auth UID; fallback to device ID
+        return "anonymous_\(UIDevice.current.identifierForVendor?.uuidString ?? UUID().uuidString)"
     }
 }

@@ -563,7 +563,7 @@ private struct PublishStep: View {
                 Button(action: onPublish) {
                     Text("Share to AMEN")
                         .font(.custom("OpenSans-Bold", size: 16))
-                        .foregroundStyle(.black)
+                        .foregroundStyle(AmenTheme.Colors.textPrimary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
                         .background(Color(red: 0.4, green: 0.9, blue: 0.7), in: RoundedRectangle(cornerRadius: 14))

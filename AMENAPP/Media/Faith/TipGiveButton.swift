@@ -1,62 +1,53 @@
-// TipGiveButton.swift
-// AMENAPP — Agent 7: Faith Layer
-//
-// Glass pill "Give" button. Callers handle the actual Stripe Connect payment
-// sheet — this component is purely the button surface with spring feedback.
-
 import SwiftUI
 
-@MainActor
 struct TipGiveButton: View {
     var creatorId: String
     var postId: String
     var onTap: () -> Void
 
-    @State private var isExpanding: Bool = false
-
+    @State private var isExpanded = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
         Button {
-            handleTap()
-        } label: {
-            GlassPill {
-                HStack(spacing: 6) {
-                    Image(systemName: "heart.fill")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(Color.amenGold)
-                    Text("Give")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(Color.amenGold)
-                }
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            withAnimation(reduceMotion ? nil : .spring(response: 0.28, dampingFraction: 0.65)) {
+                isExpanded = true
             }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                withAnimation(reduceMotion ? nil : .spring(response: 0.38, dampingFraction: 0.80)) {
+                    isExpanded = false
+                }
+                onTap()
+            }
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "heart.fill")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color.amenGold)
+                Text("Give")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.primary)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background { pillBackground }
+            .scaleEffect(isExpanded ? 1.08 : 1.0)
+            .animation(reduceMotion ? nil : .spring(response: 0.22, dampingFraction: 0.65), value: isExpanded)
         }
         .buttonStyle(.plain)
-        .scaleEffect(isExpanding ? 1.05 : 1.0)
-        .animation(
-            reduceMotion
-                ? .easeOut(duration: LiquidGlassTokens.motionFast)
-                : .spring(response: 0.28, dampingFraction: 0.60),
-            value: isExpanding
-        )
         .accessibilityLabel("Give to creator")
         .accessibilityAddTraits(.isButton)
     }
 
-    // MARK: - Tap handler
-
-    private func handleTap() {
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-
-        guard !reduceMotion else {
-            onTap()
-            return
-        }
-
-        isExpanding = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
-            isExpanding = false
-            onTap()
+    @ViewBuilder private var pillBackground: some View {
+        if reduceTransparency {
+            Capsule().fill(Color(.systemBackground))
+                .overlay(Capsule().strokeBorder(Color.amenGold.opacity(0.5), lineWidth: 1))
+        } else {
+            Capsule().fill(LiquidGlassTokens.blurThin)
+                .overlay(Capsule().strokeBorder(Color.amenGold.opacity(0.35), lineWidth: 0.75))
         }
     }
 }

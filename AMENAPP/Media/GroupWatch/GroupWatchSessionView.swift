@@ -1,262 +1,136 @@
 import SwiftUI
 import AVKit
-import FirebaseDatabase
-
-// MARK: - GroupWatchSessionView
-// Full-screen synchronised video player with a collapsible glass chat panel.
-// Playback position is synced every 500ms via Firebase RTDB.
 
 struct GroupWatchSessionView: View {
     var sessionId: String
     var mediaURL: URL
-    @StateObject var coordinator = GroupWatchCoordinator()
 
+    @StateObject private var coordinator = GroupWatchCoordinator()
     @State private var player: AVPlayer?
-    @State private var isChatVisible = true
-
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-
-    private let chatPanelWidth: CGFloat = 280
+    @State private var showChat = true
 
     var body: some View {
         ZStack(alignment: .trailing) {
-            // Full-screen video
-            videoLayer
-
-            // Collapsible chat panel
-            HStack(spacing: 0) {
-                Spacer()
-                if isChatVisible {
-                    chatPanel
-                        .frame(width: chatPanelWidth)
-                        .transition(
-                            reduceMotion
-                                ? .opacity
-                                : .move(edge: .trailing).combined(with: .opacity)
-                        )
+            // Video player
+            Group {
+                if let player {
+                    VideoPlayer(player: player)
+                } else {
+                    Color.black
                 }
             }
-            .animation(
-                reduceMotion
-                    ? .easeOut(duration: LiquidGlassTokens.motionFast)
-                    : .spring(response: LiquidGlassTokens.motionNormal, dampingFraction: 0.82),
-                value: isChatVisible
-            )
+            .ignoresSafeArea()
 
-            // Toggle button
-            chatToggleButton
-        }
-        .ignoresSafeArea()
-        .onAppear { setupPlayer() }
-        .onDisappear { coordinator.leave() }
-    }
-
-    // MARK: - Video layer
-    private var videoLayer: some View {
-        Group {
-            if let player {
-                VideoPlayer(player: player)
-                    .ignoresSafeArea()
-                    .accessibilityLabel("Group watch video")
-            } else {
-                Color.black.ignoresSafeArea()
-                    .overlay {
-                        ProgressView()
-                            .tint(.white)
-                    }
+            // Chat panel
+            if showChat {
+                GroupWatchChatPanel(
+                    sessionId: sessionId,
+                    participants: coordinator.participants
+                )
+                .frame(width: 280)
+                .transition(.move(edge: .trailing))
             }
-        }
-    }
 
-    // MARK: - Chat panel
-    private var chatPanel: some View {
-        GroupWatchChatPanel(
-            sessionId: sessionId,
-            participants: coordinator.participants
-        )
-        .frame(maxHeight: .infinity)
-        .background {
-            if reduceTransparency {
-                Color(.systemBackground)
-            } else {
-                Rectangle()
-                    .fill(Material.regularMaterial)
-            }
-        }
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Group watch chat")
-    }
-
-    // MARK: - Toggle button
-    private var chatToggleButton: some View {
-        VStack {
-            Spacer()
-            Button {
-                withAnimation(
-                    reduceMotion
-                        ? .easeOut(duration: LiquidGlassTokens.motionFast)
-                        : .spring(response: LiquidGlassTokens.motionNormal, dampingFraction: 0.8)
-                ) {
-                    isChatVisible.toggle()
-                }
-            } label: {
-                Image(systemName: isChatVisible ? "chevron.right" : "chevron.left")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(AmenTheme.Colors.textPrimary)
-                    .frame(width: 36, height: 56)
-                    .background {
-                        if reduceTransparency {
-                            RoundedRectangle(cornerRadius: LiquidGlassTokens.cornerRadiusSmall, style: .continuous)
-                                .fill(Color(.systemBackground))
-                                .overlay {
-                                    RoundedRectangle(cornerRadius: LiquidGlassTokens.cornerRadiusSmall, style: .continuous)
-                                        .strokeBorder(Color.primary.opacity(0.18), lineWidth: 1)
-                                }
-                        } else {
-                            RoundedRectangle(cornerRadius: LiquidGlassTokens.cornerRadiusSmall, style: .continuous)
-                                .fill(LiquidGlassTokens.blurElevated)
-                                .overlay {
-                                    RoundedRectangle(cornerRadius: LiquidGlassTokens.cornerRadiusSmall, style: .continuous)
-                                        .strokeBorder(Color.white.opacity(0.38), lineWidth: 0.6)
-                                }
+            // Chat toggle
+            VStack {
+                HStack {
+                    Spacer()
+                    Button {
+                        withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
+                            showChat.toggle()
                         }
+                    } label: {
+                        Image(systemName: showChat ? "chevron.right" : "bubble.left.fill")
+                            .font(.body.weight(.medium))
+                            .foregroundStyle(.white)
+                            .padding(10)
+                            .background(Circle().fill(.black.opacity(0.45)))
                     }
-                    .shadow(
-                        color: LiquidGlassTokens.shadowSoft.color,
-                        radius: LiquidGlassTokens.shadowSoft.radius,
-                        y: LiquidGlassTokens.shadowSoft.y
-                    )
+                    .buttonStyle(.plain)
+                    .padding(12)
+                    .accessibilityLabel(showChat ? "Hide chat" : "Show chat")
+                }
+                Spacer()
             }
-            .buttonStyle(.plain)
-            .padding(.bottom, 100)
-            .offset(x: isChatVisible ? -chatPanelWidth : 0)
-            .animation(
-                reduceMotion ? nil : .spring(response: LiquidGlassTokens.motionNormal, dampingFraction: 0.82),
-                value: isChatVisible
-            )
-            .accessibilityLabel(isChatVisible ? "Hide chat" : "Show chat")
-            .accessibilityAddTraits(.isButton)
         }
-    }
-
-    // MARK: - Setup
-    private func setupPlayer() {
-        let p = AVPlayer(url: mediaURL)
-        player = p
-        coordinator.join(sessionId: sessionId, player: p)
+        .onAppear {
+            let p = AVPlayer(url: mediaURL)
+            player = p
+            coordinator.join(sessionId: sessionId, player: p)
+            p.play()
+        }
+        .onDisappear {
+            coordinator.leave()
+            player?.pause()
+        }
     }
 }
 
-// MARK: - GroupWatchChatPanel
-// Minimal chat panel — wire up to your messaging layer as needed.
 struct GroupWatchChatPanel: View {
     var sessionId: String
     var participants: [String]
 
-    @State private var messages: [GroupWatchMessage] = []
-    @State private var draft: String = ""
-
+    @State private var messageText = ""
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header
+            // Participants header
             HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Chat")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(AmenTheme.Colors.textPrimary)
-                    Text("\(participants.count) watching")
-                        .font(.caption)
-                        .foregroundStyle(AmenTheme.Colors.textSecondary)
-                }
+                Image(systemName: "person.2.fill")
+                    .font(.caption)
+                Text("\(participants.count) watching")
+                    .font(.caption.bold())
                 Spacer()
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            .foregroundStyle(.white)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
 
-            Divider()
+            Divider().background(Color.white.opacity(0.2))
 
-            // Message list
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 8) {
-                        ForEach(messages) { msg in
-                            chatBubble(msg)
-                                .id(msg.id)
-                        }
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                }
-                .onChange(of: messages.count) { _, _ in
-                    if let last = messages.last {
-                        withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
-                    }
+            // Messages list (placeholder)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Chat messages appear here")
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.5))
+                        .padding(12)
                 }
             }
 
-            Divider()
+            Divider().background(Color.white.opacity(0.2))
 
-            // Composer
+            // Input
             HStack(spacing: 8) {
-                TextField("Message…", text: $draft)
+                TextField("Message...", text: $messageText)
                     .textFieldStyle(.plain)
-                    .font(.footnote)
-                    .foregroundStyle(AmenTheme.Colors.textPrimary)
-                    .accessibilityLabel("Chat message")
+                    .font(.caption)
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Capsule().fill(Color.white.opacity(0.15)))
+
                 Button {
-                    sendMessage()
+                    messageText = ""
                 } label: {
                     Image(systemName: "arrow.up.circle.fill")
                         .font(.title3)
-                        .foregroundStyle(draft.isEmpty ? AnyShapeStyle(Color.secondary) : AnyShapeStyle(AmenTheme.Colors.textPrimary))
+                        .foregroundStyle(.white)
                 }
                 .buttonStyle(.plain)
-                .disabled(draft.isEmpty)
-                .accessibilityLabel("Send chat message")
+                .disabled(messageText.isEmpty)
+                .accessibilityLabel("Send message")
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            .padding(10)
         }
-    }
-
-    private func chatBubble(_ msg: GroupWatchMessage) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(msg.senderName)
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(AmenTheme.Colors.textSecondary)
-            Text(msg.text)
-                .font(.footnote)
-                .foregroundStyle(AmenTheme.Colors.textPrimary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
+        .frame(maxHeight: .infinity)
         .background {
-            RoundedRectangle(cornerRadius: LiquidGlassTokens.cornerRadiusSmall, style: .continuous)
-                .fill(reduceTransparency
-                    ? AnyShapeStyle(Color(.systemFill))
-                    : AnyShapeStyle(LiquidGlassTokens.blurThin))
+            if reduceTransparency {
+                Color.black.opacity(0.88)
+            } else {
+                Rectangle().fill(.regularMaterial)
+            }
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(msg.senderName): \(msg.text)")
     }
-
-    private func sendMessage() {
-        let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { return }
-        let msg = GroupWatchMessage(id: UUID().uuidString, senderName: "You", text: text)
-        messages.append(msg)
-        draft = ""
-        // TODO: persist to RTDB /groupWatch/{sessionId}/messages/{msgId}
-    }
-}
-
-// MARK: - GroupWatchMessage model
-struct GroupWatchMessage: Identifiable {
-    let id: String
-    let senderName: String
-    let text: String
 }

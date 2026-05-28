@@ -29,7 +29,7 @@ struct VoiceNoteRecorder: View {
         HStack(spacing: 4) {
             ForEach(0..<5, id: \.self) { i in
                 RoundedRectangle(cornerRadius: 3)
-                    .fill(Color.amenPurple ?? Color.purple)
+                    .fill(Color.purple)
                     .frame(width: 6, height: reduceMotion ? 30 : barHeights[i])
                     .animation(
                         reduceMotion ? nil : .easeInOut(duration: 0.15),
@@ -78,8 +78,14 @@ struct VoiceNoteRecorder: View {
     }
 
     private func requestPermission() {
-        AVAudioSession.sharedInstance().requestRecordPermission { granted in
-            DispatchQueue.main.async { permissionGranted = granted }
+        if #available(iOS 17.0, *) {
+            AVAudioApplication.requestRecordPermission { granted in
+                DispatchQueue.main.async { permissionGranted = granted }
+            }
+        } else {
+            AVAudioSession.sharedInstance().requestRecordPermission { granted in
+                DispatchQueue.main.async { permissionGranted = granted }
+            }
         }
     }
 
@@ -124,8 +130,4 @@ struct VoiceNoteRecorder: View {
         animationTimer?.invalidate()
         animationTimer = nil
     }
-}
-
-private extension Color {
-    static var amenPurple: Color? { Color("amenPurple") }
 }

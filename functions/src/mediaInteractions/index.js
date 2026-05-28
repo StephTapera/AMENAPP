@@ -204,8 +204,46 @@ exports.saveToCollection = onCall(async (request) => {
   const { data, auth } = request;
   requireFields(data, ['mediaId']);
 
-  // TODO (Agent 4): Validate mediaId exists, upsert SavedItem, increment MediaCollection.itemCount.
-  throw new HttpsError('unimplemented', 'saveToCollection not yet implemented — see Agent 4.');
+  const uid = auth.uid;
+  const { mediaId, collectionId = null, note = null } = data;
+
+  // Verify the media item exists.
+  const postSnap = await db.collection('posts').doc(mediaId).get();
+  if (!postSnap.exists) {
+    throw new HttpsError('not-found', 'Media item not found.');
+  }
+
+  // Deterministic save ID — one save per user per media item (idempotent upsert).
+  const saveId = `${uid}_${mediaId}`;
+  const saveRef = db.doc(`saves/${uid}/items/${saveId}`);
+
+  await db.runTransaction(async (txn) => {
+    const existing = await txn.get(saveRef);
+    const isNew = !existing.exists;
+
+    txn.set(
+      saveRef,
+      {
+        id: saveId,
+        mediaId,
+        userId: uid,
+        collectionId,
+        note,
+        savedAt: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      { merge: false }
+    );
+
+    // Increment itemCount only on brand-new saves into a named collection.
+    if (isNew && collectionId) {
+      const collectionRef = db.doc(`collections/${uid}/items/${collectionId}`);
+      txn.update(collectionRef, {
+        itemCount: admin.firestore.FieldValue.increment(1),
+      });
+    }
+  });
+
+  return { savedItemId: saveId };
 });
 
 /**
