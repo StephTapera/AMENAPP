@@ -48,6 +48,7 @@ build/Release
 # These are resolved automatically by Xcode and must not be committed.
 build/
 *.xcworkspace/xcshareddata/swiftpm/
+.spm/
 
 # Dependency directories
 node_modules/
