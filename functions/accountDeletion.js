@@ -17,7 +17,13 @@
 'use strict';
 
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
+const { defineSecret } = require('firebase-functions/params');
 const admin = require('firebase-admin');
+const { pineconeDelete } = require('./mlClients');
+
+const PINECONE_API_KEY  = defineSecret('PINECONE_API_KEY');
+const PINECONE_HOST     = defineSecret('PINECONE_HOST');
+const STRIPE_SECRET_KEY = defineSecret('STRIPE_SECRET_KEY');
 
 const db      = admin.firestore();
 let _rtdb = null;
@@ -27,6 +33,16 @@ const getRtdb = () => {
 };
 const storage = admin.storage();
 const auth    = admin.auth();
+
+// Lazy Stripe init — only used if STRIPE_SECRET_KEY is present
+let _stripeClient = null;
+function getStripe() {
+  if (!_stripeClient) {
+    const key = process.env.STRIPE_SECRET_KEY;
+    if (key) _stripeClient = require('stripe')(key);
+  }
+  return _stripeClient;
+}
 
 const REGION = 'us-central1';
 
@@ -62,7 +78,7 @@ const USER_SUBCOLLECTIONS = [
 ];
 
 exports.processAccountDeletion = onDocumentCreated(
-  { document: 'deletionRequests/{userId}', region: REGION },
+  { document: 'deletionRequests/{userId}', region: REGION, secrets: [PINECONE_API_KEY, PINECONE_HOST, STRIPE_SECRET_KEY] },
   async (event) => {
     const uid = event.params.userId;
     const requestRef = event.data.ref;
@@ -73,6 +89,23 @@ exports.processAccountDeletion = onDocumentCreated(
     await requestRef.update({ status: 'processing', startedAt: admin.firestore.FieldValue.serverTimestamp() });
 
     const errors = [];
+
+    // ── PRE-STEP: Collect data needed later ─────────────────────────────────
+    // Read post IDs and Stripe customer ID BEFORE deleting Firestore docs,
+    // since both Pinecone and Stripe cleanup reference data that will be gone.
+    let postIds = [];
+    let stripeCustomerId = null;
+    try {
+      const [postsSnap, userSnap] = await Promise.all([
+        db.collection('posts').where('authorId', '==', uid).select().get(),
+        db.collection('users').doc(uid).get(),
+      ]);
+      postIds = postsSnap.docs.map(d => d.id);
+      stripeCustomerId = userSnap.data()?.stripeCustomerId || null;
+      console.log(`[accountDeletion] Pre-deletion: ${postIds.length} posts, stripeCustomerId=${stripeCustomerId ?? 'none'}`);
+    } catch (e) {
+      console.warn(`[accountDeletion] Pre-deletion data collection error: ${e.message}`);
+    }
 
     // ── STEP 1: Delete Storage files ────────────────────────────────────────
     try {
@@ -120,6 +153,27 @@ exports.processAccountDeletion = onDocumentCreated(
     } catch (e) {
       errors.push(`rtdb: ${e.message}`);
       console.error(`[accountDeletion] RTDB error: ${e.message}`);
+    }
+
+    // ── STEP 2.5: Delete Pinecone vectors (GDPR right-to-erasure) ───────────
+    // Namespaces keyed by uid: user-interest-embeddings, prayer-partner-pool.
+    // Namespaces keyed by postId: content-embeddings, testimony-embeddings.
+    // Done BEFORE Firestore deletion so we still have the post ID list.
+    try {
+      await pineconeDelete('user-interest-embeddings', [uid]);
+      await pineconeDelete('prayer-partner-pool', [uid]);
+      if (postIds.length > 0) {
+        const PINECONE_BATCH = 1000; // Pinecone delete limit per request
+        for (let i = 0; i < postIds.length; i += PINECONE_BATCH) {
+          const batch = postIds.slice(i, i + PINECONE_BATCH);
+          await pineconeDelete('content-embeddings', batch);
+          await pineconeDelete('testimony-embeddings', batch);
+        }
+      }
+      console.log(`[accountDeletion] Pinecone vectors cleared for uid=${uid}`);
+    } catch (e) {
+      errors.push(`pinecone: ${e.message}`);
+      console.error(`[accountDeletion] Pinecone error: ${e.message}`);
     }
 
     // ── STEP 3: Delete Firestore data ────────────────────────────────────────
@@ -170,6 +224,28 @@ exports.processAccountDeletion = onDocumentCreated(
       } else {
         errors.push(`auth: ${e.message}`);
         console.error(`[accountDeletion] Auth error: ${e.message}`);
+      }
+    }
+
+    // ── STEP 4.5: Cancel + delete Stripe customer ─────────────────────────────
+    // Cancel all active subscriptions before deleting — Stripe requires this
+    // to prevent unintended invoice generation post-deletion.
+    if (stripeCustomerId) {
+      try {
+        const stripe = getStripe();
+        if (stripe) {
+          const subs = await stripe.subscriptions.list({ customer: stripeCustomerId, limit: 100 });
+          await Promise.all(subs.data.map(s =>
+            stripe.subscriptions.cancel(s.id).catch(e =>
+              console.warn(`[accountDeletion] Stripe subscription cancel failed ${s.id}: ${e.message}`)
+            )
+          ));
+          await stripe.customers.del(stripeCustomerId);
+          console.log(`[accountDeletion] Stripe customer deleted for uid=${uid}`);
+        }
+      } catch (e) {
+        errors.push(`stripe: ${e.message}`);
+        console.error(`[accountDeletion] Stripe error: ${e.message}`);
       }
     }
 

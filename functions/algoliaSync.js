@@ -6,7 +6,7 @@
  * Lazy-initializes Algolia client to avoid cold-start delays.
  */
 
-const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
+const { onDocumentCreated, onDocumentUpdated, onDocumentDeleted } = require("firebase-functions/v2/firestore");
 const { defineSecret } = require("firebase-functions/params");
 
 // Declare Algolia secrets so Firebase injects them into process.env at runtime
@@ -91,6 +91,25 @@ exports.onPostUpdatedSyncAlgolia = onDocumentUpdated(
       console.log(`♻️ Algolia: updated post ${event.params.postId}`);
     } catch (err) {
       console.error("❌ onPostUpdatedSyncAlgolia error:", err.message);
+    }
+  }
+);
+
+/**
+ * Triggered when a post document is hard-deleted from Firestore.
+ * The onDocumentUpdated handler covers soft-deletes (isDeleted: true), but if
+ * a post is removed via a batch/admin operation without setting isDeleted, the
+ * Algolia record would become a ghost. This trigger covers that gap.
+ */
+exports.onPostDeletedSyncAlgolia = onDocumentDeleted(
+  { document: "posts/{postId}", secrets: [ALGOLIA_APP_ID, ALGOLIA_ADMIN_API_KEY, ALGOLIA_INDEX_NAME] },
+  async (event) => {
+    try {
+      const index = getAlgoliaIndex();
+      await index.deleteObject(event.params.postId);
+      console.log(`🗑️ Algolia: hard-deleted post ${event.params.postId}`);
+    } catch (err) {
+      console.error("❌ onPostDeletedSyncAlgolia error:", err.message);
     }
   }
 );
