@@ -1,7 +1,6 @@
 // BereanGlassStyles.swift
-// AMENAPP — Berean Onboarding V2
-// Onboarding-specific extensions on BereanColor/BereanType,
-// plus reusable glass components and button style.
+// AMENAPP — Berean Onboarding
+// Onboarding-specific extensions, glass modifiers, and reusable components.
 // Core tokens (BereanColor, BereanType) live in BereanDesignSystem.swift.
 
 import SwiftUI
@@ -9,9 +8,9 @@ import SwiftUI
 // MARK: - BereanColor Onboarding Extensions
 
 extension BereanColor {
-    static let glassShadow    = AmenTheme.Colors.shadowCard
-    static let selectedFill   = AmenTheme.Colors.buttonPrimary
-    static let selectedText   = AmenTheme.Colors.buttonPrimaryText
+    static let glassShadow  = AmenTheme.Colors.shadowCard
+    static let selectedFill = AmenTheme.Colors.buttonPrimary
+    static let selectedText = AmenTheme.Colors.buttonPrimaryText
 }
 
 // MARK: - BereanType Onboarding Extensions
@@ -154,7 +153,6 @@ struct BereanPrimaryCTAStyle: ButtonStyle {
             .font(.system(size: 17, weight: .semibold))
             .foregroundStyle(AmenTheme.Colors.buttonPrimaryText)
             .frame(maxWidth: .infinity)
-            // HIGH FIX: minHeight instead of exact height so button grows with Dynamic Type
             .frame(minHeight: 56)
             .background(
                 AmenTheme.Colors.buttonPrimary
@@ -163,44 +161,5 @@ struct BereanPrimaryCTAStyle: ButtonStyle {
             .shadow(color: AmenTheme.Colors.shadowFloating, radius: 14, x: 0, y: 6)
             .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
             .animation(.spring(response: 0.25, dampingFraction: 0.7), value: configuration.isPressed)
-    }
-}
-
-// MARK: - Step Badge
-
-struct BereanStepBadge: View {
-    let current: Int
-    let total: Int
-
-    var body: some View {
-        Text("Step \(current) of \(total)")
-            .font(BereanType.badge())
-            .foregroundStyle(BereanColor.textPrimary)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(
-                Capsule()
-                    .fill(AmenTheme.Colors.glassFill)
-                    .overlay(Capsule().strokeBorder(BereanColor.glassStroke, lineWidth: 0.5))
-            )
-            .fixedSize()
-            .minimumScaleFactor(0.8)
-    }
-}
-
-// MARK: - Progress Pills
-
-struct BereanProgressPills: View {
-    let currentStep: BereanOnboardingStep
-
-    var body: some View {
-        HStack(spacing: 8) {
-            ForEach(BereanOnboardingStep.allCases) { step in
-                Capsule()
-                    .fill(step == currentStep ? AmenTheme.Colors.iconPrimary.opacity(0.88) : AmenTheme.Colors.iconSecondary.opacity(0.35))
-                    .frame(width: step == currentStep ? 28 : 10, height: 5)
-                    .animation(.spring(response: 0.35, dampingFraction: 0.75), value: currentStep)
-            }
-        }
     }
 }
